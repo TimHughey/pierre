@@ -1,0 +1,8 @@
+{
+  "execPath": "/Users/thughey/x-tools/aarch64-linux-gnu/bin/aarch64-linux-gnu-g++",
+  "gccErrorLimit": 1000,
+  "gccIncludePaths": "./include,/Users/thughey/devel/linux/include, /Users/thughey/devel/linux/include/aarch64-linux-gnu",
+  "gccSuppressarnings": false,
+  "gccDefaultCFlags": "-fsyntax-only -Wno-frame-address -ffunction-sections -fdata-sections -fstrict-volatile-bitfields -Wall -Werror=all -Wno-error=unused-function -Wno-error=unused-but-set-variable -Wno-error=unused-variable -Wno-error=deprecated-declarations -Wextra -Wno-unused-parameter -Wno-sign-compare -freorder-blocks -fstack-protector-strong -std=c++14 -fno-rtti -fno-exceptions -D_GNU_SOURCE -DLINTER",
+  "gccDefaultCppFlags": "-fsyntax-only -Wno-frame-address -ffunction-sections -fdata-sections -fstrict-volatile-bitfields -Wall -Werror=all -Wno-error=unused-function -Wno-error=unused-but-set-variable -Wno-error=unused-variable -Wno-error=deprecated-declarations -Wextra -Wno-unused-parameter -Wno-sign-compare -freorder-blocks -fstack-protector-strong -std=c++14 -fno-rtti -fno-exceptions -D_GNU_SOURCE"
+}
