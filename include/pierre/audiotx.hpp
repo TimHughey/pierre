@@ -24,8 +24,10 @@
 #include <condition_variable> // std::condition_variable
 #include <limits>
 #include <mutex> // std::mutex, std::unique_lock
+#include <queue>
 #include <string>
 #include <thread> // std::thread
+#include <vector>
 
 #include <alloca.h>
 #include <alsa/asoundlib.h>
@@ -50,9 +52,20 @@ public:
     unsigned int rate;
   } Config_t;
 
-  typedef std::thread Thread_t;
+  typedef std::thread Thread;
+  typedef Thread Thread_t;
+
+  typedef std::vector<uint8_t> ByteBuffer_t;
+  typedef std::shared_ptr<ByteBuffer_t> ptrByteBuffer;
+
+  typedef std::queue<ptrByteBuffer> BufferQueue_t;
+
   typedef std::mutex Mutex_t;
   typedef std::unique_lock<Mutex_t> XLock_t;
+  typedef std::lock_guard<Mutex_t> LockGuard_t;
+
+  typedef std::condition_variable PendingBuffer_t;
+  typedef std::atomic<bool> BufferQueueTimeout_t;
 
 public:
   AudioTx(const string_t &dest_host) : _dest_host(dest_host) {
@@ -69,24 +82,78 @@ public:
   bool init();
   bool run();
 
-private:
-  size_t framesToBytes(snd_pcm_sframes_t frames) {
-    auto bits_per_sample = snd_pcm_format_physical_width(_config.format);
-    auto bits_per_frame = bits_per_sample * _config.channels;
-    return frames * bits_per_frame / 8;
+private: // threads
+  void audioInThread();
+  static void audioInThreadStatic(AudioTx_t *atx) { atx->audioInThread(); }
+  void audioInThreadStart() { audio_in = Thread(audioInThreadStatic, this); }
+
+  void netOutThread();
+  static void netOutThreadStatic(AudioTx_t *atx) { atx->netOutThread(); }
+  void netOutThreadStart() { net_out = Thread(netOutThreadStatic, this); }
+
+  auto framesToBytes(snd_pcm_sframes_t frames) {
+    auto bytes = snd_pcm_frames_to_bytes(_pcm, frames);
+
+    return bytes;
   }
 
   bool isRunning() const {
     auto rc = false;
 
-    if (snd_pcm_state(handle) == SND_PCM_STATE_RUNNING) {
+    if (snd_pcm_state(_pcm) == SND_PCM_STATE_RUNNING) {
       rc = true;
     }
 
     return rc;
   }
 
-  Thread_t process();
+  ptrByteBuffer popBuffer() {
+    XLock_t lock(_buffer_mutex);
+    ptrByteBuffer buffer;
+
+    while (_buffer_q.empty()) {
+      _buffer_pending.wait(lock);
+
+      if (_buffer_q.empty()) {
+        continue;
+      }
+    }
+
+    buffer = _buffer_q.front();
+    _buffer_q.pop();
+
+    return buffer;
+  }
+
+  void pushBuffer(ptrByteBuffer buff) {
+    LockGuard_t lock(_buffer_mutex);
+
+    if (_buffer_q.size() == _buffer_q_max_depth) {
+      _buffer_q.pop();
+      _buffers_discarded++;
+    }
+
+    _buffer_q.push(buff);
+    _buffer_pending.notify_one();
+  }
+
+  bool recoverStream(int snd_rc) {
+    bool rc = true;
+
+    auto recover_rc = snd_pcm_recover(_pcm, snd_rc, 0);
+    if (recover_rc < 0) {
+      char err[256] = {0};
+      perror(err);
+      fprintf(stderr, "recover_rc: %s\n", err);
+      rc = false;
+
+      snd_pcm_reset(_pcm);
+    }
+
+    snd_pcm_start(_pcm);
+
+    return rc;
+  }
 
   void reportBufferMin() {
     uint buffer_time_min = 0;
@@ -100,8 +167,6 @@ private:
   }
 
   bool setParams();
-  static void tsProcess(AudioTx_t *atx);
-  void processThread();
   void testPosition(snd_pcm_uframes_t buffer_frames);
   void udpInit();
 
@@ -113,8 +178,7 @@ private:
   const char *pcm_name = "hiberry";
   Config_t _config;
 
-  snd_pcm_t *handle = nullptr;
-  uint8_t *audiobuf = nullptr;
+  snd_pcm_t *_pcm = nullptr;
 
   snd_pcm_hw_params_t *_params = nullptr;
   snd_pcm_sw_params_t *_swparams = nullptr;
@@ -124,16 +188,17 @@ private:
   uint32_t period_time = 0;
   uint32_t buffer_time = 0;
   snd_pcm_uframes_t period_frames = 0;
-  int32_t avail_min = -1;
+  int32_t _avail_min = 64;
   int32_t start_delay = 1;
   int32_t stop_delay = 0;
 
   uint32_t _periods = 0;
   int32_t _monotonic = 0;
   int32_t _can_pause = 0;
-  snd_output_t *log;
+  snd_output_t *_pcm_log;
 
   struct sockaddr_in _dest = {};
+  static constexpr size_t _dest_size = sizeof(_dest);
   struct sockaddr *_dest_ipv4 = (struct sockaddr *)&_dest;
   string_t _dest_host;
   const int _addr_family = AF_INET;
@@ -147,6 +212,15 @@ private:
 
   Thread_t audio_in;
   Thread_t net_out;
+
+  size_t _net_packet_size = 1024;
+
+  Mutex_t _buffer_mutex;
+  BufferQueue_t _buffer_q;
+  size_t _buffer_q_max_depth = 10;
+  size_t _buffers_discarded = 0;
+
+  PendingBuffer_t _buffer_pending;
 };
 
 } // namespace pierre

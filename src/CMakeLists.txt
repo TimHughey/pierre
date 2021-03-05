@@ -1,3 +1,5 @@
+
+
 # Note that headers are optional, and do not affect add_library, but they will not
 # show up in IDEs unless they are listed in add_library.
 
@@ -12,6 +14,8 @@ target_include_directories(pierre_lib PUBLIC ../include)
 # This depends on ALSA
 target_link_libraries(pierre_lib PRIVATE ALSA::ALSA)
 target_link_libraries(pierre_lib PRIVATE Threads::Threads)
+
+add_compile_options(pierre_lib -Wall -Wextra -pedantic -Werror -O3)
 
 # All users of this library will need at least C++14
 target_compile_features(pierre_lib PUBLIC cxx_std_14)
