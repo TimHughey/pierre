@@ -18,9 +18,18 @@
     https://www.wisslanding.com
 */
 
-#include "pierre/audiotx.hpp"
+#include <boost/timer/timer.hpp>
+#include <fstream>
+#include <iostream>
+#include <ostream>
+
+#include "audio/audiotx.hpp"
+#include "misc/maverage.hpp"
 
 using namespace pierre;
+using ofstream = std::ofstream;
+using auto_cpu_timer = boost::timer::auto_cpu_timer;
+using std::cerr;
 
 AudioTx::~AudioTx() {
   if (_pcm) {
@@ -45,8 +54,6 @@ AudioTx::~AudioTx() {
 }
 
 void AudioTx::audioInThread() {
-  fprintf(stderr, "audioInThread running...\n");
-
   int snd_rc = -1;
 
   while (true) {
@@ -54,7 +61,7 @@ void AudioTx::audioInThread() {
 
     if (snd_rc < 0) {
       if (snd_rc == 0) {
-        fprintf(stderr, "PCM capture timeout\n");
+        cerr << "PCM capture timeout\n";
       } else {
         recoverStream(snd_rc);
       }
@@ -83,15 +90,63 @@ void AudioTx::audioInThread() {
     if (frames > 0) {
       auto bytes_actual = snd_pcm_frames_to_bytes(_pcm, frames);
       if (bytes_actual != bytes_ready) {
-        fprintf(stderr, "pcm reported %lu bytes ready but only read %lu\n",
-                bytes_ready, bytes_actual);
+        cerr << "pcm reported " << bytes_ready << " but only read "
+             << bytes_actual;
         buff.get()->resize(bytes_actual);
       }
 
-      pushBuffer(buff);
+      netOutQueuePush(buff);
+      FFTQueuePush(buff);
     } else {
       // frames is the error code
       recoverStream(frames);
+    }
+  }
+}
+
+void AudioTx::FFTThread() {
+  ofstream fft_log(_fft_log, ofstream::out | ofstream::trunc);
+
+  MovingAverage<float> mavg(1);
+  mavg.addValue(1.0);
+  mavg.addValue(2.0);
+
+  // iterator that points to position to put next sample
+  auto left_pos = _fft_left.real().begin();
+  auto right_pos = _fft_right.real().begin();
+
+  auto left_end = _fft_left.real().cend();
+
+  while (true) {
+    auto data = FFTQueuePop(); // wait for and pop the next buffer
+
+    // copy the data buffer to the net buffer until the net buffer is full
+    auto byte = data.get()->cbegin();
+    auto end = data.get()->cend();
+
+    while (byte != end) {
+
+      if (left_pos == left_end) {
+        //        auto_cpu_timer t(fft_log, 5, "%t sec CPU, %w sec real\n");
+        // got enough data for FFT
+
+        _fft_left.process();
+        _fft_right.process();
+
+        // reset pos to reuse the buffer
+        left_pos = _fft_left.real().begin();
+        right_pos = _fft_right.real().begin();
+
+        const Peaks_t &peaks = _fft_left.peaks();
+        const PeakInfo mpeak = _fft_left.majorPeak(peaks);
+
+        fft_log << "left peak[" << mpeak.freq << "] dB[" << mpeak.dB << "] ";
+      }
+
+      fft_log.flush();
+
+      *left_pos++ = static_cast<float>(*byte++ + (*byte++ << 8));
+      *right_pos++ = static_cast<float>(*byte++ + (*byte++ << 8));
     }
   }
 }
@@ -103,7 +158,7 @@ bool AudioTx::init() {
 
   auto err = snd_pcm_open(&_pcm, pcm_name, stream, open_mode);
   if (err < 0) {
-    fprintf(stderr, "audio open error: %s", snd_strerror(err));
+    cerr << "audio open error: " << snd_strerror(err);
     rc = false;
   }
 
@@ -115,7 +170,7 @@ bool AudioTx::init() {
   snd_pcm_start(_pcm);
 
   if (isRunning() == false) {
-    fprintf(stderr, "[FATAL] PCM is not running\n");
+    cerr << "[FATAL] PCM is not in running state";
     rc = false;
   }
 
@@ -123,7 +178,6 @@ bool AudioTx::init() {
 }
 
 void AudioTx::netOutThread() {
-  fprintf(stderr, "netOutThread running...\n");
 
   // allocate and zero the initial network buffer
   ptrByteBuffer net_buff(new ByteBuffer_t);
@@ -135,10 +189,7 @@ void AudioTx::netOutThread() {
   auto net_buff_pos = net_buff.get()->begin();
 
   while (true) {
-    auto data = popBuffer();
-
-    // auto data_pos = data.get()->cbegin();
-    // fprintf(stderr, "data buffer size: %lu\n", data.get()->size());
+    auto data = netOutQueuePop(); // wait for and pop the next buffer
 
     // copy the data buffer to the net buffer until the net buffer is full
     for (const uint8_t byte : *data.get()) {
@@ -148,18 +199,13 @@ void AudioTx::netOutThread() {
         const auto len = net_buff.get()->size();
         auto sent = sendto(_send_socket, raw, len, 0, _dest_ipv4, _dest_size);
 
-        if (sent != len) {
-          fprintf(stderr, "[WARN] sent %lu of %lu bytes\n", sent, len);
+        if ((uint)sent != len) {
+          cerr << "[WARN] sent " << sent << " of " << len << " bytes";
         }
 
         // fprintf(stderr, "sent %ld bytes of %lu\n", tx_bytes, raw_bytes);
 
-        // allocate the next net buffer
-        net_buff = ptrByteBuffer(new ByteBuffer_t);
-        net_buff.get()->reserve(_net_packet_size);
-        net_buff.get()->assign(_net_packet_size, 0x00);
-
-        // set net_buff_pos to the beginning of the new buffer
+        // reset net_buff_pos to reuse the buffer
         net_buff_pos = net_buff.get()->begin();
 
         // keep copying the data
@@ -175,9 +221,11 @@ void AudioTx::netOutThread() {
 bool AudioTx::run() {
   audioInThreadStart();
   netOutThreadStart();
+  FFTThreadStart();
 
   audio_in.join();
   net_out.join();
+  fft_calc.join();
 
   return true;
 }
@@ -190,7 +238,7 @@ bool AudioTx::setParams(void) {
 
   err = snd_pcm_hw_params_any(_pcm, _params);
   if (err < 0) {
-    fprintf(stderr, "PCM: no configurations available");
+    cerr << "PCM: no configurations available";
     return false;
   }
 
@@ -202,19 +250,19 @@ bool AudioTx::setParams(void) {
   err = snd_pcm_hw_params_set_access_mask(_pcm, _params, mask);
 
   if (err < 0) {
-    fprintf(stderr, "access type not available");
+    cerr << "access type not available";
     return false;
   }
 
   err = snd_pcm_hw_params_set_format(_pcm, _params, format());
   if (err < 0) {
-    fprintf(stderr, "sample format not available");
+    cerr << "sample format not available";
     return false;
   }
 
   err = snd_pcm_hw_params_set_channels(_pcm, _params, channels());
   if (err < 0) {
-    fprintf(stderr, "channel count not available");
+    cerr << "channel count not available";
     return false;
   }
 
@@ -235,7 +283,7 @@ bool AudioTx::setParams(void) {
 
   err = snd_pcm_hw_params(_pcm, _params);
   if (err < 0) {
-    fprintf(stderr, "unable to install hw params:");
+    cerr << "unable to install hw params:";
     snd_pcm_hw_params_dump(_params, _pcm_log);
     return false;
   }
@@ -244,7 +292,7 @@ bool AudioTx::setParams(void) {
 
   err = snd_pcm_sw_params_current(_pcm, _swparams);
   if (err < 0) {
-    fprintf(stderr, "unable to get current sw params.");
+    cerr << "unable to get current sw params.";
     return false;
   }
 
@@ -256,7 +304,7 @@ bool AudioTx::setParams(void) {
   assert(err >= 0);
 
   if (snd_pcm_sw_params(_pcm, _swparams) < 0) {
-    fprintf(stderr, "unable to install sw params:");
+    cerr << "unable to install sw params:";
     snd_pcm_sw_params_dump(_swparams, _pcm_log);
     return false;
   }
@@ -305,7 +353,8 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
   err = snd_pcm_avail_delay(_pcm, &avail, &delay);
 
   if (avail || delay || err) {
-    fprintf(stderr, "err[%i] avail[%lu] avail_delay[%lu]\n", err, avail, delay);
+    cerr << "err[" << err << "] avail [" << avail << "] avail_delay[" << delay
+         << "]";
   }
 
   if (err < 0) {
@@ -320,10 +369,8 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
     availsum = delaysum = samples = 0;
     maxavail = maxdelay = 0;
     minavail = mindelay = buffer_frames * 16;
-    fprintf(stderr,
-            "Suspicious buffer position (%li total): "
-            "avail = %li, delay = %li, buffer = %li\n",
-            ++counter, (long)avail, (long)delay, (long)buffer_frames);
+    cerr << "Suspicious buffer position (" << ++counter << "% total): avail = "
+         << " delay = " << delay << ", buffer = " << buffer_frames;
   }
 
   time(&now);
@@ -349,12 +396,9 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
   delaysum += delay;
   samples++;
   if (avail != 0 && now != tmr) {
-    fprintf(stderr,
-            "BUFPOS: avg%li/%li "
-            "min%li/%li max%li/%li (%li) (%li:%li/%li)\n",
-            long(availsum / samples), long(delaysum / samples), minavail,
-            mindelay, maxavail, maxdelay, buffer_frames, counter, badavail,
-            baddelay);
+    cerr << "BUFPOS: avg=" << long(availsum / samples) << "min=" << minavail
+         << "max=" << maxavail << "(" << buffer_frames << ") (" << counter
+         << ":" << badavail << "/" << baddelay;
     tmr = now;
   }
 }
@@ -378,7 +422,7 @@ void AudioTx::udpInit() {
   auto rc =
       getaddrinfo(_dest_host.c_str(), _dest_port.c_str(), &hints, &result);
   if (rc != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rc));
+    cerr << "getaddrinfo: " << gai_strerror(rc);
     return;
   }
   auto search = result;
@@ -394,8 +438,7 @@ void AudioTx::udpInit() {
 
       memcpy(&_dest, found, search->ai_addrlen);
 
-      fprintf(stderr, "sending audio to: %s (%s)\n", _dest_host.c_str(),
-              addrstr);
+      cerr << "sending audio to: " << _dest_host << "(" << addrstr << ")\n";
       search = nullptr; // break out of loop, got our address
 
       break;

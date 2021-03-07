@@ -4,6 +4,6 @@
 
 add_executable(pierre main.cpp)
 
-add_compile_options(pierre -Wall -Wextra -pedantic -Werror -O3)
+add_compile_options(pierre ${CXX_FLAGS})
 target_compile_features(pierre PRIVATE cxx_std_14)
-target_link_libraries(pierre PRIVATE pierre_lib ALSA::ALSA)
+target_link_libraries(pierre PRIVATE pierre_audio pierre_misc)

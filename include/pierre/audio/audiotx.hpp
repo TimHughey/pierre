@@ -39,6 +39,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "misc/FFT.hpp"
+
 namespace pierre {
 
 typedef class AudioTx AudioTx_t;
@@ -87,9 +89,43 @@ private: // threads
   static void audioInThreadStatic(AudioTx_t *atx) { atx->audioInThread(); }
   void audioInThreadStart() { audio_in = Thread(audioInThreadStatic, this); }
 
+  void FFTThread();
+  static void FFTThreadStatic(AudioTx_t *atx) { atx->FFTThread(); }
+  void FFTThreadStart() { fft_calc = Thread(FFTThreadStatic, this); }
+
   void netOutThread();
   static void netOutThreadStatic(AudioTx_t *atx) { atx->netOutThread(); }
   void netOutThreadStart() { net_out = Thread(netOutThreadStatic, this); }
+
+  ptrByteBuffer FFTQueuePop() {
+    XLock_t lock(_fft_mutex);
+    ptrByteBuffer buffer;
+
+    while (_fft_q.empty()) {
+      _fft_buffer_pending.wait(lock);
+
+      if (_fft_q.empty()) {
+        continue;
+      }
+    }
+
+    buffer = _fft_q.front();
+    _fft_q.pop();
+
+    return buffer;
+  }
+
+  void FFTQueuePush(ptrByteBuffer buff) {
+    LockGuard_t lock(_fft_mutex);
+
+    if (_fft_q.size() == _fft_q_max_depth) {
+      _fft_q.pop();
+      _fft_buffers_discarded++;
+    }
+
+    _fft_q.push(buff);
+    _fft_buffer_pending.notify_one();
+  }
 
   auto framesToBytes(snd_pcm_sframes_t frames) {
     auto bytes = snd_pcm_frames_to_bytes(_pcm, frames);
@@ -107,34 +143,34 @@ private: // threads
     return rc;
   }
 
-  ptrByteBuffer popBuffer() {
-    XLock_t lock(_buffer_mutex);
+  ptrByteBuffer netOutQueuePop() {
+    XLock_t lock(_net_out_mutex);
     ptrByteBuffer buffer;
 
-    while (_buffer_q.empty()) {
-      _buffer_pending.wait(lock);
+    while (_net_out_q.empty()) {
+      _net_out_buffer_pending.wait(lock);
 
-      if (_buffer_q.empty()) {
+      if (_net_out_q.empty()) {
         continue;
       }
     }
 
-    buffer = _buffer_q.front();
-    _buffer_q.pop();
+    buffer = _net_out_q.front();
+    _net_out_q.pop();
 
     return buffer;
   }
 
-  void pushBuffer(ptrByteBuffer buff) {
-    LockGuard_t lock(_buffer_mutex);
+  void netOutQueuePush(ptrByteBuffer buff) {
+    LockGuard_t lock(_net_out_mutex);
 
-    if (_buffer_q.size() == _buffer_q_max_depth) {
-      _buffer_q.pop();
-      _buffers_discarded++;
+    if (_net_out_q.size() == _net_out_q_max_depth) {
+      _net_out_q.pop();
+      _net_out_buffers_discarded++;
     }
 
-    _buffer_q.push(buff);
-    _buffer_pending.notify_one();
+    _net_out_q.push(buff);
+    _net_out_buffer_pending.notify_one();
   }
 
   bool recoverStream(int snd_rc) {
@@ -211,16 +247,29 @@ private:
   size_t chunk_bytes;
 
   Thread_t audio_in;
+  Thread_t fft_calc;
   Thread_t net_out;
 
   size_t _net_packet_size = 1024;
 
-  Mutex_t _buffer_mutex;
-  BufferQueue_t _buffer_q;
-  size_t _buffer_q_max_depth = 10;
-  size_t _buffers_discarded = 0;
+  Mutex_t _net_out_mutex;
+  BufferQueue_t _net_out_q;
+  size_t _net_out_q_max_depth = 10;
+  size_t _net_out_buffers_discarded = 0;
 
-  PendingBuffer_t _buffer_pending;
+  PendingBuffer_t _net_out_buffer_pending;
+
+  const char *_fft_log = "/dev/null";
+  Mutex_t _fft_mutex;
+  BufferQueue_t _fft_q;
+  size_t _fft_q_max_depth = 10;
+  size_t _fft_buffers_discarded = 0;
+
+  uint32_t _fft_samples = 1024;
+
+  FFT _fft_left = FFT(_fft_samples, 48000);
+  FFT _fft_right = FFT(_fft_samples, 48000);
+  PendingBuffer_t _fft_buffer_pending;
 };
 
 } // namespace pierre

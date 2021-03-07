@@ -18,18 +18,18 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
   set(CMAKE_CXX_EXTENSIONS OFF)
-  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+  set(COMPILER_FLAGS)
+  list(APPEND CXX_FLAGS PUBLIC
+  "-Wall" "-Wextra" "-pedantic" "-O3" "-mcpu=cortex-a72")
+
+    #  "-mfloat-abi=hard" "-mfpu=neon-fp-armv8")
 
   # Let's nicely support folders in IDEs
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
 
-find_package(ALSA REQUIRED)
-find_package(Threads REQUIRED)
-
-# The compiled library code is here
 add_subdirectory(src)
-
-# The executable code is here
 add_subdirectory(apps)

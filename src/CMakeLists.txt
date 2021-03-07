@@ -1,27 +1,21 @@
+#
+# Base Source Directory
+#
+
+find_package(ALSA REQUIRED)
+find_package(Threads REQUIRED)
+
+set(Boost_USE_STATIC_LIBS        ON)  # only find static libs
+set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
+set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
+set(Boost_USE_MULTITHREADED      ON)
+set(Boost_USE_STATIC_RUNTIME    OFF)
+find_package(Boost 1.67.0 COMPONENTS date_time timer)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+  # target_link_libraries(foo ${Boost_LIBRARIES})
+endif()
 
 
-# Note that headers are optional, and do not affect add_library, but they will not
-# show up in IDEs unless they are listed in add_library.
-
-set(HEADER_LIST "${pierre_SOURCE_DIR}/include/pierre/audiotx.hpp")
-
-# Make an automatic library - will be static or dynamic based on user setting
-add_library(pierre_lib audiotx.cpp ${HEADER_LIST})
-
-# We need this directory, and users of our library will need it too
-target_include_directories(pierre_lib PUBLIC ../include)
-
-# This depends on ALSA
-target_link_libraries(pierre_lib PRIVATE ALSA::ALSA)
-target_link_libraries(pierre_lib PRIVATE Threads::Threads)
-
-add_compile_options(pierre_lib -Wall -Wextra -pedantic -Werror -O3)
-
-# All users of this library will need at least C++14
-target_compile_features(pierre_lib PUBLIC cxx_std_14)
-
-# IDEs should put the headers in a nice place
-source_group(
-  TREE "${PROJECT_SOURCE_DIR}/include"
-  PREFIX "Header Files"
-  FILES ${HEADER_LIST})
+add_subdirectory(audio)
+add_subdirectory(misc)
