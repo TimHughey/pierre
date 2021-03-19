@@ -1,6 +1,6 @@
 /*
-    lightdesk/lightdesk.hpp - Ruth Light Desk
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,142 +21,100 @@
 #ifndef pierre_lightdesk_hpp
 #define pierre_lightdesk_hpp
 
-#include "lightdesk/dmx.hpp"
-#include "lightdesk/fx/factory.hpp"
+#include <mutex>
+#include <set>
+#include <thread>
+
+#include "audio/dsp.hpp"
+#include "dmx/producer.hpp"
 #include "lightdesk/headunits/discoball.hpp"
 #include "lightdesk/headunits/elwire.hpp"
 #include "lightdesk/headunits/ledforest.hpp"
-#include "lightdesk/headunits/pinspot/base.hpp"
-#include "lightdesk/request.hpp"
-#include "lightdesk/types.hpp"
-#include "local/types.hpp"
-#include "misc/random.hpp"
+#include "lightdesk/headunits/pinspot/color.hpp"
+#include "lightdesk/headunits/pinspot/pinspot.hpp"
+#include "lightdesk/headunits/tracker.hpp"
+#include "misc/mqx.hpp"
 
 namespace pierre {
 namespace lightdesk {
 
-typedef class LightDesk LightDesk_t;
-
-class LightDesk {
+class LightDesk : public dmx::Producer {
 
 public:
-  LightDesk();
-  ~LightDesk();
+  struct Config {
+    struct {
+      float dB_floor = 44.2f;
+      bool log = false;
+    } majorpeak;
 
-  void *i2s() const { return nullptr; }
+    struct {
+      struct {
+        float max = 65.0f;
+        float min = 44.2f;
+      } scale;
+    } color;
+  };
 
-  static void preStart() { PulseWidthHeadUnit::preStart(); }
+  struct FreqColor {
+    struct {
+      Freq_t low;
+      Freq_t high;
+    } freq;
 
-  bool request(const Request_t &r);
+    Color_t color;
+  };
 
-  const LightDeskStats_t &stats();
+  typedef std::deque<FreqColor> Palette;
 
-private: // headunits
-  inline DiscoBall_t *discoball() { return _discoball; }
-  inline ElWire_t *elWireDanceFloor() { return _elwire[ELWIRE_DANCE_FLOOR]; }
-  inline ElWire_t *elWireEntry() { return _elwire[ELWIRE_ENTRY]; }
+public:
+  LightDesk(const Config &cfg, std::shared_ptr<audio::Dsp> dsp);
+  ~LightDesk() = default;
 
-  inline PinSpot *pinSpotObject(PinSpotFunction_t func) {
-    PinSpot_t *spot = nullptr;
+  LightDesk(const LightDesk &) = delete;
+  LightDesk &operator=(const LightDesk &) = delete;
 
-    if (func != PINSPOT_NONE) {
-      const uint32_t index = static_cast<uint32_t>(func);
-      spot = _pinspots[index];
-    }
+  void prepare() override;
 
-    return spot;
-  }
+  std::shared_ptr<std::thread> run();
 
-  inline PinSpot_t *pinSpotMain() { return pinSpotObject(PINSPOT_MAIN); }
-  inline PinSpot_t *pinSpotFill() { return pinSpotObject(PINSPOT_FILL); }
+  void update(dmx::UpdateInfo &info) override;
 
 private:
-  void danceExecute();
-  void danceStart(LightDeskMode_t mode);
+  void executeFx();
+  void handleLowFreq(const Peak &peak, const Color_t &color);
+  void handleOtherFreq(const Peak &peak, const Color_t &color);
+  void logPeak(const Peak &peak) const;
+  Color_t lookupColor(const Peak &peak);
+  void makePalette();
+  void pushPaletteColor(Freq_t high, const Color_t &color);
+  void stream();
 
-  // bool command(MsgPayload_t &msg);
-
-  void init();
-
-  void majorPeakStart();
-
-  // task
-  void core();
-  static void coreTask(void *task_instance);
-  void start();
-  void stopActual();
+private:
+  typedef std::shared_ptr<HeadUnitTracker> HUnits;
 
 private:
   int _init_rc = 1;
+  bool _shutdown = false;
 
-  void *_dmx = nullptr;
-  void *_i2s = nullptr;
+  Config _cfg;
 
-  LightDeskMode_t _mode = INIT;
-  Request_t _request = {};
-  LightDeskStats_t _stats = {};
+  std::shared_ptr<audio::Dsp> _dsp;
 
-  PinSpot_t *_pinspots[2] = {};
-  ElWire_t *_elwire[2] = {};
-  LedForest_t *_led_forest = nullptr;
-  DiscoBall_t *_discoball = nullptr;
+  HUnits _hunits = std::make_shared<HeadUnitTracker>();
 
-  // map of 2d6 roll to fx patterns
-  // note index 0 and 1 are impossible to roll but are included to
-  // simplify the mapping and avoid index issues
+  spPinSpot main;
+  spPinSpot fill;
+  spLedForest led_forest;
+  spElWire el_dance_floor;
+  spElWire el_entry;
+  spDiscoBall discoball;
 
-  // 2d6 probabilities
-  // 2: 2.78, 3: 5.56, 4: 8.33, 5: 11.11%, 6: 13.89%, 7: 16.67
-  // 8: 13.89, 9: 11.11, 10: 9.33, 11: 5.56, 12: 2.78
-  const FxType_t _fx_patterns[13] = {fxNone,            // 0
-                                     fxNone,            // 1
-                                     fxMajorPeak,       // 2
-                                     fxMajorPeak,       // 3
-                                     fxMajorPeak,       // 4
-                                     fxMajorPeak,       // 5
-                                     fxWashedSound,     // 6
-                                     fxMajorPeak,       // 7
-                                     fxFastStrobeSound, // 8
-                                     fxMajorPeak,       // 9
-                                     fxMajorPeak,       // 10
-                                     fxMajorPeak,       // 11
-                                     fxMajorPeak};      // 12
+  static Palette _palette;
 
-  const FxType_t _fx_patterns0[13] = {fxNone,       // 0
-                                      fxNone,       // 1
-                                      fxMajorPeak,  // 2
-                                      fxMajorPeak,  // 3
-                                      fxMajorPeak,  // 4
-                                      fxMajorPeak,  // 5
-                                      fxMajorPeak,  // 6
-                                      fxMajorPeak,  // 7
-                                      fxMajorPeak,  // 8
-                                      fxMajorPeak,  // 9
-                                      fxMajorPeak,  // 10
-                                      fxMajorPeak,  // 11
-                                      fxMajorPeak}; // 12
-
-  const FxType_t _fx_patterns1[13] = {fxNone,                        // 0
-                                      fxNone,                        // 1
-                                      fxPrimaryColorsCycle,          // 2
-                                      fxBlueGreenGradient,           // 3
-                                      fxFullSpectrumCycle,           // 4
-                                      fxSimpleStrobe,                // 5
-                                      fxWashedSound,                 // 6
-                                      fxMajorPeak,                   // 7
-                                      fxFastStrobeSound,             // 8
-                                      fxMajorPeak,                   // 9
-                                      fxRgbwGradientFast,            // 10
-                                      fxWhiteFadeInOut,              // 11
-                                      fxGreenOnRedBlueWhiteJumping}; // 12
-
-  // active Lightdesk Effect
-  fx::FxBase *_fx = nullptr;
-  fx::MajorPeak *_major_peak = nullptr;
-
-  // task
-  // Task_t _task = {
-  //     .handle = nullptr, .data = nullptr, .priority = 19, .stackSize = 4096};
+  struct {
+    Peak main = Peak::zero();
+    Peak fill = Peak::zero();
+  } _last_peak;
 };
 
 } // namespace lightdesk

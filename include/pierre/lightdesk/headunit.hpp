@@ -21,22 +21,33 @@
 #ifndef pierre_dmx_headunit_device_hpp
 #define pierre_dmx_headunit_device_hpp
 
-#include "lightdesk/dmx.hpp"
+#include "dmx/types.hpp"
 #include "lightdesk/types.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
 
-class HeadUnit : public DmxClient {
+class HeadUnit {
 public:
-  HeadUnit() {}
+  HeadUnit() : _address(0), _frame_len(0) {
+    // support headunits that do not use the DMX frame
+  }
 
-  HeadUnit(const uint16_t address, size_t frame_len)
-      : DmxClient(address, frame_len){};
+  HeadUnit(uint address, size_t frame_len)
+      : _address(address), _frame_len(frame_len){};
   virtual ~HeadUnit() {}
 
+  virtual void framePrepare() = 0;
+  virtual void frameUpdate(dmx::UpdateInfo &info) = 0;
+
   virtual void dark() {}
+
+  float fps() const { return 44.0f; }
+
+protected:
+  const uint _address;
+  const uint _frame_len;
 };
 } // namespace lightdesk
 } // namespace pierre

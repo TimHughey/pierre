@@ -1,6 +1,6 @@
 /*
-    lightdesk/headunits/discoball.hpp - Ruth LightDesk Headunit Disco Ball
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show via DMX for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,32 +18,27 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_lightdesk_headunits_discoball_hpp
-#define pierre_lightdesk_headunits_discoball_hpp
+#ifndef _pierre_dmx_types_hpp
+#define _pierre_dmx_types_hpp
 
-#include "lightdesk/headunits/pwm.hpp"
+#include <memory>
+#include <vector>
+
+#include "external/ArduinoJson.h"
 
 namespace pierre {
-namespace lightdesk {
+namespace dmx {
+typedef std::vector<uint8_t> Frame;
 
-class DiscoBall : public PulseWidthHeadUnit {
+typedef StaticJsonDocument<384> MsgPackDoc;
 
-public:
-  DiscoBall(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
-    config.max = unitPercent(0.75);
-    _id[0] = 'D';
-    _id[1] = 'S';
-    _id[2] = 'B';
-  }
+typedef struct {
+  Frame &frame;
+  MsgPackDoc &doc;
+  JsonObject &obj;
+} UpdateInfo;
 
-public: // effects
-  inline void spin() { fixed(0.63); }
-  inline void still() { dark(); }
-};
-
-typedef std::shared_ptr<DiscoBall> spDiscoBall;
-
-} // namespace lightdesk
+} // namespace dmx
 } // namespace pierre
 
 #endif

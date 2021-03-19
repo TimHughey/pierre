@@ -26,8 +26,6 @@
 namespace pierre {
 namespace lightdesk {
 
-typedef class LedForest LedForest_t;
-
 class LedForest : public PulseWidthHeadUnit {
 
 public:
@@ -35,8 +33,14 @@ public:
     config.dim = unitPercent(0.005);
     config.pulse_start = unitPercent(0.02);
     config.pulse_end = config.dim;
+
+    _id[0] = 'L';
+    _id[1] = 'F';
+    _id[2] = 'R';
   }
 };
+
+typedef std::shared_ptr<LedForest> spLedForest;
 
 } // namespace lightdesk
 } // namespace pierre

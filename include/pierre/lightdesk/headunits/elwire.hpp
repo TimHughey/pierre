@@ -26,8 +26,6 @@
 namespace pierre {
 namespace lightdesk {
 
-typedef class ElWire ElWire_t;
-
 class ElWire : public PulseWidthHeadUnit {
 
 public:
@@ -35,8 +33,12 @@ public:
     config.dim = unitPercent(0.03);
     config.pulse_start = unitPercent(0.25);
     config.pulse_end = config.dim;
+
+    snprintf(_id.data(), _id.size(), "EL%u", _address);
   }
 };
+
+typedef std::shared_ptr<ElWire> spElWire;
 
 } // namespace lightdesk
 } // namespace pierre

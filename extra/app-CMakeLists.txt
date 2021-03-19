@@ -1,0 +1,8 @@
+#
+# Core Application
+#
+
+add_executable(pierre pierre.cpp main.cpp)
+
+add_compile_options(pierre ${CXX_FLAGS})
+target_link_libraries(pierre PRIVATE audio misc)

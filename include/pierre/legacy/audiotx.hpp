@@ -26,8 +26,10 @@
 #include <mutex> // std::mutex, std::unique_lock
 #include <queue>
 #include <string>
-#include <thread> // std::thread
+#include <thread>
 #include <vector>
+
+#include <boost/asio.hpp>
 
 #include <alloca.h>
 #include <alsa/asoundlib.h>
@@ -40,8 +42,13 @@
 #include <sys/types.h>
 
 #include "misc/FFT.hpp"
+#include "misc/mqx.hpp"
+
+#include "net.hpp"
 
 namespace pierre {
+
+typedef audio::RawOut RawOut;
 
 typedef class AudioTx AudioTx_t;
 typedef std::string string_t;
@@ -62,13 +69,6 @@ public:
 
   typedef std::queue<ptrByteBuffer> BufferQueue_t;
 
-  typedef std::mutex Mutex_t;
-  typedef std::unique_lock<Mutex_t> XLock_t;
-  typedef std::lock_guard<Mutex_t> LockGuard_t;
-
-  typedef std::condition_variable PendingBuffer_t;
-  typedef std::atomic<bool> BufferQueueTimeout_t;
-
 public:
   AudioTx(const string_t &dest_host) : _dest_host(dest_host) {
     _config.format = SND_PCM_FORMAT_S16_LE;
@@ -86,46 +86,9 @@ public:
 
 private: // threads
   void audioInThread();
-  static void audioInThreadStatic(AudioTx_t *atx) { atx->audioInThread(); }
-  void audioInThreadStart() { audio_in = Thread(audioInThreadStatic, this); }
-
+  void dmxThread();
   void FFTThread();
-  static void FFTThreadStatic(AudioTx_t *atx) { atx->FFTThread(); }
-  void FFTThreadStart() { fft_calc = Thread(FFTThreadStatic, this); }
-
   void netOutThread();
-  static void netOutThreadStatic(AudioTx_t *atx) { atx->netOutThread(); }
-  void netOutThreadStart() { net_out = Thread(netOutThreadStatic, this); }
-
-  ptrByteBuffer FFTQueuePop() {
-    XLock_t lock(_fft_mutex);
-    ptrByteBuffer buffer;
-
-    while (_fft_q.empty()) {
-      _fft_buffer_pending.wait(lock);
-
-      if (_fft_q.empty()) {
-        continue;
-      }
-    }
-
-    buffer = _fft_q.front();
-    _fft_q.pop();
-
-    return buffer;
-  }
-
-  void FFTQueuePush(ptrByteBuffer buff) {
-    LockGuard_t lock(_fft_mutex);
-
-    if (_fft_q.size() == _fft_q_max_depth) {
-      _fft_q.pop();
-      _fft_buffers_discarded++;
-    }
-
-    _fft_q.push(buff);
-    _fft_buffer_pending.notify_one();
-  }
 
   auto framesToBytes(snd_pcm_sframes_t frames) {
     auto bytes = snd_pcm_frames_to_bytes(_pcm, frames);
@@ -141,36 +104,6 @@ private: // threads
     }
 
     return rc;
-  }
-
-  ptrByteBuffer netOutQueuePop() {
-    XLock_t lock(_net_out_mutex);
-    ptrByteBuffer buffer;
-
-    while (_net_out_q.empty()) {
-      _net_out_buffer_pending.wait(lock);
-
-      if (_net_out_q.empty()) {
-        continue;
-      }
-    }
-
-    buffer = _net_out_q.front();
-    _net_out_q.pop();
-
-    return buffer;
-  }
-
-  void netOutQueuePush(ptrByteBuffer buff) {
-    LockGuard_t lock(_net_out_mutex);
-
-    if (_net_out_q.size() == _net_out_q_max_depth) {
-      _net_out_q.pop();
-      _net_out_buffers_discarded++;
-    }
-
-    _net_out_q.push(buff);
-    _net_out_buffer_pending.notify_one();
   }
 
   bool recoverStream(int snd_rc) {
@@ -204,7 +137,6 @@ private: // threads
 
   bool setParams();
   void testPosition(snd_pcm_uframes_t buffer_frames);
-  void udpInit();
 
   uint32_t channels() const { return _config.channels; }
   snd_pcm_format_t format() const { return _config.format; }
@@ -221,9 +153,6 @@ private:
 
   snd_pcm_uframes_t _chunk_size = 1024;
 
-  uint32_t period_time = 0;
-  uint32_t buffer_time = 0;
-  snd_pcm_uframes_t period_frames = 0;
   int32_t _avail_min = 64;
   int32_t start_delay = 1;
   int32_t stop_delay = 0;
@@ -233,43 +162,29 @@ private:
   int32_t _can_pause = 0;
   snd_output_t *_pcm_log;
 
-  struct sockaddr_in _dest = {};
-  static constexpr size_t _dest_size = sizeof(_dest);
-  struct sockaddr *_dest_ipv4 = (struct sockaddr *)&_dest;
   string_t _dest_host;
-  const int _addr_family = AF_INET;
-  const int _ip_protocol = IPPROTO_IP;
-
   string_t _dest_port = "48000";
-  int _send_socket = -1;
+  string_t _dmx_port = "48005";
+  RawOut _net_raw = RawOut(_dest_host, _dest_port);
 
-  size_t significant_bits_per_sample, bits_per_sample, bits_per_frame;
   size_t chunk_bytes;
 
   Thread_t audio_in;
   Thread_t fft_calc;
   Thread_t net_out;
+  Thread_t dmx;
 
   size_t _net_packet_size = 1024;
 
-  Mutex_t _net_out_mutex;
-  BufferQueue_t _net_out_q;
-  size_t _net_out_q_max_depth = 10;
-  size_t _net_out_buffers_discarded = 0;
-
-  PendingBuffer_t _net_out_buffer_pending;
+  MsgQX<ptrByteBuffer> _fft_q;
+  MsgQX<ptrByteBuffer> _net_out_q;
 
   const char *_fft_log = "/dev/null";
-  Mutex_t _fft_mutex;
-  BufferQueue_t _fft_q;
-  size_t _fft_q_max_depth = 10;
-  size_t _fft_buffers_discarded = 0;
 
   uint32_t _fft_samples = 1024;
 
   FFT _fft_left = FFT(_fft_samples, 48000);
   FFT _fft_right = FFT(_fft_samples, 48000);
-  PendingBuffer_t _fft_buffer_pending;
 };
 
 } // namespace pierre

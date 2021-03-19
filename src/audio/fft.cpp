@@ -2,9 +2,12 @@
 
 #include <local/types.hpp>
 
-#include "misc/FFT.hpp"
+#include "audio/fft.hpp"
 
 using std::swap;
+
+Mag_t Peak::_mag_floor = 36500.0f;
+Mag_t Peak::_mag_strong = _mag_floor * 3.0f;
 
 const float FFT::_winCompensationFactors[10] = {
     1.0000000000 * 2.0, // rectangle (Box car)
@@ -18,6 +21,35 @@ const float FFT::_winCompensationFactors[10] = {
     3.5659039231 * 2.0, // flat top
     1.5029392863 * 2.0  // welch
 };
+
+WindowWeighingFactors_t FFT::_wwf;
+bool FFT::_weighingFactorsComputed = false;
+
+FFT::FFT(uint_fast16_t samples, float samplingFrequency)
+    : _samples(samples), _samplingFrequency(samplingFrequency) {
+  // Calculates the base 2 logarithm of sample count
+  _power = 0;
+  while (((samples >> _power) & 1) != 1) {
+    _power++;
+  }
+
+  _real.reserve(samples);
+  _real.assign(samples, 0);
+
+  _imaginary.reserve(samples);
+  _imaginary.assign(samples, 0);
+
+  if (_wwf.size() != samples) {
+    _wwf.reserve(samples);
+    _wwf.assign(samples, 0);
+  }
+}
+
+BinInfo FFT::binInfo(size_t i) {
+  BinInfo x = Peak(i, freqAtIndex(i), magAtIndex(i));
+
+  return std::move(x);
+}
 
 void FFT::complexToMagnitude() {
   // vM is half the size of vReal and vImag
@@ -89,8 +121,11 @@ void FFT::dcRemoval(const float mean) {
   }
 }
 
-void FFT::findPeaks() {
-  _peaks.clear();
+void FFT::findPeaks(Peaks &peaks) {
+  peaks.clear();
+
+  Mag_t mag_min = std::numeric_limits<float>::max();
+  Mag_t mag_max = 0;
 
   for (uint_fast16_t i = 1; i < ((_samples >> 1) + 1); i++) {
     const float a = _real[i - 1];
@@ -98,24 +133,113 @@ void FFT::findPeaks() {
     const float c = _real[i + 1];
 
     if ((a < b) && (b > c)) {
-
-      // once
-      if (_peaks.size() == (_peaks.capacity() - 1)) {
+      // prevent finding peaks beyond samples / 2 since the
+      // results of the FFT are symmetrical
+      if (peaks.size() == (_peaks_max - 1)) {
         break;
       }
 
-      float freq = freqAtIndex(i);
-      float db = dbAtIndex(i);
+      Freq_t freq = freqAtIndex(i);
+      Mag_t mag = magAtIndex(i);
 
-      if (db > 20.0f) {
-        const Peak_t tuple = {.index = i, .freq = freq, .dB = db};
-        _peaks.push_back(tuple);
-      }
+      mag_min = std::min(mag, mag_min);
+      mag_max = std::max(mag, mag_max);
+
+      // if (db >= peak_dB_floor) {
+      const Peak peak(i, freq, mag);
+      peaks.push_back(peak);
+      //}
     }
   }
 
-  std::sort(_peaks.begin(), _peaks.end(), Peak_t::higherdB);
+  std::sort(peaks.begin(), peaks.end(),
+            [](const Peak &lhs, const Peak &rhs) { return lhs.mag > rhs.mag; });
+
+  // std::array<char, 128> out;
+  // out.fill(0x00);
+  // auto p = out.data();
+  // for (auto item = peaks.begin(); item <= (peaks.cbegin() + 1); item++) {
+  //   auto len = snprintf(p, (out.data() + out.size() - p),
+  //                       "freq[%10.2f] mag[%11.2f] ", item->freq, item->mag);
+  //   p += len;
+  // }
+  //
+  // if (mag_max > 1000000.0f) {
+  //   snprintf(p, (out.data() + out.size() - p), "min[%10.2f] max[%10.2f]",
+  //            mag_min, mag_max);
+  //
+  //   std::cerr << out.data() << std::endl;
+  // }
 }
+
+Mag_t FFT::magAtIndex(const size_t i) const {
+  const float a = _real[i - 1];
+  const float b = _real[i];
+  const float c = _real[i + 1];
+
+  const Mag_t x = abs(a - (2.0f * b) + c);
+  return x;
+}
+
+float FFT::freqAtIndex(size_t y) {
+  const float a = _real[y - 1];
+  const float b = _real[y];
+  const float c = _real[y + 1];
+
+  float delta = 0.5 * ((a - c) / (a - (2.0 * b) + c));
+  float frequency = ((y + delta) * _samplingFrequency) / (_samples - 1);
+  if (y == (_samples >> 1)) {
+    // To improve calculation on edge values
+    frequency = ((y + delta) * _samplingFrequency) / _samples;
+  }
+
+  return frequency;
+}
+
+bool FFT::hasPeak(const Peaks &peaks, PeakN n) {
+  bool rc = false;
+
+  // PeakN_t reprexents the peak of interest in the range of 1..max_peaks
+  if (peaks.size() && (peaks.size() > n)) {
+    rc = true;
+  }
+
+  return rc;
+}
+
+const Peak FFT::majorPeak(const Peaks &peaks) { return peakN(peaks, 1); }
+
+const Peak FFT::peakN(const Peaks &peaks, PeakN n) {
+  Peak peak;
+
+  if (hasPeak(peaks, n)) {
+    const Peak check = peaks.at(n - 1);
+
+    if (check.mag > Peak::magFloor()) {
+      peak = check;
+    }
+  }
+
+  return std::move(peak);
+}
+
+void FFT::process() {
+  double mean = 0.0;
+
+  for (auto val : _real) {
+    mean += val;
+  }
+
+  mean /= _samples;
+
+  _imaginary.assign(_samples, 0x00);
+  dcRemoval(mean);
+  windowing(FFTWindow::Blackman, FFTDirection::Forward);
+  compute(FFTDirection::Forward);
+  complexToMagnitude();
+}
+
+Real_t &FFT::real() { return _real; }
 
 void FFT::windowing(FFTWindow windowType, FFTDirection dir,
                     bool withCompensation) {

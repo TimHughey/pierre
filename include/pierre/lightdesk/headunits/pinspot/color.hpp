@@ -23,6 +23,7 @@
 
 #include "math.h"
 
+#include "dmx/types.hpp"
 #include "lightdesk/types.hpp"
 #include "local/types.hpp"
 #include "misc/random.hpp"
@@ -101,6 +102,15 @@ public:
     for (auto i = 0; i < endOfParts(); i++) {
       const float val = rint(colorPartConst(i));
       array[i] = (uint8_t)val;
+    }
+  }
+
+  void copyTo(dmx::Frame &frame, uint start_pos) {
+    auto snippet = frame.begin() + start_pos;
+
+    for (auto i = 0; i < endOfParts(); i++) {
+      const float val = rint(colorPartConst(i));
+      snippet[i] = (uint8_t)val;
     }
   }
 

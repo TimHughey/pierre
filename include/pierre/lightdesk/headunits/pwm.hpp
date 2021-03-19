@@ -21,7 +21,6 @@
 #ifndef pierre_lightdesk_headunits_pwm_base_hpp
 #define pierre_lightdesk_headunits_pwm_base_hpp
 
-// #include "devs/pwm/pwm.hpp"
 #include "lightdesk/headunit.hpp"
 
 namespace pierre {
@@ -39,9 +38,10 @@ namespace lightdesk {
 
 class PulseWidthHeadUnit : public HeadUnit {
 public:
-  PulseWidthHeadUnit(uint8_t num) {
+  PulseWidthHeadUnit(uint8_t num) : HeadUnit(num, 0) {
+    _id.fill(0x00);
+
     updateDuty(unitMin());
-    frameChanged();
 
     config.min = dutyMin();
     config.max = dutyMax();
@@ -50,7 +50,7 @@ public:
     config.pulse_start = dutyPercent(0.5);
     config.pulse_end = dutyPercent(0.25);
 
-    unitNext(config.dim, true);
+    unitNext(config.dim);
   }
 
   virtual ~PulseWidthHeadUnit() { stop(); }
@@ -59,22 +59,22 @@ public:
   uint dutyMax() const { return 8192; }
   uint dutyMin() const { return 0; }
   uint dutyPercent(float percent) const { return dutyMax() * percent; }
-  void updateDuty(uint32_t duty) {}
+  void updateDuty(uint32_t duty) { _duty = duty; }
   void stop() {}
 
 public:
-  virtual inline void dark() { _mode = DARK; }
-  virtual inline void dim() {
+  virtual void dark() { _mode = DARK; }
+  virtual void dim() {
     unitNext(config.dim);
     _mode = DIM_INIT;
   }
 
-  virtual inline void fixed(const float percent) {
+  virtual void fixed(const float percent) {
     unitNext(unitPercent(percent));
     _mode = FIXED_INIT;
   }
 
-  virtual inline void framePrepare() override {
+  virtual void framePrepare() override {
     const uint32_t duty_now = duty();
 
     switch (_mode) {
@@ -85,25 +85,22 @@ public:
 
     case DARK:
       if (duty_now > unitMin()) {
-        unitNext(unitMin(), true);
+        unitNext(unitMin());
       }
 
       _mode = IDLE;
       break;
 
     case DIM_INIT:
-      frameChanged() = true;
       _mode = DIM_RUNNING;
       break;
 
     case FIXED_INIT:
-      frameChanged() = true;
       _mode = FIXED_RUNNING;
       break;
 
     case PULSE_INIT:
       // unitNext() has already been set by the call to pulse()
-      frameChanged() = true;
       _mode = PULSE_RUNNING;
       break;
 
@@ -112,35 +109,33 @@ public:
       const int_fast32_t next = duty_now - _velocity;
 
       // we've reached or are close enough to the destination
-      if ((duty_now <= fuzzy) || (next <= _dest)) {
-        unitNext(_dest, true);
+      if ((duty_now <= fuzzy) || (next <= (int_fast32_t)_dest)) {
+        unitNext(_dest);
         _mode = IDLE;
       } else {
-        unitNext(next, true);
+        unitNext(next);
       }
 
       break;
     }
   }
 
-  virtual inline void frameUpdate(uint8_t *frame_actual) override {
-    // IMPORTANT!
-    //
-    // this function is called by the DMX task and therefore must never create
-    // side effects to this class.
+  virtual void frameUpdate(dmx::UpdateInfo &info) override {
 
-    // overide base class since we don't actually change the DMX frame
-    if (frameChanged() == true) {
-      updateDuty(_unit_next);
-      frameChanged() = false;
+    _duty = _unit_next;
+
+    JsonObject &obj = info.obj;
+
+    if (_id[0] != 0x00) {
+      obj[_id.data()] = _duty;
     }
   }
 
-  inline uint_fast32_t unitPercent(const float percent) {
+  uint_fast32_t unitPercent(const float percent) {
     return dutyPercent(percent);
   }
 
-  inline void pulse(float intensity = 1.0, float secs = 0.2) {
+  void pulse(float intensity = 1.0, float secs = 0.2) {
     // intensity is the percentage of max brightness for the pulse
     const float start = config.pulse_start * intensity;
 
@@ -153,8 +148,6 @@ public:
     _mode = PULSE_INIT;
   }
 
-  static void preStart() {}
-
 protected:
   struct {
     uint_fast32_t min;
@@ -165,8 +158,10 @@ protected:
     uint_fast32_t pulse_end;
   } config;
 
+  std::array<char, 6> _id;
+
 protected:
-  virtual inline void unitNext(uint_fast32_t duty, bool update = false) {
+  virtual void unitNext(uint_fast32_t duty) {
     if (duty > unitMax()) {
       duty = unitMax();
     } else if (duty < unitMin()) {
@@ -174,7 +169,6 @@ protected:
     }
 
     _unit_next = duty;
-    frameChanged() = update;
   }
 
   uint_fast32_t &unitMax() { return config.max; }
@@ -195,7 +189,7 @@ private:
 private:
   PulseWidthHeadUnit_t _mode = IDLE;
 
-  uint _duty = 0;
+  uint32_t _duty = 0;
 
   uint_fast32_t _dest = 0; // destination duty when traveling
   float _velocity = 0.0;   // change per frame when fx is active

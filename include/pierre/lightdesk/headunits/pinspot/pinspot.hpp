@@ -29,14 +29,16 @@
 namespace pierre {
 namespace lightdesk {
 
-typedef class PinSpot PinSpot_t;
+class PinSpot;
+typedef std::shared_ptr<PinSpot> spPinSpot;
 
 class PinSpot : public HeadUnit {
+
 public:
   PinSpot(uint16_t address = 1);
   ~PinSpot();
 
-  inline void framePrepare() override {
+  void framePrepare() override {
     if (_mode == FADER) {
       faderMove();
     }
@@ -69,7 +71,7 @@ public:
   void fadeTo(const Color_t &color, float secs = 1.0, float accel = 0.0);
   void fadeTo(const FaderOpts_t &opts);
 
-  typedef enum { AUTORUN = 0x3000, DARK, COLOR, FADER, HOLD } Mode_t;
+  typedef enum { AUTORUN = 0x3000, DARK, COLOR, FADER } Mode_t;
 
 private:
   // functions
@@ -90,7 +92,7 @@ private:
 
   void faderStart(const FaderOpts &opts);
 
-  void frameUpdate();
+  void frameUpdate(dmx::UpdateInfo &info) override;
 
 private:
   // update frame spinlock
@@ -104,7 +106,7 @@ private:
   FxType_t _fx = fxNone;
 
   Fader_t _fader;
-};
+}; // namespace lightdesk
 } // namespace lightdesk
 } // namespace pierre
 

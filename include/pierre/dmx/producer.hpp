@@ -1,5 +1,5 @@
 /*
-    lightdesk/statics.cpp - Ruth LightDesk Statics Definition
+    Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -18,23 +18,26 @@
     https://www.wisslanding.com
 */
 
-#include "lightdesk/fx/majorpeak.hpp"
-#include "lightdesk/headunits/pinspot/base.hpp"
-#include "lightdesk/headunits/pinspot/color.hpp"
-#include "lightdesk/headunits/pwm.hpp"
+#ifndef _pierre_dmx_producer_hpp
+#define _pierre_dmx_producer_hpp
+
+#include <vector>
+
+#include "dmx/types.hpp"
+#include "local/types.hpp"
 
 namespace pierre {
-namespace lightdesk {
+namespace dmx {
 
-float Color::_scale_min = 0;
-float Color::_scale_max = 0;
+class Producer {
+public:
+  Producer() = default;
 
-namespace fx {
-FxConfig_t FxBase::_cfg;
-FxStats_t FxBase::_stats;
+  virtual void prepare() = 0;
 
-MajorPeak::FreqColorList_t MajorPeak::_freq_colors = {};
-
-} // namespace fx
-} // namespace lightdesk
+  virtual void update(UpdateInfo &info) = 0;
+};
+} // namespace dmx
 } // namespace pierre
+
+#endif

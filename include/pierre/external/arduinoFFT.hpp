@@ -21,8 +21,8 @@
 
 */
 
-#ifndef _pierre_fft_h
-#define _pierre_fft_h
+#ifndef ArduinoFFT_h /* Prevent loading library twice */
+#define ArduinoFFT_h
 
 #include <algorithm>
 #include <functional>
@@ -62,46 +62,35 @@ struct Peak {
   static bool higherdB(const Peak_t &lhs, const Peak_t &rhs) {
     return lhs.dB > rhs.dB;
   }
-
-  static const Peak zero() { return Peak{.index = 0, .freq = 0, .dB = 0}; }
 };
 
 typedef std::vector<Peak_t> Peaks_t;
-typedef std::vector<float> Real_t;
-typedef Real_t Imaginary_t;
-typedef Real_t WindowWeighingFactors_t;
 typedef const Peaks_t PeaksConst_t;
 typedef const Peaks_t &PeaksRef_t;
 typedef const uint_fast16_t PeakN_t; // represents peak of interest 1..max_peaks
 typedef const Peak PeakInfo;
 typedef const Peak BinInfo;
 
-// template <typename T> class FFT {
-class FFT {
+// template <typename T> class ArduinoFFT {
+class ArduinoFFT {
 public:
   // Constructor
-  FFT(uint_fast16_t samples, float samplingFrequency)
-      : _samples(samples), _samplingFrequency(samplingFrequency) {
+  ArduinoFFT(float *vReal, float *vImag, uint_fast16_t samples,
+             float samplingFrequency, float *windowWeighingFactors = nullptr)
+      : _vReal(vReal), _vImag(vImag), _samples(samples),
+        _samplingFrequency(samplingFrequency),
+        _windowWeighingFactors(windowWeighingFactors) {
     // Calculates the base 2 logarithm of sample count
     _power = 0;
     while (((samples >> _power) & 1) != 1) {
       _power++;
     }
 
-    _real.reserve(samples);
-    _real.assign(samples, 0);
-
-    _imaginary.reserve(samples);
-    _imaginary.assign(samples, 0);
-
-    _wwf.reserve(samples);
-    _wwf.assign(samples, 0);
-
     _peaks.reserve(_peaks_max);
   }
 
   // Destructor
-  ~FFT() {}
+  ~ArduinoFFT() {}
 
   inline BinInfo binInfo(size_t y) {
     BinInfo x = {.index = y, .freq = freqAtIndex(y), .dB = dbAtIndex(y)};
@@ -110,26 +99,26 @@ public:
   }
 
   // Computes in-place complex-to-complex FFT
-  void compute(FFTDirection dir);
-  void complexToMagnitude();
+  void compute(FFTDirection dir) const;
+  void complexToMagnitude() const;
 
   inline float dbAtIndex(const size_t i) const {
-    const float a = _real[i - 1];
-    const float b = _real[i];
-    const float c = _real[i + 1];
+    const float a = _vReal[i - 1];
+    const float b = _vReal[i];
+    const float c = _vReal[i + 1];
 
     const float db = 10 * log10(abs(a - (2.0 * b) + c));
     return db;
   }
 
   // void dcRemoval() const;
-  void dcRemoval(const float mean);
+  void dcRemoval(const float mean) const;
   void findPeaks();
 
   inline float freqAtIndex(size_t y) {
-    const float a = _real[y - 1];
-    const float b = _real[y];
-    const float c = _real[y + 1];
+    const float a = _vReal[y - 1];
+    const float b = _vReal[y];
+    const float c = _vReal[y + 1];
 
     float delta = 0.5 * ((a - c) / (a - (2.0 * b) + c));
     float frequency = ((y + delta) * _samplingFrequency) / (_samples - 1);
@@ -167,33 +156,29 @@ public:
 
   inline const Peaks_t &peaks() const { return _peaks; }
 
-  inline void process() {
-    double mean = 0.0;
-
-    for (auto val : _real) {
-      mean += val;
-    }
-
-    mean /= _samples;
-
-    _imaginary.assign(_samples, 0);
+  inline void process(float *vreal, float *vimag, const float mean) {
+    setArrays(vreal, vimag);
     dcRemoval(mean);
-    windowing(FFTWindow::Blackman_Harris, FFTDirection::Forward);
+    windowing(FFTWindow::Hamming, FFTDirection::Forward);
     compute(FFTDirection::Forward);
     complexToMagnitude();
     findPeaks();
   }
 
-  Real_t &real() { return _real; }
-
   // Get library revision
-  static uint8_t revision() { return 0x27; }
+  static uint8_t revision() { return 0x19; }
+
+  // Replace the data array pointers
+  inline void setArrays(float *vReal, float *vImag) {
+    _vReal = vReal;
+    _vImag = vImag;
+  }
 
   void windowing(FFTWindow windowType, FFTDirection dir,
                  bool withCompensation = false);
 
 private:
-  static const float _winCompensationFactors[10];
+  static const float _WindowCompensationFactors[10];
 
   // Mathematial constants
 
@@ -201,21 +186,20 @@ private:
   static constexpr float FOUR_PI = 12.56637061;
   static constexpr float SIX_PI = 18.84955593;
 
-  // static inline void swap(float &x, float &y) {
-  //   const float temp = x;
-  //   x = y;
-  //   y = temp;
-  // }
+  static inline void swap(float &x, float &y) {
+    const float temp = x;
+    x = y;
+    y = temp;
+  }
 
   inline float sq(const float x) const { return x * x; }
 
   /* Variables */
-  Real_t _real;
-  Imaginary_t _imaginary;
-  WindowWeighingFactors_t _wwf;
+  float *_vReal = nullptr;
+  float *_vImag = nullptr;
   uint_fast16_t _samples = 0;
   float _samplingFrequency = 0;
-
+  float *_windowWeighingFactors = nullptr;
   FFTWindow _weighingFactorsFFTWindow;
   bool _weighingFactorsWithCompensation = false;
   bool _weighingFactorsComputed = false;

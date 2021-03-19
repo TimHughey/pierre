@@ -10,12 +10,14 @@ set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost 1.67.0 COMPONENTS date_time timer)
+find_package(Boost 1.67.0 COMPONENTS system regex date_time timer)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
-  # target_link_libraries(foo ${Boost_LIBRARIES})
+  link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
+# add_library(processors INTERFACE)
+# target_include_directories(processors INTERFACE include/)
 
 add_subdirectory(audio)
 add_subdirectory(misc)

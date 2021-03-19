@@ -18,380 +18,241 @@
     https://www.wisslanding.com
 */
 
+#include <chrono>
 #include <math.h>
 
-#include "lightdesk/dmx.hpp"
 #include "lightdesk/lightdesk.hpp"
 
 namespace pierre {
 namespace lightdesk {
 
-using namespace fx;
+using namespace std;
+using namespace chrono;
 
-LightDesk::LightDesk() { start(); }
+LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
+    : _cfg(cfg), _dsp(std::move(dsp)) {
+  auto map = _hunits->map();
 
-LightDesk::~LightDesk() {
+  map->insert(make_pair(string_t("main"), make_shared<PinSpot>(1)));
+  map->insert(make_pair(string_t("fill"), make_shared<PinSpot>(7)));
+  map->insert(make_pair(string_t("discoball"), make_shared<DiscoBall>(1)));
+  map->insert(make_pair(string_t("el dance"), make_shared<ElWire>(2)));
+  map->insert(make_pair(string_t("el entry"), make_shared<ElWire>(3)));
+  map->insert(make_pair(string_t("led forest"), make_shared<LedForest>(4)));
 
-  if (_fx != nullptr) {
-    delete _fx;
-    _fx = nullptr;
+  main = _hunits->pinspot("main");
+  fill = _hunits->pinspot("fill");
+  led_forest = _hunits->ledforest("led forest");
+  el_dance_floor = _hunits->elWire("el dance");
+  el_entry = _hunits->elWire("el entry");
+  discoball = _hunits->discoball("discoball");
+
+  main->color(Color::red());
+
+  // initialize static frequency to color mapping
+  if (_palette.size() == 0) {
+    makePalette();
   }
 
-  if (_major_peak != nullptr) {
-    delete _major_peak;
-    _major_peak = nullptr;
-  }
+  const auto scale = Peak::scale();
 
-  for (uint32_t i = PINSPOT_MAIN; i < PINSPOT_NONE; i++) {
-    PinSpot_t *pinspot = _pinspots[i];
+  Color::setScaleMinMax(scale.min, scale.max);
 
-    if (pinspot != nullptr) {
-      _pinspots[i] = nullptr;
-
-      delete pinspot;
-    }
-  }
-
-  for (uint32_t i = ELWIRE_ENTRY; i < ELWIRE_LAST; i++) {
-    ElWire_t *elwire = _elwire[i];
-
-    if (_elwire != nullptr) {
-      _elwire[i] = nullptr;
-
-      elwire->stop();
-
-      delete elwire;
-    }
-  }
-
-  if (_led_forest != nullptr) {
-    delete _led_forest;
-    _led_forest = nullptr;
-  }
-
-  if (_discoball != nullptr) {
-    delete _discoball;
-    _discoball = nullptr;
-  }
+  discoball->spin();
 }
 
-void LightDesk::core() {
+void LightDesk::executeFx() {
+  const Peak peak = _dsp->majorPeak();
 
-  _mode = READY;
+  if (peak) {
 
-  while (_mode != SHUTDOWN) {
-    bool stream_frames = true;
-    uint32_t v = 0;
-    auto notified = 1;
+    logPeak(peak);
 
-    if (notified == 1) {
-      NotifyVal_t notify = static_cast<NotifyVal_t>(v);
+    if ((peak.freq > 220.0f) && (peak.freq < 1200.0f)) {
+      el_dance_floor->pulse();
+    }
 
-      PinSpot_t *pinspot = pinSpotObject(_request.func());
+    if (peak.freq > 10000.0f) {
+      led_forest->pulse();
+    }
 
-      // ensure DMX is streaming frames unless we're stopping or shutting down
-      if ((notify == NotifyStop) || (notify == NotifyShutdown)) {
-        stream_frames = false;
+    el_entry->pulse();
+
+    Color_t color = lookupColor(peak);
+
+    if (color.notBlack()) {
+      color.scale(peak.magScaled());
+
+      if (peak.freq <= 180.0) {
+        handleLowFreq(peak, color);
+      } else {
+        handleOtherFreq(peak, color);
       }
-
-      switch (notify) {
-
-      case NotifyColor:
-        _mode = COLOR;
-        pinspot->color(_request.colorRgbw(), _request.colorStrobe());
-        break;
-
-      case NotifyDark:
-        _mode = DARK;
-        pinSpotMain()->dark();
-        pinSpotFill()->dark();
-        break;
-
-      case NotifyDance:
-        _mode = READY;
-        danceStart(DANCE);
-        break;
-
-      case NotifyStop:
-        stopActual();
-        break;
-
-      case NotifyShutdown:
-        _mode = SHUTDOWN;
-        break;
-
-      case NotifyReady:
-
-        _mode = READY;
-        break;
-
-      case NotifyFadeTo:
-        _mode = FADE_TO;
-        pinspot->fadeTo(_request.fadeToRgbw(), _request.fadeToSecs());
-        break;
-
-      case NotifyMajorPeak:
-        _mode = READY;
-
-        if (_major_peak == nullptr) {
-          _major_peak = new MajorPeak();
-        }
-
-        danceStart(MAJOR_PEAK);
-        break;
-
-      case NotifyPrepareFrame:
-        danceExecute();
-        // _dmx->framePrepareCallback();
-        break;
-
-      default:
-        stream_frames = false;
-        break;
-      }
-
-      // _dmx->streamFrames(stream_frames);
     }
   }
 }
 
-void LightDesk::coreTask(void *task_instance) {
-  LightDesk_t *lightdesk = (LightDesk_t *)task_instance;
-  //
-  // lightdesk->init();
-  // lightdesk->core();
-  //
-  // TaskHandle_t task = lightdesk->_task.handle;
-  // TR::rlog("LightDesk task %p exiting", task);
-  // lightdesk->_task.handle = nullptr;
-  //
-  // vTaskDelete(task); // task removed from the scheduler
-}
+void LightDesk::handleLowFreq(const Peak &peak, const Color_t &color) {
+  bool start_fade = true;
 
-void LightDesk::danceExecute() {
-  // NOTE:  when _mode is anything other than DANCE or MAJOR_PEAK this
-  // function is a NOP
+  FaderOpts_t freq_fade{.origin = color,
+                        .dest = Color::black(),
+                        .travel_secs = 0.7f,
+                        .use_origin = true};
 
-  if (_mode == MAJOR_PEAK) {
-    _major_peak->execute();
-  } else if ((_mode == DANCE) && _fx) {
-    auto fx_finished = _fx->execute();
+  const auto fading = fill->isFading();
 
-    if (fx_finished == true) {
-      const auto roll = roll2D6();
-      FxType_t choosen_fx = _fx_patterns[roll];
-
-      if (_fx != nullptr) {
-        FxBase_t *to_delete = _fx;
-        _fx = nullptr;
-        delete to_delete;
-      }
-
-      _fx = FxFactory::create(choosen_fx);
-      _fx->begin();
-    }
-  }
-}
-
-void LightDesk::danceStart(LightDeskMode_t mode) {
-  elWireDanceFloor()->dim();
-  elWireEntry()->dim();
-  discoball()->spin();
-
-  pinSpotMain()->dark();
-  pinSpotFill()->dark();
-
-  // anytime the LightDesk is requested to start DANCE mode
-  // delete the existing effect
-
-  if (_fx) {
-    FxBase_t *to_delete = _fx;
-    _fx = nullptr;
-    delete to_delete;
-  }
-
-  if (_fx == nullptr) {
-    FxConfig cfg;
-    cfg.i2s = _i2s;
-    cfg.pinspot.main = pinSpotMain();
-    cfg.pinspot.fill = pinSpotFill();
-    cfg.elwire.dance_floor = elWireDanceFloor();
-    cfg.elwire.entry = elWireEntry();
-    cfg.led_forest = _led_forest;
-
-    FxBase::setConfig(cfg);
-  }
-
-  Color::setScaleMinMax(50.0, 100.0);
-
-  if (mode == DANCE) {
-    FxBase::setRuntimeMax(_request.danceInterval());
-  }
-
-  _fx = new ColorBars();
-  _fx->begin();
-
-  _mode = mode;
-}
-
-void LightDesk::init() {
-  //
-  // _i2s = (_i2s == nullptr) ? new I2s() : _i2s;
-  // _dmx = (_dmx == nullptr) ? new Dmx() : _dmx;
-  //
-  // PinSpot::setDmx(_dmx);
-  // PulseWidthHeadUnit::setDmx(_dmx);
-  //
-  // _i2s->start();
-  // vTaskDelay(pdMS_TO_TICKS(300)); // allow time for i2s to start
-  //
-  // _dmx->start();
-  //
-  // _ac_power = new AcPower();
-  //
-  // _pinspots[PINSPOT_MAIN] = new PinSpot(1); // dmx address 1
-  // _pinspots[PINSPOT_FILL] = new PinSpot(7); // dmx address 7
-  //
-  // // pwm headunits
-  // _discoball = new DiscoBall(1);               // pwm 1
-  // _elwire[ELWIRE_DANCE_FLOOR] = new ElWire(2); // pwm 2
-  // _elwire[ELWIRE_ENTRY] = new ElWire(3);       // pwm 3
-  // _led_forest = new LedForest(4);              // pwm 4
-  //
-  // _dmx->prepareTaskRegister();
-}
-
-bool LightDesk::request(const Request_t &r) {
-  auto rc = true;
-  // _request = r;
-  //
-  // switch (r.mode()) {
-  // case COLOR:
-  //   rc = taskNotify(NotifyColor);
-  //   break;
-  //
-  // case DANCE:
-  //   rc = taskNotify(NotifyDance);
-  //   break;
-  //
-  // case DARK:
-  //   rc = taskNotify(NotifyDark);
-  //   break;
-  //
-  // case FADE_TO:
-  //   rc = taskNotify(NotifyFadeTo);
-  //   break;
-  //
-  // case MAJOR_PEAK:
-  //   rc = taskNotify(NotifyMajorPeak);
-  //   break;
-  //
-  // case READY:
-  //   rc = taskNotify(NotifyReady);
-  //   break;
-  //
-  // case STOP:
-  //   rc = taskNotify(NotifyStop);
-  //   break;
-  //
-  // default:
-  //   rc = false;
-  //   break;
-  // }
-
-  return rc;
-}
-
-void LightDesk::start() {
-  // if (_task.handle == nullptr) {
-  //   // this (object) is passed as the data to the task creation and is
-  //   // used by the static coreTask method to call cpre()
-  //   ::xTaskCreate(&coreTask, "lightdesk", _task.stackSize, this,
-  //   _task.priority,
-  //                 &(_task.handle));
-  // }
-}
-
-const LightDeskStats_t &LightDesk::stats() {
-  _stats.mode = modeDesc(_mode);
-
-  // if (_dmx) {
-  //   _dmx->stats(_stats.dmx);
-  // }
-  //
-  // if (_i2s) {
-  //   _i2s->stats(_stats.i2s);
-  // }
-
-  FxBase::stats(_stats.fx);
-
-  _stats.elwire.dance_floor = elWireDanceFloor()->duty();
-  _stats.elwire.entry = elWireEntry()->duty();
-
-  return _stats;
-}
-
-void LightDesk::stopActual() {
-  LightDeskMode_t prev_mode = _mode;
-  _mode = STOP;
-
-  // _dmx->prepareTaskUnregister();
-
-  for (uint32_t i = PINSPOT_MAIN; i < PINSPOT_NONE; i++) {
-    PinSpot_t *pinspot = _pinspots[i];
-
-    if (pinspot) {
-      pinspot->dark();
+  if (fading) {
+    if ((_last_peak.fill.freq <= 180.0f) &&
+        (_last_peak.fill.index == peak.index)) {
+      start_fade = false;
     }
   }
 
-  for (uint32_t i = ELWIRE_ENTRY; i < ELWIRE_LAST; i++) {
-    ElWire_t *elwire = _elwire[i];
+  if (start_fade) {
+    fill->fadeTo(freq_fade);
+    _last_peak.fill = peak;
+  } else if (!fading) {
+    _last_peak.fill = Peak();
+  }
+}
 
-    if (elwire) {
-      elwire->dark();
+void LightDesk::handleOtherFreq(const Peak &peak, const Color_t &color) {
+  bool start_fade = true;
+  const FaderOpts_t main_fade{.origin = color,
+                              .dest = Color::black(),
+                              .travel_secs = 0.7f,
+                              .use_origin = true};
+
+  const auto main_fading = main->isFading();
+  const auto fill_fading = fill->isFading();
+
+  if (main_fading && (_last_peak.main.index == peak.index)) {
+    start_fade = false;
+  }
+
+  if (start_fade) {
+    main->fadeTo(main_fade);
+    _last_peak.main = peak;
+  } else if (!main_fading) {
+    _last_peak.main = Peak();
+  }
+
+  const FaderOpts_t alt_fade{.origin = color,
+                             .dest = Color::black(),
+                             .travel_secs = 0.7f,
+                             .use_origin = true};
+
+  if ((_last_peak.fill.mag < peak.mag) || !fill_fading) {
+    fill->fadeTo(alt_fade);
+    _last_peak.fill = peak;
+  }
+}
+
+void LightDesk::logPeak(const Peak &peak) const {
+  if (_cfg.majorpeak.log) {
+    array<char, 128> out;
+    snprintf(out.data(), out.size(), "lightdesk mpeak mag[%12.2f] peak[%7.2f]",
+             peak.mag, peak.freq);
+
+    cerr << out.data() << endl;
+  }
+}
+
+Color_t LightDesk::lookupColor(const Peak &peak) {
+  Color_t mapped_color;
+
+  for (const FreqColor &colors : _palette) {
+    const Freq_t freq = peak.freq;
+
+    if ((freq > colors.freq.low) && (freq <= colors.freq.high)) {
+      mapped_color = colors.color;
+    }
+
+    if (mapped_color.notBlack()) {
+      break;
     }
   }
 
-  _led_forest->dark();
-
-  if (_dmx) {
-    // // wait for two frames ensure any pending head unit changes are
-    // reflected.
-    // // the goal is a graceful and visually pleasing shutdown.
-    // const TickType_t ticks = pdMS_TO_TICKS((_dmx->frameInterval() * 2) /
-    // 1000); vTaskDelay(ticks); _dmx->stop();
-  }
-
-  if (_i2s) {
-    // _i2s->stop();
-  }
-
-  if (discoball()) {
-    discoball()->still();
-  }
-
-  // if (prev_mode != STOP) {
-  //   TR::rlog("LightDesk stopped");
-  // }
-
-  // taskNotify(NotifyShutdown);
+  return mapped_color;
 }
 
-// bool LightDesk::taskNotify(NotifyVal_t val) const {
-//   bool rc = true;
-//   const uint32_t v = static_cast<uint32_t>(val);
-//
-//   if (task()) { // prevent attempts to notify the task that does not exist
-//     xTaskNotify(task(), v, eSetValueWithOverwrite);
-//   } else {
-//     TR::rlog("LightDesk: attempt to send NotifyVal_t %u to null task handle",
-//              val);
-//     rc = false;
-//   }
-//
-//   return rc;
-// }
+void LightDesk::makePalette() {
+  const FreqColor first_color =
+      FreqColor{.freq = {.low = 10, .high = 60}, .color = Color::red()};
+
+  _palette.emplace_back(first_color);
+
+  pushPaletteColor(120, Color::fireBrick());
+  pushPaletteColor(160, Color::crimson());
+  pushPaletteColor(180, Color(44, 21, 119));
+  pushPaletteColor(260, Color::blue());
+  pushPaletteColor(300, Color::yellow75());
+  pushPaletteColor(320, Color::gold());
+  pushPaletteColor(350, Color::yellow());
+  pushPaletteColor(390, Color(94, 116, 140)); // slate blue
+  pushPaletteColor(490, Color::green());
+  pushPaletteColor(550, Color(224, 155, 0)); // light orange
+  pushPaletteColor(610, Color::limeGreen());
+  pushPaletteColor(710, Color::seaGreen());
+  pushPaletteColor(850, Color::deepPink());
+  pushPaletteColor(950, Color::blueViolet());
+  pushPaletteColor(1050, Color::magenta());
+  pushPaletteColor(1500, Color::pink());
+  pushPaletteColor(3000, Color::steelBlue());
+  pushPaletteColor(5000, Color::hotPink());
+  pushPaletteColor(7000, Color::darkViolet());
+  pushPaletteColor(10000, Color(245, 242, 234));
+  pushPaletteColor(12000, Color(245, 243, 215));
+  pushPaletteColor(15000, Color(228, 228, 218));
+  pushPaletteColor(22000, Color::bright());
+}
+
+void LightDesk::pushPaletteColor(Freq_t high, const Color_t &color) {
+  const FreqColor &last = _palette.back();
+  const FreqColor &next =
+      FreqColor{.freq = {.low = last.freq.high, .high = high}, .color = color};
+
+  _palette.emplace_back(next);
+}
+
+void LightDesk::prepare() {
+  auto map = _hunits->map();
+
+  for (auto t : *map) {
+    auto headunit = std::get<1>(t);
+    headunit->framePrepare();
+  }
+}
+
+shared_ptr<thread> LightDesk::run() {
+  auto t = make_shared<thread>([this]() { this->stream(); });
+
+  return t;
+}
+
+void LightDesk::stream() {
+  while (_shutdown == false) {
+    this_thread::sleep_for(seconds(10));
+  }
+}
+
+void LightDesk::update(dmx::UpdateInfo &info) {
+  auto map = _hunits->map();
+
+  executeFx();
+
+  for (auto t : *map) {
+    auto headunit = std::get<1>(t);
+
+    headunit->frameUpdate(info);
+  }
+}
+
+LightDesk::Palette LightDesk::_palette;
+
+float Color::_scale_min = 50.0f;
+float Color::_scale_max = 100.0f;
 
 } // namespace lightdesk
 } // namespace pierre

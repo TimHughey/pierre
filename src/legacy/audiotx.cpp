@@ -18,18 +18,23 @@
     https://www.wisslanding.com
 */
 
-#include <boost/timer/timer.hpp>
 #include <fstream>
 #include <iostream>
 #include <ostream>
 
+#include <boost/array.hpp>
+#include <boost/asio.hpp>
+#include <boost/timer/timer.hpp>
+
 #include "audio/audiotx.hpp"
+#include "external/ArduinoJson.h"
 #include "misc/maverage.hpp"
 
 using namespace pierre;
 using ofstream = std::ofstream;
 using auto_cpu_timer = boost::timer::auto_cpu_timer;
-using std::cerr;
+
+using std::cerr, std::endl;
 
 AudioTx::~AudioTx() {
   if (_pcm) {
@@ -45,11 +50,6 @@ AudioTx::~AudioTx() {
   if (_swparams) {
     snd_pcm_sw_params_free(_swparams);
     _swparams = nullptr;
-  }
-
-  if (_send_socket >= 0) {
-    close(_send_socket);
-    _send_socket = -1;
   }
 }
 
@@ -95,13 +95,109 @@ void AudioTx::audioInThread() {
         buff.get()->resize(bytes_actual);
       }
 
-      netOutQueuePush(buff);
-      FFTQueuePush(buff);
+      _net_out_q.push(buff);
+      _fft_q.push(buff);
     } else {
       // frames is the error code
       recoverStream(frames);
     }
   }
+}
+
+void AudioTx::dmxThread() {
+  using boost::array;
+  using boost::asio::buffer;
+  using boost::asio::io_context;
+  using boost::asio::error::basic_errors;
+  using boost::asio::ip::tcp;
+  using boost::system::error_code;
+  using boost::system::system_error;
+  using std::chrono::milliseconds;
+
+  io_context io_ctx;
+  tcp::resolver resolver(io_ctx);
+
+  tcp::resolver::results_type endpoints =
+      resolver.resolve(_dest_host, _dmx_port);
+
+  for (auto entry : endpoints) {
+    cerr << entry.host_name() << endl;
+  }
+
+  error_code conn_ec;
+  uint retries = 0;
+  bool aborting = false;
+  do {
+
+    tcp::socket socket(io_ctx);
+    boost::asio::connect(socket, endpoints, conn_ec);
+
+    // if (conn_ec == basic_errors::connection_refused) {
+    if (conn_ec) {
+      if (retries > 5) {
+        aborting = true;
+      } else {
+        auto le = socket.local_endpoint();
+
+        cerr << le.address() << " " << conn_ec.message() << endl;
+
+        std::this_thread::sleep_for(milliseconds(1000));
+        retries++;
+      }
+
+      continue;
+    }
+
+    for (; socket.is_open();) {
+      error_code read_ec;
+      array<char, 1024> buff;
+
+      socket.read_some(buffer(buff), read_ec);
+
+      if (read_ec) {
+        cerr << read_ec.message() << endl;
+        break;
+      }
+
+      StaticJsonDocument<2048> doc;
+      DeserializationError err = deserializeMsgPack(doc, buff);
+
+      if (err) {
+        cerr << err << endl;
+        continue;
+      }
+
+      const JsonObject &frame_obj = doc["frame"];
+
+      if (frame_obj["prepare"] == true) {
+        array<uint8_t, 127> frame = {{0}};
+
+        auto frame_buffer = buffer(frame);
+        uint8_t *x = static_cast<uint8_t *>(frame_buffer.data());
+
+        *x++ = 0xF0;
+        *x++ = 0xFF;
+        *x++ = 0xFF;
+        *x++ = 0x00;
+        *x++ = 0xFF;
+
+        socket.write_some(buffer(frame));
+      }
+
+      // if (!err) {
+      //   cerr << doc << endl;
+      // }
+    }
+
+    // switch (ec.value()) {
+    // case boost::asio::error::connection_refused:
+    //   cerr << ec.message() << endl;
+    //   break;
+    // }
+
+  } while (!aborting);
+
+  cerr << "thread exiting, " << conn_ec.message() << endl;
 }
 
 void AudioTx::FFTThread() {
@@ -118,7 +214,7 @@ void AudioTx::FFTThread() {
   auto left_end = _fft_left.real().cend();
 
   while (true) {
-    auto data = FFTQueuePop(); // wait for and pop the next buffer
+    auto data = _fft_q.pop(); // wait for and pop the next buffer
 
     // copy the data buffer to the net buffer until the net buffer is full
     auto byte = data.get()->cbegin();
@@ -164,7 +260,6 @@ bool AudioTx::init() {
 
   err = snd_output_stdio_attach(&_pcm_log, stderr, 0);
 
-  udpInit();
   setParams();
 
   snd_pcm_start(_pcm);
@@ -189,19 +284,21 @@ void AudioTx::netOutThread() {
   auto net_buff_pos = net_buff.get()->begin();
 
   while (true) {
-    auto data = netOutQueuePop(); // wait for and pop the next buffer
+    auto data = _net_out_q.pop(); // wait for and pop the next buffer
 
     // copy the data buffer to the net buffer until the net buffer is full
     for (const uint8_t byte : *data.get()) {
       if (net_buff_pos == net_buff.get()->cend()) {
         // net buff is full, send it...
-        const auto raw = net_buff.get()->data();
-        const auto len = net_buff.get()->size();
-        auto sent = sendto(_send_socket, raw, len, 0, _dest_ipv4, _dest_size);
-
-        if ((uint)sent != len) {
-          cerr << "[WARN] sent " << sent << " of " << len << " bytes";
-        }
+        _net_raw.send(*net_buff);
+        // const auto raw = net_buff.get()->data();
+        // const auto len = net_buff.get()->size();
+        // auto sent = sendto(_send_socket, raw, len, 0, _dest_ipv4,
+        // _dest_size);
+        //
+        // if ((uint)sent != len) {
+        //   cerr << "[WARN] sent " << sent << " of " << len << " bytes";
+        // }
 
         // fprintf(stderr, "sent %ld bytes of %lu\n", tx_bytes, raw_bytes);
 
@@ -219,11 +316,13 @@ void AudioTx::netOutThread() {
 }
 
 bool AudioTx::run() {
-  audioInThreadStart();
-  netOutThreadStart();
-  FFTThreadStart();
+  audio_in = std::thread([this]() { this->audioInThread(); });
+  dmx = std::thread([this]() { this->dmxThread(); });
+  fft_calc = std::thread([this]() { this->FFTThread(); });
+  net_out = std::thread([this]() { this->netOutThread(); });
 
   audio_in.join();
+  dmx.join();
   net_out.join();
   fft_calc.join();
 
@@ -311,9 +410,6 @@ bool AudioTx::setParams(void) {
 
   // snd_pcm_dump(_pcm, _pcm_log);
 
-  // bits_per_sample = snd_pcm_format_physical_width(format());
-  // significant_bits_per_sample = snd_pcm_format_width(format());
-  // bits_per_frame = bits_per_sample * channels();
   chunk_bytes = framesToBytes(_chunk_size);
 
   /* show mmap buffer arrangment */
@@ -401,54 +497,6 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
          << ":" << badavail << "/" << baddelay;
     tmr = now;
   }
-}
-
-void AudioTx::udpInit() {
-
-  // _dest_ipv4->sin_family = AF_INET;
-  // _dest_ipv4->sin_port = htons(_dest_port);
-
-  _send_socket = socket(_addr_family, SOCK_DGRAM, _ip_protocol);
-
-  struct addrinfo *result = nullptr;
-
-  struct addrinfo hints;
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
-  hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
-  hints.ai_flags = AI_PASSIVE;
-  hints.ai_protocol = 0; /* Any protocol */
-
-  auto rc =
-      getaddrinfo(_dest_host.c_str(), _dest_port.c_str(), &hints, &result);
-  if (rc != 0) {
-    cerr << "getaddrinfo: " << gai_strerror(rc);
-    return;
-  }
-  auto search = result;
-  char addrstr[100];
-
-  while (search) {
-    struct sockaddr_in *found = nullptr;
-
-    switch (search->ai_family) {
-    case AF_INET:
-      found = (struct sockaddr_in *)search->ai_addr;
-      inet_ntop(search->ai_family, &found->sin_addr, addrstr, 100);
-
-      memcpy(&_dest, found, search->ai_addrlen);
-
-      cerr << "sending audio to: " << _dest_host << "(" << addrstr << ")\n";
-      search = nullptr; // break out of loop, got our address
-
-      break;
-
-    default:
-      search = search->ai_next;
-      break;
-    }
-  }
-  freeaddrinfo(result);
 }
 
 // bool AudioTx::process() {
