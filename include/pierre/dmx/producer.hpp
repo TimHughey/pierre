@@ -23,7 +23,7 @@
 
 #include <vector>
 
-#include "dmx/types.hpp"
+#include "dmx/packet.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
@@ -35,7 +35,7 @@ public:
 
   virtual void prepare() = 0;
 
-  virtual void update(UpdateInfo &info) = 0;
+  virtual void update(Packet &packet) = 0;
 };
 } // namespace dmx
 } // namespace pierre

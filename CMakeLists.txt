@@ -11,7 +11,8 @@ cmake_minimum_required(VERSION 3.13.4)
 project(pierre
   VERSION 1.0
   DESCRIPTION "Custom light show for Wiss Landing"
-  LANGUAGES CXX)
+  LANGUAGES CXX C
+)
 
 # only do the following in the base directory
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -20,6 +21,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   set(CMAKE_CXX_EXTENSIONS ON)
   set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+  set(CMAKE_C_STANDARD 11)
+  set(CMAKE_C_STANDARD_REQUIRED True)
 
   set(COMPILER_FLAGS)
   list(APPEND CXX_FLAGS
@@ -49,21 +53,28 @@ if(Boost_FOUND)
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
-include_directories(AFTER include/pierre)
+include_directories(AFTER
+  include/pierre
+)
 
 set(AUDIO src/audio)
 set(DMX src/dmx)
 SET(LIGHTDESK src/lightdesk)
 SET(HEADUNITS src/lightdesk/headunits)
+SET(FX src/lightdesk/fx)
 set(MISC src/misc)
+set(CLI src/cli)
 set(APPS apps)
 
 add_executable(pierre
-  ${AUDIO}/dsp.cpp ${AUDIO}/pcm.cpp ${AUDIO}/fft.cpp
-  ${DMX}/render.cpp ${DMX}/net.cpp
-  ${MISC}/random.cpp
-  ${LIGHTDESK}/lightdesk.cpp ${HEADUNITS}/pinspot.cpp
-  ${APPS}/pierre.cpp ${APPS}/main.cpp
+  ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft
+  ${DMX}/packet ${DMX}/net ${DMX}/render
+  ${MISC}/random
+  ${LIGHTDESK}/lightdesk
+  ${HEADUNITS}/pinspot
+  ${FX}/majorpeak
+  ${CLI}/linenoise ${CLI}/cli
+  ${APPS}/pierre ${APPS}/main
 )
 
 target_compile_options(pierre PRIVATE ${CXX_FLAGS})

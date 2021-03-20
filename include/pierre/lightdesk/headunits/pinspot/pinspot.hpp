@@ -33,6 +33,32 @@ class PinSpot;
 typedef std::shared_ptr<PinSpot> spPinSpot;
 
 class PinSpot : public HeadUnit {
+public:
+  enum Fx {
+    fxNone = 0x00,
+    fxPrimaryColorsCycle = 0x01,
+    fxRedOnGreenBlueWhiteJumping = 0x02,
+    fxGreenOnRedBlueWhiteJumping = 0x03,
+    fxBlueOnRedGreenWhiteJumping = 0x04,
+    fxWhiteOnRedGreenBlueJumping = 0x05,
+    fxWhiteFadeInOut = 0x06,
+    fxRgbwGradientFast = 0x07,
+    fxRedGreenGradient = 0x08,
+    fxRedBlueGradient = 0x09,
+    fxBlueGreenGradient = 0x0a,
+    fxFullSpectrumCycle = 0x0b,
+    fxFullSpectrumJumping = 0x0c,
+    fxColorCycleSound = 0x0d,
+    fxColorStrobeSound = 0x0e,
+    fxFastStrobeSound = 0x0f,
+    fxBeginCustom = 0x10,
+    fxColorBars = 0x11,
+    fxWashedSound,
+    fxSimpleStrobe,
+    fxMajorPeak,
+    fxMajorPeakAlternate,
+    fxEndOfList
+  };
 
 public:
   PinSpot(uint16_t address = 1);
@@ -47,11 +73,11 @@ public:
   inline bool isFading() const { return faderActive(); }
 
   // modes
-  void autoRun(FxType_t fx);
+  void autoRun(Fx fx);
   inline void black() { dark(); }
-  const Color_t &color() const { return _color; }
+  const Color &color() const { return _color; }
   void color(int r, int g, int b, int w) { color(Color(r, g, b, w)); }
-  void color(const Color_t &color, float strobe = 0.0);
+  void color(const Color &color, float strobe = 0.0);
 
   void dark();
   inline const FaderOpts_t &fadeCurrentOpts() const {
@@ -68,21 +94,21 @@ public:
       fadeTo(fadeout);
     }
   }
-  void fadeTo(const Color_t &color, float secs = 1.0, float accel = 0.0);
+  void fadeTo(const Color &color, float secs = 1.0, float accel = 0.0);
   void fadeTo(const FaderOpts_t &opts);
 
   typedef enum { AUTORUN = 0x3000, DARK, COLOR, FADER } Mode_t;
 
 private:
   // functions
-  uint8_t autorunMap(FxType_t fx) const;
+  uint8_t autorunMap(Fx fx) const;
 
   inline bool faderActive() const { return _fader.active(); }
   inline bool faderFinished() const { return _fader.finished(); };
   inline const FaderOpts &faderOpts() const { return _fader.initialOpts(); }
   void faderMove();
 
-  inline const Color_t &faderSelectOrigin(const FaderOpts_t &fo) const {
+  inline const Color &faderSelectOrigin(const FaderOpts_t &fo) const {
     if (fo.use_origin) {
       return fo.origin;
     }
@@ -92,18 +118,15 @@ private:
 
   void faderStart(const FaderOpts &opts);
 
-  void frameUpdate(dmx::UpdateInfo &info) override;
+  void frameUpdate(dmx::Packet &packet) override;
 
 private:
-  // update frame spinlock
-  // portMUX_TYPE _spinlock = portMUX_INITIALIZER_UNLOCKED;
-
   Mode_t _mode = DARK;
 
-  Color_t _color;
+  Color _color;
   uint8_t _strobe = 0;
   uint8_t _strobe_max = 104;
-  FxType_t _fx = fxNone;
+  Fx _fx = fxNone;
 
   Fader_t _fader;
 }; // namespace lightdesk

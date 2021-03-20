@@ -26,8 +26,8 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 
+#include "dmx/packet.hpp"
 #include "dmx/producer.hpp"
-#include "dmx/types.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
@@ -42,13 +42,11 @@ typedef boost::system::error_code error_code;
 typedef boost::asio::ip::udp::resolver::results_type endpoints;
 
 class Net {
+
 public:
   Net(io_context &io_ctx, const string_t &host, const string_t &port);
 
-  // bool connect();
-  // bool connected() { return _socket.is_open(); }
-  // bool read(rx_data &data);
-  bool write(const UpdateInfo &info);
+  bool write(Packet &packet);
 
   void shutdown();
 
@@ -67,8 +65,6 @@ private:
       size_t bytes;
     } msgpack;
   } stats;
-
-  size_t _msgpack_bytes;
 };
 
 } // namespace dmx

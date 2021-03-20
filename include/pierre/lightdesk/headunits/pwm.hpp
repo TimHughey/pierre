@@ -120,14 +120,14 @@ public:
     }
   }
 
-  virtual void frameUpdate(dmx::UpdateInfo &info) override {
+  virtual void frameUpdate(dmx::Packet &packet) override {
 
     _duty = _unit_next;
 
-    JsonObject &obj = info.obj;
+    auto root = packet.rootObj();
 
     if (_id[0] != 0x00) {
-      obj[_id.data()] = _duty;
+      root[_id.data()] = _duty;
     }
   }
 

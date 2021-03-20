@@ -26,6 +26,7 @@
 #include "audio/dsp.hpp"
 #include "audio/net.hpp"
 #include "audio/pcm.hpp"
+#include "cli/cli.hpp"
 #include "dmx/render.hpp"
 #include "lightdesk/lightdesk.hpp"
 #include "local/types.hpp"

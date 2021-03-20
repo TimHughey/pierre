@@ -23,8 +23,6 @@
 
 #include "math.h"
 
-#include "dmx/types.hpp"
-#include "lightdesk/types.hpp"
 #include "local/types.hpp"
 #include "misc/random.hpp"
 
@@ -32,6 +30,10 @@ namespace pierre {
 namespace lightdesk {
 
 class Color {
+
+public:
+  enum Part { RED = 0, GREEN, BLUE, WHITE, END };
+
 public:
   Color(){};
 
@@ -56,47 +58,47 @@ public:
     rgbw(red, grn, blu, wht);
   }
 
-  Color(const Color_t &rhs) = default;
+  Color(const Color &rhs) = default;
 
   // specific colors
-  static Color_t none() { return Color(0); }
-  static Color_t black() { return Color(0); }
-  static Color_t bright() { return Color(255, 255, 255, 255); }
+  static Color none() { return Color(0); }
+  static Color black() { return Color(0); }
+  static Color bright() { return Color(255, 255, 255, 255); }
 
-  static Color_t crimson() { return Color(220, 10, 30); }
-  static Color_t red() { return Color(255, 0, 0); }
-  static Color_t salmon() { return Color(250, 128, 114); }
-  static Color_t fireBrick() { return Color(178, 34, 34); }
-  static Color_t gold() { return Color(255, 215, 0); }
-  static Color_t yellow() { return Color(255, 255, 0); }
-  static Color_t yellow25() { return Color(64, 64, 0); }
-  static Color_t yellow50() { return Color(128, 128, 0); }
-  static Color_t yellow75() { return Color(191, 191, 0); }
-  static Color_t green() { return Color(0, 255, 0, 0); }
-  static Color_t lawnGreen() { return Color(124, 252, 0); }
-  static Color_t seaGreen() { return Color(46, 139, 87); }
-  static Color_t lightGreen() { return Color(144, 238, 144); }
-  static Color_t limeGreen() { return Color(50, 205, 50); }
-  static Color_t forestGreen() { return Color(34, 139, 34); }
-  static Color_t teal() { return Color(0, 128, 128); }
-  static Color_t cyan() { return Color(0, 255, 255, 0); }
-  static Color_t blue() { return Color(0, 0, 255, 0); }
-  static Color_t powderBlue() { return Color(176, 224, 230); }
-  static Color_t cadetBlue() { return Color(95, 158, 160); }
-  static Color_t steelBlue() { return Color(70, 130, 180); }
-  static Color_t deepSkyBlue() { return Color(0, 191, 255); }
-  static Color_t dodgerBlue() { return Color(30, 144, 255); }
-  static Color_t magenta() { return Color(255, 0, 255, 0); }
-  static Color_t blueViolet() { return Color(138, 43, 226); }
-  static Color_t darkViolet() { return Color(148, 0, 211); }
-  static Color_t deepPink() { return Color(255, 20, 74); }
-  static Color_t hotPink() { return Color(255, 105, 180); }
-  static Color_t pink() { return Color(255, 192, 203); }
+  static Color crimson() { return Color(220, 10, 30); }
+  static Color red() { return Color(255, 0, 0); }
+  static Color salmon() { return Color(250, 128, 114); }
+  static Color fireBrick() { return Color(178, 34, 34); }
+  static Color gold() { return Color(255, 215, 0); }
+  static Color yellow() { return Color(255, 255, 0); }
+  static Color yellow25() { return Color(64, 64, 0); }
+  static Color yellow50() { return Color(128, 128, 0); }
+  static Color yellow75() { return Color(191, 191, 0); }
+  static Color green() { return Color(0, 255, 0, 0); }
+  static Color lawnGreen() { return Color(124, 252, 0); }
+  static Color seaGreen() { return Color(46, 139, 87); }
+  static Color lightGreen() { return Color(144, 238, 144); }
+  static Color limeGreen() { return Color(50, 205, 50); }
+  static Color forestGreen() { return Color(34, 139, 34); }
+  static Color teal() { return Color(0, 128, 128); }
+  static Color cyan() { return Color(0, 255, 255, 0); }
+  static Color blue() { return Color(0, 0, 255, 0); }
+  static Color powderBlue() { return Color(176, 224, 230); }
+  static Color cadetBlue() { return Color(95, 158, 160); }
+  static Color steelBlue() { return Color(70, 130, 180); }
+  static Color deepSkyBlue() { return Color(0, 191, 255); }
+  static Color dodgerBlue() { return Color(30, 144, 255); }
+  static Color magenta() { return Color(255, 0, 255, 0); }
+  static Color blueViolet() { return Color(138, 43, 226); }
+  static Color darkViolet() { return Color(148, 0, 211); }
+  static Color deepPink() { return Color(255, 20, 74); }
+  static Color hotPink() { return Color(255, 105, 180); }
+  static Color pink() { return Color(255, 192, 203); }
 
-  static Color_t lightBlue() { return Color{0, 0, 255, 255}; }
-  static Color_t lightRed() { return Color(255, 0, 0, 255); }
-  static Color_t lightViolet() { return Color(255, 255, 0, 255); }
-  static Color_t lightYellow() { return Color(255, 255, 0, 255); }
+  static Color lightBlue() { return Color{0, 0, 255, 255}; }
+  static Color lightRed() { return Color(255, 0, 0, 255); }
+  static Color lightViolet() { return Color(255, 255, 0, 255); }
+  static Color lightYellow() { return Color(255, 255, 0, 255); }
 
   void copyToByteArray(uint8_t *array) const {
     for (auto i = 0; i < endOfParts(); i++) {
@@ -105,16 +107,7 @@ public:
     }
   }
 
-  void copyTo(dmx::Frame &frame, uint start_pos) {
-    auto snippet = frame.begin() + start_pos;
-
-    for (auto i = 0; i < endOfParts(); i++) {
-      const float val = rint(colorPartConst(i));
-      snippet[i] = (uint8_t)val;
-    }
-  }
-
-  inline float &colorPart(ColorPart_t part) {
+  inline float &colorPart(Color::Part part) {
     const uint32_t i = static_cast<uint32_t>(part);
 
     return _parts[i];
@@ -122,15 +115,15 @@ public:
 
   inline float colorPartConst(uint32_t part) const { return _parts[part]; }
 
-  inline float colorPartConst(ColorPart_t part) const {
+  inline float colorPartConst(Color::Part part) const {
     const uint32_t i = static_cast<uint32_t>(part);
 
     return _parts[i];
   }
 
-  void diff(const Color_t &c1, const Color_t &c2, bool (&directions)[4]) {
+  void diff(const Color &c1, const Color &c2, bool (&directions)[4]) {
     for (auto i = 0; i < endOfParts(); i++) {
-      ColorPart_t cp = static_cast<ColorPart_t>(i);
+      Color::Part cp = static_cast<Color::Part>(i);
 
       float p1 = c1.colorPartConst(cp);
       float p2 = c2.colorPartConst(cp);
@@ -140,9 +133,7 @@ public:
     }
   }
 
-  inline uint8_t endOfParts() const {
-    return static_cast<uint8_t>(END_OF_PARTS);
-  }
+  inline uint8_t endOfParts() const { return static_cast<uint8_t>(Part::END); }
 
   bool notBlack() const {
     bool rc = false;
@@ -156,12 +147,12 @@ public:
     return rc;
   }
 
-  Color_t operator=(const Rgbw_t val) {
+  Color operator=(const Rgbw_t val) {
     rgbw(val);
     return *this;
   }
 
-  bool operator==(const Color_t &rhs) const {
+  bool operator==(const Color &rhs) const {
     bool rc = true;
 
     for (auto k = 0; k < endOfParts(); k++) {
@@ -171,7 +162,7 @@ public:
     return rc;
   }
 
-  bool operator<=(const Color_t &rhs) const {
+  bool operator<=(const Color &rhs) const {
     bool rc = true;
 
     for (auto k = 0; k < endOfParts(); k++) {
@@ -181,7 +172,7 @@ public:
     return rc;
   }
 
-  bool operator>=(const Color_t &rhs) const {
+  bool operator>=(const Color &rhs) const {
     bool rc = true;
 
     for (auto k = 0; k < endOfParts(); k++) {
@@ -193,16 +184,16 @@ public:
 
   void print() const {
     printf("r[%03.2f] g[%03.2f] b[%03.2f] w[%03.2f]\n",
-           colorPartConst(RED_PART), colorPartConst(GREEN_PART),
-           colorPartConst(BLUE_PART), colorPartConst(WHITE_PART));
+           colorPartConst(Part::RED), colorPartConst(Part::GREEN),
+           colorPartConst(Part::BLUE), colorPartConst(Part::WHITE));
   }
 
   static const Color randomize() {
     Color c;
 
-    const uint32_t end_of_parts = static_cast<uint32_t>(WHITE_PART);
+    const uint32_t end_of_parts = static_cast<uint32_t>(Part::WHITE);
     for (uint32_t i = 0; i < end_of_parts; i++) {
-      const ColorPart_t part = static_cast<ColorPart_t>(i);
+      const Color::Part part = static_cast<Color::Part>(i);
 
       switch (roll2D6()) {
       case 2:
@@ -245,10 +236,10 @@ public:
   }
 
   void rgbw(uint8_t red, uint8_t grn, uint8_t blu, uint8_t wht) {
-    colorPart(RED_PART) = static_cast<float>(red);
-    colorPart(GREEN_PART) = static_cast<float>(grn);
-    colorPart(BLUE_PART) = static_cast<float>(blu);
-    colorPart(WHITE_PART) = static_cast<float>(wht);
+    colorPart(Part::RED) = static_cast<float>(red);
+    colorPart(Part::GREEN) = static_cast<float>(grn);
+    colorPart(Part::BLUE) = static_cast<float>(blu);
+    colorPart(Part::WHITE) = static_cast<float>(wht);
   }
 
   inline void scale(float tobe_val) {
@@ -287,21 +278,21 @@ private:
 public:
   ColorVelocity() {}
 
-  void calculate(const Color_t &begin, const Color_t &end, float travel_secs) {
+  void calculate(const Color &begin, const Color &end, float travel_secs) {
     const float travel_frames = travel_secs * 44.0;
     Color distance;
 
     distance.diff(begin, end, _directions);
 
-    const uint32_t end_of_parts = static_cast<uint32_t>(END_OF_PARTS);
+    const uint32_t end_of_parts = static_cast<uint32_t>(Color::Part::END);
     for (uint32_t i = 0; i < end_of_parts; i++) {
-      const ColorPart_t part = static_cast<ColorPart_t>(i);
+      const Color::Part part = static_cast<Color::Part>(i);
 
       velocity(part) = distance.colorPartConst(part) / travel_frames;
     }
   }
 
-  float direction(ColorPart_t part) const {
+  float direction(Color::Part part) const {
     const uint32_t i = static_cast<uint32_t>(part);
     bool dir = _directions[i];
     float val = (dir) ? 1.0 : -1.0;
@@ -309,22 +300,22 @@ public:
     return val;
   }
 
-  void moveColor(Color_t &color, const Color_t &dest, bool &more_travel) {
-    const uint32_t end_of_parts = static_cast<uint32_t>(END_OF_PARTS);
+  void moveColor(Color &color, const Color &dest, bool &more_travel) {
+    const uint32_t end_of_parts = static_cast<uint32_t>(Color::Part::END);
     for (uint32_t i = 0; i < end_of_parts; i++) {
-      const ColorPart_t part = static_cast<ColorPart_t>(i);
+      const Color::Part part = static_cast<Color::Part>(i);
 
       movePart(part, color, dest, more_travel);
     }
   }
 
-  inline float &velocity(ColorPart_t part) {
+  inline float &velocity(Color::Part part) {
     const uint32_t i = static_cast<uint32_t>(part);
     return _velocity[i];
   }
 
 private:
-  void movePart(ColorPart_t part, Color_t &color, const Color_t &dest_color,
+  void movePart(Color::Part part, Color &color, const Color &dest_color,
                 bool &more_travel) {
     const float dest = dest_color.colorPartConst(part);
     const float dir = direction(part);
@@ -348,7 +339,7 @@ private:
     color.colorPart(part) = new_pos;
   }
 
-  inline float velocityActual(ColorPart_t part) {
+  inline float velocityActual(Color::Part part) {
     const uint32_t i = static_cast<uint32_t>(part);
     return (_velocity[i] * direction(part));
   }

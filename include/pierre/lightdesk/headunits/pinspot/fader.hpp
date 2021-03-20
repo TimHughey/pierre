@@ -34,22 +34,22 @@ class FaderOpts {
 public:
   FaderOpts() = default;
 
-  FaderOpts(const Color_t &dest, float travel_secs)
+  FaderOpts(const Color &dest, float travel_secs)
       : dest(dest), travel_secs(travel_secs){};
 
-  FaderOpts(const Color_t &dest, float ts, bool use_origin, float a = 1.0,
+  FaderOpts(const Color &dest, float ts, bool use_origin, float a = 1.0,
             float l = 0.0)
       : dest(dest), travel_secs(ts), use_origin(use_origin), accel(a),
         layover(l){};
 
-  FaderOpts(const Color_t &origin, const Color_t &dest, float ts = 1.0,
+  FaderOpts(const Color &origin, const Color &dest, float ts = 1.0,
             bool use_origin = false, float a = 1.0, float l = 0.0)
       : origin(origin), dest(dest), travel_secs(ts), use_origin(use_origin),
         accel(a), layover(l){};
 
 public:
-  Color_t origin;
-  Color_t dest;
+  Color origin;
+  Color dest;
   float travel_secs = 1.0;
   bool use_origin = false;
   float accel = 0.0;
@@ -65,20 +65,7 @@ public:
 
   inline const FaderOpts_t &initialOpts() const { return _opts; }
 
-  const Color_t &location() const { return _location; }
-  void print() {
-    printf("loc[%3.2f %3.2f %3.2f %3.2f]\n"
-           "vel[%3.2f %3.2f %3.2f %3.2f]\n"
-           "dir[%3.2f %3.2f %3.2f %3.2f]\n",
-           _location.colorPartConst(RED_PART),
-           _location.colorPartConst(GREEN_PART),
-           _location.colorPartConst(BLUE_PART),
-           _location.colorPartConst(WHITE_PART), _velocity.velocity(RED_PART),
-           _velocity.velocity(GREEN_PART), _velocity.velocity(BLUE_PART),
-           _velocity.velocity(WHITE_PART), _velocity.direction(RED_PART),
-           _velocity.direction(GREEN_PART), _velocity.direction(BLUE_PART),
-           _velocity.direction(WHITE_PART));
-  }
+  const Color &location() const { return _location; }
 
   void prepare(const FaderOpts_t &opts) {
     _finished = false;
@@ -90,7 +77,7 @@ public:
     _velocity.calculate(_opts.origin, _opts.dest, _opts.travel_secs);
   }
 
-  void prepare(const Color_t &origin, FaderOpts_t opts) {
+  void prepare(const Color &origin, FaderOpts_t opts) {
     opts.origin = origin;
     prepare(opts);
   }
@@ -116,8 +103,8 @@ public:
 
 private:
   FaderOpts_t _opts;
-  Color_t _location;         // current fader location
-  ColorVelocity_t _velocity; // velocity required to travel to destination
+  Color _location;         // current fader location
+  ColorVelocity _velocity; // velocity required to travel to destination
 
   bool _traveled = false;
   bool _finished = true;

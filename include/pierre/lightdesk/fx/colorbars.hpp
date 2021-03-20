@@ -21,24 +21,25 @@
 #ifndef pierre_lightdesk_fx_colorbars_hpp
 #define pierre_lightdesk_fx_colorbars_hpp
 
-#include "lightdesk/fx/base.hpp"
+#include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
 
-class ColorBars : public FxBase {
+class ColorBars : public Fx {
 public:
-  ColorBars() : FxBase(fxColorBars) {
-    countMax() = 10;
-    count() = 10;
+  ColorBars() : Fx() {
+    main = unit<PinSpot>("main");
+    fill = unit<PinSpot>("fill");
   }
 
-protected:
-  void executeEffect() {
-    PinSpot_t *pinspot = nullptr;
+  void begin() override{};
 
-    if (pinSpotMain()->isFading() || pinSpotFill()->isFading()) {
+  void execute() override {
+    PinSpot *pinspot = nullptr;
+
+    if (main->isFading() || fill->isFading()) {
       // this is a no op while the PinSpots are fading
       return;
     }
@@ -47,19 +48,19 @@ protected:
     const auto pinspot_select = count() % 2;
     if (pinspot_select == 0) {
       // evens we act on the main pinspot
-      pinspot = pinSpotMain();
+      pinspot = main.get();
     } else {
-      pinspot = pinSpotFill();
+      pinspot = fill.get();
     }
 
     switch (count()) {
     case 1:
-      completed();
+      _finished = true;
       break;
 
     case 2:
-      pinSpotMain()->color(Color::black());
-      pinSpotFill()->color(Color::black());
+      main->color(Color::black());
+      fill->color(Color::black());
       break;
 
     case 3:
@@ -90,11 +91,27 @@ protected:
     count()--;
   }
 
+  const string_t &name() const override {
+    static const string_t fx_name = "ColorBars";
+
+    return fx_name;
+  }
+
 private:
-  FaderOpts_t _fade{.origin = Color::black(),
-                    .dest = Color::black(),
-                    .travel_secs = 0.3f,
-                    .use_origin = true};
+  uint &count() {
+    static uint x = 10;
+
+    return x;
+  }
+
+private:
+  spPinSpot main;
+  spPinSpot fill;
+
+  FaderOpts _fade{.origin = Color::black(),
+                  .dest = Color::black(),
+                  .travel_secs = 0.3f,
+                  .use_origin = true};
 };
 
 } // namespace fx

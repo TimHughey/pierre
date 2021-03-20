@@ -32,9 +32,6 @@ bool parseArgs(int ac, char *av[], Pierre::Config &cfg);
 int main(int argc, char *argv[]) {
   Pierre::Config cfg;
 
-  cout << "\033[2J";
-  cout << "Hello, this is Pierre." << endl;
-
   if ((argc > 1) && (parseArgs(argc, argv, cfg) == false)) {
     exit(1);
   }
@@ -54,12 +51,7 @@ bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
   // Declare the supported options.
   po::options_description desc("pierre options:");
   desc.add_options()("help", "display this help text")(
-      "dmx", po::value<string_t>(), "stream dmx frames")(
-      "dB-floor-peak", po::value<float>(), "register peaks > dB")(
-      "dB-floor-bass", po::value<float>(), "register bass > dB")(
-      "color-scale-min", po::value<float>(), "color scaling range minimum")(
-      "color-scale-max", po::value<float>(), "color scaling range maximum")(
-      "desk-dB-floor", po::value<float>(), "lightdesk major peak dB floor");
+      "dmx", po::value<string_t>(), "stream dmx frames to host");
 
   po::variables_map vm;
   po::store(po::parse_command_line(ac, av, desc), vm);
@@ -72,26 +64,6 @@ bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
 
   if (vm.count("dmx")) {
     cfg.dmx.host = vm["dmx"].as<std::string>();
-  }
-
-  if (vm.count("peak-dB-floor")) {
-    cfg.dsp.floor.peak_dB = vm["dB-floor-peak"].as<float>();
-  }
-
-  if (vm.count("bass-dB-floor")) {
-    cfg.dsp.floor.bass_dB = vm["dB-floor-bass"].as<float>();
-  }
-
-  if (vm.count("color-scale-min")) {
-    cfg.lightdesk.color.scale.min = vm["color-scale-min"].as<float>();
-  }
-
-  if (vm.count("color-scale-max")) {
-    cfg.lightdesk.color.scale.max = vm["color-scale-max"].as<float>();
-  }
-
-  if (vm.count("desk-dB-floor")) {
-    cfg.lightdesk.majorpeak.dB_floor = vm["desk-dB-floor"].as<float>();
   }
 
   return true;

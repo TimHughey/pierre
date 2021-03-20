@@ -41,39 +41,44 @@ typedef std::shared_ptr<_HeadUnitMap> HeadUnitMap;
 class HeadUnitTracker {
 public:
   HeadUnitTracker() = default;
+  ~HeadUnitTracker() = default;
+
+  HeadUnitTracker(const HeadUnitTracker &) = delete;
+  HeadUnitTracker &operator=(const HeadUnitTracker &) = delete;
+
+  template <typename T> std::shared_ptr<T> find(const string_t name) {
+    auto search = _map->find(name);
+    auto x = std::static_pointer_cast<T>(std::get<1>(*search));
+    return x;
+  }
+
+  template <typename T> void insert(const string_t name, uint address = 0) {
+    auto pair = std::make_pair(name, std::make_shared<T>(address));
+
+    _map->insert(pair);
+  }
 
   HeadUnitMap map() { return _map; }
 
-  std::shared_ptr<DiscoBall> discoball(const string_t name) {
+  void prepare() {
+    std::for_each(_map->begin(), _map->end(), [](auto x) {
+      auto unit = std::get<1>(x);
+      unit->framePrepare();
+    });
+  }
+
+  template <typename T> std::shared_ptr<T> unit(const string_t name) {
     auto search = _map->find(name);
-
-    auto x = std::static_pointer_cast<DiscoBall>(std::get<1>(*search));
-
+    auto x = std::static_pointer_cast<T>(std::get<1>(*search));
     return x;
   }
 
-  std::shared_ptr<ElWire> elWire(const string_t name) {
-    auto search = _map->find(name);
+  void update(dmx::Packet &packet) {
+    for (auto t : *_map) {
+      auto headunit = std::get<1>(t);
 
-    auto x = std::static_pointer_cast<ElWire>(std::get<1>(*search));
-
-    return x;
-  }
-
-  std::shared_ptr<LedForest> ledforest(const string_t name) {
-    auto search = _map->find(name);
-
-    auto x = std::static_pointer_cast<LedForest>(std::get<1>(*search));
-
-    return x;
-  }
-
-  std::shared_ptr<PinSpot> pinspot(const string_t name) {
-    auto search = _map->find(name);
-
-    auto x = std::static_pointer_cast<PinSpot>(std::get<1>(*search));
-
-    return x;
+      headunit->frameUpdate(packet);
+    }
   }
 
 private:

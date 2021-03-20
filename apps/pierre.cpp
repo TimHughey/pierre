@@ -53,6 +53,14 @@ void Pierre::run() {
   pcm->addProcessor(dsp);
   dmx->addProducer(lightdesk);
 
+  Cli cli;
+  cli.run();
+
+  lightdesk->shutdown();
+  dmx->shutdown();
+  dsp->shutdown();
+  pcm->shutdown();
+
   for (auto t : threads) {
     t->join();
   }

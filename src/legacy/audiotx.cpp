@@ -236,7 +236,7 @@ void AudioTx::FFTThread() {
         const Peaks_t &peaks = _fft_left.peaks();
         const PeakInfo mpeak = _fft_left.majorPeak(peaks);
 
-        fft_log << "left peak[" << mpeak.freq << "] dB[" << mpeak.dB << "] ";
+        fft_log << "left peak[" << mpeak.freq << "] dB[" << mpeak.mag << "] ";
       }
 
       fft_log.flush();

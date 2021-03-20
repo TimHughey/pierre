@@ -21,61 +21,49 @@
 #ifndef pierre_lightdesk_fx_base_hpp
 #define pierre_lightdesk_fx_base_hpp
 
-// #include "lightdesk/headunits/elwire.hpp"
-// #include "lightdesk/headunits/ledforest.hpp"
-#include "audio/processor/signal.hpp"
-#include "lightdesk/headunits/pinspot/pinspot.hpp"
-#include "lightdesk/types.hpp"
+#include "lightdesk/headunits/tracker.hpp"
+#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
 
-typedef class FxBase FxBase_t;
-
-class FxBase {
+class Fx {
 public:
-  FxBase() = delete;
-  FxBase(const FxType type) : _type(type) {}
+  Fx() = default;
+  virtual ~Fx() = default;
 
-  virtual ~FxBase() = default;
+  virtual void begin() = 0;
+  virtual void execute() = 0;
+  virtual bool finished() { return _finished; }
 
-  virtual void begin() {}
+  bool matchName(const string_t match) {
+    auto rc = false;
+    if (name().compare(match) == 0) {
+      rc = true;
+    }
 
-  virtual void execute(std::shared_ptr<audio::DspResults> results) {}
-
-  static void setFxMaxSecs(const float fx_max_secs);
-
-  // static void stats(FxStats_t &stats) { stats = _stats; }
-
-  FxType_t type() const { return _type; }
-
-protected:
-  FxType_t fx() const { return _type; }
-
-  // headunits
-  // inline ElWire_t *elWireDanceFloor() const { return _cfg.elwire.dance_floor;
-  // } inline ElWire_t *elWireEntry() const { return _cfg.elwire.entry; } inline
-  // LedForest_t *ledForest() const { return _cfg.led_forest; } inline PinSpot_t
-  // *pinSpotFill() const { return _cfg.pinspot.fill; } inline PinSpot_t
-  // *pinSpotMain() const { return _cfg.pinspot.main; }
-
-  // effect runtime helpers
-  void runtime(const float secs) { _runtime_secs = secs; }
-  float runtimeDefault() const { return _fx_max_secs; }
-  void runtimeUseDefault() { _runtime_secs = _fx_max_secs; }
-  float runtimePercent(const float percent) { return _runtime_secs * percent; }
-  void runtimeReduceTo(const float percent) {
-    _runtime_secs = _fx_max_secs * percent;
+    return rc;
   }
 
-private:
-  FxType_t _type = fxNone;
-  // static FxConfig_t _cfg;
-  // static FxStats_t _stats;
+  virtual const string_t &name() const = 0;
+  static void resetTracker() { _tracker.reset(); }
 
-  static float _fx_max_secs;
-  float _runtime_secs = _fx_max_secs;
+  static void setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
+    _tracker = std::move(tracker);
+  }
+
+  template <typename T> std::shared_ptr<T> unit(const string_t name) {
+    auto x = _tracker->unit<T>(name);
+
+    return std::move(x);
+  }
+
+protected:
+  bool _finished = false;
+
+private:
+  static std::shared_ptr<HeadUnitTracker> _tracker;
 };
 
 } // namespace fx

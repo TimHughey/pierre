@@ -54,6 +54,7 @@ public:
   }
 
   std::shared_ptr<std::thread> run();
+  void shutdown() { _shutdown = true; }
 
 private:
   void stream();

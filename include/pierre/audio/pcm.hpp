@@ -64,6 +64,7 @@ public:
   }
 
   std::shared_ptr<std::thread> run();
+  void shutdown() { _shutdown = true; }
 
 private:
   auto bytesToFrames(size_t bytes) const {

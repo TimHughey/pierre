@@ -220,8 +220,6 @@ void Pcm::stream() {
       p->push(packet);
     }
   }
-
-  cerr << "Pcm::stream() thread exit." << endl;
 }
 } // namespace audio
 } // namespace pierre

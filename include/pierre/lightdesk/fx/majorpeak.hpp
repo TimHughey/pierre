@@ -23,26 +23,72 @@
 
 #include <deque>
 
+#include "audio/dsp.hpp"
 #include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
 
-class MajorPeak : public FxBase {
+class MajorPeak : public Fx {
 public:
-  MajorPeak() : FxBase(fxMajorPeak) { // selectFrequencyColors();
+  struct Config {
+    bool log = false;
+  };
+
+public:
+  MajorPeak(std::shared_ptr<audio::Dsp> dsp);
+  ~MajorPeak() = default;
+
+  void begin() override {}
+  void execute() override;
+  const string_t &name() const override {
+    static const string_t fx_name = "MajorPeak";
+
+    return fx_name;
   }
 
 private:
-private:
-  bool _swap_spots = false;
+  struct FreqColor {
+    struct {
+      Freq_t low;
+      Freq_t high;
+    } freq;
 
+    Color color;
+  };
+
+  typedef std::deque<FreqColor> Palette;
+
+private:
+  void handleLowFreq(const Peak &peak, const Color &color);
+  void handleOtherFreq(const Peak &peak, const Color &color);
+  Color lookupColor(const Peak &peak);
+  void logPeak(const Peak &peak) const;
+  void makePalette();
+  void pushPaletteColor(Freq_t high, const Color &color);
+
+private:
+  Config _cfg;
   const float _mid_range_frequencies[13] = {349.2, 370.0, 392.0, 415.3, 440.0,
                                             466.2, 493.9, 523.2, 544.4, 587.3,
                                             622.2, 659.3, 698.5};
 
-}; // namespace fx
+  std::shared_ptr<audio::Dsp> _dsp;
+
+  spPinSpot main;
+  spPinSpot fill;
+  spLedForest led_forest;
+  spElWire el_dance_floor;
+  spElWire el_entry;
+
+  static Palette _palette;
+
+  struct {
+    Peak main = Peak::zero();
+    Peak fill = Peak::zero();
+  } _last_peak;
+};
 
 } // namespace fx
 } // namespace lightdesk

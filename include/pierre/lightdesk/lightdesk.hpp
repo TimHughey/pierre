@@ -27,6 +27,8 @@
 
 #include "audio/dsp.hpp"
 #include "dmx/producer.hpp"
+
+#include "lightdesk/fx/fx.hpp"
 #include "lightdesk/headunits/discoball.hpp"
 #include "lightdesk/headunits/elwire.hpp"
 #include "lightdesk/headunits/ledforest.hpp"
@@ -43,51 +45,34 @@ class LightDesk : public dmx::Producer {
 public:
   struct Config {
     struct {
-      float dB_floor = 44.2f;
       bool log = false;
     } majorpeak;
-
-    struct {
-      struct {
-        float max = 65.0f;
-        float min = 44.2f;
-      } scale;
-    } color;
   };
-
-  struct FreqColor {
-    struct {
-      Freq_t low;
-      Freq_t high;
-    } freq;
-
-    Color_t color;
-  };
-
-  typedef std::deque<FreqColor> Palette;
 
 public:
   LightDesk(const Config &cfg, std::shared_ptr<audio::Dsp> dsp);
-  ~LightDesk() = default;
+  ~LightDesk();
 
   LightDesk(const LightDesk &) = delete;
   LightDesk &operator=(const LightDesk &) = delete;
 
-  void prepare() override;
+  void prepare() override { _hunits->prepare(); }
 
   std::shared_ptr<std::thread> run();
+  void shutdown() { _shutdown = true; }
 
-  void update(dmx::UpdateInfo &info) override;
+  void update(dmx::Packet &packet) override {
+    executeFx();
+    _hunits->update(packet);
+  }
 
 private:
   void executeFx();
-  void handleLowFreq(const Peak &peak, const Color_t &color);
-  void handleOtherFreq(const Peak &peak, const Color_t &color);
-  void logPeak(const Peak &peak) const;
-  Color_t lookupColor(const Peak &peak);
-  void makePalette();
-  void pushPaletteColor(Freq_t high, const Color_t &color);
   void stream();
+
+  template <typename T> std::shared_ptr<T> unit(const string_t name) {
+    return _hunits->unit<T>(name);
+  }
 
 private:
   typedef std::shared_ptr<HeadUnitTracker> HUnits;
@@ -99,8 +84,9 @@ private:
   Config _cfg;
 
   std::shared_ptr<audio::Dsp> _dsp;
-
   HUnits _hunits = std::make_shared<HeadUnitTracker>();
+
+  std::unique_ptr<fx::Fx> _active_fx;
 
   spPinSpot main;
   spPinSpot fill;
@@ -108,13 +94,6 @@ private:
   spElWire el_dance_floor;
   spElWire el_entry;
   spDiscoBall discoball;
-
-  static Palette _palette;
-
-  struct {
-    Peak main = Peak::zero();
-    Peak fill = Peak::zero();
-  } _last_peak;
 };
 
 } // namespace lightdesk

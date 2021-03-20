@@ -38,11 +38,6 @@ public:
     uint rate = 48000;
 
     struct {
-      float peak_dB = 20.0f;
-      float bass_dB = 62.7f;
-    } floor;
-
-    struct {
       string_t path = "/dev/null";
     } log;
   };
@@ -57,6 +52,7 @@ public:
   const Peak majorPeak();
 
   std::shared_ptr<std::thread> run();
+  void shutdown() { _shutdown = true; }
 
 private:
   void stream();

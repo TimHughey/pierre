@@ -21,8 +21,7 @@
 #ifndef pierre_dmx_headunit_device_hpp
 #define pierre_dmx_headunit_device_hpp
 
-#include "dmx/types.hpp"
-#include "lightdesk/types.hpp"
+#include "dmx/packet.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
@@ -39,7 +38,7 @@ public:
   virtual ~HeadUnit() {}
 
   virtual void framePrepare() = 0;
-  virtual void frameUpdate(dmx::UpdateInfo &info) = 0;
+  virtual void frameUpdate(dmx::Packet &packet) = 0;
 
   virtual void dark() {}
 

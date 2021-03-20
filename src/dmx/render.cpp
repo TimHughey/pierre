@@ -24,8 +24,13 @@
 typedef StaticJsonDocument<1024> doc;
 
 using std::cerr, std::endl, std::vector;
+using std::chrono::duration;
+using std::chrono::duration_cast;
+using us = std::chrono::microseconds;
+using std::chrono::steady_clock;
+using std::chrono::time_point;
+
 namespace this_thread = std::this_thread;
-namespace chrono = std::chrono;
 
 namespace pierre {
 namespace dmx {
@@ -48,45 +53,31 @@ void Render::stream() {
 
   uint64_t frames = 0;
   long frame_us = ((1000 * 1000) / 44) - 250;
-  chrono::duration frame_interval_half = chrono::microseconds(frame_us / 2);
-  // chrono::time_point loop_start = chrono::steady_clock::now();
+  duration frame_interval_half = us(frame_us / 2);
 
   while (_shutdown == false) {
+    auto loop_start = steady_clock::now();
     for (auto p : _producers) {
       p->prepare();
     }
 
     this_thread::sleep_for(frame_interval_half);
 
-    MsgPackDoc doc;
-    JsonObject root = doc.to<JsonObject>();
-    root["ACP"] = true; // AC power on
-
-    UpdateInfo info{.frame = _frame, .doc = doc, .obj = root};
+    dmx::Packet packet;
+    packet.rootObj()["ACP"] = true; // AC power on
 
     for (auto p : _producers) {
-      p->update(info);
+      p->update(packet);
     }
 
-    this_thread::sleep_for(frame_interval_half);
+    auto elapsed = duration_cast<us>(steady_clock::now() - loop_start);
 
-    _net.write(info);
+    this_thread::sleep_for(us(frame_us) - elapsed);
 
-    // auto loop_us = chrono::duration_cast<chrono::microseconds>(
-    //                    chrono::steady_clock::now() - loop_start)
-    //                    .count();
-
-    // if ((loop_us < 21000) || (loop_us > 23800)) {
-    //   double ms = double(loop_us) / 1000.0;
-    //   cerr.unsetf(std::ios::floatfield);
-    //   cerr.precision(4);
-    //   cerr << func << " " << ms << "ms ";
-    //   cerr << "frame=" << frames << endl;
-    // }
+    _net.write(packet);
 
     frames++;
   }
-  cerr << "Dmx::stream() exiting, shutting down and closing socket" << endl;
 }
 } // namespace dmx
 

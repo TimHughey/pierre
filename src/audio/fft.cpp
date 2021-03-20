@@ -135,7 +135,7 @@ void FFT::findPeaks(Peaks &peaks) {
     if ((a < b) && (b > c)) {
       // prevent finding peaks beyond samples / 2 since the
       // results of the FFT are symmetrical
-      if (peaks.size() == (_peaks_max - 1)) {
+      if (peaks.size() == (_max_num_peaks - 1)) {
         break;
       }
 
@@ -145,10 +145,8 @@ void FFT::findPeaks(Peaks &peaks) {
       mag_min = std::min(mag, mag_min);
       mag_max = std::max(mag, mag_max);
 
-      // if (db >= peak_dB_floor) {
       const Peak peak(i, freq, mag);
       peaks.push_back(peak);
-      //}
     }
   }
 

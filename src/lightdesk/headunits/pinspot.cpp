@@ -24,12 +24,12 @@ PinSpot::PinSpot(uint16_t address) : HeadUnit(address, 6) {}
 
 PinSpot::~PinSpot() {}
 
-void PinSpot::autoRun(FxType_t fx) {
+void PinSpot::autoRun(Fx fx) {
   _fx = fx;
   _mode = AUTORUN;
 }
 
-uint8_t PinSpot::autorunMap(FxType_t fx) const {
+uint8_t PinSpot::autorunMap(Fx fx) const {
   static const uint8_t model_codes[] = {0,   31,  63,  79,  95,  111, 127, 143,
                                         159, 175, 191, 207, 223, 239, 249, 254};
 
@@ -44,7 +44,7 @@ uint8_t PinSpot::autorunMap(FxType_t fx) const {
   return selected_model;
 }
 
-void PinSpot::color(const Color_t &color, float strobe) {
+void PinSpot::color(const Color &color, float strobe) {
   _color = color;
 
   if ((strobe >= 0.0) && (strobe <= 1.0)) {
@@ -70,26 +70,22 @@ void PinSpot::faderMove() {
   }
 }
 
-void PinSpot::fadeTo(const Color_t &dest, float secs, float accel) {
+void PinSpot::fadeTo(const Color &dest, float secs, float accel) {
   const FaderOpts fo{
       .origin = _color, .dest = dest, .travel_secs = secs, .accel = accel};
   fadeTo(fo);
 }
 
 void PinSpot::fadeTo(const FaderOpts_t &fo) {
-  const Color_t &origin = faderSelectOrigin(fo);
+  const Color &origin = faderSelectOrigin(fo);
 
   _fader.prepare(origin, fo);
 
   _mode = FADER;
 }
 
-void PinSpot::frameUpdate(dmx::UpdateInfo &info) {
-  dmx::Frame snippet;
-  snippet.assign(_frame_len, 0x00);
-
-  // always copy the color, only not used when mode is AUTORUN
-  // _color.copyToByteArray(&(data[1])); // color data bytes 1-5
+void PinSpot::frameUpdate(dmx::Packet &packet) {
+  auto snippet = packet.frameData() + _address;
 
   switch (_mode) {
   case DARK:
@@ -98,7 +94,7 @@ void PinSpot::frameUpdate(dmx::UpdateInfo &info) {
 
   case COLOR:
   case FADER:
-    _color.copyTo(snippet, 1);
+    _color.copyToByteArray(snippet + 1);
 
     if (_strobe > 0) {
       snippet[0] = _strobe + 0x87;
@@ -112,12 +108,6 @@ void PinSpot::frameUpdate(dmx::UpdateInfo &info) {
   case AUTORUN:
     snippet[5] = autorunMap(_fx);
     break;
-  }
-
-  auto frame_byte = info.frame.begin() + _address;
-
-  for (auto byte : snippet) {
-    *frame_byte++ = byte;
   }
 }
 

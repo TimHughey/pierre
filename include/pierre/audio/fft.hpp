@@ -51,12 +51,10 @@ enum class FFTWindow {
 };
 
 typedef float Freq_t;
-typedef float dB_t;
 typedef float Mag_t;
 typedef float MagScaled;
 
 struct Peak {
-
   struct Scale {
     Mag_t min = scale(36500.0f);
     Mag_t max = scale(1500000.0f);
@@ -69,9 +67,7 @@ struct Peak {
   Peak() = default;
 
   Peak(const uint_fast16_t i, const Freq_t f, const Mag_t m)
-      : index(i), freq(f), mag(m) {
-    // dB = 10.0f * log10(m);
-  }
+      : index(i), freq(f), mag(m) {}
 
   static Mag_t magFloor() { return _mag_floor; }
   MagScaled magScaled() const { return scale(mag); }
@@ -156,8 +152,7 @@ private:
   bool _weighingFactorsWithCompensation = false;
   static bool _weighingFactorsComputed;
   uint_fast8_t _power = 0;
-
-  const size_t _peaks_max = (_samples >> 1) + (_samples >> 2);
+  const size_t _max_num_peaks = _samples >> 1;
 };
 
 #endif

@@ -27,6 +27,7 @@ namespace this_thread = std::this_thread;
 namespace asio = boost::asio;
 namespace chrono = std::chrono;
 
+using asio::buffer;
 using boost::asio::ip::udp;
 
 namespace pierre {
@@ -43,43 +44,18 @@ Net::Net(io_context &io_ctx, const string_t &host, const string_t &port)
   _socket.open(udp::v4());
 }
 
-void Net::shutdown() {
-  //  _socket.shutdown(socket::shutdown_type::shutdown_both);
-  _socket.close();
-}
+void Net::shutdown() { _socket.close(); }
 
-bool Net::write(const UpdateInfo &info) {
+bool Net::write(Packet &packet) {
   bool rc = true;
   error_code ec;
 
-  auto data = info.frame;
+  stats.msgpack.bytes = packet.msgLength();
 
-  tx_data send_buff;
-  send_buff.assign(data.size() + 256, 0x00);
-  uint8_t *send_pos = send_buff.data();
+  auto tx_buff = buffer(packet.txData(), packet.txDataLength());
 
-  *send_pos++ = 0xd2; // mgaic lsb
-  *send_pos++ = 0xc9; // magiv msb
-
-  uint16_t frame_len = data.size();
-  *send_pos++ = frame_len & 0x00ff;        // frame len lsb
-  *send_pos++ = (frame_len & 0xff00) >> 8; // frame len msb
-
-  auto data_end = data.cend();
-  auto send_end = send_buff.data() + send_buff.size();
-
-  for (auto it = data.cbegin(); it != data_end; it++, send_pos++) {
-    if (send_pos == send_end) {
-      break;
-    }
-
-    *send_pos = *it;
-  }
-
-  auto remaining = send_buff.data() + send_buff.size() - send_pos;
-  stats.msgpack.bytes = serializeMsgPack(info.doc, send_pos, remaining);
-
-  _socket.send_to(asio::buffer(send_buff), _dest, 0, ec);
+  // only transmit the used portion of the packet
+  _socket.send_to(tx_buff, _dest, 0, ec);
 
   if (ec) {
     rc = false;
