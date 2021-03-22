@@ -37,6 +37,8 @@ public:
   virtual void execute() = 0;
   virtual bool finished() { return _finished; }
 
+  void leave() { _tracker->leave(); }
+
   bool matchName(const string_t match) {
     auto rc = false;
     if (name().compare(match) == 0) {

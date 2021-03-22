@@ -23,6 +23,7 @@
 #include <thread>
 
 #include "audio/dsp.hpp"
+#include "core/state.hpp"
 
 using namespace std;
 using namespace chrono;
@@ -73,7 +74,7 @@ void Dsp::stream() {
   auto &right_real = _right.real();
   auto right_pos = right_real.begin();
 
-  while (_shutdown == false) {
+  while (core::State::running()) {
     const auto entry = pop();         // actual queue entry
     const auto &samples = entry->raw; // raw samples
 

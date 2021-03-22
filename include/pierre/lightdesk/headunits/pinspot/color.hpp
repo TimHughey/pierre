@@ -188,49 +188,6 @@ public:
            colorPartConst(Part::BLUE), colorPartConst(Part::WHITE));
   }
 
-  static const Color randomize() {
-    Color c;
-
-    const uint32_t end_of_parts = static_cast<uint32_t>(Part::WHITE);
-    for (uint32_t i = 0; i < end_of_parts; i++) {
-      const Color::Part part = static_cast<Color::Part>(i);
-
-      switch (roll2D6()) {
-      case 2:
-      case 12:
-        c.colorPart(part) = 0.0f;
-        break;
-
-      case 3:
-      case 11:
-        c.colorPart(part) = static_cast<float>(random(128));
-        break;
-
-      case 4:
-      case 5:
-        c.colorPart(part) = static_cast<float>(random(64));
-        break;
-
-      case 6:
-      case 7:
-      case 8:
-        c.colorPart(part) = static_cast<float>(random(127) + random(128));
-        break;
-
-      case 9:
-      case 10:
-        c.colorPart(part) = static_cast<float>(random(32));
-        break;
-
-      default:
-        c.colorPart(part) = 10;
-        break;
-      }
-    }
-
-    return c;
-  }
-
   void rgbw(const Rgbw_t val) {
     rgbw((val >> 24), (val >> 16), (val >> 8), (uint8_t)val);
   }

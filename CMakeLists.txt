@@ -14,6 +14,8 @@ project(pierre
   LANGUAGES CXX C
 )
 
+set(_target pierre)
+
 # only do the following in the base directory
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
@@ -53,6 +55,26 @@ if(Boost_FOUND)
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
+message(STATUS "Resolving GIT Version")
+
+set(_build_version "unknown")
+
+find_package(Git)
+if(GIT_FOUND)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+    # WORKING_DIRECTORY "${local_dir}"
+    OUTPUT_VARIABLE _build_version
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  message( STATUS "GIT hash: ${_build_version}")
+else()
+  message(STATUS "GIT not found")
+endif()
+
+string(TIMESTAMP _time_stamp)
+
 include_directories(AFTER
   include/pierre
 )
@@ -66,7 +88,7 @@ set(MISC src/misc)
 set(CLI src/cli)
 set(APPS apps)
 
-add_executable(pierre
+add_executable(${_target}
   ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft
   ${DMX}/packet ${DMX}/net ${DMX}/render
   ${MISC}/random
@@ -77,9 +99,15 @@ add_executable(pierre
   ${APPS}/pierre ${APPS}/main
 )
 
-target_compile_options(pierre PRIVATE ${CXX_FLAGS})
 
-target_link_libraries(pierre
+
+configure_file(cmake/version.h.in version.h @ONLY)
+
+target_include_directories(${_target} PRIVATE ${CMAKE_BINARY_DIR})
+
+target_compile_options(${_target} PRIVATE ${CXX_FLAGS})
+
+target_link_libraries(${_target}
   ${Boost_LIBRARIES}
   ALSA::ALSA
   Threads::Threads

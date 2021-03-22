@@ -58,6 +58,13 @@ public:
     _map->insert(pair);
   }
 
+  void leave() {
+    std::for_each(_map->begin(), _map->end(), [](auto x) {
+      auto unit = std::get<1>(x);
+      unit->leave();
+    });
+  }
+
   HeadUnitMap map() { return _map; }
 
   void prepare() {

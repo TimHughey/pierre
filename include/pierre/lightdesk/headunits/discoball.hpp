@@ -30,14 +30,15 @@ class DiscoBall : public PulseWidthHeadUnit {
 
 public:
   DiscoBall(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
-    config.max = unitPercent(0.75);
+    config.leave = 0;
+
     _id[0] = 'D';
     _id[1] = 'S';
     _id[2] = 'B';
   }
 
 public: // effects
-  inline void spin() { fixed(0.63); }
+  inline void spin() { percent(0.65); }
   inline void still() { dark(); }
 };
 

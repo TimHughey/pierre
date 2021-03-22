@@ -21,7 +21,9 @@
 #include <chrono>
 #include <math.h>
 
+#include "core/state.hpp"
 #include "lightdesk/fx/colorbars.hpp"
+#include "lightdesk/fx/leave.hpp"
 #include "lightdesk/fx/majorpeak.hpp"
 #include "lightdesk/lightdesk.hpp"
 
@@ -35,21 +37,21 @@ using namespace fx;
 LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
     : _cfg(cfg), _dsp(std::move(dsp)) {
 
-  Fx::setTracker(_hunits);
+  Fx::setTracker(_tracker);
 
-  _hunits->insert<PinSpot>("main", 1);
-  _hunits->insert<PinSpot>("fill", 7);
-  _hunits->insert<DiscoBall>("discoball", 1);
-  _hunits->insert<ElWire>("el dance", 2);
-  _hunits->insert<ElWire>("el entry", 3);
-  _hunits->insert<LedForest>("led forest", 4);
+  _tracker->insert<PinSpot>("main", 1);
+  _tracker->insert<PinSpot>("fill", 7);
+  _tracker->insert<DiscoBall>("discoball", 1);
+  _tracker->insert<ElWire>("el dance", 2);
+  _tracker->insert<ElWire>("el entry", 3);
+  _tracker->insert<LedForest>("led forest", 4);
 
-  main = _hunits->unit<PinSpot>("main");
-  fill = _hunits->unit<PinSpot>("fill");
-  led_forest = _hunits->unit<LedForest>("led forest");
-  el_dance_floor = _hunits->unit<ElWire>("el dance");
-  el_entry = _hunits->unit<ElWire>("el entry");
-  discoball = _hunits->unit<DiscoBall>("discoball");
+  main = _tracker->unit<PinSpot>("main");
+  fill = _tracker->unit<PinSpot>("fill");
+  led_forest = _tracker->unit<LedForest>("led forest");
+  el_dance_floor = _tracker->unit<ElWire>("el dance");
+  el_entry = _tracker->unit<ElWire>("el entry");
+  discoball = _tracker->unit<DiscoBall>("discoball");
 
   const auto scale = Peak::scale();
 
@@ -58,18 +60,19 @@ LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
   discoball->spin();
 
   // initial Fx is ColorBars
-  _active_fx = make_unique<fx::ColorBars>();
+  _active.fx = make_unique<fx::ColorBars>();
 }
 
 LightDesk::~LightDesk() { Fx::resetTracker(); }
 
 void LightDesk::executeFx() {
-  _active_fx->execute();
 
-  if (_active_fx->finished()) {
+  lock_guard lck(_active.mtx);
+  _active.fx->execute();
 
-    if (_active_fx->matchName("ColorBars")) {
-      _active_fx = make_unique<MajorPeak>(_dsp);
+  if (_active.fx->finished()) {
+    if (_active.fx->matchName("ColorBars")) {
+      _active.fx = make_unique<MajorPeak>(_dsp);
     }
   }
 }
@@ -80,8 +83,31 @@ shared_ptr<thread> LightDesk::run() {
   return t;
 }
 
+void LightDesk::leave() {
+  auto x = core::State::leavingDuration<seconds>().count();
+
+  {
+    lock_guard lck(_active.mtx);
+    _active.fx = make_unique<Leave>();
+  }
+
+  cout << "leaving for " << x << " second";
+  if (x > 1) {
+    cout << "s";
+  }
+
+  cout << " (or Ctrl-C to quit immediately)";
+  cout.flush();
+
+  this_thread::sleep_for(core::State::leavingDuration<milliseconds>());
+
+  core::State::shutdown();
+
+  cout << endl;
+}
+
 void LightDesk::stream() {
-  while (_shutdown == false) {
+  while (core::State::running()) {
     this_thread::sleep_for(milliseconds(100));
     this_thread::yield();
   }

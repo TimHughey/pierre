@@ -36,19 +36,92 @@ bool Cli::run() {
   return true;
 }
 
+int Cli::doHelp() const {
+  cout << "available commands:" << endl << endl;
+  cout << "(h)elp       - display this message" << endl;
+  cout << "(l)eave <secs> - leave and shutdown after secs (default: 300)"
+       << endl;
+  cout << "version      - display git revision and build time" << endl;
+  cout << "q or x       - immediately shutdown" << endl;
+
+  return 0;
+}
+
+int Cli::doLeave(const string_t &args) const {
+  milliseconds ms = milliseconds(5 * 60 * 1000); // five minutes
+
+  if (args.empty() == false) {
+    auto num_secs = std::stoul(args, nullptr, 10);
+
+    if (num_secs > 0) {
+      ms = milliseconds(num_secs * 1000);
+    }
+  }
+
+  core::State::leave(ms);
+
+  return 0;
+}
+
+int Cli::handleLine(const string_t line) {
+  int rc = -1;
+  string cmd;
+  string args;
+  auto first_space = line.find_first_of(' ');
+
+  if (line.empty()) {
+    return 0;
+  }
+
+  if (first_space == string::npos) {
+    cmd = line;
+  } else {
+    cmd = line.substr(0, first_space);
+    args = line.substr(first_space + 1, string::npos);
+  }
+
+  if ((cmd[0] == 'l') || (cmd.compare("leave") == 0)) {
+    rc = doLeave(args);
+    goto finished;
+  }
+
+  if (cmd.compare("version") == 0) {
+    cout << "git revision: " << git_revision;
+    cout << " build timestamp: " << build_timestamp << endl;
+    rc = 0;
+
+    goto finished;
+  }
+
+  if ((cmd[0] == 'h') || (cmd.compare("help") == 0)) {
+    rc = doHelp();
+    goto finished;
+  }
+
+finished:
+  if (rc < 0) {
+    cout << "command not found: " << cmd << endl;
+  }
+
+  cout << endl;
+  cout.flush();
+
+  return rc;
+}
+
 void Cli::repl() {
   uint line_num = 0;
-  array<char, 25> prompt;
-  prompt.fill(0x00);
 
   linenoiseSetMultiLine(true);
 
-  cout << endl << endl;
-  cout << "Hello, this is Pierre." << endl;
+  linenoiseClearScreen();
+  cout << "Hello, this is Pierre. " << endl << endl;
 
-  while (_shutdown == false) {
+  while (core::State::running()) {
+    array<char, 25> prompt;
     char *input;
-    string_t line;
+
+    prompt.fill(0x00);
 
     snprintf(prompt.data(), prompt.size(), "pierre [%u] %% ", line_num);
 
@@ -58,23 +131,18 @@ void Cli::repl() {
       continue;
     }
 
-    if ((input[0] == 0x03) || (input[0] == 0x04) || input[0] == 'q') {
-      return;
+    if ((input[0] == 'x') || input[0] == 'q') {
+      core::State::quit();
+      break;
     }
 
-    line = input;
+    handleLine(input);
     free(input);
+    line_num++;
 
-    auto first_space = line.find_first_of(' ');
-
-    if (first_space == string::npos) {
-      continue;
+    if (core::State::leaving()) {
+      break;
     }
-
-    auto cmd = line.substr(0, first_space);
-    auto args = line.substr(first_space + 1, string::npos);
-
-    cout << "cmd[" << cmd << "] args[" << args << "]" << endl;
   }
 }
 

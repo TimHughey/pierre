@@ -1,6 +1,6 @@
 /*
-    devs/dmx/headunit.hpp - Ruth Dmx Head Unit Device
-    Copyright (C) 2020  Tim Hughey
+    lightdesk/fx/majorpeak.hpp -- LightDesk Effect Major Peak
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,38 +18,31 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_dmx_headunit_device_hpp
-#define pierre_dmx_headunit_device_hpp
+#ifndef pierre_lightdesk_fx_leave_hpp
+#define pierre_lightdesk_fx_leave_hpp
 
-#include "dmx/packet.hpp"
-#include "local/types.hpp"
+#include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
 namespace lightdesk {
+namespace fx {
 
-class HeadUnit {
+class Leave : public Fx {
+
 public:
-  HeadUnit() : _address(0), _frame_len(0) {
-    // support headunits that do not use the DMX frame
+  Leave() = default;
+  ~Leave() = default;
+
+  void begin() override {}
+  void execute() override { leave(); };
+  const string_t &name() const override {
+    static const string_t fx_name = "Leave";
+
+    return fx_name;
   }
-
-  HeadUnit(uint address, size_t frame_len)
-      : _address(address), _frame_len(frame_len){};
-  virtual ~HeadUnit() {}
-
-  virtual void dark() = 0;
-
-  virtual void framePrepare() = 0;
-  virtual void frameUpdate(dmx::Packet &packet) = 0;
-
-  virtual void leave() = 0;
-
-  float fps() const { return 44.0f; }
-
-protected:
-  const uint _address;
-  const uint _frame_len;
 };
+
+} // namespace fx
 } // namespace lightdesk
 } // namespace pierre
 

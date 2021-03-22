@@ -64,7 +64,6 @@ public:
   }
 
   std::shared_ptr<std::thread> run();
-  void shutdown() { _shutdown = true; }
 
 private:
   auto bytesToFrames(size_t bytes) const {
@@ -142,8 +141,6 @@ private:
   uint _periods = 0;
   int _monotonic = 0;
   int _can_pause = 0;
-
-  bool _shutdown = false;
 
   std::set<spSamples> _processors;
 };

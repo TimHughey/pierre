@@ -19,6 +19,7 @@
 */
 
 #include "dmx/render.hpp"
+#include "core/state.hpp"
 #include "external/ArduinoJson.h"
 
 typedef StaticJsonDocument<1024> doc;
@@ -55,7 +56,7 @@ void Render::stream() {
   long frame_us = ((1000 * 1000) / 44) - 250;
   duration frame_interval_half = us(frame_us / 2);
 
-  while (_shutdown == false) {
+  while (core::State::running()) {
     auto loop_start = steady_clock::now();
     for (auto p : _producers) {
       p->prepare();
@@ -64,7 +65,6 @@ void Render::stream() {
     this_thread::sleep_for(frame_interval_half);
 
     dmx::Packet packet;
-    packet.rootObj()["ACP"] = true; // AC power on
 
     for (auto p : _producers) {
       p->update(packet);

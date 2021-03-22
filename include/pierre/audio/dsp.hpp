@@ -52,14 +52,11 @@ public:
   const Peak majorPeak();
 
   std::shared_ptr<std::thread> run();
-  void shutdown() { _shutdown = true; }
 
 private:
   void stream();
 
 private:
-  bool _shutdown = false;
-
   Config _cfg;
 
   FFT _left = FFT(_cfg.samples, _cfg.rate);

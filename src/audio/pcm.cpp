@@ -19,6 +19,7 @@
 */
 
 #include "audio/pcm.hpp"
+#include "core/state.hpp"
 
 namespace pierre {
 namespace audio {
@@ -185,7 +186,7 @@ bool Pcm::setParams(void) {
 void Pcm::stream() {
   int snd_rc = -1;
 
-  while (_shutdown == false) {
+  while (core::State::running()) {
     snd_rc = snd_pcm_wait(_pcm, 100);
 
     if (snd_rc < 0) {

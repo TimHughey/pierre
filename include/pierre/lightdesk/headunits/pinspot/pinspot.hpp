@@ -79,7 +79,7 @@ public:
   void color(int r, int g, int b, int w) { color(Color(r, g, b, w)); }
   void color(const Color &color, float strobe = 0.0);
 
-  void dark();
+  void dark() override;
   inline const FaderOpts_t &fadeCurrentOpts() const {
     return _fader.initialOpts();
   }
@@ -96,6 +96,8 @@ public:
   }
   void fadeTo(const Color &color, float secs = 1.0, float accel = 0.0);
   void fadeTo(const FaderOpts_t &opts);
+
+  void leave() override { color(Color::red()); }
 
   typedef enum { AUTORUN = 0x3000, DARK, COLOR, FADER } Mode_t;
 

@@ -21,6 +21,7 @@
 #ifndef pierre_lightdesk_hpp
 #define pierre_lightdesk_hpp
 
+#include <chrono>
 #include <mutex>
 #include <set>
 #include <thread>
@@ -40,6 +41,8 @@
 namespace pierre {
 namespace lightdesk {
 
+using namespace std::chrono;
+
 class LightDesk : public dmx::Producer {
 
 public:
@@ -56,14 +59,16 @@ public:
   LightDesk(const LightDesk &) = delete;
   LightDesk &operator=(const LightDesk &) = delete;
 
-  void prepare() override { _hunits->prepare(); }
+  void leave();
+
+  void prepare() override { _tracker->prepare(); }
 
   std::shared_ptr<std::thread> run();
-  void shutdown() { _shutdown = true; }
 
   void update(dmx::Packet &packet) override {
     executeFx();
-    _hunits->update(packet);
+    packet.rootObj()["ACP"] = true; // AC power on
+    _tracker->update(packet);
   }
 
 private:
@@ -71,7 +76,7 @@ private:
   void stream();
 
   template <typename T> std::shared_ptr<T> unit(const string_t name) {
-    return _hunits->unit<T>(name);
+    return _tracker->unit<T>(name);
   }
 
 private:
@@ -79,14 +84,15 @@ private:
 
 private:
   int _init_rc = 1;
-  bool _shutdown = false;
-
   Config _cfg;
 
   std::shared_ptr<audio::Dsp> _dsp;
-  HUnits _hunits = std::make_shared<HeadUnitTracker>();
+  HUnits _tracker = std::make_shared<HeadUnitTracker>();
 
-  std::unique_ptr<fx::Fx> _active_fx;
+  struct {
+    std::mutex mtx;
+    std::unique_ptr<fx::Fx> fx;
+  } _active;
 
   spPinSpot main;
   spPinSpot fill;

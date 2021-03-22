@@ -38,65 +38,61 @@ namespace lightdesk {
 
 class PulseWidthHeadUnit : public HeadUnit {
 public:
+  typedef uint_fast16_t DutyVal;
+  typedef float DutyPercent;
+
+public:
   PulseWidthHeadUnit(uint8_t num) : HeadUnit(num, 0) {
     _id.fill(0x00);
 
-    updateDuty(unitMin());
-
-    config.min = dutyMin();
-    config.max = dutyMax();
+    config.min = 0;
+    config.max = 8190;
     config.dim = dutyPercent(0.004);
-    config.bright = dutyMax();
+    config.bright = config.max;
+    config.leave = config.max;
     config.pulse_start = dutyPercent(0.5);
     config.pulse_end = dutyPercent(0.25);
 
-    unitNext(config.dim);
+    fixed(config.dim);
   }
 
   virtual ~PulseWidthHeadUnit() { stop(); }
 
-  uint duty() const { return _duty; }
-  uint dutyMax() const { return 8192; }
-  uint dutyMin() const { return 0; }
-  uint dutyPercent(float percent) const { return dutyMax() * percent; }
-  void updateDuty(uint32_t duty) { _duty = duty; }
-  void stop() {}
+  DutyVal duty() const { return _duty; }
+  DutyVal dutyPercent(DutyPercent percent) const {
+    return config.max * percent;
+  }
+
+  virtual bool isBusy() const {
+    auto rc = true;
+    if (_mode == FIXED) {
+      rc = false;
+    }
+
+    return rc;
+  }
+
+  virtual void leave() override { fixed(config.leave); }
+
+  void stop() { fixed(config.min); }
 
 public:
-  virtual void dark() { _mode = DARK; }
-  virtual void dim() {
-    unitNext(config.dim);
-    _mode = DIM_INIT;
+  virtual void bright() { fixed(config.bright); }
+  virtual void dark() { fixed(config.min); }
+  virtual void dim() { fixed(config.dim); }
+
+  virtual void fixed(const DutyVal val) {
+    unitNext(val);
+    _mode = FIXED;
   }
 
-  virtual void fixed(const float percent) {
-    unitNext(unitPercent(percent));
-    _mode = FIXED_INIT;
-  }
+  virtual void percent(const DutyPercent x) { fixed(unitPercent(x)); }
 
   virtual void framePrepare() override {
     const uint32_t duty_now = duty();
 
     switch (_mode) {
-    case IDLE:
-    case FIXED_RUNNING:
-    case DIM_RUNNING:
-      break;
-
-    case DARK:
-      if (duty_now > unitMin()) {
-        unitNext(unitMin());
-      }
-
-      _mode = IDLE;
-      break;
-
-    case DIM_INIT:
-      _mode = DIM_RUNNING;
-      break;
-
-    case FIXED_INIT:
-      _mode = FIXED_RUNNING;
+    case FIXED:
       break;
 
     case PULSE_INIT:
@@ -105,13 +101,13 @@ public:
       break;
 
     case PULSE_RUNNING:
-      const int_fast32_t fuzzy = _dest + _velocity;
-      const int_fast32_t next = duty_now - _velocity;
+      const DutyVal fuzzy = _dest + _velocity;
+      const DutyVal next = duty_now - _velocity;
 
       // we've reached or are close enough to the destination
-      if ((duty_now <= fuzzy) || (next <= (int_fast32_t)_dest)) {
+      if ((duty_now <= fuzzy) || (next <= _dest)) {
         unitNext(_dest);
-        _mode = IDLE;
+        _mode = FIXED;
       } else {
         unitNext(next);
       }
@@ -121,7 +117,6 @@ public:
   }
 
   virtual void frameUpdate(dmx::Packet &packet) override {
-
     _duty = _unit_next;
 
     auto root = packet.rootObj();
@@ -129,10 +124,6 @@ public:
     if (_id[0] != 0x00) {
       root[_id.data()] = _duty;
     }
-  }
-
-  uint_fast32_t unitPercent(const float percent) {
-    return dutyPercent(percent);
   }
 
   void pulse(float intensity = 1.0, float secs = 0.2) {
@@ -150,51 +141,40 @@ public:
 
 protected:
   struct {
-    uint_fast32_t min;
-    uint_fast32_t max;
-    uint_fast32_t dim;
-    uint_fast32_t bright;
-    uint_fast32_t pulse_start;
-    uint_fast32_t pulse_end;
+    DutyVal min;
+    DutyVal max;
+    DutyVal dim;
+    DutyVal bright;
+    DutyVal leave;
+    DutyVal pulse_start;
+    DutyVal pulse_end;
   } config;
 
   std::array<char, 6> _id;
 
 protected:
-  virtual void unitNext(uint_fast32_t duty) {
-    if (duty > unitMax()) {
-      duty = unitMax();
-    } else if (duty < unitMin()) {
-      duty = unitMin();
+  virtual void unitNext(DutyVal duty) {
+    if (duty > config.max) {
+      duty = config.max;
+    } else if (duty < config.min) {
+      duty = config.min;
     }
 
     _unit_next = duty;
   }
 
-  uint_fast32_t &unitMax() { return config.max; }
-  uint_fast32_t &unitMin() { return config.min; }
+  virtual DutyPercent unitPercent(float x) { return x * config.max; }
 
 private:
-  typedef enum {
-    DARK = 0,
-    DIM_INIT,
-    DIM_RUNNING,
-    IDLE,
-    FIXED_INIT,
-    FIXED_RUNNING,
-    PULSE_INIT,
-    PULSE_RUNNING
-  } PulseWidthHeadUnit_t;
+  typedef enum { FIXED = 0, PULSE_INIT, PULSE_RUNNING } PulseWidthHeadUnit_t;
 
 private:
-  PulseWidthHeadUnit_t _mode = IDLE;
+  PulseWidthHeadUnit_t _mode = FIXED;
+  DutyVal _duty = 0;
+  DutyVal _unit_next = 0;
 
-  uint32_t _duty = 0;
-
-  uint_fast32_t _dest = 0; // destination duty when traveling
-  float _velocity = 0.0;   // change per frame when fx is active
-
-  uint_fast32_t _unit_next = 0;
+  DutyVal _dest = 0;     // destination duty when traveling
+  float _velocity = 0.0; // change per frame when fx is active
 };
 
 } // namespace lightdesk

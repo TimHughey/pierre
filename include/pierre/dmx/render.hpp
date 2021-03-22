@@ -54,7 +54,6 @@ public:
   }
 
   std::shared_ptr<std::thread> run();
-  void shutdown() { _shutdown = true; }
 
 private:
   void stream();
@@ -64,7 +63,6 @@ private:
 
   io_context _io_ctx;
   Net _net;
-  bool _shutdown = false;
   Frame _frame;
 
   producers _producers;

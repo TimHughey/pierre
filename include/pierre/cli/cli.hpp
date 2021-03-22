@@ -25,12 +25,13 @@
 #include <thread>
 
 #include "cli/linenoise.h"
+#include "core/state.hpp"
 #include "local/types.hpp"
+#include "version.h"
 
 namespace pierre {
 
 class Cli {
-
 public:
   Cli();
 
@@ -40,10 +41,14 @@ public:
   bool run();
 
 private:
+  int doHelp() const;
+  int doLeave(const string_t &args) const;
+  int handleLine(const string_t line);
   void repl();
 
 private:
-  bool _shutdown = false;
+  const string_t git_revision = GIT_REVISION;
+  const string_t build_timestamp = BUILD_TIMESTAMP;
 };
 
 } // namespace pierre

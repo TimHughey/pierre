@@ -31,46 +31,7 @@ typedef std::string string_t;
 typedef std::thread Thread;
 typedef std::shared_ptr<Thread> spThread;
 
-typedef const char *CSTR; // used for static string assignments
 typedef uint32_t Rgbw_t;
-
-// typedef enum { BINDER_CLI, BINDER_LIGHTDESK } BinderCategory_t;
-//
-// typedef enum {
-//   NotifyZero = 0x0000,
-//   // timers that most likely firing at or near DMX frame rate
-//   NotifyTimer = 0x1001,
-//   NotifyFrame,
-//   NotifyFaderTimer,
-//   // notifications for LightDesk commands
-//   NotifyQueue = 0x2001,
-//   NotifyColor,
-//   NotifyDark,
-//   NotifyDance,
-//   NotifyFadeTo,
-//   NotifyMajorPeak,
-//   // notifications for changing task operational mode and periodic work
-//   NotifyStop = 0x3001,
-//   NotifyOff,
-//   NotifyPause,
-//   NotifyResume,
-//   NotifyReady,
-//   NotifyShutdown,
-//   NotifyStreamFrames,
-//   NotifyDelete,
-//   NotifyStatsCalculate,
-//   NotifyPrepareFrame,
-//   // core task notifications
-//   NotifyTrackHeap = 0x4001,
-//   NotifyLightDeskController,
-//   // misc supporting task notifications
-//   NotifyOtaStart = 0x5001,
-//   NotifyOtaCancel,
-//   NotifyOtaFinish,
-//   // notifications for I2s
-//   NotifySamplePrint = 0x6001,
-//   NotifySampleStopPrint
-// } NotifyVal_t;
 
 } // namespace pierre
 #endif // ruth_type_hpp

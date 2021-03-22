@@ -33,8 +33,11 @@ public:
     config.dim = unitPercent(0.03);
     config.pulse_start = unitPercent(0.25);
     config.pulse_end = config.dim;
+    config.leave = unitPercent(0.50);
 
     snprintf(_id.data(), _id.size(), "EL%u", _address);
+
+    dim();
   }
 };
 

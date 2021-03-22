@@ -23,6 +23,7 @@
 
 #include "audio/net.hpp"
 #include "audio/pcm.hpp"
+#include "core/state.hpp"
 #include "pierre.hpp"
 
 namespace pierre {
@@ -30,6 +31,7 @@ namespace pierre {
 using namespace std;
 using namespace audio;
 using namespace lightdesk;
+using namespace core;
 
 using namespace boost::asio;
 
@@ -56,13 +58,19 @@ void Pierre::run() {
   Cli cli;
   cli.run();
 
-  lightdesk->shutdown();
-  dmx->shutdown();
-  dsp->shutdown();
-  pcm->shutdown();
+  if (State::leaving()) {
+    lightdesk->leave();
+  }
+
+  State::shutdown();
 
   for (auto t : threads) {
     t->join();
   }
+
+  cout << endl;
 }
+
+// initialize State singleton
+core::State core::State::i = core::State();
 } // namespace pierre
