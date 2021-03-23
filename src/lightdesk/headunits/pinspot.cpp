@@ -15,7 +15,7 @@
 
     https://www.wisslanding.com */
 
-#include "lightdesk/headunits/pinspot/pinspot.hpp"
+#include "lightdesk/headunits/pinspot.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -94,7 +94,7 @@ void PinSpot::frameUpdate(dmx::Packet &packet) {
 
   case COLOR:
   case FADER:
-    _color.copyToByteArray(snippet + 1);
+    _color.copyRgbToByteArray(snippet + 1);
 
     if (_strobe > 0) {
       snippet[0] = _strobe + 0x87;

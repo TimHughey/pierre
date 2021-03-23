@@ -21,16 +21,13 @@
 #ifndef pierre_pinspot_device_base_hpp
 #define pierre_pinspot_device_base_hpp
 
+#include "lightdesk/color.hpp"
+#include "lightdesk/fader.hpp"
 #include "lightdesk/headunit.hpp"
-#include "lightdesk/headunits/pinspot/color.hpp"
-#include "lightdesk/headunits/pinspot/fader.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
-
-class PinSpot;
-typedef std::shared_ptr<PinSpot> spPinSpot;
 
 class PinSpot : public HeadUnit {
 public:
@@ -71,12 +68,13 @@ public:
   }
 
   inline bool isFading() const { return faderActive(); }
+  bool nearBlack() const { return _color.nearBlack(); }
 
   // modes
   void autoRun(Fx fx);
   inline void black() { dark(); }
   const Color &color() const { return _color; }
-  void color(int r, int g, int b, int w) { color(Color(r, g, b, w)); }
+  // void color(int r, int g, int b, int w) { color(Color(r, g, b, w)); }
   void color(const Color &color, float strobe = 0.0);
 
   void dark() override;
@@ -85,7 +83,6 @@ public:
   }
 
   void fadeOut(float secs = 0.6f) {
-
     if (_color.notBlack()) {
       FaderOpts_t fadeout{.origin = Color::none(),
                           .dest = Color::black(),
@@ -94,10 +91,13 @@ public:
       fadeTo(fadeout);
     }
   }
+
+  const Fader &fader() const { return _fader; }
+
   void fadeTo(const Color &color, float secs = 1.0, float accel = 0.0);
   void fadeTo(const FaderOpts_t &opts);
 
-  void leave() override { color(Color::red()); }
+  void leave() override { color(Color(0xff0000)); }
 
   typedef enum { AUTORUN = 0x3000, DARK, COLOR, FADER } Mode_t;
 
@@ -131,7 +131,9 @@ private:
   Fx _fx = fxNone;
 
   Fader_t _fader;
-}; // namespace lightdesk
+};
+
+typedef std::shared_ptr<PinSpot> spPinSpot;
 } // namespace lightdesk
 } // namespace pierre
 

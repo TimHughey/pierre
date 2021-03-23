@@ -65,22 +65,22 @@ public:
 
     case 3:
     case 4:
-      _fade.origin = Color::bright();
+      _fade.origin = Color::full();
       break;
 
     case 5:
     case 6:
-      _fade.origin = Color::blue();
+      _fade.origin = Color(0x0000ff);
       break;
 
     case 7:
     case 8:
-      _fade.origin = Color::green();
+      _fade.origin = Color(0x00ff00);
       break;
 
     case 9:
     case 10:
-      _fade.origin = Color::red();
+      _fade.origin = Color(0xff0000);
       break;
     }
 

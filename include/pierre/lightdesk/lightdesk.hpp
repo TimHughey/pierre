@@ -33,8 +33,7 @@
 #include "lightdesk/headunits/discoball.hpp"
 #include "lightdesk/headunits/elwire.hpp"
 #include "lightdesk/headunits/ledforest.hpp"
-#include "lightdesk/headunits/pinspot/color.hpp"
-#include "lightdesk/headunits/pinspot/pinspot.hpp"
+#include "lightdesk/headunits/pinspot.hpp"
 #include "lightdesk/headunits/tracker.hpp"
 #include "misc/mqx.hpp"
 

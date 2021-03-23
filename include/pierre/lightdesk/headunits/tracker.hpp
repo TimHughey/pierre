@@ -28,7 +28,7 @@
 #include "lightdesk/headunits/discoball.hpp"
 #include "lightdesk/headunits/elwire.hpp"
 #include "lightdesk/headunits/ledforest.hpp"
-#include "lightdesk/headunits/pinspot/pinspot.hpp"
+#include "lightdesk/headunits/pinspot.hpp"
 #include "local/types.hpp"
 
 namespace pierre {

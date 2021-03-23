@@ -113,8 +113,8 @@ void LightDesk::stream() {
   }
 }
 
-float Color::_scale_min = 50.0f;
-float Color::_scale_max = 100.0f;
+// float Color::_scale_min = 50.0f;
+// float Color::_scale_max = 100.0f;
 
 std::shared_ptr<HeadUnitTracker> fx::Fx::_tracker;
 

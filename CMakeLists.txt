@@ -62,7 +62,7 @@ set(_build_version "unknown")
 find_package(Git)
 if(GIT_FOUND)
   execute_process(
-    COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+    COMMAND ${GIT_EXECUTABLE} describe
     # WORKING_DIRECTORY "${local_dir}"
     OUTPUT_VARIABLE _build_version
     ERROR_QUIET
@@ -73,11 +73,7 @@ else()
   message(STATUS "GIT not found")
 endif()
 
-string(TIMESTAMP _time_stamp)
-
-include_directories(AFTER
-  include/pierre
-)
+string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
 set(AUDIO src/audio)
 set(DMX src/dmx)
@@ -92,18 +88,19 @@ add_executable(${_target}
   ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft
   ${DMX}/packet ${DMX}/net ${DMX}/render
   ${MISC}/random
-  ${LIGHTDESK}/lightdesk
+  ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color ${LIGHTDESK}/fader
   ${HEADUNITS}/pinspot
   ${FX}/majorpeak
   ${CLI}/linenoise ${CLI}/cli
   ${APPS}/pierre ${APPS}/main
 )
 
-
-
 configure_file(cmake/version.h.in version.h @ONLY)
 
-target_include_directories(${_target} PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories(${_target} PRIVATE
+  include/pierre
+  ${CMAKE_BINARY_DIR}
+)
 
 target_compile_options(${_target} PRIVATE ${CXX_FLAGS})
 

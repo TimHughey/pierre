@@ -43,6 +43,7 @@ public:
 private:
   int doHelp() const;
   int doLeave(const string_t &args) const;
+  int doTest(const string_t &args) const;
   int handleLine(const string_t line);
   void repl();
 

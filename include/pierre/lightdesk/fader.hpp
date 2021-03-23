@@ -21,7 +21,9 @@
 #ifndef pierre_pinspot_fader_hpp
 #define pierre_pinspot_fader_hpp
 
-#include "lightdesk/headunits/pinspot/color.hpp"
+#include <iostream>
+
+#include "lightdesk/color.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
@@ -58,58 +60,32 @@ public:
 
 class Fader {
 public:
-  Fader(){};
+  Fader() = default;
 
-  inline bool active() const { return !_finished; }
-  inline bool finished() const { return _finished; }
-
-  inline const FaderOpts_t &initialOpts() const { return _opts; }
-
+  bool active() const { return !_finished; }
+  bool checkProgress(double percent) const;
+  bool finished() const { return _finished; }
+  const FaderOpts_t &initialOpts() const { return _opts; }
   const Color &location() const { return _location; }
+  void prepare(const FaderOpts_t &opts);
+  void prepare(const Color &origin, FaderOpts_t opts);
+  double progress() const { return _progress * 100.0; }
+  bool progressLessThan(const double percent) const;
 
-  void prepare(const FaderOpts_t &opts) {
-    _finished = false;
-    _traveled = false;
-    _opts = opts;
-
-    _location = _opts.origin;
-
-    _velocity.calculate(_opts.origin, _opts.dest, _opts.travel_secs);
-  }
-
-  void prepare(const Color &origin, FaderOpts_t opts) {
-    opts.origin = origin;
-    prepare(opts);
-  }
-
-  bool travel() {
-    bool more_travel = false;
-
-    if ((_traveled == false) && (_opts.use_origin)) {
-      // when use_origin is set start the first travel is to the origin
-      // so _location is unchanged
-      more_travel = true;
-    } else {
-      // if we've already traveled once then we move from _location
-      _velocity.moveColor(_location, _opts.dest, more_travel);
-
-      _finished = !more_travel;
-    }
-
-    _traveled = true;
-
-    return more_travel;
-  }
+  bool travel();
 
 private:
   FaderOpts_t _opts;
-  Color _location;         // current fader location
-  ColorVelocity _velocity; // velocity required to travel to destination
-
+  Color _location; // current fader location
   bool _traveled = false;
   bool _finished = true;
 
   float _acceleration = 0.0;
+
+  uint _frames = 0;
+
+  double _step = 0.0;
+  double _progress = 0.0;
 };
 
 } // namespace lightdesk
