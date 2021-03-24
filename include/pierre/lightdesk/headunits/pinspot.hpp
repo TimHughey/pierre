@@ -21,6 +21,8 @@
 #ifndef pierre_pinspot_device_base_hpp
 #define pierre_pinspot_device_base_hpp
 
+#include <mutex>
+
 #include "lightdesk/color.hpp"
 #include "lightdesk/fader.hpp"
 #include "lightdesk/headunit.hpp"
@@ -52,76 +54,40 @@ public:
 
 public:
   PinSpot(uint16_t address = 1);
-  ~PinSpot();
+  ~PinSpot() = default;
 
-  void framePrepare() override {
-    if (_mode == FADER) {
-      faderMove();
-    }
+  template <typename T> void activateFader(const Fader::Opts &opts) {
+    std::lock_guard<std::mutex> lck(_fader_mtx);
+
+    _fader = std::make_unique<T>(opts);
   }
 
-  inline bool isFading() const { return faderActive(); }
-  bool nearBlack() const { return _color.nearBlack(); }
-
-  // modes
-  void autoRun(Fx fx);
+  void autoRun(Fx fx) { _fx = fx; }
   inline void black() { dark(); }
+  bool checkFaderProgress(float percent) const;
   const Color &color() const { return _color; }
-  // void color(int r, int g, int b, int w) { color(Color(r, g, b, w)); }
   void color(const Color &color, float strobe = 0.0);
-
   void dark() override;
-  inline const FaderOpts_t &fadeCurrentOpts() const {
-    return _fader.initialOpts();
-  }
 
-  void fadeOut(float secs = 0.6f) {
-    if (_color.notBlack()) {
-      FaderOpts_t fadeout{.origin = Color::none(),
-                          .dest = Color::black(),
-                          .travel_secs = secs,
-                          .use_origin = false};
-      fadeTo(fadeout);
-    }
-  }
-
-  const Fader &fader() const { return _fader; }
-
-  void fadeTo(const Color &color, float secs = 1.0, float accel = 0.0);
-  void fadeTo(const FaderOpts_t &opts);
+  void framePrepare() override { faderMove(); }
+  inline bool isFading() const { return (bool)_fader; }
 
   void leave() override { color(Color(0xff0000)); }
 
-  typedef enum { AUTORUN = 0x3000, DARK, COLOR, FADER } Mode_t;
-
 private:
   // functions
-  inline bool faderActive() const { return _fader.active(); }
-  inline bool faderFinished() const { return _fader.finished(); };
-  inline const FaderOpts &faderOpts() const { return _fader.initialOpts(); }
   void faderMove();
-
-  inline const Color &faderSelectOrigin(const FaderOpts_t &fo) const {
-    if (fo.use_origin) {
-      return fo.origin;
-    }
-
-    return _color;
-  }
-
-  void faderStart(const FaderOpts &opts);
 
   void frameUpdate(dmx::Packet &packet) override;
 
 private:
-  Mode_t _mode = DARK;
-
   Color _color;
   uint8_t _strobe = 0;
   uint8_t _strobe_max = 104;
   Fx _fx = Fx::None;
 
-  Fader_t _fader;
+  std::mutex _fader_mtx;
+  upFader _fader;
 };
 
 typedef std::shared_ptr<PinSpot> spPinSpot;

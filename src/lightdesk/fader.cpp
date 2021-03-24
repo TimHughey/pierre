@@ -23,6 +23,11 @@
 namespace pierre {
 namespace lightdesk {
 
+Fader::Fader(const Fader::Opts opts)
+    : _opts(opts), _location(opts.origin), _traveled(false), _finished(false) {
+  _step = 1.0 / (_opts.secs * 44.0);
+}
+
 bool Fader::checkProgress(double percent) const {
   auto rc = false;
 
@@ -33,27 +38,11 @@ bool Fader::checkProgress(double percent) const {
   return rc;
 }
 
-void Fader::prepare(const FaderOpts_t &opts) {
-  _finished = false;
-  _traveled = false;
-  _progress = 0.0;
-  _frames = 0;
-  _opts = opts;
-
-  _location = _opts.origin;
-  _step = 1.0 / (_opts.travel_secs * 44.0);
-}
-
-void Fader::prepare(const Color &origin, FaderOpts_t opts) {
-  opts.origin = origin;
-  prepare(opts);
-}
-
 bool Fader::travel() {
   constexpr double pi = 3.14159265358979323846;
   bool more_travel = false;
 
-  if ((_traveled == false) && (_opts.use_origin)) {
+  if (_traveled == false) {
     // when use_origin is set start the first travel is to the origin
     // so _location is unchanged
     more_travel = true;

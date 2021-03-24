@@ -78,12 +78,7 @@ void MajorPeak::execute(audio::spPeaks peaks) {
 void MajorPeak::handleLowFreq(const audio::Peak &peak, const Color &color) {
   bool start_fade = true;
 
-  FaderOpts_t freq_fade{.origin = color,
-                        .dest = Color::black(),
-                        .travel_secs = 0.7f,
-                        .use_origin = true};
-
-  const auto fading = fill->fader().checkProgress(75.0);
+  const auto fading = fill->checkFaderProgress(75.0);
 
   if (fading == true) {
     if ((_last_peak.fill.freq <= 180.0f) &&
@@ -93,37 +88,31 @@ void MajorPeak::handleLowFreq(const audio::Peak &peak, const Color &color) {
   }
 
   if (start_fade) {
-    fill->fadeTo(freq_fade);
+    fill->activateFader<Fader>(
+        {.origin = color, .dest = Color::black(), .secs = 0.7});
   }
 
   _last_peak.fill = peak;
 }
 
 void MajorPeak::handleOtherFreq(const audio::Peak &peak, const Color &color) {
-  // bool start_fade = true;
-  const FaderOpts_t main_fade{.origin = color,
-                              .dest = Color::black(),
-                              .travel_secs = 0.7f,
-                              .use_origin = true};
+  const Fader::Opts main_opts(
+      {.origin = color, .dest = Color::black(), .secs = 0.7});
 
-  const auto main_fading = main->fader().checkProgress(85.0);
-  const auto fill_fading = fill->fader().checkProgress(75.0);
+  const auto main_fading = main->checkFaderProgress(85.0);
+  const auto fill_fading = fill->checkFaderProgress(75.0);
 
   if ((_last_peak.main.mag < peak.mag) && main_fading) {
-    main->fadeTo(main_fade);
+    main->activateFader<Fader>(main_opts);
   } else if (!main_fading) {
-    main->fadeTo(main_fade);
+    main->activateFader<Fader>(main_opts);
   }
 
   _last_peak.main = peak;
 
-  const FaderOpts_t alt_fade{.origin = color,
-                             .dest = Color::black(),
-                             .travel_secs = 0.7f,
-                             .use_origin = true};
-
   if ((_last_peak.fill.mag < peak.mag) || !fill_fading) {
-    fill->fadeTo(alt_fade);
+    fill->activateFader<Fader>(
+        {.origin = color, .dest = Color::black(), .secs = 0.7f});
     _last_peak.fill = peak;
   }
 }

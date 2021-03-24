@@ -41,6 +41,8 @@ public:
 
     PinSpot *pinspot = nullptr;
 
+    Fader::Opts opts{.origin = Color(), .dest = Color::black(), .secs = 0.3};
+
     if (main->isFading() || fill->isFading()) {
       // this is a no op while the PinSpots are fading
       return;
@@ -67,27 +69,27 @@ public:
 
     case 3:
     case 4:
-      _fade.origin = Color::full();
+      opts.origin = Color::full();
       break;
 
     case 5:
     case 6:
-      _fade.origin = Color(0x0000ff);
+      opts.origin = Color(0x0000ff);
       break;
 
     case 7:
     case 8:
-      _fade.origin = Color(0x00ff00);
+      opts.origin = Color(0x00ff00);
       break;
 
     case 9:
     case 10:
-      _fade.origin = Color(0xff0000);
+      opts.origin = Color(0xff0000);
       break;
     }
 
     if (count() > 2) {
-      pinspot->fadeTo(_fade);
+      pinspot->activateFader<Fader>(opts);
     }
 
     count()--;
@@ -109,11 +111,6 @@ private:
 private:
   spPinSpot main;
   spPinSpot fill;
-
-  FaderOpts _fade{.origin = Color::black(),
-                  .dest = Color::black(),
-                  .travel_secs = 0.3f,
-                  .use_origin = true};
 };
 
 } // namespace fx

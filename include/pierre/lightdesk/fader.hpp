@@ -29,57 +29,31 @@
 namespace pierre {
 namespace lightdesk {
 
-typedef class Fader Fader_t;
-typedef class FaderOpts FaderOpts_t;
-
-class FaderOpts {
-public:
-  FaderOpts() = default;
-
-  FaderOpts(const Color &dest, float travel_secs)
-      : dest(dest), travel_secs(travel_secs){};
-
-  FaderOpts(const Color &dest, float ts, bool use_origin, float a = 1.0,
-            float l = 0.0)
-      : dest(dest), travel_secs(ts), use_origin(use_origin), accel(a),
-        layover(l){};
-
-  FaderOpts(const Color &origin, const Color &dest, float ts = 1.0,
-            bool use_origin = false, float a = 1.0, float l = 0.0)
-      : origin(origin), dest(dest), travel_secs(ts), use_origin(use_origin),
-        accel(a), layover(l){};
-
-public:
-  Color origin;
-  Color dest;
-  float travel_secs = 1.0;
-  bool use_origin = false;
-  float accel = 0.0;
-  float layover = 0.0;
-};
-
 class Fader {
 public:
+  struct Opts {
+    Color origin;
+    Color dest;
+    float secs;
+  };
+
+public:
   Fader() = default;
+  Fader(const Opts opts);
 
   bool active() const { return !_finished; }
   bool checkProgress(double percent) const;
   bool finished() const { return _finished; }
-  const FaderOpts_t &initialOpts() const { return _opts; }
   const Color &location() const { return _location; }
-  void prepare(const FaderOpts_t &opts);
-  void prepare(const Color &origin, FaderOpts_t opts);
   double progress() const { return 100.0 - (_progress * 100.0); }
 
   bool travel();
 
 private:
-  FaderOpts_t _opts;
+  Opts _opts;
   Color _location; // current fader location
   bool _traveled = false;
   bool _finished = true;
-
-  float _acceleration = 0.0;
 
   uint _frames = 0;
 
@@ -88,6 +62,7 @@ private:
 };
 
 typedef std::shared_ptr<Fader> spFader;
+typedef std::unique_ptr<Fader> upFader;
 
 } // namespace lightdesk
 } // namespace pierre

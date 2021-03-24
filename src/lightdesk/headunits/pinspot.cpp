@@ -22,11 +22,14 @@ namespace lightdesk {
 
 PinSpot::PinSpot(uint16_t address) : HeadUnit(address, 6) {}
 
-PinSpot::~PinSpot() {}
+bool PinSpot::checkFaderProgress(float percent) const {
+  auto rc = false;
 
-void PinSpot::autoRun(Fx fx) {
-  _fx = fx;
-  _mode = AUTORUN;
+  if (_fader) {
+    rc = _fader->checkProgress(percent);
+  }
+
+  return rc;
 }
 
 void PinSpot::color(const Color &color, float strobe) {
@@ -36,37 +39,26 @@ void PinSpot::color(const Color &color, float strobe) {
     _strobe = (uint8_t)(_strobe_max * strobe);
   }
 
-  _mode = COLOR;
+  _fx = Fx::None;
 }
 
 void PinSpot::dark() {
   _color = Color::black();
   _fx = Fx::None;
-  _mode = DARK;
 }
 
 void PinSpot::faderMove() {
-  auto continue_traveling = _fader.travel();
-  _color = _fader.location();
-  _strobe = 0;
+  if (_fader) {
+    std::lock_guard<std::mutex> lck(_fader_mtx);
 
-  if (continue_traveling == false) {
-    _mode = COLOR;
+    auto continue_traveling = _fader->travel();
+    _color = _fader->location();
+    _strobe = 0;
+
+    if (continue_traveling == false) {
+      _fader.reset();
+    }
   }
-}
-
-void PinSpot::fadeTo(const Color &dest, float secs, float accel) {
-  const FaderOpts fo{
-      .origin = _color, .dest = dest, .travel_secs = secs, .accel = accel};
-  fadeTo(fo);
-}
-
-void PinSpot::fadeTo(const FaderOpts_t &fo) {
-  const Color &origin = faderSelectOrigin(fo);
-
-  _fader.prepare(origin, fo);
-
-  _mode = FADER;
 }
 
 void PinSpot::frameUpdate(dmx::Packet &packet) {
