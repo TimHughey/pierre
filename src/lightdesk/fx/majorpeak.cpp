@@ -19,6 +19,7 @@
 */
 
 #include <chrono>
+#include <iostream>
 
 #include "lightdesk/fx/majorpeak.hpp"
 
@@ -29,7 +30,7 @@ namespace fx {
 using namespace std;
 using namespace chrono;
 
-MajorPeak::MajorPeak(std::shared_ptr<audio::Dsp> dsp) : Fx(), _dsp(dsp) {
+MajorPeak::MajorPeak() : Fx() {
 
   main = unit<PinSpot>("main");
   fill = unit<PinSpot>("fill");
@@ -43,11 +44,11 @@ MajorPeak::MajorPeak(std::shared_ptr<audio::Dsp> dsp) : Fx(), _dsp(dsp) {
   }
 }
 
-void MajorPeak::execute() {
-  const Peak peak = _dsp->majorPeak();
+void MajorPeak::execute(audio::spPeaks peaks) {
+
+  const auto peak = peaks->majorPeak();
 
   if (peak) {
-
     logPeak(peak);
 
     if ((peak.freq > 220.0f) && (peak.freq < 1200.0f)) {
@@ -74,7 +75,7 @@ void MajorPeak::execute() {
   }
 }
 
-void MajorPeak::handleLowFreq(const Peak &peak, const Color &color) {
+void MajorPeak::handleLowFreq(const audio::Peak &peak, const Color &color) {
   bool start_fade = true;
 
   FaderOpts_t freq_fade{.origin = color,
@@ -82,14 +83,7 @@ void MajorPeak::handleLowFreq(const Peak &peak, const Color &color) {
                         .travel_secs = 0.7f,
                         .use_origin = true};
 
-  const auto fading = fill->fader().progressLessThan(50.0);
-
-  // if (fading) {
-  //   if ((_last_peak.fill.freq <= 180.0f) &&
-  //       (_last_peak.fill.index == peak.index)) {
-  //     start_fade = false;
-  //   }
-  // }
+  const auto fading = fill->fader().checkProgress(75.0);
 
   if (fading == true) {
     if ((_last_peak.fill.freq <= 180.0f) &&
@@ -105,15 +99,15 @@ void MajorPeak::handleLowFreq(const Peak &peak, const Color &color) {
   _last_peak.fill = peak;
 }
 
-void MajorPeak::handleOtherFreq(const Peak &peak, const Color &color) {
+void MajorPeak::handleOtherFreq(const audio::Peak &peak, const Color &color) {
   // bool start_fade = true;
   const FaderOpts_t main_fade{.origin = color,
                               .dest = Color::black(),
                               .travel_secs = 0.7f,
                               .use_origin = true};
 
-  const auto main_fading = main->fader().progressLessThan(75.0);
-  const auto fill_fading = fill->fader().progressLessThan(75.0);
+  const auto main_fading = main->fader().checkProgress(85.0);
+  const auto fill_fading = fill->fader().checkProgress(75.0);
 
   if ((_last_peak.main.mag < peak.mag) && main_fading) {
     main->fadeTo(main_fade);
@@ -134,7 +128,7 @@ void MajorPeak::handleOtherFreq(const Peak &peak, const Color &color) {
   }
 }
 
-void MajorPeak::logPeak(const Peak &peak) const {
+void MajorPeak::logPeak(const audio::Peak &peak) const {
   if (_cfg.log) {
     array<char, 128> out;
     snprintf(out.data(), out.size(), "lightdesk mpeak mag[%12.2f] peak[%7.2f]",
@@ -144,11 +138,11 @@ void MajorPeak::logPeak(const Peak &peak) const {
   }
 }
 
-Color MajorPeak::lookupColor(const Peak &peak) {
+Color MajorPeak::lookupColor(const audio::Peak &peak) {
   Color mapped_color;
 
   for (const FreqColor &colors : _palette) {
-    const Freq_t freq = peak.freq;
+    const audio::Freq_t freq = peak.freq;
 
     if ((freq > colors.freq.low) && (freq <= colors.freq.high)) {
       mapped_color = colors.color;
@@ -170,21 +164,22 @@ void MajorPeak::makePalette() {
 
   // colors sourced from --->  https://www.easyrgb.com
 
-  pushPaletteColor(120, Color(0x8b0000));   // dark red
-  pushPaletteColor(160, Color(0xb22222));   // fire brick
-  pushPaletteColor(180, Color(0x4b0082));   // indigo
-  pushPaletteColor(260, Color(0x00008b));   // dark blue
-  pushPaletteColor(300, Color(0x008080));   // teal
-  pushPaletteColor(320, Color(0x008B8B));   // dark teal
-  pushPaletteColor(350, Color(0x1e90ff));   // dodger blue
-  pushPaletteColor(390, Color(0x0000cd));   // dark magenta
-  pushPaletteColor(490, Color(0x00ff00));   // pure green
-  pushPaletteColor(550, Color(0x9932cc));   // dark orchid
-  pushPaletteColor(610, Color(0x9bc226));   // lime green
-  pushPaletteColor(710, Color(0x39737a));   // north sea green
-  pushPaletteColor(850, Color(0xff1493));   // deep pink
-  pushPaletteColor(950, Color(0x4c5e7c));   // violet blue
-  pushPaletteColor(1050, Color(0x800080));  // purple
+  pushPaletteColor(120, Color(0x8b0000)); // dark red
+  pushPaletteColor(160, Color(0x752424)); //
+  pushPaletteColor(180, Color(0x5b150e));
+  pushPaletteColor(260, Color(0x3d6944));
+  pushPaletteColor(300, Color(0xffff00));
+  pushPaletteColor(320, Color(0x13497c));
+  pushPaletteColor(350, Color(0xdfd43c));
+  pushPaletteColor(390, Color(0x008080)); // teal
+  pushPaletteColor(490, Color(0x00ff00)); // pure green
+  pushPaletteColor(550, Color(0xff8c00)); // dark orange
+  pushPaletteColor(610, Color(0x9bc226)); // lime green
+  pushPaletteColor(710, Color(0x39737a)); // north sea green
+  pushPaletteColor(850, Color(0x91234e)); //
+  pushPaletteColor(950, Color(0x4c5e7c)); // violet blue
+  pushPaletteColor(1050, Color(0x146e22));
+  pushPaletteColor(1200, Color(0x7e104f));
   pushPaletteColor(1500, Color(0xc71585));  // medium violet red
   pushPaletteColor(3000, Color(0x8a9fbf));  // steel blue
   pushPaletteColor(5000, Color(0xff69b4));  // hot pink
@@ -195,7 +190,7 @@ void MajorPeak::makePalette() {
   pushPaletteColor(22000, Color::full());
 }
 
-void MajorPeak::pushPaletteColor(Freq_t high, const Color &color) {
+void MajorPeak::pushPaletteColor(audio::Freq_t high, const Color &color) {
   const FreqColor &last = _palette.back();
   const FreqColor &next =
       FreqColor{.freq = {.low = last.freq.high, .high = high}, .color = color};

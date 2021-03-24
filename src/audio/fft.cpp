@@ -1,13 +1,32 @@
+/*
+    lightdesk/lightdesk.cpp - Ruth Light Desk
+    Copyright (C) 2020  Tim Hughey
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    https://www.wisslanding.com
+*/
+
 #include <limits>
 
-#include <local/types.hpp>
-
 #include "audio/fft.hpp"
+#include "local/types.hpp"
+
+namespace pierre {
+namespace audio {
 
 using std::swap;
-
-Mag_t Peak::_mag_floor = 36500.0f;
-Mag_t Peak::_mag_strong = _mag_floor * 3.0f;
 
 const float FFT::_winCompensationFactors[10] = {
     1.0000000000 * 2.0, // rectangle (Box car)
@@ -25,7 +44,7 @@ const float FFT::_winCompensationFactors[10] = {
 WindowWeighingFactors_t FFT::_wwf;
 bool FFT::_weighingFactorsComputed = false;
 
-FFT::FFT(uint_fast16_t samples, float samplingFrequency)
+FFT::FFT(size_t samples, float samplingFrequency)
     : _samples(samples), _samplingFrequency(samplingFrequency) {
   // Calculates the base 2 logarithm of sample count
   _power = 0;
@@ -45,30 +64,24 @@ FFT::FFT(uint_fast16_t samples, float samplingFrequency)
   }
 }
 
-BinInfo FFT::binInfo(size_t i) {
-  BinInfo x = Peak(i, freqAtIndex(i), magAtIndex(i));
-
-  return std::move(x);
-}
-
 void FFT::complexToMagnitude() {
   // vM is half the size of vReal and vImag
-  for (uint_fast16_t i = 0; i < _samples; i++) {
+  for (size_t i = 0; i < _samples; i++) {
     _real[i] = sqrt(sq(_real[i]) + sq(_imaginary[i]));
   }
 }
 
 void FFT::compute(FFTDirection dir) {
   // Reverse bits /
-  uint_fast16_t j = 0;
-  for (uint_fast16_t i = 0; i < (_samples - 1); i++) {
+  size_t j = 0;
+  for (size_t i = 0; i < (_samples - 1); i++) {
     if (i < j) {
       swap(_real[i], _real[j]);
       if (dir == FFTDirection::Reverse) {
         swap(_imaginary[i], _imaginary[j]);
       }
     }
-    uint_fast16_t k = (_samples >> 1);
+    size_t k = (_samples >> 1);
     while (k <= j) {
       j -= k;
       k >>= 1;
@@ -79,15 +92,15 @@ void FFT::compute(FFTDirection dir) {
   // Compute the FFT
   float c1 = -1.0;
   float c2 = 0.0;
-  uint_fast16_t l2 = 1;
+  size_t l2 = 1;
   for (uint_fast8_t l = 0; (l < _power); l++) {
-    uint_fast16_t l1 = l2;
+    size_t l1 = l2;
     l2 <<= 1;
     float u1 = 1.0;
     float u2 = 0.0;
     for (j = 0; j < l1; j++) {
-      for (uint_fast16_t i = j; i < _samples; i += l2) {
-        uint_fast16_t i1 = i + l1;
+      for (size_t i = j; i < _samples; i += l2) {
+        size_t i1 = i + l1;
         float t1 = u1 * _real[i1] - u2 * _imaginary[i1];
         float t2 = u1 * _imaginary[i1] + u2 * _real[i1];
         _real[i1] = _real[i] - t1;
@@ -108,7 +121,7 @@ void FFT::compute(FFTDirection dir) {
   }
   // Scaling for reverse transform
   if (dir != FFTDirection::Forward) {
-    for (uint_fast16_t i = 0; i < _samples; i++) {
+    for (size_t i = 0; i < _samples; i++) {
       _real[i] /= _samples;
       _imaginary[i] /= _samples;
     }
@@ -116,18 +129,16 @@ void FFT::compute(FFTDirection dir) {
 }
 
 void FFT::dcRemoval(const float mean) {
-  for (uint_fast16_t i = 1; i < ((_samples >> 1) + 1); i++) {
+  for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
     _real[i] -= mean;
   }
 }
 
-void FFT::findPeaks(Peaks &peaks) {
-  peaks.clear();
-
+void FFT::findPeaks(spPeaks peaks) {
   Mag_t mag_min = std::numeric_limits<float>::max();
   Mag_t mag_max = 0;
 
-  for (uint_fast16_t i = 1; i < ((_samples >> 1) + 1); i++) {
+  for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
     const float a = _real[i - 1];
     const float b = _real[i];
     const float c = _real[i + 1];
@@ -135,7 +146,7 @@ void FFT::findPeaks(Peaks &peaks) {
     if ((a < b) && (b > c)) {
       // prevent finding peaks beyond samples / 2 since the
       // results of the FFT are symmetrical
-      if (peaks.size() == (_max_num_peaks - 1)) {
+      if (peaks->size() == (_max_num_peaks - 1)) {
         break;
       }
 
@@ -146,28 +157,11 @@ void FFT::findPeaks(Peaks &peaks) {
       mag_max = std::max(mag, mag_max);
 
       const Peak peak(i, freq, mag);
-      peaks.push_back(peak);
+      peaks->push_back(peak);
     }
   }
 
-  std::sort(peaks.begin(), peaks.end(),
-            [](const Peak &lhs, const Peak &rhs) { return lhs.mag > rhs.mag; });
-
-  // std::array<char, 128> out;
-  // out.fill(0x00);
-  // auto p = out.data();
-  // for (auto item = peaks.begin(); item <= (peaks.cbegin() + 1); item++) {
-  //   auto len = snprintf(p, (out.data() + out.size() - p),
-  //                       "freq[%10.2f] mag[%11.2f] ", item->freq, item->mag);
-  //   p += len;
-  // }
-  //
-  // if (mag_max > 1000000.0f) {
-  //   snprintf(p, (out.data() + out.size() - p), "min[%10.2f] max[%10.2f]",
-  //            mag_min, mag_max);
-  //
-  //   std::cerr << out.data() << std::endl;
-  // }
+  peaks->sort();
 }
 
 Mag_t FFT::magAtIndex(const size_t i) const {
@@ -192,33 +186,6 @@ float FFT::freqAtIndex(size_t y) {
   }
 
   return frequency;
-}
-
-bool FFT::hasPeak(const Peaks &peaks, PeakN n) {
-  bool rc = false;
-
-  // PeakN_t reprexents the peak of interest in the range of 1..max_peaks
-  if (peaks.size() && (peaks.size() > n)) {
-    rc = true;
-  }
-
-  return rc;
-}
-
-const Peak FFT::majorPeak(const Peaks &peaks) { return peakN(peaks, 1); }
-
-const Peak FFT::peakN(const Peaks &peaks, PeakN n) {
-  Peak peak;
-
-  if (hasPeak(peaks, n)) {
-    const Peak check = peaks.at(n - 1);
-
-    if (check.mag > Peak::magFloor()) {
-      peak = check;
-    }
-  }
-
-  return std::move(peak);
 }
 
 void FFT::process() {
@@ -247,12 +214,12 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir,
       _weighingFactorsWithCompensation == withCompensation) {
     // yes. values are precomputed
     if (dir == FFTDirection::Forward) {
-      for (uint_fast16_t i = 0; i < (_samples >> 1); i++) {
+      for (size_t i = 0; i < (_samples >> 1); i++) {
         _real[i] *= _wwf[i];
         _real[_samples - (i + 1)] *= _wwf[i];
       }
     } else {
-      for (uint_fast16_t i = 0; i < (_samples >> 1); i++) {
+      for (size_t i = 0; i < (_samples >> 1); i++) {
         _real[i] /= _wwf[i];
         _real[_samples - (i + 1)] /= _wwf[i];
       }
@@ -262,7 +229,7 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir,
     float samplesMinusOne = (float(_samples) - 1.0);
     float compensationFactor =
         _winCompensationFactors[static_cast<uint_fast8_t>(windowType)];
-    for (uint_fast16_t i = 0; i < (_samples >> 1); i++) {
+    for (size_t i = 0; i < (_samples >> 1); i++) {
       float indexMinusOne = float(i);
       float ratio = (indexMinusOne / samplesMinusOne);
       float weighingFactor = 1.0;
@@ -330,3 +297,6 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir,
     _weighingFactorsComputed = true;
   }
 }
+
+} // namespace audio
+} // namespace pierre

@@ -30,31 +30,12 @@ using namespace chrono;
 
 namespace pierre {
 namespace audio {
-Dsp::Dsp(const Config &cfg) : _cfg(cfg) {}
+Dsp::Dsp(const Config &cfg) : _cfg(cfg) { _peaks = std::make_shared<Peaks>(); }
 
-bool Dsp::bass() {
-  bool bass = false;
-
+spPeaks Dsp::peaks() {
   std::lock_guard<std::mutex> lck(_peaks_mtx);
 
-  for (const Peak &peak : _peaks) {
-    if (!peak.magStrong()) {
-      break;
-    } else if ((peak.freq > 30.0) && (peak.freq <= 170.0)) {
-      bass = true;
-      break;
-    }
-  }
-
-  return bass;
-}
-
-const Peak Dsp::majorPeak() {
-  std::lock_guard<std::mutex> lck(_peaks_mtx);
-
-  auto peak = _left.majorPeak(_peaks);
-
-  return std::move(peak);
+  return _peaks;
 }
 
 shared_ptr<thread> Dsp::run() {
@@ -92,6 +73,7 @@ void Dsp::stream() {
 
         {
           lock_guard<std::mutex> lck(_peaks_mtx);
+          _peaks = std::make_shared<Peaks>();
           _left.findPeaks(_peaks);
         }
 

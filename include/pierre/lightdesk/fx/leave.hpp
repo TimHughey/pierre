@@ -34,7 +34,11 @@ public:
   ~Leave() = default;
 
   void begin() override {}
-  void execute() override { leave(); };
+  void execute(audio::spPeaks peaks) override {
+    peaks.reset(); // this fx does not use peaks
+
+    leave();
+  };
   const string_t &name() const override {
     static const string_t fx_name = "Leave";
 

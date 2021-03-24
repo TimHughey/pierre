@@ -85,7 +85,7 @@ set(CLI src/cli)
 set(APPS apps)
 
 add_executable(${_target}
-  ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft
+  ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft ${AUDIO}/peaks
   ${DMX}/packet ${DMX}/net ${DMX}/render
   ${MISC}/random
   ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color ${LIGHTDESK}/fader

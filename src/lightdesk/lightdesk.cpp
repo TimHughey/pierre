@@ -53,26 +53,32 @@ LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
   el_entry = _tracker->unit<ElWire>("el entry");
   discoball = _tracker->unit<DiscoBall>("discoball");
 
-  const auto scale = Peak::scale();
+  const auto scale = audio::Peak::scale();
 
   Color::setScaleMinMax(scale.min, scale.max);
 
   discoball->spin();
 
-  // initial Fx is ColorBars
-  _active.fx = make_unique<fx::ColorBars>();
+  // select the first Fx
+  if (_cfg.colorbars.enable) {
+    _active.fx = make_unique<fx::ColorBars>();
+  } else {
+    _active.fx = make_unique<fx::MajorPeak>();
+  }
 }
 
 LightDesk::~LightDesk() { Fx::resetTracker(); }
 
 void LightDesk::executeFx() {
 
+  audio::spPeaks peaks = _dsp->peaks();
+
   lock_guard lck(_active.mtx);
-  _active.fx->execute();
+  _active.fx->execute(peaks);
 
   if (_active.fx->finished()) {
     if (_active.fx->matchName("ColorBars")) {
-      _active.fx = make_unique<MajorPeak>(_dsp);
+      _active.fx = make_unique<MajorPeak>();
     }
   }
 }
@@ -112,9 +118,6 @@ void LightDesk::stream() {
     this_thread::yield();
   }
 }
-
-// float Color::_scale_min = 50.0f;
-// float Color::_scale_max = 100.0f;
 
 std::shared_ptr<HeadUnitTracker> fx::Fx::_tracker;
 

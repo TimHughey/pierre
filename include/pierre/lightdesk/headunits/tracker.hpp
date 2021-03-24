@@ -92,6 +92,8 @@ private:
   HeadUnitMap _map = std::make_shared<_HeadUnitMap>();
 };
 
+typedef std::shared_ptr<HeadUnitTracker> spHeadUnitTracker;
+
 } // namespace lightdesk
 } // namespace pierre
 

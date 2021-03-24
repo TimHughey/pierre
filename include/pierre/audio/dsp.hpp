@@ -48,8 +48,7 @@ public:
   Dsp(const Dsp &) = delete;
   Dsp &operator=(const Dsp &) = delete;
 
-  bool bass();
-  const Peak majorPeak();
+  spPeaks peaks();
 
   std::shared_ptr<std::thread> run();
 
@@ -63,7 +62,7 @@ private:
   FFT _right = FFT(_cfg.samples, _cfg.rate);
 
   std::mutex _peaks_mtx;
-  Peaks _peaks;
+  spPeaks _peaks;
 };
 
 } // namespace audio

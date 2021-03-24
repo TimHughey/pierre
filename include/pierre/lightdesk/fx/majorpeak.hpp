@@ -23,7 +23,6 @@
 
 #include <deque>
 
-#include "audio/dsp.hpp"
 #include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
@@ -37,11 +36,11 @@ public:
   };
 
 public:
-  MajorPeak(std::shared_ptr<audio::Dsp> dsp);
+  MajorPeak();
   ~MajorPeak() = default;
 
   void begin() override {}
-  void execute() override;
+  void execute(audio::spPeaks peaks) override;
   const string_t &name() const override {
     static const string_t fx_name = "MajorPeak";
 
@@ -51,8 +50,8 @@ public:
 private:
   struct FreqColor {
     struct {
-      Freq_t low;
-      Freq_t high;
+      audio::Freq_t low;
+      audio::Freq_t high;
     } freq;
 
     Color color;
@@ -61,20 +60,18 @@ private:
   typedef std::deque<FreqColor> Palette;
 
 private:
-  void handleLowFreq(const Peak &peak, const Color &color);
-  void handleOtherFreq(const Peak &peak, const Color &color);
-  Color lookupColor(const Peak &peak);
-  void logPeak(const Peak &peak) const;
+  void handleLowFreq(const audio::Peak &peak, const Color &color);
+  void handleOtherFreq(const audio::Peak &peak, const Color &color);
+  Color lookupColor(const audio::Peak &peak);
+  void logPeak(const audio::Peak &peak) const;
   void makePalette();
-  void pushPaletteColor(Freq_t high, const Color &color);
+  void pushPaletteColor(audio::Freq_t high, const Color &color);
 
 private:
   Config _cfg;
   const float _mid_range_frequencies[13] = {349.2, 370.0, 392.0, 415.3, 440.0,
                                             466.2, 493.9, 523.2, 544.4, 587.3,
                                             622.2, 659.3, 698.5};
-
-  std::shared_ptr<audio::Dsp> _dsp;
 
   spPinSpot main;
   spPinSpot fill;
@@ -85,8 +82,8 @@ private:
   static Palette _palette;
 
   struct {
-    Peak main = Peak::zero();
-    Peak fill = Peak::zero();
+    audio::Peak main = audio::Peak::zero();
+    audio::Peak fill = audio::Peak::zero();
   } _last_peak;
 };
 

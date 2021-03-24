@@ -21,6 +21,7 @@
 #ifndef pierre_lightdesk_fx_base_hpp
 #define pierre_lightdesk_fx_base_hpp
 
+#include "audio/peaks.hpp"
 #include "lightdesk/headunits/tracker.hpp"
 #include "local/types.hpp"
 
@@ -34,7 +35,7 @@ public:
   virtual ~Fx() = default;
 
   virtual void begin() = 0;
-  virtual void execute() = 0;
+  virtual void execute(const audio::spPeaks peaks) = 0;
   virtual bool finished() { return _finished; }
 
   void leave() { _tracker->leave(); }
@@ -50,7 +51,6 @@ public:
 
   virtual const string_t &name() const = 0;
   static void resetTracker() { _tracker.reset(); }
-
   static void setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
     _tracker = std::move(tracker);
   }
@@ -65,7 +65,7 @@ protected:
   bool _finished = false;
 
 private:
-  static std::shared_ptr<HeadUnitTracker> _tracker;
+  static spHeadUnitTracker _tracker;
 };
 
 } // namespace fx

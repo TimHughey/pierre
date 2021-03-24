@@ -69,8 +69,7 @@ public:
   const Color &location() const { return _location; }
   void prepare(const FaderOpts_t &opts);
   void prepare(const Color &origin, FaderOpts_t opts);
-  double progress() const { return _progress * 100.0; }
-  bool progressLessThan(const double percent) const;
+  double progress() const { return 100.0 - (_progress * 100.0); }
 
   bool travel();
 
@@ -87,6 +86,8 @@ private:
   double _step = 0.0;
   double _progress = 0.0;
 };
+
+typedef std::shared_ptr<Fader> spFader;
 
 } // namespace lightdesk
 } // namespace pierre

@@ -33,16 +33,6 @@ bool Fader::checkProgress(double percent) const {
   return rc;
 }
 
-bool Fader::progressLessThan(const double percent) const {
-  auto rc = false;
-
-  if (progress() < percent) {
-    rc = true;
-  }
-
-  return rc;
-}
-
 void Fader::prepare(const FaderOpts_t &opts) {
   _finished = false;
   _traveled = false;
@@ -60,7 +50,7 @@ void Fader::prepare(const Color &origin, FaderOpts_t opts) {
 }
 
 bool Fader::travel() {
-  // constexpr double pi = 3.14159265358979323846;
+  constexpr double pi = 3.14159265358979323846;
   bool more_travel = false;
 
   if ((_traveled == false) && (_opts.use_origin)) {
@@ -76,10 +66,10 @@ bool Fader::travel() {
     } else {
 
       auto brightness = _opts.origin.brightness();
-      // auto fade_level = sin((_progress * pi) / 2.0);
+      auto fade_level = sin((_progress * pi) / 2.0);
       // auto fade_level = 1.0 - pow(1.0 - _progress, 3.0);
-      auto fade_level =
-          (_progress == 1.0 ? 1.0 : 1.0 - pow(2, -10 * _progress));
+      // auto fade_level =
+      //     (_progress == 1.0 ? 1.0 : 1.0 - pow(2, -10 * _progress));
 
       _location.setBrightness(brightness - (fade_level * brightness));
       _progress += _step;

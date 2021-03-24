@@ -25,7 +25,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 using namespace std;
 using namespace pierre;
-namespace po = boost::program_options;
 
 bool parseArgs(int ac, char *av[], Pierre::Config &cfg);
 
@@ -47,23 +46,37 @@ int main(int argc, char *argv[]) {
 }
 
 bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
+  using namespace boost::program_options;
+  namespace po = boost::program_options;
 
-  // Declare the supported options.
-  po::options_description desc("pierre options:");
-  desc.add_options()("help", "display this help text")(
-      "dmx", po::value<string_t>(), "stream dmx frames to host");
+  const char *dmx = "dmx";
+  const char *colorbars = "color-bars";
 
-  po::variables_map vm;
-  po::store(po::parse_command_line(ac, av, desc), vm);
-  po::notify(vm);
+  try {
+    // Declare the supported options.
+    po::options_description desc("pierre options:");
+    desc.add_options()("help", "display this help text")(
+        dmx, po::value<string_t>(), "stream dmx frames to host")(
+        colorbars, "pinspot color bar test at startup");
 
-  if (vm.count("help")) {
-    cout << desc << "\n";
-    return false;
-  }
+    po::variables_map vm;
+    po::store(po::parse_command_line(ac, av, desc), vm);
+    po::notify(vm);
 
-  if (vm.count("dmx")) {
-    cfg.dmx.host = vm["dmx"].as<std::string>();
+    if (vm.count("help")) {
+      cout << desc << "\n";
+      return false;
+    }
+
+    if (vm.count(dmx)) {
+      cfg.dmx.host = vm[dmx].as<std::string>();
+    }
+
+    if (vm.count(colorbars)) {
+      cfg.lightdesk.colorbars.enable = true;
+    }
+  } catch (const error &ex) {
+    cerr << ex.what() << endl;
   }
 
   return true;

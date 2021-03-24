@@ -46,6 +46,11 @@ class LightDesk : public dmx::Producer {
 
 public:
   struct Config {
+
+    struct {
+      bool enable = false;
+    } colorbars;
+
     struct {
       bool log = false;
     } majorpeak;

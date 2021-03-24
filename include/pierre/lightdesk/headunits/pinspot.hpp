@@ -32,29 +32,22 @@ namespace lightdesk {
 class PinSpot : public HeadUnit {
 public:
   enum Fx {
-    fxNone = 0x00,
-    fxPrimaryColorsCycle = 0x01,
-    fxRedOnGreenBlueWhiteJumping = 0x02,
-    fxGreenOnRedBlueWhiteJumping = 0x03,
-    fxBlueOnRedGreenWhiteJumping = 0x04,
-    fxWhiteOnRedGreenBlueJumping = 0x05,
-    fxWhiteFadeInOut = 0x06,
-    fxRgbwGradientFast = 0x07,
-    fxRedGreenGradient = 0x08,
-    fxRedBlueGradient = 0x09,
-    fxBlueGreenGradient = 0x0a,
-    fxFullSpectrumCycle = 0x0b,
-    fxFullSpectrumJumping = 0x0c,
-    fxColorCycleSound = 0x0d,
-    fxColorStrobeSound = 0x0e,
-    fxFastStrobeSound = 0x0f,
-    fxBeginCustom = 0x10,
-    fxColorBars = 0x11,
-    fxWashedSound,
-    fxSimpleStrobe,
-    fxMajorPeak,
-    fxMajorPeakAlternate,
-    fxEndOfList
+    None = 0x00,
+    PrimaryColorsCycle = 31,
+    RedOnGreenBlueWhiteJumping = 63,
+    GreenOnRedBlueWhiteJumping = 79,
+    BlueOnRedGreenWhiteJumping = 95,
+    WhiteOnRedGreenBlueJumping = 111,
+    WhiteFadeInOut = 127,
+    RgbwGradientFast = 143,
+    RedGreenGradient = 159,
+    RedBlueGradient = 175,
+    BlueGreenGradient = 191,
+    FullSpectrumCycle = 297,
+    FullSpectrumJumping = 223,
+    ColorCycleSound = 239,
+    ColorStrobeSound = 249,
+    FastStrobeSound = 254
   };
 
 public:
@@ -103,8 +96,6 @@ public:
 
 private:
   // functions
-  uint8_t autorunMap(Fx fx) const;
-
   inline bool faderActive() const { return _fader.active(); }
   inline bool faderFinished() const { return _fader.finished(); };
   inline const FaderOpts &faderOpts() const { return _fader.initialOpts(); }
@@ -128,7 +119,7 @@ private:
   Color _color;
   uint8_t _strobe = 0;
   uint8_t _strobe_max = 104;
-  Fx _fx = fxNone;
+  Fx _fx = Fx::None;
 
   Fader_t _fader;
 };

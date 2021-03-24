@@ -29,21 +29,6 @@ void PinSpot::autoRun(Fx fx) {
   _mode = AUTORUN;
 }
 
-uint8_t PinSpot::autorunMap(Fx fx) const {
-  static const uint8_t model_codes[] = {0,   31,  63,  79,  95,  111, 127, 143,
-                                        159, 175, 191, 207, 223, 239, 249, 254};
-
-  const uint8_t model_num = static_cast<uint8_t>(fx);
-
-  uint8_t selected_model = 0;
-
-  if (model_num < sizeof(model_codes)) {
-    selected_model = model_codes[model_num];
-  }
-
-  return selected_model;
-}
-
 void PinSpot::color(const Color &color, float strobe) {
   _color = color;
 
@@ -56,7 +41,7 @@ void PinSpot::color(const Color &color, float strobe) {
 
 void PinSpot::dark() {
   _color = Color::black();
-  _fx = fxNone;
+  _fx = Fx::None;
   _mode = DARK;
 }
 
@@ -87,28 +72,15 @@ void PinSpot::fadeTo(const FaderOpts_t &fo) {
 void PinSpot::frameUpdate(dmx::Packet &packet) {
   auto snippet = packet.frameData() + _address;
 
-  switch (_mode) {
-  case DARK:
-    // no changes required to initialized snippet
-    break;
+  _color.copyRgbToByteArray(snippet + 1);
 
-  case COLOR:
-  case FADER:
-    _color.copyRgbToByteArray(snippet + 1);
-
-    if (_strobe > 0) {
-      snippet[0] = _strobe + 0x87;
-    } else {
-      snippet[0] = 0xF0;
-    }
-
-    snippet[5] = 0x00; // clear autorun
-    break;
-
-  case AUTORUN:
-    snippet[5] = autorunMap(_fx);
-    break;
+  if (_strobe > 0) {
+    snippet[0] = _strobe + 0x87;
+  } else {
+    snippet[0] = 0xF0;
   }
+
+  snippet[5] = _fx;
 }
 
 } // namespace lightdesk
