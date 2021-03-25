@@ -34,14 +34,12 @@ public:
     fill = unit<PinSpot>("fill");
   }
 
-  void begin() override{};
-
   void execute(audio::spPeaks peaks) override {
     peaks.reset(); // this fx does not use peaks
 
     PinSpot *pinspot = nullptr;
 
-    Fader::Opts opts{.origin = Color(), .dest = Color::black(), .secs = 0.3};
+    Fader::Opts opts{.origin = Color(), .dest = Color::black(), .ms = 300};
 
     if (main->isFading() || fill->isFading()) {
       // this is a no op while the PinSpots are fading
@@ -89,7 +87,7 @@ public:
     }
 
     if (count() > 2) {
-      pinspot->activateFader<Fader>(opts);
+      pinspot->activate<Fader>(opts);
     }
 
     count()--;

@@ -23,7 +23,7 @@ namespace lightdesk {
 PinSpot::PinSpot(uint16_t address) : HeadUnit(address, 6) {}
 
 bool PinSpot::checkFaderProgress(float percent) const {
-  auto rc = false;
+  auto rc = true;
 
   if (_fader) {
     rc = _fader->checkProgress(percent);

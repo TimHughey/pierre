@@ -18,14 +18,21 @@
     https://www.wisslanding.com
 */
 
+#include <iostream>
+
 #include "lightdesk/fader.hpp"
+
+using namespace std::chrono;
 
 namespace pierre {
 namespace lightdesk {
 
 Fader::Fader(const Fader::Opts opts)
-    : _opts(opts), _location(opts.origin), _traveled(false), _finished(false) {
-  _step = 1.0 / (_opts.secs * 44.0);
+    : _opts(opts), _location(opts.origin), _progress(0.0), _finished(false) {
+
+  _duration = usec(_opts.ms * 1000);
+
+  _frames.count = 0;
 }
 
 bool Fader::checkProgress(double percent) const {
@@ -39,39 +46,44 @@ bool Fader::checkProgress(double percent) const {
 }
 
 bool Fader::travel() {
-  constexpr double pi = 3.14159265358979323846;
-  bool more_travel = false;
+  bool more_travel = true;
 
-  if (_traveled == false) {
-    // when use_origin is set start the first travel is to the origin
-    // so _location is unchanged
-    more_travel = true;
+  if (_progress == 0.0) {
+    // the first invocation (frame 0) represents the origin and start time
+    // of the fader
+    _started_at = clock::now();
+    _progress = 0.0001;
   } else {
-    // if we've already traveled once then we move from _location
 
-    if (_progress >= 1.0) {
+    auto elapsed = duration_cast<usec>(clock::now() - _started_at);
+
+    if ((elapsed + _fuzz) >= _duration) {
       more_travel = false;
       _location.setBrightness(0);
     } else {
+      _progress = (float)elapsed.count() / (float)_duration.count();
 
       auto brightness = _opts.origin.brightness();
-      auto fade_level = sin((_progress * pi) / 2.0);
+      // auto fade_level = sin((_progress * pi) / 2.0);
       // auto fade_level = 1.0 - pow(1.0 - _progress, 3.0);
+
+      // ease out exponent
       // auto fade_level =
-      //     (_progress == 1.0 ? 1.0 : 1.0 - pow(2, -10 * _progress));
+      //     (_progress == 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * _progress));
+
+      // ease out quint
+      auto fade_level = 1.0 - pow(1.0 - _progress, 5.0);
+
+      // ease out circ
+      // auto fade_level = sqrt(1.0 - pow(_progress - 1.0, 2.0));
 
       _location.setBrightness(brightness - (fade_level * brightness));
-      _progress += _step;
-
-      more_travel = true;
     }
-
-    _finished = !more_travel;
   }
 
-  _frames++;
-  _traveled = true;
+  _finished = !more_travel;
 
+  _frames.count++;
   return more_travel;
 }
 

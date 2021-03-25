@@ -1,6 +1,6 @@
 /*
-    lightdesk/fx/majorpeak.hpp -- LightDesk Effect Major Peak
-    Copyright (C) 2021  Tim Hughey
+    lightdesk/lightdesk.cpp - Ruth Light Desk
+    Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,36 +18,40 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_lightdesk_fx_leave_hpp
-#define pierre_lightdesk_fx_leave_hpp
-
-#include <array>
-
-#include "lightdesk/fx/fx.hpp"
+#include "lightdesk/fx/leave.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
 
-class Leave : public Fx {
+Leave::Leave() {
+  _pinspots[0] = unit<PinSpot>("main");
+  _pinspots[1] = unit<PinSpot>("fill");
+}
 
-public:
-  Leave();
-  ~Leave() = default;
+void Leave::execute(audio::spPeaks peaks) {
+  peaks.reset(); // no use for peaks
 
-  void execute(audio::spPeaks peaks) override;
-  const string_t &name() const override {
-    static const string_t fx_name = "Leave";
+  if (_pinspots[0]->isFading() == false) {
+    for (auto p : _pinspots) {
+      Fader::Opts opts{
+          .origin = Color(0xff144a), .dest = Color::black(), .ms = 1000};
 
-    return fx_name;
+      p->activate<Fader>(opts);
+    }
   }
 
-private:
-  std::array<spPinSpot, 2> _pinspots;
-};
+  static bool once = true;
+  if (once) {
+    unit<LedForest>("led forest")->leave();
+    unit<ElWire>("el dance")->leave();
+    unit<ElWire>("el entry")->leave();
+    unit<DiscoBall>("discoball")->leave();
+
+    once = false;
+  }
+}
 
 } // namespace fx
 } // namespace lightdesk
 } // namespace pierre
-
-#endif

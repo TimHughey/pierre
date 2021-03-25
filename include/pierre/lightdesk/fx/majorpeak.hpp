@@ -39,7 +39,6 @@ public:
   MajorPeak();
   ~MajorPeak() = default;
 
-  void begin() override {}
   void execute(audio::spPeaks peaks) override;
   const string_t &name() const override {
     static const string_t fx_name = "MajorPeak";

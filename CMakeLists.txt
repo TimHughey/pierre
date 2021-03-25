@@ -90,7 +90,7 @@ add_executable(${_target}
   ${MISC}/random
   ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color ${LIGHTDESK}/fader
   ${HEADUNITS}/pinspot
-  ${FX}/majorpeak
+  ${FX}/majorpeak ${FX}/leave
   ${CLI}/linenoise ${CLI}/cli
   ${APPS}/pierre ${APPS}/main
 )

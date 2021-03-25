@@ -56,7 +56,7 @@ public:
   PinSpot(uint16_t address = 1);
   ~PinSpot() = default;
 
-  template <typename T> void activateFader(const Fader::Opts &opts) {
+  template <typename T> void activate(const Fader::Opts &opts) {
     std::lock_guard<std::mutex> lck(_fader_mtx);
 
     _fader = std::make_unique<T>(opts);

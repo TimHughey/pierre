@@ -107,14 +107,19 @@ void Color::scale(const float to_val) {
   // }
 }
 
-void Color::setBrightness(const float val) {
-  if ((val >= 0.0) && (val <= 100.0)) {
-
-    _hsv.val = (val / 100.0);
-
-    _rgb = hsvToRgb(_hsv);
-    _lab = rgbToLab(_rgb);
+void Color::setBrightness(float val) {
+  if (val < 0.0) {
+    val = 0.0;
   }
+
+  if (val > 100.0) {
+    val = 100.0;
+  }
+
+  _hsv.val = (val / 100.0);
+
+  _rgb = hsvToRgb(_hsv);
+  _lab = rgbToLab(_rgb);
 }
 
 Color::Rgb Color::hsvToRgb(const Hsv &hsv) {
@@ -160,9 +165,9 @@ Color::Rgb Color::hsvToRgb(const Hsv &hsv) {
       calc = RgbCalc{.r = hsv.val, .g = var_1, .b = var_2};
     }
 
-    rgb = Rgb{.r = (uint8_t)(calc.r * 255),
-              .g = (uint8_t)(calc.g * 255),
-              .b = (uint8_t)(calc.b * 255)};
+    rgb = Rgb{.r = (uint8_t)floor(calc.r * 255),
+              .g = (uint8_t)floor(calc.g * 255),
+              .b = (uint8_t)floor(calc.b * 255)};
   }
 
   return std::move(rgb);

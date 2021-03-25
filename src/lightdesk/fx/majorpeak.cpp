@@ -78,7 +78,7 @@ void MajorPeak::execute(audio::spPeaks peaks) {
 void MajorPeak::handleLowFreq(const audio::Peak &peak, const Color &color) {
   bool start_fade = true;
 
-  const auto fading = fill->checkFaderProgress(75.0);
+  const auto fading = fill->checkFaderProgress(0.99);
 
   if (fading == true) {
     if ((_last_peak.fill.freq <= 180.0f) &&
@@ -88,31 +88,29 @@ void MajorPeak::handleLowFreq(const audio::Peak &peak, const Color &color) {
   }
 
   if (start_fade) {
-    fill->activateFader<Fader>(
-        {.origin = color, .dest = Color::black(), .secs = 0.7});
+    fill->activate<Fader>({.origin = color, .dest = Color::black(), .ms = 800});
+    _last_peak.fill = peak;
   }
-
-  _last_peak.fill = peak;
 }
 
 void MajorPeak::handleOtherFreq(const audio::Peak &peak, const Color &color) {
   const Fader::Opts main_opts(
-      {.origin = color, .dest = Color::black(), .secs = 0.7});
+      {.origin = color, .dest = Color::black(), .ms = 700});
 
-  const auto main_fading = main->checkFaderProgress(85.0);
-  const auto fill_fading = fill->checkFaderProgress(75.0);
-
-  if ((_last_peak.main.mag < peak.mag) && main_fading) {
-    main->activateFader<Fader>(main_opts);
-  } else if (!main_fading) {
-    main->activateFader<Fader>(main_opts);
+  if ((peak.mag > _last_peak.main.mag) && main->isFading()) {
+    main->activate<Fader>(main_opts);
+  } else if (main->isFading() == false) {
+    main->activate<Fader>(main_opts);
   }
 
   _last_peak.main = peak;
 
-  if ((_last_peak.fill.mag < peak.mag) || !fill_fading) {
-    fill->activateFader<Fader>(
-        {.origin = color, .dest = Color::black(), .secs = 0.7f});
+  if (fill->isFading() == false) {
+    _last_peak.fill = audio::Peak::zero();
+  }
+
+  if (peak.mag > _last_peak.fill.mag) {
+    fill->activate<Fader>({.origin = color, .dest = Color::black(), .ms = 700});
     _last_peak.fill = peak;
   }
 }
@@ -153,29 +151,28 @@ void MajorPeak::makePalette() {
 
   // colors sourced from --->  https://www.easyrgb.com
 
-  pushPaletteColor(120, Color(0x8b0000)); // dark red
-  pushPaletteColor(160, Color(0x752424)); //
-  pushPaletteColor(180, Color(0x5b150e));
-  pushPaletteColor(260, Color(0x3d6944));
-  pushPaletteColor(300, Color(0xffff00));
-  pushPaletteColor(320, Color(0x13497c));
-  pushPaletteColor(350, Color(0xdfd43c));
-  pushPaletteColor(390, Color(0x008080)); // teal
+  pushPaletteColor(120, Color(0xb22222)); // fire brick
+  pushPaletteColor(160, Color(0xdc0a1e)); // crimson
+  pushPaletteColor(180, Color(0x2c1577));
+  pushPaletteColor(260, Color(0x0000ff));
+  pushPaletteColor(300, Color(0xbfbf00));
+  pushPaletteColor(320, Color(0xffd700));
+  pushPaletteColor(350, Color(0xffff00));
+  pushPaletteColor(390, Color(0x5e748c));
   pushPaletteColor(490, Color(0x00ff00)); // pure green
-  pushPaletteColor(550, Color(0xff8c00)); // dark orange
-  pushPaletteColor(610, Color(0x9bc226)); // lime green
-  pushPaletteColor(710, Color(0x39737a)); // north sea green
+  pushPaletteColor(550, Color(0xe09b00));
+  pushPaletteColor(610, Color(0x32cd50)); // lime green
+  pushPaletteColor(710, Color(0x2e8b57));
   pushPaletteColor(850, Color(0x91234e)); //
-  pushPaletteColor(950, Color(0x4c5e7c)); // violet blue
-  pushPaletteColor(1050, Color(0x146e22));
-  pushPaletteColor(1200, Color(0x7e104f));
-  pushPaletteColor(1500, Color(0xc71585));  // medium violet red
-  pushPaletteColor(3000, Color(0x8a9fbf));  // steel blue
-  pushPaletteColor(5000, Color(0xff69b4));  // hot pink
-  pushPaletteColor(7000, Color(0x715478));  // dark violet
-  pushPaletteColor(9000, Color(0x87ceeb));  // sky blue
-  pushPaletteColor(10000, Color(0x7cfc00)); // lime green
-  pushPaletteColor(11000, Color(0xf8f8ff)); // ghost white
+  pushPaletteColor(950, Color(0xff144a)); // deep pink?
+  pushPaletteColor(1050, Color(0xff00ff));
+  pushPaletteColor(1500, Color(0xffc0cb)); // pink
+  pushPaletteColor(3000, Color(0x4682b4)); // steel blue
+  pushPaletteColor(5000, Color(0xff69b4)); // hot pink
+  pushPaletteColor(7000, Color(0x9400d3)); // dark violet
+  pushPaletteColor(10000, Color(0xf5f2ea));
+  pushPaletteColor(12000, Color(0xf5f3d7));
+  pushPaletteColor(15000, Color(0xe4e4d4));
   pushPaletteColor(22000, Color::full());
 }
 

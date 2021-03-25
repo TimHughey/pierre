@@ -34,7 +34,7 @@ public:
   Fx() = default;
   virtual ~Fx() = default;
 
-  virtual void begin() = 0;
+  virtual void begin(){};
   virtual void execute(const audio::spPeaks peaks) = 0;
   virtual bool finished() { return _finished; }
 

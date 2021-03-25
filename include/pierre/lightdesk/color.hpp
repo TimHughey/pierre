@@ -88,7 +88,7 @@ public:
   bool operator!=(const Color &rhs) const;
 
   void scale(float to_val);
-  void setBrightness(const float);
+  void setBrightness(float);
 
   static void setScaleMinMax(const float min, const float max) {
     _scale_min = min;

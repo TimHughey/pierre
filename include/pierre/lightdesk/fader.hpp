@@ -21,7 +21,7 @@
 #ifndef pierre_pinspot_fader_hpp
 #define pierre_pinspot_fader_hpp
 
-#include <iostream>
+#include <chrono>
 
 #include "lightdesk/color.hpp"
 #include "local/types.hpp"
@@ -30,11 +30,15 @@ namespace pierre {
 namespace lightdesk {
 
 class Fader {
+  typedef std::chrono::microseconds usec;
+  typedef std::chrono::steady_clock clock;
+  typedef std::chrono::time_point<clock> time_point;
+
 public:
   struct Opts {
     Color origin;
     Color dest;
-    float secs;
+    long ms;
   };
 
 public:
@@ -45,20 +49,26 @@ public:
   bool checkProgress(double percent) const;
   bool finished() const { return _finished; }
   const Color &location() const { return _location; }
-  double progress() const { return 100.0 - (_progress * 100.0); }
+  float progress() const { return _progress; }
 
   bool travel();
 
 private:
   Opts _opts;
   Color _location; // current fader location
-  bool _traveled = false;
+  float _progress = 0.0;
   bool _finished = true;
 
-  uint _frames = 0;
+  time_point _started_at;
 
-  double _step = 0.0;
-  double _progress = 0.0;
+  const usec _fuzz = usec(22000);
+  usec _duration;
+
+  struct {
+    double count;
+  } _frames;
+
+  static constexpr double pi = 3.14159265358979323846;
 };
 
 typedef std::shared_ptr<Fader> spFader;
