@@ -21,6 +21,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "lightdesk/faders/toblack.hpp"
 #include "lightdesk/fx/majorpeak.hpp"
 
 namespace pierre {
@@ -29,6 +30,10 @@ namespace fx {
 
 using namespace std;
 using namespace chrono;
+
+using namespace lightdesk::fader;
+
+typedef fader::ColorToBlack<EasingOutQuint> Fader;
 
 MajorPeak::MajorPeak() : Fx() {
 
@@ -88,14 +93,13 @@ void MajorPeak::handleLowFreq(const audio::Peak &peak, const Color &color) {
   }
 
   if (start_fade) {
-    fill->activate<Fader>({.origin = color, .dest = Color::black(), .ms = 800});
+    fill->activate<Fader>({.origin = color, .ms = 800});
     _last_peak.fill = peak;
   }
 }
 
 void MajorPeak::handleOtherFreq(const audio::Peak &peak, const Color &color) {
-  const Fader::Opts main_opts(
-      {.origin = color, .dest = Color::black(), .ms = 700});
+  const Fader::Opts main_opts({.origin = color, .ms = 700});
 
   if ((peak.mag > _last_peak.main.mag) && main->isFading()) {
     main->activate<Fader>(main_opts);
@@ -110,7 +114,7 @@ void MajorPeak::handleOtherFreq(const audio::Peak &peak, const Color &color) {
   }
 
   if (peak.mag > _last_peak.fill.mag) {
-    fill->activate<Fader>({.origin = color, .dest = Color::black(), .ms = 700});
+    fill->activate<Fader>({.origin = color, .ms = 700});
     _last_peak.fill = peak;
   }
 }

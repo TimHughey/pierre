@@ -19,10 +19,15 @@
 */
 
 #include "lightdesk/fx/leave.hpp"
+#include "lightdesk/faders/toblack.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
+
+using namespace fader;
+
+typedef fader::ColorToBlack<EasingOutSine> Fader;
 
 Leave::Leave() {
   _pinspots[0] = unit<PinSpot>("main");
@@ -34,8 +39,7 @@ void Leave::execute(audio::spPeaks peaks) {
 
   if (_pinspots[0]->isFading() == false) {
     for (auto p : _pinspots) {
-      Fader::Opts opts{
-          .origin = Color(0xff144a), .dest = Color::black(), .ms = 1000};
+      Fader::Opts opts{.origin = Color(0xff144a), .ms = 7000};
 
       p->activate<Fader>(opts);
     }

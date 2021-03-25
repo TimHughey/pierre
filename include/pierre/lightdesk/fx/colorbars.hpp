@@ -21,11 +21,16 @@
 #ifndef pierre_lightdesk_fx_colorbars_hpp
 #define pierre_lightdesk_fx_colorbars_hpp
 
+#include "lightdesk/faders/toblack.hpp"
 #include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
+
+using namespace lightdesk::fader;
+
+typedef ColorToBlack<EasingOutSine> Fader;
 
 class ColorBars : public Fx {
 public:
@@ -39,7 +44,7 @@ public:
 
     PinSpot *pinspot = nullptr;
 
-    Fader::Opts opts{.origin = Color(), .dest = Color::black(), .ms = 300};
+    Fader::Opts opts{.origin = Color(), .ms = 300};
 
     if (main->isFading() || fill->isFading()) {
       // this is a no op while the PinSpots are fading

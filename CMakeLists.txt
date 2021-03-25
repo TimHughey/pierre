@@ -78,6 +78,7 @@ string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 set(AUDIO src/audio)
 set(DMX src/dmx)
 SET(LIGHTDESK src/lightdesk)
+SET(FADERS src/lightdesk/faders)
 SET(HEADUNITS src/lightdesk/headunits)
 SET(FX src/lightdesk/fx)
 set(MISC src/misc)
@@ -88,7 +89,8 @@ add_executable(${_target}
   ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft ${AUDIO}/peaks
   ${DMX}/packet ${DMX}/net ${DMX}/render
   ${MISC}/random
-  ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color ${LIGHTDESK}/fader
+  ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color
+  ${FADERS}/fader
   ${HEADUNITS}/pinspot
   ${FX}/majorpeak ${FX}/leave
   ${CLI}/linenoise ${CLI}/cli

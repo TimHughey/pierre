@@ -18,24 +18,21 @@
     https://www.wisslanding.com
 */
 
-#include <iostream>
-
-#include "lightdesk/fader.hpp"
+#include "lightdesk/faders/fader.hpp"
 
 using namespace std::chrono;
 
 namespace pierre {
 namespace lightdesk {
+namespace fader {
 
-Fader::Fader(const Fader::Opts opts)
-    : _opts(opts), _location(opts.origin), _progress(0.0), _finished(false) {
-
-  _duration = usec(_opts.ms * 1000);
+Base::Base(long ms) {
+  _duration = duration_cast<usec>(milliseconds(ms));
 
   _frames.count = 0;
 }
 
-bool Fader::checkProgress(double percent) const {
+bool Base::checkProgress(double percent) const {
   auto rc = false;
 
   if (progress() >= percent) {
@@ -45,7 +42,7 @@ bool Fader::checkProgress(double percent) const {
   return rc;
 }
 
-bool Fader::travel() {
+bool Base::travel() {
   bool more_travel = true;
 
   if (_progress == 0.0) {
@@ -53,31 +50,18 @@ bool Fader::travel() {
     // of the fader
     _started_at = clock::now();
     _progress = 0.0001;
+
   } else {
 
     auto elapsed = duration_cast<usec>(clock::now() - _started_at);
 
     if ((elapsed + _fuzz) >= _duration) {
       more_travel = false;
-      _location.setBrightness(0);
+      handleFinish();
     } else {
       _progress = (float)elapsed.count() / (float)_duration.count();
 
-      auto brightness = _opts.origin.brightness();
-      // auto fade_level = sin((_progress * pi) / 2.0);
-      // auto fade_level = 1.0 - pow(1.0 - _progress, 3.0);
-
-      // ease out exponent
-      // auto fade_level =
-      //     (_progress == 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * _progress));
-
-      // ease out quint
-      auto fade_level = 1.0 - pow(1.0 - _progress, 5.0);
-
-      // ease out circ
-      // auto fade_level = sqrt(1.0 - pow(_progress - 1.0, 2.0));
-
-      _location.setBrightness(brightness - (fade_level * brightness));
+      handleTravel(_progress);
     }
   }
 
@@ -86,6 +70,7 @@ bool Fader::travel() {
   _frames.count++;
   return more_travel;
 }
+} // namespace fader
 
 } // namespace lightdesk
 } // namespace pierre

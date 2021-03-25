@@ -18,62 +18,55 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_pinspot_fader_hpp
-#define pierre_pinspot_fader_hpp
+#ifndef pierre_lightdesk_fader_hpp
+#define pierre_lightdesk_fader_hpp
 
 #include <chrono>
 
-#include "lightdesk/color.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
+namespace fader {
 
-class Fader {
+class Base {
   typedef std::chrono::microseconds usec;
   typedef std::chrono::steady_clock clock;
   typedef std::chrono::time_point<clock> time_point;
 
 public:
-  struct Opts {
-    Color origin;
-    Color dest;
-    long ms;
-  };
-
-public:
-  Fader() = default;
-  Fader(const Opts opts);
+  Base(long ms);
+  ~Base() = default;
 
   bool active() const { return !_finished; }
   bool checkProgress(double percent) const;
   bool finished() const { return _finished; }
-  const Color &location() const { return _location; }
+  size_t frameCount() const { return _frames.count; }
   float progress() const { return _progress; }
 
+  const time_point &startedAt() const { return _started_at; }
   bool travel();
 
-private:
-  Opts _opts;
-  Color _location; // current fader location
-  float _progress = 0.0;
-  bool _finished = true;
+protected:
+  virtual void handleFinish(){};
+  virtual void handleTravel(float progress) = 0;
 
+private:
+  float _progress = 0.0;
+  bool _finished = false;
   time_point _started_at;
 
-  const usec _fuzz = usec(22000);
+  const usec _fuzz = usec(12000);
   usec _duration;
 
   struct {
-    double count;
+    size_t count;
   } _frames;
-
-  static constexpr double pi = 3.14159265358979323846;
 };
 
-typedef std::shared_ptr<Fader> spFader;
-typedef std::unique_ptr<Fader> upFader;
+typedef std::unique_ptr<Base> upFader;
 
+} // namespace fader
 } // namespace lightdesk
 } // namespace pierre
 

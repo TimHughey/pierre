@@ -24,7 +24,7 @@
 #include <mutex>
 
 #include "lightdesk/color.hpp"
-#include "lightdesk/fader.hpp"
+#include "lightdesk/faders/color.hpp"
 #include "lightdesk/headunit.hpp"
 #include "local/types.hpp"
 
@@ -56,7 +56,7 @@ public:
   PinSpot(uint16_t address = 1);
   ~PinSpot() = default;
 
-  template <typename T> void activate(const Fader::Opts &opts) {
+  template <typename T> void activate(const typename T::Opts &opts) {
     std::lock_guard<std::mutex> lck(_fader_mtx);
 
     _fader = std::make_unique<T>(opts);
@@ -87,7 +87,7 @@ private:
   Fx _fx = Fx::None;
 
   std::mutex _fader_mtx;
-  upFader _fader;
+  fader::upColorToColor _fader;
 };
 
 typedef std::shared_ptr<PinSpot> spPinSpot;
