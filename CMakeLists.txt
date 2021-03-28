@@ -110,4 +110,5 @@ target_link_libraries(${_target}
   ${Boost_LIBRARIES}
   ALSA::ALSA
   Threads::Threads
+  stdc++fs
 )

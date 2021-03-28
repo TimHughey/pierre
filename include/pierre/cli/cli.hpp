@@ -21,6 +21,7 @@
 #ifndef _pierre_cli_hpp
 #define _pierre_cli_hpp
 
+#include <filesystem>
 #include <memory>
 #include <thread>
 
@@ -31,9 +32,11 @@
 
 namespace pierre {
 
+namespace fs = std::filesystem;
+
 class Cli {
 public:
-  Cli();
+  Cli() = default;
 
   Cli(const Cli &) = delete;
   Cli &operator=(const Cli &) = delete;
@@ -50,6 +53,7 @@ private:
 private:
   const string_t git_revision = GIT_REVISION;
   const string_t build_timestamp = BUILD_TIMESTAMP;
+  fs::path recompile_flag;
 };
 
 } // namespace pierre

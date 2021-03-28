@@ -22,18 +22,26 @@
 #include <chrono>
 #include <cmath>
 #include <ctgmath>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 
 #include "cli/cli.hpp"
-#include "lightdesk/color.hpp"
 
 using namespace std;
 using namespace chrono;
 
 namespace pierre {
-Cli::Cli() {}
 
 bool Cli::run() {
+
+  auto tmp_dir = fs::path(fs::temp_directory_path());
+  tmp_dir.append("pierre");
+  fs::create_directories(tmp_dir);
+
+  recompile_flag = tmp_dir.append("recompile");
+  fs::remove(recompile_flag);
+
   repl();
 
   return true;
@@ -45,7 +53,8 @@ int Cli::doHelp() const {
   cout << "(l)eave <secs> - leave and shutdown after secs (default: 300)"
        << endl;
   cout << "version        - display git revision and build time" << endl;
-  cout << "q or x         - immediately shutdown" << endl;
+  cout << "c              - set recompile flag and immediate shutdown" << endl;
+  cout << "q or x         - immediate shutdown" << endl;
 
   return 0;
 }
@@ -67,37 +76,12 @@ int Cli::doLeave(const string_t &args) const {
 }
 
 int Cli::doTest(const string_t &args) const {
-  using namespace lightdesk;
   int rc = 0;
 
-  if (args.empty()) { // stop the compiler warning!
+  if (args.empty()) { // stop the compiler warning...
   }
 
-  // constexpr double pi = 3.14159265358979323846;
-  // //  double dps = 90.0 / 44.0; // degrees per dmx frame for one second fade
-  // double dps_half = 90 / (44.0 / 2.0);
-  //
-  // for (double k = 90.0; k < 180.0; k += dps_half) {
-  //   auto x = sin(k * pi / 180.0);
-  //
-  //   cout << "sin(" << k << ") = " << x * 255 << endl;
-  // }
-
-  Color color1(0xFF0000);
-  Color color2(0x00FF00);
-
-  cout << "color1 " << color1.asString() << endl;
-  cout << "color2 " << color2.asString() << endl;
-
-  double delta_e = color1.deltaE(color2);
-
-  cout << "deltaE[" << delta_e << "]" << endl;
-
-  Color::Rgb c1_from_hsv = Color::hsvToRgb(color1.hsv());
-  Color::Rgb c2_from_hsv = Color::hsvToRgb(color2.hsv());
-
-  cout << "color1 " << c1_from_hsv.asString() << " ";
-  cout << "color2 " << c2_from_hsv.asString();
+  cout << "no tests defined" << endl;
 
   return rc;
 }
@@ -176,6 +160,13 @@ void Cli::repl() {
     }
 
     if ((input[0] == 'x') || input[0] == 'q') {
+      core::State::quit();
+      break;
+    }
+
+    if (input[0] == 'c') {
+      std::ofstream(recompile_flag) << "";
+
       core::State::quit();
       break;
     }

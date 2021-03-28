@@ -41,8 +41,22 @@ case ${action} in
     && cmake --build . -- -v && ./pierre $@
     ;;
 
-  *)
+  run)
      cmake --build ${build_dir} && ${build_dir}/pierre $@
+
+     recompile_flag=/tmp/pierre/recompile
+     if [[ -e $recompile_flag ]]; then
+       rm -f $recompile_flag
+
+       # this_script=$(realpath $0)
+       exec ${0} $action $@
+     fi
+
+    ;;
+
+  *)
+    echo "unknown command $1"
+    exit 1
     ;;
 
 esac
