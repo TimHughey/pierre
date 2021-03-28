@@ -19,7 +19,7 @@
 */
 
 #include "lightdesk/fx/leave.hpp"
-#include "lightdesk/faders/toblack.hpp"
+#include "lightdesk/faders/color/toblack.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -27,23 +27,19 @@ namespace fx {
 
 using namespace fader;
 
-typedef fader::ColorToBlack<EasingOutSine> Fader;
+typedef color::ToColor<EasingInSine> FaderIn;
+typedef color::ToColor<EasingOutSine> FaderOut;
 
 Leave::Leave() {
-  _pinspots[0] = unit<PinSpot>("main");
-  _pinspots[1] = unit<PinSpot>("fill");
+  main = unit<PinSpot>("main");
+  fill = unit<PinSpot>("fill");
 }
 
 void Leave::execute(audio::spPeaks peaks) {
   peaks.reset(); // no use for peaks
 
-  if (_pinspots[0]->isFading() == false) {
-    for (auto p : _pinspots) {
-      Fader::Opts opts{.origin = Color(0xff144a), .ms = 7000};
-
-      p->activate<Fader>(opts);
-    }
-  }
+  auto bright = lightdesk::Color(0xff144a);
+  auto dim = lightdesk::Color::black();
 
   static bool once = true;
   if (once) {
@@ -52,7 +48,42 @@ void Leave::execute(audio::spPeaks peaks) {
     unit<ElWire>("el entry")->leave();
     unit<DiscoBall>("discoball")->leave();
 
+    main->activate<FaderIn>({.origin = dim, .dest = bright, .ms = 1000});
+    fill->color(dim);
     once = false;
+    return;
+  }
+
+  if (main->isFading() == false) {
+
+    switch (next) {
+    case 0:
+      main->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
+      fill->activate<FaderIn>({.origin = dim, .dest = bright, .ms = 1000});
+      break;
+
+      // case 1:
+      //   main->activate<FaderIn>({.origin = bright, .dest = bright, .ms =
+      //   5000}); fill->activate<FaderIn>({.origin = bright, .dest = bright,
+      //   .ms = 5000}); break;
+
+    case 1:
+      main->activate<FaderIn>({.origin = dim, .dest = bright, .ms = 1000});
+      fill->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
+
+      break;
+
+    default:
+      main->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
+      fill->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
+      break;
+    }
+
+    next++;
+
+    if (next >= 2) {
+      next = 0;
+    }
   }
 }
 

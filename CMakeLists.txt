@@ -88,7 +88,7 @@ set(APPS apps)
 add_executable(${_target}
   ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft ${AUDIO}/peaks
   ${DMX}/packet ${DMX}/net ${DMX}/render
-  ${MISC}/random
+  ${MISC}/random ${MISC}/elapsed
   ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color
   ${FADERS}/fader
   ${HEADUNITS}/pinspot

@@ -72,7 +72,7 @@ public:
   void framePrepare() override { faderMove(); }
   inline bool isFading() const { return (bool)_fader; }
 
-  void leave() override { color(Color(0xff0000)); }
+  void leave() override { Color::black(); }
 
 private:
   // functions
@@ -87,7 +87,7 @@ private:
   Fx _fx = Fx::None;
 
   std::mutex _fader_mtx;
-  fader::upColorToColor _fader;
+  fader::upColor _fader;
 };
 
 typedef std::shared_ptr<PinSpot> spPinSpot;

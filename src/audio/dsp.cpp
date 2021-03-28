@@ -69,21 +69,25 @@ void Dsp::stream() {
       if (left_pos == left_end) {
         // enough samples have been collected, do FFT and keep a copy
         // of the Peaks locally
-        _left.process();
+        // auto left_thr = make_unique<thread>([this]() {
+          _left.process();
 
-        {
-          lock_guard<std::mutex> lck(_peaks_mtx);
-          _peaks = std::make_shared<Peaks>();
-          _left.findPeaks(_peaks);
-        }
+          {
+            lock_guard<std::mutex> lck(_peaks_mtx);
+            _peaks = std::make_shared<Peaks>();
+            _left.findPeaks(_peaks);
+          }
+        // });
 
-        // skip FFT for _right to improve performance
-        // _right.process(_peaks)
+        // auto right_thr = make_unique<thread>([this]() { _right.process(); });
 
-        // reset left and right real positions to continue loading
-        left_pos = left_real.begin();
-        left_real.assign(left_real.size(), 0);
-        right_pos = right_real.begin();
+          // left_thr->join();
+          // right_thr->join();
+
+          // reset left and right real positions to continue loading
+          left_pos = left_real.begin();
+          left_real.assign(left_real.size(), 0);
+          right_pos = right_real.begin();
       }
 
       // consume two samples

@@ -36,6 +36,14 @@ public:
   typedef struct {
     double hue;
     double sat;
+    double lum;
+
+    string_t asString() const;
+  } Hsl;
+
+  typedef struct {
+    double hue;
+    double sat;
     double val;
 
     string_t asString() const;
@@ -73,16 +81,22 @@ public:
   Color(const Hsv &hsv);
   Color(const Color &rhs) = default;
 
-  double brightness() const { return _hsv.val * 100.0; }
+  double brightness() const { return _hsl.lum * 100.0; }
   void copyRgbToByteArray(uint8_t *array) const;
   double deltaE(const Color &c2) const;
+
+  double &hue() { return _hsl.hue; }
+  double &sat() { return _hsl.sat; }
+  double &lum() { return _hsl.lum; }
 
   Hsv hsv() { return _hsv; }
   Lab lab() { return _lab; }
   Rgb rgb() { return _rgb; }
 
+  static Color interpolate(Color a, Color b, float t);
+  bool isBlack() const;
   bool nearBlack() const;
-  bool notBlack() const { return *this != Color(); }
+  bool notBlack() const { return isBlack() == false; }
 
   bool operator==(const Color &rhs) const;
   bool operator!=(const Color &rhs) const;
@@ -96,7 +110,10 @@ public:
   }
 
   // conversions
+  static Rgb hslToRgb(const Hsl &hsl);
   static Rgb hsvToRgb(const Hsv &hsv);
+  static Rgb labToRgb(const Lab &lab);
+  static Hsl rgbToHsl(const Rgb &rgb);
   static Hsv rgbToHsv(const Rgb &rgb);
   static Lab rgbToLab(const Rgb &rgb);
 
@@ -132,15 +149,20 @@ private:
   typedef Xyz Reference;
 
 private:
+  static uint8_t hueToRgb(double v1, double v2, double vh);
   static Xyz rgbToXyz(const Rgb &rgb);
+  static Xyz labToXyz(const Lab &lab);
   static Lab xyzToLab(const Xyz &xyz);
+  static Rgb xyzToRgb(const Xyz &xyz);
 
 private:
+  Hsl _hsl = {.hue = 0, .sat = 0, .lum = 0};
   Hsv _hsv = {.hue = 0, .sat = 0, .val = 0};
   Lab _lab = {.l = 0, .a = 0, .b = 0};
   Rgb _rgb = {.r = 0, .g = 0, .b = 0};
   White _white = 0;
 
+  static constexpr double one_third = (1.0 / 3.0);
   static Reference _ref; // initialized to D65/2° standard illuminant
 
   static float _scale_min;

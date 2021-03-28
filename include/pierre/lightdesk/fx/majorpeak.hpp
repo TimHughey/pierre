@@ -53,18 +53,20 @@ private:
       audio::Freq_t high;
     } freq;
 
-    Color color;
+    lightdesk::Color color;
   };
 
   typedef std::deque<FreqColor> Palette;
 
 private:
-  void handleLowFreq(const audio::Peak &peak, const Color &color);
-  void handleOtherFreq(const audio::Peak &peak, const Color &color);
-  Color lookupColor(const audio::Peak &peak);
+  void handleElWire(audio::spPeaks peaks);
+  void handleLedForest(audio::spPeaks peaks);
+  void handleLowFreq(const audio::Peak &peak, const lightdesk::Color &color);
+  void handleOtherFreq(const audio::Peak &peak, const lightdesk::Color &color);
+  lightdesk::Color lookupColor(const audio::Peak &peak);
   void logPeak(const audio::Peak &peak) const;
   void makePalette();
-  void pushPaletteColor(audio::Freq_t high, const Color &color);
+  void pushPaletteColor(audio::Freq_t high, const lightdesk::Color &color);
 
 private:
   Config _cfg;

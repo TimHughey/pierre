@@ -48,15 +48,13 @@ public:
   bool travel();
 
 protected:
-  virtual void handleFinish(){};
+  virtual void handleFinish() = 0;
   virtual void handleTravel(float progress) = 0;
 
 private:
   float _progress = 0.0;
   bool _finished = false;
   time_point _started_at;
-
-  const usec _fuzz = usec(12000);
   usec _duration;
 
   struct {

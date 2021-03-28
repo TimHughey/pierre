@@ -37,6 +37,7 @@ Color::Color(const uint rgb_val) {
 }
 
 Color::Color(const Rgb &rgb) : _rgb(rgb) {
+  _hsl = rgbToHsl(_rgb);
   _hsv = rgbToHsv(_rgb);
   _lab = rgbToLab(_rgb);
 }
@@ -61,10 +62,49 @@ double Color::deltaE(const Color &c2) const {
   return de;
 }
 
+bool Color::isBlack() const {
+  return (_rgb.r == 0) && (_rgb.g == 0) && (_rgb.b == 0);
+}
+
+Color Color::interpolate(Color a, Color b, float t) {
+  // Hue interpolation
+  float h;
+  float d = b.hue() - a.hue();
+  if (a.hue() > b.hue()) {
+    // Swap (a.h, b.h)
+    std::swap(a.hue(), b.hue());
+
+    d *= -1.0;
+    t = 1.0 - t;
+  }
+
+  if (d > 0.5) // 180deg
+  {
+    a.hue() = a.hue() + 1;                              // 360deg
+    h = fmod((a.hue() + t * (b.hue() - a.hue())), 1.0); // 360deg
+  }
+  if (d <= 0.5) // 180deg
+  {
+    h = a.hue() + t * d;
+  }
+
+  Color interpolated;
+
+  interpolated.hue() = h;
+  interpolated.sat() = a.sat() + t * (b.sat() - a.sat());
+  interpolated.lum() = a.lum() + t * (b.lum() - a.lum());
+
+  interpolated._rgb = hslToRgb(interpolated._hsl);
+  interpolated._hsv = rgbToHsv(interpolated._rgb);
+  interpolated._lab = rgbToLab(interpolated._rgb);
+
+  return std::move(interpolated);
+}
+
 bool Color::nearBlack() const {
   auto rc = false;
 
-  if (deltaE(Color::black()) <= 2.0) {
+  if (deltaE(Color::black()) <= 3.0) {
     rc = true;
   }
 
@@ -87,39 +127,52 @@ void Color::scale(const float to_val) {
   // Result := ((Input - InputLow) / (InputHigh - InputLow))
   //       * (OutputHigh - OutputLow) + OutputLow;
 
-  const double ranged =
-      ((to_val - _scale_min) / (_scale_max - _scale_min)) * _hsv.val;
-  _hsv.val = ranged;
-
-  _rgb = hsvToRgb(_hsv);
-  _lab = rgbToLab(_rgb);
-
-  // for (auto k = 0; k < endOfParts(); k++) {
-  //   const uint32_t asis_val = _parts[k];
-  //   const float ranged =
-  //       ((tobe_val - _scale_min) / (_scale_max - _scale_min)) * asis_val;
+  const double new_brightness =
+      ((to_val - _scale_min) / (_scale_max - _scale_min)) * brightness();
+  // _hsv.val = ranged;
   //
-  //   const uint8_t adjusted = (ranged / 255.0) * asis_val;
-  //
-  //   if (adjusted < asis_val) {
-  //     _parts[k] = adjusted;
-  //   }
-  // }
+  // _rgb = hsvToRgb(_hsv);
+  // _lab = rgbToLab(_rgb);
+
+  setBrightness(new_brightness);
 }
 
 void Color::setBrightness(float val) {
-  if (val < 0.0) {
-    val = 0.0;
-  }
+  _hsl.lum = (val / 100.0);
 
-  if (val > 100.0) {
-    val = 100.0;
-  }
-
-  _hsv.val = (val / 100.0);
-
-  _rgb = hsvToRgb(_hsv);
+  _rgb = hslToRgb(_hsl);
+  _hsv = rgbToHsv(_rgb);
   _lab = rgbToLab(_rgb);
+}
+
+Color::Rgb Color::hslToRgb(const Hsl &hsl) {
+  // H, S and L input range = 0 ÷ 1.0
+  // R, G and B output range = 0 ÷ 255
+
+  Rgb rgb;
+
+  if (hsl.sat == 0) {
+
+    rgb.r = (uint8_t)round(hsl.lum * 255.0);
+    rgb.g = (uint8_t)round(hsl.lum * 255.0);
+    rgb.b = (uint8_t)round(hsl.lum * 255.0);
+  } else {
+    double var_1, var_2;
+
+    if (hsl.lum < 0.5) {
+      var_2 = hsl.lum * (1.0 + hsl.sat);
+    } else {
+      var_2 = (hsl.lum + hsl.sat) - (hsl.sat * hsl.lum);
+    }
+
+    var_1 = 2.0 * hsl.lum - var_2;
+
+    rgb.r = hueToRgb(var_1, var_2, hsl.hue + one_third);
+    rgb.g = hueToRgb(var_1, var_2, hsl.hue);
+    rgb.b = hueToRgb(var_1, var_2, hsl.hue - one_third);
+  }
+
+  return std::move(rgb);
 }
 
 Color::Rgb Color::hsvToRgb(const Hsv &hsv) {
@@ -171,6 +224,115 @@ Color::Rgb Color::hsvToRgb(const Hsv &hsv) {
   }
 
   return std::move(rgb);
+}
+
+uint8_t Color::hueToRgb(double v1, double v2, double vh) {
+  if (vh < 0.0) {
+    vh += 1.0;
+  }
+
+  if (vh > 1.0) {
+    vh -= 1.0;
+  }
+
+  if ((6.0 * vh) < 1.0) {
+    return (uint8_t)round((v1 + (v2 - v1) * 6.0 * vh) * 255.0);
+  }
+
+  if ((2.0 * vh) < 1.0) {
+    return (uint8_t)round(v2 * 255.0);
+  }
+  if ((3.0 * vh) < 2.0) {
+    return (uint8_t)round((v1 + (v2 - v1) * ((2.0 / 3.0) - vh) * 6.0) * 255.0);
+  }
+
+  return (uint8_t)round(v1 * 255.0);
+}
+
+Color::Rgb Color::labToRgb(const Lab &lab) {
+  const Xyz xyz = labToXyz(lab);
+  const Rgb rgb = xyzToRgb(xyz);
+
+  return std::move(rgb);
+}
+
+Color::Xyz Color::labToXyz(const Lab &lab) {
+
+  auto var_Y = (lab.l + 16.0) / 116.0;
+  auto var_X = lab.a / 500.0 + var_Y;
+  auto var_Z = var_Y - lab.b / 200.0;
+
+  if (pow(var_Y, 3.0) > 0.008856) {
+    var_Y = pow(var_Y, 3.0);
+  } else {
+    var_Y = (var_Y - 16.0 / 116.0) / 7.787;
+  }
+  if (pow(var_X, 3.0) > 0.008856) {
+    var_X = pow(var_X, 3.0);
+  } else {
+    var_X = (var_X - 16.0 / 116.0) / 7.787;
+  }
+  if (pow(var_Z, 3.0) > 0.008856) {
+    var_Z = pow(var_Z, 3.0);
+  } else {
+    var_Z = (var_Z - 16.0 / 116.0) / 7.787;
+  }
+
+  Xyz xyz{.x = var_X * _ref.x, .y = var_Y * _ref.y, .z = var_Z * _ref.z};
+
+  return std::move(xyz);
+}
+
+Color::Hsl Color::rgbToHsl(const Rgb &rgb) {
+
+  // R, G and B input range = 0 ÷ 255
+  // H, S and L output range = 0 ÷ 1.0
+
+  Hsl hsl;
+
+  auto red = (rgb.r / 255.0);
+  auto grn = (rgb.g / 255.0);
+  auto blu = (rgb.b / 255.0);
+
+  auto var_Min = std::min(std::min(red, grn), blu); // Min. value of RGB
+  auto var_Max = std::max(std::max(red, grn), blu); // Max. value of RGB
+  auto del_Max = var_Max - var_Min;                 // Delta RGB value
+
+  hsl.lum = (var_Max + var_Min) / 2.0;
+
+  if (del_Max == 0.0) // This is a gray, no chroma...
+  {
+    hsl.hue = 0.0;
+    hsl.sat = 0.0;
+  } else {
+    // Chromatic data...
+    if (hsl.lum < 0.5) {
+      hsl.sat = del_Max / (var_Max + var_Min);
+    } else {
+      hsl.sat = del_Max / (2.0 - var_Max - var_Min);
+    }
+
+    double del_R = (((var_Max - red) / 6.0) + (del_Max / 2.0)) / del_Max;
+    double del_G = (((var_Max - grn) / 6.0) + (del_Max / 2.0)) / del_Max;
+    double del_B = (((var_Max - blu) / 6.0) + (del_Max / 2.0)) / del_Max;
+
+    if (red == var_Max) {
+      hsl.hue = del_B - del_G;
+    } else if (grn == var_Max) {
+      hsl.hue = (1.0 / 3.0) + del_R - del_B;
+    } else if (blu == var_Max) {
+      hsl.hue = (2.0 / 3.0) + del_G - del_R;
+    }
+
+    if (hsl.hue < 0) {
+      hsl.hue += 1.0;
+    }
+    if (hsl.hue > 1) {
+      hsl.hue -= 1.0;
+    }
+  }
+
+  return std::move(hsl);
 }
 
 Color::Hsv Color::rgbToHsv(const Rgb &rgb) {
@@ -266,7 +428,6 @@ Color::Xyz Color::rgbToXyz(const Rgb &rgb) {
 
 Color::Lab Color::xyzToLab(const Xyz &xyz) {
   Lab lab;
-  constexpr double one_third = 1.0 / 3.0;
   constexpr double adjust = 16.0 / 116.0;
 
   // Reference-X, Y and Z refer to specific illuminants and observers.
@@ -296,6 +457,43 @@ Color::Lab Color::xyzToLab(const Xyz &xyz) {
   lab.b = 200.0 * (var_Y - var_Z);
 
   return std::move(lab);
+}
+
+Color::Rgb Color::xyzToRgb(const Xyz &xyz) {
+  // X, Y and Z input refer to a D65/2° standard illuminant.
+  // sR, sG and sB (standard RGB) output range = 0 ÷ 255
+
+  auto var_X = xyz.x / 100.0;
+  auto var_Y = xyz.y / 100.0;
+  auto var_Z = xyz.z / 100.0;
+
+  auto var_R = var_X * 3.2406 + var_Y * -1.5372 + var_Z * -0.4986;
+  auto var_G = var_X * -0.9689 + var_Y * 1.8758 + var_Z * 0.0415;
+  auto var_B = var_X * 0.0557 + var_Y * -0.2040 + var_Z * 1.0570;
+
+  constexpr double p = 1.0 / 2.4;
+
+  if (var_R > 0.0031308) {
+    var_R = 1.055 * pow(var_R, p) - 0.055;
+  } else {
+    var_R = 12.92 * var_R;
+  }
+  if (var_G > 0.0031308) {
+    var_G = 1.055 * pow(var_G, p) - 0.055;
+  } else {
+    var_G = 12.92 * var_G;
+  }
+  if (var_B > 0.0031308) {
+    var_B = 1.055 * pow(var_B, p) - 0.055;
+  } else {
+    var_B = 12.92 * var_B;
+  }
+
+  Rgb rgb{.r = (uint8_t)round(var_R * 255.0),
+          .g = (uint8_t)round(var_G * 255.0),
+          .b = (uint8_t)round(var_B * 255.0)};
+
+  return std::move(rgb);
 }
 
 string_t Color::Hsv::asString() const {
@@ -343,7 +541,8 @@ string_t Color::Xyz::asString() const {
 
 // initialize static class data
 // D65/2° standard illuminant
-Color::Reference Color::_ref = {.x = 95.047, .y = 100.0, .z = 108.883};
+// Color::Reference Color::_ref = {.x = 95.047, .y = 100.0, .z = 108.883};
+Color::Reference Color::_ref = {.x = 100.0, .y = 100.0, .z = 100.0};
 
 // scaling min and max
 float Color::_scale_min = 50.0;

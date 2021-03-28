@@ -55,7 +55,7 @@ LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
 
   const auto scale = audio::Peak::scale();
 
-  Color::setScaleMinMax(scale.min, scale.max);
+  lightdesk::Color::setScaleMinMax(scale.min, scale.max);
 
   discoball->spin();
 

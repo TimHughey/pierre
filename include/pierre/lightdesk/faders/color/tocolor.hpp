@@ -18,8 +18,8 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_lightdesk_fader_to_black_hpp
-#define pierre_lightdesk_fader_to_black_hpp
+#ifndef pierre_lightdesk_fader_color_to_color_hpp
+#define pierre_lightdesk_fader_color_to_color_hpp
 
 #include "lightdesk/color.hpp"
 #include "lightdesk/faders/color.hpp"
@@ -29,29 +29,36 @@
 namespace pierre {
 namespace lightdesk {
 namespace fader {
+namespace color {
 
-// E = easing
-template <typename E> class ColorToBlack : public ColorToColor {
-
-public:
-  struct Opts {
-    Color origin;
-    ulong ms;
-  };
+template <typename E> class ToColor : public Color {
 
 public:
-  ColorToBlack(const Opts &opts)
-      : ColorToColor(
-            {.origin = opts.origin, .dest = Color::black(), .ms = opts.ms}) {}
+  ToColor(const Color::Opts &opts) : Color(opts) { _location = _origin; }
 
-  virtual void handleTravel(const float progress) override {
-    auto brightness = _origin.brightness();
-    auto fade_level = E::calc(progress);
+protected:
+  virtual void handleTravel(const float progress) {
+    E e;
+    auto fade_level = e.calc(progress);
 
-    _location.setBrightness(brightness - (fade_level * brightness));
+    if (_origin.isBlack() || (_dest.isBlack())) {
+
+      if (e.out) {
+        auto brightness = _origin.brightness();
+        _location.setBrightness(brightness * fade_level);
+      } else if (e.in) {
+        auto brightness = _dest.brightness();
+        _location = _dest;
+        _location.setBrightness(brightness - (brightness * fade_level));
+      }
+
+    } else {
+      _location = lightdesk::Color::interpolate(_origin, _dest, fade_level);
+    }
   }
 };
 
+} // namespace color
 } // namespace fader
 } // namespace lightdesk
 } // namespace pierre

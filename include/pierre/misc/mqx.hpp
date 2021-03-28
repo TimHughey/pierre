@@ -21,6 +21,7 @@
 #ifndef _pierre_mqx_hpp
 #define _pierre_mqx_hpp
 
+#include <chrono>
 #include <condition_variable> // std::condition_variable
 #include <mutex>              // std::mutex, std::unique_lock
 #include <queue>
@@ -58,6 +59,7 @@ public:
   }
 
   T pop() {
+
     T item;
 
     {
@@ -67,6 +69,26 @@ public:
 
       item = _queue.front();
       _queue.pop();
+    }
+
+    return std::move(item);
+  }
+
+  T pop(const long ms, bool &timeout) {
+    timeout = false;
+    std::chrono::milliseconds wait_ms(ms);
+    T item;
+
+    {
+      std::unique_lock lck(_mtx);
+
+      if (_available.wait_for(lck, wait_ms,
+                              [this] { return _queue.empty() == false; })) {
+        item = _queue.front();
+        _queue.pop();
+      } else {
+        timeout = true;
+      }
     }
 
     return std::move(item);

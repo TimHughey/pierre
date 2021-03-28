@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <vector>
 
 #include "local/types.hpp"
@@ -85,10 +86,12 @@ public:
   ~Peaks() = default;
 
   bool bass() const;
+  auto cbegin() const { return _peaks.cbegin(); }
+  auto cend() const { return _peaks.cend(); }
   bool hasPeak(PeakN n) const;
   const Peak majorPeak() const;
   const Peak peakN(const PeakN n) const;
-  size_t size() const { return _peaks.size(); }
+  auto size() const { return _peaks.size(); }
 
   void sort();
   void push_back(const Peak &peak) { _peaks.push_back(peak); }

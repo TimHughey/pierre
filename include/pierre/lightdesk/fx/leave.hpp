@@ -43,7 +43,10 @@ public:
   }
 
 private:
-  std::array<spPinSpot, 2> _pinspots;
+  spPinSpot main;
+  spPinSpot fill;
+
+  int next = 0;
 };
 
 } // namespace fx

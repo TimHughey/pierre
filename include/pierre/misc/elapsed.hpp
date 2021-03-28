@@ -1,5 +1,5 @@
 /*
-    misc/elapsed.hpp - Ruth Elapsed Time Measurement
+    Pierre - Custom Lightshow for Wiss Landing
     Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -25,130 +25,89 @@
 #ifndef pierre_misc_elapsed_hpp
 #define pierre_misc_elapsed_hpp
 
+#include <chrono>
 #include <cstdint>
-
-#include <time.h>
 
 namespace pierre {
 class elapsedMillis {
 
 public:
-  elapsedMillis(void) { _ms = millis(); }
-  elapsedMillis(const elapsedMillis &orig)
-      : _ms(orig._ms), _frozen(orig._frozen) {}
+  typedef std::chrono::steady_clock clock;
+  typedef std::chrono::time_point<clock> timepoint;
+  typedef std::chrono::milliseconds milliseconds;
+
+public:
+  elapsedMillis(void);
+  elapsedMillis(const elapsedMillis &orig);
 
   operator uint32_t() const { return val(); }
-  // operator uint32_t() const { return (uint32_t)val(); }
   operator float() const { return toSeconds(val()); }
-  elapsedMillis &operator=(const elapsedMillis &rhs) {
-    _ms = rhs._ms;
-    return *this;
-  }
-
-  elapsedMillis &operator=(uint32_t val) {
-    _ms = millis() - val;
-    return *this;
-  }
+  elapsedMillis &operator=(const elapsedMillis &rhs);
+  elapsedMillis &operator=(const uint32_t val);
+  elapsedMillis &operator=(const int32_t val);
 
   bool operator<(const elapsedMillis &rhs) const { return val() < rhs.val(); }
-  bool operator<(uint32_t rhs) const { return (val() < rhs) ? true : false; }
-  bool operator<=(uint32_t rhs) const { return (val() <= rhs) ? true : false; }
-  // bool operator<(uint32_t rhs) const { return (val() < rhs) ? true : false; }
-  // bool operator<=(uint32_t rhs) const { return (val() <= rhs) ? true : false; }
-  bool operator<(int rhs) const { return (val() < rhs) ? true : false; }
-  bool operator<=(int rhs) const { return (val() <= rhs) ? true : false; }
+  bool operator<(const uint32_t rhs) const { return val() < rhs; }
+  bool operator<=(const uint32_t rhs) const { return val() <= rhs; }
 
-  bool operator>(uint32_t rhs) const { return (val() > rhs) ? true : false; }
-  bool operator>=(uint32_t rhs) const { return (val() >= rhs) ? true : false; }
-  // bool operator>(uint32_t rhs) const { return (val() > rhs) ? true : false; }
-  // bool operator>=(uint32_t rhs) const { return (val() >= rhs) ? true : false;
-  // }
-  bool operator>(int rhs) const { return (val() > rhs) ? true : false; }
-  bool operator>=(int rhs) const { return (val() >= rhs) ? true : false; }
+  bool operator<(const int rhs) const;
+  bool operator<=(const int rhs) const;
 
-  void freeze() {
-    _frozen = true;
-    _ms = millis() - _ms;
-  }
+  bool operator>(const uint32_t rhs) const { return val() > rhs; }
+  bool operator>=(const uint32_t rhs) const { return val() >= rhs; }
 
-  void reset() {
-    _frozen = false;
-    _ms = millis();
-  }
+  bool operator>(const int rhs) const;
+  bool operator>=(const int rhs) const;
 
-  float toSeconds() const { return (double)(millis() - _ms) / 1000.0; }
-  static float toSeconds(uint32_t val) { return (double)val / 1000.0; }
+  void freeze();
+  void reset();
+
+  float toSeconds() const;
+  static float toSeconds(uint32_t val);
 
 private:
   uint32_t _ms;
   bool _frozen = false;
 
-  uint32_t millis() const {
-    struct timespec t;
-    clock_gettime(CLOCK_BOOTTIME, &t);
-
-    auto ms = t.tv_nsec / (1000 * 1000);
-
-    return ms;
-  };
+  uint32_t millis() const;
   inline uint32_t val() const { return (_frozen) ? (_ms) : (millis() - _ms); }
 };
 
 class elapsedMicros {
 
 public:
-  elapsedMicros(void) {
-    _us = micros();
-    _frozen = false;
-  }
+  typedef std::chrono::steady_clock clock;
+  typedef std::chrono::time_point<clock> timepoint;
+  typedef std::chrono::microseconds microseconds;
 
-  elapsedMicros(const elapsedMicros &orig) {
-    _us = orig._us;
-    _frozen = orig._frozen;
-  }
+public:
+  elapsedMicros(void);
+  elapsedMicros(const elapsedMicros &orig);
 
-  float asMillis() const { return double(val()) / 1000.0; }
-
+  float asMillis() const { return val() / 1000.0; }
   operator float() const { return toSeconds(val()); }
   operator uint32_t() const { return val(); }
-  // operator uint32_t() const { return (uint32_t)val(); }
-  elapsedMicros &operator=(const elapsedMicros &rhs) {
-    _us = rhs._us;
-    _frozen = rhs._frozen;
-    return *this;
-  }
-  elapsedMicros &operator=(uint32_t val) {
-    _us = micros() - val;
-    return *this;
-  }
 
-  inline void freeze() {
-    _frozen = true;
-    _us = micros() - _us;
-  }
-  inline void reset() {
-    _frozen = false;
-    _us = micros();
-  }
+  elapsedMicros &operator=(const elapsedMicros &rhs);
+  elapsedMicros &operator=(const uint32_t val);
 
-  bool operator>(const elapsedMicros &rhs) const { return val() > rhs.val(); }
-  bool operator>(int rhs) const { return (val() > rhs) ? true : false; }
-  bool operator>=(int rhs) const { return (val() >= rhs) ? true : false; }
-  bool operator>(uint32_t rhs) const { return (val() > rhs) ? true : false; }
-  bool operator>=(uint32_t rhs) const { return (val() >= rhs) ? true : false; }
-  // bool operator>(uint32_t rhs) const { return (val() > rhs) ? true : false; }
-  // bool operator>=(uint32_t rhs) const { return (val() >= rhs) ? true : false;
-  // }
+  void freeze();
+  void reset();
 
   bool operator<(const elapsedMicros &rhs) const { return val() < rhs.val(); }
-  bool operator<(int rhs) const { return (val() < rhs) ? true : false; }
-  bool operator<=(int rhs) const { return (this->val() <= rhs) ? true : false; }
-  bool operator<(uint32_t rhs) const { return (val() < rhs) ? true : false; }
-  bool operator<=(uint32_t rhs) const { return (val() <= rhs) ? true : false; }
-  // bool operator<(uint32_t rhs) const { return (val() < rhs) ? true : false; }
+  bool operator<(const uint32_t rhs) const { return val() < rhs; }
+  bool operator<(const int rhs) const;
+  bool operator<=(const uint32_t rhs) const { return val() <= rhs; }
+  bool operator<=(const int rhs) const;
 
-  float toSeconds() const { return (double)(micros() - _us) / seconds_us; }
-  static float toSeconds(uint32_t val) { return (double)val / seconds_us; }
+  bool operator>(const elapsedMicros &rhs) const { return val() > rhs.val(); }
+  bool operator>(uint32_t rhs) const { return val() > rhs; }
+  bool operator>(const int rhs) const;
+  bool operator>=(uint32_t rhs) const { return val() >= rhs; }
+  bool operator>=(const int rhs) const;
+
+  float toSeconds() const;
+  static float toSeconds(uint32_t val);
 
 private:
   uint32_t _us;
@@ -156,14 +115,7 @@ private:
 
   static constexpr double seconds_us = 1000.0 * 1000.0;
 
-  uint32_t micros() const {
-    struct timespec t;
-    clock_gettime(CLOCK_BOOTTIME, &t);
-
-    auto us = t.tv_nsec / 1000;
-
-    return us;
-  }
+  uint64_t micros() const;
 
   inline uint32_t val() const { return (_frozen) ? (_us) : (micros() - _us); }
 };

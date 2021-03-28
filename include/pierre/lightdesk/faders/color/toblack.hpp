@@ -18,44 +18,34 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_lightdesk_fader_color_hpp
-#define pierre_lightdesk_fader_color_hpp
+#ifndef pierre_lightdesk_fader_to_black_hpp
+#define pierre_lightdesk_fader_to_black_hpp
 
 #include "lightdesk/color.hpp"
-#include "lightdesk/faders/easings.hpp"
-#include "lightdesk/faders/fader.hpp"
+#include "lightdesk/faders/color/tocolor.hpp"
 #include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fader {
+namespace color {
 
-class Color : public Base {
+// E = easing
+template <typename E> class ToBlack : public ToColor<E> {
 
 public:
   struct Opts {
     lightdesk::Color origin;
-    lightdesk::Color dest;
     ulong ms;
   };
 
 public:
-  Color(const Opts &opts)
-      : Base(opts.ms), _origin(opts.origin), _dest(opts.dest) {}
-
-  const lightdesk::Color &location() const { return _location; }
-
-  virtual void handleFinish() override { _location = _dest; }
-  virtual void handleTravel(const float progress) = 0;
-
-protected:
-  lightdesk::Color _origin;
-  lightdesk::Color _dest;
-  lightdesk::Color _location; // current fader location
+  ToBlack(const Opts &opts)
+      : ToColor<E>({.origin = opts.origin,
+                    .dest = lightdesk::Color::black(),
+                    .ms = opts.ms}) {}
 };
-
-typedef std::unique_ptr<Color> upColor;
-
+} // namespace color
 } // namespace fader
 } // namespace lightdesk
 } // namespace pierre

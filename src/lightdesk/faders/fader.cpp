@@ -55,11 +55,14 @@ bool Base::travel() {
 
     auto elapsed = duration_cast<usec>(clock::now() - _started_at);
 
-    if ((elapsed + _fuzz) >= _duration) {
+    if (elapsed >= _duration) {
       more_travel = false;
       handleFinish();
     } else {
       _progress = (float)elapsed.count() / (float)_duration.count();
+
+      // ensure 0 <= progress <= 1
+      _progress = (_progress > 1.0) ? 1.0 : _progress;
 
       handleTravel(_progress);
     }
