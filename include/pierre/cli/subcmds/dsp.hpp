@@ -1,5 +1,5 @@
 /*
-    Cli - Custom Light Show via DMX for Wiss Landing
+    Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -18,48 +18,30 @@
     https://www.wisslanding.com
 */
 
-#ifndef _pierre_cli_hpp
-#define _pierre_cli_hpp
+#ifndef _pierre_cli_subcmd_dsp_hpp
+#define _pierre_cli_subcmd_dsp_hpp
 
-#include <filesystem>
-#include <memory>
-#include <thread>
-
-#include "cli/linenoise.h"
 #include "cli/subcmds/subcmd.hpp"
-#include "core/state.hpp"
 #include "local/types.hpp"
-#include "version.h"
 
 namespace pierre {
+namespace cli {
 
-class Cli {
+class Dsp : public SubCmd {
+
 public:
-  Cli() = default;
+  Dsp() = default;
+  Dsp(const Dsp &) = delete;
+  Dsp &operator=(const Dsp &) = delete;
 
-  Cli(const Cli &) = delete;
-  Cli &operator=(const Cli &) = delete;
-
-  bool run();
-
-private:
-  int doHelp() const;
-  int doLeave(const string_t &args) const;
-  int doTest(const string_t &args) const;
-  int handleLine();
-  void repl();
-  bool matchLetter(char letter) const;
-  bool matchCmd(const string_t &cmd, bool letter = false) const;
-
-private:
-  string_t input;
-
-  const string_t git_revision = GIT_REVISION;
-  const string_t build_timestamp = BUILD_TIMESTAMP;
-  std::filesystem::path recompile_flag;
-  std::filesystem::path history_file;
+  int handleCmd(const string_t &args) override;
+  const string_t &name() const override {
+    static const string_t x = "dsp";
+    return x;
+  };
 };
 
+} // namespace cli
 } // namespace pierre
 
 #endif

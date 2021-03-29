@@ -19,6 +19,7 @@
 */
 
 #include <array>
+#include <fstream>
 #include <iostream>
 #include <vector>
 
@@ -26,6 +27,8 @@
 #include <ctgmath>
 
 #include "lightdesk/color.hpp"
+
+using namespace std;
 
 namespace pierre {
 namespace lightdesk {
@@ -116,25 +119,37 @@ bool Color::operator==(const Color &rhs) const { return _rgb == rhs._rgb; }
 bool Color::operator!=(const Color &rhs) const { return !(*this == rhs); }
 
 void Color::scale(const float to_val) {
+  // static ofstream log("/tmp/pierre/color.log", std::ios::trunc);
+  // static uint seq = 0;
   // Result := ((Input - InputLow) / (InputHigh - InputLow))
   //       * (OutputHigh - OutputLow) + OutputLow;
 
   const double new_brightness =
       ((to_val - _scale_min) / (_scale_max - _scale_min)) * brightness();
-  // _hsv.val = ranged;
-  //
-  // _rgb = hsvToRgb(_hsv);
-  // _lab = rgbToLab(_rgb);
+
+  // if (new_brightness > brightness()) {
+  //   log << seq++ << " ";
+  //   log << "color scale brightness: min[" << _scale_min << "] ";
+  //   log << "max[" << _scale_max << "] ";
+  //   log << "to_val[" << to_val << "] ";
+  //   log << "initial= " << brightness();
+  //   log << " scaled=" << new_brightness << endl;
+  // }
 
   setBrightness(new_brightness);
 }
 
 void Color::setBrightness(float val) {
-  _hsl.lum = (val / 100.0);
+  auto x = val / 100.0;
 
-  _rgb = hslToRgb(_hsl);
-  // _hsv = rgbToHsv(_rgb);
-  // _lab = rgbToLab(_rgb);
+  if ((unsigned)x <= 100.0) {
+
+    _hsl.lum = (x);
+
+    _rgb = hslToRgb(_hsl);
+    // _hsv = rgbToHsv(_rgb);
+    // _lab = rgbToLab(_rgb);}
+  }
 }
 
 Color::Rgb Color::hslToRgb(const Hsl &hsl) {

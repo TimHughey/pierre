@@ -40,14 +40,26 @@ struct Peak {
     struct {
       Mag_t floor;
       Mag_t strong;
+      Mag_t ceiling;
     } mag;
+
+    Mag_t ceiling() const { return mag.ceiling; }
+    Mag_t floor() const { return mag.floor; }
+    Mag_t strong() const { return mag.strong; }
   };
 
   struct Scale {
-    Mag_t min = scale(36500.0f);
-    Mag_t max = scale(1500000.0f);
+    Scale() {
+      auto cfg = Peak::config();
+      min = scale(cfg.floor() * 2.8);
+      max = scale(cfg.ceiling());
+    }
+
+    Mag_t min;
+    Mag_t max;
   };
 
+public: // Peak
   size_t index = 0;
   Freq_t freq = 0;
   Mag_t mag = 0;
@@ -56,6 +68,8 @@ struct Peak {
 
   Peak(const size_t i, const Freq_t f, const Mag_t m)
       : index(i), freq(f), mag(m) {}
+
+  static const Config &config() { return _cfg; }
 
   static Mag_t magFloor() { return _cfg.mag.floor; }
   MagScaled magScaled() const { return scale(mag); }
@@ -82,8 +96,10 @@ private:
 
 class Peaks {
 public:
-  Peaks() = default;
+  Peaks();
   ~Peaks() = default;
+
+  void analyzeMagnitudes();
 
   bool bass() const;
   auto cbegin() const { return _peaks.cbegin(); }
@@ -98,6 +114,7 @@ public:
 
 private:
   std::vector<Peak> _peaks;
+  std::vector<uint16_t> _mag_histogram;
 };
 
 typedef std::shared_ptr<Peaks> spPeaks;

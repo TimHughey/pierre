@@ -27,9 +27,12 @@
 #include <iostream>
 
 #include "cli/cli.hpp"
+#include "cli/subcmds/dsp.hpp"
 
 using namespace std;
 using namespace chrono;
+
+namespace fs = std::filesystem;
 
 namespace pierre {
 
@@ -39,10 +42,16 @@ bool Cli::run() {
   tmp_dir.append("pierre");
   fs::create_directories(tmp_dir);
 
-  recompile_flag = tmp_dir.append("recompile");
-  fs::remove(recompile_flag);
+  recompile_flag.assign(tmp_dir).append("recompile");
+  history_file.assign(tmp_dir).append("history");
+
+  linenoiseSetMultiLine(true);
+  linenoiseHistorySetMaxLen(250);
+  linenoiseHistoryLoad(history_file.c_str());
 
   repl();
+
+  linenoiseHistorySave(history_file.c_str());
 
   return true;
 }
@@ -86,21 +95,21 @@ int Cli::doTest(const string_t &args) const {
   return rc;
 }
 
-int Cli::handleLine(const string_t line) {
+int Cli::handleLine() {
   int rc = -1;
   string cmd;
   string args;
-  auto first_space = line.find_first_of(' ');
+  auto first_space = input.find_first_of(' ');
 
-  if (line.empty()) {
+  if (input.empty()) {
     return 0;
   }
 
   if (first_space == string::npos) {
-    cmd = line;
+    cmd = input;
   } else {
-    cmd = line.substr(0, first_space);
-    args = line.substr(first_space + 1, string::npos);
+    cmd = input.substr(0, first_space);
+    args = input.substr(first_space + 1, string::npos);
   }
 
   if ((cmd[0] == 'l') || (cmd.compare("leave") == 0)) {
@@ -116,13 +125,20 @@ int Cli::handleLine(const string_t line) {
     goto finished;
   }
 
-  if ((cmd[0] == 'h') || (cmd.compare("help") == 0)) {
+  if (matchCmd("help", true)) {
     rc = doHelp();
     goto finished;
   }
 
-  if ((cmd[0] == 't') || (cmd.compare("test") == 0)) {
+  if (matchCmd("test", true)) {
     rc = doTest(args);
+    goto finished;
+  }
+
+  if (cmd.compare("dsp") == 0) {
+    auto subcmd = cli::Dsp();
+    rc = subcmd.handleCmd(args);
+
     goto finished;
   }
 
@@ -137,47 +153,80 @@ finished:
   return rc;
 }
 
+bool Cli::matchCmd(const string_t &cmd, bool letter) const {
+  auto rc = false;
+
+  if (letter && (input.front() == cmd.front())) {
+    rc = true;
+  } else if (input.compare(cmd) == 0) {
+    rc = true;
+  }
+
+  return rc;
+}
+
+bool Cli::matchLetter(char letter) const {
+  auto rc = false;
+
+  if ((input.length() == 1) && (input[0] == letter)) {
+    rc = true;
+  }
+
+  return rc;
+}
+
 void Cli::repl() {
   uint line_num = 0;
-
-  linenoiseSetMultiLine(true);
 
   linenoiseClearScreen();
   cout << "Hello, this is Pierre. " << endl << endl;
 
+  string_t subsys = "pierre";
+  char *raw = nullptr;
   while (core::State::running()) {
     array<char, 25> prompt;
-    char *input;
 
     prompt.fill(0x00);
 
-    snprintf(prompt.data(), prompt.size(), "pierre [%u] %% ", line_num);
+    snprintf(prompt.data(), prompt.size(), "%s [%u] %% ", subsys.c_str(),
+             line_num);
 
-    input = linenoise(prompt.data());
+    raw = linenoise(prompt.data());
 
-    if (input == nullptr) {
+    if (raw == nullptr) {
       continue;
     }
 
-    if ((input[0] == 'x') || input[0] == 'q') {
+    input = raw;
+
+    if (matchLetter('x') || matchLetter('q')) {
       core::State::quit();
       break;
     }
 
-    if (input[0] == 'c') {
+    if (matchLetter('c')) {
       std::ofstream(recompile_flag) << "";
 
       core::State::quit();
       break;
     }
 
-    handleLine(input);
-    free(input);
+    if (handleLine() >= 0) {
+      linenoiseHistoryAdd(raw);
+    };
+
     line_num++;
 
     if (core::State::leaving()) {
       break;
     }
+
+    free(raw);
+    raw = nullptr;
+  }
+
+  if (raw != nullptr) {
+    free(raw);
   }
 }
 

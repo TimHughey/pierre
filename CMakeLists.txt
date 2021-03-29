@@ -93,7 +93,7 @@ add_executable(${_target}
   ${FADERS}/fader
   ${HEADUNITS}/pinspot
   ${FX}/majorpeak ${FX}/leave
-  ${CLI}/linenoise ${CLI}/cli
+  ${CLI}/linenoise ${CLI}/cli ${CLI}/subcmds/dsp
   ${APPS}/pierre ${APPS}/main
 )
 

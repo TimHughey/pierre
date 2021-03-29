@@ -81,10 +81,16 @@ void MajorPeak::execute(audio::spPeaks peaks) {
 
 void MajorPeak::handleElWire(audio::spPeaks peaks) {
 
+  auto mag_min = audio::Peak::magFloor() * 3.0;
+
   // dance floor
   for (auto p = peaks->cbegin(); p < (peaks->cbegin() + 3); p++) {
 
-    if ((p->freq > 220.0) && (p->freq < 600)) {
+    if (p->mag < mag_min) {
+      continue;
+    }
+
+    if ((p->freq > 220.0) && (p->freq < 400.0)) {
       el_dance_floor->pulse();
     }
 

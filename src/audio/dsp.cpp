@@ -18,12 +18,9 @@
     https://www.wisslanding.com
 */
 
-#include <fstream>
-#include <iostream>
-#include <thread>
-
 #include "audio/dsp.hpp"
 #include "core/state.hpp"
+#include "misc/elapsed.hpp"
 
 using namespace std;
 using namespace chrono;
@@ -44,8 +41,6 @@ shared_ptr<thread> Dsp::run() {
 }
 
 void Dsp::stream() {
-  ofstream fft_log(_cfg.log.path, ofstream::out | ofstream::trunc);
-
   // fft requires collecting _fft_samples via these iterators before processing
   auto &left_real = _left.real();
   left_real.assign(left_real.size(), 0);
@@ -70,24 +65,26 @@ void Dsp::stream() {
         // enough samples have been collected, do FFT and keep a copy
         // of the Peaks locally
         // auto left_thr = make_unique<thread>([this]() {
-          _left.process();
+        _left.process();
 
-          {
-            lock_guard<std::mutex> lck(_peaks_mtx);
-            _peaks = std::make_shared<Peaks>();
-            _left.findPeaks(_peaks);
-          }
+        {
+          lock_guard<std::mutex> lck(_peaks_mtx);
+          _peaks = std::make_shared<Peaks>();
+          _left.findPeaks(_peaks);
+        }
+
         // });
 
-        // auto right_thr = make_unique<thread>([this]() { _right.process(); });
+        // auto right_thr = make_unique<thread>([this]() { _right.process();
+        // });
 
-          // left_thr->join();
-          // right_thr->join();
+        // left_thr->join();
+        // right_thr->join();
 
-          // reset left and right real positions to continue loading
-          left_pos = left_real.begin();
-          left_real.assign(left_real.size(), 0);
-          right_pos = right_real.begin();
+        // reset left and right real positions to continue loading
+        left_pos = left_real.begin();
+        left_real.assign(left_real.size(), 0);
+        right_pos = right_real.begin();
       }
 
       // consume two samples

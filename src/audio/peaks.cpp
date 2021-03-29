@@ -18,12 +18,85 @@
     https://www.wisslanding.com
 */
 
+#include <fstream>
+#include <iostream>
+
 #include "audio/peaks.hpp"
+#include "misc/elapsed.hpp"
+
+using namespace std;
 
 namespace pierre {
 namespace audio {
 
-Peak::Config Peak::_cfg{.mag{.floor = 36500.0, .strong = 3.0}};
+Peak::Config Peak::_cfg{
+    .mag{.floor = 36500.0, .strong = 3.0, .ceiling = 1500000.0}};
+
+Peaks::Peaks() {
+  auto buckets = Peak::config().ceiling() / (Peak::config().floor());
+  _mag_histogram.assign(buckets + 1, 0);
+}
+
+void Peaks::analyzeMagnitudes() {
+  // static ofstream log("/tmp/pierre/mags.csv", std::ios::trunc);
+  static ofstream log("/dev/null", std::ios::trunc);
+  static uint seq = 0;
+  static elapsedMillis elapsed;
+
+  uint overflow = 0;
+  float mag_max = 0;
+  auto buckets = Peak::config().ceiling() / (Peak::config().floor());
+
+  if (_peaks.size() == 0) {
+    return;
+  }
+
+  for (auto p = _peaks.cbegin(); p <= _peaks.cend(); p++) {
+    auto threshold = Peak::config().floor() * 3.0;
+
+    if (p->mag < threshold) {
+      continue;
+    }
+
+    auto floor = Peak::config().floor();
+    auto bucket = round(p->mag / floor);
+
+    mag_max = std::max(mag_max, p->mag);
+
+    if (bucket < buckets) {
+      _mag_histogram[bucket]++;
+    } else {
+      overflow++;
+    }
+  }
+
+  if (elapsed > (22 * 10)) {
+    log << seq++ << "," << overflow;
+    auto total = 0;
+    for (auto k = _mag_histogram.cend(); k >= _mag_histogram.cbegin(); k--) {
+
+      // log << ",";
+      //
+      // if (*k > 0) {
+      //   log << *k;
+      // } else {
+      //   log << " ";
+      // }
+
+      total += *k;
+    }
+
+    log << "," << total;
+    // log << "," << mag_max;
+    log << endl;
+
+    _mag_histogram.assign(buckets + 1, 0);
+    overflow = 0;
+    mag_max = 0.0;
+
+    elapsed.reset();
+  }
+}
 
 bool Peaks::bass() const {
   bool bass = false;
