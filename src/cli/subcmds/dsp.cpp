@@ -18,12 +18,16 @@
     https://www.wisslanding.com
 */
 
+#include <boost/format.hpp>
+#include <boost/tokenizer.hpp>
 #include <iostream>
 
 #include "audio/dsp.hpp"
 #include "cli/subcmds/dsp.hpp"
 
 using namespace std;
+using boost::format;
+using boost::tokenizer;
 using namespace pierre::audio;
 
 namespace pierre {
@@ -32,14 +36,31 @@ namespace cli {
 int Dsp::handleCmd(const string_t &args) {
   auto rc = 0;
 
-  if (args.compare("help") == 0) {
+  tokens.clear();
+
+  tokenizer<> t(args);
+  for (tokenizer<>::iterator x = t.begin(); x != t.end(); ++x) {
+    string_t token(*x);
+    tokens.push_back(std::move(token));
+  }
+
+  auto tok = tokens.cbegin();
+
+  if (tok->compare("help") == 0) {
     cout << "dsp command help:" << endl;
-    cout << "config     - show configuration" << endl;
-    cout << "scale      - show magnitude scale configuration" << endl;
+    cout << "config          - show configuration" << endl;
+    cout << "scale <action>  - mag scale display and control" << endl;
+    cout << "                  action=<increase|reduce|reset>" << endl;
     goto finished;
   }
 
-  if (args.compare("config") == 0) {
+  if (tok->compare("scale") == 0) {
+    tokens.pop_front();
+    rc = handleScale();
+    goto finished;
+  }
+
+  if (tok->compare("config") == 0) {
     auto config = Peak::config();
 
     cout << "magnitude floor=" << config.floor() << " ";
@@ -48,16 +69,56 @@ int Dsp::handleCmd(const string_t &args) {
     goto finished;
   }
 
-  if (args.compare("scale") == 0) {
-    auto scale = Peak::scale();
+finished:
+  return rc;
+}
 
-    cout << "magnitude scale min=" << scale.min << " ";
-    cout << "max=" << scale.max << endl;
+int Dsp::handleScale() {
+  int rc = 0;
+
+  auto tok = tokens.cbegin(); // skip mag
+
+  if (tok >= tokens.cend()) {
+    printScale();
+    goto finished;
+  }
+
+  if (tok->compare("reduce") == 0) {
+    auto &config = Peak::config();
+    config.scaleReduce();
+    printScale();
+
+    goto finished;
+  }
+
+  if (tok->compare("reset") == 0) {
+    auto &config = Peak::config();
+    config.reset();
+    printScale();
+
+    goto finished;
+  }
+
+  if (tok->compare("increase") == 0) {
+    auto &config = Peak::config();
+    config.scaleIncrease();
+    printScale();
+
     goto finished;
   }
 
 finished:
+
   return rc;
+}
+
+void Dsp::printScale() {
+  auto &cfg = Peak::config();
+  auto scale = cfg.activeScale();
+
+  cout << boost::format(
+              "scale: floor[%8.3f] ceiling[%8.3f] factor[%5.2f] step[%5.3f]") %
+              scale->min() % scale->max() % cfg.scaleFactor() % cfg.step();
 }
 
 } // namespace cli

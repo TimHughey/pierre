@@ -21,6 +21,8 @@
 #ifndef _pierre_cli_subcmd_dsp_hpp
 #define _pierre_cli_subcmd_dsp_hpp
 
+#include <deque>
+
 #include "cli/subcmds/subcmd.hpp"
 #include "local/types.hpp"
 
@@ -39,6 +41,13 @@ public:
     static const string_t x = "dsp";
     return x;
   };
+
+private:
+  int handleScale();
+  void printScale();
+
+private:
+  std::deque<string_t> tokens;
 };
 
 } // namespace cli

@@ -53,9 +53,9 @@ LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
   el_entry = _tracker->unit<ElWire>("el entry");
   discoball = _tracker->unit<DiscoBall>("discoball");
 
-  const auto scale = audio::Peak::scale();
+  auto scale = audio::Peak::activeScale();
 
-  lightdesk::Color::setScaleMinMax(scale.min, scale.max);
+  lightdesk::Color::setScaleMinMax(scale);
 
   discoball->spin();
 

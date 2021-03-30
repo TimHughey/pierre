@@ -21,10 +21,12 @@
 #ifndef pierre_lightdesk_color_hpp
 #define pierre_lightdesk_color_hpp
 
+#include <algorithm>
 #include <cmath>
 #include <ctgmath>
 
 #include "local/types.hpp"
+#include "misc/minmax.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -107,9 +109,8 @@ public:
   void scale(float to_val);
   void setBrightness(float);
 
-  static void setScaleMinMax(const float min, const float max) {
-    _scale_min = min;
-    _scale_max = max;
+  static void setScaleMinMax(std::shared_ptr<MinMaxFloat> scale) {
+    _scale = scale;
   }
 
   // conversions
@@ -167,8 +168,10 @@ private:
   static constexpr double one_third = (1.0 / 3.0);
   //  static Reference _ref; // initialized to D65/2° standard illuminant
 
-  static float _scale_min;
-  static float _scale_max;
+  // static float _scale_min;
+  // static float _scale_max;
+
+  static std::shared_ptr<MinMaxFloat> _scale;
 };
 
 } // namespace lightdesk

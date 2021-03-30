@@ -37,6 +37,7 @@ namespace fs = std::filesystem;
 namespace pierre {
 
 bool Cli::run() {
+  _subcmds.push_back(std::make_unique<cli::Dsp>());
 
   auto tmp_dir = fs::path(fs::temp_directory_path());
   tmp_dir.append("pierre");
@@ -135,11 +136,11 @@ int Cli::handleLine() {
     goto finished;
   }
 
-  if (cmd.compare("dsp") == 0) {
-    auto subcmd = cli::Dsp();
-    rc = subcmd.handleCmd(args);
-
-    goto finished;
+  for (auto &subcmd : _subcmds) {
+    if (subcmd->name().compare(cmd) == 0) {
+      rc = subcmd->handleCmd(args);
+      break;
+    }
   }
 
 finished:

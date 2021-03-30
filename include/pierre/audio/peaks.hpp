@@ -23,10 +23,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <iterator>
 #include <vector>
 
 #include "local/types.hpp"
+#include "misc/minmax.hpp"
 
 namespace pierre {
 namespace audio {
@@ -37,26 +39,57 @@ typedef size_t PeakN; // represents peak of interest 1..max_peaks
 
 struct Peak {
   struct Config {
+    Config() = default;
+    Config(const Config &);
+
     struct {
-      Mag_t floor;
+      std::shared_ptr<MinMaxFloat> minmax;
       Mag_t strong;
-      Mag_t ceiling;
     } mag;
 
-    Mag_t ceiling() const { return mag.ceiling; }
-    Mag_t floor() const { return mag.floor; }
-    Mag_t strong() const { return mag.strong; }
-  };
+    struct {
+      Mag_t factor;
+      std::shared_ptr<MinMaxFloat> minmax;
+      Mag_t step;
+    } scale;
 
-  struct Scale {
-    Scale() {
-      auto cfg = Peak::config();
-      min = scale(cfg.floor() * 2.8);
-      max = scale(cfg.ceiling());
+    auto &activeScale() const { return scale.minmax; }
+
+    static Config defaults();
+
+    const Mag_t &ceiling() const { return mag.minmax->max(); }
+    const Mag_t &floor() const { return mag.minmax->min(); }
+
+    Config &operator=(const Config &rhs);
+
+    void reset() { *this = defaults(); }
+
+    auto scaleCeiling() const { return scale.minmax->max(); }
+    auto scaleFloor() const { return scale.minmax->min(); }
+    auto scaleFactor() const { return scale.factor; }
+
+    void scaleIncrease() {
+      auto step = scale.step;
+      auto &factor = scale.factor;
+      factor += step;
+
+      auto new_floor = scaleMagVal(floor() * factor);
+      auto new_ceiling = scaleMagVal(ceiling());
+      scale.minmax->set(new_floor, new_ceiling);
     }
 
-    Mag_t min;
-    Mag_t max;
+    void scaleReduce() {
+      auto step = scale.step;
+      auto &factor = scale.factor;
+      factor -= step;
+
+      auto new_floor = scaleMagVal(floor() * factor);
+      auto new_ceiling = scaleMagVal(ceiling());
+      scale.minmax->set(new_floor, new_ceiling);
+    }
+
+    Mag_t step() const { return scale.step; }
+    Mag_t strong() const { return mag.strong; }
   };
 
 public: // Peak
@@ -69,27 +102,30 @@ public: // Peak
   Peak(const size_t i, const Freq_t f, const Mag_t m)
       : index(i), freq(f), mag(m) {}
 
-  static const Config &config() { return _cfg; }
+  static std::shared_ptr<MinMaxFloat> activeScale() {
+    return _cfg.activeScale();
+  }
 
-  static Mag_t magFloor() { return _cfg.mag.floor; }
-  MagScaled magScaled() const { return scale(mag); }
-  bool magStrong() const { return mag >= (_cfg.mag.floor * _cfg.mag.strong); }
+  static Config &config() { return _cfg; }
+
+  static Mag_t magFloor() { return _cfg.floor(); }
+  MagScaled magScaled() const { return scaleMagVal(mag); }
+  bool magStrong() const { return mag >= (_cfg.floor() * _cfg.strong()); }
 
   explicit operator bool() const {
     auto rc = false;
 
-    if (mag > _cfg.mag.floor) {
+    if (mag > _cfg.floor()) {
       rc = true;
     }
 
     return rc;
   }
 
-  static Scale scale() { return std::move(Scale()); }
   static const Peak zero() { return std::move(Peak()); }
 
 private:
-  static Mag_t scale(Mag_t mag) { return 10.0f * log10(mag); }
+  static Mag_t scaleMagVal(Mag_t mag) { return 10.0f * log10(mag); }
 
   static Config _cfg;
 };

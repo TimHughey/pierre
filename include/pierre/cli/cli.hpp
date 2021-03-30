@@ -58,6 +58,8 @@ private:
   const string_t build_timestamp = BUILD_TIMESTAMP;
   std::filesystem::path recompile_flag;
   std::filesystem::path history_file;
+
+  std::vector<cli::upSubCmd> _subcmds;
 };
 
 } // namespace pierre

@@ -118,22 +118,24 @@ bool Color::operator==(const Color &rhs) const { return _rgb == rhs._rgb; }
 
 bool Color::operator!=(const Color &rhs) const { return !(*this == rhs); }
 
-void Color::scale(const float to_val) {
+void Color::scale(const float val) {
   // static ofstream log("/tmp/pierre/color.log", std::ios::trunc);
   // static uint seq = 0;
   // Result := ((Input - InputLow) / (InputHigh - InputLow))
   //       * (OutputHigh - OutputLow) + OutputLow;
 
-  const double new_brightness =
-      ((to_val - _scale_min) / (_scale_max - _scale_min)) * brightness();
+  auto smax = _scale->max();
+  auto smin = _scale->min();
+
+  const double new_brightness = ((val - smin) / (smax - smin)) * brightness();
 
   // if (new_brightness > brightness()) {
-  //   log << seq++ << " ";
-  //   log << "color scale brightness: min[" << _scale_min << "] ";
-  //   log << "max[" << _scale_max << "] ";
-  //   log << "to_val[" << to_val << "] ";
-  //   log << "initial= " << brightness();
-  //   log << " scaled=" << new_brightness << endl;
+  // log << seq++ << " ";
+  // log << "color scale brightness: min[" << smin << "] ";
+  // log << "max[" << smax << "] ";
+  // log << "val[" << val << "] ";
+  // log << "initial= " << brightness();
+  // log << " scaled=" << new_brightness << endl;
   // }
 
   setBrightness(new_brightness);
@@ -566,8 +568,10 @@ string_t Color::Rgb::asString() const {
 // Color::Reference Color::_ref = {.x = 100.0, .y = 100.0, .z = 100.0};
 
 // scaling min and max
-float Color::_scale_min = 50.0;
-float Color::_scale_max = 100.0;
+// float Color::_scale_min = 50.0;
+// float Color::_scale_max = 100.0;
+
+std::shared_ptr<MinMaxFloat> Color::_scale = MinMaxFloat::defaults();
 
 } // namespace lightdesk
 } // namespace pierre

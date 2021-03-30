@@ -18,8 +18,11 @@
     https://www.wisslanding.com
 */
 
+// #include <boost/format.hpp>    // only needed for printing
 #include <fstream>
+// #include <functional> // std::ref
 #include <iostream>
+#include <sstream> // std::ostringstream
 
 #include "audio/peaks.hpp"
 #include "misc/elapsed.hpp"
@@ -29,8 +32,42 @@ using namespace std;
 namespace pierre {
 namespace audio {
 
-Peak::Config Peak::_cfg{
-    .mag{.floor = 36500.0, .strong = 3.0, .ceiling = 1500000.0}};
+// Peak::Config Peak::_cfg{
+//     .mag{.floor = 36500.0, .strong = 3.0, .ceiling = 1500000.0}};
+
+Peak::Config Peak::_cfg = Peak::Config::defaults();
+
+Peak::Config Peak::Config::defaults() {
+  auto cfg = Config();
+
+  auto &mag = cfg.mag.minmax;
+  auto &scale = cfg.scale;
+
+  mag = MinMaxFloat::make_shared(36500.0, 1500000.0);
+
+  cfg.mag.strong = 3.0;
+  scale.factor = 1.44;
+  scale.step = 0.01;
+
+  auto scale_min = Peak::scaleMagVal(cfg.floor() * scale.factor);
+  auto scale_max = Peak::scaleMagVal(cfg.ceiling());
+
+  scale.minmax = MinMaxFloat::make_shared(scale_min, scale_max);
+
+  return std::move(cfg);
+}
+
+Peak::Config::Config(const Peak::Config &c) { *this = c; }
+
+Peak::Config &Peak::Config::operator=(const Peak::Config &rhs) {
+
+  mag.minmax = rhs.mag.minmax;
+  scale.minmax = rhs.scale.minmax;
+  scale.factor = rhs.scale.factor;
+  scale.step = rhs.scale.step;
+
+  return *this;
+}
 
 Peaks::Peaks() {
   auto buckets = Peak::config().ceiling() / (Peak::config().floor());
