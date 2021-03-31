@@ -21,6 +21,8 @@
 #ifndef pierre_lightdesk_fx_base_hpp
 #define pierre_lightdesk_fx_base_hpp
 
+#include <map>
+
 #include "audio/peaks.hpp"
 #include "lightdesk/headunits/tracker.hpp"
 #include "local/types.hpp"
@@ -37,6 +39,8 @@ public:
   virtual void begin(){};
   virtual void execute(const audio::spPeaks peaks) = 0;
   virtual bool finished() { return _finished; }
+
+  const std::map<audio::Freq_t, size_t> histogram() { return _histo; }
 
   void leave() { _tracker->leave(); }
 
@@ -63,6 +67,8 @@ public:
 
 protected:
   bool _finished = false;
+  std::mutex _histo_mtx;
+  std::map<audio::Freq_t, size_t> _histo;
 
 private:
   static spHeadUnitTracker _tracker;

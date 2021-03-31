@@ -63,11 +63,16 @@ public:
   LightDesk(const LightDesk &) = delete;
   LightDesk &operator=(const LightDesk &) = delete;
 
+  std::shared_ptr<fx::Fx> activeFx() const { return _active.fx; }
+  static std::shared_ptr<LightDesk> desk() { return _instance; }
+
   void leave();
 
   void prepare() override { _tracker->prepare(); }
 
   std::shared_ptr<std::thread> run();
+
+  void saveInstance(std::shared_ptr<LightDesk> desk) { _instance = desk; }
 
   void update(dmx::Packet &packet) override {
     executeFx();
@@ -95,7 +100,7 @@ private:
 
   struct {
     std::mutex mtx;
-    std::unique_ptr<fx::Fx> fx;
+    std::shared_ptr<fx::Fx> fx;
   } _active;
 
   spPinSpot main;
@@ -104,6 +109,8 @@ private:
   spElWire el_dance_floor;
   spElWire el_entry;
   spDiscoBall discoball;
+
+  static std::shared_ptr<LightDesk> _instance;
 };
 
 } // namespace lightdesk

@@ -22,6 +22,7 @@
 #define pierre_lightdesk_headunits_pwm_base_hpp
 
 #include "lightdesk/headunit.hpp"
+#include "misc/minmax.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -73,6 +74,12 @@ public:
   }
 
   virtual void leave() override { fixed(config.leave); }
+
+  const MinMaxPair<DutyVal> minMaxDuty() {
+    auto x = MinMaxPair(config.min, config.max);
+
+    return std::move(x);
+  }
 
   void stop() { fixed(config.min); }
 
@@ -176,6 +183,8 @@ private:
   DutyVal _dest = 0;     // destination duty when traveling
   float _velocity = 0.0; // change per frame when fx is active
 };
+
+typedef PulseWidthHeadUnit::DutyVal DutyVal;
 
 } // namespace lightdesk
 } // namespace pierre

@@ -34,6 +34,8 @@ using namespace std;
 using namespace chrono;
 using namespace fx;
 
+shared_ptr<LightDesk> LightDesk::_instance = nullptr;
+
 LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
     : _cfg(cfg), _dsp(std::move(dsp)) {
 
@@ -61,9 +63,9 @@ LightDesk::LightDesk(const Config &cfg, shared_ptr<audio::Dsp> dsp)
 
   // select the first Fx
   if (_cfg.colorbars.enable) {
-    _active.fx = make_unique<fx::ColorBars>();
+    _active.fx = make_shared<fx::ColorBars>();
   } else {
-    _active.fx = make_unique<fx::MajorPeak>();
+    _active.fx = make_shared<fx::MajorPeak>();
   }
 }
 
@@ -78,7 +80,7 @@ void LightDesk::executeFx() {
 
   if (_active.fx->finished()) {
     if (_active.fx->matchName("ColorBars")) {
-      _active.fx = make_unique<MajorPeak>();
+      _active.fx = make_shared<MajorPeak>();
     }
   }
 }
@@ -94,7 +96,7 @@ void LightDesk::leave() {
 
   {
     lock_guard lck(_active.mtx);
-    _active.fx = make_unique<Leave>();
+    _active.fx = make_shared<Leave>();
   }
 
   cout << "leaving for " << x << " second";

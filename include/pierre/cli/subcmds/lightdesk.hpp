@@ -1,6 +1,6 @@
 /*
-    lightdesk/headunits/elwire.hpp - Ruth LightDesk Headunit EL Wire
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show via DMX for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,34 +18,38 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_lightdesk_headunits_elwire_hpp
-#define pierre_lightdesk_headunits_elwire_hpp
+#ifndef _pierre_cli_subcmd_lightdesk_hpp
+#define _pierre_cli_subcmd_lightdesk_hpp
 
-#include "lightdesk/headunits/pwm.hpp"
+#include <deque>
+
+#include "cli/subcmds/subcmd.hpp"
+#include "local/types.hpp"
 
 namespace pierre {
-namespace lightdesk {
+namespace cli {
 
-class ElWire : public PulseWidthHeadUnit {
+class LightDesk : public SubCmd {
 
 public:
-  ElWire(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
-    config.max = unitPercent(0.65);
-    config.min = unitPercent(0.03);
-    config.dim = unitPercent(0.03);
-    config.pulse_start = unitPercent(0.25);
-    config.pulse_end = config.dim;
-    config.leave = unitPercent(0.50);
+  LightDesk() = default;
+  LightDesk(const LightDesk &) = delete;
+  LightDesk &operator=(const LightDesk &) = delete;
 
-    snprintf(_id.data(), _id.size(), "EL%u", _address);
+  int handleCmd(const string_t &args) override;
+  const string_t &name() const override {
+    static const string_t x = "desk";
+    return x;
+  };
 
-    dim();
-  }
+private:
+  int handleHisto();
+
+private:
+  std::deque<string_t> tokens;
 };
 
-typedef std::shared_ptr<ElWire> spElWire;
-
-} // namespace lightdesk
+} // namespace cli
 } // namespace pierre
 
 #endif

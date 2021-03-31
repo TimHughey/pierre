@@ -22,6 +22,8 @@
 #define pierre_lightdesk_fx_majorpeak_hpp
 
 #include <deque>
+#include <map>
+#include <mutex>
 
 #include "lightdesk/fx/fx.hpp"
 
@@ -39,6 +41,8 @@ public:
   MajorPeak();
   ~MajorPeak() = default;
 
+  void dumpHistogram() const;
+
   void execute(audio::spPeaks peaks) override;
   const string_t &name() const override {
     static const string_t fx_name = "MajorPeak";
@@ -48,12 +52,21 @@ public:
 
 private:
   struct FreqColor {
+
     struct {
       audio::Freq_t low;
       audio::Freq_t high;
     } freq;
 
     lightdesk::Color color;
+
+    static const FreqColor zero() {
+      FreqColor x;
+      x.freq = {.low = 0, .high = 0};
+      x.color = lightdesk::Color::black();
+
+      return std::move(x);
+    }
   };
 
   typedef std::deque<FreqColor> Palette;
@@ -63,10 +76,13 @@ private:
   void handleLedForest(audio::spPeaks peaks);
   void handleLowFreq(const audio::Peak &peak, const lightdesk::Color &color);
   void handleOtherFreq(const audio::Peak &peak, const lightdesk::Color &color);
+  void histogramInit();
   lightdesk::Color lookupColor(const audio::Peak &peak);
   void logPeak(const audio::Peak &peak) const;
   void makePalette();
+  void makePaletteDefault();
   void pushPaletteColor(audio::Freq_t high, const lightdesk::Color &color);
+  void recordColor(const FreqColor &freq_color);
 
 private:
   Config _cfg;

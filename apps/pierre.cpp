@@ -49,7 +49,8 @@ void Pierre::run() {
   dmx = make_shared<dmx::Render>(_cfg.dmx);
   threads.insert(dmx->run());
 
-  lightdesk = make_unique<LightDesk>(_cfg.lightdesk, dsp);
+  lightdesk = make_shared<LightDesk>(_cfg.lightdesk, dsp);
+  lightdesk->saveInstance(lightdesk);
   threads.insert(lightdesk->run());
 
   pcm->addProcessor(dsp);

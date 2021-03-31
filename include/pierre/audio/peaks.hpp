@@ -25,6 +25,7 @@
 #include <cmath>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <vector>
 
 #include "local/types.hpp"
@@ -120,6 +121,18 @@ public: // Peak
     }
 
     return rc;
+  }
+
+  template <typename T>
+  const T scaleMagToRange(const MinMaxPair<T> &range) const {
+    auto mag_max = _cfg.scaleCeiling();
+    auto mag_min = _cfg.scaleFloor();
+
+    auto x =
+        ((mag - mag_min) / (mag_max - mag_min)) * (range.max() - range.min()) +
+        range.min();
+
+    return static_cast<T>(x);
   }
 
   static const Peak zero() { return std::move(Peak()); }

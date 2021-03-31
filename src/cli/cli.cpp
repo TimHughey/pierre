@@ -28,6 +28,7 @@
 
 #include "cli/cli.hpp"
 #include "cli/subcmds/dsp.hpp"
+#include "cli/subcmds/lightdesk.hpp"
 
 using namespace std;
 using namespace chrono;
@@ -38,6 +39,7 @@ namespace pierre {
 
 bool Cli::run() {
   _subcmds.push_back(std::make_unique<cli::Dsp>());
+  _subcmds.push_back(std::make_unique<cli::LightDesk>());
 
   auto tmp_dir = fs::path(fs::temp_directory_path());
   tmp_dir.append("pierre");

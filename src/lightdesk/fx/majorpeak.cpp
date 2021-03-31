@@ -23,6 +23,7 @@
 
 #include "lightdesk/faders/color/toblack.hpp"
 #include "lightdesk/fx/majorpeak.hpp"
+#include "misc/elapsed.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -46,11 +47,15 @@ MajorPeak::MajorPeak() : Fx() {
   if (_palette.size() == 0) {
     makePalette();
   }
+
+  histogramInit();
 }
 
 void MajorPeak::execute(audio::spPeaks peaks) {
 
   if (peaks->size() == 0) {
+    recordColor(FreqColor::zero());
+
     return;
   }
 
@@ -76,28 +81,50 @@ void MajorPeak::execute(audio::spPeaks peaks) {
     if (peak.freq > 700.0) {
       led_forest->pulse();
     }
+  } else {
+    recordColor(FreqColor::zero());
   }
 }
 
 void MajorPeak::handleElWire(audio::spPeaks peaks) {
 
-  auto mag_min = audio::Peak::magFloor() * 3.0;
+  std::array<PulseWidthHeadUnit *, 2> elwires;
+  elwires[0] = el_dance_floor.get();
+  elwires[1] = el_entry.get();
 
-  // dance floor
-  for (auto p = peaks->cbegin(); p < (peaks->cbegin() + 3); p++) {
+  const auto &peak = peaks->majorPeak();
 
-    if (p->mag < mag_min) {
-      continue;
+  if (peak) {
+    for (auto elwire : elwires) {
+      const auto range = elwire->minMaxDuty();
+      const DutyVal x = peak.scaleMagToRange<DutyVal>(range);
+
+      elwire->fixed(x);
     }
-
-    if ((p->freq > 220.0) && (p->freq < 400.0)) {
-      el_dance_floor->pulse();
-    }
-
-    if (p->freq > 220.0) {
-      el_entry->pulse();
+  } else {
+    // zero peak, b
+    for (auto elwire : elwires) {
+      elwire->dim();
     }
   }
+
+  // auto mag_min = audio::Peak::magFloor() * 3.0;
+  //
+  // // dance floor
+  // for (auto p = peaks->cbegin(); p < (peaks->cbegin() + 3); p++) {
+  //
+  //   if (p->mag < mag_min) {
+  //     continue;
+  //   }
+  //
+  //   if ((p->freq > 220.0) && (p->freq < 400.0)) {
+  //     el_dance_floor->pulse();
+  //   }
+  //
+  //   if (p->freq > 220.0) {
+  //     el_entry->pulse();
+  //   }
+  // }
 }
 
 void MajorPeak::handleLowFreq(const audio::Peak &peak,
@@ -163,6 +190,20 @@ void MajorPeak::handleOtherFreq(const audio::Peak &peak,
   }
 }
 
+void MajorPeak::histogramInit() {
+  lock_guard<mutex> lck(_histo_mtx);
+
+  // bin for unmatched frequency ranges
+  auto zero = std::make_pair(0.0, 0);
+  _histo.insert(std::move(zero));
+
+  for (const FreqColor &colors : _palette) {
+    auto pair = std::make_pair(colors.freq.high, 0);
+
+    _histo.insert(std::move(pair));
+  }
+}
+
 void MajorPeak::logPeak(const audio::Peak &peak) const {
   if (_cfg.log) {
     array<char, 128> out;
@@ -176,11 +217,12 @@ void MajorPeak::logPeak(const audio::Peak &peak) const {
 lightdesk::Color MajorPeak::lookupColor(const audio::Peak &peak) {
   lightdesk::Color mapped_color;
 
-  for (const FreqColor &colors : _palette) {
+  for (const FreqColor &color : _palette) {
     const audio::Freq_t freq = peak.freq;
 
-    if ((freq > colors.freq.low) && (freq <= colors.freq.high)) {
-      mapped_color = colors.color;
+    if ((freq > color.freq.low) && (freq <= color.freq.high)) {
+      recordColor(color);
+      mapped_color = color.color;
     }
 
     if (mapped_color.notBlack()) {
@@ -198,7 +240,37 @@ void MajorPeak::makePalette() {
 
   _palette.emplace_back(first_color);
 
-  // colors sourced from --->  https://www.easyrgb.com
+  pushPaletteColor(120, lightdesk::Color(0xb22222));
+  pushPaletteColor(160, lightdesk::Color(0xa4312a));
+  pushPaletteColor(180, lightdesk::Color(0xdc0a1e));
+  pushPaletteColor(260, lightdesk::Color(0x0000ff));
+  pushPaletteColor(300, lightdesk::Color(0x810070));
+  pushPaletteColor(330, lightdesk::Color(0x2D8237));
+  pushPaletteColor(370, lightdesk::Color(0xff69b4)); // hot pink
+  pushPaletteColor(420, lightdesk::Color(0xffff00));
+  pushPaletteColor(490, lightdesk::Color(0x2e8b57));
+  pushPaletteColor(550, lightdesk::Color(0x00b6ff));
+  pushPaletteColor(610, lightdesk::Color(0x0079ff));
+  pushPaletteColor(710, lightdesk::Color(0x0057b9));
+  pushPaletteColor(850, lightdesk::Color(0x0033bd));
+  pushPaletteColor(950, lightdesk::Color(0xff144a));
+  pushPaletteColor(1050, lightdesk::Color(0xcc2ace));
+  pushPaletteColor(1500, lightdesk::Color(0xff00ff));
+  pushPaletteColor(3000, lightdesk::Color(0xd7e23c));
+  pushPaletteColor(5000, lightdesk::Color(0xc5c200));
+  pushPaletteColor(7000, lightdesk::Color(0xa8ab3f));
+  pushPaletteColor(10000, lightdesk::Color(0x340081));
+  pushPaletteColor(12000, lightdesk::Color(0x00ff00));
+  pushPaletteColor(15000, lightdesk::Color(0x810045));
+  pushPaletteColor(22000, lightdesk::Color::full());
+}
+
+void MajorPeak::makePaletteDefault() {
+  const FreqColor first_color =
+      FreqColor{.freq = {.low = 10, .high = 80},
+                .color = lightdesk::Color(0xff0000)}; // red
+
+  _palette.emplace_back(first_color);
 
   pushPaletteColor(120, lightdesk::Color(0xb22222)); // fire brick
   pushPaletteColor(160, lightdesk::Color(0xdc0a1e)); // crimson
@@ -232,6 +304,25 @@ void MajorPeak::pushPaletteColor(audio::Freq_t high,
       FreqColor{.freq = {.low = last.freq.high, .high = high}, .color = color};
 
   _palette.emplace_back(next);
+}
+
+void MajorPeak::recordColor(const FreqColor &freq_color) {
+  static elapsedMillis elapsed;
+
+  lock_guard<mutex> lck(_histo_mtx);
+
+  if (elapsed > 7000) {
+    for (auto &x : _histo) {
+      x.second = 0;
+    }
+
+    elapsed.reset();
+  }
+
+  auto bin = _histo.find(freq_color.freq.high);
+  if (bin != _histo.end()) {
+    bin->second++;
+  }
 }
 
 MajorPeak::Palette MajorPeak::_palette;
