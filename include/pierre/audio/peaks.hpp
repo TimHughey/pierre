@@ -44,29 +44,27 @@ struct Peak {
     Config(const Config &);
 
     struct {
-      std::shared_ptr<MinMaxFloat> minmax;
+      MinMaxFloat minmax;
       Mag_t strong;
     } mag;
 
     struct {
       Mag_t factor;
-      std::shared_ptr<MinMaxFloat> minmax;
+      MinMaxFloat minmax;
       Mag_t step;
     } scale;
 
-    auto &activeScale() const { return scale.minmax; }
-
+    const auto &activeScale() const { return scale.minmax; }
+    const Mag_t &ceiling() const { return mag.minmax.max(); }
     static Config defaults();
-
-    const Mag_t &ceiling() const { return mag.minmax->max(); }
-    const Mag_t &floor() const { return mag.minmax->min(); }
+    const Mag_t &floor() const { return mag.minmax.min(); }
 
     Config &operator=(const Config &rhs);
 
     void reset() { *this = defaults(); }
 
-    auto scaleCeiling() const { return scale.minmax->max(); }
-    auto scaleFloor() const { return scale.minmax->min(); }
+    auto scaleCeiling() const { return scale.minmax.max(); }
+    auto scaleFloor() const { return scale.minmax.min(); }
     auto scaleFactor() const { return scale.factor; }
 
     void scaleIncrease() {
@@ -76,7 +74,7 @@ struct Peak {
 
       auto new_floor = scaleMagVal(floor() * factor);
       auto new_ceiling = scaleMagVal(ceiling());
-      scale.minmax->set(new_floor, new_ceiling);
+      scale.minmax.set(new_floor, new_ceiling);
     }
 
     void scaleReduce() {
@@ -86,7 +84,7 @@ struct Peak {
 
       auto new_floor = scaleMagVal(floor() * factor);
       auto new_ceiling = scaleMagVal(ceiling());
-      scale.minmax->set(new_floor, new_ceiling);
+      scale.minmax.set(new_floor, new_ceiling);
     }
 
     Mag_t step() const { return scale.step; }
@@ -103,14 +101,13 @@ public: // Peak
   Peak(const size_t i, const Freq_t f, const Mag_t m)
       : index(i), freq(f), mag(m) {}
 
-  static std::shared_ptr<MinMaxFloat> activeScale() {
-    return _cfg.activeScale();
-  }
+  static const MinMaxFloat magScaleRange();
+  static const MinMaxFloat &activeScale() { return _cfg.activeScale(); }
 
   static Config &config() { return _cfg; }
 
   static Mag_t magFloor() { return _cfg.floor(); }
-  MagScaled magScaled() const { return scaleMagVal(mag); }
+  MagScaled magScaled() const;
   bool magStrong() const { return mag >= (_cfg.floor() * _cfg.strong()); }
 
   explicit operator bool() const {
@@ -128,11 +125,21 @@ public: // Peak
     auto mag_max = _cfg.scaleCeiling();
     auto mag_min = _cfg.scaleFloor();
 
-    auto x =
-        ((mag - mag_min) / (mag_max - mag_min)) * (range.max() - range.min()) +
-        range.min();
+    auto mag_scaled = scaleMagVal(mag);
 
-    return static_cast<T>(x);
+    auto x = ((mag_scaled - mag_min) / (mag_max - mag_min)) *
+                 (range.max() - range.min()) +
+             range.min();
+
+    auto ret_val = static_cast<T>(x);
+
+    if (ret_val >= range.max()) {
+      ret_val = range.max();
+    } else if (ret_val <= range.min()) {
+      ret_val = range.min();
+    }
+
+    return ret_val;
   }
 
   static const Peak zero() { return std::move(Peak()); }

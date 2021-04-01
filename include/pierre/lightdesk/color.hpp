@@ -43,22 +43,6 @@ public:
     string_t asString() const;
   } Hsl;
 
-  // typedef struct {
-  //   double hue;
-  //   double sat;
-  //   double val;
-  //
-  //   string_t asString() const;
-  // } Hsv;
-
-  // typedef struct {
-  //   double l;
-  //   double a;
-  //   double b;
-  //
-  //   string_t asString() const;
-  // } Lab;
-
   class Rgb {
   public:
     uint8_t r;
@@ -82,20 +66,16 @@ public:
 
   Color(const uint rgb_val);
   Color(const Rgb &rgb);
-  // Color(const Hsv &hsv);
   Color(const Color &rhs) = default;
 
   double brightness() const { return _hsl.lum * 100.0; }
   void copyRgbToByteArray(uint8_t *array) const;
-  // double deltaE(const Color &c2) const;
 
   double &hue() { return _hsl.hue; }
   double &sat() { return _hsl.sat; }
   double &lum() { return _hsl.lum; }
 
   Hsl hsl() { return _hsl; }
-  // Hsv hsv() { return _hsv; }
-  // Lab lab() { return _lab; }
   Rgb rgb() { return _rgb; }
 
   static Color interpolate(Color a, Color b, float t);
@@ -106,8 +86,8 @@ public:
   bool operator==(const Color &rhs) const;
   bool operator!=(const Color &rhs) const;
 
-  void scale(float to_val);
-  void setBrightness(float);
+  void setBrightness(float val);
+  void setBrightness(const MinMaxFloat &range, const float val);
 
   static void setScaleMinMax(std::shared_ptr<MinMaxFloat> scale) {
     _scale = scale;
@@ -115,11 +95,7 @@ public:
 
   // conversions
   static Rgb hslToRgb(const Hsl &hsl);
-  // static Rgb hsvToRgb(const Hsv &hsv);
-  // static Rgb labToRgb(const Lab &lab);
   static Hsl rgbToHsl(const Rgb &rgb);
-  // static Hsv rgbToHsv(const Rgb &rgb);
-  // static Lab rgbToLab(const Rgb &rgb);
 
   // useful static colors
   static Color full() {
@@ -141,36 +117,14 @@ public:
   }
 
 private:
-  // typedef struct {
-  //   double x;
-  //   double y;
-  //   double z;
-  //
-  //   string_t asString() const;
-  // } Xyz;
-  //
-  // typedef Xyz Reference;
-
-private:
   static uint8_t hueToRgb(double v1, double v2, double vh);
-  // static Xyz rgbToXyz(const Rgb &rgb);
-  // static Xyz labToXyz(const Lab &lab);
-  // static Lab xyzToLab(const Xyz &xyz);
-  // static Rgb xyzToRgb(const Xyz &xyz);
 
 private:
   Hsl _hsl = {.hue = 0, .sat = 0, .lum = 0};
-  // Hsv _hsv = {.hue = 0, .sat = 0, .val = 0};
-  // Lab _lab = {.l = 0, .a = 0, .b = 0};
   Rgb _rgb = {.r = 0, .g = 0, .b = 0};
   White _white = 0;
 
   static constexpr double one_third = (1.0 / 3.0);
-  //  static Reference _ref; // initialized to D65/2° standard illuminant
-
-  // static float _scale_min;
-  // static float _scale_max;
-
   static std::shared_ptr<MinMaxFloat> _scale;
 };
 

@@ -114,11 +114,11 @@ finished:
 
 void Dsp::printScale() {
   auto &cfg = Peak::config();
-  auto scale = cfg.activeScale();
+  const auto &scale = cfg.activeScale();
 
   cout << boost::format(
               "scale: floor[%8.3f] ceiling[%8.3f] factor[%5.2f] step[%5.3f]") %
-              scale->min() % scale->max() % cfg.scaleFactor() % cfg.step();
+              scale.min() % scale.max() % cfg.scaleFactor() % cfg.step();
 }
 
 } // namespace cli

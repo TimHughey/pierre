@@ -53,11 +53,10 @@ MajorPeak::MajorPeak() : Fx() {
 
 void MajorPeak::execute(audio::spPeaks peaks) {
 
-  if (peaks->size() == 0) {
-    recordColor(FreqColor::zero());
-
-    return;
-  }
+  // if (peaks->size() == 0) {
+  //   recordColor(FreqColor::zero());
+  //   return;
+  // }
 
   handleElWire(peaks);
 
@@ -69,7 +68,8 @@ void MajorPeak::execute(audio::spPeaks peaks) {
     lightdesk::Color color = lookupColor(peak);
 
     if (color.notBlack()) {
-      color.scale(peak.magScaled());
+      const auto range = audio::Peak::magScaleRange();
+      color.setBrightness(range, peak.magScaled());
 
       if (peak.freq <= 180.0) {
         handleLowFreq(peak, color);

@@ -32,9 +32,6 @@ using namespace std;
 namespace pierre {
 namespace audio {
 
-// Peak::Config Peak::_cfg{
-//     .mag{.floor = 36500.0, .strong = 3.0, .ceiling = 1500000.0}};
-
 Peak::Config Peak::_cfg = Peak::Config::defaults();
 
 Peak::Config Peak::Config::defaults() {
@@ -43,7 +40,8 @@ Peak::Config Peak::Config::defaults() {
   auto &mag = cfg.mag.minmax;
   auto &scale = cfg.scale;
 
-  mag = MinMaxFloat::make_shared(36500.0, 1500000.0);
+  // mag = MinMaxFloat(36500.0, 2.1e6); // 2.1 million
+  mag = MinMaxFloat(3.65e4f, 2.1e6f); // 36.5 thousand, 2.1 million
 
   cfg.mag.strong = 3.0;
   scale.factor = 1.44;
@@ -52,7 +50,7 @@ Peak::Config Peak::Config::defaults() {
   auto scale_min = Peak::scaleMagVal(cfg.floor() * scale.factor);
   auto scale_max = Peak::scaleMagVal(cfg.ceiling());
 
-  scale.minmax = MinMaxFloat::make_shared(scale_min, scale_max);
+  scale.minmax = MinMaxFloat(scale_min, scale_max);
 
   return std::move(cfg);
 }
@@ -67,6 +65,22 @@ Peak::Config &Peak::Config::operator=(const Peak::Config &rhs) {
   scale.step = rhs.scale.step;
 
   return *this;
+}
+
+const MinMaxFloat Peak::magScaleRange() {
+  MinMaxFloat range(0.0, _cfg.scaleCeiling() - _cfg.scaleFloor());
+  return std::move(range);
+}
+
+MagScaled Peak::magScaled() const {
+  auto scaled = scaleMagVal(mag);
+
+  scaled -= _cfg.scaleFloor();
+  if (scaled < 0) {
+    scaled = 0;
+  }
+
+  return scaled;
 }
 
 Peaks::Peaks() {
