@@ -33,7 +33,7 @@ using namespace std;
 using namespace chrono;
 using namespace lightdesk::fader;
 
-typedef color::ToBlack<EasingOutQuint> Fader;
+typedef color::ToBlack<AcceleratingFromZeroSine> Fader;
 
 MajorPeak::MajorPeak() : Fx() {
 

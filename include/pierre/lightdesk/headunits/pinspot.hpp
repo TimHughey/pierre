@@ -65,7 +65,8 @@ public:
   void autoRun(Fx fx) { _fx = fx; }
   inline void black() { dark(); }
   bool checkFaderProgress(float percent) const;
-  const Color &color() const { return _color; }
+  // const Color &color() const { return _color; }
+  Color &color() { return _color; }
   void color(const Color &color, float strobe = 0.0);
   void dark() override;
 

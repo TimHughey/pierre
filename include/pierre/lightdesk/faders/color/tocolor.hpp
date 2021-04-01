@@ -34,28 +34,33 @@ namespace color {
 template <typename E> class ToColor : public Color {
 
 public:
-  ToColor(const Color::Opts &opts) : Color(opts) { _location = _origin; }
+  ToColor(const Color::Opts &opts) : Color(opts) {
+    if (_origin.isBlack()) {
+      _location = _dest;
+      _location.setBrightness(_origin);
+    } else {
+      _location = _origin;
+    }
+  }
 
 protected:
-  virtual void handleTravel(const float progress) {
-    E e;
-    auto fade_level = e.calc(progress);
+  virtual void handleTravel(const float current, const float total) {
+    auto fade_level = _easing.calc(current, total);
 
-    if (_origin.isBlack() || (_dest.isBlack())) {
-
-      if (e.out) {
-        auto brightness = _origin.brightness();
-        _location.setBrightness(brightness * fade_level);
-      } else if (e.in) {
-        auto brightness = _dest.brightness();
-        _location = _dest;
-        _location.setBrightness(brightness - (brightness * fade_level));
-      }
+    if (_origin.isBlack()) {
+      auto brightness = _dest.brightness();
+      _location.setBrightness(brightness * fade_level);
+    } else if (_dest.isBlack()) {
+      auto brightness = _origin.brightness();
+      _location.setBrightness(brightness - (brightness * fade_level));
 
     } else {
       _location = lightdesk::Color::interpolate(_origin, _dest, fade_level);
     }
   }
+
+private:
+  E _easing;
 };
 
 } // namespace color

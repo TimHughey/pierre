@@ -86,8 +86,17 @@ public:
   bool operator==(const Color &rhs) const;
   bool operator!=(const Color &rhs) const;
 
-  void setBrightness(float val);
-  void setBrightness(const MinMaxFloat &range, const float val);
+  Color &rotateHue(const float step = 1.0);
+
+  double saturation() const { return _hsl.sat * 100.0; }
+
+  Color &setBrightness(float val);
+  Color &setBrightness(const Color &rhs);
+  Color &setBrightness(const MinMaxFloat &range, const float val);
+
+  Color &setSaturation(float val);
+  Color &setSaturation(const Color &rhs);
+  Color &setSaturation(const MinMaxFloat &range, const float val);
 
   static void setScaleMinMax(std::shared_ptr<MinMaxFloat> scale) {
     _scale = scale;

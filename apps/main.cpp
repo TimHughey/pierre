@@ -50,7 +50,7 @@ bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
   namespace po = boost::program_options;
 
   const char *dmx = "dmx";
-  const char *colorbars = "color-bars";
+  const char *colorbars = "colorbars";
 
   try {
     // Declare the supported options.

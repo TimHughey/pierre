@@ -21,9 +21,7 @@
 #ifndef pierre_lightdesk_fader_to_black_hpp
 #define pierre_lightdesk_fader_to_black_hpp
 
-#include "lightdesk/color.hpp"
 #include "lightdesk/faders/color/tocolor.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {

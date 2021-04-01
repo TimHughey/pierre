@@ -29,8 +29,7 @@ namespace lightdesk {
 namespace fx {
 
 using namespace lightdesk::fader;
-
-typedef color::ToBlack<EasingOutSine> Fader;
+typedef color::ToColor<EasingToZeroSine> Fader;
 
 class ColorBars : public Fx {
 public:
@@ -44,7 +43,9 @@ public:
 
     PinSpot *pinspot = nullptr;
 
-    Fader::Opts opts{.origin = lightdesk::Color(), .ms = 300};
+    Fader::Opts opts{.origin = lightdesk::Color(),
+                     .dest = lightdesk::Color::black(),
+                     .ms = 300};
 
     if (main->isFading() || fill->isFading()) {
       // this is a no op while the PinSpots are fading

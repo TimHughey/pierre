@@ -1,6 +1,6 @@
 /*
-    devs/pinspot/fader.hpp - Ruth Pin Spot Fader Action
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show via DMX for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,76 +30,99 @@ namespace pierre {
 namespace lightdesk {
 namespace fader {
 
-struct Easing {
+class Easing {
+public:
+  Easing(const float step = 1.0f, const float start_val = 0.0f)
+      : _step(step), _start_val(start_val) {}
+
+public:
   bool in = false;
   bool out = false;
   bool easing = true;
 
   static constexpr double PI = 3.14159265358979323846;
+  static constexpr double PI_HALF = (PI / 2.0);
+
+protected:
+  float _step = 1.0;
+  float _start_val = 0.0;
 };
 
-struct EasingInOutExpo : public Easing {
-  EasingInOutExpo() {
-    in = true;
+// class EasingInOutExpo : public Easing {
+// public:
+//   EasingInOutExpo() {
+//     in = true;
+//     out = true;
+//   }
+//
+//   float calc(float progress) const;
+// };
+//
+// class EasingInQuint : public Easing {
+// public:
+//   EasingInQuint() { in = true; }
+//
+//   float calc(float progress) const;
+// };
+//
+// class EasingInSine : public Easing {
+// public:
+//   EasingInSine() { in = true; }
+//
+//   float calc(float progress) const;
+// };
+//
+// class EasingOutCirc : public Easing {
+// public:
+//   EasingOutCirc() { out = true; }
+//
+//   float calc(float progress) const;
+// };
+//
+// class EasingOutExponent : public Easing {
+// public:
+//   EasingOutExponent() { out = true; }
+//
+//   float calc(float progress) const;
+// };
+//
+// class EasingOutQuint : public Easing {
+// public:
+//   EasingOutQuint() { out = true; }
+//
+//   float calc(float progress) const;
+// };
+//
+// class EasingOutSine : public Easing {
+// public:
+//   EasingOutSine(const float step, const float start_val)
+//       : Easing(step, start_val) {
+//     out = true;
+//   }
+//
+//   float calc(float progress) const;
+//   float calc2(const float total, const float current) const;
+// };
+
+class AcceleratingFromZeroSine : public Easing {
+public:
+  AcceleratingFromZeroSine(const float step = 1.0f,
+                           const float start_val = 0.0f)
+      : Easing(step, start_val) {
     out = true;
   }
 
-  float calc(float progress) {
-    if ((progress == 0.0) || (progress == 1.0)) {
-      return progress;
-    }
-
-    if (progress < 0.5) {
-      progress = pow(2.0, 20.0 * progress - 10.0) / 2.0;
-    } else {
-      progress = (2.0 - pow(2.0, -20.0 * progress + 10.0)) / 2.0;
-    }
-
-    return progress;
-  }
+  float calc(const float current, const float total) const;
 };
 
-struct EasingInQuint : public Easing {
-  EasingInQuint() { in = true; }
-
-  float calc(float progress) {
-    return 1.0 - (progress * progress * progress * progress * progress);
-  }
-};
-
-struct EasingInSine : public Easing {
-  EasingInSine() { in = true; }
-
-  float calc(float progress) { return 1.0 - sin((progress * PI) / 2.0); }
-};
-
-struct EasingOutCirc : public Easing {
-  EasingOutCirc() { out = true; }
-
-  float calc(float progress) { return sqrt(1.0 - pow(progress - 1.0, 2.0)); }
-};
-
-struct EasingOutExponent : public Easing {
-  EasingOutExponent() { out = true; }
-
-  float calc(float progress) {
-    return (progress == 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * progress));
-  }
-};
-
-struct EasingOutQuint : public Easing {
-  EasingOutQuint() { out = true; }
-
-  float calc(float progress) { return pow(1.0 - progress, 5.0); }
-};
-
-struct EasingOutSine : public Easing {
-  EasingOutSine() { out = true; }
-
-  float calc(float progress) {
+class DeceleratingToZeroSine : public Easing {
+public:
+  DeceleratingToZeroSine(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {
     out = true;
-    return cos((progress * PI) / 2.0);
   }
+
+  float calc(const float current, const float total) const;
 };
 
 } // namespace fader

@@ -90,7 +90,21 @@ bool Color::operator==(const Color &rhs) const { return _rgb == rhs._rgb; }
 
 bool Color::operator!=(const Color &rhs) const { return !(*this == rhs); }
 
-void Color::setBrightness(float val) {
+Color &Color::rotateHue(const float step) {
+  auto next_hue = (_hsl.hue * 360.0) + step;
+
+  if ((next_hue >= 360.0) || (next_hue < 0)) {
+    next_hue = 360.0 - next_hue;
+  }
+
+  _hsl.hue = (next_hue / 360.0);
+
+  _rgb = hslToRgb(_hsl);
+
+  return *this;
+}
+
+Color &Color::setBrightness(float val) {
   auto x = val / 100.0;
 
   if ((unsigned)x <= 100.0) {
@@ -98,30 +112,70 @@ void Color::setBrightness(float val) {
 
     _rgb = hslToRgb(_hsl);
   }
+
+  return *this;
 }
 
-void Color::setBrightness(const MinMaxFloat &range, const float val) {
+Color &Color::setBrightness(const Color &rhs) {
+  setBrightness(rhs.brightness());
+
+  return *this;
+}
+
+Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
 
   const auto rmax = range.max();
   const auto rmin = range.min();
 
-  const double new_brightness = ((val - rmin) / (rmax - rmin)) * brightness();
+  const double x = ((val - rmin) / (rmax - rmin)) * brightness();
 
   if (false) {
     static uint seq = 0;
     static ofstream log("/tmp/pierre/color.log", std::ios::trunc);
 
-    if (new_brightness >= brightness()) {
+    if (x >= brightness()) {
       log << boost::format(
                  "%05u range(%0.2f,%0.2f) val(%0.2f) brightness(%0.1f) "
                  "=> %0.1f\n") %
-                 seq++ % rmin % rmax % val % brightness() % new_brightness;
+                 seq++ % rmin % rmax % val % brightness() % x;
 
       log.flush();
     }
   }
 
-  setBrightness(new_brightness);
+  setBrightness(x);
+
+  return *this;
+}
+
+Color &Color::setSaturation(float val) {
+  auto x = val / 100.0;
+
+  if ((unsigned)x <= 100.0) {
+    _hsl.sat = x;
+
+    _rgb = hslToRgb(_hsl);
+  }
+
+  return *this;
+}
+
+Color &Color::setSaturation(const Color &rhs) {
+  setSaturation(rhs.saturation());
+
+  return *this;
+}
+
+Color &Color::setSaturation(const MinMaxFloat &range, const float val) {
+
+  const auto rmax = range.max();
+  const auto rmin = range.min();
+
+  const double x = ((val - rmin) / (rmax - rmin)) * saturation();
+
+  setSaturation(x);
+
+  return *this;
 }
 
 Color::Rgb Color::hslToRgb(const Hsl &hsl) {

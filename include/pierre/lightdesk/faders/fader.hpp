@@ -1,6 +1,6 @@
 /*
-    devs/pinspot/fader.hpp - Ruth Pin Spot Fader Action
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show via DMX for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -49,7 +49,8 @@ public:
 
 protected:
   virtual void handleFinish() = 0;
-  virtual void handleTravel(float progress) = 0;
+  virtual void handleTravel(const float total, const float current) = 0;
+  virtual void handleTravel(float progress) { handleTravel(progress, 1.0); }
 
 private:
   float _progress = 0.0;

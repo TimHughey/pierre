@@ -30,7 +30,7 @@ namespace fx {
 
 using namespace lightdesk::fader;
 
-typedef color::ToBlack<EasingOutSine> Fader;
+typedef color::ToBlack<DeceleratingToZeroSine> Fader;
 
 class ColorBars : public Fx {
 public:

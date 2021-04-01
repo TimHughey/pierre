@@ -1,5 +1,5 @@
 /*
-    devs/pinspot/fader.hpp - Ruth Pin Spot Fader Action
+    Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -45,8 +45,9 @@ public:
 
   const lightdesk::Color &location() const { return _location; }
 
-  virtual void handleFinish() override { _location = _dest; }
-  virtual void handleTravel(const float progress) = 0;
+  // virtual void handleFinish() override { _location = _dest; }
+  virtual void handleFinish() override {}
+  virtual void handleTravel(const float current, const float total) = 0;
 
 protected:
   lightdesk::Color _origin;
