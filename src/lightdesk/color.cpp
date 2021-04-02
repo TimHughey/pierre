@@ -35,12 +35,11 @@ namespace pierre {
 namespace lightdesk {
 
 Color::Color(const uint rgb_val) {
-  const Rgb rgb(rgb_val);
-
-  *this = std::move(Color(rgb));
+  _rgb = Rgb(rgb_val);
+  _hsl = rgbToHsl(_rgb);
 }
 
-Color::Color(const Rgb &rgb) : _rgb(rgb) { _hsl = rgbToHsl(_rgb); }
+Color::Color(const Hsl &hsl) : _hsl(hsl) { _rgb = hslToRgb(_hsl); }
 
 void Color::copyRgbToByteArray(uint8_t *array) const {
   array[0] = _rgb.r;
@@ -93,7 +92,7 @@ bool Color::operator!=(const Color &rhs) const { return !(*this == rhs); }
 Color &Color::rotateHue(const float step) {
   auto next_hue = (_hsl.hue * 360.0) + step;
 
-  if ((next_hue >= 360.0) || (next_hue < 0)) {
+  if ((next_hue > 360.0) || (next_hue < 0)) {
     next_hue = 360.0 - next_hue;
   }
 
@@ -107,8 +106,8 @@ Color &Color::rotateHue(const float step) {
 Color &Color::setBrightness(float val) {
   auto x = val / 100.0;
 
-  if ((unsigned)x <= 100.0) {
-    _hsl.lum = (x);
+  if ((unsigned)x <= 0.5) {
+    _hsl.lum = x;
 
     _rgb = hslToRgb(_hsl);
   }
@@ -123,11 +122,9 @@ Color &Color::setBrightness(const Color &rhs) {
 }
 
 Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
+  MinMaxFloat brightness_range(0.0f, brightness());
 
-  const auto rmax = range.max();
-  const auto rmin = range.min();
-
-  const double x = ((val - rmin) / (rmax - rmin)) * brightness();
+  const auto x = range.interpolate(brightness_range, val);
 
   if (false) {
     static uint seq = 0;
@@ -137,7 +134,7 @@ Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
       log << boost::format(
                  "%05u range(%0.2f,%0.2f) val(%0.2f) brightness(%0.1f) "
                  "=> %0.1f\n") %
-                 seq++ % rmin % rmax % val % brightness() % x;
+                 seq++ % range.min() % range.max() % val % brightness() % x;
 
       log.flush();
     }
@@ -151,7 +148,7 @@ Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
 Color &Color::setSaturation(float val) {
   auto x = val / 100.0;
 
-  if ((unsigned)x <= 100.0) {
+  if ((unsigned)x <= 1.0) {
     _hsl.sat = x;
 
     _rgb = hslToRgb(_hsl);
@@ -167,11 +164,9 @@ Color &Color::setSaturation(const Color &rhs) {
 }
 
 Color &Color::setSaturation(const MinMaxFloat &range, const float val) {
+  MinMaxFloat saturation_range(0.0f, saturation());
 
-  const auto rmax = range.max();
-  const auto rmin = range.min();
-
-  const double x = ((val - rmin) / (rmax - rmin)) * saturation();
+  const auto x = range.interpolate(saturation_range, val);
 
   setSaturation(x);
 

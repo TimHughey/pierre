@@ -19,16 +19,10 @@
 */
 
 #include "lightdesk/fx/leave.hpp"
-#include "lightdesk/faders/color/toblack.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
-
-using namespace fader;
-
-typedef color::ToColor<AcceleratingFromZeroSine> FaderIn;
-typedef color::ToColor<DeceleratingToZeroSine> FaderOut;
 
 Leave::Leave() {
   main = unit<PinSpot>("main");
@@ -36,11 +30,7 @@ Leave::Leave() {
 }
 
 void Leave::execute(audio::spPeaks peaks) {
-  peaks.reset(); // no use for peaks
-
-  auto bright = lightdesk::Color(0xff144a);
-  auto dim = lightdesk::Color(0x0000ff);
-  // auto dim = lightdesk::Color::black();
+  peaks.reset(); // no use for peaks, release them
 
   static bool once = true;
   if (once) {
@@ -49,8 +39,6 @@ void Leave::execute(audio::spPeaks peaks) {
     unit<ElWire>("el entry")->leave();
     unit<DiscoBall>("discoball")->leave();
 
-    // main->activate<FaderIn>({.origin = dim, .dest = bright, .ms = 1000});
-    // fill->color(dim);
     main->black();
     fill->black();
     once = false;
@@ -69,40 +57,8 @@ void Leave::execute(audio::spPeaks peaks) {
   fill->color(next_color);
 
   if (val >= 50.0) {
-    next_color.rotateHue(0.3);
+    next_color.rotateHue(0.25);
   }
-
-  // if (main->isFading() == false) {
-  //
-  //   switch (next) {
-  //   case 0:
-  //     main->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
-  //     fill->activate<FaderIn>({.origin = dim, .dest = bright, .ms = 1000});
-  //     break;
-  //
-  //     // case 1:
-  //     //   main->activate<FaderIn>({.origin = bright, .dest = bright, .ms =
-  //     //   5000}); fill->activate<FaderIn>({.origin = bright, .dest = bright,
-  //     //   .ms = 5000}); break;
-  //
-  //   case 1:
-  //     main->activate<FaderIn>({.origin = dim, .dest = bright, .ms = 1000});
-  //     fill->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
-  //
-  //     break;
-  //
-  //   default:
-  //     main->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
-  //     fill->activate<FaderOut>({.origin = bright, .dest = dim, .ms = 1000});
-  //     break;
-  //   }
-  //
-  //   next++;
-  //
-  //   if (next >= 2) {
-  //     next = 0;
-  //   }
-  // }
 }
 
 } // namespace fx

@@ -36,9 +36,7 @@ public:
       : _step(step), _start_val(start_val) {}
 
 public:
-  bool in = false;
-  bool out = false;
-  bool easing = true;
+  const bool easing = true;
 
   static constexpr double PI = 3.14159265358979323846;
   static constexpr double PI_HALF = (PI / 2.0);
@@ -48,79 +46,86 @@ protected:
   float _start_val = 0.0;
 };
 
-// class EasingInOutExpo : public Easing {
-// public:
-//   EasingInOutExpo() {
-//     in = true;
-//     out = true;
-//   }
-//
-//   float calc(float progress) const;
-// };
-//
-// class EasingInQuint : public Easing {
-// public:
-//   EasingInQuint() { in = true; }
-//
-//   float calc(float progress) const;
-// };
-//
-// class EasingInSine : public Easing {
-// public:
-//   EasingInSine() { in = true; }
-//
-//   float calc(float progress) const;
-// };
-//
-// class EasingOutCirc : public Easing {
-// public:
-//   EasingOutCirc() { out = true; }
-//
-//   float calc(float progress) const;
-// };
-//
-// class EasingOutExponent : public Easing {
-// public:
-//   EasingOutExponent() { out = true; }
-//
-//   float calc(float progress) const;
-// };
-//
-// class EasingOutQuint : public Easing {
-// public:
-//   EasingOutQuint() { out = true; }
-//
-//   float calc(float progress) const;
-// };
-//
-// class EasingOutSine : public Easing {
-// public:
-//   EasingOutSine(const float step, const float start_val)
-//       : Easing(step, start_val) {
-//     out = true;
-//   }
-//
-//   float calc(float progress) const;
-//   float calc2(const float total, const float current) const;
-// };
-
-class AcceleratingFromZeroSine : public Easing {
+class Circular : public Easing {
 public:
-  AcceleratingFromZeroSine(const float step = 1.0f,
-                           const float start_val = 0.0f)
-      : Easing(step, start_val) {
-    out = true;
-  }
+  Circular(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(float current, const float total) const;
+};
+
+class CircularAcceleratingFromZero : public Easing {
+public:
+  CircularAcceleratingFromZero(const float step = 1.0f,
+                               const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(float current, const float total) const;
+};
+
+class CircularDeceleratingToZero : public Easing {
+public:
+  CircularDeceleratingToZero(const float step = 1.0f,
+                             const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(float current, const float total) const;
+};
+
+class Quadratic : public Easing {
+public:
+  Quadratic(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(float current, const float total) const;
+};
+
+class QuintAcceleratingFromZero : public Easing {
+public:
+  QuintAcceleratingFromZero(const float step = 1.0f,
+                            const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(float current, const float total) const;
+};
+
+class QuintDeceleratingToZero : public Easing {
+public:
+  QuintDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(float current, const float total) const;
+};
+
+class SimpleLinear : public Easing {
+public:
+  SimpleLinear(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
 
   float calc(const float current, const float total) const;
 };
 
-class DeceleratingToZeroSine : public Easing {
+class Sine : public Easing {
 public:
-  DeceleratingToZeroSine(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {
-    out = true;
-  }
+  Sine(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(const float current, const float total) const;
+};
+
+class SineAcceleratingFromZero : public Easing {
+public:
+  SineAcceleratingFromZero(const float step = 1.0f,
+                           const float start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  float calc(const float current, const float total) const;
+};
+
+class SineDeceleratingToZero : public Easing {
+public:
+  SineDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
 
   float calc(const float current, const float total) const;
 };

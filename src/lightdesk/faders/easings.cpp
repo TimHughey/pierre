@@ -29,53 +29,98 @@ namespace pierre {
 namespace lightdesk {
 namespace fader {
 
-// float EasingInOutExpo::calc(float progress) const {
-//   if ((progress == 0.0) || (progress == 1.0)) {
-//     return progress;
-//   }
-//
-//   if (progress < 0.5) {
-//     progress = pow(2.0, 20.0 * progress - 10.0) / 2.0;
-//   } else {
-//     progress = (2.0 - pow(2.0, -20.0 * progress + 10.0)) / 2.0;
-//   }
-//
-//   return progress;
-// }
-//
-// float EasingInQuint::calc(float progress) const {
-//   return 1.0 - (progress * progress * progress * progress * progress);
-// }
-//
-// float EasingInSine::calc(float progress) const {
-//   return 1.0 - sin((progress * PI) / 2.0);
-// }
-//
-// float EasingOutCirc::calc(float progress) const {
-//   return sqrt(1.0 - pow(progress - 1.0, 2.0));
-// }
-//
-// float EasingOutExponent::calc(float progress) const {
-//   return (progress == 1.0 ? 1.0 : 1.0 - pow(2.0, -10.0 * progress));
-// }
-//
-// float EasingOutQuint::calc(float progress) const {
-//   return pow(1.0 - progress, 5.0);
-// }
-//
-// float EasingOutSine::calc(float progress) const {
-//   return cos((progress * PI) / 2.0);
-// }
+float Circular::calc(float current, const float total) const {
+  float x = 0.0f;
 
-float AcceleratingFromZeroSine::calc(float current, float total) const {
-  float x = _step * sin((current / total) * PI_HALF) + _start_val;
+  current /= total / 2.0f;
+  if (current < 1) {
+    x = copysign(_step, -1.0f) / 2.0f *
+            (sqrt(1.0f - current * current) - 1.0f) +
+        _start_val;
+  } else {
+    current -= 2.0f;
+    x = _step / 2 * (sqrt(1.0f - current * current) + 1.0f) + _start_val;
+  }
 
   return x;
 }
 
-float DeceleratingToZeroSine::calc(float current, float total) const {
-  float x = copysign(_step, -1.0f) * cos((current / total) * PI_HALF) + _step +
-            _start_val;
+float CircularAcceleratingFromZero::calc(float current,
+                                         const float total) const {
+  current /= total;
+  const float x =
+      copysign(_step, -1.0f) * (sqrt(1.0f - current * current) - 1) +
+      _start_val;
+
+  return x;
+}
+
+float CircularDeceleratingToZero::calc(float current, const float total) const {
+  current /= total;
+  current--;
+
+  const float x = _step * (sqrt(1.0f - current * current)) + _start_val;
+
+  return x;
+}
+
+float Quadratic::calc(float current, const float total) const {
+  float x = 0.0;
+
+  current /= total / 2.0f;
+  if (current < 1.0f) {
+    x = _step / 2.0f * current * current + _start_val;
+  } else {
+    current--;
+    x = copysign(_step, -1.0f) / 2.0f * (current * (current - 2.0f) - 1.0f) +
+        _start_val;
+  }
+
+  return x;
+}
+
+float QuintAcceleratingFromZero::calc(float current, const float total) const {
+  current /= total;
+
+  const float x = _step * pow(current, 5.0f) + _start_val;
+
+  return x;
+}
+
+float QuintDeceleratingToZero::calc(float current, const float total) const {
+  current /= total;
+  current--;
+
+  const float x = _step * (pow(current, 5.0f) + 1.0f) + _start_val;
+
+  return x;
+}
+
+float SimpleLinear::calc(const float current, const float total) const {
+  const float x = _step * current / total + _start_val;
+
+  return x;
+}
+
+float Sine::calc(const float current, const float total) const {
+  const float x =
+      copysign(_step, -1.0f) / 2.0f * (cos(PI * current / total) - 1.0f) +
+      _start_val;
+
+  return x;
+}
+
+float SineAcceleratingFromZero::calc(const float current,
+                                     const float total) const {
+  const float x = _step * sin((current / total) * PI_HALF) + _start_val;
+
+  return x;
+}
+
+float SineDeceleratingToZero::calc(const float current,
+                                   const float total) const {
+  const float x = copysign(_step, -1.0f) * cos((current / total) * PI_HALF) +
+                  _step + _start_val;
 
   return x;
 }

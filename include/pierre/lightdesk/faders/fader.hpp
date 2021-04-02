@@ -31,6 +31,7 @@ namespace fader {
 
 class Base {
   typedef std::chrono::microseconds usec;
+  typedef std::chrono::microseconds millis;
   typedef std::chrono::steady_clock clock;
   typedef std::chrono::time_point<clock> time_point;
 
@@ -45,12 +46,15 @@ public:
   float progress() const { return _progress; }
 
   const time_point &startedAt() const { return _started_at; }
-  bool travel();
+  bool travel(); // use started_at as reference
 
 protected:
   virtual void handleFinish() = 0;
-  virtual void handleTravel(const float total, const float current) = 0;
-  virtual void handleTravel(float progress) { handleTravel(progress, 1.0); }
+  virtual float handleTravel(const float total, const float current) = 0;
+  virtual float handleTravel(float progress) {
+    handleTravel(progress, 1.0);
+    return progress;
+  }
 
 private:
   float _progress = 0.0;

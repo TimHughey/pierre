@@ -21,8 +21,6 @@
 #ifndef pierre_lightdesk_fx_leave_hpp
 #define pierre_lightdesk_fx_leave_hpp
 
-#include <array>
-
 #include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
@@ -45,8 +43,6 @@ public:
 private:
   spPinSpot main;
   spPinSpot fill;
-
-  int next = 0;
 };
 
 } // namespace fx

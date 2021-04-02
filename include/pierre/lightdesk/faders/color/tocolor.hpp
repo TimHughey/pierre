@@ -44,7 +44,7 @@ public:
   }
 
 protected:
-  virtual void handleTravel(const float current, const float total) {
+  virtual float handleTravel(const float current, const float total) override {
     auto fade_level = _easing.calc(current, total);
 
     if (_origin.isBlack()) {
@@ -57,6 +57,8 @@ protected:
     } else {
       _location = lightdesk::Color::interpolate(_origin, _dest, fade_level);
     }
+
+    return fade_level;
   }
 
 private:

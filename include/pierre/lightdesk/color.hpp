@@ -65,7 +65,7 @@ public:
   ~Color() = default;
 
   Color(const uint rgb_val);
-  Color(const Rgb &rgb);
+  Color(const Hsl &hsl);
   Color(const Color &rhs) = default;
 
   double brightness() const { return _hsl.lum * 100.0; }

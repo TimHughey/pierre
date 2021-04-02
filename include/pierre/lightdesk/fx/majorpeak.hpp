@@ -22,8 +22,6 @@
 #define pierre_lightdesk_fx_majorpeak_hpp
 
 #include <deque>
-#include <map>
-#include <mutex>
 
 #include "lightdesk/fx/fx.hpp"
 
@@ -33,6 +31,12 @@ namespace fx {
 
 class MajorPeak : public Fx {
 public:
+  using Freq = audio::Freq_t;
+  using Peak = audio::Peak;
+  using Peaks = audio::spPeaks;
+  using Color = lightdesk::Color;
+
+public:
   struct Config {
     bool log = false;
   };
@@ -41,9 +45,7 @@ public:
   MajorPeak();
   ~MajorPeak() = default;
 
-  void dumpHistogram() const;
-
-  void execute(audio::spPeaks peaks) override;
+  void execute(Peaks peaks) override;
   const string_t &name() const override {
     static const string_t fx_name = "MajorPeak";
 
@@ -51,44 +53,20 @@ public:
   }
 
 private:
-  struct FreqColor {
-
-    struct {
-      audio::Freq_t low;
-      audio::Freq_t high;
-    } freq;
-
-    lightdesk::Color color;
-
-    static const FreqColor zero() {
-      FreqColor x;
-      x.freq = {.low = 0, .high = 0};
-      x.color = lightdesk::Color::black();
-
-      return std::move(x);
-    }
-  };
-
-  typedef std::deque<FreqColor> Palette;
+  typedef std::deque<Color> ReferenceColors;
 
 private:
-  void handleElWire(audio::spPeaks peaks);
-  void handleLedForest(audio::spPeaks peaks);
-  void handleLowFreq(const audio::Peak &peak, const lightdesk::Color &color);
-  void handleOtherFreq(const audio::Peak &peak, const lightdesk::Color &color);
-  void histogramInit();
-  lightdesk::Color lookupColor(const audio::Peak &peak);
-  void logPeak(const audio::Peak &peak) const;
-  void makePalette();
-  void makePaletteDefault();
-  void pushPaletteColor(audio::Freq_t high, const lightdesk::Color &color);
-  void recordColor(const FreqColor &freq_color);
+  void handleElWire(Peaks peaks);
+  void handleLedForest(Peaks peaks);
+  void handleLowFreq(const Peak &peak, const Color &color);
+  void handleOtherFreq(const Peak &peak, const Color &color);
+  void logPeak(const Peak &peak) const;
+  static const Color makeColor(Color ref, const Peak &freq);
+  void makeRefColors();
+  Color &refColor(size_t index) const;
 
 private:
   Config _cfg;
-  const float _mid_range_frequencies[13] = {349.2, 370.0, 392.0, 415.3, 440.0,
-                                            466.2, 493.9, 523.2, 544.4, 587.3,
-                                            622.2, 659.3, 698.5};
 
   spPinSpot main;
   spPinSpot fill;
@@ -96,11 +74,11 @@ private:
   spElWire el_dance_floor;
   spElWire el_entry;
 
-  static Palette _palette;
+  static ReferenceColors _ref_colors;
 
   struct {
-    audio::Peak main = audio::Peak::zero();
-    audio::Peak fill = audio::Peak::zero();
+    Peak main = Peak::zero();
+    Peak fill = Peak::zero();
   } _last_peak;
 };
 

@@ -40,6 +40,20 @@ public:
     return std::move(x);
   }
 
+  const T interpolate(const MinMaxPair<T> &bpair, const T val) const {
+    // https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
+    // OldRange = (OldMax - OldMin)
+    // NewRange = (NewMax - NewMin)
+    // NewValue = (((OldValue - OldMin) * NewRange) / OldRange) + NewMin
+
+    const T range_a = max() - min();
+    const T range_b = bpair.max() - bpair.min();
+
+    const T x = (((val - min()) * range_b) / range_a) + bpair.min();
+
+    return x;
+  }
+
   const T &max() const { return std::get<1>(_pair); }
 
   // MinMaxPair<T> &operator=(std::shared_ptr<MinMaxPair<T>> rhs) {

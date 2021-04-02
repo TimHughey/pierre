@@ -45,9 +45,9 @@ public:
 
   const lightdesk::Color &location() const { return _location; }
 
-  // virtual void handleFinish() override { _location = _dest; }
-  virtual void handleFinish() override {}
-  virtual void handleTravel(const float current, const float total) = 0;
+  virtual void handleFinish() override { _location = _dest; }
+  // virtual void handleFinish() override {}
+  virtual float handleTravel(const float current, const float total) = 0;
 
 protected:
   lightdesk::Color _origin;

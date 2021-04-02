@@ -43,9 +43,6 @@ public:
   };
 
 private:
-  int handleHisto();
-
-private:
   std::deque<string_t> tokens;
 };
 

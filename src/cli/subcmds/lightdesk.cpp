@@ -49,80 +49,13 @@ int LightDesk::handleCmd(const string_t &args) {
 
   if (tok->compare("help") == 0) {
     cout << "desk command help:" << endl;
-    cout << "histo           - show MajorPeak histogram" << endl;
-    goto finished;
-  }
 
-  if (tok->compare("histo") == 0) {
-    tokens.pop_front();
-    rc = handleHisto();
     goto finished;
   }
 
 finished:
   return rc;
 }
-
-int LightDesk::handleHisto() {
-  auto rc = 0;
-
-  auto desk = lightdesk::LightDesk::desk();
-  auto fx = desk->activeFx();
-  auto histo = fx->histogram();
-
-  auto sum_of_bins = 0.0;
-
-  for (auto &x : histo) {
-    auto width = 0;
-
-    if (x.first < 100) {
-      width = 5;
-    } else if ((x.first >= 100) && (x.first < 1000)) {
-      width = 5;
-    } else if ((x.first >= 1000) && (x.first < 10000)) {
-      width = 5;
-    } else if (x.first >= 10000) {
-      width = 6;
-    }
-
-    cout << right << setw(width) << x.first;
-
-    sum_of_bins += x.second;
-  }
-
-  cout << endl;
-
-  for (auto &x : histo) {
-    auto width = 0;
-
-    if (x.first < 100) {
-      width = 5;
-    } else if ((x.first >= 100) && (x.first < 1000)) {
-      width = 5;
-    } else if ((x.first >= 1000) && (x.first < 10000)) {
-      width = 5;
-    } else if (x.first >= 10000) {
-      width = 6;
-    }
-
-    uint ratio = (x.second / sum_of_bins) * 100;
-
-    cout << right << setw(width) << ratio;
-  }
-
-  cout << endl;
-
-  return rc;
-}
-
-// void LightDesk::printScale() {
-//   auto &cfg = Peak::config();
-//   auto scale = cfg.activeScale();
-//
-//   cout << boost::format(
-//               "scale: floor[%8.3f] ceiling[%8.3f] factor[%5.2f] step[%5.3f]")
-//               % scale->min() % scale->max() % cfg.scaleFactor() % cfg.step();
-// }
 
 } // namespace cli
 } // namespace pierre

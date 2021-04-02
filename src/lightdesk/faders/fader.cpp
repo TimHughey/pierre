@@ -59,12 +59,7 @@ bool Base::travel() {
       more_travel = false;
       handleFinish();
     } else {
-      _progress = (float)elapsed.count() / (float)_duration.count();
-
-      // ensure 0 <= progress <= 1
-      _progress = (_progress > 1.0) ? 1.0 : _progress;
-
-      handleTravel(_progress);
+      _progress = handleTravel(elapsed.count(), _duration.count());
     }
   }
 
