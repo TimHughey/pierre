@@ -31,7 +31,7 @@ namespace fx {
 
 class MajorPeak : public Fx {
 public:
-  using Freq = audio::Freq_t;
+  using Freq = audio::Freq;
   using Peak = audio::Peak;
   using Peaks = audio::spPeaks;
   using Color = lightdesk::Color;

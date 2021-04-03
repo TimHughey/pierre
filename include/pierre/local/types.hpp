@@ -1,5 +1,5 @@
 /*
-    local/types.hpp - Ruth Local Types
+    Pierre - Custom Lightshow for Wiss Landing
     Copyright (C) 2017  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -31,7 +31,5 @@ typedef std::string string_t;
 typedef std::thread Thread;
 typedef std::shared_ptr<Thread> spThread;
 
-typedef uint32_t Rgbw_t;
-
 } // namespace pierre
-#endif // ruth_type_hpp
+#endif

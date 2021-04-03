@@ -135,8 +135,8 @@ void FFT::dcRemoval(const float mean) {
 }
 
 void FFT::findPeaks(spPeaks peaks) {
-  Mag_t mag_min = std::numeric_limits<float>::max();
-  Mag_t mag_max = 0;
+  Mag mag_min = std::numeric_limits<float>::max();
+  Mag mag_max = 0;
 
   for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
     const float a = _real[i - 1];
@@ -150,8 +150,8 @@ void FFT::findPeaks(spPeaks peaks) {
         break;
       }
 
-      Freq_t freq = freqAtIndex(i);
-      Mag_t mag = magAtIndex(i);
+      Freq freq = freqAtIndex(i);
+      Mag mag = magAtIndex(i);
 
       mag_min = std::min(mag, mag_min);
       mag_max = std::max(mag, mag_max);
@@ -164,12 +164,12 @@ void FFT::findPeaks(spPeaks peaks) {
   peaks->sort();
 }
 
-Mag_t FFT::magAtIndex(const size_t i) const {
+Mag FFT::magAtIndex(const size_t i) const {
   const float a = _real[i - 1];
   const float b = _real[i];
   const float c = _real[i + 1];
 
-  const Mag_t x = abs(a - (2.0f * b) + c);
+  const Mag x = abs(a - (2.0f * b) + c);
   return x;
 }
 

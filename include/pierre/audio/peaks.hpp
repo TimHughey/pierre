@@ -33,8 +33,8 @@
 
 namespace pierre {
 namespace audio {
-typedef float Freq_t;
-typedef float Mag_t;
+typedef float Freq;
+typedef float Mag;
 typedef float MagScaled;
 typedef size_t PeakN; // represents peak of interest 1..max_peaks
 
@@ -45,19 +45,19 @@ struct Peak {
 
     struct {
       MinMaxFloat minmax;
-      Mag_t strong;
+      Mag strong;
     } mag;
 
     struct {
-      Mag_t factor;
+      Mag factor;
       MinMaxFloat minmax;
-      Mag_t step;
+      Mag step;
     } scale;
 
     const auto &activeScale() const { return scale.minmax; }
-    const Mag_t &ceiling() const { return mag.minmax.max(); }
+    const Mag &ceiling() const { return mag.minmax.max(); }
     static Config defaults();
-    const Mag_t &floor() const { return mag.minmax.min(); }
+    const Mag &floor() const { return mag.minmax.min(); }
 
     Config &operator=(const Config &rhs);
 
@@ -87,18 +87,18 @@ struct Peak {
       scale.minmax.set(new_floor, new_ceiling);
     }
 
-    Mag_t step() const { return scale.step; }
-    Mag_t strong() const { return mag.strong; }
+    Mag step() const { return scale.step; }
+    Mag strong() const { return mag.strong; }
   };
 
 public: // Peak
   size_t index = 0;
-  Freq_t freq = 0;
-  Mag_t mag = 0;
+  Freq freq = 0;
+  Mag mag = 0;
 
   Peak() = default;
 
-  Peak(const size_t i, const Freq_t f, const Mag_t m)
+  Peak(const size_t i, const Freq f, const Mag m)
       : index(i), freq(f), mag(m) {}
 
   static const MinMaxFloat magScaleRange();
@@ -106,7 +106,7 @@ public: // Peak
 
   static Config &config() { return _cfg; }
 
-  static Mag_t magFloor() { return _cfg.floor(); }
+  static Mag magFloor() { return _cfg.floor(); }
   MagScaled magScaled() const;
   bool magStrong() const { return mag >= (_cfg.floor() * _cfg.strong()); }
 
@@ -145,7 +145,7 @@ public: // Peak
   static const Peak zero() { return std::move(Peak()); }
 
 private:
-  static Mag_t scaleMagVal(Mag_t mag) { return 10.0f * log10(mag); }
+  static Mag scaleMagVal(Mag mag) { return 10.0f * log10(mag); }
 
   static Config _cfg;
 };
@@ -154,6 +154,9 @@ class Peaks {
 public:
   Peaks();
   ~Peaks() = default;
+
+  Peaks(Peaks &&other) noexcept;
+  Peaks &operator=(Peaks &&rhs) noexcept;
 
   void analyzeMagnitudes();
 

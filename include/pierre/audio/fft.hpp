@@ -35,7 +35,7 @@ https://www.wisslanding.com
 
 #include "audio/peaks.hpp"
 #include "local/types.hpp"
-#include "misc/maverage.hpp"
+// #include "misc/maverage.hpp"
 
 namespace pierre {
 namespace audio {
@@ -70,8 +70,8 @@ public:
 
   void dcRemoval(const float mean);
   void findPeaks(spPeaks peaks);
-  Freq_t freqAtIndex(size_t y);
-  Mag_t magAtIndex(const size_t i) const;
+  Freq freqAtIndex(size_t y);
+  Mag magAtIndex(const size_t i) const;
   void process();
   Real_t &real();
 

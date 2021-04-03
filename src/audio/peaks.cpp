@@ -88,6 +88,17 @@ Peaks::Peaks() {
   _mag_histogram.assign(buckets + 1, 0);
 }
 
+Peaks::Peaks(Peaks &&rhs) noexcept { *this = move(rhs); }
+
+Peaks &Peaks::operator=(Peaks &&rhs) noexcept {
+  // detect self assignment
+  if (this != &rhs) {
+    _peaks = move(rhs._peaks);
+    _mag_histogram = move(rhs._mag_histogram);
+  }
+  return *this;
+}
+
 void Peaks::analyzeMagnitudes() {
   // static ofstream log("/tmp/pierre/mags.csv", std::ios::trunc);
   static ofstream log("/dev/null", std::ios::trunc);

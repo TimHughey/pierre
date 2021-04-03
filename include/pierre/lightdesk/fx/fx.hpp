@@ -40,7 +40,7 @@ public:
   virtual void execute(const audio::spPeaks peaks) = 0;
   virtual bool finished() { return _finished; }
 
-  const std::map<audio::Freq_t, size_t> histogram() { return _histo; }
+  const std::map<audio::Freq, size_t> histogram() { return _histo; }
 
   void leave() { _tracker->leave(); }
 
@@ -68,7 +68,7 @@ public:
 protected:
   bool _finished = false;
   std::mutex _histo_mtx;
-  std::map<audio::Freq_t, size_t> _histo;
+  std::map<audio::Freq, size_t> _histo;
 
 private:
   static spHeadUnitTracker _tracker;

@@ -49,8 +49,8 @@ public:
 private:
   struct FreqColor {
     struct {
-      audio::Freq_t low;
-      audio::Freq_t high;
+      audio::Freq low;
+      audio::Freq high;
     } freq;
 
     lightdesk::Color color;
@@ -66,7 +66,7 @@ private:
   lightdesk::Color lookupColor(const audio::Peak &peak);
   void logPeak(const audio::Peak &peak) const;
   void makePalette();
-  void pushPaletteColor(audio::Freq_t high, const lightdesk::Color &color);
+  void pushPaletteColor(audio::Freq high, const lightdesk::Color &color);
 
 private:
   Config _cfg;
