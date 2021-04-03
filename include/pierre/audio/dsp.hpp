@@ -54,17 +54,16 @@ public:
   Dsp &operator=(const Dsp &) = delete;
 
   spPeaks peaks();
-
   spThread run();
 
 private:
+  void doFFT(FFT &fft);
   void stream();
 
 private:
   Config _cfg;
 
-  FFT _left = FFT(_cfg.samples, _cfg.rate);
-  FFT _right = FFT(_cfg.samples, _cfg.rate);
+  FFT _fft_left = FFT(_cfg.samples, _cfg.rate);
 
   mutex _peaks_mtx;
   spPeaks _peaks;

@@ -31,68 +31,48 @@ using State = core::State;
 namespace audio {
 Dsp::Dsp(const Config &cfg) : _cfg(cfg) { _peaks = make_shared<Peaks>(); }
 
+void Dsp::doFFT(FFT &fft) {
+  // calculate the FFT and find peaks
+  fft.process();
+  {
+    lock_guard<mutex> lck(_peaks_mtx);
+    _peaks = std::make_shared<Peaks>();
+    fft.findPeaks(_peaks);
+  }
+}
+
 spPeaks Dsp::peaks() {
   lock_guard<mutex> lck(_peaks_mtx);
 
   return _peaks;
 }
 
-shared_ptr<thread> Dsp::run() {
+Dsp::spThread Dsp::run() {
   auto t = make_shared<thread>([this]() { this->stream(); });
   return t;
 }
 
 void Dsp::stream() {
-  // fft requires collecting _fft_samples via these iterators before processing
-  auto &left_real = _left.real();
-  left_real.assign(left_real.size(), 0);
-  auto left_pos = left_real.begin();
-  auto left_end = left_real.cend();
-
-  auto &right_real = _right.real();
-  auto right_pos = right_real.begin();
+  auto &left = _fft_left.real();
+  auto left_pos = left.begin();
 
   while (State::running()) {
     const auto entry = pop();         // actual queue entry
     const auto &samples = entry->raw; // raw samples
 
-    // iterate through all the samples populating left and right FFT
-    // with floats.  when FFT real is fully populated calculate, find
-    // peaks the reset the iterators to continue populating any
-    // remaining samples.
+    // collect samples into the FFT
+    // when enough samples have been collected calculate and find the peaks
+    for (const auto &sample : samples) {
+      if (left_pos == left.cend()) {
+        doFFT(_fft_left);
 
-    auto sample = samples.cbegin();
-    do {
-      if (left_pos == left_end) {
-        // enough samples have been collected, do FFT and keep a copy
-        // of the Peaks locally
-        // auto left_thr = make_unique<thread>([this]() {
-        _left.process();
-
-        {
-          lock_guard<mutex> lck(_peaks_mtx);
-          _peaks = std::make_shared<Peaks>();
-          _left.findPeaks(_peaks);
-        }
-
-        // });
-
-        // auto right_thr = make_unique<thread>([this]() { _right.process();
-        // });
-
-        // left_thr->join();
-        // right_thr->join();
-
-        // reset left and right real positions to continue loading
-        left_pos = left_real.begin();
-        left_real.assign(left_real.size(), 0);
-        right_pos = right_real.begin();
+        // reset left_pos iterator to where the next sample is put
+        left_pos = left.begin();
       }
 
-      // consume two samples
-      *left_pos++ = float(*sample++);
-      *right_pos++ = float(*sample++);
-    } while (sample != samples.cend());
+      // copy the sample to the FFT as a float
+      *left_pos++ = static_cast<float>(sample);
+    }
   }
 }
 
