@@ -22,8 +22,7 @@
 #define pierre_core_hpp
 
 #include <atomic>
-
-#include "local/types.hpp"
+#include <chrono>
 
 namespace pierre {
 namespace core {

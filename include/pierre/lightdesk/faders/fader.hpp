@@ -22,8 +22,7 @@
 #define pierre_lightdesk_fader_hpp
 
 #include <chrono>
-
-#include "local/types.hpp"
+#include <memory>
 
 namespace pierre {
 namespace lightdesk {

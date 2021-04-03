@@ -18,6 +18,8 @@
     https://www.wisslanding.com
 */
 
+#include <iostream>
+
 #include "dmx/net.hpp"
 #include "external/ArduinoJson.h"
 
@@ -32,7 +34,7 @@ using boost::asio::ip::udp;
 
 namespace pierre {
 namespace dmx {
-Net::Net(io_context &io_ctx, const string_t &host, const string_t &port)
+Net::Net(io_context &io_ctx, const string &host, const string &port)
     : _host(host), _port(port), _socket(io_ctx) {
 
   resolver resolver(io_ctx);

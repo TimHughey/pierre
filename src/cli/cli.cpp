@@ -71,7 +71,7 @@ int Cli::doHelp() const {
   return 0;
 }
 
-int Cli::doLeave(const string_t &args) const {
+int Cli::doLeave(const string &args) const {
   milliseconds ms = milliseconds(5 * 60 * 1000); // five minutes
 
   if (args.empty() == false) {
@@ -87,7 +87,7 @@ int Cli::doLeave(const string_t &args) const {
   return 0;
 }
 
-int Cli::doTest(const string_t &args) const {
+int Cli::doTest(const string &args) const {
   int rc = 0;
 
   if (args.empty()) { // stop the compiler warning...
@@ -156,7 +156,7 @@ finished:
   return rc;
 }
 
-bool Cli::matchCmd(const string_t &cmd, bool letter) const {
+bool Cli::matchCmd(const string &cmd, bool letter) const {
   auto rc = false;
 
   if (letter && (input.front() == cmd.front())) {
@@ -184,7 +184,7 @@ void Cli::repl() {
   linenoiseClearScreen();
   cout << "Hello, this is Pierre. " << endl << endl;
 
-  string_t subsys = "pierre";
+  string subsys = "pierre";
   char *raw = nullptr;
   while (core::State::running()) {
     array<char, 25> prompt;

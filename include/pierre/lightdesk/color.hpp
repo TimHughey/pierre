@@ -24,8 +24,8 @@
 #include <algorithm>
 #include <cmath>
 #include <ctgmath>
+#include <string>
 
-#include "local/types.hpp"
 #include "misc/minmax.hpp"
 
 namespace pierre {
@@ -33,6 +33,7 @@ namespace lightdesk {
 
 class Color {
 public:
+  using string = std::string;
   typedef double Val;
 
   typedef struct {
@@ -40,7 +41,7 @@ public:
     double sat;
     double lum;
 
-    string_t asString() const;
+    string asString() const;
   } Hsl;
 
   class Rgb {
@@ -55,7 +56,7 @@ public:
 
     bool operator==(const Rgb &rhs) const;
 
-    string_t asString() const;
+    string asString() const;
   };
 
   typedef uint8_t White;
@@ -116,13 +117,13 @@ public:
   static Color black() { return std::move(Color()); }
   static Color none() { return std::move(Color()); }
 
-  string_t asString() const {
+  string asString() const {
     std::array<char, 384> buf;
 
     auto len = snprintf(buf.data(), buf.size(), "%s %s",
                         _rgb.asString().c_str(), _hsl.asString().c_str());
 
-    return std::move(string_t(buf.data(), len));
+    return std::move(string(buf.data(), len));
   }
 
 private:

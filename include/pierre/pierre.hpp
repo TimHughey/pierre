@@ -29,7 +29,6 @@
 #include "cli/cli.hpp"
 #include "dmx/render.hpp"
 #include "lightdesk/lightdesk.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 

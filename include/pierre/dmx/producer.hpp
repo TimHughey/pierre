@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "dmx/packet.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace dmx {

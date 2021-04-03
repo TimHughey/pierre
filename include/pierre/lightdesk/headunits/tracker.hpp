@@ -22,6 +22,7 @@
 #define pierre_lightdesk_headunit_tracker_hpp
 
 #include <memory>
+#include <string>
 #include <unordered_map>
 
 #include "lightdesk/headunit.hpp"
@@ -29,16 +30,18 @@
 #include "lightdesk/headunits/elwire.hpp"
 #include "lightdesk/headunits/ledforest.hpp"
 #include "lightdesk/headunits/pinspot.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
 
 typedef std::shared_ptr<HeadUnit> _HeadUnit;
-typedef std::unordered_map<string_t, _HeadUnit> _HeadUnitMap;
+typedef std::unordered_map<std::string, _HeadUnit> _HeadUnitMap;
 typedef std::shared_ptr<_HeadUnitMap> HeadUnitMap;
 
 class HeadUnitTracker {
+public:
+  using string = std::string;
+
 public:
   HeadUnitTracker() = default;
   ~HeadUnitTracker() = default;
@@ -46,13 +49,13 @@ public:
   HeadUnitTracker(const HeadUnitTracker &) = delete;
   HeadUnitTracker &operator=(const HeadUnitTracker &) = delete;
 
-  template <typename T> std::shared_ptr<T> find(const string_t name) {
+  template <typename T> std::shared_ptr<T> find(const string name) {
     auto search = _map->find(name);
     auto x = std::static_pointer_cast<T>(std::get<1>(*search));
     return x;
   }
 
-  template <typename T> void insert(const string_t name, uint address = 0) {
+  template <typename T> void insert(const string name, uint address = 0) {
     auto pair = std::make_pair(name, std::make_shared<T>(address));
 
     _map->insert(pair);
@@ -74,7 +77,7 @@ public:
     });
   }
 
-  template <typename T> std::shared_ptr<T> unit(const string_t name) {
+  template <typename T> std::shared_ptr<T> unit(const string name) {
     auto search = _map->find(name);
     auto x = std::static_pointer_cast<T>(std::get<1>(*search));
     return x;

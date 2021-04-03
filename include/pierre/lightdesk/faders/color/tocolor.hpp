@@ -24,7 +24,6 @@
 #include "lightdesk/color.hpp"
 #include "lightdesk/faders/color.hpp"
 #include "lightdesk/faders/easings.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {

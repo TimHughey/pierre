@@ -24,6 +24,7 @@
 #include <chrono>
 #include <mutex>
 #include <set>
+#include <string>
 #include <thread>
 
 #include "audio/dsp.hpp"
@@ -43,6 +44,8 @@ namespace lightdesk {
 using namespace std::chrono;
 
 class LightDesk : public dmx::Producer {
+public:
+  using string = std::string;
 
 public:
   struct Config {
@@ -84,7 +87,7 @@ private:
   void executeFx();
   void stream();
 
-  template <typename T> std::shared_ptr<T> unit(const string_t name) {
+  template <typename T> std::shared_ptr<T> unit(const string name) {
     return _tracker->unit<T>(name);
   }
 

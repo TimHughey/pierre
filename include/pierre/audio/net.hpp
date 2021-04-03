@@ -23,11 +23,9 @@
 
 #include <array>
 #include <boost/asio.hpp>
-#include <iostream>
 #include <thread>
 
 #include "audio/samples.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace audio {
@@ -35,6 +33,11 @@ namespace audio {
 constexpr size_t net_packet_size = 1024;
 
 class RawOut : public Samples {
+public:
+  using string = std::string;
+  using thread = std::thread;
+  using spThread = std::shared_ptr<thread>;
+
 public:
   typedef boost::asio::io_context io_context;
   typedef boost::asio::ip::udp::endpoint endpoint;
@@ -58,12 +61,12 @@ public:
   };
 
 public:
-  RawOut(const string_t &dest, const string_t &port);
+  RawOut(const string &dest, const string &port);
 
   RawOut(const RawOut &) = delete;
   RawOut &operator=(const RawOut &) = delete;
 
-  std::shared_ptr<std::thread> run();
+  spThread run();
 
 private:
   void stream();

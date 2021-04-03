@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <string>
 #include <sys/resource.h>
 #include <time.h>
 #include <unistd.h>
@@ -24,7 +25,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 #include "pierre.hpp"
 
 using namespace std;
+
 using namespace pierre;
+
+using string = std::string;
 
 bool parseArgs(int ac, char *av[], Pierre::Config &cfg);
 
@@ -56,7 +60,7 @@ bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
     // Declare the supported options.
     po::options_description desc("pierre options:");
     desc.add_options()("help", "display this help text")(
-        dmx, po::value<string_t>(), "stream dmx frames to host")(
+        dmx, po::value<string>(), "stream dmx frames to host")(
         colorbars, "pinspot color bar test at startup");
 
     po::variables_map vm;

@@ -23,18 +23,20 @@
 
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <thread>
 
 #include "cli/linenoise.h"
 #include "cli/subcmds/subcmd.hpp"
 #include "core/state.hpp"
-#include "local/types.hpp"
 #include "version.h"
 
 namespace pierre {
 
 class Cli {
 public:
+  using string = std::string;
+
   Cli() = default;
 
   Cli(const Cli &) = delete;
@@ -44,18 +46,18 @@ public:
 
 private:
   int doHelp() const;
-  int doLeave(const string_t &args) const;
-  int doTest(const string_t &args) const;
+  int doLeave(const string &args) const;
+  int doTest(const string &args) const;
   int handleLine();
   void repl();
   bool matchLetter(char letter) const;
-  bool matchCmd(const string_t &cmd, bool letter = false) const;
+  bool matchCmd(const string &cmd, bool letter = false) const;
 
 private:
-  string_t input;
+  string input;
 
-  const string_t git_revision = GIT_REVISION;
-  const string_t build_timestamp = BUILD_TIMESTAMP;
+  const string git_revision = GIT_REVISION;
+  const string build_timestamp = BUILD_TIMESTAMP;
   std::filesystem::path recompile_flag;
   std::filesystem::path history_file;
 

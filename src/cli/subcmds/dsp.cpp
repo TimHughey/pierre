@@ -33,14 +33,14 @@ using namespace pierre::audio;
 namespace pierre {
 namespace cli {
 
-int Dsp::handleCmd(const string_t &args) {
+int Dsp::handleCmd(const string &args) {
   auto rc = 0;
 
   tokens.clear();
 
   tokenizer<> t(args);
   for (tokenizer<>::iterator x = t.begin(); x != t.end(); ++x) {
-    string_t token(*x);
+    string token(*x);
     tokens.push_back(std::move(token));
   }
 

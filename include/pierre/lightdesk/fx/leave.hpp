@@ -34,8 +34,8 @@ public:
   ~Leave() = default;
 
   void execute(audio::spPeaks peaks) override;
-  const string_t &name() const override {
-    static const string_t fx_name = "Leave";
+  const string &name() const override {
+    static const string fx_name = "Leave";
 
     return fx_name;
   }

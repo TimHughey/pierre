@@ -21,30 +21,32 @@
 #ifndef _pierre_dmx_render_hpp
 #define _pierre_dmx_render_hpp
 
-#include <iostream>
 #include <set>
+#include <string>
 #include <thread>
-#include <vector>
 
 #include <boost/asio.hpp>
 
 #include "dmx/net.hpp"
 #include "dmx/producer.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace dmx {
 
 class Render {
 public:
-  struct Config {
-    string_t host = string_t("test-with-devs.ruth.wisslanding.com");
-    string_t port = string_t("48005");
-  };
+  using string = std::string;
+  using thread = std::thread;
+  using spThread = std::shared_ptr<thread>;
+
+  typedef std::set<std::shared_ptr<Producer>> Producers;
+  typedef std::error_code error_code;
 
 public:
-  typedef std::set<std::shared_ptr<Producer>> producers;
-  typedef std::error_code error_code;
+  struct Config {
+    string host = string("test-with-devs.ruth.wisslanding.com");
+    string port = string("48005");
+  };
 
 public:
   Render(const Config &cfg);
@@ -53,7 +55,7 @@ public:
     _producers.insert(producer);
   }
 
-  std::shared_ptr<std::thread> run();
+  spThread run();
 
 private:
   void stream();
@@ -65,7 +67,7 @@ private:
   Net _net;
   Frame _frame;
 
-  producers _producers;
+  Producers _producers;
 };
 } // namespace dmx
 } // namespace pierre

@@ -22,28 +22,30 @@
 #define _pierre_cli_subcmd_lightdesk_hpp
 
 #include <deque>
+#include <string>
 
 #include "cli/subcmds/subcmd.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace cli {
 
 class LightDesk : public SubCmd {
+public:
+  using string = std::string;
 
 public:
   LightDesk() = default;
   LightDesk(const LightDesk &) = delete;
   LightDesk &operator=(const LightDesk &) = delete;
 
-  int handleCmd(const string_t &args) override;
-  const string_t &name() const override {
-    static const string_t x = "desk";
+  int handleCmd(const string &args) override;
+  const string &name() const override {
+    static const string x = "desk";
     return x;
   };
 
 private:
-  std::deque<string_t> tokens;
+  std::deque<string> tokens;
 };
 
 } // namespace cli

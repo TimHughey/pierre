@@ -24,14 +24,12 @@
 #include "lightdesk/color.hpp"
 #include "lightdesk/faders/easings.hpp"
 #include "lightdesk/faders/fader.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fader {
 
 class Color : public Base {
-
 public:
   struct Opts {
     lightdesk::Color origin;

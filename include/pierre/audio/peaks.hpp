@@ -28,7 +28,6 @@
 #include <memory>
 #include <vector>
 
-#include "local/types.hpp"
 #include "misc/minmax.hpp"
 
 namespace pierre {
@@ -98,8 +97,7 @@ public: // Peak
 
   Peak() = default;
 
-  Peak(const size_t i, const Freq f, const Mag m)
-      : index(i), freq(f), mag(m) {}
+  Peak(const size_t i, const Freq f, const Mag m) : index(i), freq(f), mag(m) {}
 
   static const MinMaxFloat magScaleRange();
   static const MinMaxFloat &activeScale() { return _cfg.activeScale(); }

@@ -21,14 +21,16 @@
 #ifndef _pierre_cli_subcmd_hpp
 #define _pierre_cli_subcmd_hpp
 
+#include <string>
+
 #include "core/state.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace cli {
 
 class SubCmd {
 public:
+  using string = std::string;
   enum { finished = -255 };
 
 public:
@@ -36,8 +38,8 @@ public:
   SubCmd(const SubCmd &) = delete;
   SubCmd &operator=(const SubCmd &) = delete;
 
-  virtual int handleCmd(const string_t &args) = 0;
-  virtual const string_t &name() const = 0;
+  virtual int handleCmd(const string &args) = 0;
+  virtual const string &name() const = 0;
 };
 
 typedef std::unique_ptr<SubCmd> upSubCmd;

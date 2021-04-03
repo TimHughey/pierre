@@ -22,16 +22,19 @@
 #define pierre_lightdesk_fx_base_hpp
 
 #include <map>
+#include <string>
 
 #include "audio/peaks.hpp"
 #include "lightdesk/headunits/tracker.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
 
 class Fx {
+public:
+  using string = std::string;
+
 public:
   Fx() = default;
   virtual ~Fx() = default;
@@ -44,7 +47,7 @@ public:
 
   void leave() { _tracker->leave(); }
 
-  bool matchName(const string_t match) {
+  bool matchName(const string match) {
     auto rc = false;
     if (name().compare(match) == 0) {
       rc = true;
@@ -53,13 +56,13 @@ public:
     return rc;
   }
 
-  virtual const string_t &name() const = 0;
+  virtual const string &name() const = 0;
   static void resetTracker() { _tracker.reset(); }
   static void setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
     _tracker = std::move(tracker);
   }
 
-  template <typename T> std::shared_ptr<T> unit(const string_t name) {
+  template <typename T> std::shared_ptr<T> unit(const string name) {
     auto x = _tracker->unit<T>(name);
 
     return std::move(x);

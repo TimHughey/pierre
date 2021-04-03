@@ -21,7 +21,6 @@
 #include <limits>
 
 #include "audio/fft.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace audio {

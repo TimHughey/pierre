@@ -22,7 +22,6 @@
 #define pierre_dmx_headunit_device_hpp
 
 #include "dmx/packet.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace lightdesk {

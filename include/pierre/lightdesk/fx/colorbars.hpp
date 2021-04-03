@@ -98,8 +98,8 @@ public:
     count()--;
   }
 
-  const string_t &name() const override {
-    static const string_t fx_name = "ColorBars";
+  const string &name() const override {
+    static const string fx_name = "ColorBars";
 
     return fx_name;
   }

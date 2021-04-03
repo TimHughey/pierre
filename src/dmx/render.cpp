@@ -24,7 +24,6 @@
 
 typedef StaticJsonDocument<1024> doc;
 
-using std::cerr, std::endl, std::vector;
 using std::chrono::duration;
 using std::chrono::duration_cast;
 using us = std::chrono::microseconds;
@@ -34,6 +33,9 @@ using std::chrono::time_point;
 namespace this_thread = std::this_thread;
 
 namespace pierre {
+
+using State = core::State;
+
 namespace dmx {
 
 Render::Render(const Config &cfg)
@@ -48,7 +50,7 @@ std::shared_ptr<std::thread> Render::run() {
 }
 
 void Render::stream() {
-  string_t func(__PRETTY_FUNCTION__);
+  string func(__PRETTY_FUNCTION__);
 
   // this_thread::sleep_for(chrono::seconds(2));
 
@@ -56,7 +58,7 @@ void Render::stream() {
   long frame_us = ((1000 * 1000) / 44) - 250;
   duration frame_interval_half = us(frame_us / 2);
 
-  while (core::State::running()) {
+  while (State::running()) {
     auto loop_start = steady_clock::now();
     for (auto p : _producers) {
       p->prepare();

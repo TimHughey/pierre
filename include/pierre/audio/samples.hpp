@@ -21,7 +21,6 @@
 #ifndef _pierre_audio_samples_processor_hpp
 #define _pierre_audio_samples_processor_hpp
 
-#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -41,7 +40,6 @@ public:
 
   RawPacket(const long &frames, const long &samples)
       : frames(frames), samples(samples) {
-    // allocate memory for direct write by pcm_mmap_readi
 
     raw.assign(samples, 0);
   }
@@ -67,12 +65,6 @@ public:
 
   Samples(const Samples &) = delete;
   Samples &operator=(const Samples &) = delete;
-
-  // static spRawPacket make_packet(long samples) {
-  //   auto x = std::make_shared<Samples>();
-  //
-  //   return std::move(x);
-  // }
 
   void push(spRawPacket packet) { _queue.push(packet); }
 

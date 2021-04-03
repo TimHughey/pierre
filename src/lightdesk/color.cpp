@@ -34,6 +34,9 @@ using namespace std;
 namespace pierre {
 namespace lightdesk {
 
+using Hsl = Color::Hsl;
+using Rgb = Color::Rgb;
+
 Color::Color(const uint rgb_val) {
   _rgb = Rgb(rgb_val);
   _hsl = rgbToHsl(_rgb);
@@ -58,7 +61,7 @@ Color Color::interpolate(Color a, Color b, float t) {
   float d = b.hue() - a.hue();
   if (a.hue() > b.hue()) {
     // Swap (a.h, b.h)
-    std::swap(a.hue(), b.hue());
+    swap(a.hue(), b.hue());
 
     d *= -1.0;
     t = 1.0 - t;
@@ -82,7 +85,7 @@ Color Color::interpolate(Color a, Color b, float t) {
 
   interpolated._rgb = hslToRgb(interpolated._hsl);
 
-  return std::move(interpolated);
+  return move(interpolated);
 }
 
 bool Color::operator==(const Color &rhs) const { return _rgb == rhs._rgb; }
@@ -128,7 +131,7 @@ Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
 
   if (false) {
     static uint seq = 0;
-    static ofstream log("/tmp/pierre/color.log", std::ios::trunc);
+    static ofstream log("/tmp/pierre/color.log", ios::trunc);
 
     if (x >= brightness()) {
       log << boost::format(
@@ -173,7 +176,7 @@ Color &Color::setSaturation(const MinMaxFloat &range, const float val) {
   return *this;
 }
 
-Color::Rgb Color::hslToRgb(const Hsl &hsl) {
+Rgb Color::hslToRgb(const Hsl &hsl) {
   // H, S and L input range = 0 ÷ 1.0
   // R, G and B output range = 0 ÷ 255
 
@@ -200,7 +203,7 @@ Color::Rgb Color::hslToRgb(const Hsl &hsl) {
     rgb.b = hueToRgb(var_1, var_2, hsl.hue - one_third);
   }
 
-  return std::move(rgb);
+  return move(rgb);
 }
 
 uint8_t Color::hueToRgb(double v1, double v2, double vh) {
@@ -226,7 +229,7 @@ uint8_t Color::hueToRgb(double v1, double v2, double vh) {
   return (uint8_t)round(v1 * 255.0);
 }
 
-Color::Hsl Color::rgbToHsl(const Rgb &rgb) {
+Hsl Color::rgbToHsl(const Rgb &rgb) {
 
   // R, G and B input range = 0 ÷ 255
   // H, S and L output range = 0 ÷ 1.0
@@ -237,9 +240,9 @@ Color::Hsl Color::rgbToHsl(const Rgb &rgb) {
   auto grn = (rgb.g / 255.0);
   auto blu = (rgb.b / 255.0);
 
-  auto var_Min = std::min(std::min(red, grn), blu); // Min. value of RGB
-  auto var_Max = std::max(std::max(red, grn), blu); // Max. value of RGB
-  auto del_Max = var_Max - var_Min;                 // Delta RGB value
+  auto var_Min = min(min(red, grn), blu); // Min. value of RGB
+  auto var_Max = max(max(red, grn), blu); // Max. value of RGB
+  auto del_Max = var_Max - var_Min;       // Delta RGB value
 
   hsl.lum = (var_Max + var_Min) / 2.0;
 
@@ -275,19 +278,19 @@ Color::Hsl Color::rgbToHsl(const Rgb &rgb) {
     }
   }
 
-  return std::move(hsl);
+  return move(hsl);
 }
 
-string_t Color::Hsl::asString() const {
-  std::array<char, 128> buf;
+string Hsl::asString() const {
+  array<char, 128> buf;
 
   auto len =
       snprintf(buf.data(), buf.size(), "hsl(%7.4f,%7.4f,%7.4f)", hue, sat, lum);
 
-  return std::move(string_t(buf.begin(), len));
+  return move(string(buf.begin(), len));
 }
 
-Color::Rgb::Rgb(const uint val) {
+Rgb::Rgb(const uint val) {
   uint8_t *bytes = (uint8_t *)&val;
 
   r = bytes[2];
@@ -295,16 +298,16 @@ Color::Rgb::Rgb(const uint val) {
   b = bytes[0];
 }
 
-bool Color::Rgb::operator==(const Rgb &rhs) const {
+bool Rgb::operator==(const Rgb &rhs) const {
   return (r == rhs.r) && (g == rhs.g) && (b == rhs.b);
 }
 
-string_t Color::Rgb::asString() const {
-  std::array<char, 128> buf;
+string Rgb::asString() const {
+  array<char, 128> buf;
 
   auto len = snprintf(buf.data(), buf.size(), "rgb(%02x%02x%02x)", r, b, g);
 
-  return std::move(string_t(buf.begin(), len));
+  return move(string(buf.begin(), len));
 }
 
 } // namespace lightdesk

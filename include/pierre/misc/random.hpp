@@ -21,7 +21,7 @@
 #ifndef pierre_random_hpp
 #define pierre_random_hpp
 
-#include "local/types.hpp"
+#include <memory>
 
 namespace pierre {
 

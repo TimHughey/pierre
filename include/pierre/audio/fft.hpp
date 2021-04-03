@@ -34,8 +34,6 @@ https://www.wisslanding.com
 #include <stdlib.h>
 
 #include "audio/peaks.hpp"
-#include "local/types.hpp"
-// #include "misc/maverage.hpp"
 
 namespace pierre {
 namespace audio {

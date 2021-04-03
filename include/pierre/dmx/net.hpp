@@ -21,14 +21,13 @@
 #ifndef _pierre_dmx_net_hpp
 #define _pierre_dmx_net_hpp
 
-#include <iostream>
+#include <string>
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 
 #include "dmx/packet.hpp"
 #include "dmx/producer.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace dmx {
@@ -42,17 +41,19 @@ typedef boost::system::error_code error_code;
 typedef boost::asio::ip::udp::resolver::results_type endpoints;
 
 class Net {
+public:
+  using string = std::string;
 
 public:
-  Net(io_context &io_ctx, const string_t &host, const string_t &port);
+  Net(io_context &io_ctx, const string &host, const string &port);
 
   bool write(Packet &packet);
 
   void shutdown();
 
 private:
-  string_t _host;
-  string_t _port;
+  string _host;
+  string _port;
 
   bool _connected = false;
 

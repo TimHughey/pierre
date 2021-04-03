@@ -21,16 +21,21 @@
 #ifndef _pierre_audio_dsp_hpp
 #define _pierre_audio_dsp_hpp
 
+#include <string>
 #include <thread>
 
 #include "audio/fft.hpp"
 #include "audio/samples.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace audio {
 
 class Dsp : public Samples {
+public:
+  using mutex = std::mutex;
+  using string = std::string;
+  using thread = std::thread;
+  using spThread = std::shared_ptr<thread>;
 
 public:
   struct Config {
@@ -38,7 +43,7 @@ public:
     uint rate = 48000;
 
     struct {
-      string_t path = "/dev/null";
+      string path = "/dev/null";
     } log;
   };
 
@@ -50,7 +55,7 @@ public:
 
   spPeaks peaks();
 
-  std::shared_ptr<std::thread> run();
+  spThread run();
 
 private:
   void stream();
@@ -61,7 +66,7 @@ private:
   FFT _left = FFT(_cfg.samples, _cfg.rate);
   FFT _right = FFT(_cfg.samples, _cfg.rate);
 
-  std::mutex _peaks_mtx;
+  mutex _peaks_mtx;
   spPeaks _peaks;
 };
 

@@ -46,8 +46,8 @@ public:
   ~MajorPeak() = default;
 
   void execute(Peaks peaks) override;
-  const string_t &name() const override {
-    static const string_t fx_name = "MajorPeak";
+  const string &name() const override {
+    static const string fx_name = "MajorPeak";
 
     return fx_name;
   }

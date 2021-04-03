@@ -20,6 +20,8 @@
 
 #include "audio/net.hpp"
 
+#include <iostream>
+
 using namespace std;
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -42,7 +44,7 @@ void RawOut::Client::send(const RawPacket &data, endpoint &end_pt) {
   }
 }
 
-RawOut::RawOut(const string_t &dest, const string_t &port) {
+RawOut::RawOut(const string &dest, const string &port) {
   udp::resolver resolver(_io_ctx);
 
   auto result = *resolver.resolve(udp::v4(), dest, port, _ec).begin();

@@ -26,11 +26,13 @@ using namespace std;
 using namespace chrono;
 
 namespace pierre {
+using State = core::State;
+
 namespace audio {
-Dsp::Dsp(const Config &cfg) : _cfg(cfg) { _peaks = std::make_shared<Peaks>(); }
+Dsp::Dsp(const Config &cfg) : _cfg(cfg) { _peaks = make_shared<Peaks>(); }
 
 spPeaks Dsp::peaks() {
-  std::lock_guard<std::mutex> lck(_peaks_mtx);
+  lock_guard<mutex> lck(_peaks_mtx);
 
   return _peaks;
 }
@@ -50,7 +52,7 @@ void Dsp::stream() {
   auto &right_real = _right.real();
   auto right_pos = right_real.begin();
 
-  while (core::State::running()) {
+  while (State::running()) {
     const auto entry = pop();         // actual queue entry
     const auto &samples = entry->raw; // raw samples
 
@@ -68,7 +70,7 @@ void Dsp::stream() {
         _left.process();
 
         {
-          lock_guard<std::mutex> lck(_peaks_mtx);
+          lock_guard<mutex> lck(_peaks_mtx);
           _peaks = std::make_shared<Peaks>();
           _left.findPeaks(_peaks);
         }

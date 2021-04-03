@@ -22,23 +22,25 @@
 #define _pierre_cli_subcmd_dsp_hpp
 
 #include <deque>
+#include <string>
 
 #include "cli/subcmds/subcmd.hpp"
-#include "local/types.hpp"
 
 namespace pierre {
 namespace cli {
 
 class Dsp : public SubCmd {
+public:
+  using string = std::string;
 
 public:
   Dsp() = default;
   Dsp(const Dsp &) = delete;
   Dsp &operator=(const Dsp &) = delete;
 
-  int handleCmd(const string_t &args) override;
-  const string_t &name() const override {
-    static const string_t x = "dsp";
+  int handleCmd(const string &args) override;
+  const string &name() const override {
+    static const string x = "dsp";
     return x;
   };
 
@@ -47,7 +49,7 @@ private:
   void printScale();
 
 private:
-  std::deque<string_t> tokens;
+  std::deque<string> tokens;
 };
 
 } // namespace cli
