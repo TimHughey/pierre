@@ -42,7 +42,21 @@ Color::Color(const uint rgb_val) {
   _hsl = rgbToHsl(_rgb);
 }
 
-Color::Color(const Hsl &hsl) : _hsl(hsl) { _rgb = hslToRgb(_hsl); }
+Color::Color(const Hsl &hsl) : _hsl(hsl) {
+  if (_hsl.hue > 1.0f) {
+    _hsl.hue /= 360.0f;
+  }
+
+  if (_hsl.sat > 1.0f) {
+    _hsl.sat /= 100.0f;
+  }
+
+  if (_hsl.lum > 1.0f) {
+    _hsl.lum /= 100.0f;
+  }
+
+  _rgb = hslToRgb(_hsl);
+}
 
 void Color::copyRgbToByteArray(uint8_t *array) const {
   array[0] = _rgb.r;
@@ -109,7 +123,7 @@ Color &Color::rotateHue(const float step) {
 Color &Color::setBrightness(float val) {
   auto x = val / 100.0;
 
-  if ((unsigned)x <= 0.5) {
+  if ((unsigned)x <= 1.0) {
     _hsl.lum = x;
 
     _rgb = hslToRgb(_hsl);

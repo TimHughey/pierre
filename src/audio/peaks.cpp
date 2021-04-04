@@ -18,11 +18,7 @@
     https://www.wisslanding.com
 */
 
-// #include <boost/format.hpp>    // only needed for printing
-#include <fstream>
-// #include <functional> // std::ref
-#include <iostream>
-#include <sstream> // std::ostringstream
+#include <cmath>
 
 #include "audio/peaks.hpp"
 #include "misc/elapsed.hpp"
@@ -32,9 +28,18 @@ using namespace std;
 namespace pierre {
 namespace audio {
 
-Peak::Config Peak::_cfg = Peak::Config::defaults();
+namespace peak {
+Scaled scaleVal(Unscaled val) {
 
-Peak::Config Peak::Config::defaults() {
+  // log10 of 0 is undefined
+  if (val <= 0.0f) {
+    return 0.0f;
+  }
+
+  return 10.0f * log10(val);
+}
+
+Config Config::defaults() {
   auto cfg = Config();
 
   auto &mag = cfg.mag.minmax;
@@ -47,17 +52,17 @@ Peak::Config Peak::Config::defaults() {
   scale.factor = 2.21;
   scale.step = 0.01;
 
-  auto scale_min = Peak::scaleMagVal(cfg.floor() * scale.factor);
-  auto scale_max = Peak::scaleMagVal(cfg.ceiling());
+  auto scale_min = scaleVal(cfg.floor() * scale.factor);
+  auto scale_max = scaleVal(cfg.ceiling());
 
   scale.minmax = MinMaxFloat(scale_min, scale_max);
 
   return std::move(cfg);
 }
 
-Peak::Config::Config(const Peak::Config &c) { *this = c; }
+Config::Config(const Peak::Config &c) { *this = c; }
 
-Peak::Config &Peak::Config::operator=(const Peak::Config &rhs) {
+Config &Peak::Config::operator=(const Peak::Config &rhs) {
 
   mag.minmax = rhs.mag.minmax;
   scale.minmax = rhs.scale.minmax;
@@ -66,14 +71,22 @@ Peak::Config &Peak::Config::operator=(const Peak::Config &rhs) {
 
   return *this;
 }
+} // namespace peak
 
 const MinMaxFloat Peak::magScaleRange() {
   MinMaxFloat range(0.0, _cfg.scaleCeiling() - _cfg.scaleFloor());
   return std::move(range);
 }
 
+using namespace peak;
+
+Config Peak::_cfg = Peak::Config::defaults();
+
+Peak::Peak(const size_t i, const Freq f, const Mag m)
+    : _index(i), _freq(f), _mag(m) {}
+
 MagScaled Peak::magScaled() const {
-  auto scaled = scaleMagVal(mag);
+  auto scaled = scaleVal(magnitude());
 
   scaled -= _cfg.scaleFloor();
   if (scaled < 0) {
@@ -83,9 +96,14 @@ MagScaled Peak::magScaled() const {
   return scaled;
 }
 
-Peaks::Peaks() {
-  auto buckets = Peak::config().ceiling() / (Peak::config().floor());
-  _mag_histogram.assign(buckets + 1, 0);
+Peak::operator bool() const {
+  auto rc = false;
+
+  if ((_mag > _cfg.floor()) && (_mag < _cfg.ceiling())) {
+    rc = true;
+  }
+
+  return rc;
 }
 
 Peaks::Peaks(Peaks &&rhs) noexcept { *this = move(rhs); }
@@ -94,70 +112,8 @@ Peaks &Peaks::operator=(Peaks &&rhs) noexcept {
   // detect self assignment
   if (this != &rhs) {
     _peaks = move(rhs._peaks);
-    _mag_histogram = move(rhs._mag_histogram);
   }
   return *this;
-}
-
-void Peaks::analyzeMagnitudes() {
-  // static ofstream log("/tmp/pierre/mags.csv", std::ios::trunc);
-  static ofstream log("/dev/null", std::ios::trunc);
-  static uint seq = 0;
-  static elapsedMillis elapsed;
-
-  uint overflow = 0;
-  float mag_max = 0;
-  auto buckets = Peak::config().ceiling() / (Peak::config().floor());
-
-  if (_peaks.size() == 0) {
-    return;
-  }
-
-  for (auto p = _peaks.cbegin(); p <= _peaks.cend(); p++) {
-    auto threshold = Peak::config().floor() * 3.0;
-
-    if (p->mag < threshold) {
-      continue;
-    }
-
-    auto floor = Peak::config().floor();
-    auto bucket = round(p->mag / floor);
-
-    mag_max = std::max(mag_max, p->mag);
-
-    if (bucket < buckets) {
-      _mag_histogram[bucket]++;
-    } else {
-      overflow++;
-    }
-  }
-
-  if (elapsed > (22 * 10)) {
-    log << seq++ << "," << overflow;
-    auto total = 0;
-    for (auto k = _mag_histogram.cend(); k >= _mag_histogram.cbegin(); k--) {
-
-      // log << ",";
-      //
-      // if (*k > 0) {
-      //   log << *k;
-      // } else {
-      //   log << " ";
-      // }
-
-      total += *k;
-    }
-
-    log << "," << total;
-    // log << "," << mag_max;
-    log << endl;
-
-    _mag_histogram.assign(buckets + 1, 0);
-    overflow = 0;
-    mag_max = 0.0;
-
-    elapsed.reset();
-  }
 }
 
 bool Peaks::bass() const {
@@ -166,7 +122,7 @@ bool Peaks::bass() const {
   for (const Peak &peak : _peaks) {
     if (!peak.magStrong()) {
       break;
-    } else if ((peak.freq > 30.0) && (peak.freq <= 170.0)) {
+    } else if ((peak.frequency() > 30.0) && (peak.frequency() <= 170.0)) {
       bass = true;
       break;
     }
@@ -194,7 +150,7 @@ const Peak Peaks::peakN(const PeakN n) const {
   if (hasPeak(n)) {
     const Peak check = _peaks.at(n - 1);
 
-    if (check.mag > Peak::magFloor()) {
+    if (check.magnitude() > Peak::magFloor()) {
       peak = check;
     }
   }
@@ -203,8 +159,9 @@ const Peak Peaks::peakN(const PeakN n) const {
 }
 
 void Peaks::sort() {
-  std::sort(_peaks.begin(), _peaks.end(),
-            [](const Peak &lhs, const Peak &rhs) { return lhs.mag > rhs.mag; });
+  std::sort(_peaks.begin(), _peaks.end(), [](const Peak &lhs, const Peak &rhs) {
+    return lhs.magnitude() > rhs.magnitude();
+  });
 }
 
 } // namespace audio

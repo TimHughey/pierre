@@ -21,7 +21,14 @@
 #ifndef pierre_lightdesk_fx_majorpeak_hpp
 #define pierre_lightdesk_fx_majorpeak_hpp
 
+#include <boost/circular_buffer.hpp>
+
 #include <deque>
+#include <fstream>
+#include <iostream>
+#include <ostream>
+#include <random>
+#include <string>
 
 #include "lightdesk/fx/fx.hpp"
 
@@ -31,14 +38,42 @@ namespace fx {
 
 class MajorPeak : public Fx {
 public:
+  using string = std::string;
+  using ofstream = std::ofstream;
+  using random_engine = std::mt19937;
+
   using Freq = audio::Freq;
   using Peak = audio::Peak;
   using Peaks = audio::spPeaks;
   using Color = lightdesk::Color;
 
+  using circular_buffer = boost::circular_buffer<Peak>;
+
 public:
   struct Config {
-    bool log = false;
+
+    struct {
+      bool random_start = false;
+      bool rotate = false;
+      uint rotate_ms = 7000;
+    } hue;
+
+    struct {
+      bool peak = false;
+      string file = "/dev/null";
+    } log;
+
+    struct {
+      struct {
+        float ceiling = 15000.0f;
+        float floor = 40.0f;
+      } hard;
+
+      struct {
+        float ceiling = 7000.0f;
+        float floor = 60.0f;
+      } soft;
+    } freq;
   };
 
 public:
@@ -58,11 +93,13 @@ private:
 private:
   void handleElWire(Peaks peaks);
   void handleLedForest(Peaks peaks);
-  void handleLowFreq(const Peak &peak, const Color &color);
-  void handleOtherFreq(const Peak &peak, const Color &color);
+  void handleFillPinspot(const Peaks &peaks);
+  void handleMainPinspot(const Peaks peaks);
   void logPeak(const Peak &peak) const;
-  static const Color makeColor(Color ref, const Peak &freq);
+  const Color makeColor(Color ref, const Peak &freq) const;
   void makeRefColors();
+  double randomHue();
+  float randomRotation();
   Color &refColor(size_t index) const;
 
 private:
@@ -74,12 +111,22 @@ private:
   spElWire el_dance_floor;
   spElWire el_entry;
 
+  random_engine _random;
+
+  Color _color;
+
   static ReferenceColors _ref_colors;
+  ofstream log;
 
   struct {
     Peak main = Peak::zero();
     Peak fill = Peak::zero();
   } _last_peak;
+
+  circular_buffer _prev_peaks;
+
+  circular_buffer _main_history;
+  circular_buffer _fill_history;
 };
 
 } // namespace fx

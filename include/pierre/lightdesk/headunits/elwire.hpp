@@ -30,8 +30,8 @@ class ElWire : public PulseWidthHeadUnit {
 
 public:
   ElWire(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
-    config.max = unitPercent(0.60);
-    config.min = unitPercent(0.10);
+    config.max = unitPercent(0.45);
+    config.min = unitPercent(0.03);
     config.dim = unitPercent(0.03);
     config.pulse_start = unitPercent(0.25);
     config.pulse_end = config.dim;

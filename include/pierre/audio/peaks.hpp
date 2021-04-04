@@ -21,11 +21,8 @@
 #ifndef pierre_audio_peaks_hpp
 #define pierre_audio_peaks_hpp
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <iterator>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 #include "misc/minmax.hpp"
@@ -35,95 +32,95 @@ namespace audio {
 typedef float Freq;
 typedef float Mag;
 typedef float MagScaled;
+typedef float Scaled;
+typedef float Unscaled;
 typedef size_t PeakN; // represents peak of interest 1..max_peaks
 
+namespace peak {
+Scaled scaleVal(Unscaled val);
+
+class Config {
+public:
+  Config() = default;
+  Config(const Config &);
+
+  struct {
+    MinMaxFloat minmax;
+    Mag strong;
+  } mag;
+
+  struct {
+    Mag factor;
+    MinMaxFloat minmax;
+    Mag step;
+  } scale;
+
+  const auto &activeScale() const { return scale.minmax; }
+  const Mag &ceiling() const { return mag.minmax.max(); }
+  static Config defaults();
+  const Mag &floor() const { return mag.minmax.min(); }
+
+  Config &operator=(const Config &rhs);
+
+  void reset() { *this = defaults(); }
+
+  auto scaleCeiling() const { return scale.minmax.max(); }
+  auto scaleFloor() const { return scale.minmax.min(); }
+  auto scaleFactor() const { return scale.factor; }
+
+  void scaleIncrease() {
+    auto step = scale.step;
+    auto &factor = scale.factor;
+    factor += step;
+
+    auto new_floor = scaleVal(floor() * factor);
+    auto new_ceiling = scaleVal(ceiling());
+    scale.minmax.set(new_floor, new_ceiling);
+  }
+
+  void scaleReduce() {
+    auto step = scale.step;
+    auto &factor = scale.factor;
+    factor -= step;
+
+    auto new_floor = scaleVal(floor() * factor);
+    auto new_ceiling = scaleVal(ceiling());
+    scale.minmax.set(new_floor, new_ceiling);
+  }
+
+  Mag step() const { return scale.step; }
+  Mag strong() const { return mag.strong; }
+};
+} // namespace peak
+
 struct Peak {
-  struct Config {
-    Config() = default;
-    Config(const Config &);
-
-    struct {
-      MinMaxFloat minmax;
-      Mag strong;
-    } mag;
-
-    struct {
-      Mag factor;
-      MinMaxFloat minmax;
-      Mag step;
-    } scale;
-
-    const auto &activeScale() const { return scale.minmax; }
-    const Mag &ceiling() const { return mag.minmax.max(); }
-    static Config defaults();
-    const Mag &floor() const { return mag.minmax.min(); }
-
-    Config &operator=(const Config &rhs);
-
-    void reset() { *this = defaults(); }
-
-    auto scaleCeiling() const { return scale.minmax.max(); }
-    auto scaleFloor() const { return scale.minmax.min(); }
-    auto scaleFactor() const { return scale.factor; }
-
-    void scaleIncrease() {
-      auto step = scale.step;
-      auto &factor = scale.factor;
-      factor += step;
-
-      auto new_floor = scaleMagVal(floor() * factor);
-      auto new_ceiling = scaleMagVal(ceiling());
-      scale.minmax.set(new_floor, new_ceiling);
-    }
-
-    void scaleReduce() {
-      auto step = scale.step;
-      auto &factor = scale.factor;
-      factor -= step;
-
-      auto new_floor = scaleMagVal(floor() * factor);
-      auto new_ceiling = scaleMagVal(ceiling());
-      scale.minmax.set(new_floor, new_ceiling);
-    }
-
-    Mag step() const { return scale.step; }
-    Mag strong() const { return mag.strong; }
-  };
+public:
+  using Config = peak::Config;
 
 public: // Peak
-  size_t index = 0;
-  Freq freq = 0;
-  Mag mag = 0;
-
   Peak() = default;
-
-  Peak(const size_t i, const Freq f, const Mag m) : index(i), freq(f), mag(m) {}
+  Peak(const size_t i, const Freq f, const Mag m);
 
   static const MinMaxFloat magScaleRange();
   static const MinMaxFloat &activeScale() { return _cfg.activeScale(); }
 
   static Config &config() { return _cfg; }
+  Freq frequency() const { return _freq; }
+  Freq frequencyScaled() const { return peak::scaleVal(frequency()); }
 
+  Mag magnitude() const { return _mag; }
   static Mag magFloor() { return _cfg.floor(); }
   MagScaled magScaled() const;
-  bool magStrong() const { return mag >= (_cfg.floor() * _cfg.strong()); }
+  bool magStrong() const { return _mag >= (_cfg.floor() * _cfg.strong()); }
 
-  explicit operator bool() const {
-    auto rc = false;
-
-    if (mag > _cfg.floor()) {
-      rc = true;
-    }
-
-    return rc;
-  }
+  explicit operator bool() const;
 
   template <typename T>
   const T scaleMagToRange(const MinMaxPair<T> &range) const {
     auto mag_max = _cfg.scaleCeiling();
     auto mag_min = _cfg.scaleFloor();
 
-    auto mag_scaled = scaleMagVal(mag);
+    auto mag_scaled = peak::scaleVal(_mag);
 
     auto x = ((mag_scaled - mag_min) / (mag_max - mag_min)) *
                  (range.max() - range.min()) +
@@ -143,34 +140,58 @@ public: // Peak
   static const Peak zero() { return std::move(Peak()); }
 
 private:
-  static Mag scaleMagVal(Mag mag) {
-
-    // log10 of 0 is undefined
-    if (mag <= 0.0f) {
-      return 0.0f;
-    }
-
-    return 10.0f * log10(mag);
-  }
+  size_t _index = 0;
+  Freq _freq = 0;
+  Mag _mag = 0;
 
   static Config _cfg;
 };
 
 class Peaks {
 public:
-  Peaks();
+  Peaks() = default;
   ~Peaks() = default;
 
   Peaks(Peaks &&other) noexcept;
   Peaks &operator=(Peaks &&rhs) noexcept;
-
-  void analyzeMagnitudes();
 
   bool bass() const;
   auto cbegin() const { return _peaks.cbegin(); }
   auto cend() const { return _peaks.cend(); }
   bool hasPeak(PeakN n) const;
   const Peak majorPeak() const;
+
+  // find the first peak greater than the floating point value
+  // specified in operator[]
+  template <class T, class = typename std::enable_if<
+                         std::is_floating_point<T>::value>::type>
+  const Peak operator[](T freq) {
+    auto found = Peak::zero();
+
+    if (_peaks.size() > 0) {
+      for (auto s = _peaks.begin(); (s != _peaks.cend()) && !found; s++) {
+
+        // stop searching once we've reached peaks with magnitudes less than
+        // the configured magFloor()
+        if (s->magnitude() < Peak::magFloor()) {
+          break;
+        }
+
+        if (s->frequency() > freq) {
+          found = *s;
+          // break;
+        }
+      }
+    }
+
+    // ensure the peak found conforms to the magnitude ranges
+    if (found) {
+      return std::move(found);
+    } else {
+      return std::move(Peak::zero());
+    }
+  }
+
   const Peak peakN(const PeakN n) const;
   auto size() const { return _peaks.size(); }
 
@@ -179,7 +200,6 @@ public:
 
 private:
   std::vector<Peak> _peaks;
-  std::vector<uint16_t> _mag_histogram;
 };
 
 typedef std::shared_ptr<Peaks> spPeaks;

@@ -59,6 +59,7 @@ public:
     string asString() const;
   };
 
+  typedef double Lum;
   typedef uint8_t White;
 
 public:

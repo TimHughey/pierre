@@ -20,6 +20,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <random>
 
 #include "lightdesk/faders/color/toblack.hpp"
 #include "lightdesk/fx/majorpeak.hpp"
@@ -32,9 +33,15 @@ namespace fx {
 using namespace std;
 using namespace chrono;
 
-typedef fader::color::ToBlack<fader::QuintDeceleratingToZero> Fader;
+typedef fader::color::ToBlack<fader::SimpleLinear> FillFader;
+typedef fader::color::ToBlack<fader::SineDeceleratingToZero> MainFader;
 
-MajorPeak::MajorPeak() : Fx() {
+MajorPeak::MajorPeak()
+    : Fx(), log(_cfg.log.file, ofstream::out | ofstream::trunc),
+      _prev_peaks(88), _main_history(1), _fill_history(1) {
+
+  std::random_device r;
+  _random.seed(r());
 
   main = unit<PinSpot>("main");
   fill = unit<PinSpot>("fill");
@@ -46,152 +53,211 @@ MajorPeak::MajorPeak() : Fx() {
   if (_ref_colors.size() == 0) {
     makeRefColors();
   }
+
+  auto start_hue = 0.0f;
+  if (_cfg.hue.random_start) {
+    start_hue = randomHue();
+    _color = Color({.hue = start_hue, .sat = 100.0f, .lum = 50.0f});
+  } else {
+    _color = Color({.hue = 359.9f, .sat = 100.0f, .lum = 50.0f});
+  }
+
+  _last_peak.fill = Peak::zero();
+  _last_peak.main = Peak::zero();
 }
 
 void MajorPeak::execute(Peaks peaks) {
+  static elapsedMillis color_elapsed;
+
+  if (_cfg.hue.rotate && (color_elapsed > _cfg.hue.rotate_ms)) {
+    _color.rotateHue(randomRotation());
+    color_elapsed.reset();
+  }
 
   handleElWire(peaks);
+  handleMainPinspot(peaks);
+  handleFillPinspot(peaks);
 
   const auto peak = peaks->majorPeak();
 
-  if (peak) {
-    logPeak(peak);
-    const auto &ref_color = refColor(0);
-
-    Color color = makeColor(ref_color, peak);
-
-    if (color.notBlack()) {
-      const auto range = Peak::magScaleRange();
-      color.setBrightness(range, peak.magScaled());
-
-      if (peak.freq <= 180.0) {
-        handleLowFreq(peak, color);
-      } else {
-        handleOtherFreq(peak, color);
-      }
-    }
-
-    if (peak.freq > 700.0) {
-      led_forest->pulse();
-    }
-  }
+  _prev_peaks.push_back(peak);
 }
 
 void MajorPeak::handleElWire(Peaks peaks) {
+  const auto &soft = _cfg.freq.soft;
+
   std::array<PulseWidthHeadUnit *, 2> elwires;
   elwires[0] = el_dance_floor.get();
   elwires[1] = el_entry.get();
 
+  const auto freq_range = MinMaxFloat(log10(soft.floor), log10(soft.ceiling));
   const auto &peak = peaks->majorPeak();
 
-  if (peak) {
-    for (auto elwire : elwires) {
-      const auto range = elwire->minMaxDuty();
-      const DutyVal x = peak.scaleMagToRange<DutyVal>(range);
-
-      elwire->fixed(x);
-    }
-  } else {
-    // zero peak, b
+  if (!peak) {
     for (auto elwire : elwires) {
       elwire->dim();
     }
+
+    return;
+  }
+
+  for (auto elwire : elwires) {
+    const auto range = elwire->minMaxDuty<float>();
+    const DutyVal x = freq_range.interpolate(range, log10(peak.frequency()));
+
+    elwire->fixed(x);
   }
 }
 
-void MajorPeak::handleLowFreq(const Peak &peak, const Color &color) {
-  bool start_fader = true;
+void MajorPeak::handleFillPinspot(const Peaks &peaks) {
+  constexpr auto fade_duration = 500;
 
-  const auto fading = fill->checkFaderProgress(0.90);
-  const auto last_mag = _last_peak.fill.mag;
+  const auto peak = peaks->majorPeak();
+  if (peak.frequency() > 1000.0) {
+    return;
+  }
 
-  // protect from rapid repeating and overload of bass color
-  if (fading && (peak.freq <= 180.0) && (last_mag > peak.mag)) {
-    start_fader = false;
+  Color color = makeColor(_color, peak);
+
+  auto start_fader = false;
+  bool fading = fill->isFading();
+
+  // when fading look for possible scenarios where the current color can
+  // be overriden
+  if (fading) {
+    auto freq = peak.frequency();
+    auto brightness = fill->brightness();
+
+    if (freq >= 220.0) {
+      const auto &last_peak = _fill_history.front();
+
+      // peaks above upper bass and have a greater magnitude take priority
+      // regardless of pinspot brightness
+      if (peak.magnitude() > last_peak.magnitude()) {
+        start_fader = true;
+      }
+
+      // anytime the pinspots brightness is low the upper bass peaks
+      // take priority
+      if (brightness < 30.0) {
+        start_fader = true;
+      }
+    }
+
+    // bass frequencies only take priority when the pinspot's brightness has
+    // reached a relatively low level
+    if (freq <= 180.0) {
+      if (brightness <= 30.0) {
+        if (color.brightness() >= brightness) {
+          start_fader = true;
+        }
+      }
+    }
+
+  } else if (color.notBlack()) { // when not fading and it's an actual color
+    start_fader = true;
   }
 
   if (start_fader) {
-    fill->activate<Fader>({.origin = color, .ms = 800});
-    _last_peak.fill = peak;
+    fill->activate<FillFader>({.origin = color, .ms = fade_duration});
+    _fill_history.push_back(peak);
   }
 }
 
-void MajorPeak::handleOtherFreq(const Peak &peak, const Color &color) {
+void MajorPeak::handleMainPinspot(const Peaks peaks) {
+  constexpr auto fade_duration = 500;
 
-  constexpr auto fade_duration = 700;
-  const auto pmag = peak.mag;
-  const auto last_mag = _last_peak.main.mag;
-  const auto last_mag_plus = last_mag + (last_mag * 0.20);
-  bool start_fader = main->isFading() == false;
+  auto peak = (*peaks)[180.0];
 
-  if ((pmag > last_mag_plus) && main->isFading()) {
-    // when the current peak is larger than the previous peak by 20%
-    // override the current fader
-    start_fader = true;
-    // } else if ((pmag > last_mag) && main->checkFaderProgress(0.19)) {
-  } else if ((pmag > last_mag) && main->checkFaderProgress(0.20f)) {
-    // when the current peak is simply larger than the previous peak and
-    // at least 33% of the current fader has elapsed then override the
-    // current fader.
-    start_fader = true;
-  } else if (main->checkFaderProgress(0.85f)) {
+  if (!peak) {
+    return;
+  }
+
+  Color color = makeColor(_color, peak);
+
+  if (color.isBlack()) {
+    return;
+  }
+
+  bool start_fader = false;
+  bool fading = main->isFading();
+
+  if (fading) {
+    const auto &last_peak = _main_history.front();
+
+    if (peak.magnitude() > last_peak.magnitude()) {
+      start_fader = true;
+    } else {
+      auto brightness = main->brightness();
+
+      if (brightness < 30.0) {
+        if (color.brightness() > brightness) {
+          start_fader = true;
+        }
+      }
+
+      if (brightness < 5.0) {
+        start_fader = true;
+      }
+    }
+  } else { // not fading
     start_fader = true;
   }
 
   if (start_fader) {
-    _last_peak.main = peak;
-    main->activate<Fader>({.origin = color, .ms = fade_duration});
-  }
-
-  if (fill->isFading() == false) {
-    _last_peak.fill = Peak::zero();
-  }
-
-  if (peak.mag > _last_peak.fill.mag) {
-    fill->activate<Fader>({.origin = color, .ms = fade_duration});
-    _last_peak.fill = peak;
+    main->activate<MainFader>({.origin = color, .ms = fade_duration});
+    _main_history.push_back(peak);
   }
 }
 
 void MajorPeak::logPeak(const Peak &peak) const {
-  if (_cfg.log) {
+  if (_cfg.log.peak) {
+
+    ofstream log(_cfg.log.file, ofstream::out);
+
     array<char, 128> out;
     snprintf(out.data(), out.size(), "lightdesk mpeak mag[%12.2f] peak[%7.2f]",
-             peak.mag, peak.freq);
+             peak.magnitude(), peak.frequency());
 
-    cerr << out.data() << endl;
+    string str(out.data());
+
+    log << str << endl;
   }
 }
 
-const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
+const Color MajorPeak::makeColor(Color ref, const Peak &peak) const {
 
-  constexpr float freq_hard_floor = 40.0f;
-  constexpr float freq_hard_ceiling = 10000.0f;
-  constexpr float freq_real_min = 60.0f;
-  constexpr float freq_real_max = 4000.0f;
+  const auto &hard = _cfg.freq.hard;
+  const auto &soft = _cfg.freq.soft;
 
-  // ensure frequency is one to make a color for or return fixed
-  // colors as needed
-  if ((peak.freq < freq_hard_floor) || (peak.freq > freq_hard_ceiling)) {
+  const Freq freq = peak.frequency();
+  bool reasonable = (freq >= hard.floor) && (freq <= hard.ceiling) &&
+                    (peak.magnitude() > Peak::magFloor());
+
+  // ensure frequency can be interpolated into a color
+  if (!reasonable) {
     return move(Color::black());
-  } else if (peak.freq < freq_real_min) {
+  } else if (peak.frequency() < soft.floor) {
     return move(ref);
-  } else if (peak.freq > freq_real_max) {
-    return move(Color::full());
+  } else if (peak.frequency() > soft.ceiling) {
+    auto color = Color(0xFFFFFF).setBrightness(ref);
+    return move(color);
   }
 
-  constexpr float freq_min = log10(freq_real_min);
-  constexpr float freq_max = log10(freq_real_max);
-  auto freq_range = MinMaxFloat(freq_min, freq_max);
+  // peak is good, create a color to represent it
+  auto freq_range = MinMaxFloat(log10(soft.floor), log10(soft.ceiling));
 
   constexpr auto hue_step = 0.005f;
   constexpr auto hue_max = 360.0f - 1.0e-6;
   auto hue_range = MinMaxFloat(0.0, (hue_max * (1.0f / hue_step)));
 
   float degrees =
-      freq_range.interpolate(hue_range, log10(peak.freq)) * hue_step;
+      freq_range.interpolate(hue_range, log10(peak.frequency())) * hue_step;
 
   Color color = ref.rotateHue(degrees);
+
+  const auto range = Peak::magScaleRange();
+  color.setBrightness(range, peak.magScaled());
 
   return move(color);
 }
@@ -202,13 +268,23 @@ void MajorPeak::makeRefColors() {
        Color(0xdc0a1e), Color(0xff144a), Color(0x0000ff), Color(0x810070),
        Color(0x2D8237), Color(0xffff00), Color(0x2e8b57), Color(0x00b6ff),
        Color(0x0079ff), Color(0x0057b9), Color(0x0033bd), Color(0xcc2ace),
-       Color(0xff00ff), Color(0xd7e23c), Color(0xc5c200), Color(0xa8ab3f),
-       Color(0x340081), Color(0x00ff00), Color(0x810045), Color(0x2c1577),
-       Color(0xbfbf00), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
-       Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0x91234e),
-       Color(0xff144a), Color(0xff00ff), Color(0xffc0cb), Color(0x4682b4),
-       Color(0xff69b4), Color(0x9400d3), Color(0xf5f2ea), Color(0xf5f3d7),
-       Color(0xe4e4d4)});
+       Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
+       Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c),
+       Color(0x00ff00), Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57),
+       Color(0xff00ff), Color(0xffc0cb), Color(0x4682b4), Color(0xff69b4),
+       Color(0x9400d3)});
+}
+
+double MajorPeak::randomHue() {
+  auto hue = static_cast<double>(_random() % 360) / 360.0;
+
+  return hue;
+}
+
+float MajorPeak::randomRotation() {
+  auto r = static_cast<float>(_random() % 100);
+
+  return r / 100.0f;
 }
 
 Color &MajorPeak::refColor(size_t index) const { return _ref_colors.at(index); }

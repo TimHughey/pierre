@@ -63,6 +63,7 @@ public:
 
   void autoRun(Fx fx) { _fx = fx; }
   inline void black() { dark(); }
+  Color::Lum brightness() const { return _color.brightness(); }
   bool checkFaderProgress(float percent) const;
   // const Color &color() const { return _color; }
   Color &color() { return _color; }
