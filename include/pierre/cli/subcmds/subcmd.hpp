@@ -21,6 +21,7 @@
 #ifndef _pierre_cli_subcmd_hpp
 #define _pierre_cli_subcmd_hpp
 
+#include <memory>
 #include <string>
 
 #include "core/state.hpp"

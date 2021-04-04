@@ -44,7 +44,7 @@ Peak::Config Peak::Config::defaults() {
   mag = MinMaxFloat(3.65e4f, 2.1e6f); // 36.5 thousand, 2.1 million
 
   cfg.mag.strong = 3.0;
-  scale.factor = 2.31;
+  scale.factor = 2.21;
   scale.step = 0.01;
 
   auto scale_min = Peak::scaleMagVal(cfg.floor() * scale.factor);

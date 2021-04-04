@@ -143,7 +143,15 @@ public: // Peak
   static const Peak zero() { return std::move(Peak()); }
 
 private:
-  static Mag scaleMagVal(Mag mag) { return 10.0f * log10(mag); }
+  static Mag scaleMagVal(Mag mag) {
+
+    // log10 of 0 is undefined
+    if (mag <= 0.0f) {
+      return 0.0f;
+    }
+
+    return 10.0f * log10(mag);
+  }
 
   static Config _cfg;
 };

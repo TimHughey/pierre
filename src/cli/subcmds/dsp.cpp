@@ -69,6 +69,8 @@ int Dsp::handleCmd(const string &args) {
     goto finished;
   }
 
+  rc = -1;
+
 finished:
   return rc;
 }

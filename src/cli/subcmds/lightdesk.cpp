@@ -34,6 +34,8 @@ using namespace pierre::lightdesk;
 namespace pierre {
 namespace cli {
 
+int LightDesk::handleMajorPeak() { return 0; }
+
 int LightDesk::handleCmd(const string &args) {
   auto rc = 0;
 
@@ -52,6 +54,14 @@ int LightDesk::handleCmd(const string &args) {
 
     goto finished;
   }
+
+  if (tok->compare("majorpeak") == 0) {
+    tokens.pop_back();
+    rc = handleMajorPeak();
+  }
+
+  cout << "desk " << *tok << ": unknown command" << endl;
+  rc = -1;
 
 finished:
   return rc;

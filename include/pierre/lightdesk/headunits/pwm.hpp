@@ -81,6 +81,12 @@ public:
     return std::move(x);
   }
 
+  template <typename T> const MinMaxPair<T> minMaxDuty() {
+    auto x = MinMaxPair<T>(config.min, config.max);
+
+    return std::move(x);
+  }
+
   void stop() { fixed(config.min); }
 
 public:

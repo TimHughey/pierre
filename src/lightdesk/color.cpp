@@ -284,8 +284,12 @@ Hsl Color::rgbToHsl(const Rgb &rgb) {
 string Hsl::asString() const {
   array<char, 128> buf;
 
-  auto len =
-      snprintf(buf.data(), buf.size(), "hsl(%7.4f,%7.4f,%7.4f)", hue, sat, lum);
+  auto hue_val = hue * 360.0;
+  auto sat_val = sat * 100.0;
+  auto lum_val = lum * 100.0;
+
+  auto len = snprintf(buf.data(), buf.size(), "hsl(%7.2f,%5.1f,%5.1f)", hue_val,
+                      sat_val, lum_val);
 
   return move(string(buf.begin(), len));
 }
@@ -305,7 +309,7 @@ bool Rgb::operator==(const Rgb &rhs) const {
 string Rgb::asString() const {
   array<char, 128> buf;
 
-  auto len = snprintf(buf.data(), buf.size(), "rgb(%02x%02x%02x)", r, b, g);
+  auto len = snprintf(buf.data(), buf.size(), "rgb(0x%02x%02x%02x)", r, b, g);
 
   return move(string(buf.begin(), len));
 }

@@ -39,6 +39,7 @@ public:
   LightDesk &operator=(const LightDesk &) = delete;
 
   int handleCmd(const string &args) override;
+  int handleMajorPeak();
   const string &name() const override {
     static const string x = "desk";
     return x;
