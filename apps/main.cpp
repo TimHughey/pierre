@@ -16,24 +16,29 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 #include <boost/program_options.hpp>
+#include <filesystem>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <sys/resource.h>
 #include <time.h>
 #include <unistd.h>
 
+#include "core/config.hpp"
 #include "pierre.hpp"
 
 using namespace std;
-
 using namespace pierre;
+namespace fs = std::filesystem;
 
 using string = std::string;
 
-bool parseArgs(int ac, char *av[], Pierre::Config &cfg);
+bool parseArgs(int ac, char *av[], core::Config &cfg);
 
 int main(int argc, char *argv[]) {
-  Pierre::Config cfg;
+  fs::path cfg_file = "./extra/config/live.toml";
+
+  core::Config cfg(cfg_file);
 
   if ((argc > 1) && (parseArgs(argc, argv, cfg) == false)) {
     exit(1);
@@ -49,18 +54,18 @@ int main(int argc, char *argv[]) {
   return 255;
 }
 
-bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
+bool parseArgs(int ac, char *av[], core::Config &cfg) {
   using namespace boost::program_options;
   namespace po = boost::program_options;
 
-  const char *dmx = "dmx";
+  const char *dmx_host = "dmx-host";
   const char *colorbars = "colorbars";
 
   try {
     // Declare the supported options.
     po::options_description desc("pierre options:");
     desc.add_options()("help", "display this help text")(
-        dmx, po::value<string>(), "stream dmx frames to host")(
+        dmx_host, po::value<string>(), "stream dmx frames to host")(
         colorbars, "pinspot color bar test at startup");
 
     po::variables_map vm;
@@ -72,12 +77,16 @@ bool parseArgs(int ac, char *av[], Pierre::Config &cfg) {
       return false;
     }
 
-    if (vm.count(dmx)) {
-      cfg.dmx.host = vm[dmx].as<std::string>();
+    if (vm.count(dmx_host)) {
+      auto dmx = cfg.dmx();
+
+      dmx->emplace<string>("host", vm[dmx_host].as<std::string>());
     }
 
     if (vm.count(colorbars)) {
-      cfg.lightdesk.colorbars.enable = true;
+      auto desk = cfg.lightdesk();
+
+      desk->emplace<bool>("colorbars", true);
     }
   } catch (const error &ex) {
     cerr << ex.what() << endl;

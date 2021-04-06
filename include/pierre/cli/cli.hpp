@@ -28,6 +28,7 @@
 
 #include "cli/linenoise.h"
 #include "cli/subcmds/subcmd.hpp"
+#include "core/config.hpp"
 #include "core/state.hpp"
 #include "version.h"
 
@@ -37,7 +38,7 @@ class Cli {
 public:
   using string = std::string;
 
-  Cli() = default;
+  Cli(core::Config &cfg) : _cfg(cfg){};
 
   Cli(const Cli &) = delete;
   Cli &operator=(const Cli &) = delete;
@@ -54,6 +55,7 @@ private:
   bool matchCmd(const string &cmd, bool letter = false) const;
 
 private:
+  core::Config &_cfg;
   string input;
 
   const string git_revision = GIT_REVISION;

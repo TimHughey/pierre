@@ -60,18 +60,19 @@ public:
 
     struct {
       bool peak = false;
-      string file = "/dev/null";
+      string file = "/tmp/pierre/majorpeak.log";
+      // string file = "/dev/null";
     } log;
 
     struct {
       struct {
-        float ceiling = 15000.0f;
+        float ceiling = 10000.0f;
         float floor = 40.0f;
       } hard;
 
       struct {
-        float ceiling = 7000.0f;
-        float floor = 60.0f;
+        float ceiling = 1500.0f;
+        float floor = 110.0f;
       } soft;
     } freq;
   };
@@ -95,12 +96,15 @@ private:
   void handleLedForest(Peaks peaks);
   void handleFillPinspot(const Peaks &peaks);
   void handleMainPinspot(const Peaks peaks);
-  void logPeak(const Peak &peak) const;
-  const Color makeColor(Color ref, const Peak &freq) const;
+  void logPeak(const Peak &peak);
+  void logPeakColor(float low, float deg, const Peak &peak, const Color &color);
+  const Color makeColor(Color ref, const Peak &freq);
   void makeRefColors();
   double randomHue();
   float randomRotation();
   Color &refColor(size_t index) const;
+
+  bool useablePeak(const Peak &peak);
 
 private:
   Config _cfg;
@@ -116,7 +120,7 @@ private:
   Color _color;
 
   static ReferenceColors _ref_colors;
-  ofstream log;
+  ofstream _log;
 
   struct {
     Peak main = Peak::zero();

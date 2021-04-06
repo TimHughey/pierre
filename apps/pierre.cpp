@@ -35,28 +35,29 @@ using namespace core;
 
 using namespace boost::asio;
 
-Pierre::Pierre(const Config &cfg) : _cfg(cfg) {}
+Pierre::Pierre(core::Config &cfg) : _cfg(cfg) {}
 
 void Pierre::run() {
+
   std::unordered_set<std::shared_ptr<std::thread>> threads;
 
-  pcm = make_shared<Pcm>(_cfg.pcm);
+  pcm = make_shared<Pcm>(_cfg);
   threads.insert(pcm->run());
 
-  dsp = make_shared<Dsp>(_cfg.dsp);
+  dsp = make_shared<Dsp>(_cfg);
   threads.insert(dsp->run());
 
-  dmx = make_shared<dmx::Render>(_cfg.dmx);
+  dmx = make_shared<dmx::Render>(_cfg);
   threads.insert(dmx->run());
 
-  lightdesk = make_shared<LightDesk>(_cfg.lightdesk, dsp);
+  lightdesk = make_shared<LightDesk>(_cfg, dsp);
   lightdesk->saveInstance(lightdesk);
   threads.insert(lightdesk->run());
 
   pcm->addProcessor(dsp);
   dmx->addProducer(lightdesk);
 
-  Cli cli;
+  Cli cli(_cfg);
   cli.run();
 
   if (State::leaving()) {

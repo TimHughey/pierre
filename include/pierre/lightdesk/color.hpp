@@ -31,35 +31,33 @@
 namespace pierre {
 namespace lightdesk {
 
+class Hsb {
+public:
+  Hsb() = default;
+  Hsb(const float hue, const float sat, const float bri);
+  ~Hsb() = default;
+
+  float hue() const { return _hue; }
+  float saturation() const { return _sat; }
+  float brightness() const { return _bri; }
+
+  bool operator==(const Hsb &rhs) const;
+
+  static Hsb fromRgb(uint32_t rgb_val);
+  static Hsb fromRgb(uint8_t red, uint8_t grn, uint8_t blu);
+  void toRgb(uint8_t &red, uint8_t &grn, uint8_t &blu) const;
+
+public:
+  // technically the default is unsaturated completely dark red
+  float _hue = 0.0;
+  float _sat = 0.0;
+  float _bri = 0.0;
+};
+
 class Color {
 public:
   using string = std::string;
-  typedef double Val;
 
-  typedef struct {
-    double hue;
-    double sat;
-    double lum;
-
-    string asString() const;
-  } Hsl;
-
-  class Rgb {
-  public:
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-
-    Rgb() = default;
-    Rgb(uint8_t red, uint8_t grn, uint8_t blu) : r{red}, g{grn}, b{blu} {};
-    Rgb(uint val);
-
-    bool operator==(const Rgb &rhs) const;
-
-    string asString() const;
-  };
-
-  typedef double Lum;
   typedef uint8_t White;
 
 public:
@@ -67,46 +65,38 @@ public:
   ~Color() = default;
 
   Color(const uint rgb_val);
-  Color(const Hsl &hsl);
+  Color(const Hsb &hsb);
   Color(const Color &rhs) = default;
 
-  double brightness() const { return _hsl.lum * 100.0; }
   void copyRgbToByteArray(uint8_t *array) const;
 
-  double &hue() { return _hsl.hue; }
-  double &sat() { return _hsl.sat; }
-  double &lum() { return _hsl.lum; }
+  // components
+  float brightness() const { return _hsb.brightness() * 100.0f; }
+  float hue() const { return _hsb.hue() * 360.0f; }
+  float saturation() const { return _hsb.saturation() * 100.0f; }
 
-  Hsl hsl() { return _hsl; }
-  Rgb rgb() { return _rgb; }
+  Hsb hsb() { return _hsb; }
 
   static Color interpolate(Color a, Color b, float t);
   bool isBlack() const;
-  bool nearBlack() const;
+  bool isWhite() const;
   bool notBlack() const { return isBlack() == false; }
+  bool notWhite() const { return isWhite() == false; }
 
   bool operator==(const Color &rhs) const;
   bool operator!=(const Color &rhs) const;
 
   Color &rotateHue(const float step = 1.0);
 
-  double saturation() const { return _hsl.sat * 100.0; }
-
   Color &setBrightness(float val);
   Color &setBrightness(const Color &rhs);
   Color &setBrightness(const MinMaxFloat &range, const float val);
 
+  Color &setHue(float val);
+
   Color &setSaturation(float val);
   Color &setSaturation(const Color &rhs);
   Color &setSaturation(const MinMaxFloat &range, const float val);
-
-  static void setScaleMinMax(std::shared_ptr<MinMaxFloat> scale) {
-    _scale = scale;
-  }
-
-  // conversions
-  static Rgb hslToRgb(const Hsl &hsl);
-  static Hsl rgbToHsl(const Rgb &rgb);
 
   // useful static colors
   static Color full() {
@@ -118,25 +108,11 @@ public:
   static Color black() { return std::move(Color()); }
   static Color none() { return std::move(Color()); }
 
-  string asString() const {
-    std::array<char, 384> buf;
-
-    auto len = snprintf(buf.data(), buf.size(), "%s %s",
-                        _rgb.asString().c_str(), _hsl.asString().c_str());
-
-    return std::move(string(buf.data(), len));
-  }
+  string asString() const;
 
 private:
-  static uint8_t hueToRgb(double v1, double v2, double vh);
-
-private:
-  Hsl _hsl = {.hue = 0, .sat = 0, .lum = 0};
-  Rgb _rgb = {.r = 0, .g = 0, .b = 0};
+  Hsb _hsb;
   White _white = 0;
-
-  static constexpr double one_third = (1.0 / 3.0);
-  static std::shared_ptr<MinMaxFloat> _scale;
 };
 
 } // namespace lightdesk

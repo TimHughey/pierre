@@ -48,19 +48,7 @@ public:
   using string = std::string;
 
 public:
-  struct Config {
-
-    struct {
-      bool enable = false;
-    } colorbars;
-
-    struct {
-      bool log = false;
-    } majorpeak;
-  };
-
-public:
-  LightDesk(const Config &cfg, std::shared_ptr<audio::Dsp> dsp);
+  LightDesk(Config &cfg, std::shared_ptr<audio::Dsp> dsp);
   ~LightDesk();
 
   LightDesk(const LightDesk &) = delete;
@@ -96,7 +84,8 @@ private:
 
 private:
   int _init_rc = 1;
-  Config _cfg;
+
+  toml::table *_cfg;
 
   std::shared_ptr<audio::Dsp> _dsp;
   HUnits _tracker = std::make_shared<HeadUnitTracker>();

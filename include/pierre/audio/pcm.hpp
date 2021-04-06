@@ -31,105 +31,46 @@
 #include <alsa/asoundlib.h>
 
 #include "audio/samples.hpp"
+#include "core/config.hpp"
 
 namespace pierre {
 namespace audio {
 
 class Pcm {
-public:
-  struct Config {
-    struct {
-      snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
-      uint channels = 2;
-      uint rate = 48000;
-      uint avail_min = 128;
-      uint start_delay = 1;
-      uint stop_delay = 0;
-    } pcm;
-
-    struct {
-      bool init = false;
-    } log;
-  };
 
 public:
-  Pcm(const Config &cfg);
+  Pcm(Config &cfg);
   ~Pcm();
 
   Pcm(const Pcm &) = delete;
   Pcm &operator=(const Pcm &) = delete;
 
-  void addProcessor(std::shared_ptr<Samples> processor) {
-    _processors.insert(processor);
-  }
+  void addProcessor(std::shared_ptr<Samples> processor);
 
   std::shared_ptr<std::thread> run();
 
 private:
-  auto bytesToFrames(size_t bytes) const {
-    auto frames = snd_pcm_bytes_to_frames(_pcm, bytes);
-    return frames;
-  }
+  uint32_t availMin() const;
+  auto bytesToFrames(size_t bytes) const;
+  auto bytesToSamples(size_t bytes) const;
+  uint32_t channels() const;
+  snd_pcm_format_t format() const;
 
-  auto bytesToSamples(size_t bytes) const {
-    auto samples = snd_pcm_bytes_to_samples(_pcm, bytes);
-    return samples;
-  }
-
-  uint32_t channels() const { return _cfg.pcm.channels; }
-  snd_pcm_format_t format() const { return _cfg.pcm.format; }
-
-  auto framesToBytes(snd_pcm_sframes_t frames) {
-    auto bytes = snd_pcm_frames_to_bytes(_pcm, frames);
-
-    return bytes;
-  }
+  auto framesToBytes(snd_pcm_sframes_t frames) const;
   void init();
-  bool isRunning() const {
-    auto rc = false;
+  bool isRunning() const;
+  uint32_t rate() const;
+  bool recoverStream(int snd_rc);
 
-    if (snd_pcm_state(_pcm) == SND_PCM_STATE_RUNNING) {
-      rc = true;
-    }
-
-    return rc;
-  }
-  uint32_t rate() const { return _cfg.pcm.rate; }
-  bool recoverStream(int snd_rc) {
-    bool rc = true;
-
-    auto recover_rc = snd_pcm_recover(_pcm, snd_rc, 0);
-    if (recover_rc < 0) {
-      char err[256] = {0};
-      perror(err);
-      fprintf(stderr, "recover_rc: %s\n", err);
-      rc = false;
-
-      snd_pcm_reset(_pcm);
-    }
-
-    snd_pcm_start(_pcm);
-
-    return rc;
-  }
-
-  void reportBufferMin() {
-    uint buffer_time_min = 0;
-    snd_pcm_uframes_t buffer_size_min;
-
-    snd_pcm_hw_params_get_buffer_time_min(_params, &buffer_time_min, 0);
-    snd_pcm_hw_params_get_buffer_size_min(_params, &buffer_size_min);
-
-    std::cerr << "buffer_time_min=" << buffer_time_min << "µs ";
-    std::cerr << "buffer_size_min=" << buffer_size_min << std::endl;
-  }
+  void reportBufferMin();
 
   bool setParams();
   void stream();
 
 private:
-  const char *pcm_name = "hw:CARD=sndrpihifiberry,DEV=0";
-  Config _cfg;
+  toml::table *_alsa_cfg;
+  toml::table *_log_cfg;
+
   bool _init_rc = false;
 
   snd_pcm_t *_pcm = nullptr;
@@ -137,7 +78,6 @@ private:
 
   snd_pcm_hw_params_t *_params = nullptr;
   snd_pcm_sw_params_t *_swparams = nullptr;
-  snd_pcm_uframes_t _chunk_size = 1024;
   uint _periods = 0;
   int _monotonic = 0;
   int _can_pause = 0;

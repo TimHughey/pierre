@@ -46,10 +46,11 @@ Config Config::defaults() {
   auto &scale = cfg.scale;
 
   // mag = MinMaxFloat(36500.0, 2.1e6); // 2.1 million
-  mag = MinMaxFloat(3.65e4f, 2.1e6f); // 36.5 thousand, 2.1 million
+  // mag = MinMaxFloat(3.65e4f, 2.1e6f); // 36.5 thousand, 2.1 million
+  mag = MinMaxFloat(3.65e4f, 1.8e6f);
 
   cfg.mag.strong = 3.0;
-  scale.factor = 2.21;
+  scale.factor = 2.41;
   scale.step = 0.01;
 
   auto scale_min = scaleVal(cfg.floor() * scale.factor);

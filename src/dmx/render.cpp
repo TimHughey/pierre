@@ -38,8 +38,10 @@ using State = core::State;
 
 namespace dmx {
 
-Render::Render(const Config &cfg)
-    : _cfg(cfg), _net(_io_ctx, _cfg.host, _cfg.port) {
+Render::Render(Config &cfg)
+    : _cfg(cfg.dmx()->as_table()),
+      _net(_io_ctx, _cfg->get("host")->value_or("test-with-devs.ruth"),
+           _cfg->get("port")->value_or("48005")) {
 
   _frame.assign(256, 0x00);
 }

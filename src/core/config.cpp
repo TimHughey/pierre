@@ -1,5 +1,5 @@
 /*
-    Pierre - Custom Light Show via DMX for Wiss Landing
+    Pierre - Custom Light Show for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -18,47 +18,28 @@
     https://www.wisslanding.com
 */
 
-#ifndef _pierre_audio_dsp_hpp
-#define _pierre_audio_dsp_hpp
+#define TOML_IMPLEMENTATION
 
-#include <string>
-#include <thread>
-
-#include "audio/fft.hpp"
-#include "audio/samples.hpp"
 #include "core/config.hpp"
+#include "external/toml.hpp"
+
+using namespace toml;
+using namespace std;
 
 namespace pierre {
-namespace audio {
+namespace core {
+Config::Config(path &file) : _file(file) { _tbl = parse_file(file.c_str()); }
 
-class Dsp : public Samples {
-public:
-  using mutex = std::mutex;
-  using string = std::string;
-  using thread = std::thread;
-  using spThread = std::shared_ptr<thread>;
+toml::table *Config::dmx() { return _tbl["dmx"].as_table(); }
 
-public:
-  Dsp(core::Config &cfg);
+toml::table *Config::dsp(const string_view &subtable) {
+  return _tbl["dsp"].as_table()->get(subtable)->as_table();
+}
 
-  Dsp(const Dsp &) = delete;
-  Dsp &operator=(const Dsp &) = delete;
+toml::table *Config::lightdesk() { return _tbl["lightdesk"].as_table(); }
+toml::table *Config::pcm(const std::string_view &subtable) {
+  return _tbl["pcm"].as_table()->get(subtable)->as_table();
+}
 
-  spPeaks peaks();
-  spThread run();
-
-private:
-  void doFFT(FFT &fft);
-  void stream();
-
-private:
-  FFT _fft_left;
-
-  mutex _peaks_mtx;
-  spPeaks _peaks;
-};
-
-} // namespace audio
+} // namespace core
 } // namespace pierre
-
-#endif

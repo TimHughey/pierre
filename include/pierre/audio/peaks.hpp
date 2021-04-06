@@ -169,7 +169,8 @@ public:
     auto found = Peak::zero();
 
     if (_peaks.size() > 0) {
-      for (auto s = _peaks.begin(); (s != _peaks.cend()) && !found; s++) {
+      auto max_search = _peaks.cbegin() + 5;
+      for (auto s = _peaks.begin(); s <= max_search; s++) {
 
         // stop searching once we've reached peaks with magnitudes less than
         // the configured magFloor()
@@ -179,7 +180,7 @@ public:
 
         if (s->frequency() > freq) {
           found = *s;
-          // break;
+          break;
         }
       }
     }

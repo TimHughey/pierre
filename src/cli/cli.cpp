@@ -32,6 +32,7 @@
 
 using namespace std;
 using namespace chrono;
+using namespace std::string_view_literals;
 
 namespace fs = std::filesystem;
 
@@ -93,7 +94,15 @@ int Cli::doTest(const string &args) const {
   if (args.empty()) { // stop the compiler warning...
   }
 
-  cout << "no tests defined" << endl;
+  toml::table &tbl = _cfg.table();
+
+  // cout << "no tests defined" << endl;
+
+  toml::table *base = tbl["pierre"].as_table();
+
+  auto str = base->get("title")->value_or("unknown"sv);
+
+  cout << str << endl;
 
   return rc;
 }

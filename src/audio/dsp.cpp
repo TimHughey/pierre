@@ -29,7 +29,13 @@ namespace pierre {
 using State = core::State;
 
 namespace audio {
-Dsp::Dsp(const Config &cfg) : _cfg(cfg) { _peaks = make_shared<Peaks>(); }
+Dsp::Dsp(core::Config &cfg)
+    : _fft_left(cfg.dsp("fft"sv)->get("samples")->value_or(1024),
+                cfg.dsp("fft"sv)->get("rate")->value_or(48000))
+
+{
+  _peaks = make_shared<Peaks>();
+}
 
 void Dsp::doFFT(FFT &fft) {
   // calculate the FFT and find peaks

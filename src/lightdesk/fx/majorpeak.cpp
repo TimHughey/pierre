@@ -22,6 +22,8 @@
 #include <iostream>
 #include <random>
 
+#include <boost/format.hpp>
+
 #include "lightdesk/faders/color/toblack.hpp"
 #include "lightdesk/fx/majorpeak.hpp"
 #include "misc/elapsed.hpp"
@@ -37,8 +39,8 @@ typedef fader::color::ToBlack<fader::SimpleLinear> FillFader;
 typedef fader::color::ToBlack<fader::SineDeceleratingToZero> MainFader;
 
 MajorPeak::MajorPeak()
-    : Fx(), log(_cfg.log.file, ofstream::out | ofstream::trunc),
-      _prev_peaks(88), _main_history(1), _fill_history(1) {
+    : Fx(), _log(_cfg.log.file, ofstream::out | ofstream::trunc),
+      _prev_peaks(88), _main_history(88), _fill_history(88) {
 
   std::random_device r;
   _random.seed(r());
@@ -57,9 +59,9 @@ MajorPeak::MajorPeak()
   auto start_hue = 0.0f;
   if (_cfg.hue.random_start) {
     start_hue = randomHue();
-    _color = Color({.hue = start_hue, .sat = 100.0f, .lum = 50.0f});
+    _color = Color({.hue = start_hue, .sat = 100.0f, .bri = 100.0f});
   } else {
-    _color = Color({.hue = 359.9f, .sat = 100.0f, .lum = 50.0f});
+    _color = Color({.hue = 0.0f, .sat = 100.0f, .bri = 100.0f});
   }
 
   _last_peak.fill = Peak::zero();
@@ -146,7 +148,7 @@ void MajorPeak::handleFillPinspot(const Peaks &peaks) {
 
     // bass frequencies only take priority when the pinspot's brightness has
     // reached a relatively low level
-    if (freq <= 180.0) {
+    if (freq <= 220.0) {
       if (brightness <= 30.0) {
         if (color.brightness() >= brightness) {
           start_fader = true;
@@ -160,7 +162,7 @@ void MajorPeak::handleFillPinspot(const Peaks &peaks) {
 
   if (start_fader) {
     fill->activate<FillFader>({.origin = color, .ms = fade_duration});
-    _fill_history.push_back(peak);
+    _fill_history.push_front(peak);
   }
 }
 
@@ -169,7 +171,7 @@ void MajorPeak::handleMainPinspot(const Peaks peaks) {
 
   auto peak = (*peaks)[180.0];
 
-  if (!peak) {
+  if (useablePeak(peak) == false) {
     return;
   }
 
@@ -190,13 +192,13 @@ void MajorPeak::handleMainPinspot(const Peaks peaks) {
     } else {
       auto brightness = main->brightness();
 
-      if (brightness < 30.0) {
+      if (brightness < 42.0) {
         if (color.brightness() > brightness) {
           start_fader = true;
         }
       }
 
-      if (brightness < 5.0) {
+      if (brightness < 10.0) {
         start_fader = true;
       }
     }
@@ -206,26 +208,34 @@ void MajorPeak::handleMainPinspot(const Peaks peaks) {
 
   if (start_fader) {
     main->activate<MainFader>({.origin = color, .ms = fade_duration});
-    _main_history.push_back(peak);
+    _main_history.push_front(peak);
   }
 }
 
-void MajorPeak::logPeak(const Peak &peak) const {
+void MajorPeak::logPeak(const Peak &peak) {
   if (_cfg.log.peak) {
 
-    ofstream log(_cfg.log.file, ofstream::out);
+    _log << boost::format("peak frequency[%7.1f] magnitude[%6.3f]\n") %
+                peak.frequency() % peak.magScaled();
 
-    array<char, 128> out;
-    snprintf(out.data(), out.size(), "lightdesk mpeak mag[%12.2f] peak[%7.2f]",
-             peak.magnitude(), peak.frequency());
-
-    string str(out.data());
-
-    log << str << endl;
+    _log.flush();
   }
 }
 
-const Color MajorPeak::makeColor(Color ref, const Peak &peak) const {
+void MajorPeak::logPeakColor(float low, float deg, const Peak &peak,
+                             const Color &color) {
+  auto freq = log10(peak.frequency());
+
+  if (peak.frequency() >= low) {
+    _log << boost::format(
+                "freq[%8.2f] scaled[%4.3f] rotate[%5.3f] color %s\n") %
+                peak.frequency() % freq % deg % color.asString();
+
+    _log.flush();
+  }
+}
+
+const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
 
   const auto &hard = _cfg.freq.hard;
   const auto &soft = _cfg.freq.soft;
@@ -237,27 +247,45 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) const {
   // ensure frequency can be interpolated into a color
   if (!reasonable) {
     return move(Color::black());
+
   } else if (peak.frequency() < soft.floor) {
-    return move(ref);
+    auto color = ref;
+    color.setBrightness(Peak::magScaleRange(), peak.magScaled());
+    return move(color);
+
   } else if (peak.frequency() > soft.ceiling) {
-    auto color = Color(0xFFFFFF).setBrightness(ref);
+    auto freq_range = MinMaxFloat(log10(soft.ceiling), log10(hard.ceiling));
+
+    constexpr auto hue_step = 0.0001f;
+    constexpr auto hue_min = 345.0f * (1.0f / hue_step);
+    constexpr auto hue_max = 355.0f * (1.0f / hue_step);
+    auto hue_range = MinMaxFloat(hue_min, hue_max);
+
+    const float freq_scaled = log10(peak.frequency());
+    float degrees = freq_range.interpolate(hue_range, freq_scaled) * hue_step;
+
+    Color color = ref.rotateHue(degrees);
+    color.setBrightness(50.0f);
+    color.setBrightness(Peak::magScaleRange(), peak.magScaled());
+
+    logPeakColor(0.0f, degrees, peak, color);
     return move(color);
   }
 
   // peak is good, create a color to represent it
   auto freq_range = MinMaxFloat(log10(soft.floor), log10(soft.ceiling));
 
-  constexpr auto hue_step = 0.005f;
-  constexpr auto hue_max = 360.0f - 1.0e-6;
-  auto hue_range = MinMaxFloat(0.0, (hue_max * (1.0f / hue_step)));
+  constexpr auto hue_step = 0.0001f;
+  constexpr auto hue_min = 10.0f * (1.0f / hue_step);
+  constexpr auto hue_max = 360.0f * (1.0f / hue_step);
+  auto hue_range = MinMaxFloat(hue_min, hue_max);
 
-  float degrees =
-      freq_range.interpolate(hue_range, log10(peak.frequency())) * hue_step;
+  const float freq_scaled = log10(peak.frequency());
+  float degrees = freq_range.interpolate(hue_range, freq_scaled) * hue_step;
 
   Color color = ref.rotateHue(degrees);
 
-  const auto range = Peak::magScaleRange();
-  color.setBrightness(range, peak.magScaled());
+  color.setBrightness(Peak::magScaleRange(), peak.magScaled());
 
   return move(color);
 }
@@ -288,6 +316,16 @@ float MajorPeak::randomRotation() {
 }
 
 Color &MajorPeak::refColor(size_t index) const { return _ref_colors.at(index); }
+
+bool MajorPeak::useablePeak(const Peak &peak) {
+  auto rc = false;
+
+  if (peak && (peak.magnitude() >= Peak::magFloor())) {
+    rc = true;
+  }
+
+  return rc;
+}
 
 MajorPeak::ReferenceColors MajorPeak::_ref_colors;
 

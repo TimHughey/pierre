@@ -77,6 +77,7 @@ endif()
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
 set(AUDIO src/audio)
+set(CORE src/core)
 set(DMX src/dmx)
 SET(LIGHTDESK src/lightdesk)
 SET(FADERS src/lightdesk/faders)
@@ -88,6 +89,7 @@ set(APPS apps)
 
 add_executable(${_target}
   ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft ${AUDIO}/peaks
+  ${CORE}/config
   ${DMX}/packet ${DMX}/net ${DMX}/render
   ${MISC}/random ${MISC}/elapsed
   ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color

@@ -46,7 +46,7 @@ void Leave::execute(audio::spPeaks peaks) {
   }
 
   static float val = 0;
-  static lightdesk::Color next_color(0xff0000);
+  static lightdesk::Color next_color({.hue = 0, .sat = 100.0f, .bri = 100.0f});
 
   if (val < 50.0) {
     val++;

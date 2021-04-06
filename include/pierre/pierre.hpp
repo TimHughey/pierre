@@ -27,6 +27,7 @@
 #include "audio/net.hpp"
 #include "audio/pcm.hpp"
 #include "cli/cli.hpp"
+#include "core/config.hpp"
 #include "dmx/render.hpp"
 #include "lightdesk/lightdesk.hpp"
 
@@ -34,16 +35,8 @@ namespace pierre {
 
 class Pierre {
 public:
-  struct Config {
-    audio::Pcm::Config pcm;
-    audio::Dsp::Config dsp;
-    lightdesk::LightDesk::Config lightdesk;
-    dmx::Render::Config dmx;
-  };
-
-public:
   Pierre() = delete;
-  Pierre(const Config &cfg);
+  Pierre(core::Config &cfg);
 
   Pierre(const Pierre &) = delete;
   Pierre &operator=(const Pierre &) = delete;
@@ -51,7 +44,7 @@ public:
   void run();
 
 private:
-  Config _cfg;
+  core::Config &_cfg;
 
   std::shared_ptr<audio::Pcm> pcm;
   std::shared_ptr<audio::Dsp> dsp;

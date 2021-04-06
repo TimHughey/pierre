@@ -30,7 +30,8 @@ using std::make_shared;
 using std::shared_ptr;
 using std::vector;
 
-Pcm::Pcm(const Config &cfg) : _cfg(cfg) {
+Pcm::Pcm(Config &cfg)
+    : _alsa_cfg(cfg.pcm("alsa"sv)), _log_cfg(cfg.pcm("logging"sv)) {
   snd_pcm_hw_params_malloc(&_params);
   snd_pcm_sw_params_malloc(&_swparams);
 }
@@ -52,6 +53,44 @@ Pcm::~Pcm() {
   }
 }
 
+void Pcm::addProcessor(std::shared_ptr<Samples> processor) {
+  _processors.insert(processor);
+}
+
+uint32_t Pcm::availMin() const {
+  return _alsa_cfg->get("avail_min")->value_or(128);
+}
+
+auto Pcm::bytesToFrames(size_t bytes) const {
+  auto frames = snd_pcm_bytes_to_frames(_pcm, bytes);
+  return frames;
+}
+
+auto Pcm::bytesToSamples(size_t bytes) const {
+  auto samples = snd_pcm_bytes_to_samples(_pcm, bytes);
+  return samples;
+}
+
+uint32_t Pcm::channels() const {
+  return _alsa_cfg->get("channels"sv)->value_or<uint32_t>(2);
+}
+
+snd_pcm_format_t Pcm::format() const {
+  string_view str = _alsa_cfg->get("format"sv)->value_or("S16_LE");
+
+  if (str.compare("S16_LE") == 0) {
+    return SND_PCM_FORMAT_S16_LE;
+  }
+
+  return SND_PCM_FORMAT_S16_LE;
+}
+
+auto Pcm::framesToBytes(snd_pcm_sframes_t frames) const {
+  auto bytes = snd_pcm_frames_to_bytes(_pcm, frames);
+
+  return bytes;
+}
+
 void Pcm::init() {
   const auto stream = SND_PCM_STREAM_CAPTURE;
   int open_mode = 0;
@@ -62,7 +101,10 @@ void Pcm::init() {
     goto fatal;
   }
 
-  err = snd_pcm_open(&_pcm, pcm_name, stream, open_mode);
+  err = snd_pcm_open(
+      &_pcm,
+      _alsa_cfg->get("device")->value_or("hw:CARD=sndrpihifiberry,DEV=0"),
+      stream, open_mode);
   if (err < 0) {
     cerr << "audio open error: " << snd_strerror(err);
   }
@@ -80,6 +122,47 @@ void Pcm::init() {
 
 fatal:
   return;
+}
+
+bool Pcm::isRunning() const {
+  auto rc = false;
+
+  if (snd_pcm_state(_pcm) == SND_PCM_STATE_RUNNING) {
+    rc = true;
+  }
+
+  return rc;
+}
+
+uint32_t Pcm::rate() const { return _alsa_cfg->get("rate")->value_or(48000); }
+
+bool Pcm::recoverStream(int snd_rc) {
+  bool rc = true;
+
+  auto recover_rc = snd_pcm_recover(_pcm, snd_rc, 0);
+  if (recover_rc < 0) {
+    char err[256] = {0};
+    perror(err);
+    fprintf(stderr, "recover_rc: %s\n", err);
+    rc = false;
+
+    snd_pcm_reset(_pcm);
+  }
+
+  snd_pcm_start(_pcm);
+
+  return rc;
+}
+
+void Pcm::reportBufferMin() {
+  uint buffer_time_min = 0;
+  snd_pcm_uframes_t buffer_size_min;
+
+  snd_pcm_hw_params_get_buffer_time_min(_params, &buffer_time_min, 0);
+  snd_pcm_hw_params_get_buffer_size_min(_params, &buffer_size_min);
+
+  std::cerr << "buffer_time_min=" << buffer_time_min << "µs ";
+  std::cerr << "buffer_size_min=" << buffer_size_min << std::endl;
 }
 
 shared_ptr<thread> Pcm::run() {
@@ -133,7 +216,8 @@ bool Pcm::setParams(void) {
     return false;
   }
 
-  err = snd_pcm_hw_params_set_rate_near(_pcm, _params, &(_cfg.pcm.rate), 0);
+  auto sample_rate = rate();
+  err = snd_pcm_hw_params_set_rate_near(_pcm, _params, &sample_rate, 0);
 
   snd_pcm_uframes_t psize_min = 0;
   if (snd_pcm_hw_params_get_period_size_min(_params, &psize_min, 0) >= 0) {
@@ -163,7 +247,7 @@ bool Pcm::setParams(void) {
     return false;
   }
 
-  err = snd_pcm_sw_params_set_avail_min(_pcm, _swparams, 128);
+  err = snd_pcm_sw_params_set_avail_min(_pcm, _swparams, availMin());
 
   constexpr snd_pcm_uframes_t sthres_max = 512;
   const snd_pcm_uframes_t sthres = std::min(buff_size / 2, sthres_max);
@@ -176,7 +260,7 @@ bool Pcm::setParams(void) {
     return false;
   }
 
-  if (_cfg.log.init) {
+  if (_log_cfg->get("init")->value_or(false)) {
     snd_pcm_dump(_pcm, _pcm_log);
   }
 
