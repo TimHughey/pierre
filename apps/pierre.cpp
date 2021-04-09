@@ -21,44 +21,41 @@
 #include <thread>
 #include <unordered_set>
 
-#include "audio/net.hpp"
+#include "audio/dsp.hpp"
 #include "audio/pcm.hpp"
-#include "core/state.hpp"
+#include "cli/cli.hpp"
+#include "dmx/render.hpp"
+#include "lightdesk/lightdesk.hpp"
 #include "pierre.hpp"
 
 namespace pierre {
 
 using namespace std;
-using namespace audio;
-using namespace lightdesk;
-using namespace core;
-
-using namespace boost::asio;
-
-Pierre::Pierre(core::Config &cfg) : _cfg(cfg) {}
 
 void Pierre::run() {
 
-  std::unordered_set<std::shared_ptr<std::thread>> threads;
+  unordered_set<std::shared_ptr<std::thread>> threads;
 
-  pcm = make_shared<Pcm>(_cfg);
+  shared_ptr<audio::Pcm> pcm = make_shared<audio::Pcm>();
   threads.insert(pcm->run());
 
-  dsp = make_shared<Dsp>(_cfg);
+  shared_ptr<audio::Dsp> dsp = make_shared<audio::Dsp>();
   threads.insert(dsp->run());
 
-  dmx = make_shared<dmx::Render>(_cfg);
+  shared_ptr<dmx::Render> dmx = make_shared<dmx::Render>();
   threads.insert(dmx->run());
 
-  lightdesk = make_shared<LightDesk>(_cfg, dsp);
+  shared_ptr<lightdesk::LightDesk> lightdesk =
+      make_shared<lightdesk::LightDesk>(dsp);
+
   lightdesk->saveInstance(lightdesk);
   threads.insert(lightdesk->run());
 
   pcm->addProcessor(dsp);
   dmx->addProducer(lightdesk);
 
-  Cli cli(_cfg);
-  cli.run();
+  Cli cmdLine = Cli();
+  cmdLine.run();
 
   if (State::leaving()) {
     lightdesk->leave();
@@ -73,6 +70,4 @@ void Pierre::run() {
   cout << endl;
 }
 
-// initialize State singleton
-core::State core::State::i = core::State();
 } // namespace pierre

@@ -30,8 +30,10 @@ using std::make_shared;
 using std::shared_ptr;
 using std::vector;
 
-Pcm::Pcm(Config &cfg)
-    : _alsa_cfg(cfg.pcm("alsa"sv)), _log_cfg(cfg.pcm("logging"sv)) {
+toml::table *alsa_cfg() { return State::config("pcm"sv, "alsa"sv); }
+toml::table *log_cfg() { return State::config("pcm"sv, "logging"sv); }
+
+Pcm::Pcm() {
   snd_pcm_hw_params_malloc(&_params);
   snd_pcm_sw_params_malloc(&_swparams);
 }
@@ -58,7 +60,7 @@ void Pcm::addProcessor(std::shared_ptr<Samples> processor) {
 }
 
 uint32_t Pcm::availMin() const {
-  return _alsa_cfg->get("avail_min")->value_or(128);
+  return alsa_cfg()->get("avail_min"sv)->value_or(128);
 }
 
 auto Pcm::bytesToFrames(size_t bytes) const {
@@ -72,11 +74,11 @@ auto Pcm::bytesToSamples(size_t bytes) const {
 }
 
 uint32_t Pcm::channels() const {
-  return _alsa_cfg->get("channels"sv)->value_or<uint32_t>(2);
+  return alsa_cfg()->get("channels"sv)->value_or<uint32_t>(2);
 }
 
 snd_pcm_format_t Pcm::format() const {
-  string_view str = _alsa_cfg->get("format"sv)->value_or("S16_LE");
+  string_view str = alsa_cfg()->get("format"sv)->value_or("S16_LE");
 
   if (str.compare("S16_LE") == 0) {
     return SND_PCM_FORMAT_S16_LE;
@@ -103,7 +105,7 @@ void Pcm::init() {
 
   err = snd_pcm_open(
       &_pcm,
-      _alsa_cfg->get("device")->value_or("hw:CARD=sndrpihifiberry,DEV=0"),
+      alsa_cfg()->get("device")->value_or("hw:CARD=sndrpihifiberry,DEV=0"),
       stream, open_mode);
   if (err < 0) {
     cerr << "audio open error: " << snd_strerror(err);
@@ -134,7 +136,9 @@ bool Pcm::isRunning() const {
   return rc;
 }
 
-uint32_t Pcm::rate() const { return _alsa_cfg->get("rate")->value_or(48000); }
+uint32_t Pcm::rate() const {
+  return alsa_cfg()->get("rate"sv)->value_or(48000);
+}
 
 bool Pcm::recoverStream(int snd_rc) {
   bool rc = true;
@@ -260,7 +264,7 @@ bool Pcm::setParams(void) {
     return false;
   }
 
-  if (_log_cfg->get("init")->value_or(false)) {
+  if (log_cfg()->get("init"sv)->value_or(false)) {
     snd_pcm_dump(_pcm, _pcm_log);
   }
 

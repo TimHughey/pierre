@@ -44,14 +44,17 @@ case ${action} in
   run)
      cmake --build ${build_dir} && ${build_dir}/pierre $@
 
-     recompile_flag=/tmp/pierre/recompile
-     if [[ -e $recompile_flag ]]; then
-       rm -f $recompile_flag
+     search_dirs=(${HOME}/.pierre /tmp/pierre)
+     for search in ${search_dirs} ; do
+       flag=${search}/recompile
 
-       # this_script=$(realpath $0)
-       exec ${0} $action $@
-     fi
+       if [[ -e ${flag} ]]; then
+         rm -f ${flag}
 
+         # this_script=$(realpath $0)
+         exec ${0} $action $@
+       fi
+     done
     ;;
 
   *)

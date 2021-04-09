@@ -18,27 +18,114 @@
     https://www.wisslanding.com
 */
 
+#include <filesystem>
+
 #define TOML_IMPLEMENTATION
 
 #include "core/config.hpp"
 #include "external/toml.hpp"
 
-using namespace toml;
 using namespace std;
+
+namespace fs = std::filesystem;
 
 namespace pierre {
 namespace core {
-Config::Config(path &file) : _file(file) { _tbl = parse_file(file.c_str()); }
 
-toml::table *Config::dmx() { return _tbl["dmx"].as_table(); }
+const error_code &Config::exists() const { return _exists_rc; }
 
-toml::table *Config::dsp(const string_view &subtable) {
-  return _tbl["dsp"].as_table()->get(subtable)->as_table();
+const string_view Config::fallback() const {
+  auto raw = R"(
+    [pierre]
+    title = "Pierre Live Config"
+    version = 1
+    working_dir = "/tmp/pierre"
+    log_dir = "/tmp/pierre"
+
+    [dmx]
+    host = "test-with-devs.ruth"
+    port = "48005"
+
+    [dsp]
+    fft = {samples = 1024, rate = 48000}
+    logging = {file = "dsp.log", enable = false, truncate = true}
+
+    [lightdesk]
+    colorbars = false
+
+    [lightdesk.majorpeak.logging]
+    file = "majorpeak.log"
+    truncate = true
+    peaks = false
+    colors = false
+
+    [lightdesk.majorpeak.color]
+    reference = { hue = 0.0, sat = 100.0, bri = 100.0}
+    random_start = false
+    rotate = {enable = false, ms = 7000}
+
+    [lightdesk.majorpeak.frequencies]
+    hard = {ceiling = 10000.0, floor = 40.0}
+    soft = {ceiling = 1500.0, floor = 110.0}
+
+    [lightdesk.majorpeak.pinspot.fill]
+    name = 'fill'
+    frequency_max = 1000.0
+    fade_max_ms = 800
+
+    [lightdesk.majorpeak.pinspot.fill.when_greater]
+    frequency = 180.0
+    brightness_min = 3.0
+    higher_frequency = {brightness_min = 80.0}
+
+    [lightdesk.majorpeak.pinspot.fill.when_lessthan]
+    frequency = 180.0
+    brightness_min = 27.0
+
+    [lightdesk.majorpeak.pinspot.main]
+    name = 'main'
+    fade_max_ms = 700
+    frequency_min = 180.0
+    when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
+
+    [lightdesk.majorpeak.makecolor.above_soft_ceiling]
+    hue = {min = 345.0, max = 355.0, step = 0.0001}
+    brightness = {max = 50.0, mag_scaled = true}
+
+    [lightdesk.majorpeak.makecolor.generic]
+    hue = {min = 30.0, max = 360.0, step = 0.0001}
+    brightness = {max = 100.0, mag_scaled = true}
+
+    [pcm.logging]
+    file = "pcm.log"
+    init = false
+    truncate = true
+
+    [pcm.alsa]
+    device = 'hw:CARD=sndrpihifiberry,DEV=0'
+    format = "S16_LE"
+    channels = 2
+    rate = 48000
+    avail_min = 128
+  )"sv;
+
+  return move(raw);
 }
 
-toml::table *Config::lightdesk() { return _tbl["lightdesk"].as_table(); }
-toml::table *Config::pcm(const std::string_view &subtable) {
-  return _tbl["pcm"].as_table()->get(subtable)->as_table();
+auto Config::operator[](const std::string_view &subtable) {
+  return move(_tbl[subtable]);
+}
+
+const error_code &Config::parse(path &file, bool use_embedded) {
+  _file = file;
+
+  if (fs::exists(_file, _exists_rc)) {
+    _tbl = toml::parse_file(_file.c_str());
+  } else if (use_embedded) {
+    _tbl = toml::parse(fallback());
+  }
+
+  return _exists_rc;
 }
 
 } // namespace core

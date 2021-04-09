@@ -48,7 +48,7 @@ public:
   using string = std::string;
 
 public:
-  LightDesk(Config &cfg, std::shared_ptr<audio::Dsp> dsp);
+  LightDesk(std::shared_ptr<audio::Dsp> dsp);
   ~LightDesk();
 
   LightDesk(const LightDesk &) = delete;
@@ -84,8 +84,6 @@ private:
 
 private:
   int _init_rc = 1;
-
-  toml::table *_cfg;
 
   std::shared_ptr<audio::Dsp> _dsp;
   HUnits _tracker = std::make_shared<HeadUnitTracker>();

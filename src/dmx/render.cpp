@@ -27,6 +27,8 @@ typedef StaticJsonDocument<1024> doc;
 using std::chrono::duration;
 using std::chrono::duration_cast;
 using us = std::chrono::microseconds;
+using std::string;
+using std::string_view;
 using std::chrono::steady_clock;
 using std::chrono::time_point;
 
@@ -38,10 +40,15 @@ using State = core::State;
 
 namespace dmx {
 
-Render::Render(Config &cfg)
-    : _cfg(cfg.dmx()->as_table()),
-      _net(_io_ctx, _cfg->get("host")->value_or("test-with-devs.ruth"),
-           _cfg->get("port")->value_or("48005")) {
+string dmx_cfg(const string_view &item, const string_view &def_val) {
+  string str(def_val);
+
+  return State::config("dmx"sv)->get(item)->value_or(str);
+}
+
+Render::Render()
+    : _net(_io_ctx, dmx_cfg("host"sv, "test-with-devs.ruth"sv),
+           dmx_cfg("port"sv, "48005"sv)) {
 
   _frame.assign(256, 0x00);
 }

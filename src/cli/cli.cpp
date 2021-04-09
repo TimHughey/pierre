@@ -27,12 +27,13 @@
 #include <iostream>
 
 #include "cli/cli.hpp"
+#include "cli/linenoise.h"
 #include "cli/subcmds/dsp.hpp"
 #include "cli/subcmds/lightdesk.hpp"
 
 using namespace std;
 using namespace chrono;
-using namespace std::string_view_literals;
+// using namespace std::string_view_literals;
 
 namespace fs = std::filesystem;
 
@@ -42,15 +43,9 @@ bool Cli::run() {
   _subcmds.push_back(std::make_unique<cli::Dsp>());
   _subcmds.push_back(std::make_unique<cli::LightDesk>());
 
-  auto tmp_dir = fs::path(fs::temp_directory_path());
-  tmp_dir.append("pierre");
-  fs::create_directories(tmp_dir);
-
-  recompile_flag.assign(tmp_dir).append("recompile");
-  history_file.assign(tmp_dir).append("history");
-
   linenoiseSetMultiLine(true);
   linenoiseHistorySetMaxLen(250);
+
   linenoiseHistoryLoad(history_file.c_str());
 
   repl();
@@ -94,12 +89,7 @@ int Cli::doTest(const string &args) const {
   if (args.empty()) { // stop the compiler warning...
   }
 
-  toml::table &tbl = _cfg.table();
-
-  // cout << "no tests defined" << endl;
-
-  toml::table *base = tbl["pierre"].as_table();
-
+  toml::table *base = State::config("pierre"sv);
   auto str = base->get("title")->value_or("unknown"sv);
 
   cout << str << endl;

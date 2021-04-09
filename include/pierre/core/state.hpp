@@ -18,11 +18,17 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_core_hpp
-#define pierre_core_hpp
+#ifndef pierre_core_state_hpp
+#define pierre_core_state_hpp
 
 #include <atomic>
 #include <chrono>
+#include <memory>
+// #include <string>
+
+#include "core/config.hpp"
+
+using namespace std::string_view_literals;
 
 namespace pierre {
 namespace core {
@@ -32,6 +38,8 @@ typedef std::chrono::steady_clock::time_point time_point;
 typedef std::chrono::milliseconds milliseconds;
 
 class State {
+public:
+  typedef std::string_view string_view;
 
 public:
   ~State() = default;
@@ -39,43 +47,36 @@ public:
   State(const State &) = delete;
   State &operator=(const State &) = delete;
 
-  static void leave(milliseconds ms) {
-    i.s.mode = Leaving;
-    i.s.leaving.started = clock::now();
-    i.s.leaving.ms = ms;
-  }
+  static std::shared_ptr<Config> config();
+  static toml::table *config(const string_view &key);
+  static toml::table *config(const string_view &key, const string_view &sub);
 
-  static bool leaveInProgress() {
-    auto rc = false;
-
-    auto elapsed = clock::now() - i.s.leaving.started;
-
-    if (elapsed < i.s.leaving.ms) {
-      rc = true;
-    }
-
-    return rc;
-  }
-
-  static bool leaving() { return i.s.mode == Leaving; }
+  static void leave(milliseconds ms);
+  static bool leaveInProgress();
+  static bool leaving();
 
   template <typename T> static T leavingDuration() {
     return std::chrono::duration_cast<T>(i.s.leaving.ms);
   }
-  static void quit() { i.s.mode = Quitting; }
-  static bool quitting() { return i.s.mode == Quitting; }
-  static bool running() { return i.s.mode != Shutdown; }
 
-  static void shutdown() { i.s.mode = Shutdown; }
+  static std::shared_ptr<Config> initConfig() noexcept;
+
+  static void quit();
+  static bool quitting();
+  static bool running();
+  static bool silence();
+  static void shutdown();
 
 private:
   State() = default;
 
 private:
-  typedef enum { Running = 0, Leaving, Shutdown, Quitting } Mode;
+  typedef enum { Running = 0, Leaving, Shutdown, Silence, Quitting } Mode;
 
 private:
   static State i;
+
+  std::shared_ptr<Config> _cfg;
 
   struct {
     std::atomic<Mode> mode = Running;

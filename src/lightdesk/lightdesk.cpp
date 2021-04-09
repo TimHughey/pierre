@@ -36,8 +36,7 @@ using namespace fx;
 
 shared_ptr<LightDesk> LightDesk::_instance = nullptr;
 
-LightDesk::LightDesk(Config &cfg, shared_ptr<audio::Dsp> dsp)
-    : _cfg(cfg.lightdesk()), _dsp(std::move(dsp)) {
+LightDesk::LightDesk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {
 
   Fx::setTracker(_tracker);
 
@@ -58,7 +57,7 @@ LightDesk::LightDesk(Config &cfg, shared_ptr<audio::Dsp> dsp)
   discoball->spin();
 
   // select the first Fx
-  if (_cfg->get("colorbars"sv)->value_or(false)) {
+  if (State::config("lightdesk"sv)->get("colorbars"sv)->value_or(false)) {
     _active.fx = make_shared<fx::ColorBars>();
   } else {
     _active.fx = make_shared<fx::MajorPeak>();

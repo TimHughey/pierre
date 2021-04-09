@@ -21,35 +21,17 @@
 #ifndef _pierre_pierre_hpp
 #define _pierre_pierre_hpp
 
-#include <thread>
-
-#include "audio/dsp.hpp"
-#include "audio/net.hpp"
-#include "audio/pcm.hpp"
-#include "cli/cli.hpp"
-#include "core/config.hpp"
-#include "dmx/render.hpp"
-#include "lightdesk/lightdesk.hpp"
-
 namespace pierre {
 
 class Pierre {
 public:
-  Pierre() = delete;
-  Pierre(core::Config &cfg);
+  Pierre() = default;
+  ~Pierre() = default;
 
   Pierre(const Pierre &) = delete;
   Pierre &operator=(const Pierre &) = delete;
 
   void run();
-
-private:
-  core::Config &_cfg;
-
-  std::shared_ptr<audio::Pcm> pcm;
-  std::shared_ptr<audio::Dsp> dsp;
-  std::shared_ptr<lightdesk::LightDesk> lightdesk;
-  std::shared_ptr<dmx::Render> dmx;
 };
 
 } // namespace pierre

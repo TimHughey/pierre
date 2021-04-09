@@ -26,9 +26,7 @@
 #include <string>
 #include <thread>
 
-#include "cli/linenoise.h"
 #include "cli/subcmds/subcmd.hpp"
-#include "core/config.hpp"
 #include "core/state.hpp"
 #include "version.h"
 
@@ -37,8 +35,11 @@ namespace pierre {
 class Cli {
 public:
   using string = std::string;
+  using string_view = std::string_view;
+  using path = std::filesystem::path;
 
-  Cli(core::Config &cfg) : _cfg(cfg){};
+  Cli() = default;
+  ~Cli() = default;
 
   Cli(const Cli &) = delete;
   Cli &operator=(const Cli &) = delete;
@@ -55,13 +56,13 @@ private:
   bool matchCmd(const string &cmd, bool letter = false) const;
 
 private:
-  core::Config &_cfg;
   string input;
 
-  const string git_revision = GIT_REVISION;
-  const string build_timestamp = BUILD_TIMESTAMP;
-  std::filesystem::path recompile_flag;
-  std::filesystem::path history_file;
+  const string_view git_revision = GIT_REVISION;
+  const string_view build_timestamp = BUILD_TIMESTAMP;
+
+  path recompile_flag = "recompile";
+  path history_file = "history";
 
   std::vector<cli::upSubCmd> _subcmds;
 };

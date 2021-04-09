@@ -31,7 +31,6 @@
 #include <alsa/asoundlib.h>
 
 #include "audio/samples.hpp"
-#include "core/config.hpp"
 
 namespace pierre {
 namespace audio {
@@ -39,7 +38,7 @@ namespace audio {
 class Pcm {
 
 public:
-  Pcm(Config &cfg);
+  Pcm();
   ~Pcm();
 
   Pcm(const Pcm &) = delete;
@@ -68,9 +67,6 @@ private:
   void stream();
 
 private:
-  toml::table *_alsa_cfg;
-  toml::table *_log_cfg;
-
   bool _init_rc = false;
 
   snd_pcm_t *_pcm = nullptr;

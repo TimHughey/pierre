@@ -26,7 +26,6 @@
 
 #include "audio/fft.hpp"
 #include "audio/samples.hpp"
-#include "core/config.hpp"
 
 namespace pierre {
 namespace audio {
@@ -39,7 +38,7 @@ public:
   using spThread = std::shared_ptr<thread>;
 
 public:
-  Dsp(core::Config &cfg);
+  Dsp();
 
   Dsp(const Dsp &) = delete;
   Dsp &operator=(const Dsp &) = delete;

@@ -89,7 +89,7 @@ set(APPS apps)
 
 add_executable(${_target}
   ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft ${AUDIO}/peaks
-  ${CORE}/config
+  ${CORE}/config ${CORE}/state
   ${DMX}/packet ${DMX}/net ${DMX}/render
   ${MISC}/random ${MISC}/elapsed
   ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color

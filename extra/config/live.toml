@@ -1,7 +1,9 @@
 [pierre]
-title = "Pierre Basic Config"
+title = "Pierre Live Config"
 version = 1
-working_dir = "/tmp/pierre"
+use_home = true
+working_dir = ".pierre"
+log_dir = "/tmp/pierre/log"
 
 [dmx]
 host = "test-with-devs.ruth"
@@ -13,7 +15,16 @@ logging = {file = "dsp.log", enable = false, truncate = true}
 
 [lightdesk]
 colorbars = false
-logging = {file = "majorpeak.log", peaks = false, colors = false, truncate = true}
+
+[lightdesk.silence]
+min_ms = 7000
+
+
+[lightdesk.majorpeak.logging]
+file = "majorpeak.log"
+truncate = true
+peaks = false
+colors = false
 
 [lightdesk.majorpeak.color]
 reference = { hue = 0.0, sat = 100.0, bri = 100.0}
@@ -26,22 +37,31 @@ soft = {ceiling = 1500.0, floor = 110.0}
 
 [lightdesk.majorpeak.pinspot.fill]
 name = 'fill'
-fade = {max_ms = 500}
-freq0 = { range = {min = 220.0, max = 10000.0}, brightness = {min = 30.0}}
-freq1 = { range = {min = 0.0, max = 220.0}, brightness = {min = 30.0}}
+frequency_max = 1000.0
+fade_max_ms = 800
+
+[lightdesk.majorpeak.pinspot.fill.when_greater]
+frequency = 180.0
+brightness_min = 3.0
+higher_frequency = {brightness_min = 80.0}
+
+[lightdesk.majorpeak.pinspot.fill.when_lessthan]
+frequency = 180.0
+brightness_min = 27.0
 
 [lightdesk.majorpeak.pinspot.main]
 name = 'main'
-fade = {max_ms = 500}
+fade_max_ms = 700
 frequency_min = 180.0
-brightness = { priority_when_less = 42.0, minimum = 10 }
+when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
 
 [lightdesk.majorpeak.makecolor.above_soft_ceiling]
 hue = {min = 345.0, max = 355.0, step = 0.0001}
 brightness = {max = 50.0, mag_scaled = true}
 
 [lightdesk.majorpeak.makecolor.generic]
-hue = {min = 10.0, max = 360.0, step = 0.0001}
+hue = {min = 30.0, max = 360.0, step = 0.0001}
+brightness = {max = 100.0, mag_scaled = true}
 
 [pcm.logging]
 file = "pcm.log"

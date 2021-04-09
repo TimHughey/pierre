@@ -29,9 +29,13 @@ namespace pierre {
 using State = core::State;
 
 namespace audio {
-Dsp::Dsp(core::Config &cfg)
-    : _fft_left(cfg.dsp("fft"sv)->get("samples")->value_or(1024),
-                cfg.dsp("fft"sv)->get("rate")->value_or(48000))
+
+uint16_t fft_cfg(const string_view &item, const uint16_t def_val) {
+  return State::config("dsp"sv, "fft")->get(item)->value_or(def_val);
+}
+
+Dsp::Dsp()
+    : _fft_left(fft_cfg("samples"sv, 1024), fft_cfg("rate"sv, 48000))
 
 {
   _peaks = make_shared<Peaks>();

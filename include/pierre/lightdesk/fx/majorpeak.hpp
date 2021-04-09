@@ -50,19 +50,7 @@ public:
   using circular_buffer = boost::circular_buffer<Peak>;
 
 public:
-  struct Config {
-
-    struct {
-      bool random_start = false;
-      bool rotate = false;
-      uint rotate_ms = 7000;
-    } hue;
-
-    struct {
-      bool peak = false;
-      string file = "/tmp/pierre/majorpeak.log";
-      // string file = "/dev/null";
-    } log;
+  struct MajorPeakConfig {
 
     struct {
       struct {
@@ -96,8 +84,10 @@ private:
   void handleLedForest(Peaks peaks);
   void handleFillPinspot(const Peaks &peaks);
   void handleMainPinspot(const Peaks peaks);
+
   void logPeak(const Peak &peak);
   void logPeakColor(float low, float deg, const Peak &peak, const Color &color);
+
   const Color makeColor(Color ref, const Peak &freq);
   void makeRefColors();
   double randomHue();
@@ -107,7 +97,7 @@ private:
   bool useablePeak(const Peak &peak);
 
 private:
-  Config _cfg;
+  MajorPeakConfig _cfg;
 
   spPinSpot main;
   spPinSpot fill;

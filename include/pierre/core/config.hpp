@@ -32,35 +32,38 @@
 #define TOML_HEADER_ONLY 0
 #include "external/toml.hpp"
 
-using namespace std::string_view_literals;
-
 namespace pierre {
 namespace core {
 
 typedef std::chrono::steady_clock clock;
 typedef std::chrono::steady_clock::time_point time_point;
 typedef std::chrono::milliseconds milliseconds;
+typedef std::error_code error_code;
 
 class Config {
 public:
   using path = std::filesystem::path;
+  using string_view = std::string_view;
 
 public:
-  Config(path &file);
+  Config() = default;
   ~Config() = default;
 
   Config(const Config &) = delete;
   Config &operator=(const Config &) = delete;
 
-  toml::table *dmx();
-  toml::table *dsp(const std::string_view &subtable);
-  toml::table *lightdesk();
-  toml::table *pcm(const std::string_view &subtable);
+  const error_code &exists() const;
+  const string_view fallback() const;
 
-  toml::table &table() { return _tbl; }
+  auto operator[](const std::string_view &subtable);
+
+  const error_code &parse(path &file, bool use_embedded = true);
+
+  auto &table() { return _tbl; }
 
 private:
   path _file;
+  error_code _exists_rc;
 
   toml::table _tbl;
 };

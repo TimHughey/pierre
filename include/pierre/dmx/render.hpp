@@ -21,13 +21,11 @@
 #ifndef _pierre_dmx_render_hpp
 #define _pierre_dmx_render_hpp
 
+#include <boost/asio.hpp>
 #include <set>
 #include <string>
 #include <thread>
 
-#include <boost/asio.hpp>
-
-#include "core/config.hpp"
 #include "dmx/net.hpp"
 #include "dmx/producer.hpp"
 
@@ -44,7 +42,7 @@ public:
   typedef std::error_code error_code;
 
 public:
-  Render(Config &cfg);
+  Render();
 
   void addProducer(std::shared_ptr<Producer> producer) {
     _producers.insert(producer);
@@ -56,8 +54,6 @@ private:
   void stream();
 
 private:
-  toml::table *_cfg;
-
   io_context _io_ctx;
   Net _net;
   Frame _frame;
