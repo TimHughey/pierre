@@ -25,6 +25,7 @@
 #include <string>
 
 #include "audio/peaks.hpp"
+#include "core/state.hpp"
 #include "lightdesk/headunits/tracker.hpp"
 
 namespace pierre {
@@ -34,33 +35,24 @@ namespace fx {
 class Fx {
 public:
   using string = std::string;
+  using Freq = audio::Freq;
+  using Peaks = audio::spPeaks;
 
 public:
   Fx() = default;
   virtual ~Fx() = default;
 
   virtual void begin(){};
-  virtual void execute(const audio::spPeaks peaks) = 0;
+  void execute(const Peaks peaks);
+  virtual void executeFx(const Peaks peaks) = 0;
   virtual bool finished() { return _finished; }
 
-  const std::map<audio::Freq, size_t> histogram() { return _histo; }
-
+  const std::map<Freq, size_t> histogram() { return _histo; }
   void leave() { _tracker->leave(); }
-
-  bool matchName(const string match) {
-    auto rc = false;
-    if (name().compare(match) == 0) {
-      rc = true;
-    }
-
-    return rc;
-  }
-
+  bool matchName(const string match);
   virtual const string &name() const = 0;
   static void resetTracker() { _tracker.reset(); }
-  static void setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
-    _tracker = std::move(tracker);
-  }
+  static void setTracker(std::shared_ptr<HeadUnitTracker> tracker);
 
   template <typename T> std::shared_ptr<T> unit(const string name) {
     auto x = _tracker->unit<T>(name);
@@ -71,7 +63,7 @@ public:
 protected:
   bool _finished = false;
   std::mutex _histo_mtx;
-  std::map<audio::Freq, size_t> _histo;
+  std::map<Freq, size_t> _histo;
 
 private:
   static spHeadUnitTracker _tracker;

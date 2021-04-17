@@ -30,10 +30,10 @@ namespace fx {
 class Leave : public Fx {
 
 public:
-  Leave();
+  Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
   ~Leave() = default;
 
-  void execute(audio::spPeaks peaks) override;
+  void executeFx(audio::spPeaks peaks) override;
   const string &name() const override {
     static const string fx_name = "Leave";
 
@@ -41,6 +41,9 @@ public:
   }
 
 private:
+  float _hue_step = 0.25f;
+  float _brightness = 100.0f;
+
   spPinSpot main;
   spPinSpot fill;
 };

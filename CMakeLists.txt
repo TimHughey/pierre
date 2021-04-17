@@ -95,7 +95,7 @@ add_executable(${_target}
   ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color
   ${FADERS}/fader ${FADERS}/easings
   ${HEADUNITS}/pinspot
-  ${FX}/majorpeak ${FX}/leave
+  ${FX}/fx ${FX}/majorpeak ${FX}/leave
   ${CLI}/linenoise ${CLI}/cli ${CLI}/subcmds/dsp ${CLI}/subcmds/lightdesk
   ${APPS}/pierre ${APPS}/main
 )

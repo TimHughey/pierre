@@ -100,7 +100,7 @@ MajorPeak::MajorPeak()
   _last_peak.main = Peak::zero();
 }
 
-void MajorPeak::execute(Peaks peaks) {
+void MajorPeak::executeFx(Peaks peaks) {
   static elapsedMillis color_elapsed;
   auto rotate = cfg("color"sv)["rotate"];
 

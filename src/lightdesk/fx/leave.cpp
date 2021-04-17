@@ -24,12 +24,13 @@ namespace pierre {
 namespace lightdesk {
 namespace fx {
 
-Leave::Leave() {
+Leave::Leave(const float hue_step, const float brightness)
+    : _hue_step(hue_step), _brightness(brightness) {
   main = unit<PinSpot>("main");
   fill = unit<PinSpot>("fill");
 }
 
-void Leave::execute(audio::spPeaks peaks) {
+void Leave::executeFx(audio::spPeaks peaks) {
   peaks.reset(); // no use for peaks, release them
 
   static bool once = true;
@@ -42,11 +43,13 @@ void Leave::execute(audio::spPeaks peaks) {
     main->black();
     fill->black();
     once = false;
+
     return;
   }
 
   static float val = 0;
-  static lightdesk::Color next_color({.hue = 0, .sat = 100.0f, .bri = 100.0f});
+  static lightdesk::Color next_color(
+      {.hue = 0, .sat = 100.0f, .bri = _brightness});
 
   if (val < 50.0) {
     val++;
@@ -57,7 +60,7 @@ void Leave::execute(audio::spPeaks peaks) {
   fill->color(next_color);
 
   if (val >= 50.0) {
-    next_color.rotateHue(0.25);
+    next_color.rotateHue(_hue_step);
   }
 }
 

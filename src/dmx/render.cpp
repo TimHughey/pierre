@@ -67,7 +67,7 @@ void Render::stream() {
   long frame_us = ((1000 * 1000) / 44) - 250;
   duration frame_interval_half = us(frame_us / 2);
 
-  while (State::running()) {
+  while (State::isRunning()) {
     auto loop_start = steady_clock::now();
     for (auto p : _producers) {
       p->prepare();
@@ -85,7 +85,9 @@ void Render::stream() {
 
     this_thread::sleep_for(us(frame_us) - elapsed);
 
-    _net.write(packet);
+    if (!State::isSuspended()) {
+      _net.write(packet);
+    }
 
     frames++;
   }

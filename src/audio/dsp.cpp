@@ -66,7 +66,7 @@ void Dsp::stream() {
   auto &left = _fft_left.real();
   auto left_pos = left.begin();
 
-  while (State::running()) {
+  while (State::isRunning()) {
     const auto entry = pop();         // actual queue entry
     const auto &samples = entry->raw; // raw samples
 

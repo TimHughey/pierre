@@ -39,7 +39,7 @@ public:
     fill = unit<PinSpot>("fill");
   }
 
-  void execute(audio::spPeaks peaks) override {
+  void executeFx(audio::spPeaks peaks) override {
     peaks.reset(); // this fx does not use peaks
 
     PinSpot *pinspot = nullptr;

@@ -18,12 +18,15 @@
     https://www.wisslanding.com
 */
 
+#include "iostream"
+
 #include "core/state.hpp"
 
 namespace pierre {
 namespace core {
 
 using namespace std;
+using std::chrono::duration_cast;
 
 State State::i = State();
 
@@ -41,6 +44,62 @@ shared_ptr<Config> State::initConfig() noexcept {
   i._cfg = make_shared<Config>();
 
   return i._cfg;
+}
+
+bool State::isSilent() { return i.s.mode == Silence; }
+bool State::isSuspended() { return i.s.mode == Suspend; }
+bool State::isRunning() { return i.s.mode != Shutdown; }
+
+void State::silent(bool silent) {
+  auto &silence = i.s.silence;
+
+  // if this is the first detection of silence start tracking the duration
+  if (silent && !silence.detected) {
+    silence.detected = true;
+    silence.started = clock::now();
+    return;
+  }
+
+  // once we're reached suspended there is nothing more to do with
+  // additional silence
+  if (silent && isSuspended()) {
+    return;
+  }
+
+  // this is more silence, do we need to transition to Silence or Suspend?
+  if (silent && silence.detected) {
+    auto diff = duration_cast<milliseconds>(clock::now() - silence.started);
+    auto tbl = State::config()->table();
+
+    // once we're in Silent mode check if we shuld progress to Suspend
+    if (isSilent() && !isSuspended()) {
+      auto ms = tbl["silence"sv]["suspend_after_ms"sv].value_or(600000);
+
+      if (diff.count() > ms) {
+        i.s.mode = Suspend; // engage Suspend mode
+      }
+    }
+
+    // if we're still in Running mode then track how long it's been
+    // silent and eventually progress to Silence mode
+
+    if (i.s.mode == Running) {
+      auto min_ms = tbl["silence"sv]["min_ms"sv].value_or(13000);
+
+      if (diff.count() > min_ms) {
+        silence.prev_mode = i.s.mode;
+        i.s.mode = Silence; // engage Silence mode
+      }
+    }
+  }
+
+  if (silent == false) {
+    silence.detected = false;
+    if ((i.s.mode == Silence) || (i.s.mode == Suspend)) {
+      // return to the active mode prior to Silence/Suspend
+      i.s.mode = silence.prev_mode;
+    }
+  }
 }
 
 void State::leave(milliseconds ms) {
@@ -65,9 +124,7 @@ bool State::leaving() { return i.s.mode == Leaving; }
 
 void State::quit() { i.s.mode = Quitting; }
 bool State::quitting() { return i.s.mode == Quitting; }
-bool State::running() { return i.s.mode != Shutdown; }
 
-bool State::silence() { return i.s.mode == Silence; }
 void State::shutdown() { i.s.mode = Shutdown; }
 
 } // namespace core

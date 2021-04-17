@@ -135,7 +135,7 @@ bool Peaks::bass() const {
 bool Peaks::hasPeak(PeakN n) const {
   bool rc = false;
 
-  // PeakN_t reprexents the peak of interest in the range of 1..max_peaks
+  // PeakN_t represents the peak of interest in the range of 1..max_peaks
   if (_peaks.size() && (_peaks.size() > n)) {
     rc = true;
   }

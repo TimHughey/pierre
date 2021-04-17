@@ -274,7 +274,7 @@ bool Pcm::setParams(void) {
 void Pcm::stream() {
   int snd_rc = -1;
 
-  while (core::State::running()) {
+  while (core::State::isRunning()) {
     snd_rc = snd_pcm_wait(_pcm, 100);
 
     if (snd_rc < 0) {

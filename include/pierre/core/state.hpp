@@ -51,6 +51,12 @@ public:
   static toml::table *config(const string_view &key);
   static toml::table *config(const string_view &key, const string_view &sub);
 
+  static std::shared_ptr<Config> initConfig() noexcept;
+
+  static bool isRunning();
+  static bool isSilent();
+  static bool isSuspended();
+
   static void leave(milliseconds ms);
   static bool leaveInProgress();
   static bool leaving();
@@ -59,19 +65,25 @@ public:
     return std::chrono::duration_cast<T>(i.s.leaving.ms);
   }
 
-  static std::shared_ptr<Config> initConfig() noexcept;
-
   static void quit();
   static bool quitting();
-  static bool running();
-  static bool silence();
+
+  static void silent(bool silent);
+
   static void shutdown();
 
 private:
   State() = default;
 
 private:
-  typedef enum { Running = 0, Leaving, Shutdown, Silence, Quitting } Mode;
+  typedef enum {
+    Running = 0,
+    Leaving,
+    Shutdown,
+    Silence,
+    Suspend,
+    Quitting
+  } Mode;
 
 private:
   static State i;
@@ -85,6 +97,12 @@ private:
       time_point started;
       milliseconds ms;
     } leaving;
+
+    struct {
+      bool detected = false;
+      time_point started;
+      Mode prev_mode;
+    } silence;
   } s;
 };
 

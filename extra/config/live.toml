@@ -16,9 +16,9 @@ logging = {file = "dsp.log", enable = false, truncate = true}
 [lightdesk]
 colorbars = false
 
-[lightdesk.silence]
-min_ms = 7000
-
+[silence]
+min_ms = 13_000
+suspend_after_ms = 600_000
 
 [lightdesk.majorpeak.logging]
 file = "majorpeak.log"

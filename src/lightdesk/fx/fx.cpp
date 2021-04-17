@@ -1,6 +1,6 @@
 /*
-    lightdesk/headunits/elwire.hpp - Ruth LightDesk Headunit EL Wire
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,34 +18,37 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_lightdesk_headunits_elwire_hpp
-#define pierre_lightdesk_headunits_elwire_hpp
+#include "lightdesk/fx/fx.hpp"
 
-#include "lightdesk/headunits/pwm.hpp"
+using namespace std;
+using namespace std::string_view_literals;
 
 namespace pierre {
 namespace lightdesk {
+namespace fx {
 
-class ElWire : public PulseWidthHeadUnit {
+std::shared_ptr<HeadUnitTracker> Fx::_tracker;
 
-public:
-  ElWire(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
-    config.max = unitPercent(0.25);
-    config.min = unitPercent(0.01);
-    config.dim = unitPercent(0.03);
-    config.pulse_start = unitPercent(0.15);
-    config.pulse_end = config.dim;
-    config.leave = unitPercent(0.50);
+void Fx::execute(const Peaks peaks) {
 
-    snprintf(_id.data(), _id.size(), "EL%u", _address);
+  State::silent(peaks->silence());
 
-    dim();
+  executeFx(move(peaks));
+}
+
+bool Fx::matchName(const string match) {
+  auto rc = false;
+  if (name().compare(match) == 0) {
+    rc = true;
   }
-};
 
-typedef std::shared_ptr<ElWire> spElWire;
+  return rc;
+}
 
+void Fx::setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
+  _tracker = std::move(tracker);
+}
+
+} // namespace fx
 } // namespace lightdesk
 } // namespace pierre
-
-#endif

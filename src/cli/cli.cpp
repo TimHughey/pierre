@@ -185,7 +185,7 @@ void Cli::repl() {
 
   string subsys = "pierre";
   char *raw = nullptr;
-  while (core::State::running()) {
+  while (core::State::isRunning()) {
     array<char, 25> prompt;
 
     prompt.fill(0x00);

@@ -194,6 +194,7 @@ public:
   }
 
   const Peak peakN(const PeakN n) const;
+  bool silence() const { return hasPeak(1) == false; }
   auto size() const { return _peaks.size(); }
 
   void sort();

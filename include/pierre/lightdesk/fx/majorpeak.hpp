@@ -69,7 +69,7 @@ public:
   MajorPeak();
   ~MajorPeak() = default;
 
-  void execute(Peaks peaks) override;
+  void executeFx(Peaks peaks) override;
   const string &name() const override {
     static const string fx_name = "MajorPeak";
 

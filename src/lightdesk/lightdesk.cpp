@@ -1,6 +1,6 @@
 /*
-    lightdesk/lightdesk.cpp - Ruth Light Desk
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -110,13 +110,27 @@ void LightDesk::leave() {
 }
 
 void LightDesk::stream() {
-  while (core::State::running()) {
+  while (core::State::isRunning()) {
+    static shared_ptr<fx::Fx> silent_fx;
+    static shared_ptr<fx::Fx> run_fx;
+
+    if (State::isSilent() && !silent_fx) {
+      run_fx = _active.fx;
+
+      silent_fx = make_shared<Leave>(0.25f, 25.0f);
+      _active.fx = silent_fx;
+    }
+
+    if (!State::isSilent() && !State::isSuspended() && run_fx) {
+      _active.fx = run_fx;
+      run_fx.reset();
+      silent_fx.reset();
+    }
+
     this_thread::sleep_for(milliseconds(100));
     this_thread::yield();
   }
 }
-
-std::shared_ptr<HeadUnitTracker> fx::Fx::_tracker;
 
 } // namespace lightdesk
 } // namespace pierre
