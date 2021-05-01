@@ -25,6 +25,7 @@
 #include "lightdesk/fx/colorbars.hpp"
 #include "lightdesk/fx/leave.hpp"
 #include "lightdesk/fx/majorpeak.hpp"
+#include "lightdesk/fx/silence.hpp"
 #include "lightdesk/lightdesk.hpp"
 
 namespace pierre {
@@ -54,29 +55,22 @@ LightDesk::LightDesk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {
   el_entry = _tracker->unit<ElWire>("el entry");
   discoball = _tracker->unit<DiscoBall>("discoball");
 
-  discoball->spin();
-
-  // select the first Fx
-  if (State::config("lightdesk"sv)->get("colorbars"sv)->value_or(false)) {
-    _active.fx = make_shared<fx::ColorBars>();
-  } else {
-    _active.fx = make_shared<fx::MajorPeak>();
-  }
+  // lightdesk always starts assuming silence
+  _active.fx = make_shared<Silence>();
 }
 
 LightDesk::~LightDesk() { Fx::resetTracker(); }
 
 void LightDesk::executeFx() {
-
   audio::spPeaks peaks = _dsp->peaks();
 
   lock_guard lck(_active.mtx);
   _active.fx->execute(peaks);
 
+  // this is placeholder code for future Fx
+  // at present the only Fx is MajorPeak which never ends
   if (_active.fx->finished()) {
-    if (_active.fx->matchName("ColorBars")) {
-      _active.fx = make_shared<MajorPeak>();
-    }
+    _active.fx = make_shared<MajorPeak>();
   }
 }
 
@@ -111,22 +105,44 @@ void LightDesk::leave() {
 
 void LightDesk::stream() {
   while (core::State::isRunning()) {
-    static shared_ptr<fx::Fx> silent_fx;
-    static shared_ptr<fx::Fx> run_fx;
 
-    if (State::isSilent() && !silent_fx) {
-      run_fx = _active.fx;
+    {
+      // protect all checks and/or changes to the active fx
+      lock_guard lck(_active.mtx);
 
-      silent_fx = make_shared<Leave>(0.25f, 25.0f);
-      _active.fx = silent_fx;
+      // nominal condition:
+      // sound is present and MajorPeak is active
+      if (_active.fx->matchName("MajorPeak"sv)) {
+        // if silent but not yet reached suspended start Leave
+        if (State::isSilent()) {
+          if (!State::isSuspended()) {
+            _active.fx = make_shared<Leave>();
+          }
+        }
+
+        goto delay;
+      }
+
+      // catch anytime we're coming out of silence or suspend
+      // ensure that MajorPeak is running when not silent and not suspended
+      if (!State::isSilent() && !State::isSuspended()) {
+        _active.fx = make_shared<MajorPeak>();
+        goto delay;
+      }
+
+      // transitional condition:
+      // there is no sound present however the timer for suspend hasn't elapsed
+      if (_active.fx->matchName("Leave"sv)) {
+        // if silent and have reached suspended, start Silence
+        if (State::isSilent() && State::isSuspended()) {
+          _active.fx = make_shared<Silence>();
+        }
+      }
+
+      goto delay;
     }
 
-    if (!State::isSilent() && !State::isSuspended() && run_fx) {
-      _active.fx = run_fx;
-      run_fx.reset();
-      silent_fx.reset();
-    }
-
+  delay:
     this_thread::sleep_for(milliseconds(100));
     this_thread::yield();
   }

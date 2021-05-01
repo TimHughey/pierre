@@ -23,6 +23,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 
 #include "audio/peaks.hpp"
 #include "core/state.hpp"
@@ -42,6 +43,8 @@ public:
   Fx() = default;
   virtual ~Fx() = default;
 
+  void allUnitsDark() { _tracker->dark(); }
+
   virtual void begin(){};
   void execute(const Peaks peaks);
   virtual void executeFx(const Peaks peaks) = 0;
@@ -49,8 +52,11 @@ public:
 
   const std::map<Freq, size_t> histogram() { return _histo; }
   void leave() { _tracker->leave(); }
-  bool matchName(const string match);
+  bool matchName(const std::string_view &match);
   virtual const string &name() const = 0;
+
+  // subclasses should override once() to run setup code one time
+  virtual void once() {}
   static void resetTracker() { _tracker.reset(); }
   static void setTracker(std::shared_ptr<HeadUnitTracker> tracker);
 
@@ -66,7 +72,11 @@ protected:
   std::map<Freq, size_t> _histo;
 
 private:
+  bool onceWrapper();
+
+private:
   static spHeadUnitTracker _tracker;
+  bool _one_time_only = true;
 };
 
 } // namespace fx

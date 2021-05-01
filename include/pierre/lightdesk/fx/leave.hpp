@@ -1,5 +1,5 @@
 /*
-    lightdesk/fx/majorpeak.hpp -- LightDesk Effect Major Peak
+    Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -40,9 +40,14 @@ public:
     return fx_name;
   }
 
+  void once() override;
+
 private:
   float _hue_step = 0.25f;
   float _brightness = 100.0f;
+
+  float _next_brightness = 0;
+  lightdesk::Color _next_color;
 
   spPinSpot main;
   spPinSpot fill;

@@ -49,6 +49,13 @@ public:
   HeadUnitTracker(const HeadUnitTracker &) = delete;
   HeadUnitTracker &operator=(const HeadUnitTracker &) = delete;
 
+  void dark() {
+    std::for_each(_map->begin(), _map->end(), [](auto x) {
+      auto unit = std::get<1>(x);
+      unit->dark();
+    });
+  }
+
   template <typename T> std::shared_ptr<T> find(const string name) {
     auto search = _map->find(name);
     auto x = std::static_pointer_cast<T>(std::get<1>(*search));

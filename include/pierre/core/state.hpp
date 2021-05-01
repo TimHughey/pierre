@@ -91,7 +91,7 @@ private:
   std::shared_ptr<Config> _cfg;
 
   struct {
-    std::atomic<Mode> mode = Running;
+    std::atomic<Mode> mode = Suspend;
 
     struct {
       time_point started;

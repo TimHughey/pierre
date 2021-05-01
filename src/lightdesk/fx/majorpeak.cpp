@@ -393,6 +393,16 @@ void MajorPeak::makeRefColors() {
        Color(0x9400d3)});
 }
 
+void MajorPeak::once() {
+  unit<LedForest>("led forest")->dark();
+  unit<ElWire>("el dance")->dark();
+  unit<ElWire>("el entry")->dark();
+  unit<DiscoBall>("discoball")->spin();
+
+  main->black();
+  fill->black();
+}
+
 double MajorPeak::randomHue() {
   auto hue = static_cast<double>(_random() % 360) / 360.0;
 

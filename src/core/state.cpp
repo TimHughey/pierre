@@ -60,7 +60,7 @@ void State::silent(bool silent) {
     return;
   }
 
-  // once we're reached suspended there is nothing more to do with
+  // once we're suspended there is nothing more to do with
   // additional silence
   if (silent && isSuspended()) {
     return;

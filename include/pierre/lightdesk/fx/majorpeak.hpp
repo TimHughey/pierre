@@ -76,6 +76,8 @@ public:
     return fx_name;
   }
 
+  void once() override;
+
 private:
   typedef std::deque<Color> ReferenceColors;
 

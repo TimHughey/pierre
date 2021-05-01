@@ -1,5 +1,5 @@
 /*
-    Pierre - Custom Light Show for Wiss Landing
+    Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -17,56 +17,37 @@
 
     https://www.wisslanding.com
 */
+#ifndef pierre_lightdesk_fx_silence_hpp
+#define pierre_lightdesk_fx_silence_hpp
 
 #include "lightdesk/fx/fx.hpp"
-
-using namespace std;
-using namespace std::string_view_literals;
 
 namespace pierre {
 namespace lightdesk {
 namespace fx {
 
-std::shared_ptr<HeadUnitTracker> Fx::_tracker;
+class Silence : public Fx {
 
-void Fx::execute(const Peaks peaks) {
+public:
+  Silence() = default;
+  ~Silence() = default;
 
-  State::silent(peaks->silence());
+  void executeFx(audio::spPeaks peaks) override {
+    peaks.reset();
+    // do nothing, enjoy the silence
+  };
 
-  // onceWrapper returns true if it called once() and consumes the first
-  // frame of the Fx
-  if (onceWrapper() == true) {
-    return;
+  const string &name() const override {
+    static const string fx_name = "Silence";
+
+    return fx_name;
   }
 
-  // the second frame is the first call to executeFx()
-  executeFx(move(peaks));
-}
-
-bool Fx::matchName(const string_view &match) {
-  auto rc = false;
-  if (name().compare(match) == 0) {
-    rc = true;
-  }
-
-  return rc;
-}
-
-bool Fx::onceWrapper() {
-  auto rc = _one_time_only;
-
-  if (_one_time_only) {
-    once();
-    _one_time_only = false;
-  }
-
-  return rc;
-}
-
-void Fx::setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
-  _tracker = std::move(tracker);
-}
+  void once() override { allUnitsDark(); }
+};
 
 } // namespace fx
 } // namespace lightdesk
 } // namespace pierre
+
+#endif
