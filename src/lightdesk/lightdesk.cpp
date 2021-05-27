@@ -64,7 +64,6 @@ LightDesk::~LightDesk() { Fx::resetTracker(); }
 void LightDesk::executeFx() {
   audio::spPeaks peaks = _dsp->peaks();
 
-  lock_guard lck(_active.mtx);
   _active.fx->execute(peaks);
 
   // this is placeholder code for future Fx
@@ -106,45 +105,39 @@ void LightDesk::leave() {
 void LightDesk::stream() {
   while (core::State::isRunning()) {
 
-    {
-      // protect all checks and/or changes to the active fx
-      lock_guard lck(_active.mtx);
-
-      // nominal condition:
-      // sound is present and MajorPeak is active
-      if (_active.fx->matchName("MajorPeak"sv)) {
-        // if silent but not yet reached suspended start Leave
-        if (State::isSilent()) {
-          if (!State::isSuspended()) {
-            _active.fx = make_shared<Leave>();
-          }
-        }
-
-        goto delay;
-      }
-
-      // catch anytime we're coming out of silence or suspend
-      // ensure that MajorPeak is running when not silent and not suspended
-      if (!State::isSilent() && !State::isSuspended()) {
-        _active.fx = make_shared<MajorPeak>();
-        goto delay;
-      }
-
-      // transitional condition:
-      // there is no sound present however the timer for suspend hasn't elapsed
-      if (_active.fx->matchName("Leave"sv)) {
-        // if silent and have reached suspended, start Silence
-        if (State::isSilent() && State::isSuspended()) {
-          _active.fx = make_shared<Silence>();
+    // nominal condition:
+    // sound is present and MajorPeak is active
+    if (_active.fx->matchName("MajorPeak"sv)) {
+      // if silent but not yet reached suspended start Leave
+      if (State::isSilent()) {
+        if (!State::isSuspended()) {
+          _active.fx = make_shared<Leave>();
         }
       }
 
       goto delay;
     }
 
+    // catch anytime we're coming out of silence or suspend
+    // ensure that MajorPeak is running when not silent and not suspended
+    if (!State::isSilent() && !State::isSuspended()) {
+      _active.fx = make_shared<MajorPeak>();
+      goto delay;
+    }
+
+    // transitional condition:
+    // there is no sound present however the timer for suspend hasn't elapsed
+    if (_active.fx->matchName("Leave"sv)) {
+      // if silent and have reached suspended, start Silence
+      if (State::isSilent() && State::isSuspended()) {
+        _active.fx = make_shared<Silence>();
+      }
+    }
+
+    goto delay;
+
   delay:
-    this_thread::sleep_for(milliseconds(100));
-    this_thread::yield();
+    this_thread::sleep_for(seconds(1));
   }
 }
 

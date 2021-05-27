@@ -16,7 +16,7 @@ logging = {file = "dsp.log", enable = false, truncate = true}
 [lightdesk]
 colorbars = false
 
-[silence]
+[lightdesk.silence]
 min_ms = 13_000
 suspend_after_ms = 600_000
 
@@ -51,9 +51,9 @@ brightness_min = 27.0
 
 [lightdesk.majorpeak.pinspot.main]
 name = 'main'
-fade_max_ms = 900
+fade_max_ms = 700
 frequency_min = 180.0
-when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 55.0}}
+when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
 
 [lightdesk.majorpeak.makecolor.above_soft_ceiling]
 hue = {min = 345.0, max = 355.0, step = 0.0001}
