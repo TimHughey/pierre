@@ -4,7 +4,7 @@
 # Top-level Cmake configuration
 #
 
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.22.0)
 
 
 # set the project name and version
@@ -32,7 +32,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   "-Wall" "-Wextra" "-pedantic"
   "-Wno-parentheses"
   "-O3"
-  "-mcpu=cortex-a72" "-march=armv8-a+fp+simd")
+  "-march=native")
 
   # Let's nicely support folders in IDEs
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -42,7 +42,7 @@ endif()
 find_package(ALSA REQUIRED)
 find_package(Threads REQUIRED)
 
-set(Boost_USE_STATIC_LIBS        ON)  # only find static libs
+# set(Boost_USE_STATIC_LIBS        ON)  # only find static libs
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
@@ -64,7 +64,7 @@ find_package(Git)
 if(GIT_FOUND)
   execute_process(
     COMMAND ${GIT_EXECUTABLE} describe
-    # WORKING_DIRECTORY "${local_dir}"
+    WORKING_DIRECTORY ${pierre_SOURCE_DIR}
     OUTPUT_VARIABLE _build_version
     ERROR_QUIET
     OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -88,16 +88,16 @@ set(CLI src/cli)
 set(APPS apps)
 
 add_executable(${_target}
-  ${AUDIO}/dsp ${AUDIO}/pcm ${AUDIO}/fft ${AUDIO}/peaks
-  ${CORE}/config ${CORE}/state
-  ${DMX}/packet ${DMX}/net ${DMX}/render
-  ${MISC}/random ${MISC}/elapsed
-  ${LIGHTDESK}/lightdesk ${LIGHTDESK}/color
-  ${FADERS}/fader ${FADERS}/easings
-  ${HEADUNITS}/pinspot
-  ${FX}/fx ${FX}/majorpeak ${FX}/leave
-  ${CLI}/linenoise ${CLI}/cli ${CLI}/subcmds/dsp ${CLI}/subcmds/lightdesk
-  ${APPS}/pierre ${APPS}/main
+  ${AUDIO}/dsp.cpp ${AUDIO}/pcm.cpp ${AUDIO}/fft.cpp ${AUDIO}/peaks.cpp
+  ${CORE}/config.cpp ${CORE}/state.cpp
+  ${DMX}/packet.cpp ${DMX}/net.cpp ${DMX}/render.cpp
+  ${MISC}/random.cpp ${MISC}/elapsed.cpp
+  ${LIGHTDESK}/lightdesk.cpp ${LIGHTDESK}/color.cpp
+  ${FADERS}/fader.cpp ${FADERS}/easings.cpp
+  ${HEADUNITS}/pinspot.cpp
+  ${FX}/fx.cpp ${FX}/majorpeak.cpp ${FX}/leave.cpp
+  ${CLI}/linenoise.c ${CLI}/cli.cpp ${CLI}/subcmds/dsp.cpp ${CLI}/subcmds/lightdesk.cpp
+  ${APPS}/pierre.cpp ${APPS}/main.cpp
 )
 
 configure_file(cmake/version.h.in version.h @ONLY)

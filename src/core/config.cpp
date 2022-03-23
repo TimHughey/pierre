@@ -29,13 +29,16 @@ using namespace std;
 
 namespace fs = std::filesystem;
 
-namespace pierre {
-namespace core {
+namespace pierre
+{
+  namespace core
+  {
 
-const error_code &Config::exists() const { return _exists_rc; }
+    const error_code &Config::exists() const { return _exists_rc; }
 
-const string_view Config::fallback() const {
-  auto raw = R"(
+    const string_view Config::fallback() const
+    {
+      auto raw = R"(
     [pierre]
     title = "Pierre Live Config"
     version = 1
@@ -109,24 +112,29 @@ const string_view Config::fallback() const {
     avail_min = 128
   )"sv;
 
-  return move(raw);
-}
+      return raw;
+    }
 
-auto Config::operator[](const std::string_view &subtable) {
-  return move(_tbl[subtable]);
-}
+    auto Config::operator[](const std::string_view &subtable)
+    {
+      return move(_tbl[subtable]);
+    }
 
-const error_code &Config::parse(path &file, bool use_embedded) {
-  _file = file;
+    const error_code &Config::parse(path &file, bool use_embedded)
+    {
+      _file = file;
 
-  if (fs::exists(_file, _exists_rc)) {
-    _tbl = toml::parse_file(_file.c_str());
-  } else if (use_embedded) {
-    _tbl = toml::parse(fallback());
-  }
+      if (fs::exists(_file, _exists_rc))
+      {
+        _tbl = toml::parse_file(_file.c_str());
+      }
+      else if (use_embedded)
+      {
+        _tbl = toml::parse(fallback());
+      }
 
-  return _exists_rc;
-}
+      return _exists_rc;
+    }
 
-} // namespace core
+  } // namespace core
 } // namespace pierre

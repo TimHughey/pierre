@@ -28,94 +28,89 @@
 
 #include "misc/minmax.hpp"
 
-namespace pierre {
-namespace lightdesk {
+namespace pierre
+{
+  namespace lightdesk
+  {
 
-class Hsb {
-public:
-  Hsb() = default;
-  Hsb(const float hue, const float sat, const float bri);
-  ~Hsb() = default;
+    struct Hsb
+    {
+      // no construvtor -- aggregate initialization
 
-  float hue() const { return _hue; }
-  float saturation() const { return _sat; }
-  float brightness() const { return _bri; }
+      bool operator==(const Hsb &rhs) const;
 
-  bool operator==(const Hsb &rhs) const;
+      static Hsb fromRgb(uint32_t rgb_val);
+      static Hsb fromRgb(uint8_t red, uint8_t grn, uint8_t blu);
+      void toRgb(uint8_t &red, uint8_t &grn, uint8_t &blu) const;
 
-  static Hsb fromRgb(uint32_t rgb_val);
-  static Hsb fromRgb(uint8_t red, uint8_t grn, uint8_t blu);
-  void toRgb(uint8_t &red, uint8_t &grn, uint8_t &blu) const;
+      // technically the default is unsaturated completely dark red
+      float hue = 0.0;
+      float sat = 0.0;
+      float bri = 0.0;
+    };
 
-public:
-  // technically the default is unsaturated completely dark red
-  float _hue = 0.0;
-  float _sat = 0.0;
-  float _bri = 0.0;
-};
+    class Color
+    {
+    public:
+      using string = std::string;
 
-class Color {
-public:
-  using string = std::string;
+      typedef uint8_t White;
 
-  typedef uint8_t White;
+    public:
+      Color() = default;
+      ~Color() = default;
 
-public:
-  Color() = default;
-  ~Color() = default;
+      Color(const uint rgb_val);
+      Color(const Hsb &hsb);
+      Color(const Color &rhs) = default;
 
-  Color(const uint rgb_val);
-  Color(const Hsb &hsb);
-  Color(const Color &rhs) = default;
+      void copyRgbToByteArray(uint8_t *array) const;
 
-  void copyRgbToByteArray(uint8_t *array) const;
+      // components
+      float brightness() const { return _hsb.bri * 100.0f; }
+      float hue() const { return _hsb.hue * 360.0f; }
+      float saturation() const { return _hsb.sat * 100.0f; }
 
-  // components
-  float brightness() const { return _hsb.brightness() * 100.0f; }
-  float hue() const { return _hsb.hue() * 360.0f; }
-  float saturation() const { return _hsb.saturation() * 100.0f; }
+          static Color interpolate(Color a, Color b, float t);
+      bool isBlack() const;
+      bool isWhite() const;
+      bool notBlack() const { return isBlack() == false; }
+      bool notWhite() const { return isWhite() == false; }
 
-  Hsb hsb() { return _hsb; }
+      bool operator==(const Color &rhs) const;
+      bool operator!=(const Color &rhs) const;
 
-  static Color interpolate(Color a, Color b, float t);
-  bool isBlack() const;
-  bool isWhite() const;
-  bool notBlack() const { return isBlack() == false; }
-  bool notWhite() const { return isWhite() == false; }
+      Color &rotateHue(const float step = 1.0);
 
-  bool operator==(const Color &rhs) const;
-  bool operator!=(const Color &rhs) const;
+      Color &setBrightness(float val);
+      Color &setBrightness(const Color &rhs);
+      Color &setBrightness(const MinMaxFloat &range, const float val);
 
-  Color &rotateHue(const float step = 1.0);
+      Color &setHue(float val);
 
-  Color &setBrightness(float val);
-  Color &setBrightness(const Color &rhs);
-  Color &setBrightness(const MinMaxFloat &range, const float val);
+      Color &setSaturation(float val);
+      Color &setSaturation(const Color &rhs);
+      Color &setSaturation(const MinMaxFloat &range, const float val);
 
-  Color &setHue(float val);
+      // useful static colors
+      static Color full()
+      {
+        Color color(0xffffff);
+        color._white = 255;
 
-  Color &setSaturation(float val);
-  Color &setSaturation(const Color &rhs);
-  Color &setSaturation(const MinMaxFloat &range, const float val);
+        return color;
+      }
+      static Color black() { return std::move(Color()); }
+      static Color none() { return std::move(Color()); }
 
-  // useful static colors
-  static Color full() {
-    Color color(0xffffff);
-    color._white = 255;
+      string asString() const;
 
-    return std::move(color);
-  }
-  static Color black() { return std::move(Color()); }
-  static Color none() { return std::move(Color()); }
+    private:
+      Hsb _hsb;
+      White _white = 0;
+    };
 
-  string asString() const;
-
-private:
-  Hsb _hsb;
-  White _white = 0;
-};
-
-} // namespace lightdesk
+  } // namespace lightdesk
 } // namespace pierre
 
 #endif

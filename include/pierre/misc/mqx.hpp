@@ -21,114 +21,129 @@
 #ifndef _pierre_mqx_hpp
 #define _pierre_mqx_hpp
 
+#include <memory>
 #include <chrono>
 #include <condition_variable> // std::condition_variable
 #include <mutex>              // std::mutex, std::unique_lock
 #include <queue>
 #include <vector>
 
-namespace pierre {
-
-template <typename T> class MsgQX {
+namespace pierre
+{
 
   typedef std::mutex Mutex_t;
   typedef std::unique_lock<Mutex_t> XLock_t;
   typedef std::lock_guard<Mutex_t> LockGuard_t;
   typedef std::condition_variable PendingBuffer_t;
 
-public:
-  MsgQX<T>(size_t max_depth = 10) : _max_depth(max_depth){};
+  template <typename T>
+  class MsgQX
+  {
 
-  size_t discards() {
-    auto discards = _discards;
+  public:
+    MsgQX(size_t max_depth = 10) : _max_depth(max_depth) {}
 
-    _discards = 0;
-
-    return discards;
-  }
-
-  void maxDepth(size_t depth) { _max_depth = depth; }
-
-  T latest() {
-
-    std::lock_guard lck(_latest_mtx);
-
-    T item = _latest;
-
-    return std::move(item);
-  }
-
-  T pop() {
-
-    T item;
-
+    size_t discards()
     {
-      std::unique_lock lck(_mtx);
+      auto discards = _discards;
 
-      _available.wait(lck, [this] { return _queue.empty() == false; });
+      _discards = 0;
 
-      item = _queue.front();
-      _queue.pop();
+      return discards;
     }
 
-    return std::move(item);
-  }
+    void maxDepth(size_t depth) { _max_depth = depth; }
 
-  T pop(const long ms, bool &timeout) {
-    timeout = false;
-    std::chrono::milliseconds wait_ms(ms);
-    T item;
-
+    T latest()
     {
-      std::unique_lock lck(_mtx);
 
-      if (_available.wait_for(lck, wait_ms,
-                              [this] { return _queue.empty() == false; })) {
+      std::lock_guard lck(_latest_mtx);
+
+      T item = _latest;
+
+      return (item);
+    }
+
+    T pop()
+    {
+
+      T item;
+
+      {
+        std::unique_lock lck(_mtx);
+
+        _available.wait(lck, [this]
+                        { return _queue.empty() == false; });
+
         item = _queue.front();
         _queue.pop();
-      } else {
-        timeout = true;
-      }
-    }
-
-    return std::move(item);
-  }
-
-  void push(T item) {
-    {
-      std::lock_guard latest_lck(_latest_mtx);
-      _latest = item;
-    }
-
-    {
-      std::lock_guard lck(_mtx);
-
-      if (_queue.size() == _max_depth) {
-        _queue.pop();
-        _discards++;
       }
 
-      _queue.push(std::move(item));
+      return (item);
     }
 
-    _available.notify_one();
-  }
+    T pop(const long ms, bool &timeout)
+    {
+      timeout = false;
+      std::chrono::milliseconds wait_ms(ms);
+      T item;
 
-  std::mutex &mutex() { return _mtx; }
-  std::queue<T> &queue() { return _queue; }
+      {
+        std::unique_lock lck(_mtx);
 
-private:
-  size_t _max_depth = 10;
+        if (_available.wait_for(lck, wait_ms,
+                                [this]
+                                { return _queue.empty() == false; }))
+        {
+          item = _queue.front();
+          _queue.pop();
+        }
+        else
+        {
+          timeout = true;
+        }
+      }
 
-  std::mutex _mtx;
-  std::queue<T> _queue;
-  std::condition_variable _available;
+      return (item);
+    }
 
-  std::mutex _latest_mtx;
-  T _latest;
+    void push(T item)
+    {
+      {
+        std::lock_guard latest_lck(_latest_mtx);
+        _latest = item;
+      }
 
-  size_t _discards = 0;
-};
+      {
+        std::lock_guard lck(_mtx);
+
+        if (_queue.size() == _max_depth)
+        {
+          _queue.pop();
+          _discards++;
+        }
+
+        _queue.push(std::move(item));
+      }
+
+      _available.notify_one();
+    }
+
+    std::mutex &mutex() { return _mtx; }
+    std::queue<T> &queue() { return _queue; }
+
+  private:
+    size_t _max_depth;
+
+    std::mutex _mtx;
+    std::queue<T> _queue;
+    std::condition_variable _available;
+
+    std::mutex _latest_mtx;
+    T _latest;
+
+    size_t _discards = 0;
+  };
 } // namespace pierre
 
 #endif

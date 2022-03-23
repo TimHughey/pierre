@@ -20,43 +20,51 @@
 
 #include "lightdesk/fx/leave.hpp"
 
-namespace pierre {
-namespace lightdesk {
-namespace fx {
+namespace pierre
+{
+  namespace lightdesk
+  {
+    namespace fx
+    {
 
-Leave::Leave(const float hue_step, const float brightness)
-    : _hue_step(hue_step), _brightness(brightness),
-      _next_color({.hue = 0, .sat = 100.0f, .bri = _brightness}) {
-  main = unit<PinSpot>("main");
-  fill = unit<PinSpot>("fill");
-}
+      Leave::Leave(const float hue_step, const float brightness)
+          : _hue_step(hue_step), _brightness(brightness),
+            _next_color({.hue = 0, .sat = 100, .bri = _brightness})
+      {
+        main = unit<PinSpot>("main");
+        fill = unit<PinSpot>("fill");
+      }
 
-void Leave::executeFx(audio::spPeaks peaks) {
-  peaks.reset(); // no use for peaks, release them
+      void Leave::executeFx(audio::spPeaks peaks)
+      {
+        peaks.reset(); // no use for peaks, release them
 
-  if (_next_brightness < 50.0) {
-    _next_brightness++;
-    _next_color.setBrightness(_next_brightness);
-  }
+        if (_next_brightness < 50.0)
+        {
+          _next_brightness++;
+          _next_color.setBrightness(_next_brightness);
+        }
 
-  main->color(_next_color);
-  fill->color(_next_color);
+        main->color(_next_color);
+        fill->color(_next_color);
 
-  if (_next_brightness >= 50.0) {
-    _next_color.rotateHue(_hue_step);
-  }
-}
+        if (_next_brightness >= 50.0)
+        {
+          _next_color.rotateHue(_hue_step);
+        }
+      }
 
-void Leave::once() {
-  unit<LedForest>("led forest")->leave();
-  unit<ElWire>("el dance")->leave();
-  unit<ElWire>("el entry")->leave();
-  unit<DiscoBall>("discoball")->leave();
+      void Leave::once()
+      {
+        unit<LedForest>("led forest")->leave();
+        unit<ElWire>("el dance")->leave();
+        unit<ElWire>("el entry")->leave();
+        unit<DiscoBall>("discoball")->leave();
 
-  main->black();
-  fill->black();
-}
+        main->black();
+        fill->black();
+      }
 
-} // namespace fx
-} // namespace lightdesk
+    } // namespace fx
+  }   // namespace lightdesk
 } // namespace pierre

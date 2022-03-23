@@ -23,38 +23,43 @@
 
 #include "lightdesk/fx/fx.hpp"
 
-namespace pierre {
-namespace lightdesk {
-namespace fx {
+namespace pierre
+{
+  namespace lightdesk
+  {
+    namespace fx
+    {
 
-class Leave : public Fx {
+      class Leave : public Fx
+      {
 
-public:
-  Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
-  ~Leave() = default;
+      public:
+        Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
+        ~Leave() = default;
 
-  void executeFx(audio::spPeaks peaks) override;
-  const string &name() const override {
-    static const string fx_name = "Leave";
+        void executeFx(audio::spPeaks peaks) override;
+        const string &name() const override
+        {
+          static const string fx_name = "Leave";
 
-    return fx_name;
-  }
+          return fx_name;
+        }
 
-  void once() override;
+        void once() override;
 
-private:
-  float _hue_step = 0.25f;
-  float _brightness = 100.0f;
+      private:
+        float _hue_step = 0.25f;
+        float _brightness = 100.0f;
 
-  float _next_brightness = 0;
-  lightdesk::Color _next_color;
+        float _next_brightness = 0;
+        lightdesk::Color _next_color;
 
-  spPinSpot main;
-  spPinSpot fill;
-};
+        spPinSpot main;
+        spPinSpot fill;
+      };
 
-} // namespace fx
-} // namespace lightdesk
+    } // namespace fx
+  }   // namespace lightdesk
 } // namespace pierre
 
 #endif

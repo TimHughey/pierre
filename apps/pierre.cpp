@@ -28,46 +28,45 @@
 #include "lightdesk/lightdesk.hpp"
 #include "pierre.hpp"
 
-namespace pierre {
+namespace pierre
+{
+  using namespace std;
 
-using namespace std;
+  void Pierre::run()
+  {
+    unordered_set<shared_ptr<thread>> threads;
 
-void Pierre::run() {
+    auto pcm = make_shared<audio::Pcm>();
+    auto dsp = make_shared<audio::Dsp>();
+    auto dmx = make_shared<dmx::Render>();
+    auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
 
-  unordered_set<std::shared_ptr<std::thread>> threads;
+    threads.insert(pcm->run());
+    threads.insert(dsp->run());
+    threads.insert(dmx->run());
 
-  shared_ptr<audio::Pcm> pcm = make_shared<audio::Pcm>();
-  threads.insert(pcm->run());
+    lightdesk->saveInstance(lightdesk);
+    threads.insert(lightdesk->run());
 
-  shared_ptr<audio::Dsp> dsp = make_shared<audio::Dsp>();
-  threads.insert(dsp->run());
+    pcm->addProcessor(dsp);
+    dmx->addProducer(lightdesk);
 
-  shared_ptr<dmx::Render> dmx = make_shared<dmx::Render>();
-  threads.insert(dmx->run());
+    Cli cmdLine = Cli();
+    cmdLine.run();
 
-  shared_ptr<lightdesk::LightDesk> lightdesk =
-      make_shared<lightdesk::LightDesk>(dsp);
+    if (State::leaving())
+    {
+      lightdesk->leave();
+    }
 
-  lightdesk->saveInstance(lightdesk);
-  threads.insert(lightdesk->run());
+    State::shutdown();
 
-  pcm->addProcessor(dsp);
-  dmx->addProducer(lightdesk);
+    for (auto t : threads)
+    {
+      t->join();
+    }
 
-  Cli cmdLine = Cli();
-  cmdLine.run();
-
-  if (State::leaving()) {
-    lightdesk->leave();
+    cout << endl;
   }
-
-  State::shutdown();
-
-  for (auto t : threads) {
-    t->join();
-  }
-
-  cout << endl;
-}
 
 } // namespace pierre

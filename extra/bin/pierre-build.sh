@@ -19,7 +19,7 @@ case ${action} in
 
   configure)
     # cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=debug -GNinja ${base}
-    cmake --clean-first -S ${base} -GNinja -B ${build_dir} \
+    cmake -S ${base} -GNinja -B ${build_dir} \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DCMAKE_BUILD_TYPE=Release
     ;;
 

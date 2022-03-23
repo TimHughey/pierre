@@ -29,58 +29,62 @@
 #include "core/state.hpp"
 #include "lightdesk/headunits/tracker.hpp"
 
-namespace pierre {
-namespace lightdesk {
-namespace fx {
+namespace pierre
+{
+  namespace lightdesk
+  {
+    namespace fx
+    {
 
-class Fx {
-public:
-  using string = std::string;
-  using Freq = audio::Freq;
-  using Peaks = audio::spPeaks;
+      class Fx
+      {
+      public:
+        using string = std::string;
+        using Freq = audio::Freq;
+        using Peaks = audio::spPeaks;
 
-public:
-  Fx() = default;
-  virtual ~Fx() = default;
+      public:
+        Fx() = default;
+        virtual ~Fx() = default;
 
-  void allUnitsDark() { _tracker->dark(); }
+        void allUnitsDark() { _tracker->dark(); }
 
-  virtual void begin(){};
-  void execute(const Peaks peaks);
-  virtual void executeFx(const Peaks peaks) = 0;
-  virtual bool finished() { return _finished; }
+        virtual void begin(){};
+        void execute(const Peaks peaks);
+        virtual void executeFx(const Peaks peaks) = 0;
+        virtual bool finished() { return _finished; }
 
-  const std::map<Freq, size_t> histogram() { return _histo; }
-  void leave() { _tracker->leave(); }
-  bool matchName(const std::string_view &match);
-  virtual const string &name() const = 0;
+        const std::map<Freq, size_t> histogram() { return _histo; }
+        void leave() { _tracker->leave(); }
+        bool matchName(const std::string_view &match);
+        virtual const string &name() const = 0;
 
-  // subclasses should override once() to run setup code one time
-  virtual void once() {}
-  static void resetTracker() { _tracker.reset(); }
-  static void setTracker(std::shared_ptr<HeadUnitTracker> tracker);
+        // subclasses should override once() to run setup code one time
+        virtual void once() {}
+        static void resetTracker() { _tracker.reset(); }
+        static void setTracker(std::shared_ptr<HeadUnitTracker> tracker);
 
-  template <typename T> std::shared_ptr<T> unit(const string name) {
-    auto x = _tracker->unit<T>(name);
+        template <typename T>
+        std::shared_ptr<T> unit(const string name)
+        {
+          return _tracker->unit<T>(name);
+        }
 
-    return std::move(x);
-  }
+      protected:
+        bool _finished = false;
+        std::mutex _histo_mtx;
+        std::map<Freq, size_t> _histo;
 
-protected:
-  bool _finished = false;
-  std::mutex _histo_mtx;
-  std::map<Freq, size_t> _histo;
+      private:
+        bool onceWrapper();
 
-private:
-  bool onceWrapper();
+      private:
+        static spHeadUnitTracker _tracker;
+        bool _one_time_only = true;
+      };
 
-private:
-  static spHeadUnitTracker _tracker;
-  bool _one_time_only = true;
-};
-
-} // namespace fx
-} // namespace lightdesk
+    } // namespace fx
+  }   // namespace lightdesk
 } // namespace pierre
 
 #endif

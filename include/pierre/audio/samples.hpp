@@ -26,61 +26,68 @@
 
 #include "misc/mqx.hpp"
 
-namespace pierre {
-namespace audio {
+namespace pierre
+{
+  namespace audio
+  {
 
-typedef std::vector<int16_t> Raw;
+    typedef std::vector<int16_t> Raw;
 
-class RawPacket {
-public:
-  RawPacket() = delete;
+    class RawPacket
+    {
+    public:
+      RawPacket() = delete;
 
-  RawPacket(const RawPacket &) = delete;
-  RawPacket &operator=(const RawPacket &) = delete;
+      RawPacket(const RawPacket &) = delete;
+      RawPacket &operator=(const RawPacket &) = delete;
 
-  RawPacket(const long &frames, const long &samples)
-      : frames(frames), samples(samples) {
+      RawPacket(const long &frames, const long &samples)
+          : frames(frames), samples(samples)
+      {
 
-    raw.assign(samples, 0);
-  }
+        raw.assign(samples, 0);
+      }
 
-  Raw raw;
-  size_t bytes; // deprecated
-  long frames;
-  long samples;
+      Raw raw;
+      size_t bytes; // deprecated
+      long frames;
+      long samples;
 
-  static std::shared_ptr<RawPacket> make_shared(const long &frames,
-                                                const long &samples) {
-    auto rp = std::make_shared<RawPacket>(frames, samples);
+      static std::shared_ptr<RawPacket> make_shared(const long &frames,
+                                                    const long &samples)
+      {
+        auto rp = std::make_shared<RawPacket>(frames, samples);
 
-    return std::move(rp);
-  }
-};
+        return (rp);
+      }
+    };
 
-typedef std::shared_ptr<RawPacket> spRawPacket;
+    typedef std::shared_ptr<RawPacket> spRawPacket;
 
-class Samples {
-public:
-  Samples() { _queue.maxDepth(10); };
+    class Samples
+    {
+    public:
+      Samples() { _queue.maxDepth(10); };
 
-  Samples(const Samples &) = delete;
-  Samples &operator=(const Samples &) = delete;
+      Samples(const Samples &) = delete;
+      Samples &operator=(const Samples &) = delete;
 
-  void push(spRawPacket packet) { _queue.push(packet); }
+      void push(spRawPacket packet) { _queue.push(packet); }
 
-protected:
-  spRawPacket pop() {
-    auto entry = _queue.pop();
+    protected:
+      spRawPacket pop()
+      {
+        auto entry = _queue.pop();
 
-    return entry;
-  }
+        return entry;
+      }
 
-  MsgQX<spRawPacket> _queue;
-};
+      MsgQX<spRawPacket> _queue;
+    };
 
-typedef std::shared_ptr<Samples> spSamples;
+    typedef std::shared_ptr<Samples> spSamples;
 
-} // namespace audio
+  } // namespace audio
 } // namespace pierre
 
 #endif
