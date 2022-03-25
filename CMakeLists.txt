@@ -15,6 +15,7 @@ project(pierre
 )
 
 set(_target pierre)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # only do the following in the base directory
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -24,7 +25,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-  set(CMAKE_C_STANDARD 11)
+  set(CMAKE_C_STANDARD 17)
   set(CMAKE_C_STANDARD_REQUIRED True)
 
   set(COMPILER_FLAGS)
@@ -34,10 +35,11 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   "-O3"
   "-march=native")
 
+  
+
   # Let's nicely support folders in IDEs
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
-
 
 find_package(ALSA REQUIRED)
 find_package(Threads REQUIRED)
@@ -76,6 +78,8 @@ endif()
 
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
+add_subdirectory(src)
+
 set(AUDIO src/audio)
 set(CORE src/core)
 set(DMX src/dmx)
@@ -86,6 +90,7 @@ SET(FX src/lightdesk/fx)
 set(MISC src/misc)
 set(CLI src/cli)
 set(APPS apps)
+
 
 add_executable(${_target}
   ${AUDIO}/dsp.cpp ${AUDIO}/pcm.cpp ${AUDIO}/fft.cpp ${AUDIO}/peaks.cpp
