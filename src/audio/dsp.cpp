@@ -18,28 +18,23 @@
     https://www.wisslanding.com
 */
 
-#include "audio/dsp.hpp"
 #include "core/state.hpp"
 #include "misc/elapsed.hpp"
+
+#include "dsp.hpp"
 
 using namespace std;
 using namespace chrono;
 
 namespace pierre {
-using State = core::State;
 
 namespace audio {
 
-uint16_t fft_cfg(const string_view &item, const uint16_t def_val) {
-  return State::config("dsp"sv, "fft")->get(item)->value_or(def_val);
-}
+// uint16_t fft_cfg(const string_view &item, const uint16_t def_val) {
+//   return State::config("dsp"sv, "fft")->get(item)->value_or(def_val);
+// }
 
-Dsp::Dsp()
-    : _fft_left(fft_cfg("samples"sv, 1024), fft_cfg("rate"sv, 48000))
-
-{
-  _peaks = make_shared<Peaks>();
-}
+Dsp::Dsp() : _fft_left(1024, 44100) { _peaks = make_shared<Peaks>(); }
 
 void Dsp::doFFT(FFT &fft) {
   // calculate the FFT and find peaks
@@ -58,8 +53,7 @@ spPeaks Dsp::peaks() {
 }
 
 Dsp::spThread Dsp::run() {
-  auto t = make_shared<thread>([this]() { this->stream(); });
-  return t;
+  return make_shared<thread>([this]() { this->stream(); });
 }
 
 void Dsp::stream() {

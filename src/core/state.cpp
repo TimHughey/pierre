@@ -20,35 +20,33 @@
 
 #include "iostream"
 
-#include "core/state.hpp"
+#include "args.hpp"
+#include "state.hpp"
+
+using namespace std::chrono;
+using string = std::string;
+using string_view = std::string_view;
 
 namespace pierre {
-namespace core {
 
 using namespace std;
 using std::chrono::duration_cast;
 
 State State::i = State();
 
-shared_ptr<Config> State::config() { return i._cfg; }
+ConfigPtr State::config() { return i.cfg; }
 
-toml::table *State::config(const string_view &key) {
-  return i._cfg->table().get(key)->as_table();
+bool State::initConfig(const string cfg_file) noexcept {
+  i.cfg = make_shared<Config>();
+
+  return true;
 }
 
-toml::table *State::config(const string_view &key, const string_view &sub) {
-  return i._cfg->table().get(key)->as_table()->get(sub)->as_table();
-}
+bool State::isSilent() { return i.s.mode == Mode::Silence; }
+bool State::isSuspended() { return i.s.mode == Mode::Suspend; }
+bool State::isRunning() { return i.s.mode != Mode::Shutdown; }
 
-shared_ptr<Config> State::initConfig() noexcept {
-  i._cfg = make_shared<Config>();
-
-  return i._cfg;
-}
-
-bool State::isSilent() { return i.s.mode == Silence; }
-bool State::isSuspended() { return i.s.mode == Suspend; }
-bool State::isRunning() { return i.s.mode != Shutdown; }
+void State::setup(std::unique_ptr<Args> args) {}
 
 void State::silent(bool silent) {
   auto &silence = i.s.silence;
@@ -56,7 +54,7 @@ void State::silent(bool silent) {
   // if this is the first detection of silence start tracking the duration
   if (silent && !silence.detected) {
     silence.detected = true;
-    silence.started = clock::now();
+    silence.started = steady_clock::now();
     return;
   }
 
@@ -67,35 +65,35 @@ void State::silent(bool silent) {
   }
 
   // this is more silence, do we need to transition to Silence or Suspend?
-  if (silent && silence.detected) {
-    auto diff = duration_cast<milliseconds>(clock::now() - silence.started);
-    auto tbl = State::config()->table();
+  // if (silent && silence.detected) {
+  //   auto diff = duration_cast<milliseconds>(clock::now() - silence.started);
+  //   auto tbl = State::config()->table();
 
-    // once we're in Silent mode check if we shuld progress to Suspend
-    if (isSilent() && !isSuspended()) {
-      auto ms = tbl["silence"sv]["suspend_after_ms"sv].value_or(600000);
+  //   // once we're in Silent mode check if we shuld progress to Suspend
+  //   if (isSilent() && !isSuspended()) {
+  //     auto ms = tbl["silence"sv]["suspend_after_ms"sv].value_or(600000);
 
-      if (diff.count() > ms) {
-        i.s.mode = Suspend; // engage Suspend mode
-      }
-    }
+  //     if (diff.count() > ms) {
+  //       i.s.mode = Mode::Suspend; // engage Suspend mode
+  //     }
+  //   }
 
-    // if we're still in Running mode then track how long it's been
-    // silent and eventually progress to Silence mode
+  //   // if we're still in Running mode then track how long it's been
+  //   // silent and eventually progress to Silence mode
 
-    if (i.s.mode == Running) {
-      auto min_ms = tbl["silence"sv]["min_ms"sv].value_or(13000);
+  //   if (i.s.mode == Mode::Running) {
+  //     auto min_ms = tbl["silence"sv]["min_ms"sv].value_or(13000);
 
-      if (diff.count() > min_ms) {
-        silence.prev_mode = i.s.mode;
-        i.s.mode = Silence; // engage Silence mode
-      }
-    }
-  }
+  //     if (diff.count() > min_ms) {
+  //       silence.prev_mode = i.s.mode;
+  //       i.s.mode = Mode::Silence; // engage Silence mode
+  //     }
+  //   }
+  // }
 
   if (silent == false) {
     silence.detected = false;
-    if ((i.s.mode == Silence) || (i.s.mode == Suspend)) {
+    if ((i.s.mode == Mode::Silence) || (i.s.mode == Mode::Suspend)) {
       // return to the active mode prior to Silence/Suspend
       i.s.mode = silence.prev_mode;
     }
@@ -103,15 +101,15 @@ void State::silent(bool silent) {
 }
 
 void State::leave(milliseconds ms) {
-  i.s.mode = Leaving;
-  i.s.leaving.started = clock::now();
+  i.s.mode = Mode::Leaving;
+  i.s.leaving.started = steady_clock::now();
   i.s.leaving.ms = ms;
 }
 
 bool State::leaveInProgress() {
   auto rc = false;
 
-  auto elapsed = clock::now() - i.s.leaving.started;
+  auto elapsed = steady_clock::now() - i.s.leaving.started;
 
   if (elapsed < i.s.leaving.ms) {
     rc = true;
@@ -120,12 +118,11 @@ bool State::leaveInProgress() {
   return rc;
 }
 
-bool State::leaving() { return i.s.mode == Leaving; }
+bool State::leaving() { return i.s.mode == Mode::Leaving; }
 
-void State::quit() { i.s.mode = Quitting; }
-bool State::quitting() { return i.s.mode == Quitting; }
+void State::quit() { i.s.mode = Mode::Quitting; }
+bool State::quitting() { return i.s.mode == Mode::Quitting; }
 
-void State::shutdown() { i.s.mode = Shutdown; }
+void State::shutdown() { i.s.mode = Mode::Shutdown; }
 
-} // namespace core
 } // namespace pierre

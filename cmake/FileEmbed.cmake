@@ -1,5 +1,4 @@
 function(FileEmbedSetup)
-
     if (NOT EXISTS ${CMAKE_BINARY_DIR}/file_embed)
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}file_embed)
     endif ()
@@ -9,8 +8,7 @@ function(FileEmbedSetup)
     endif ()
 
     add_library(file_embed ${CMAKE_BINARY_DIR}/file_embed/file_embed_empty.c)
-    target_include_directories(file_embed PUBLIC ${CMAKE_BINARY_DIR}/file_embed)
-
+    target_include_directories(file_embed PUBLIC)
 endfunction()
 
 function(FileEmbedAdd file)

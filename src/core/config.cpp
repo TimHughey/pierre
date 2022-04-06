@@ -1,6 +1,6 @@
 /*
     Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2021  Tim Hughey
+    Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,123 +18,211 @@
     https://www.wisslanding.com
 */
 
+#include <algorithm>
+#include <arpa/inet.h>
+#include <array>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <ifaddrs.h>
+#include <iomanip>
+#include <linux/if_packet.h>
+#include <net/ethernet.h> /* the L2 protocols */
+#include <string_view>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <uuid/uuid.h>
+#include <vector>
 
-#define TOML_IMPLEMENTATION
+#include "config.hpp"
+#include "version.h"
 
-#include "core/config.hpp"
-#include "external/toml.hpp"
+static int get_device_id(uint8_t *id, int int_length) {
+  int response = 0;
+  struct ifaddrs *ifaddr = NULL;
+  struct ifaddrs *ifa = NULL;
+  int i = 0;
+  uint8_t *t = id;
+  for (i = 0; i < int_length; i++) {
+    *t++ = 0;
+  }
+
+  if (getifaddrs(&ifaddr) == -1) {
+    response = -1;
+  } else {
+    t = id;
+    int found = 0;
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+
+      if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
+        struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
+        if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
+          for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
+            *t++ = s->sll_addr[i];
+          }
+          found = 1;
+        }
+      }
+    }
+    freeifaddrs(ifaddr);
+  }
+  return response;
+}
+
+static uint32_t nctohl(const uint8_t *p) {
+  // read 4 characters from *p and do ntohl on them
+  // this is to avoid possible aliasing violations
+  uint32_t holder;
+  memcpy(&holder, p, sizeof(holder));
+  return ntohl(holder);
+}
+
+static uint16_t nctohs(const uint8_t *p) {
+  // read 2 characters from *p and do ntohs on them
+  // this is to avoid possible aliasing violations
+  uint16_t holder;
+  memcpy(&holder, p, sizeof(holder));
+  return ntohs(holder);
+}
+
+static uint64_t nctoh64(const uint8_t *p) {
+  uint32_t landing = nctohl(p); // get the high order 32 bits
+  uint64_t vl = landing;
+  vl = vl << 32;                          // shift them into the correct location
+  landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
+  uint64_t ul = landing;
+  vl = vl + ul;
+  return vl;
+}
+
+namespace pierre {
 
 using namespace std;
-
 namespace fs = std::filesystem;
+using fs::path;
 
-namespace pierre
-{
-  namespace core
-  {
+const fs::path etc{"/etc/pierre"};
+const fs::path local_etc{"/usr/local/etc/pierre"};
+const string_view home_cfg_dir{".pierre"};
+const string_view suffix{".conf"};
 
-    const error_code &Config::exists() const { return _exists_rc; }
+typedef std::vector<fs::path> paths;
 
-    const string_view Config::fallback() const
-    {
-      auto raw = R"(
-    [pierre]
-    title = "Pierre Live Config"
-    version = 1
-    working_dir = "/tmp/pierre"
-    log_dir = "/tmp/pierre"
+Config::Config() {
+  using namespace fmt;
 
-    [dmx]
-    host = "test-with-devs.ruth"
-    port = "48005"
+  // create the UUID for AirPlay mDNS registration
+  uuid_t binuuid;
+  uuid_generate_random(binuuid);
+  uuid_unparse_lower(binuuid, airplay_pi.data());
 
-    [dsp]
-    fft = {samples = 1024, rate = 48000}
-    logging = {file = "dsp.log", enable = false, truncate = true}
+  get_device_id((uint8_t *)&hw_addr, 6);
 
-    [lightdesk]
-    colorbars = false
+  // auto temporary_airplay_id = nctoh64(hw_addr) >> 16;
 
-    [lightdesk.majorpeak.logging]
-    file = "majorpeak.log"
-    truncate = true
-    peaks = false
-    colors = false
+  // char apids[6 * 2 + 5 + 1]; // six pairs of digits, 5 colons and a NUL
+  // apids[6 * 2 + 5] = 0;      // NUL termination
+  // int i;
+  // char hexchar[] = "0123456789abcdef";
+  // for (i = 5; i >= 0; i--) {
+  //   apids[i * 3 + 1] = hexchar[temporary_airplay_id & 0xF];
+  //   temporary_airplay_id = temporary_airplay_id >> 4;
+  //   apids[i * 3] = hexchar[temporary_airplay_id & 0xF];
+  //   temporary_airplay_id = temporary_airplay_id >> 4;
+  //   if (i != 0)
+  //     apids[i * 3 - 1] = ':';
+  // }
 
-    [lightdesk.majorpeak.color]
-    reference = { hue = 0.0, sat = 100.0, bri = 100.0}
-    random_start = false
-    rotate = {enable = false, ms = 7000}
+  firmware_version = GIT_REVISION;
+  fmt::print("\nPierre {:>25}\n\n", firmware_version);
 
-    [lightdesk.majorpeak.frequencies]
-    hard = {ceiling = 10000.0, floor = 40.0}
-    soft = {ceiling = 1500.0, floor = 110.0}
+  constexpr auto format_s = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}";
+  mac_addr = format(format_s, hw_addr[0], hw_addr[1], hw_addr[2], hw_addr[3], hw_addr[4], hw_addr[5]);
 
-    [lightdesk.majorpeak.pinspot.fill]
-    name = 'fill'
-    frequency_max = 1000.0
-    fade_max_ms = 800
+  airplay_device_id = mac_addr;
 
-    [lightdesk.majorpeak.pinspot.fill.when_greater]
-    frequency = 180.0
-    brightness_min = 3.0
-    higher_frequency = {brightness_min = 80.0}
+  // std::array _feature_bits{9, 11, 18, 19, 30, 40, 41, 51};
+  // for (const auto &bit : _feature_bits) {
+  //   airplay_features |= (1 << bit);
+  // }
+}
 
-    [lightdesk.majorpeak.pinspot.fill.when_lessthan]
-    frequency = 180.0
-    brightness_min = 27.0
+bool Config::findFile(const string &file) {
 
-    [lightdesk.majorpeak.pinspot.main]
-    name = 'main'
-    fade_max_ms = 700
-    frequency_min = 180.0
-    when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
+  // must have suffix .conf
+  if (!file.ends_with(suffix))
+    return false;
 
-    [lightdesk.majorpeak.makecolor.above_soft_ceiling]
-    hue = {min = 345.0, max = 355.0, step = 0.0001}
-    brightness = {max = 50.0, mag_scaled = true}
+  auto rc = false;
+  auto const cwd = fs::current_path();
 
-    [lightdesk.majorpeak.makecolor.generic]
-    hue = {min = 30.0, max = 360.0, step = 0.0001}
-    brightness = {max = 100.0, mag_scaled = true}
+  // create the first check; if relative prepend with cwd
+  auto first = path{file};
+  if (first.is_relative()) {
+    first = path(cwd).append(file);
+  }
 
-    [pcm.logging]
-    file = "pcm.log"
-    init = false
-    truncate = true
+  const auto user_home = getenv("HOME");
 
-    [pcm.alsa]
-    device = 'hw:CARD=sndrpihifiberry,DEV=0'
-    format = "S16_LE"
-    channels = 2
-    rate = 48000
-    avail_min = 128
-  )"sv;
+  // absolute paths to check (so they can be directly set to _cfg_file)
+  paths search_paths{first, path{user_home}.append(home_cfg_dir).append(file), path{local_etc}.append(file),
+                     path(etc).append(file)};
 
-      return raw;
-    }
+  // lambda to check each path
+  auto check = [](fs::path &check_path) {
+    error_code ec;
+    auto const stat = fs::status(check_path, ec);
 
-    auto Config::operator[](const std::string_view &subtable)
-    {
-      return move(_tbl[subtable]);
-    }
+    return !ec && fs::exists(stat);
+  };
 
-    const error_code &Config::parse(path &file, bool use_embedded)
-    {
-      _file = file;
+  // search the paths
+  auto found = find_if(search_paths.begin(), search_paths.end(), check);
 
-      if (fs::exists(_file, _exists_rc))
-      {
-        _tbl = toml::parse_file(_file.c_str());
-      }
-      else if (use_embedded)
-      {
-        _tbl = toml::parse(fallback());
-      }
+  // store the path to the config file if found
+  if (found != search_paths.end()) {
+    _cfg_file = found->c_str();
+    rc = true;
+  }
 
-      return _exists_rc;
-    }
+  return rc;
+}
 
-  } // namespace core
+bool Config::load() {
+
+  if (_cfg_file.empty()) {
+    return false;
+  }
+
+  // Read the file. If there is an error, report it and exit.
+  try {
+    readFile(_cfg_file);
+  } catch (const libconfig::FileIOException &fioex) {
+
+    fmt::print("I/O error while reading file: {}\n", _cfg_file);
+    return false;
+
+  } catch (const libconfig::ParseException &pex) {
+
+    fmt::print("Parse error at {}:{}-{}\n", pex.getFile(), pex.getLine(), pex.getError());
+    return false;
+  }
+
+  return true;
+}
+
+void Config::test(const char *setting, const char *key) {
+  const auto &root = getRoot();
+
+  const libconfig::Setting &set = root.lookup(setting);
+
+  const char *val;
+
+  if (set.lookupValue(key, val)) {
+    fmt::print("found {}.{}:{}\n", setting, key, val);
+  }
+}
+
 } // namespace pierre

@@ -34,9 +34,7 @@ float Circular::calc(float current, const float total) const {
 
   current /= total / 2.0f;
   if (current < 1) {
-    x = copysign(_step, -1.0f) / 2.0f *
-            (sqrt(1.0f - current * current) - 1.0f) +
-        _start_val;
+    x = copysign(_step, -1.0f) / 2.0f * (sqrt(1.0f - current * current) - 1.0f) + _start_val;
   } else {
     current -= 2.0f;
     x = _step / 2 * (sqrt(1.0f - current * current) + 1.0f) + _start_val;
@@ -45,12 +43,9 @@ float Circular::calc(float current, const float total) const {
   return x;
 }
 
-float CircularAcceleratingFromZero::calc(float current,
-                                         const float total) const {
+float CircularAcceleratingFromZero::calc(float current, const float total) const {
   current /= total;
-  const float x =
-      copysign(_step, -1.0f) * (sqrt(1.0f - current * current) - 1) +
-      _start_val;
+  const float x = copysign(_step, -1.0f) * (sqrt(1.0f - current * current) - 1) + _start_val;
 
   return x;
 }
@@ -72,8 +67,7 @@ float Quadratic::calc(float current, const float total) const {
     x = _step / 2.0f * current * current + _start_val;
   } else {
     current--;
-    x = copysign(_step, -1.0f) / 2.0f * (current * (current - 2.0f) - 1.0f) +
-        _start_val;
+    x = copysign(_step, -1.0f) / 2.0f * (current * (current - 2.0f) - 1.0f) + _start_val;
   }
 
   return x;
@@ -103,24 +97,19 @@ float SimpleLinear::calc(const float current, const float total) const {
 }
 
 float Sine::calc(const float current, const float total) const {
-  const float x =
-      copysign(_step, -1.0f) / 2.0f * (cos(PI * current / total) - 1.0f) +
-      _start_val;
+  const float x = copysign(_step, -1.0f) / 2.0f * (cos(PI * current / total) - 1.0f) + _start_val;
 
   return x;
 }
 
-float SineAcceleratingFromZero::calc(const float current,
-                                     const float total) const {
+float SineAcceleratingFromZero::calc(const float current, const float total) const {
   const float x = _step * sin((current / total) * PI_HALF) + _start_val;
 
   return x;
 }
 
-float SineDeceleratingToZero::calc(const float current,
-                                   const float total) const {
-  const float x = copysign(_step, -1.0f) * cos((current / total) * PI_HALF) +
-                  _step + _start_val;
+float SineDeceleratingToZero::calc(const float current, const float total) const {
+  const float x = copysign(_step, -1.0f) * cos((current / total) * PI_HALF) + _step + _start_val;
 
   return x;
 }

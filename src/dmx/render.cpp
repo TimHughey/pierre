@@ -19,8 +19,8 @@
 */
 
 #include "dmx/render.hpp"
+#include "ArduinoJson.h"
 #include "core/state.hpp"
-#include "external/ArduinoJson.h"
 
 typedef StaticJsonDocument<1024> doc;
 
@@ -35,23 +35,9 @@ using std::chrono::time_point;
 namespace this_thread = std::this_thread;
 
 namespace pierre {
-
-using State = core::State;
-
 namespace dmx {
 
-string dmx_cfg(const string_view &item, const string_view &def_val) {
-  string str(def_val);
-
-  return State::config("dmx"sv)->get(item)->value_or(str);
-}
-
-Render::Render()
-    : _net(_io_ctx, dmx_cfg("host"sv, "test-with-devs.ruth"sv),
-           dmx_cfg("port"sv, "48005"sv)) {
-
-  _frame.assign(256, 0x00);
-}
+Render::Render() : _net(_io_ctx, string{"test-with-devs.ruth"}, string{"48005"}) { _frame.assign(256, 0x00); }
 
 std::shared_ptr<std::thread> Render::run() {
   auto t = std::make_shared<std::thread>([this]() { this->stream(); });

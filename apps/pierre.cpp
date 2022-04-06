@@ -18,55 +18,76 @@
     https://www.wisslanding.com
 */
 
+#include <iostream>
 #include <thread>
 #include <unordered_set>
 
 #include "audio/dsp.hpp"
 #include "audio/pcm.hpp"
-#include "cli/cli.hpp"
+#include "core/args.hpp"
 #include "dmx/render.hpp"
 #include "lightdesk/lightdesk.hpp"
+#include "mdns/mdns.hpp"
 #include "pierre.hpp"
+#include "rtsp/rtsp.hpp"
 
-namespace pierre
-{
-  using namespace std;
+namespace pierre {
+using namespace std;
 
-  void Pierre::run()
-  {
-    unordered_set<shared_ptr<thread>> threads;
+tuple<bool, ArgsMap> Pierre::prepareToRun(int argc, char *argv[]) {
+  Args args;
+  auto args_map = args.parse(argc, argv);
 
-    auto pcm = make_shared<audio::Pcm>();
-    auto dsp = make_shared<audio::Dsp>();
-    auto dmx = make_shared<dmx::Render>();
-    auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
+  auto ok = false;
 
-    threads.insert(pcm->run());
-    threads.insert(dsp->run());
-    threads.insert(dmx->run());
+  if (args_map.parse_ok) {
+    _cfg = std::make_shared<Config>();
 
-    lightdesk->saveInstance(lightdesk);
-    threads.insert(lightdesk->run());
+    auto config_ok = _cfg->findFile(args_map.cfg_file) && _cfg->load();
 
-    pcm->addProcessor(dsp);
-    dmx->addProducer(lightdesk);
-
-    Cli cmdLine = Cli();
-    cmdLine.run();
-
-    if (State::leaving())
-    {
-      lightdesk->leave();
+    if (config_ok) {
+      // _cfg->test("pierre", "description");
+      ok = true;
     }
-
-    State::shutdown();
-
-    for (auto t : threads)
-    {
-      t->join();
-    }
-
-    cout << endl;
   }
+
+  return make_tuple(ok, args_map);
+}
+
+void Pierre::run() {
+  unordered_set<shared_ptr<thread>> threads;
+
+  auto mdns = make_shared<mDNS>(_cfg);
+  threads.insert(make_shared<thread>([mdns]() { mdns->start(); }));
+
+  auto rtsp = make_shared<Rtsp>(_cfg->port);
+  threads.insert(make_shared<thread>([rtsp]() { rtsp->run(); }));
+
+  auto dsp = make_shared<audio::Dsp>();
+  auto dmx = make_shared<dmx::Render>();
+  auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
+
+  threads.insert(dsp->run());
+  threads.insert(dmx->run());
+
+  lightdesk->saveInstance(lightdesk);
+  threads.insert(lightdesk->run());
+
+  dmx->addProducer(lightdesk);
+
+  sleep(10);
+
+  if (State::leaving()) {
+    lightdesk->leave();
+  }
+
+  State::shutdown();
+
+  for (auto t : threads) {
+    t->join();
+  }
+
+  cout << endl;
+}
 
 } // namespace pierre

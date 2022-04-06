@@ -18,6 +18,9 @@
     https://www.wisslanding.com
 */
 
+#include <boost/array.hpp>
+#include <boost/asio.hpp>
+
 #include "dmx/packet.hpp"
 
 namespace asio = boost::asio;

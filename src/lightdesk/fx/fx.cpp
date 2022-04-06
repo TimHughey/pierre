@@ -63,9 +63,7 @@ bool Fx::onceWrapper() {
   return rc;
 }
 
-void Fx::setTracker(std::shared_ptr<HeadUnitTracker> tracker) {
-  _tracker = std::move(tracker);
-}
+void Fx::setTracker(std::shared_ptr<HeadUnitTracker> tracker) { _tracker = std::move(tracker); }
 
 } // namespace fx
 } // namespace lightdesk

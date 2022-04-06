@@ -80,30 +80,30 @@ shared_ptr<thread> LightDesk::run() {
 }
 
 void LightDesk::leave() {
-  auto x = core::State::leavingDuration<seconds>().count();
+  auto x = State::leavingDuration<seconds>().count();
 
   {
     lock_guard lck(_active.mtx);
     _active.fx = make_shared<Leave>();
   }
 
-  cout << "leaving for " << x << " second";
-  if (x > 1) {
-    cout << "s";
-  }
+  // cout << "leaving for " << x << " second";
+  // if (x > 1) {
+  //   cout << "s";
+  // }
 
-  cout << " (or Ctrl-C to quit immediately)";
-  cout.flush();
+  // cout << " (or Ctrl-C to quit immediately)";
+  // cout.flush();
 
-  this_thread::sleep_for(core::State::leavingDuration<milliseconds>());
+  this_thread::sleep_for(State::leavingDuration<milliseconds>());
 
-  core::State::shutdown();
+  State::shutdown();
 
-  cout << endl;
+  // cout << endl;
 }
 
 void LightDesk::stream() {
-  while (core::State::isRunning()) {
+  while (State::isRunning()) {
 
     // nominal condition:
     // sound is present and MajorPeak is active

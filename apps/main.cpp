@@ -15,179 +15,123 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
-#include <boost/format.hpp>
-#include <boost/program_options.hpp>
-#include <filesystem>
 #include <iostream>
-#include <memory>
-#include <string>
+#include <signal.h>
 #include <sys/resource.h>
 #include <time.h>
 #include <unistd.h>
-#include <vector>
 
-#include "core/state.hpp"
+#include "core/args.hpp"
 #include "pierre.hpp"
 
-using namespace std;
-using namespace pierre;
-using namespace boost::program_options;
-namespace fs = std::filesystem;
-namespace po = boost::program_options;
-using string = std::string;
+static pierre::Pierre *pierre_ptr = nullptr;
 
-int findConfigFile(fs::path &cfg_file);
-int setupWorkingDirectory();
-bool parseArgs(int ac, char *av[]);
+void exitting() {
+  using namespace std;
 
-// global variable to contain cmd line args
-po::variables_map vm;
-constexpr const char *dmx_host = "dmx-host";
-constexpr const char *colorbars = "colorbars";
+  if (pierre_ptr)
+    delete pierre_ptr;
+
+  cerr << endl << "farewell" << endl;
+}
+
+// for clean exits
+void handleSignal(int signal) {
+  using namespace std;
+
+  switch (signal) {
+  case SIGINT:
+    cerr << endl << "caught SIGINT" << endl;
+    exit(EXIT_SUCCESS);
+    break;
+
+  case SIGTERM:
+    cerr << endl << "caught SIGINT" << endl;
+    exit(EXIT_SUCCESS);
+    break;
+
+  default:
+    cerr << endl << "caught signal: " << signal << " (ignored" << endl;
+  }
+}
 
 int main(int argc, char *argv[]) {
+  using namespace std;
 
-  if ((argc > 1) && !parseArgs(argc, argv)) {
-    exit(-1024);
+  // we setup interactions with the OS then
+  // immediately pass control to Pierre
+
+  // control-c (SIGINT) cleanly
+  struct sigaction act = {};
+  act.sa_handler = handleSignal;
+  sigaction(SIGINT, &act, NULL);
+
+  // terminate (SIGTERM)
+  struct sigaction act2 = {};
+  act2.sa_handler = handleSignal;
+  sigaction(SIGTERM, &act2, NULL);
+
+  atexit(exitting);
+
+  pierre_ptr = new pierre::Pierre();
+
+  bool ok;
+  pierre::ArgsMap args_map;
+
+  tie(ok, args_map) = pierre_ptr->prepareToRun(argc, argv);
+
+  if (args_map.daemon) {
+    cerr << "want daemon" << endl;
   }
 
-  fs::path cfg_file;
-  auto find_rc = findConfigFile(cfg_file);
-  if (find_rc != 0) {
-    exit(find_rc);
-  };
-
-  error_code ec;
-
-  ec = State::initConfig()->parse(cfg_file);
-
-  if (ec) {
-    cerr << "config file parse failed: " << ec.message() << endl;
-    exit(-1000);
+  if (ok) {
+    pierre_ptr->run();
+  } else {
+    exit(1);
   }
 
-  auto wd_rc = setupWorkingDirectory();
-
-  if (wd_rc != 0) {
-    exit(wd_rc);
-  }
-
-  if (vm.count(colorbars)) {
-    auto desk = State::config("lightdesk"sv);
-
-    desk->insert_or_assign("colorbars"sv, true);
-  }
-
-  if (vm.count(dmx_host)) {
-    toml::table *dmx = State::config("dmx"sv);
-
-    dmx->insert_or_assign("host"sv, vm[dmx_host].as<std::string>());
-  }
-
-  // auto pid = getpid();
-  // setpriority(PRIO_PROCESS, pid, -10);
-
-  auto pierre = make_shared<Pierre>();
-
-  pierre->run();
-
-  return 0;
+  exit(0);
 }
 
-int findConfigFile(fs::path &cfg_file) {
-  bool rc = -1022; // not found after searching paths
+//   if (args.count(colorbars)) {
+//     auto desk = State::config("lightdesk"sv);
 
-  auto home_env = getenv("HOME");
+//     desk->insert_or_assign("colorbars"sv, true);
+//   }
 
-  if (home_env == nullptr) {
-    cerr << "environment variable HOME is unset, aborting" << endl;
-    return -1;
-  }
+//   if (args.count(dmx_host)) {
+//     toml::table *dmx = State::config("dmx"sv);
 
-  // command line specified config files are always used if found.
-  // if not found application is terminated.
-  auto env_cfg = getenv("PIERRE_CFG_FILE");
-  if (env_cfg) {
-    fs::path env_cfg_path(env_cfg);
+//     dmx->insert_or_assign("host"sv, args[dmx_host].as<std::string>());
+//   }
 
-    error_code ec;
-    if (fs::exists(env_cfg_path, ec)) {
-      cfg_file = env_cfg_path;
-      return 0;
-    } else {
-      cerr << "config " << env_cfg_path << ": " << ec.message() << endl;
-      return -1023;
-    }
-  }
+//   // auto pid = getpid();
+//   // setpriority(PRIO_PROCESS, pid, -10);
 
-  // build a list of search directories for the config file
-  vector<fs::path> search_dirs;
-  search_dirs.emplace_back(fs::path(home_env).append(".pierre"));
-  search_dirs.emplace_back(fs::path("/usr/local/etc/pierre"));
-  search_dirs.emplace_back(fs::path("/etc/pierre"));
+//   auto pierre = make_shared<Pierre>();
 
-  // search for the config file
-  for (const auto &p : search_dirs) {
-    fs::path f = fs::path(p).append("live.toml");
+//   pierre->run();
 
-    error_code ec;
-    if (fs::exists(f, ec)) {
-      cfg_file = f;
-      rc = 0;
-      break;
-    }
-  }
+//   return 0;
+// }
 
-  if (rc != 0) {
-    cerr << "could not find a configuration file" << endl;
-  }
+// int setupWorkingDirectory() {
+//   auto base = State::config()->table()["pierre"sv];
+//   fs::path dir;
 
-  return rc;
-}
+//   if (base["use_home"sv].value_or(false)) {
+//     dir.append(getenv("HOME"));
+//   }
 
-bool parseArgs(int ac, char *av[]) {
-  const char *cfg_file = "cfg-file";
-  const char *cfg_file_help = "config file (overrides env PIERRE_CFG_FILE)";
+//   dir.append(base["working_dir"sv].value_or("/tmp"));
 
-  try {
-    // Declare the supported options.
-    po::options_description desc("pierre options:");
-    desc.add_options()("help", "display this help text")(
-        cfg_file, po::value<string>(), cfg_file_help)(
-        dmx_host, po::value<string>(), "stream dmx frames to host")(
-        colorbars, "pinspot color bar test at startup");
+//   error_code ec;
+//   fs::current_path(dir, ec);
 
-    po::store(po::parse_command_line(ac, av, desc), vm);
-    po::notify(vm);
+//   if (ec) {
+//     cerr << "unable to set working directory: " << ec.message() << endl;
+//     return -1021;
+//   }
 
-    if (vm.count("help")) {
-      cout << desc << "\n";
-      return false;
-    }
-  } catch (const error &ex) {
-    cerr << ex.what() << endl;
-  }
-
-  return true;
-}
-
-int setupWorkingDirectory() {
-  auto base = State::config()->table()["pierre"sv];
-  fs::path dir;
-
-  if (base["use_home"sv].value_or(false)) {
-    dir.append(getenv("HOME"));
-  }
-
-  dir.append(base["working_dir"sv].value_or("/tmp"));
-
-  error_code ec;
-  fs::current_path(dir, ec);
-
-  if (ec) {
-    cerr << "unable to set working directory: " << ec.message() << endl;
-    return -1021;
-  }
-
-  return 0;
-}
+//   return 0;
+// }

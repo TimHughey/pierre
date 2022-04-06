@@ -20,7 +20,7 @@
 
 #include <limits>
 
-#include "audio/fft.hpp"
+#include "fft.hpp"
 
 namespace pierre {
 namespace audio {
@@ -43,8 +43,7 @@ const float FFT::_winCompensationFactors[10] = {
 WindowWeighingFactors_t FFT::_wwf;
 bool FFT::_weighingFactorsComputed = false;
 
-FFT::FFT(size_t samples, float samplingFrequency)
-    : _samples(samples), _samplingFrequency(samplingFrequency) {
+FFT::FFT(size_t samples, float samplingFrequency) : _samples(samples), _samplingFrequency(samplingFrequency) {
   // Calculates the base 2 logarithm of sample count
   _power = 0;
   while (((samples >> _power) & 1) != 1) {
@@ -205,8 +204,7 @@ void FFT::process() {
 
 Real_t &FFT::real() { return _real; }
 
-void FFT::windowing(FFTWindow windowType, FFTDirection dir,
-                    bool withCompensation) {
+void FFT::windowing(FFTWindow windowType, FFTDirection dir, bool withCompensation) {
   // check if values are already pre-computed for the correct window type and
   // compensation
   if (_weighingFactorsComputed && _weighingFactorsFFTWindow == windowType &&
@@ -226,8 +224,7 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir,
   } else {
     // no. values need to be pre-computed or applied
     float samplesMinusOne = (float(_samples) - 1.0);
-    float compensationFactor =
-        _winCompensationFactors[static_cast<uint_fast8_t>(windowType)];
+    float compensationFactor = _winCompensationFactors[static_cast<uint_fast8_t>(windowType)];
     for (size_t i = 0; i < (_samples >> 1); i++) {
       float indexMinusOne = float(i);
       float ratio = (indexMinusOne / samplesMinusOne);
@@ -244,36 +241,28 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir,
         weighingFactor = 0.54 * (1.0 - cos(TWO_PI * ratio));
         break;
       case FFTWindow::Triangle: // triangle (Bartlett)
-        weighingFactor =
-            1.0 - ((2.0 * abs(indexMinusOne - (samplesMinusOne / 2.0))) /
-                   samplesMinusOne);
+        weighingFactor = 1.0 - ((2.0 * abs(indexMinusOne - (samplesMinusOne / 2.0))) / samplesMinusOne);
         break;
       case FFTWindow::Nuttall: // nuttall
-        weighingFactor = 0.355768 - (0.487396 * (cos(TWO_PI * ratio))) +
-                         (0.144232 * (cos(FOUR_PI * ratio))) -
+        weighingFactor = 0.355768 - (0.487396 * (cos(TWO_PI * ratio))) + (0.144232 * (cos(FOUR_PI * ratio))) -
                          (0.012604 * (cos(SIX_PI * ratio)));
         break;
       case FFTWindow::Blackman: // blackman
-        weighingFactor = 0.42323 - (0.49755 * (cos(TWO_PI * ratio))) +
-                         (0.07922 * (cos(FOUR_PI * ratio)));
+        weighingFactor = 0.42323 - (0.49755 * (cos(TWO_PI * ratio))) + (0.07922 * (cos(FOUR_PI * ratio)));
         break;
       case FFTWindow::Blackman_Nuttall: // blackman nuttall
         weighingFactor = 0.3635819 - (0.4891775 * (cos(TWO_PI * ratio))) +
-                         (0.1365995 * (cos(FOUR_PI * ratio))) -
-                         (0.0106411 * (cos(SIX_PI * ratio)));
+                         (0.1365995 * (cos(FOUR_PI * ratio))) - (0.0106411 * (cos(SIX_PI * ratio)));
         break;
       case FFTWindow::Blackman_Harris: // blackman harris
-        weighingFactor = 0.35875 - (0.48829 * (cos(TWO_PI * ratio))) +
-                         (0.14128 * (cos(FOUR_PI * ratio))) -
+        weighingFactor = 0.35875 - (0.48829 * (cos(TWO_PI * ratio))) + (0.14128 * (cos(FOUR_PI * ratio))) -
                          (0.01168 * (cos(SIX_PI * ratio)));
         break;
       case FFTWindow::Flat_top: // flat top
-        weighingFactor = 0.2810639 - (0.5208972 * cos(TWO_PI * ratio)) +
-                         (0.1980399 * cos(FOUR_PI * ratio));
+        weighingFactor = 0.2810639 - (0.5208972 * cos(TWO_PI * ratio)) + (0.1980399 * cos(FOUR_PI * ratio));
         break;
       case FFTWindow::Welch: // welch
-        weighingFactor = 1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) /
-                                (samplesMinusOne / 2.0));
+        weighingFactor = 1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) / (samplesMinusOne / 2.0));
         break;
       }
       if (withCompensation) {

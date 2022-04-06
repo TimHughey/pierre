@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "misc/random.hpp"
+#include "random.hpp"
 
 namespace pierre {
 
@@ -34,11 +34,10 @@ static uint64_t _roll_count = 0;
 static uint64_t _dice_counts[25] = {};
 
 // initialize the array of primes
-static uint32_t _primes[] = {
-    2,   3,   5,   7,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,
-    53,  59,  61,  67,  71,  73,  79,  83,  89,  97,  101, 103, 107, 109, 113,
-    127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197,
-    199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277};
+static uint32_t _primes[] = {2,   3,   5,   7,   11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,
+                             53,  59,  61,  67,  71,  73,  79,  83,  89,  97,  101, 103, 107, 109, 113,
+                             127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197,
+                             199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277};
 
 static uint64_t _random() {
   int fd;
@@ -112,8 +111,7 @@ uint32_t random(uint32_t modulo) { return (_random() % modulo) + 1; }
 float randomPercent(const uint32_t min, const uint32_t max) {
   const uint32_t ceiling = max - min;
 
-  const float val =
-      (static_cast<float>(random(ceiling)) + static_cast<float>(min)) / 100.0f;
+  const float val = (static_cast<float>(random(ceiling)) + static_cast<float>(min)) / 100.0f;
 
   return val;
 }

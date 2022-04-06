@@ -22,7 +22,7 @@
       Copyright (c) 2011 PJRC.COM, LLC
 */
 
-#include "misc/elapsed.hpp"
+#include "elapsed.hpp"
 
 using namespace std::chrono;
 
@@ -30,8 +30,7 @@ namespace pierre {
 
 elapsedMillis::elapsedMillis(void) { _ms = millis(); }
 
-elapsedMillis::elapsedMillis(const elapsedMillis &orig)
-    : _ms(orig._ms), _frozen(orig._frozen) {}
+elapsedMillis::elapsedMillis(const elapsedMillis &orig) : _ms(orig._ms), _frozen(orig._frozen) {}
 
 elapsedMillis &elapsedMillis::operator=(const elapsedMillis &rhs) {
   _ms = rhs._ms;
@@ -98,9 +97,7 @@ void elapsedMillis::reset() {
   _ms = millis();
 }
 
-float elapsedMillis::toSeconds() const {
-  return (double)(millis() - _ms) / 1000.0;
-}
+float elapsedMillis::toSeconds() const { return (double)(millis() - _ms) / 1000.0; }
 
 float elapsedMillis::toSeconds(uint32_t val) { return (double)val / 1000.0; }
 
@@ -110,8 +107,7 @@ float elapsedMillis::toSeconds(uint32_t val) { return (double)val / 1000.0; }
 
 elapsedMicros::elapsedMicros(void) : _us(micros()) {}
 
-elapsedMicros::elapsedMicros(const elapsedMicros &orig)
-    : _us(orig._us), _frozen(orig._frozen) {}
+elapsedMicros::elapsedMicros(const elapsedMicros &orig) : _us(orig._us), _frozen(orig._frozen) {}
 
 elapsedMicros &elapsedMicros::operator=(const elapsedMicros &rhs) {
   _us = rhs._us;
@@ -174,12 +170,8 @@ bool elapsedMicros::operator>=(const int rhs) const {
   }
 }
 
-float elapsedMicros::toSeconds() const {
-  return (double)(micros() - _us) / seconds_us;
-}
+float elapsedMicros::toSeconds() const { return (double)(micros() - _us) / seconds_us; }
 
-float elapsedMicros::toSeconds(uint32_t val) {
-  return (double)val / seconds_us;
-}
+float elapsedMicros::toSeconds(uint32_t val) { return (double)val / seconds_us; }
 
 } // namespace pierre

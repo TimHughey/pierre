@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "audio/net.hpp"
+#include "net.hpp"
 
 #include <iostream>
 
@@ -29,9 +29,7 @@ using namespace boost::asio::ip;
 namespace pierre {
 namespace audio {
 
-RawOut::Client::Client(io_context &io_ctx) : _socket(io_ctx) {
-  _socket.open(udp::v4());
-}
+RawOut::Client::Client(io_context &io_ctx) : _socket(io_ctx) { _socket.open(udp::v4()); }
 
 void RawOut::Client::send(const RawPacket &data, endpoint &end_pt) {
   error_code ec;

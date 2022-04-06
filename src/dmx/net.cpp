@@ -20,8 +20,8 @@
 
 #include <iostream>
 
+#include "ArduinoJson.h"
 #include "dmx/net.hpp"
-#include "external/ArduinoJson.h"
 
 using std::cerr, std::endl;
 
