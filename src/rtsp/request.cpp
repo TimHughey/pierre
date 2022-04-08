@@ -22,11 +22,13 @@
 #include <ctime>
 #include <fmt/format.h>
 #include <iostream>
+#include <plist/plist.h>
 #include <regex>
 #include <stdexcept>
 #include <string_view>
 #include <typeinfo>
 
+#include "plist_get_info_response_xml.h"
 #include <rtsp/request.hpp>
 
 namespace pierre {
@@ -78,7 +80,54 @@ void Request::dump(DumpKind dump_type) {
   fmt::print("\n");
 }
 
-size_t Request::parsePreamble() {
+auto Request::findPlist(const auto bol, const auto abs_end) const {
+  constexpr auto *plist_hdr = "bplist00";
+  constexpr size_t plist_hdr_len = sizeof(plist_hdr);
+
+  for (auto it = bol; bol < abs_end; it++) {
+    // short circuit search if char doesn't match first plist hdr byte
+    if (*it != plist_hdr[0])
+      continue;
+
+    // first byte matched, compare entire plist hdr
+    if (strncmp(it, plist_hdr, plist_hdr_len) == 0)
+      return it;
+  }
+
+  return abs_end;
+}
+
+auto Request::importPlist(const auto plist_start, const auto plist_end) {
+  const auto bytes = std::distance(plist_start, plist_end);
+  plist_t info_plist = nullptr;
+
+  plist_from_memory(plist_start, bytes, &info_plist);
+
+  char *xml = nullptr;
+  uint32_t len = 0;
+  plist_to_xml(info_plist, &xml, &len);
+  // plist_to_bin(info_plist, &plist_bin, &plist_len);
+
+  fmt::print("plist\n{}", string(xml, len));
+
+  // auto qual = plist_dict_get_item(info_plist, "qualifier");
+  // auto array_size = plist_array_get_size(qual);
+
+  // if (array_size < 1) {
+  //   return;
+  // }
+
+  // auto array_val = plist_array_get_item(qual, 0);
+  // char *val_cstr = nullptr;
+  // plist_get_string_val(array_val, &val_cstr);
+
+  // fmt::print("array[0]={}\n", val_cstr);
+
+  plist_free(info_plist);
+  free(xml);
+}
+
+void Request::parse() {
   auto abs_start = _storage.begin();
   auto abs_end = _storage.begin();
 
@@ -87,24 +136,36 @@ size_t Request::parsePreamble() {
 
   for (auto bol = abs_start; printable(*bol) && (bol < fuzzy_end);) {
 
+    // check for plist, if found load into content
+    if (headersCount() > 5) {
+      auto plist_start = findPlist(bol, abs_end);
+
+      if (plist_start != abs_end) {
+        auto where = _content.cend();
+        _content.insert(where, plist_start, abs_end);
+        break;
+      }
+    }
+
     // find the end of line
     constexpr auto CR = 0x0a;
-    auto eol = find_if(bol, fuzzy_end, [](const auto i) { return i == CR; });
+    // lamba
+    auto isCarriageReturn = [](const auto i) { return i == CR; };
+    auto eol = find_if(bol, fuzzy_end, isCarriageReturn);
 
     if (eol != fuzzy_end) {
       const auto line = string{bol, eol};
 
       if (_method.empty()) {
         parseMethod(line);
-      } else {
-        parseHeader(line);
+        continue;
       }
+
+      parseHeader(line);
     }
 
     bol = std::next(eol); // skip the end of line character
   }
-
-  return _content_length;
 }
 
 void Request::parseHeader(const string &line) {
