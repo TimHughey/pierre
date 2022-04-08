@@ -1,5 +1,4 @@
 
-add_subdirectory(airplay)
 add_subdirectory(core)
 add_subdirectory(misc)
 add_subdirectory(audio)

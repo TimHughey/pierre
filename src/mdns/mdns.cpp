@@ -18,34 +18,90 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <array>
 #include <fmt/format.h>
+#include <gcrypt.h>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <pthread.h>
 #include <sodium.h>
 #include <stdlib.h>
 
 #include "mdns.hpp"
+#include "mdns/service.hpp"
 #include "pair/pair.h"
 
 namespace pierre {
 
 using namespace std;
+using namespace mdns;
 using namespace fmt;
 
-mDNS::mDNS(ConfigPtr cfg) : _cfg{cfg} {
-  constexpr auto fmt_str = "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}";
-  const auto addr = _cfg->hw_addr;
+typedef std::vector<string> PreppedEntries;
 
-  const auto id = format(fmt_str, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+mDNS::mDNS(const Opts &opts) : _host(opts.host) {
+  _service_base = opts.service_base;
+  _firmware_vsn = opts.firmware_vsn;
+}
 
-  _service_name = format("{}@Jophiel", id);
+void mDNS::advertise(AvahiClient *client) {
+  _client = client;
+
+  if (_client == nullptr) {
+    fmt::print("mDNS advertise(): client={}\n", fmt::ptr(client));
+    return;
+  }
+
+  if (_groups.size() == 1) {
+    fmt::print("mDNS advertise(): services already advertised: ");
+
+    for (const auto &service : _services) {
+      fmt::print("{} ", service.name());
+    }
+
+    fmt::print("\n");
+
+    return;
+  }
+
+  // advertise the services
+  // build and commit a single group containing two services:
+  //  _airplay._tcp string list
+  //  _raop._tcp string list
+
+  auto group = avahi_entry_group_new(_client, cbEntryGroup, this);
+
+  for (const auto &service : _services) {
+    PreppedEntries entries;
+    const auto &sl_map = service.stringListMap();
+
+    for (const auto &[key, val] : sl_map) {
+      fmt::basic_memory_buffer<char, 128> sl_entry;
+      ;
+
+      fmt::format_to(sl_entry, "{}={}", key, val);
+      entries.emplace_back(fmt::to_string(sl_entry));
+    }
+
+    groupAddService(group, service, entries);
+  }
+
+  auto rc = avahi_entry_group_commit(group);
+
+  if (rc != AVAHI_OK) {
+    fmt::print("advertise(): Unhandled error={}\n", avahi_strerror(rc));
+  }
 }
 
 bool mDNS::start() {
-
   if (sodium_init() < 0) {
     return false;
   }
+
+  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
+  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+
+  makePrivateKey();
+  makeServices();
 
   _tpoll = avahi_threaded_poll_new();
   auto poll = avahi_threaded_poll_get(_tpoll);
@@ -66,61 +122,67 @@ bool mDNS::start() {
   return true;
 }
 
-string mDNS::error_string(AvahiClient *client) {
-  auto client_errno = avahi_client_errno(client);
-  return string(avahi_strerror(client_errno));
-}
+bool mDNS::groupAddService(AvahiEntryGroup *group, const auto &service,
+                           const auto &prepped_entries) {
+  constexpr auto iface = AVAHI_IF_UNSPEC;
+  constexpr auto proto = AVAHI_PROTO_UNSPEC;
+  constexpr auto pub_flags = (AvahiPublishFlags)0;
 
-string mDNS::error_string(AvahiEntryGroup *group) {
-  // cerr << "DEBUG " << __PRETTY_FUNCTION__ << endl;
-  // auto client = avahi_entry_group_get_client(group);
-  // auto msg = error_string(client);
-  return format("Entry Group failure");
-}
+  const auto name = service.name();
+  const auto reg_type = service.regType();
 
-string mDNS::error_string(AvahiServiceBrowser *browser) {
-  auto client = avahi_service_browser_get_client(browser);
-  auto client_errno = avahi_client_errno(client);
-  auto msg = avahi_strerror(client_errno);
-  return format("browser failure: {}", msg);
-}
-
-AvahiStringList *mDNS::makeBonjour() {
-  AvahiStringList *slist;
-
-  constexpr auto mask32 = 0xffffffff;
-  uint64_t features_hi = (_cfg->airplay_features >> 32) & mask32;
-  uint64_t features_lo = (_cfg->airplay_features & mask32);
-
-  array<uint8_t, 32> public_key{0};
-  pair_public_key_get(PAIR_SERVER_HOMEKIT, public_key.data(), _cfg->airplay_device_id.c_str());
-
-  auto pk_buffer = fmt::memory_buffer();
-
-  for (const auto &i : public_key) {
-    fmt::format_to(std::back_inserter(pk_buffer), "{:02x}", i);
+  std::vector<const char *> string_pointers;
+  for (auto i = 0; auto &entry : prepped_entries) {
+    string_pointers.emplace_back(entry.c_str());
   }
 
-  auto ft = fmt::format("ft={:#02X},{:#02X}", features_lo, features_hi);
-  auto fv = fmt::format("fv={}", _cfg->firmware_version);
-  auto pk = fmt::format("pk={}", string(pk_buffer.data(), pk_buffer.size()));
-  // auto di = fmt::format("device_id={}", _cfg->airplay_device_id);
-  // auto fl = fmt::format("flags={}", _cfg->airplay_statusflags);
-  // auto pi = fmt::format("pi={}", _cfg->airplay_pi.data());
-  // auto gi = fmt::format("gid={}", _cfg->airplay_pi.data()); // NOTE: initial, changes after
-  // connection
+  auto sl = avahi_string_list_new_from_array(string_pointers.data(), string_pointers.size());
+  auto rc = avahi_entry_group_add_service_strlst(group, iface, proto, pub_flags, name, reg_type,
+                                                 NULL, NULL, _port, sl);
 
-  std::array common{"cn=0,1",  "da=true", "et=0,3,5", ft.c_str(), fv.c_str(), "am=Lights by Pierre",
-                    "sf=0x04", "tp=UDP",  "vn=65537", "vs=366.0", pk.c_str()};
+  if (rc == AVAHI_ERR_COLLISION) {
+    fmt::print("AirPlay2 name [{}] already in use\n");
+    avahi_string_list_free(sl);
+    return false;
+  }
 
-  return avahi_string_list_new_from_array(common.data(), common.size());
+  if (rc != AVAHI_OK) {
+    fmt::print("groupAddService(): Unhandled error={}\n", avahi_strerror(rc));
+  }
+
+  return (rc == AVAHI_OK) ? true : false;
+}
+
+void mDNS::makeServices() {
+  const auto base_data = Service::BaseData{
+      .host = _host, .service = _service_base, .pk = _pk, .firmware_vsn = _firmware_vsn};
+
+  // store static base data necessary to create services
+  Service::setBaseData(base_data);
+
+  auto airplay = AirPlay();
+  auto raop = Raop();
+
+  airplay.build();
+  _services.emplace_back(airplay);
+
+  raop.build();
+  _services.emplace_back(raop);
+}
+
+void mDNS::makePrivateKey() {
+  auto *dest = _pk_bytes.data();
+  auto *secret = _host->hwAddr().c_str();
+
+  pair_public_key_get(PAIR_SERVER_HOMEKIT, dest, secret);
+
+  _pk = fmt::format("{:02x}", fmt::join(_pk_bytes, ""));
 }
 
 bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol,
                        const char *name, const char *type, const char *domain,
                        AvahiProtocol aprotocol, AvahiLookupFlags flags,
                        AvahiServiceResolverCallback callback, void *userdata) {
-
   _resolver =
       avahi_service_resolver_new(client, interface, protocol, name, type, domain,
                                  AVAHI_PROTO_UNSPEC, (AvahiLookupFlags)9, cbResolve, userdata);
@@ -133,53 +195,19 @@ bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtoco
   return true;
 }
 
-bool mDNS::registerService(AvahiClient *use_client) {
-  AvahiClient *client = use_client;
+// void mDNS::serviceNameCollision(AvahiEntryGroup *group) {
+//   char *n;
 
-  if (use_client == nullptr) {
-    client = _client;
-  }
+//   auto alt_service_name = avahi_alternative_service_name(_service_name.c_str());
+//   _service_name = alt_service_name;
 
-  if (client == nullptr) {
-    cerr << "client=nullptr" << endl;
-  }
+//   cerr << format("attempting to register alternate service[{}]", _service_name);
 
-  if (_group != nullptr) {
-    cerr << "Entry group already created" << endl;
-    return false;
-  }
+//   /* And recreate the services */
+//   AvahiClient *client = avahi_entry_group_get_client(group);
+//   registerService(client);
 
-  _group = avahi_entry_group_new(client, cbEntryGroup, this);
-
-  auto string_list = makeBonjour();
-
-  auto rc = avahi_entry_group_add_service_strlst(
-      _group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, (AvahiPublishFlags)0, _service_name.c_str(),
-      regType.c_str(), NULL, NULL, _cfg->port, string_list);
-
-  if (rc == AVAHI_ERR_COLLISION) {
-    cerr << format("AirPlay 2 name [{}] already in use", _service_name) << endl;
-    return false;
-  }
-
-  rc = avahi_entry_group_commit(_group);
-
-  return (rc == AVAHI_OK) ? true : false;
-}
-
-void mDNS::serviceNameCollision(AvahiEntryGroup *group) {
-  char *n;
-
-  auto alt_service_name = avahi_alternative_service_name(_service_name.c_str());
-  _service_name = alt_service_name;
-
-  cerr << format("attempting to register alternate service[{}]", _service_name);
-
-  /* And recreate the services */
-  AvahiClient *client = avahi_entry_group_get_client(group);
-  registerService(client);
-
-  // #debug(2, "avahi: service name collision, renaming service to '%s'", service_name);
-}
+//   // #debug(2, "avahi: service name collision, renaming service to '%s'", service_name);
+// }
 
 } // namespace pierre

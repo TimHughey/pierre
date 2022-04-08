@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#pragma once
+
 #include <avahi-client/client.h>
 #include <avahi-client/publish.h>
 #include <avahi-common/error.h>
@@ -45,8 +47,9 @@ extern DacpBrowser dacp_browser;
 extern AvahiServiceBrowser *browser;
 
 void browser_callback(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
-                      AvahiBrowserEvent event, const char *name, const char *type, const char *domain,
-                      AVAHI_GCC_UNUSED AvahiLookupResultFlags flags, void *userdata);
+                      AvahiBrowserEvent event, const char *name, const char *type,
+                      const char *domain, AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+                      void *userdata);
 
 string error_string(AvahiServiceBrowser *browser);
 string error_string(AvahiClient *client);
@@ -54,11 +57,12 @@ string error_string(AvahiClient *client);
 void client_callback(AvahiClient *c, AvahiClientState state, void *userdata);
 
 void resolve_callback(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
-                      [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event, const char *name,
-                      const char *type, const char *domain, [[maybe_unused]] const char *host_name,
+                      [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
+                      const char *name, const char *type, const char *domain,
+                      [[maybe_unused]] const char *host_name,
                       [[maybe_unused]] const AvahiAddress *address, uint16_t port,
-                      [[maybe_unused]] AvahiStringList *txt, [[maybe_unused]] AvahiLookupResultFlags flags,
-                      void *userdata);
+                      [[maybe_unused]] AvahiStringList *txt,
+                      [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata);
 
 } // namespace mdns
 

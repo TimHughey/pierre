@@ -94,7 +94,7 @@ public:
 
   // the name for the shairport service, e.g. "Shairport
   // Sync Version %v running on host %h"
-  static constexpr auto service_name = "Jophiel";
+  string service_name{"Jophiel"};
 
   // only needs 6 but 8 is handy when converting this to a number
   uint8_t hw_addr[8];
@@ -185,27 +185,6 @@ public:
   // define the nvll linked list struct here
   void *gradients;
 
-  // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32
-  // bit are given first for example, if the features number is 0x1C340405F4A00, it will be given as
-  // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
-  // 496155702020608 this setting here is the source of both the plist features response and the
-  // mDNS string.
-
-  // const uint64_t _one = 1;
-  // const uint64_t _mask = (_one << 17) | (_one << 16) | (_one << 15) | (_one << 50);
-
-  // APX + Authentication4 (b14) with no metadata (see below)
-  // const uint64_t airplay_features = 0x1C340405D4A00 & (~_mask);
-  // std::array _feature_bits{9, 11, 18, 19, 30, 40, 41, 51};
-  // uint64_t airplay_features = 0x00;
-  const uint64_t airplay_features = 0x1C340445F8A00;
-
-  // Advertised with mDNS and returned with GET /info, see
-  // https://openairplay.github.io/airplay-spec/status_flags.html
-  // 0x4: Audio cable attached, no PIN required (transient pairing)
-  // 0x204: Audio cable attached, OneTimePairingRequired
-  // 0x604: Audio cable attached, OneTimePairingRequired, device setup for Homekit access control
-  const uint32_t airplay_statusflags = 0x04;
   double airplay_volume = -24.0;
   // used by airplay
   const uint32_t fixedLatencyOffset = 11025; // this sounds like it works properly.

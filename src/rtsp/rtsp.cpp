@@ -84,18 +84,19 @@ void Rtsp::doRead(tcp::socket &socket, yield_context yield) {
 void Rtsp::session(tcp::socket &socket, auto request, yield_context yield) {
   using enum Request::DumpKind;
 
-  auto content_bytes = request->parsePreamble();
+  request->parse();
   request->dump(HeadersOnly);
 
-  // if Content-Length header indicates more data, get it now
-  if (content_bytes > 0) {
-    auto &dest = request->contentBuffer();
+  // if content didn't arrive in the first packet and there's content to
+  // load do so now
+  if (request->shouldLoadContent()) {
+    auto &dest = request->content();
 
     error_code ec;
     auto bytes = socket.receive(buffer(dest), 0, ec);
 
-    if (ec == system::errc::success) {
-      request->contentNotify(bytes, ec.message());
+    if (ec != system::errc::success) {
+      request->contentError(ec.message());
     }
   }
 

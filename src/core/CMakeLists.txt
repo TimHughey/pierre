@@ -16,7 +16,10 @@ find_package(Boost 1.78.0 COMPONENTS program_options)
 
 find_package(fmt)
 
-add_library(Core args.cpp config.cpp state.cpp ${HEADER_LIST})
+add_library(Core 
+  args.cpp config.cpp state.cpp host.cpp
+  ${HEADER_LIST}
+)
 
 # source files compiled for the library can include headers
 # without usinf the full path

@@ -25,7 +25,9 @@
 #include "audio/dsp.hpp"
 #include "audio/pcm.hpp"
 #include "core/args.hpp"
+#include "core/host.hpp"
 #include "dmx/render.hpp"
+#include "fmt/format.h"
 #include "lightdesk/lightdesk.hpp"
 #include "mdns/mdns.hpp"
 #include "pierre.hpp"
@@ -57,8 +59,13 @@ tuple<bool, ArgsMap> Pierre::prepareToRun(int argc, char *argv[]) {
 void Pierre::run() {
   unordered_set<shared_ptr<thread>> threads;
 
-  auto mdns = make_shared<mDNS>(_cfg);
-  threads.insert(make_shared<thread>([mdns]() { mdns->start(); }));
+  auto host = Host::create(); // returns shared pointer
+
+  const auto mdns_opts = mDNS::Opts{
+      .host = host, .service_base = _cfg->service_name, .firmware_vsn = _cfg->firmware_version};
+
+  auto mdns = mDNS::create(mdns_opts); // returns shared_ptr
+  mdns->start();                       // mDNS uses Avahi created and managed thread
 
   auto rtsp = make_shared<Rtsp>(_cfg->port);
   threads.insert(make_shared<thread>([rtsp]() { rtsp->run(); }));

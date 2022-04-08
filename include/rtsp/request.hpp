@@ -54,10 +54,8 @@ public:
   }
 
   Raw &buffer() { return _storage; }
-  uint8_t content(size_t idx) const { return _content[idx]; }
-  Content &contentBuffer() { return _content; }
-  bool contentEmpty() const { return _content.empty(); }
-  void contentNotify(size_t bytes, const string ec_msg) { _msg_content = ec_msg; }
+  Content &content() { return _content; }
+  void contentError(const string ec_msg) { _msg_content = ec_msg; }
 
   void dump(DumpKind dump_type);
 
@@ -65,7 +63,7 @@ public:
 
   const string &method() const { return _method; }
 
-  size_t parsePreamble();
+  void parse();
   const string &path() const { return _path; }
 
   void sessionStart(const size_t bytes, string ec_msg) {
@@ -73,13 +71,22 @@ public:
     _session_msg = ec_msg;
   }
 
+  auto shouldLoadContent() { return (_content_length != 0) && content().empty(); }
+
 private:
   Request();
+
+  auto findPlist(const auto bol, const auto abs_end) const;
+  auto importPlist(const auto plist_start, const auto plist_end);
 
   void parseHeader(const string &line);
   void parseMethod(const string &line);
 
-  inline bool printable(const char ch) { return std::isprint(static_cast<unsigned char>(ch)); }
+  inline bool printable(const char ch) {
+    auto uc = static_cast<unsigned char>(ch);
+
+    return std::isprint(uc);
+  }
 
 private:
   Raw _storage{0};

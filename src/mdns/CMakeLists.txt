@@ -8,7 +8,8 @@ SET(HEADER_PATH_PAIR ${HEADER_PATH_LOCAL}/pair)
 file(GLOB
   HEADER_LIST CONFIGURE_DEPENDS 
   "${HEADER_PATH_LOCAL}/*.hpp"
-  "${HEADER_PATH_PAIR}/pair/*.hpp"
+  "${HEADER_PATH_LOCAL}/service/*.hpp"
+  "${HEADER_PATH_PAIR}/pair/*.h"
   )
 
 set(THREADS_PREFER_PTHREAD_FLAG true)
@@ -19,15 +20,14 @@ find_package(Sodium   REQUIRED)
 find_package(OpenSSL  REQUIRED)
 find_package(fmt      REQUIRED)
 
-# find_library(GCRYPT NAMES gcrypt REQUIRED)
 find_library(libplist NAMES plist REQUIRED)
-# find_library(libOpenSSL NAMES ssl REQUIRED)
 
-set(PAIR_CFILES
-  pair/pair.c pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c  
+add_library(mDNS 
+  mdns.cpp callbacks.cpp
+  service.cpp service/airplay.cpp service/raop.cpp
+  pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
+  ${HEADER_LIST}
 )
-
-add_library(mDNS mdns.cpp callbacks.cpp ${PAIR_CFILES} ${HEADER_LIST})
 
 # library specific files need Avahi privately
 target_include_directories(mDNS
@@ -40,10 +40,12 @@ target_include_directories(mDNS
 # the based include directory
 target_include_directories(mDNS PUBLIC ${HEADER_PATH} ${AVAHI_INCLUDE_DIR})
 
-target_link_libraries(mDNS
-  PUBLIC Core
+target_link_libraries(mDNS PUBLIC
+  Core
   sodium ssl gcrypt
-  ${AVAHI_LIBRARIES} ${GCRYPT_LIBRARIES} ${Sodium_LIBRARIES} ${libplist}
+  ${AVAHI_LIBRARIES} ${libplist}
+#  ${AVAHI_LIBRARIES} ${GCRYPT_LIBRARIES} ${Sodium_LIBRARIES} ${libplist}
+  fmt::fmt
 )
 
 target_compile_definitions(mDNS PUBLIC ${AVAHI_DEFINITIONS})

@@ -30,7 +30,8 @@ using namespace std::literals;
 using enum Headers::Type2;
 using enum Headers::Val2;
 
-static const uint8_t header[] = {0x46, 0x50, 0x4c, 0x59, 0x03, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x14};
+static const uint8_t header[] = {0x46, 0x50, 0x4c, 0x59, 0x03, 0x01,
+                                 0x04, 0x00, 0x00, 0x00, 0x00, 0x14};
 
 static const uint8_t reply1[] = {
     0x46, 0x50, 0x4c, 0x59, 0x03, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x82, 0x02, 0x00, 0x0f, 0x9f,
@@ -80,14 +81,16 @@ FairPlay::FairPlay(RequestShared request) : Reply(request) {}
 
 bool FairPlay::populate() {
 
-  if (_request->contentEmpty()) {
+  const auto &content = _request->content();
+
+  if (content.empty()) {
     return false;
   }
 
-  const auto vsn = _request->content(vsn_idx);
-  const auto seq = _request->content(seq_idx);
-  const auto mode = _request->content(mode_idx);
-  const auto type = _request->content(type_idx);
+  const auto vsn = content.at(vsn_idx);
+  const auto seq = content.at(seq_idx);
+  const auto mode = content.at(mode_idx);
+  const auto type = content.at(type_idx);
 
   switch (seq) {
   case setup1_msg_seq:
@@ -104,7 +107,6 @@ bool FairPlay::populate() {
   }
 
   if (_payload.size() > 0) {
-
     headerAdd(ContentType, OctetStream);
     headerAdd(ContentLength, _payload.size());
     responseCode(OK);
@@ -150,12 +152,13 @@ void FairPlay::payload2() {
   _payload.insert(_payload.end(), header, header + std::size(header));
 
   // appears we're sending back part of the content we received??
-  auto content_copy_end = _request->contentBuffer().end();
-  auto content_copy_begin = content_copy_end;
-  std::advance(content_copy_begin, setup2_suffix_len * -1);
+  auto end = _request->content().end();
+  auto begin = end;
+
+  std::advance(begin, setup2_suffix_len * -1);
 
   // add the sliver of the content originally sent
-  _payload.insert(_payload.end(), content_copy_begin, content_copy_end);
+  _payload.insert(_payload.end(), begin, end);
 }
 
 } // namespace rtsp

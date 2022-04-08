@@ -54,6 +54,7 @@ public:
   const HeaderVal &headerGetValue(Type2 want_type) const;
 
   // member functions that act on the entire container
+  inline auto headersCount() const { return _headers.size(); }
   void headersDump() const;
   const HeaderList headersList() const;
 
