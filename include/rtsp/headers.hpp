@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <array>
 #include <fmt/format.h>
 #include <list>
 #include <string>
@@ -34,12 +35,22 @@ typedef const std::string HeaderType;
 typedef const std::string HeaderVal;
 typedef fmt::basic_memory_buffer<char, 50> HeaderList;
 
+enum RespCode : uint16_t {
+  OK = 200,
+  AuthRequired = 470,
+  BadRequest = 400,
+  Unauthorized = 403,
+  Unavailable = 451,
+  InternalServerError = 500,
+  NotImplemented = 501
+};
+
 class Headers {
 public:
   typedef tuple<HeaderType, HeaderVal> Entry;
 
   enum Type2 : uint8_t { CSeq = 1, Server, ContentType, ContentLength, Public };
-  enum Val2 : uint8_t { OctetStream = 1, AirPierre };
+  enum Val2 : uint8_t { OctetStream = 1, AirPierre, AppleBinPlist };
 
 public:
   Headers() = default;

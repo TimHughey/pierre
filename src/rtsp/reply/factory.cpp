@@ -18,26 +18,47 @@
     https://www.wisslanding.com
 */
 
+#include <algorithm>
+#include <array>
 #include <source_location>
 
 #include "fmt/format.h"
 #include "rtsp/reply/factory.hpp"
 #include "rtsp/reply/fairplay.hpp"
+#include "rtsp/reply/info.hpp"
 #include "rtsp/reply/options.hpp"
+#include "rtsp/reply/pairing.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-ReplyShared Factory::create(RequestShared request) {
+using std::find_if, std::array;
 
+sReply Factory::create(sRequest request) {
   auto method = request->method();
   auto path = request->path();
 
   // NOTE: compare sequence equivalent to AirPlay conversation
 
+  if (method.compare("GET") == 0) {
+    if (path.compare("/info") == 0) {
+      return std::make_shared<Info>(request);
+    }
+  }
+
   if (method.compare("POST") == 0) {
     if (path.compare("/fp-setup") == 0) {
       return std::make_shared<FairPlay>(request);
+    }
+
+    auto pair_paths = array{"/pair-setup", "/pair-verify"};
+    auto check = [path](const auto p) { return path.compare(p) == 0; };
+    auto found = find_if(pair_paths.begin(), pair_paths.end(), check);
+
+    if (found != pair_paths.end()) {
+      return std::make_shared<Pairing>(request);
+    } else {
+      fmt::print("WARN unhandled pair path: {}\n", path);
     }
   }
 

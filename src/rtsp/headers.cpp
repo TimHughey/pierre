@@ -43,7 +43,9 @@ static unordered_map<Headers::Type2, const char *> _header_types // next line
      {Public, "Public"}};
 
 static unordered_map<Headers::Val2, const char *> _header_vals // next line
-    {{OctetStream, "application/octet-stream"}, {AirPierre, "AirPierre/366.0"}};
+    {{OctetStream, "application/octet-stream"},
+     {AirPierre, "AirPierre/366.0"},
+     {AppleBinPlist, "application/x-apple-binary-plist"}};
 
 //
 // BEGIN MEMBER FUNCTIONS
@@ -81,7 +83,6 @@ void Headers::headerCopy(const Headers &from, Type2 type) {
 }
 
 const Headers::Entry &Headers::headerFetch(Type2 want_type) const {
-
   auto want_string = stringFrom(want_type);
 
   for (const auto &entry : _headers) {

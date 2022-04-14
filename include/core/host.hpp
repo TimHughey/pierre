@@ -25,39 +25,60 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace pierre {
 
 typedef std::array<uint8_t, 6> HwAddrBytes;
+typedef std::array<uint8_t, 32> PkBytes;
+typedef std::string string;
+typedef const char *cc_str;
 
 // forward decl for typedef
 class Host;
-
 typedef std::shared_ptr<Host> sHost;
 
-class Host : std::enable_shared_from_this<Host> {
+class Host : public std::enable_shared_from_this<Host> {
 public:
-  [[nodiscard("discarding only shared_ptr")]] static sHost create() {
+  // NOTE: creation of the shared instance
+  [[nodiscard]] static sHost create(const string &firmware_vsn,
+                                    const string &service_name) {
     // Not using std::make_shared<T> because the c'tor is private.
-    return sHost(new Host());
+    return sHost(new Host(firmware_vsn, service_name));
   }
 
-  const std::string &deviceId() const { return _device_id; }
   sHost getPtr() { return shared_from_this(); }
-  const std::string &hwAddr() const { return _hw_addr; }
+
+  // general API
+
+  cc_str deviceID() const { return _device_id.c_str(); }
+  cc_str firmware_vsn() const { return _firmware_vsn.c_str(); };
+
+  cc_str hwAddr() const { return _hw_addr.c_str(); }
   const HwAddrBytes &hwAddrBytes() const { return _hw_addr_bytes; }
-  const std::string &serialNum() const { return _serial_num; }
-  const std::string &uuid() const { return _uuid; }
+
+  // default format is without 0x prefix
+  const string pk(const char *format = "{:02x}") const;
+  cc_str serialNum() const { return _serial_num.c_str(); }
+  cc_str serviceName() const { return _service_name.c_str(); }
+  cc_str uuid() const { return _uuid.c_str(); }
 
 private:
-  Host(); // private, only accessible via shared_ptr
+  // private, only accessible via shared_ptr
+  Host(const string &_firmware_vsn, const string &service_name);
 
   void createHostIdentifiers();
+  void createPrivateKey();
   void createUUID();
+
   bool findHardwareAddr(HwAddrBytes &dest);
 
 public:
-  std::string _device_id;
-  std::string _hw_addr;
+  string _firmware_vsn;
+  string _service_name;
+
+  string _device_id;
+  string _hw_addr;
   HwAddrBytes _hw_addr_bytes{0};
-  std::string _serial_num;
-  std::string _uuid;
+  PkBytes _pk_bytes{0};
+  string _serial_num;
+
+  string _uuid;
 };
 
 } // namespace pierre

@@ -27,7 +27,7 @@ namespace pierre {
 namespace rtsp {
 
 struct Factory {
-  static ReplyShared create(RequestShared request);
+  static sReply create(sRequest request);
 };
 
 } // namespace rtsp

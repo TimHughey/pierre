@@ -20,40 +20,24 @@
 
 #pragma once
 
-#include <array>
-#include <cctype>
+#include <algorithm>
+#include <cstddef>
 #include <memory>
-#include <regex>
-#include <string>
-#include <string_view>
 #include <vector>
-
-#include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-class FairPlay : public Reply {
+class PacketOut : public std::vector<uint8_t> {
+  static constexpr size_t reserve_default = 1024;
+
 public:
-  FairPlay(sRequest request);
+  PacketOut() { reserve(reserve_default); };
 
-  bool populate() override;
-
-private:
-  void payload1(uint8_t mode);
-  void payload2();
-
-private:
-  // NOTE: these are all magic numbers; someday hunt down what they mean
-  static const size_t vsn_idx = 4;
-  static const size_t mode_idx = 14;
-  static const size_t type_idx = 5;
-  static const size_t seq_idx = 6;
-
-  static const uint8_t setup_msg_type = 1;
-  static const uint8_t setup1_msg_seq = 1;
-  static const uint8_t setup2_msg_seq = 3;
-  static const uint8_t setup2_suffix_len = 20;
+  void reset(size_t reserve_bytes = reserve_default) {
+    clear();
+    reserve(reserve_bytes);
+  }
 };
 
 } // namespace rtsp

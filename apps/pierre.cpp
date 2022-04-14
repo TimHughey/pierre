@@ -18,16 +18,18 @@
     https://www.wisslanding.com
 */
 
+#include <fmt/format.h>
 #include <iostream>
+#include <list>
 #include <thread>
-#include <unordered_set>
 
 #include "audio/dsp.hpp"
 #include "audio/pcm.hpp"
 #include "core/args.hpp"
+#include "core/config.hpp"
 #include "core/host.hpp"
 #include "dmx/render.hpp"
-#include "fmt/format.h"
+
 #include "lightdesk/lightdesk.hpp"
 #include "mdns/mdns.hpp"
 #include "pierre.hpp"
@@ -57,28 +59,27 @@ tuple<bool, ArgsMap> Pierre::prepareToRun(int argc, char *argv[]) {
 }
 
 void Pierre::run() {
-  unordered_set<shared_ptr<thread>> threads;
+  std::list<shared_ptr<thread>> threads;
 
-  auto host = Host::create(); // returns shared pointer
+  // returns shared pointer
+  auto host = Host::create(_cfg->firmwareVersion(), _cfg->serviceName());
+  auto service = Service::create(host);
 
-  const auto mdns_opts = mDNS::Opts{
-      .host = host, .service_base = _cfg->service_name, .firmware_vsn = _cfg->firmware_version};
+  auto mdns = mDNS::create(service); // returns shared_ptr
+  mdns->start();                     // mDNS uses Avahi created and managed thread
 
-  auto mdns = mDNS::create(mdns_opts); // returns shared_ptr
-  mdns->start();                       // mDNS uses Avahi created and managed thread
-
-  auto rtsp = make_shared<Rtsp>(_cfg->port);
-  threads.insert(make_shared<thread>([rtsp]() { rtsp->run(); }));
+  auto rtsp = Rtsp::create(service, _cfg->port);
+  rtsp->start();
 
   auto dsp = make_shared<audio::Dsp>();
   auto dmx = make_shared<dmx::Render>();
   auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
 
-  threads.insert(dsp->run());
-  threads.insert(dmx->run());
+  threads.emplace_front(dsp->run());
+  threads.emplace_front(dmx->run());
 
   lightdesk->saveInstance(lightdesk);
-  threads.insert(lightdesk->run());
+  threads.emplace_front(lightdesk->run());
 
   dmx->addProducer(lightdesk);
 

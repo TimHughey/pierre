@@ -55,7 +55,6 @@ static int get_device_id(uint8_t *id, int int_length) {
     t = id;
     int found = 0;
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
         if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
@@ -139,7 +138,8 @@ Config::Config() {
   fmt::print("\nPierre {:>25}\n\n", firmware_version);
 
   constexpr auto format_s = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}";
-  mac_addr = format(format_s, hw_addr[0], hw_addr[1], hw_addr[2], hw_addr[3], hw_addr[4], hw_addr[5]);
+  mac_addr = format(format_s, hw_addr[0], hw_addr[1], hw_addr[2], hw_addr[3], hw_addr[4],
+                    hw_addr[5]);
 
   airplay_device_id = mac_addr;
 
@@ -150,7 +150,6 @@ Config::Config() {
 }
 
 bool Config::findFile(const string &file) {
-
   // must have suffix .conf
   if (!file.ends_with(suffix))
     return false;
@@ -167,8 +166,8 @@ bool Config::findFile(const string &file) {
   const auto user_home = getenv("HOME");
 
   // absolute paths to check (so they can be directly set to _cfg_file)
-  paths search_paths{first, path{user_home}.append(home_cfg_dir).append(file), path{local_etc}.append(file),
-                     path(etc).append(file)};
+  paths search_paths{first, path{user_home}.append(home_cfg_dir).append(file),
+                     path{local_etc}.append(file), path(etc).append(file)};
 
   // lambda to check each path
   auto check = [](fs::path &check_path) {
@@ -191,7 +190,6 @@ bool Config::findFile(const string &file) {
 }
 
 bool Config::load() {
-
   if (_cfg_file.empty()) {
     return false;
   }
@@ -200,12 +198,10 @@ bool Config::load() {
   try {
     readFile(_cfg_file);
   } catch (const libconfig::FileIOException &fioex) {
-
     fmt::print("I/O error while reading file: {}\n", _cfg_file);
     return false;
 
   } catch (const libconfig::ParseException &pex) {
-
     fmt::print("Parse error at {}:{}-{}\n", pex.getFile(), pex.getLine(), pex.getError());
     return false;
   }

@@ -18,43 +18,42 @@
     https://www.wisslanding.com
 */
 
-#pragma once
-
-#include <array>
-#include <cctype>
+#include <exception>
+#include <fmt/format.h>
+#include <iterator>
 #include <memory>
-#include <regex>
 #include <string>
-#include <string_view>
-#include <vector>
 
-#include "rtsp/reply.hpp"
+#include "rtsp/aes_ctx.hpp"
+#include "rtsp/reply/pairing.hpp"
+
+using namespace std;
 
 namespace pierre {
 namespace rtsp {
 
-class FairPlay : public Reply {
-public:
-  FairPlay(sRequest request);
+bool Pairing::populate() {
+  const auto &path = _request->path();
+  auto aes_ctx = _request->aesContext();
 
-  bool populate() override;
+  AesResult aes_result;
 
-private:
-  void payload1(uint8_t mode);
-  void payload2();
+  if (path.compare("/pair-setup") == 0) {
+    aes_result = aes_ctx->setup(_request->content(), _content);
+  }
 
-private:
-  // NOTE: these are all magic numbers; someday hunt down what they mean
-  static const size_t vsn_idx = 4;
-  static const size_t mode_idx = 14;
-  static const size_t type_idx = 5;
-  static const size_t seq_idx = 6;
+  if (path.compare("/pair-verify") == 0) {
+    aes_result = aes_ctx->verify(_request->content(), _content);
+  }
 
-  static const uint8_t setup_msg_type = 1;
-  static const uint8_t setup1_msg_seq = 1;
-  static const uint8_t setup2_msg_seq = 3;
-  static const uint8_t setup2_suffix_len = 20;
-};
+  responseCode(aes_result.resp_code);
+
+  if (_content.empty() == false) {
+    headerAdd(ContentType, OctetStream);
+  }
+
+  return aes_result.ok;
+}
 
 } // namespace rtsp
 } // namespace pierre

@@ -36,7 +36,8 @@ public:
   Config();
 
   bool findFile(const string &file);
-  const string &firmwareVersion() { return firmware_version; };
+  const string &firmwareVersion() const { return firmware_version; };
+  const string &serviceName() const { return service_name; }
   bool load();
 
   void test(const char *setting, const char *key);
@@ -79,9 +80,9 @@ public:
 
   // leave approximately one second's worth of buffers
   // free after calculating the effective latency.
-  // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a nominal latency of 2.0
-  // seconds then we can add an offset of 5.17 seconds and still leave a second's worth of buffers
-  // for unexpected circumstances
+  // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a nominal
+  // latency of 2.0 seconds then we can add an offset of 5.17 seconds and still leave a
+  // second's worth of buffers for unexpected circumstances
 
   // when effective latency is calculated, ensure this number of buffers are unallocated
   static constexpr auto minimum_free_buffer_headroom = 125;

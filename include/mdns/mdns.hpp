@@ -37,20 +37,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "core/config.hpp"
 #include "core/host.hpp"
-#include "service/airplay.hpp"
-#include "service/raop.hpp"
+#include "core/service.hpp"
 
 namespace pierre {
+
+using namespace core;
 
 // forward decl for typedef
 class mDNS;
 
 typedef std::shared_ptr<mDNS> smDNS;
 
-class mDNS : std::enable_shared_from_this<mDNS> {
+class mDNS : public std::enable_shared_from_this<mDNS> {
 public:
-  typedef std::array<uint8_t, 32> PkBytes;
-  typedef std::list<mdns::Service> ServiceList;
   typedef std::list<AvahiEntryGroup *> Groups;
 
 public:
@@ -67,10 +66,12 @@ public:
 public:
   void advertise(AvahiClient *client);
 
-  [[nodiscard]] static smDNS create(const Opts &opts) {
+  [[nodiscard]] static smDNS create(sService service) {
     // Not using std::make_shared<T> because the c'tor is private.
-    return smDNS(new mDNS(opts));
+    return smDNS(new mDNS(service));
   }
+
+  const string deviceID();
 
   smDNS getPtr() { return shared_from_this(); }
 
@@ -92,18 +93,18 @@ public:
   string error;
 
 private:
-  mDNS(const Opts &opts);
-  void makeServices();
+  mDNS(sService service);
 
 private: // Callbacks
-  static void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
-                       AvahiBrowserEvent event, const char *name, const char *type,
-                       const char *domain, AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
-                       void *userdata);
+  static void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface,
+                       AvahiProtocol protocol, AvahiBrowserEvent event, const char *name,
+                       const char *type, const char *domain,
+                       AVAHI_GCC_UNUSED AvahiLookupResultFlags flags, void *userdata);
 
   static void cbClient(AvahiClient *client, AvahiClientState state, void *userdata);
 
-  static void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void *userdata);
+  static void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state,
+                           void *userdata);
 
   static void cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
                         [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
@@ -119,19 +120,18 @@ private: // error reporting helpers
   static string error_string(AvahiServiceBrowser *browser);
 
 private:
-  bool groupAddService(AvahiEntryGroup *group, const auto &service, const auto &prepped_entries);
+  bool groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepped_entries);
   void makePK();
   // void serviceNameCollision(AvahiEntryGroup *group);
 
   bool resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol,
-                   const char *name, const char *type, const char *domain, AvahiProtocol aprotocol,
-                   AvahiLookupFlags flags, AvahiServiceResolverCallback callback, void *userdata);
+                   const char *name, const char *type, const char *domain,
+                   AvahiProtocol aprotocol, AvahiLookupFlags flags,
+                   AvahiServiceResolverCallback callback, void *userdata);
 
 private:
-  ServiceList _services;
+  sService _service;
   Groups _groups;
-  PkBytes _pk_bytes;
-  string _pk;
 
   sHost _host;
   string _service_base;

@@ -21,39 +21,25 @@
 #pragma once
 
 #include <array>
-#include <cctype>
-#include <memory>
-#include <regex>
-#include <string>
-#include <string_view>
-#include <vector>
-
-#include "rtsp/reply.hpp"
+#include <tuple>
 
 namespace pierre {
 namespace rtsp {
 
-class FairPlay : public Reply {
+typedef std::tuple<uint8_t *, size_t> PartialRaw;
+
+class Raw : public std::array<char, 2048> {
 public:
-  FairPlay(sRequest request);
+  Raw() { fill(0x00); };
 
-  bool populate() override;
+  operator uint8_t *() { return reinterpret_cast<uint8_t *>(data()); }
 
-private:
-  void payload1(uint8_t mode);
-  void payload2();
+  const PartialRaw partial(const size_t offset) {
+    auto _begin = begin() + offset;
+    size_t _size = std::distance(_begin, end());
 
-private:
-  // NOTE: these are all magic numbers; someday hunt down what they mean
-  static const size_t vsn_idx = 4;
-  static const size_t mode_idx = 14;
-  static const size_t type_idx = 5;
-  static const size_t seq_idx = 6;
-
-  static const uint8_t setup_msg_type = 1;
-  static const uint8_t setup1_msg_seq = 1;
-  static const uint8_t setup2_msg_seq = 3;
-  static const uint8_t setup2_suffix_len = 20;
+    return PartialRaw(reinterpret_cast<uint8_t *>(_begin), _size);
+  }
 };
 
 } // namespace rtsp

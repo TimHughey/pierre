@@ -28,62 +28,72 @@
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/reply/factory.hpp"
+#include "rtsp/reply/packet_out.hpp"
 
 namespace pierre {
 namespace rtsp {
 
 using std::string, std::string_view, std::unordered_map, std::back_inserter;
-using enum Reply::RespCode;
+using enum RespCode;
 
-static Reply::RespCodeMap _resp_text{{OK, "OK"},
-                                     {BadRequest, "Bad Request"},
-                                     {Unauthorized, "Unauthorized"},
-                                     {Unavailable, "Unavailable"},
-                                     {NotImplemented, "Not Implemented"}};
+static RespCodeMap _resp_text{{OK, "OK"},
+                              {AuthRequired, "Connection Authorization Required"},
+                              {BadRequest, "Bad Request"},
+                              {InternalServerError, "Internal Server Error"},
+                              {Unauthorized, "Unauthorized"},
+                              {Unavailable, "Unavailable"},
+                              {NotImplemented, "Not Implemented"}};
 
-Reply::Reply(RequestShared request) {
+Reply::Reply(sRequest request) {
   // all constructors call init() to complete initialization
   init(request);
 }
 
-[[nodiscard]] ReplyShared Reply::create(RequestShared request) { return Factory::create(request); }
+[[nodiscard]] sReply Reply::create(sRequest request) { return Factory::create(request); }
 
-[[nodiscard]] const Reply::Packet &Reply::build() {
+[[nodiscard]] PacketOut &Reply::build() {
   const auto ok = populate();
-
-  if (!ok) {
-    _packet.clear();
-
-    return _packet;
-  }
 
   auto where = back_inserter(_packet);
   auto resp_text = _resp_text.at(_rcode);
 
+  if (_content.empty() == false) {
+    headerAdd(ContentLength, _content.size());
+  }
+
+  constexpr const char *indent = "\t\t\t\t\t";
+  fmt::print("{}{} {} {}\n", indent, ((ok) ? "TRUE" : "FALSE"), _rcode, resp_text);
+
   fmt::format_to(where, "RTSP/1.0 {:d} {}\r\n", _rcode, resp_text);
 
   auto headers_list = headersList();
-  const auto headers_begin = headers_list.data();
-  const auto headers_end = headers_begin + headers_list.size();
 
-  _packet.append(headers_begin, headers_end);
+  std::copy(headers_list.begin(), headers_list.end(), where);
 
-  where = back_inserter(_packet);
-  fmt::format_to(where, "\r\n");
+  if (_content.empty() == false) {
+    fmt::format_to(where, "\r\n");
+    std::copy(_content.begin(), _content.end(), where);
+  }
 
-  const auto content_begin = _payload.data();
-  const auto content_end = content_begin + _payload.size();
-  _packet.append(content_begin, content_end);
-
-  // prevent circular shared ptr lpcks
+  // prevent circular shared ptr locks
   _request.reset();
 
   return _packet;
 }
 
+void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
+  auto where = std::back_inserter(_content);
+  auto end = begin + bytes;
+
+  // fmt::print("copying from={},{} to={}\n", fmt::ptr(begin), fmt::ptr(end),
+  //           fmt::ptr(&(*where)));
+
+  std::copy(begin, end, where);
+}
+
 void Reply::dump() const { headersDump(); }
 
-void Reply::init(RequestShared request) {
+void Reply::init(sRequest request) {
   //
   _request = request;
 

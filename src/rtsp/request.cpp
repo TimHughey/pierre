@@ -22,13 +22,13 @@
 #include <ctime>
 #include <fmt/format.h>
 #include <iostream>
+#include <iterator>
 #include <plist/plist.h>
 #include <regex>
 #include <stdexcept>
 #include <string_view>
 #include <typeinfo>
 
-#include "plist_get_info_response_xml.h"
 #include <rtsp/request.hpp>
 
 namespace pierre {
@@ -36,7 +36,8 @@ namespace rtsp {
 
 using namespace std;
 
-Request::Request() {}
+Request::Request(sAesCtx aes_ctx, sService service)
+    : _aes_ctx(aes_ctx), _service(service) {}
 
 void Request::dump(DumpKind dump_type) {
   std::time_t now = std::time(nullptr);
@@ -53,7 +54,6 @@ void Request::dump(DumpKind dump_type) {
   }
 
   if (dump_type == ContentOnly) {
-
     auto &content_type = headerGetValue(ContentType);
 
     if (content_type.compare("application/octet-stream") == 0) {
@@ -73,7 +73,7 @@ void Request::dump(DumpKind dump_type) {
 
   if (dump_type == RawOnly) {
     fmt::print("\nRAW\n---\n");
-    auto out = string_view{_storage.data(), _bytes};
+    auto out = string_view{(const char *)_packet.data(), _bytes};
     fmt::print("{:s}\n---\n", out);
   }
 
@@ -89,12 +89,42 @@ auto Request::findPlist(const auto bol, const auto abs_end) const {
     if (*it != plist_hdr[0])
       continue;
 
+    auto stop = it;
+    std::advance(stop, plist_hdr_len);
+
+    if (stop >= abs_end) {
+      break;
+    }
+
     // first byte matched, compare entire plist hdr
-    if (strncmp(it, plist_hdr, plist_hdr_len) == 0)
+    if (strncmp(it, plist_hdr, plist_hdr_len) == 0) {
       return it;
+    }
   }
 
   return abs_end;
+}
+
+bool Request::findSeparator() {
+  // separator between headers and context
+  constexpr const char *sep = "\r\n\r\n";
+  constexpr const size_t sep_len = strlen(sep);
+
+  // strstr() returns a pointer to the start of the seperator string
+  auto sep_offset = strstr(_packet.begin(), sep);
+
+  if (sep_offset == nullptr) {
+    fmt::print("Request::findSeperator() could not find separator\n");
+    return false;
+  }
+
+  // keep the final header block separator for regex to find them
+  _header_bytes = std::distance(_packet.begin(), sep_offset) + (sep_len / 2);
+
+  // calculate the content offset from the beginning of the packet
+  _content_offset = std::distance(_packet.begin(), sep_offset) + sep_len;
+
+  return true;
 }
 
 auto Request::importPlist(const auto plist_start, const auto plist_end) {
@@ -127,49 +157,53 @@ auto Request::importPlist(const auto plist_start, const auto plist_end) {
   free(xml);
 }
 
+// primary entry point for inbound packets
 void Request::parse() {
-  auto abs_start = _storage.begin();
-  auto abs_end = _storage.begin();
+  findSeparator();
 
-  advance(abs_end, _bytes); // only consider the actual bytes recv'ed
-  auto fuzzy_end = abs_end; // adjusted when content length is discovered
+  auto headers_begin = _packet.begin();
+  auto headers_end = _packet.begin() + _header_bytes;
 
-  for (auto bol = abs_start; printable(*bol) && (bol < fuzzy_end);) {
-
-    // check for plist, if found load into content
-    if (headersCount() > 5) {
-      auto plist_start = findPlist(bol, abs_end);
-
-      if (plist_start != abs_end) {
-        auto where = _content.cend();
-        _content.insert(where, plist_start, abs_end);
-        break;
-      }
-    }
-
-    // find the end of line
+  for (auto bol = headers_begin; printable(*bol) && (bol < headers_end);) {
+    // end of line sentinel
     constexpr auto CR = 0x0a;
+
     // lamba
     auto isCarriageReturn = [](const auto i) { return i == CR; };
-    auto eol = find_if(bol, fuzzy_end, isCarriageReturn);
+    auto eol = find_if(bol, headers_end, isCarriageReturn);
 
-    if (eol != fuzzy_end) {
+    if (eol < headers_end) {
       const auto line = string{bol, eol};
 
+      // find the method first
       if (_method.empty()) {
         parseMethod(line);
-        continue;
+      } else {
+        parseHeader(line);
       }
-
-      parseHeader(line);
     }
 
-    bol = std::next(eol); // skip the end of line character
+    bol = ++eol;
+  }
+
+  // ensure no left-over data
+  _content.clear();
+
+  // if no content loaded and there is content_length, copy it
+  if (shouldLoadContent()) {
+    _content.reserve(_content_length);
+    auto where = back_inserter(_content);
+
+    auto begin = _packet.begin() + _content_offset;
+    auto end = begin + _content_length;
+
+    std::copy(begin, end, where);
+
+    dump(ContentOnly);
   }
 }
 
 void Request::parseHeader(const string &line) {
-
   // Example Headers
   //
   // Content-Type: application/octet-stream
@@ -199,9 +233,6 @@ void Request::parseHeader(const string &line) {
 
     if (key.compare(key_content_len) == 0) {
       const auto len = atoi(val.c_str());
-      if (len > 0) {
-        _content.resize(len);
-      }
 
       // save the numeric value of content length
       _content_length = len;
@@ -222,7 +253,7 @@ void Request::parseMethod(const string &line) {
   constexpr auto protocol_idx = 3;
   constexpr auto match_count = 4;
 
-  fmt::print("\t\t\t{}\n", line);
+  fmt::print("\t\t{}\n", line);
 
   smatch sm;
   // static auto re_method = regex{"([A-Z]*) (.[a-zA-Z-_]*) (.*)", re_syntax};
@@ -237,6 +268,8 @@ void Request::parseMethod(const string &line) {
     _protocol = sm[protocol_idx].str();
   }
 }
+
+bool Request::shouldLoadContent() { return ((_content_length != 0) && _content.empty()); }
 
 } // namespace rtsp
 } // namespace pierre

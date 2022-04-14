@@ -30,10 +30,21 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <thread>
+
+#include "core/service.hpp"
+#include "mdns/mdns.hpp"
+#include "rtsp/aes_ctx.hpp"
 
 namespace pierre {
 
-class Rtsp {
+// forward decl for shared_ptr typedef
+class Rtsp;
+
+typedef std::shared_ptr<Rtsp> sRtsp;
+typedef std::shared_ptr<std::thread> stRtsp;
+
+class Rtsp : public std::enable_shared_from_this<Rtsp> {
 public:
   using yield_context = boost::asio::yield_context;
   using io_service = boost::asio::io_service;
@@ -43,23 +54,37 @@ public:
   typedef std::list<tcp_socket> SocketList;
 
 public:
-  Rtsp(uint16_t port) : _port(port) {}
-  void run();
+  [[nodiscard]] static sRtsp create(sService service, uint16_t port) {
+    // Not using std::make_shared<Best> because the c'tor is private.
+
+    return sRtsp(new Rtsp(service, port));
+  }
+
+  sRtsp getPtr() { return shared_from_this(); }
+  void start();
+
+  std::thread &thread() { return _thread; }
 
 private:
+  Rtsp(sService service, uint16_t port);
+
   void doAccept(yield_context yield);
   void doRead(tcp_socket &socket, yield_context yield);
   void doWrite(tcp_socket &socket, yield_context yield);
 
+  void runLoop();
   void session(tcp_socket &socket, auto request, yield_context yield);
 
 private:
+  std::thread _thread;
   uint16_t _port;
+  sService _service;
+  rtsp::sAesCtx _aes_ctx;
+  std::thread::native_handle_type _handle;
 
   io_service _ioservice;
   tcp_acceptor *_acceptor;
 
   SocketList _sockets;
-  std::array<char, 4096> _data;
 };
 } // namespace pierre

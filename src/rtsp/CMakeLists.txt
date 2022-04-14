@@ -21,9 +21,10 @@ find_package(fmt REQUIRED)
 find_library(plist NAMES plist REQUIRED)
 
 add_library(RTSP
-  rtsp.cpp headers.cpp
-  request.cpp
-  reply.cpp reply/factory.cpp reply/fairplay.cpp reply/options.cpp
+  rtsp.cpp headers.cpp aes_ctx.cpp
+  request.cpp reply.cpp
+    reply/factory.cpp reply/fairplay.cpp reply/options.cpp
+    reply/info.cpp reply/xml.cpp reply/pairing.cpp
   ${HEADER_LIST}
 )
 
@@ -42,7 +43,9 @@ target_include_directories(RTSP PUBLIC ${HEADER_PATH})
 
 target_link_libraries(RTSP PUBLIC
   ${Boost_LIBRARIES}
-   ${plist}
+  ${plist}
+  Core
+  mDNS
   fmt::fmt
 )
 

@@ -2,42 +2,56 @@
 # Core
 #
 
-set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH}/core/*.h*")
-list(APPEND HEADER_LIST ${CMAKE_BINARY_DIR}/version.h)
+set(THREADS_PREFER_PTHREAD_FLAG true)
 
-find_library(libConfig NAMES config++ REQUIRED)
-find_library(libUUID NAMES uuid REQUIRED)
+set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
+set(HEADER_PATH_LOCAL         ${HEADER_PATH}/core)
+set(HEADER_PATH_PAIR          ${HEADER_PATH_LOCAL}/pair)
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
+
+find_library(libConfig NAMES config++   REQUIRED)
+find_library(libUUID   NAMES uuid       REQUIRED)
+find_library(libplist  NAMES plist      REQUIRED)
+find_package(GCRYPT                     REQUIRED)
+find_package(Sodium                     REQUIRED)
+find_package(OpenSSL                    REQUIRED)
+find_package(fmt                        REQUIRED)
 
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
 find_package(Boost 1.78.0 COMPONENTS program_options)
 
-find_package(fmt)
-
 add_library(Core 
   args.cpp config.cpp state.cpp host.cpp
+  service.cpp static.cpp
+  pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
   ${HEADER_LIST}
 )
 
 # source files compiled for the library can include headers
 # without usinf the full path
-target_include_directories(Core PRIVATE ${HEADER_PATH}/core ${CMAKE_BINARY_DIR})
+target_include_directories(Core 
+  PRIVATE 
+  ${HEADER_PATH_LOCAL}
+  ${HEADER_PATH_PAIR}
+  ${CMAKE_BINARY_DIR}
+)
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(Core PUBLIC ${HEADER_PATH})
+target_include_directories(Core 
+  PUBLIC 
+  ${HEADER_PATH}
+)
 
 target_link_libraries(Core PUBLIC
   ${libConfig}
   ${libUUID}
   ${Boost_LIBRARIES}
+  ${libplist}
+  sodium
+  ssl
+  gcrypt
   fmt::fmt
 )
-
-# IDEs should put the headers in a nice place
-# source_group(
-#   TREE ${HEADER_PATH}
-#   PREFIX "Header Files"
-#   FILES ${HEADER_LIST})

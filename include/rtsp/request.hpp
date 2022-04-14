@@ -22,44 +22,49 @@
 
 #include <array>
 #include <cctype>
+#include <fmt/format.h>
 #include <memory>
 #include <regex>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "core/service.hpp"
+#include "rtsp/aes_ctx.hpp"
+#include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
+#include "rtsp/packet_in.hpp"
 
 namespace pierre {
 namespace rtsp {
 
 using namespace std;
+using namespace core;
 
 class Request; // forward decl for shared_ptr typedef
 
-typedef std::shared_ptr<Request> RequestShared;
+typedef shared_ptr<Request> sRequest;
 
-class Request : std::enable_shared_from_this<Request>, public Headers {
-public:
-  typedef std::array<char, 512> Raw;
-  typedef std::vector<uint8_t> Content;
-
+class Request : public std::enable_shared_from_this<Request>, public Headers {
 public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
 
 public:
-  [[nodiscard]] static RequestShared create() {
+  [[nodiscard]] static sRequest create(sAesCtx ctx, sService service) {
     // Not using std::make_shared<Best> because the c'tor is private.
-    return RequestShared(new Request());
+
+    return sRequest(new Request(ctx, service));
   }
 
-  Raw &buffer() { return _storage; }
+  PacketIn &packet() { return _packet; }
   Content &content() { return _content; }
   void contentError(const string ec_msg) { _msg_content = ec_msg; }
 
-  void dump(DumpKind dump_type);
+  sAesCtx aesContext() { return _aes_ctx; }
 
-  RequestShared getPtr() { return shared_from_this(); }
+  void dump(DumpKind dump_type = RawOnly);
+
+  sRequest getPtr() { return shared_from_this(); }
 
   const string &method() const { return _method; }
 
@@ -71,12 +76,15 @@ public:
     _session_msg = ec_msg;
   }
 
-  auto shouldLoadContent() { return (_content_length != 0) && content().empty(); }
+  sService service() { return _service; }
+
+  bool shouldLoadContent();
 
 private:
-  Request();
+  Request(sAesCtx aes_ctx, sService service);
 
   auto findPlist(const auto bol, const auto abs_end) const;
+  bool findSeparator();
   auto importPlist(const auto plist_start, const auto plist_end);
 
   void parseHeader(const string &line);
@@ -89,12 +97,17 @@ private:
   }
 
 private:
-  Raw _storage{0};
+  sAesCtx _aes_ctx;
+  sService _service;
+  PacketIn _packet;
   size_t _bytes = 0;
   string _method;
   string _path;
   string _protocol;
   size_t _content_length = 0;
+
+  size_t _header_bytes = 0;
+  size_t _content_offset = 0;
 
   Content _content;
 

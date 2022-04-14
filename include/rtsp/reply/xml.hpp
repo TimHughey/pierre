@@ -18,19 +18,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "mdns/service.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 
 namespace pierre {
-namespace mdns {
+namespace rtsp {
 
-class Raop : public Service {
+enum XMLDocs { InfoStage1 = 0 };
+
+class XML {
 public:
-  Raop();
+  static const char *doc(XMLDocs doc);
+  static const size_t len(XMLDocs doc);
 
-protected:
-  void makeServiceName(sHost host, csr service, string &service_name) override;
-  void populateStringList(sHost host) override;
-  void setRegType(string &reg_type) override;
+  static const char *binDoc(XMLDocs doc);
+  static const size_t binLen(XMLDocs doc);
 };
-} // namespace mdns
+
+} // namespace rtsp
 } // namespace pierre

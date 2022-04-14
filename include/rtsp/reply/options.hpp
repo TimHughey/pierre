@@ -27,7 +27,7 @@ namespace rtsp {
 
 class Options : public Reply {
 public:
-  Options(RequestShared request) : Reply(request) {}
+  Options(sRequest request) : Reply(request) {}
 
   bool populate() override;
 };

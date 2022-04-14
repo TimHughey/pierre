@@ -30,7 +30,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
+#include "rtsp/reply/packet_out.hpp"
 #include "rtsp/request.hpp"
 
 namespace pierre {
@@ -58,32 +60,20 @@ using std::string, std::string_view, std::tuple, std::unordered_map, std::vector
 
 class Reply; // forward decl for shared_ptr typedef
 
-typedef std::shared_ptr<Reply> ReplyShared;
+typedef std::tuple<char *, size_t> PacketInInfo;
+typedef std::shared_ptr<Reply> sReply;
+typedef const unordered_map<RespCode, const char *> RespCodeMap;
 
 class Reply : public Headers {
 public:
-  enum RespCode : uint16_t {
-    OK = 200,
-    BadRequest = 400,
-    Unauthorized = 403,
-    Unavailable = 451,
-    NotImplemented = 501
-  };
+  static sReply create(sRequest request);
 
 public:
-  typedef vector<char8_t> Payload;
-  typedef fmt::basic_memory_buffer<char, 128> Packet;
-  typedef tuple<const char *, size_t> PacketInfo;
+  Reply(sRequest request);
 
-  typedef const unordered_map<RespCode, const char *> RespCodeMap;
-
-public:
-  static ReplyShared create(RequestShared request);
-
-public:
-  Reply(RequestShared request);
-
-  const Packet &build();
+  PacketOut &build();
+  void copyToContent(const uint8_t *begin, const size_t bytes);
+  auto &errMsg() { return _err_msg; }
   void dump() const;
   virtual bool populate() = 0;
   inline void responseCode(RespCode code) { _rcode = code; }
@@ -91,16 +81,16 @@ public:
 protected:
   string_view _method;
   string_view _path;
+  string _err_msg;
 
   RespCode _rcode = RespCode::NotImplemented;
 
-  RequestShared _request;
-  Payload _payload;
-  Packet _packet;
+  sRequest _request;
+  Content _content;
+  PacketOut _packet;
 
 private:
-  bool assemblePacket();
-  void init(RequestShared request);
+  void init(sRequest request);
 
   //
 };
