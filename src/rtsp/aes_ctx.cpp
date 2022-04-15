@@ -113,7 +113,7 @@ size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
     // when we've decrypted an inbound packet we should always encrypt outbound
     _encrypt_out = true;
 
-    fmt::print("decrypted bytes={}\n", bytes_consumed);
+    //   fmt::print("decrypted bytes={}\n", bytes_consumed);
 
     if (bytes_consumed > 0) {
       uint8_t *replace_packet = (uint8_t *)packet.data();

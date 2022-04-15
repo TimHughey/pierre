@@ -33,12 +33,16 @@
 #include "lightdesk/lightdesk.hpp"
 #include "mdns/mdns.hpp"
 #include "pierre.hpp"
+#include "rtsp/nptp.hpp"
 #include "rtsp/rtsp.hpp"
 
 namespace pierre {
 using namespace std;
 
 tuple<bool, ArgsMap> Pierre::prepareToRun(int argc, char *argv[]) {
+  // grab the basename
+  _app_name = string(basename(argv[0]));
+
   Args args;
   auto args_map = args.parse(argc, argv);
 
@@ -64,6 +68,9 @@ void Pierre::run() {
   // returns shared pointer
   auto host = Host::create(_cfg->firmwareVersion(), _cfg->serviceName());
   auto service = Service::create(host);
+
+  auto nptp = rtsp::Nptp::create(appName(), host);
+  nptp->start();
 
   auto mdns = mDNS::create(service); // returns shared_ptr
   mdns->start();                     // mDNS uses Avahi created and managed thread

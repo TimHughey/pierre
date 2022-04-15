@@ -57,17 +57,7 @@ void Request::dump(DumpKind dump_type) {
     auto &content_type = headerGetValue(ContentType);
 
     if (content_type.compare("application/octet-stream") == 0) {
-      fmt::print("\nContent bytes={:03}\n", _content.size());
-
-      for (size_t byte_num = 0; const auto &byte : _content) {
-        fmt::print("{:03}[0x{:02x}] ", byte_num, byte);
-
-        byte_num++;
-
-        if ((byte_num % 10) == 0) {
-          fmt::print("\n");
-        }
-      }
+      dump(_content.data(), _content.size());
     }
   }
 
@@ -78,6 +68,16 @@ void Request::dump(DumpKind dump_type) {
   }
 
   fmt::print("\n");
+}
+
+void Request::dump(const auto *data, size_t len) const {
+  fmt::print("\nDATA DUMP bytes={}\n", len);
+  for (size_t idx = 0; idx < len;) {
+    fmt::print("{:03}[0x{:02x}] ", idx, data[idx]);
+
+    if ((++idx % 10) == 0)
+      fmt::print("\n");
+  }
 }
 
 auto Request::findPlist(const auto bol, const auto abs_end) const {
@@ -127,35 +127,35 @@ bool Request::findSeparator() {
   return true;
 }
 
-auto Request::importPlist(const auto plist_start, const auto plist_end) {
-  const auto bytes = std::distance(plist_start, plist_end);
-  plist_t info_plist = nullptr;
+// auto Request::importPlist(const auto plist_start, const auto plist_end) {
+//   const auto bytes = std::distance(plist_start, plist_end);
+//   plist_t info_plist = nullptr;
 
-  plist_from_memory(plist_start, bytes, &info_plist);
+//   plist_from_memory(plist_start, bytes, &info_plist);
 
-  char *xml = nullptr;
-  uint32_t len = 0;
-  plist_to_xml(info_plist, &xml, &len);
-  // plist_to_bin(info_plist, &plist_bin, &plist_len);
+//   char *xml = nullptr;
+//   uint32_t len = 0;
+//   plist_to_xml(info_plist, &xml, &len);
+//   // plist_to_bin(info_plist, &plist_bin, &plist_len);
 
-  fmt::print("plist\n{}", string(xml, len));
+//   fmt::print("plist\n{}", string(xml, len));
 
-  // auto qual = plist_dict_get_item(info_plist, "qualifier");
-  // auto array_size = plist_array_get_size(qual);
+//   // auto qual = plist_dict_get_item(info_plist, "qualifier");
+//   // auto array_size = plist_array_get_size(qual);
 
-  // if (array_size < 1) {
-  //   return;
-  // }
+//   // if (array_size < 1) {
+//   //   return;
+//   // }
 
-  // auto array_val = plist_array_get_item(qual, 0);
-  // char *val_cstr = nullptr;
-  // plist_get_string_val(array_val, &val_cstr);
+//   // auto array_val = plist_array_get_item(qual, 0);
+//   // char *val_cstr = nullptr;
+//   // plist_get_string_val(array_val, &val_cstr);
 
-  // fmt::print("array[0]={}\n", val_cstr);
+//   // fmt::print("array[0]={}\n", val_cstr);
 
-  plist_free(info_plist);
-  free(xml);
-}
+//   plist_free(info_plist);
+//   free(xml);
+// }
 
 // primary entry point for inbound packets
 void Request::parse() {
@@ -163,6 +163,10 @@ void Request::parse() {
 
   auto headers_begin = _packet.begin();
   auto headers_end = _packet.begin() + _header_bytes;
+
+  auto printable = [](const char ch) {
+    return std::isprint(static_cast<unsigned char>(ch));
+  };
 
   for (auto bol = headers_begin; printable(*bol) && (bol < headers_end);) {
     // end of line sentinel
@@ -199,7 +203,7 @@ void Request::parse() {
 
     std::copy(begin, end, where);
 
-    dump(ContentOnly);
+    // dump(ContentOnly);
   }
 }
 
@@ -253,10 +257,9 @@ void Request::parseMethod(const string &line) {
   constexpr auto protocol_idx = 3;
   constexpr auto match_count = 4;
 
-  fmt::print("\t\t{}\n", line);
+  fmt::print("Request::parseMethod() -> {}\n", line);
 
   smatch sm;
-  // static auto re_method = regex{"([A-Z]*) (.[a-zA-Z-_]*) (.*)", re_syntax};
   static auto re_method = regex(R"(([A-Z]*) (.*) (RTSP.*))", re_syntax);
   regex_search(line, sm, re_method);
 
@@ -267,6 +270,11 @@ void Request::parseMethod(const string &line) {
     _path = sm[path_idx].str();
     _protocol = sm[protocol_idx].str();
   }
+}
+
+void Request::sessionStart(const size_t bytes, string ec_msg) {
+  _bytes = bytes;
+  _session_msg = ec_msg;
 }
 
 bool Request::shouldLoadContent() { return ((_content_length != 0) && _content.empty()); }

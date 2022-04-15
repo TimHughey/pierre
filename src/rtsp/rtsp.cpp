@@ -40,7 +40,8 @@ namespace pierre {
 using namespace rtsp;
 using boost::system::error_code;
 
-Rtsp::Rtsp(sService service, uint16_t port) : _thread{}, _port(port), _service(service) {
+Rtsp::Rtsp(sService service, uint16_t port)
+    : _thread{}, _port(port), _service(service) {
   _aes_ctx = AesCtx::create(_service->fetchVal(apDeviceID));
 }
 
@@ -51,13 +52,16 @@ void Rtsp::start() {
 }
 
 void Rtsp::runLoop() {
-  // optional<boost::asio::io_service::work> work = in_place(boost::ref(io_service));
+  // optional<boost::asio::io_service::work> work =
+  // in_place(boost::ref(io_service));
 
-  tcp::endpoint endpoint{tcp::v4(), _port};
+  tcp::endpoint endpoint_v4{tcp::v4(), _port};
+  _accept_v4 = new tcp_acceptor{_ioservice, endpoint_v4};
 
-  _acceptor = new tcp_acceptor{_ioservice, endpoint};
+  tcp::endpoint endpoint_v6(tcp::v6(), _port);
+  _accept_v6 = new tcp_acceptor{_ioservice, endpoint_v6};
 
-  _acceptor->listen();
+  _accept_v4->listen();
 
   spawn(_ioservice, [this](yield_context yield) { doAccept(yield); });
 
@@ -67,14 +71,12 @@ void Rtsp::runLoop() {
 void Rtsp::doAccept(yield_context yield) {
   do {
     _sockets.emplace_back(_ioservice);
-    _acceptor->async_accept(_sockets.back(), yield);
+    _accept_v4->async_accept(_sockets.back(), yield);
 
-    fmt::print("Rtsp::doAccept() spawning...\n");
+    // fmt::print("Rtsp::doAccept() spawning...\n");
     spawn(_ioservice, // lamba
           [this](yield_context yield) {
             auto &socket = _sockets.back();
-
-            fmt::print("\nACCEPTED socket={}\n", socket.native_handle());
 
             doRead(_sockets.back(), yield);
           });

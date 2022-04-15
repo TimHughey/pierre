@@ -61,8 +61,7 @@ Reply::Reply(sRequest request) {
     headerAdd(ContentLength, _content.size());
   }
 
-  constexpr const char *indent = "\t\t\t\t\t";
-  fmt::print("{}{} {} {}\n", indent, ((ok) ? "TRUE" : "FALSE"), _rcode, resp_text);
+  fmt::print("Reply::build() --> {} {:#} {}\n", ok, _rcode, resp_text);
 
   fmt::format_to(where, "RTSP/1.0 {:d} {}\r\n", _rcode, resp_text);
 

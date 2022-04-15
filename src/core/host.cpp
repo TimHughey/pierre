@@ -32,10 +32,14 @@
 #include <iterator>
 #include <linux/if_packet.h>
 #include <net/ethernet.h> /* the L2 protocols */
+#include <net/if.h>
+#include <netinet/in.h>
 #include <sodium.h>
 #include <string_view>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <uuid/uuid.h>
 #include <vector>
 
@@ -47,12 +51,16 @@ using std::array, std::string, std::string_view;
 
 Host::Host(const string &firmware_vsn, const string &service_name)
     : _firmware_vsn(firmware_vsn), _service_name(service_name) {
+  initCrypto();
+
   // find the mac addr, store a binary and text representation
   createHostIdentifiers();
 
   // create UUID to represent this host
   createUUID();
-  createPrivateKey();
+  createPublicKey();
+
+  discoverIPs();
 }
 
 void Host::createHostIdentifiers() {
@@ -70,15 +78,7 @@ void Host::createHostIdentifiers() {
   }
 }
 
-void Host::createPrivateKey() {
-  // initialize crypo libs
-  if (sodium_init() < 0) {
-    throw(std::runtime_error{"sodium_init() failed"});
-  }
-
-  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
-  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-
+void Host::createPublicKey() {
   auto *dest = _pk_bytes.data();
   auto *secret = hwAddr();
 
@@ -93,6 +93,39 @@ void Host::createUUID() {
   uuid_unparse_lower(binuuid, tu.data());
 
   _uuid = string(tu.data(), tu.size());
+}
+
+void Host::discoverIPs() {
+  struct ifaddrs *addrs, *iap;
+
+  if (getifaddrs(&addrs) < 0) {
+    throw(std::runtime_error("Host getifaddrs() failed"));
+  }
+
+  for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+    // debug(1, "Interface index %d, name:
+    // \"%s\"",if_nametoindex(iap->ifa_name), iap->ifa_name);
+    if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
+        ((iap->ifa_flags & IFF_LOOPBACK) == 0)) {
+      // use IPv5 length
+      std::array<char, INET6_ADDRSTRLEN + 1> buf{0};
+
+      if (iap->ifa_addr->sa_family == AF_INET6) {
+        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+
+        inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
+      } else {
+        struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
+
+        inet_ntop(AF_INET, (void *)&addr->sin_addr, buf.data(), buf.size());
+      }
+
+      if (buf[0] != 0) {
+        _ip_addrs.emplace_back(IpAddr{buf.data()});
+      }
+    }
+  }
+  freeifaddrs(addrs);
 }
 
 bool Host::findHardwareAddr(HwAddrBytes &dest) {
@@ -121,6 +154,23 @@ bool Host::findHardwareAddr(HwAddrBytes &dest) {
 
   freeifaddrs(ifaddr);
   return found;
+}
+
+void Host::initCrypto() {
+  // initialize crypo libs
+  if (sodium_init() < 0) {
+    throw(std::runtime_error{"sodium_init() failed"});
+  }
+
+  if (gcry_check_version(_gcrypt_vsn) == nullptr) {
+    static fmt::basic_memory_buffer<char, 128> buff;
+    fmt::format_to(buff, "outdate libcrypt, need {}\n", _gcrypt_vsn);
+    const char *msg = buff.data();
+    throw(std::runtime_error(msg));
+  }
+
+  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
+  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
 const string Host::pk(const char *format) const {

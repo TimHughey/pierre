@@ -25,6 +25,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace pierre {
 
 typedef std::array<uint8_t, 6> HwAddrBytes;
+typedef std::string IpAddr;
+typedef std::vector<IpAddr> IpAddrs;
 typedef std::array<uint8_t, 32> PkBytes;
 typedef std::string string;
 typedef const char *cc_str;
@@ -52,6 +54,8 @@ public:
   cc_str hwAddr() const { return _hw_addr.c_str(); }
   const HwAddrBytes &hwAddrBytes() const { return _hw_addr_bytes; }
 
+  const IpAddrs &ipAddrs() const { return _ip_addrs; }
+
   // default format is without 0x prefix
   const string pk(const char *format = "{:02x}") const;
   cc_str serialNum() const { return _serial_num.c_str(); }
@@ -63,22 +67,29 @@ private:
   Host(const string &_firmware_vsn, const string &service_name);
 
   void createHostIdentifiers();
-  void createPrivateKey();
+  void createPublicKey();
   void createUUID();
+  void discoverIPs();
 
+  void initCrypto();
   bool findHardwareAddr(HwAddrBytes &dest);
 
 public:
+  string _app_name;
   string _firmware_vsn;
   string _service_name;
 
   string _device_id;
   string _hw_addr;
   HwAddrBytes _hw_addr_bytes{0};
+  IpAddrs _ip_addrs;
   PkBytes _pk_bytes{0};
   string _serial_num;
 
   string _uuid;
+
+private:
+  static constexpr auto _gcrypt_vsn = "1.5.4";
 };
 
 } // namespace pierre

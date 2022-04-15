@@ -7,6 +7,7 @@
 cmake_minimum_required(VERSION 3.22.0)
 set(FIND_LIBRARY_USE_LIB64_PATHS true)
 set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 # set the project name and version
 project(pierre

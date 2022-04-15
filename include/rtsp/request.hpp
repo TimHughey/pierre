@@ -56,28 +56,21 @@ public:
     return sRequest(new Request(ctx, service));
   }
 
-  PacketIn &packet() { return _packet; }
-  Content &content() { return _content; }
-  void contentError(const string ec_msg) { _msg_content = ec_msg; }
-
-  sAesCtx aesContext() { return _aes_ctx; }
-
-  void dump(DumpKind dump_type = RawOnly);
-
   sRequest getPtr() { return shared_from_this(); }
 
-  const string &method() const { return _method; }
+  // general API
 
+  sAesCtx aesContext() { return _aes_ctx; }
+  Content &content() { return _content; }
+  void contentError(const string ec_msg) { _msg_content = ec_msg; }
+  void dump(DumpKind dump_type = RawOnly);
+  void dump(const auto *data, size_t len) const;
+  const string &method() const { return _method; }
+  PacketIn &packet() { return _packet; }
   void parse();
   const string &path() const { return _path; }
-
-  void sessionStart(const size_t bytes, string ec_msg) {
-    _bytes = bytes;
-    _session_msg = ec_msg;
-  }
-
   sService service() { return _service; }
-
+  void sessionStart(const size_t bytes, string ec_msg);
   bool shouldLoadContent();
 
 private:
@@ -85,16 +78,13 @@ private:
 
   auto findPlist(const auto bol, const auto abs_end) const;
   bool findSeparator();
-  auto importPlist(const auto plist_start, const auto plist_end);
-
+  // auto importPlist(const auto plist_start, const auto plist_end);
   void parseHeader(const string &line);
   void parseMethod(const string &line);
 
-  inline bool printable(const char ch) {
-    auto uc = static_cast<unsigned char>(ch);
-
-    return std::isprint(uc);
-  }
+  // inline bool printable(const char ch) {
+  //   return std::isprint(static_cast<unsigned char>(ch));
+  // }
 
 private:
   sAesCtx _aes_ctx;

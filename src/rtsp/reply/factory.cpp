@@ -28,6 +28,7 @@
 #include "rtsp/reply/info.hpp"
 #include "rtsp/reply/options.hpp"
 #include "rtsp/reply/pairing.hpp"
+#include "rtsp/reply/setup.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -66,6 +67,10 @@ sReply Factory::create(sRequest request) {
     if (path.compare("*") == 0) {
       return std::make_shared<Options>(request);
     }
+  }
+
+  if (method.compare("SETUP") == 0) {
+    return std::make_shared<Setup>(request);
   }
 
   request->dump(Request::DumpKind::RawOnly);

@@ -83,7 +83,8 @@ private:
   std::thread::native_handle_type _handle;
 
   io_service _ioservice;
-  tcp_acceptor *_acceptor;
+  tcp_acceptor *_accept_v4;
+  tcp_acceptor *_accept_v6;
 
   SocketList _sockets;
 };

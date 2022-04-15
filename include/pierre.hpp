@@ -38,10 +38,13 @@ public:
   Pierre(const Pierre &) = delete;
   Pierre &operator=(const Pierre &) = delete;
 
+  const string &appName() const { return _app_name; }
+
   std::tuple<bool, ArgsMap> prepareToRun(int argc, char *argv[]);
   void run();
 
 private:
+  string _app_name;
   bool _daemonize = false;
   string _dmx_host;
 

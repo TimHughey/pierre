@@ -125,7 +125,7 @@ bool FairPlay::populate() {
 }
 
 void FairPlay::payload1(uint8_t mode) {
-  fmt::print("{:>20} mode={:02d}\n", "creating payload1", mode);
+  // fmt::print("{:>20} mode={:02d}\n", "creating payload1", mode);
 
   const uint8_t *content = nullptr;
   size_t bytes = 0;
