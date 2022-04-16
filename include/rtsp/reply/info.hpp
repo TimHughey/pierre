@@ -29,7 +29,7 @@ enum InfoStage { StageUnknown, Stage1, Stage2 };
 
 class Info : public Reply {
 public:
-  Info(sRequest request) : Reply(request) {}
+  Info(const Reply::Opts &opts) : Reply(opts) {}
 
   bool populate() override;
 

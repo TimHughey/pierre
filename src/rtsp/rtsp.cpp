@@ -28,6 +28,7 @@
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
+#include "rtsp/request/final.hpp"
 #include "rtsp/rtsp.hpp"
 
 using namespace boost;
@@ -45,6 +46,7 @@ Rtsp::Rtsp(sHost _host) : host(_host), service_name(_host->serviceName()) {
 }
 
 Rtsp::~Rtsp() {
+  fmt::print("Rtsp destructure called\n");
   // need cleanup code
 }
 
@@ -158,13 +160,31 @@ void Rtsp::session(tcp::socket &socket, auto request, yield_context yield) {
     fmt::print("rtsp: loaded {} bytes successfully\n", bytes);
   }
 
-  auto reply = Reply::create(request);
-  auto &packet = reply->build();
+  // create the reply to the request
+  auto req_final = request->final();
+  try {
+    auto reply = Reply::create({.method = request->method(),
+                                .path = request->path(),
+                                .content = request->content(),
+                                .headers = request->headers(),
+                                .host = host,
+                                .service = service,
+                                .aes_ctx = _aes_ctx,
+                                .mdns = mdns,
+                                .nptp = nptp});
 
-  _aes_ctx->encrypt(packet);
+    auto &packet = reply->build();
 
-  if (packet.size() > 0) {
-    socket.send(buffer(packet.data(), packet.size()));
+    _aes_ctx->encrypt(packet);
+
+    if (packet.size() > 0) {
+      socket.send(buffer(packet.data(), packet.size()));
+    }
+  } catch (const std::runtime_error &error) {
+
+    auto eptr = std::current_exception();
+    request->dump(Request::DumpKind::RawOnly);
+    rethrow_exception(eptr);
   }
 }
 

@@ -28,28 +28,42 @@
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/reply/factory.hpp"
+#include "rtsp/reply/method.hpp"
 #include "rtsp/reply/packet_out.hpp"
 
 namespace pierre {
 namespace rtsp {
+using namespace reply;
 
 using std::string, std::string_view, std::unordered_map, std::back_inserter;
 using enum RespCode;
 
-static RespCodeMap _resp_text{{OK, "OK"},
-                              {AuthRequired, "Connection Authorization Required"},
-                              {BadRequest, "Bad Request"},
-                              {InternalServerError, "Internal Server Error"},
-                              {Unauthorized, "Unauthorized"},
-                              {Unavailable, "Unavailable"},
-                              {NotImplemented, "Not Implemented"}};
+typedef const std::string &csr;
 
-Reply::Reply(sRequest request) {
-  // all constructors call init() to complete initialization
-  init(request);
+static RespCodeMap _resp_text{
+    {OK, "OK"},
+    {AuthRequired, "Connection Authorization Required"},
+    {BadRequest, "Bad Request"},
+    {InternalServerError, "Internal Server Error"},
+    {Unauthorized, "Unauthorized"},
+    {Unavailable, "Unavailable"},
+    {NotImplemented, "Not Implemented"}};
+
+// this static member function is in the .cpp due to the call to Factory to
+// create the approprite Reply subclass
+[[nodiscard]] sReply Reply::create(const Reply::Opts &opts) {
+  return Factory::create(opts);
 }
 
-[[nodiscard]] sReply Reply::create(sRequest request) { return Factory::create(request); }
+Reply::Reply(const Reply::Opts &opts)
+    : Method(opts.method), Path(opts.path), _request_content(opts.content),
+      _host(opts.host), _service(opts.service), _aes_ctx(opts.aes_ctx),
+      _mdns(opts.mdns), _nptp(opts.nptp) {
+
+  // copy the sequence header, must be part of the reply headers
+  headerCopy(opts.headers, Headers::Type2::CSeq);
+  headerAdd(Server, AirPierre);
+}
 
 [[nodiscard]] PacketOut &Reply::build() {
   const auto ok = populate();
@@ -74,9 +88,6 @@ Reply::Reply(sRequest request) {
     std::copy(_content.begin(), _content.end(), where);
   }
 
-  // prevent circular shared ptr locks
-  _request.reset();
-
   return _packet;
 }
 
@@ -91,14 +102,6 @@ void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
 }
 
 void Reply::dump() const { headersDump(); }
-
-void Reply::init(sRequest request) {
-  //
-  _request = request;
-
-  headerCopy(*request, Headers::Type2::CSeq);
-  headerAdd(Server, AirPierre);
-}
 
 } // namespace rtsp
 } // namespace pierre

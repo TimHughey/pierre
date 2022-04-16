@@ -35,7 +35,7 @@ namespace rtsp {
 
 class FairPlay : public Reply {
 public:
-  FairPlay(sRequest request);
+  FairPlay(const Reply::Opts &opts);
 
   bool populate() override;
 

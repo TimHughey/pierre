@@ -33,17 +33,14 @@ namespace pierre {
 namespace rtsp {
 
 bool Pairing::populate() {
-  const auto &path = _request->path();
-  auto aes_ctx = _request->aesContext();
-
   AesResult aes_result;
 
-  if (path.compare("/pair-setup") == 0) {
-    aes_result = aes_ctx->setup(_request->content(), _content);
+  if (path().compare("/pair-setup") == 0) {
+    aes_result = aesCtx()->setup(requestContent(), _content);
   }
 
-  if (path.compare("/pair-verify") == 0) {
-    aes_result = aes_ctx->verify(_request->content(), _content);
+  if (path().compare("/pair-verify") == 0) {
+    aes_result = aesCtx()->verify(requestContent(), _content);
   }
 
   responseCode(aes_result.resp_code);

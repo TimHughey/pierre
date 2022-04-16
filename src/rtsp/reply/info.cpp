@@ -38,8 +38,8 @@ constexpr auto qualifier_len = strlen(qualifier);
 
 bool Info::populate() {
   // need these to determine if stage1 or stage2
-  const auto &content = _request->content();
-  const auto plist_len = _request->content().size();
+  const auto &content = requestContent();
+  const auto plist_len = content.size();
 
   // if content is empty this is an info stage 2 packet
   if (plist_len == 0) {
@@ -91,12 +91,10 @@ bool Info::stage1() {
   plist_from_memory(xml_raw, xml_len, &rplist);
   auto __rplist = make_unique<plist_t>(rplist);
 
-  auto service = _request->service();
-
   // create the qualifier data value
   auto _qual_data = fmt::memory_buffer();
   auto here = back_inserter(_qual_data);
-  auto digest = service->keyValList(AirPlayTCP);
+  auto digest = service()->keyValList(AirPlayTCP);
 
   // an entry in the plist is an concatenated list of txt values
   // published via mDNS
@@ -111,19 +109,20 @@ bool Info::stage1() {
   // add specific dictionary entries
 
   // first, handle the integers
-  auto features_val = plist_new_uint(service->features());
-  auto features_key = service->fetchKey(apFeatures);
+  auto features_val = plist_new_uint(service()->features());
+  auto features_key = service()->fetchKey(apFeatures);
   plist_dict_set_item(rplist, features_key, features_val);
 
-  auto system_flags_pl = plist_new_uint(service->systemFlags());
-  auto system_flags_key = service->fetchKey(apSystemFlags);
+  auto system_flags_pl = plist_new_uint(service()->systemFlags());
+  auto system_flags_key = service()->fetchKey(apSystemFlags);
   plist_dict_set_item(rplist, system_flags_key, system_flags_pl);
 
   // second, handle the strings
-  auto want_keys = array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
+  auto want_keys =
+      array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
 
   for (const auto key : want_keys) {
-    const auto [key_str, val_str] = service->fetch(key);
+    const auto [key_str, val_str] = service()->fetch(key);
 
     auto pl_val = plist_new_string(val_str);
     plist_dict_set_item(rplist, key_str, pl_val);
@@ -142,7 +141,8 @@ bool Info::stage1() {
   plist_to_bin(rplist, &pbin, &pbin_len);
   auto __pbin = make_unique<char *>(pbin);
 
-  // fmt::print("Info::stage1() plist_to_bin pbin={}, pbin_len={}\n", fmt::ptr(pbin),
+  // fmt::print("Info::stage1() plist_to_bin pbin={}, pbin_len={}\n",
+  // fmt::ptr(pbin),
   //            pbin_len);
 
   const uint8_t *content = reinterpret_cast<const uint8_t *>(pbin);
@@ -168,16 +168,18 @@ bool Info::stage2() {
   // plists_get_info_response_xml_len,
   //                &response_plist);
   // plist_dict_set_item(response_plist, "features",
-  // plist_new_uint(config.airplay_features)); plist_dict_set_item(response_plist,
-  // "statusFlags",
+  // plist_new_uint(config.airplay_features));
+  // plist_dict_set_item(response_plist, "statusFlags",
   //                     plist_new_uint(config.airplay_statusflags));
   // plist_dict_set_item(response_plist, "deviceID",
-  // plist_new_string(config.airplay_device_id)); plist_dict_set_item(response_plist,
-  // "pi", plist_new_string(config.airplay_pi)); plist_dict_set_item(response_plist,
-  // "name", plist_new_string(config.service_name)); char *vs = get_version_string();
+  // plist_new_string(config.airplay_device_id));
+  // plist_dict_set_item(response_plist, "pi",
+  // plist_new_string(config.airplay_pi)); plist_dict_set_item(response_plist,
+  // "name", plist_new_string(config.service_name)); char *vs =
+  // get_version_string();
   // // plist_dict_set_item(response_plist, "model", plist_new_string(vs));
-  // plist_dict_set_item(response_plist, "model", plist_new_string("Shairport Sync"));
-  // free(vs);
+  // plist_dict_set_item(response_plist, "model", plist_new_string("Shairport
+  // Sync")); free(vs);
   // // pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
   // // plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
   // plist_to_bin(response_plist, &resp->content, &resp->contentlength);

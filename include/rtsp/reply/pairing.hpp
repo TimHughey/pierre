@@ -32,7 +32,7 @@ namespace rtsp {
 
 class Pairing : public Reply {
 public:
-  Pairing(sRequest request) : Reply(request) {}
+  Pairing(const Reply::Opts &opts) : Reply(opts) {}
 
   bool populate() override;
 

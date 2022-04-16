@@ -27,19 +27,23 @@
 
 #include "core/service.hpp"
 #include "rtsp/reply/setup.hpp"
-#include "rtsp/reply/xml.hpp"
 
 using namespace std;
 
 namespace pierre {
 namespace rtsp {
 
-constexpr auto qualifier = "txtAirPlay";
-constexpr auto qualifier_len = strlen(qualifier);
+Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+  // maybe more
+}
 
-Setup::Setup(sRequest request) : Reply(request), Aplist(request->content()) {}
+bool Setup::checksOK() const {
+  auto rc_false = [](const auto rc) { return rc == false; };
 
-bool Setup::checkTimingProtocol() {
+  return std::any_of(_checks.begin(), _checks.end(), rc_false);
+}
+
+void Setup::validateTimingProtocol() {
   constexpr auto timing_path = "timingProtocol";
   constexpr auto ptp = "PTP";
 
@@ -47,7 +51,8 @@ bool Setup::checkTimingProtocol() {
 
   if (!match) {
     fmt::print("Setup: only {} timing allowed\n", ptp);
-    return false;
+    saveCheck(false);
+    return;
   }
 
   _stream_category = PtpStream;
@@ -55,27 +60,20 @@ bool Setup::checkTimingProtocol() {
 
   // get play lock??
 
-  return true;
+  saveCheck(true);
 }
 
-bool Setup::getGroupInfo() {
+void Setup::getGroupInfo() {
   constexpr auto group_uuid_path = "groupUUID";
   constexpr auto gcl_path = "groupContainsGroupLeader";
 
-  auto rc = false;
-  std::vector<bool> results;
+  // add the result of dictGetString to the checks vector
+  saveCheck(dictGetString(group_uuid_path, _group_uuid));
 
-  rc = dictGetString(group_uuid_path, _group_uuid);
-  results.emplace_back(rc);
-
-  rc = dictGetBool(gcl_path, _group_contains_leader);
-  results.emplace_back(rc);
-
-  return std::any_of(results.begin(), results.end(),
-                     [](auto rc) { return rc == false; });
+  saveCheck(dictGetBool(gcl_path, _group_contains_leader));
 }
 
-bool Setup::getTimingList() {
+void Setup::getTimingList() {
   constexpr auto timing_peer_info_path = "timingPeerInfo";
   constexpr auto addresses_node = "Addresses";
 
@@ -85,7 +83,7 @@ bool Setup::getTimingList() {
   // fmt::print("Setup::getTimingList(): rc={} num_strings={}\n", rc,
   //            _timing_peer_info.size());
 
-  return rc;
+  saveCheck(rc);
 }
 
 bool Setup::populate() {
@@ -97,9 +95,15 @@ bool Setup::populate() {
 
   // initial setup, no streams active
   if (dictItemExists(streams) == false) {
-    checkTimingProtocol();
+    std::vector<bool> checks;
+
+    validateTimingProtocol();
     getGroupInfo();
     getTimingList();
+
+    if (checksOK()) {
+      Aplist reply_dict(Dictionaries{"timingPeerInfo"});
+    }
   }
 
   return true;

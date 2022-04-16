@@ -20,15 +20,18 @@
 
 #pragma once
 
+#include "rtsp/nptp.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
 
 namespace pierre {
 namespace rtsp {
+namespace reply {
 
 struct Factory {
-  static sReply create(sRequest request);
+  static sReply create(const Reply::Opts &opts);
 };
 
+} // namespace reply
 } // namespace rtsp
 } // namespace pierre

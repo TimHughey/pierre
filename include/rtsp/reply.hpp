@@ -30,15 +30,22 @@
 #include <unordered_map>
 #include <vector>
 
+#include "core/host.hpp"
+#include "core/service.hpp"
+#include "mdns/mdns.hpp"
+#include "rtsp/aes_ctx.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
+#include "rtsp/nptp.hpp"
+#include "rtsp/reply/method.hpp"
 #include "rtsp/reply/packet_out.hpp"
-#include "rtsp/request.hpp"
+#include "rtsp/reply/path.hpp"
 
 namespace pierre {
 namespace rtsp {
-
-using std::string, std::string_view, std::tuple, std::unordered_map, std::vector;
+using Service = pierre::Service;
+using std::string, std::string_view, std::tuple, std::unordered_map,
+    std::vector;
 
 // Building the response
 // 1. Include CSeq header from request
@@ -59,40 +66,67 @@ using std::string, std::string_view, std::tuple, std::unordered_map, std::vector
 // >> write data to socket <<
 
 class Reply; // forward decl for shared_ptr typedef
+typedef std::shared_ptr<Reply> sReply;
 
 typedef std::tuple<char *, size_t> PacketInInfo;
-typedef std::shared_ptr<Reply> sReply;
 typedef const unordered_map<RespCode, const char *> RespCodeMap;
 
-class Reply : public Headers {
+class Reply : public Headers, protected reply::Method, protected reply::Path {
 public:
-  static sReply create(sRequest request);
+  using string = std::string;
+
+  struct Opts {
+    using string = std::string;
+
+    const string &method;
+    const string &path;
+    const Content &content;
+    const Headers &headers;
+    sHost host = nullptr;
+    sService service = nullptr;
+    sAesCtx aes_ctx = nullptr;
+    smDNS mdns = nullptr;
+    sNptp nptp = nullptr;
+  };
 
 public:
-  Reply(sRequest request);
+  // static member function calls Factory to create the appropriate Reply
+  // subclass
+  [[nodiscard]] static sReply create(const Opts &opts);
 
+public:
+  // construct a new Reply
+  // minimum args: method, path
+  Reply(const Opts &opts);
+
+  sAesCtx aesCtx() { return _aes_ctx; }
   PacketOut &build();
   void copyToContent(const uint8_t *begin, const size_t bytes);
-  auto &errMsg() { return _err_msg; }
   void dump() const;
+  auto &errMsg() { return _err_msg; }
+  sHost host() { return _host; }
+  smDNS mdns() { return _mdns; }
+  sNptp nptp() { return _nptp; }
+
   virtual bool populate() = 0;
   inline void responseCode(RespCode code) { _rcode = code; }
+  inline const Content &requestContent() const { return _request_content; }
+  sService service() { return _service; }
 
 protected:
-  string_view _method;
-  string_view _path;
   string _err_msg;
 
   RespCode _rcode = RespCode::NotImplemented;
 
-  sRequest _request;
+  sHost _host;
+  sService _service;
+  sAesCtx _aes_ctx;
+  smDNS _mdns;
+  sNptp _nptp;
+  const Content &_request_content;
+
   Content _content;
   PacketOut _packet;
-
-private:
-  void init(sRequest request);
-
-  //
 };
 
 } // namespace rtsp

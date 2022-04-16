@@ -32,27 +32,32 @@ namespace rtsp {
 
 class Aplist {
 public:
-  typedef std::vector<std::string> ArrayStrings;
-
   typedef const char *ccs;
   typedef std::string string;
+
+  typedef std::vector<string> ArrayStrings;
+  typedef std::vector<ccs> Dictionaries;
 
 public:
   Aplist();
   Aplist(const Content &content);
+  Aplist(const Dictionaries &dicts);
   ~Aplist();
 
   // general API
   // NOTE: api naming convention is dict* to support subclassing
   bool dictCompareString(ccs path, ccs compare);
   bool dictItemExists(ccs path);
-  
+
   bool dictGetBool(ccs path, bool &dest);
   plist_t dictGetItem(ccs path);
 
   bool dictGetString(ccs path, string &dest);
   bool dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings);
   bool dictReady() const { return _plist != nullptr; }
+
+  bool dictSetStringArray(ccs sub_dict_key, ccs key,
+                          const ArrayStrings &array_strings);
 
 private:
   void track(plist_t pl);

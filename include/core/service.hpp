@@ -79,7 +79,7 @@ private:
   void saveCalcVal(service::Key key, ccs val);
 
 private:
-  uint16_t _base_port = 7000;
+  static constexpr uint16_t _base_port = 7000;
 
   // Advertised with mDNS and returned with GET /info, see
   // https://openairplay.github.io/airplay-spec/status_flags.html

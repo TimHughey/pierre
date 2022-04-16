@@ -71,10 +71,7 @@ private:
   Nptp(sService service);
 
   // internal API
-  inline bool isMapped() const {
-    return ((_mapped != nullptr) && (_mapped != MAP_FAILED));
-  }
-
+  bool isMapped() const;
   void openAndMap();
   void runLoop();
   void sendCtrlMsg(const char *msg);

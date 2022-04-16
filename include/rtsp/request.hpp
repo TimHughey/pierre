@@ -34,6 +34,7 @@
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/packet_in.hpp"
+#include "rtsp/request/final.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -42,7 +43,6 @@ using namespace std;
 using namespace core;
 
 class Request; // forward decl for shared_ptr typedef
-
 typedef shared_ptr<Request> sRequest;
 
 class Request : public std::enable_shared_from_this<Request>, public Headers {
@@ -65,6 +65,8 @@ public:
   void contentError(const string ec_msg) { _msg_content = ec_msg; }
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
+  reply::Final final() const;
+  const Headers &headers() const { return *this; }
   const string &method() const { return _method; }
   PacketIn &packet() { return _packet; }
   void parse();

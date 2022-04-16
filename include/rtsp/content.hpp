@@ -28,5 +28,5 @@ namespace rtsp {
 
 typedef std::vector<uint8_t> Content;
 
-}
+} // namespace rtsp
 } // namespace pierre

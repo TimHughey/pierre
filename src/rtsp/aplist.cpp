@@ -19,6 +19,7 @@
 */
 
 #include <algorithm>
+#include <exception>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <iterator>
@@ -39,6 +40,17 @@ Aplist::Aplist(const Content &content) {
 
   // create the plist and wrap the pointer
   plist_from_memory(data, content.size(), &_plist);
+}
+
+Aplist::Aplist(const Dictionaries &dictionaries) {
+  _plist = plist_new_dict(); // create the root dictionary
+
+  for (const auto &dict : dictionaries) {
+    auto node = plist_new_dict();            // create sub dictionary
+    plist_dict_set_item(_plist, dict, node); // add to root
+  }
+
+  fmt::print("created dict size={}\n", plist_dict_get_size(_plist));
 }
 
 Aplist::~Aplist() {
@@ -71,10 +83,7 @@ bool Aplist::dictItemExists(ccs path) {
 }
 
 plist_t Aplist::dictGetItem(ccs path) {
-  auto item = plist_dict_get_item(_plist, path);
-  track(item);
-
-  return item;
+  return plist_dict_get_item(_plist, path);
 }
 
 bool Aplist::dictGetBool(ccs path, bool &dest) {
@@ -149,6 +158,37 @@ bool Aplist::dictGetStringArray(ccs path, ccs node,
   }
 
   return rc;
+}
+
+// add am array of strings with key node_name to the dict at key path
+bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key,
+                                const ArrayStrings &array_strings) {
+
+  // create and save nodes from the bottom up
+  // first create the array since it's the deepest node
+  auto array = plist_new_array();
+
+  // populate the array with copies of the strings passed
+  for (const auto &item : array_strings) {
+    const auto str = item.c_str();
+
+    auto save_str = plist_new_string(str);
+    plist_array_append_item(array, save_str);
+  }
+
+  // get the EXISTING sub dictionary
+  auto sub_dict = dictGetItem(sub_dict_key);
+
+  // just for giggles let's confirm the sub_dict is actually a dictionary
+  if (sub_dict && (PLIST_DICT == plist_get_node_type(sub_dict))) {
+    plist_dict_set_item(sub_dict, key, array);
+
+    return true;
+  }
+
+  constexpr auto msg = "unable to add array to missing or non-dict node";
+  fmt::print("{}\n", msg);
+  throw(runtime_error(msg));
 }
 
 void Aplist::track(plist_t item) {

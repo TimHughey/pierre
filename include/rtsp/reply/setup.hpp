@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "rtsp/aplist.hpp"
 #include "rtsp/reply.hpp"
 
@@ -28,28 +30,37 @@ namespace rtsp {
 
 class Setup : public Reply, Aplist {
 public:
+  using string = std::string;
+
+public:
   enum StreamCategory : uint8_t { UnknownStream = 0, PtpStream };
   enum TimingType : uint8_t { UnknownTiming = 0, TsPtp };
 
+  typedef std::vector<bool> Checks;
+
 public:
-  Setup(sRequest request);
+  Setup(const Reply::Opts &opts);
 
   bool populate() override;
 
 private:
-  bool getGroupInfo();
-  bool getTimingList();
-  bool checkTimingProtocol();
+  bool checksOK() const;
+  void checksReset() { _checks.clear(); }
+
+  void getGroupInfo();
+  void getTimingList();
+  void validateTimingProtocol();
+
+  // capture the bool result of a get or set
+  inline bool saveCheck(bool rc) { return _checks.emplace_back(rc); }
 
 private:
-  std::vector<plist_t> _plists;
-  plist_t *_pl_in = nullptr;
-  plist_t *_pl_out = nullptr;
-
-  Aplist _reply_pl;
+  // results of get/set operations
+  Checks _checks;
 
   TimingType _timing_type = UnknownTiming;
   StreamCategory _stream_category = UnknownStream;
+
   string _group_uuid;
   bool _group_contains_leader = false;
   Aplist::ArrayStrings _timing_peer_info;

@@ -49,6 +49,10 @@ Nptp::Nptp(sService service) {
   openAndMap();    // gains access to shared memory segment
 }
 
+bool Nptp::isMapped() const {
+  return ((_mapped != nullptr) && (_mapped != MAP_FAILED));
+}
+
 void Nptp::openAndMap() {
   if (isMapped() == false) {
     // fmt::print("opening {}\n", _shm_name, .c_str());

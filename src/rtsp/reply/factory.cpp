@@ -33,23 +33,25 @@
 namespace pierre {
 namespace rtsp {
 
+namespace reply {
+
 using std::find_if, std::array;
 
-sReply Factory::create(sRequest request) {
-  auto method = request->method();
-  auto path = request->path();
+sReply Factory::create(const Reply::Opts &opts) {
+  const auto &method = opts.method;
+  const auto &path = opts.path;
 
   // NOTE: compare sequence equivalent to AirPlay conversation
 
   if (method.compare("GET") == 0) {
     if (path.compare("/info") == 0) {
-      return std::make_shared<Info>(request);
+      return std::make_shared<Info>(opts);
     }
   }
 
   if (method.compare("POST") == 0) {
     if (path.compare("/fp-setup") == 0) {
-      return std::make_shared<FairPlay>(request);
+      return std::make_shared<FairPlay>(opts);
     }
 
     auto pair_paths = array{"/pair-setup", "/pair-verify"};
@@ -57,7 +59,7 @@ sReply Factory::create(sRequest request) {
     auto found = find_if(pair_paths.begin(), pair_paths.end(), check);
 
     if (found != pair_paths.end()) {
-      return std::make_shared<Pairing>(request);
+      return std::make_shared<Pairing>(opts);
     } else {
       fmt::print("WARN unhandled pair path: {}\n", path);
     }
@@ -65,15 +67,13 @@ sReply Factory::create(sRequest request) {
 
   if (method.compare("OPTIONS") == 0) {
     if (path.compare("*") == 0) {
-      return std::make_shared<Options>(request);
+      return std::make_shared<Options>(opts);
     }
   }
 
   if (method.compare("SETUP") == 0) {
-    return std::make_shared<Setup>(request);
+    return std::make_shared<Setup>(opts);
   }
-
-  request->dump(Request::DumpKind::RawOnly);
 
   const auto loc = std::source_location::current();
   fmt::print("In file {} at line {}\n", loc.file_name(), loc.line());
@@ -82,6 +82,6 @@ sReply Factory::create(sRequest request) {
   throw(std::runtime_error("unhandled method/path"));
 }
 
+} // namespace reply
 } // namespace rtsp
-
 } // namespace pierre

@@ -80,6 +80,13 @@ void Request::dump(const auto *data, size_t len) const {
   }
 }
 
+// decoupling -- return only the interesting bits
+reply::Final Request::final() const {
+  auto t = std::make_tuple(_ok, _method.c_str(), _path.c_str());
+
+  return reply::Final(t, _content);
+}
+
 auto Request::findPlist(const auto bol, const auto abs_end) const {
   constexpr auto *plist_hdr = "bplist00";
   constexpr size_t plist_hdr_len = sizeof(plist_hdr);
@@ -126,36 +133,6 @@ bool Request::findSeparator() {
 
   return true;
 }
-
-// auto Request::importPlist(const auto plist_start, const auto plist_end) {
-//   const auto bytes = std::distance(plist_start, plist_end);
-//   plist_t info_plist = nullptr;
-
-//   plist_from_memory(plist_start, bytes, &info_plist);
-
-//   char *xml = nullptr;
-//   uint32_t len = 0;
-//   plist_to_xml(info_plist, &xml, &len);
-//   // plist_to_bin(info_plist, &plist_bin, &plist_len);
-
-//   fmt::print("plist\n{}", string(xml, len));
-
-//   // auto qual = plist_dict_get_item(info_plist, "qualifier");
-//   // auto array_size = plist_array_get_size(qual);
-
-//   // if (array_size < 1) {
-//   //   return;
-//   // }
-
-//   // auto array_val = plist_array_get_item(qual, 0);
-//   // char *val_cstr = nullptr;
-//   // plist_get_string_val(array_val, &val_cstr);
-
-//   // fmt::print("array[0]={}\n", val_cstr);
-
-//   plist_free(info_plist);
-//   free(xml);
-// }
 
 // primary entry point for inbound packets
 void Request::parse() {
@@ -277,7 +254,9 @@ void Request::sessionStart(const size_t bytes, string ec_msg) {
   _session_msg = ec_msg;
 }
 
-bool Request::shouldLoadContent() { return ((_content_length != 0) && _content.empty()); }
+bool Request::shouldLoadContent() {
+  return ((_content_length != 0) && _content.empty());
+}
 
 } // namespace rtsp
 } // namespace pierre
