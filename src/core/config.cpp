@@ -28,6 +28,7 @@
 #include <fmt/format.h>
 #include <ifaddrs.h>
 #include <iomanip>
+#include <iterator>
 #include <linux/if_packet.h>
 #include <net/ethernet.h> /* the L2 protocols */
 #include <string_view>
@@ -89,7 +90,7 @@ static uint16_t nctohs(const uint8_t *p) {
 static uint64_t nctoh64(const uint8_t *p) {
   uint32_t landing = nctohl(p); // get the high order 32 bits
   uint64_t vl = landing;
-  vl = vl << 32;                          // shift them into the correct location
+  vl = vl << 32; // shift them into the correct location
   landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
   uint64_t ul = landing;
   vl = vl + ul;
@@ -109,47 +110,12 @@ const string_view suffix{".conf"};
 
 typedef std::vector<fs::path> paths;
 
-Config::Config() {
-  using namespace fmt;
+Config::Config(csr app_name, csr file)
+    : _cli_cfg_file(file), _app_name(app_name), _firmware_vsn(GIT_REVISION) {}
 
-  // create the UUID for AirPlay mDNS registration
-  uuid_t binuuid;
-  uuid_generate_random(binuuid);
-  uuid_unparse_lower(binuuid, airplay_pi.data());
+bool Config::findFile() {
+  const auto file = _cli_cfg_file;
 
-  get_device_id((uint8_t *)&hw_addr, 6);
-
-  // auto temporary_airplay_id = nctoh64(hw_addr) >> 16;
-
-  // char apids[6 * 2 + 5 + 1]; // six pairs of digits, 5 colons and a NUL
-  // apids[6 * 2 + 5] = 0;      // NUL termination
-  // int i;
-  // char hexchar[] = "0123456789abcdef";
-  // for (i = 5; i >= 0; i--) {
-  //   apids[i * 3 + 1] = hexchar[temporary_airplay_id & 0xF];
-  //   temporary_airplay_id = temporary_airplay_id >> 4;
-  //   apids[i * 3] = hexchar[temporary_airplay_id & 0xF];
-  //   temporary_airplay_id = temporary_airplay_id >> 4;
-  //   if (i != 0)
-  //     apids[i * 3 - 1] = ':';
-  // }
-
-  firmware_version = GIT_REVISION;
-  fmt::print("\nPierre {:>25}\n\n", firmware_version);
-
-  constexpr auto format_s = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}";
-  mac_addr = format(format_s, hw_addr[0], hw_addr[1], hw_addr[2], hw_addr[3], hw_addr[4],
-                    hw_addr[5]);
-
-  airplay_device_id = mac_addr;
-
-  // std::array _feature_bits{9, 11, 18, 19, 30, 40, 41, 51};
-  // for (const auto &bit : _feature_bits) {
-  //   airplay_features |= (1 << bit);
-  // }
-}
-
-bool Config::findFile(const string &file) {
   // must have suffix .conf
   if (!file.ends_with(suffix))
     return false;
@@ -202,7 +168,8 @@ bool Config::load() {
     return false;
 
   } catch (const libconfig::ParseException &pex) {
-    fmt::print("Parse error at {}:{}-{}\n", pex.getFile(), pex.getLine(), pex.getError());
+    fmt::print("Parse error at {}:{}-{}\n", pex.getFile(), pex.getLine(),
+               pex.getError());
     return false;
   }
 

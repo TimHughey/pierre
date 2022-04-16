@@ -29,53 +29,58 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "service/types.hpp"
 
 namespace pierre {
-namespace core {
 
 using namespace std;
-
-using namespace service;
-using enum service::Key;
-using enum service::Type;
+using namespace core;
 
 // forward decl for shared_ptr typedef
 class Service;
 typedef std::shared_ptr<Service> sService;
 
 class Service : public std::enable_shared_from_this<Service> {
-public:
-  [[nodiscard]] static sService create(sHost host) {
-    // Not using std::make_shared<Best> because the c'tor is private.
+  typedef const char *ccs;
+  using enum service::Key;
 
+public:
+  // shared_ptr API
+  [[nodiscard]] static sService create(sHost host) {
+    // must call constructor directly since it's private
     return sService(new Service(host));
   }
 
   sService getPtr() { return shared_from_this(); }
 
   // general API
-
   auto features() const { return _features_val; }
-  const KeyVal fetch(const Key key) const;
-  const char *fetchKey(const Key key) const;
-  const char *fetchVal(const Key key) const;
-  sKeyValList keyValList(Type service_type) const;
-  // const ServiceAndReg nameAndReg(Type type) const;
-  // const char *plKey(Key key) const;
-  // plist_t plVal(Key key) const;
-  const KeyVal nameAndReg(Type type) const;
+  const service::KeyVal fetch(const service::Key key) const;
+  ccs fetchKey(const service::Key key) const;
+  ccs fetchVal(const service::Key key) const;
+  service::sKeyValList keyValList(service::Type service_type) const;
+  const service::KeyVal nameAndReg(service::Type type) const;
+
+  // primary port for AirPlay2 connections
+  uint16_t basePort() { return _base_port; }
+
+  // easy access to commonly needed values
+  ccs deviceID() const { return fetchVal(apDeviceID); }
+  ccs name() const { return fetchVal(ServiceName); }
+
+  // system flags (these change based on AirPlay)
   auto systemFlags() const { return _system_flags; }
 
 private:
   Service(sHost host);
 
   void addFeatures();
-
-  void addPublicKey(auto host);
-  void addRegAndName(auto host);
+  void addRegAndName();
   void addSystemFlags();
 
-  void saveCalcVal(Key key, const string &val);
+  void saveCalcVal(service::Key key, const string &val);
+  void saveCalcVal(service::Key key, ccs val);
 
 private:
+  uint16_t _base_port = 7000;
+
   // Advertised with mDNS and returned with GET /info, see
   // https://openairplay.github.io/airplay-spec/status_flags.html
   // 0x4: Audio cable attached, no PIN required (transient pairing)
@@ -104,5 +109,4 @@ private:
   static service::KeyValMapCalc _kvm_calc;
   static service::KeySequences _key_sequences;
 };
-} // namespace core
 } // namespace pierre

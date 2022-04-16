@@ -43,14 +43,13 @@
 #include <uuid/uuid.h>
 #include <vector>
 
+#include "config.hpp"
 #include "host.hpp"
 #include "pair/pair.h"
-
 namespace pierre {
 using std::array, std::string, std::string_view;
 
-Host::Host(const string &firmware_vsn, const string &service_name)
-    : _firmware_vsn(firmware_vsn), _service_name(service_name) {
+Host::Host(const Config &_cfg) : cfg(_cfg) {
   initCrypto();
 
   // find the mac addr, store a binary and text representation

@@ -22,11 +22,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "core/service/types.hpp"
 
 namespace pierre {
-namespace core {
 
-using namespace service;
-
-using enum service::Key;
+using namespace core;
+using namespace core::service;
+using enum Key;
 
 static const char *__calc = "*";
 
@@ -64,15 +63,14 @@ KeyValMap Service::_kvm{{apAccessControlLevel, KeyVal{"acl", "0"}},
 
 KeySequences Service::_key_sequences{
     KeySeq{PublicKey, apFeatures, apGroupDiscoverableLeader, apGroupUUID,
-           apAirPlayPairingIdentity, apProtocolVsn, apSerialNumber, apManufacturer,
-           apModel, apSystemFlags, apRequiredSenderFeatures, apDeviceID,
-           apAccessControlLevel},
+           apAirPlayPairingIdentity, apProtocolVsn, apSerialNumber,
+           apManufacturer, apModel, apSystemFlags, apRequiredSenderFeatures,
+           apDeviceID, apAccessControlLevel},
 
     KeySeq{PublicKey, mdAirPlayVsn, mdAirTunesProtocolVsn, mdTransportTypes,
-           mdSystemFlags, mdModel, mdMetadataTypes, mdEncryptTypes, mdDigestAuthKey,
-           mdCompressionTypes}};
+           mdSystemFlags, mdModel, mdMetadataTypes, mdEncryptTypes,
+           mdDigestAuthKey, mdCompressionTypes}};
 
 KeyValMapCalc Service::_kvm_calc;
 
-} // namespace core
 } // namespace pierre

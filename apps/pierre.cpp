@@ -18,6 +18,7 @@
     https://www.wisslanding.com
 */
 
+#include <exception>
 #include <fmt/format.h>
 #include <iostream>
 #include <list>
@@ -30,79 +31,64 @@
 #include "core/host.hpp"
 #include "dmx/render.hpp"
 
+#include "core/args.hpp"
 #include "lightdesk/lightdesk.hpp"
-#include "mdns/mdns.hpp"
 #include "pierre.hpp"
-#include "rtsp/nptp.hpp"
 #include "rtsp/rtsp.hpp"
 
 namespace pierre {
 using namespace std;
 
-tuple<bool, ArgsMap> Pierre::prepareToRun(int argc, char *argv[]) {
-  // grab the basename
-  _app_name = string(basename(argv[0]));
-
-  Args args;
-  auto args_map = args.parse(argc, argv);
-
-  auto ok = false;
-
-  if (args_map.parse_ok) {
-    _cfg = std::make_shared<Config>();
-
-    auto config_ok = _cfg->findFile(args_map.cfg_file) && _cfg->load();
-
-    if (config_ok) {
-      // _cfg->test("pierre", "description");
-      ok = true;
-    }
-  }
-
-  return make_tuple(ok, args_map);
+Pierre::Pierre(const string &_app_name, const ArgsMap &args_map)
+    : cfg(_app_name, args_map.cfg_file) {
+  // maybe more later?
 }
 
+Pierre::~Pierre() {}
+
+// create and run all threads
 void Pierre::run() {
-  std::list<shared_ptr<thread>> threads;
+  if (!cfg.findFile() || !cfg.load()) {
+    throw(runtime_error("bad configuration file"));
+  }
 
-  // returns shared pointer
-  auto host = Host::create(_cfg->firmwareVersion(), _cfg->serviceName());
-  auto service = Service::create(host);
+  // create shared ptrs to top level config providers and worker threads
+  auto host = Host::create(cfg);
+  auto rtsp = Rtsp::create(host);
 
-  auto nptp = rtsp::Nptp::create(appName(), host);
-  nptp->start();
-
-  auto mdns = mDNS::create(service); // returns shared_ptr
-  mdns->start();                     // mDNS uses Avahi created and managed thread
-
-  auto rtsp = Rtsp::create(service, _cfg->port);
+  // start broadcast of AirPlay2 and handle audio streams
   rtsp->start();
 
-  auto dsp = make_shared<audio::Dsp>();
-  auto dmx = make_shared<dmx::Render>();
-  auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
+  // wait for Rtsp to complete
+  rtsp->join();
 
-  threads.emplace_front(dsp->run());
-  threads.emplace_front(dmx->run());
+  // std::list<shared_ptr<thread>> threads;
 
-  lightdesk->saveInstance(lightdesk);
-  threads.emplace_front(lightdesk->run());
+  //   auto dsp = make_shared<audio::Dsp>();
+  //   auto dmx = make_shared<dmx::Render>();
+  //   auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
 
-  dmx->addProducer(lightdesk);
+  //   threads.emplace_front(dsp->run());
+  //   threads.emplace_front(dmx->run());
 
-  sleep(10);
+  //   lightdesk->saveInstance(lightdesk);
+  //   threads.emplace_front(lightdesk->run());
 
-  if (State::leaving()) {
-    lightdesk->leave();
-  }
+  //   dmx->addProducer(lightdesk);
 
-  State::shutdown();
+  //   sleep(10);
 
-  for (auto t : threads) {
-    t->join();
-  }
+  //   if (State::leaving()) {
+  //     lightdesk->leave();
+  //   }
 
-  cout << endl;
+  //   State::shutdown();
+
+  //   for (auto t : threads) {
+  //     t->join();
+  //   }
+
+  //   cout << endl;
+  // }
 }
-
 } // namespace pierre

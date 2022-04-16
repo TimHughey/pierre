@@ -29,15 +29,15 @@ namespace pierre {
 
 class Config : public libconfig::Config {
 public:
-  typedef std::array<char, 37> UUID;
-  using string = std::string;
+  typedef const std::string &csr;
 
 public:
-  Config();
+  Config(csr &app_name, csr cli_cfg_file);
 
-  bool findFile(const string &file);
-  const string &firmwareVersion() const { return firmware_version; };
-  const string &serviceName() const { return service_name; }
+  csr appName() const { return _app_name; }
+  bool findFile();
+  csr firmwareVersion() const { return _firmware_vsn; };
+  csr serviceName() const { return _service_name; }
   bool load();
 
   void test(const char *setting, const char *key);
@@ -67,9 +67,6 @@ public:
   enum VolumeControlProfile { Standard = 0, Flat };
 
 public:
-  // used for AirPlay mDNS service registration
-  string firmware_version;
-
   // wait this long before asking for a missing packet to be resent
   const double resend_control_first_check_time = 0.10;
   // wait this long between making requests
@@ -80,27 +77,17 @@ public:
 
   // leave approximately one second's worth of buffers
   // free after calculating the effective latency.
-  // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a nominal
-  // latency of 2.0 seconds then we can add an offset of 5.17 seconds and still leave a
-  // second's worth of buffers for unexpected circumstances
+  // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a
+  // nominal latency of 2.0 seconds then we can add an offset of 5.17 seconds
+  // and still leave a second's worth of buffers for unexpected circumstances
 
-  // when effective latency is calculated, ensure this number of buffers are unallocated
+  // when effective latency is calculated, ensure this number of buffers are
+  // unallocated
   static constexpr auto minimum_free_buffer_headroom = 125;
 
   pthread_mutex_t lock;
 
-  // normally the app is called shairport-syn, but it may be symlinked
-  char *appName;
-  const char *password = "";
-
-  // the name for the shairport service, e.g. "Shairport
-  // Sync Version %v running on host %h"
-  string service_name{"Jophiel"};
-
   // only needs 6 but 8 is handy when converting this to a number
-  uint8_t hw_addr[8];
-  string mac_addr;
-  const int port = 7000;
   const int udp_port_base = 6000;
   const int udp_port_range = 10;
   const bool ignore_volume_control = true;
@@ -115,8 +102,6 @@ public:
   // with the old -t option behaviour; only set by -t 0,
   // cleared by everything else
   const bool dont_check_timeout = true;
-
-  char *mdns_name;
 
   int buffer_start_fill;
 
@@ -142,13 +127,6 @@ public:
                                    // and line number
   int statistics_requested;
   const PlaybackMode playback_mode = Mono;
-
-  // The regtype is the service type followed by the protocol,
-  // separated by a dot, by default “_raop._tcp.” for AirPlay 2.
-  const char *regtype2 = "_raop._tcp";
-
-  // a string containg the interface name, or NULL if nothing specified
-  const char *interface = nullptr;
 
   // this will be the length in seconds of the audio backend buffer -- the
   // DAC buffer for ALSA
@@ -188,23 +166,21 @@ public:
 
   double airplay_volume = -24.0;
   // used by airplay
-  const uint32_t fixedLatencyOffset = 11025; // this sounds like it works properly.
-
-  // for the Bonjour advertisement and the GETINFO PList
-  string airplay_device_id;
-
-  // non-NULL, 4 char PIN, if required for pairing
-  char *airplay_pin;
-
-  // UUID in the Bonjour advertisement and the GETINFO Plist
-  UUID airplay_pi{0};
-
-  // client name for nqptp service
-  char *nqptp_shared_memory_interface_name;
+  const uint32_t fixedLatencyOffset =
+      11025; // this sounds like it works properly.
 
 private:
+  using string = std::string;
+
+  csr _app_name;
   string _cfg_file;
+  string _cli_cfg_file;
   string _dmx_host;
+  // used for AirPlay mDNS service registration
+  string _firmware_vsn;
+
+  // NOTE: hardcoded!!!
+  string _service_name{"Jophiel"};
 };
 
 typedef std::shared_ptr<Config> ConfigPtr;

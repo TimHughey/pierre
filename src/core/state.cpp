@@ -37,7 +37,10 @@ State State::i = State();
 ConfigPtr State::config() { return i.cfg; }
 
 bool State::initConfig(const string cfg_file) noexcept {
-  i.cfg = make_shared<Config>();
+  const string app = "app";
+  const string file = cfg_file;
+
+  i.cfg = make_shared<Config>(app, file);
 
   return true;
 }

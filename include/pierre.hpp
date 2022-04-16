@@ -24,31 +24,35 @@
 #include <string>
 #include <tuple>
 
+#include "core/args.hpp"
 #include "core/config.hpp"
 
 namespace pierre {
 
-class Pierre {
-  using string = std::string;
+// forward decl for Pierre shared_ptr
+class Pierre;
+typedef std::shared_ptr<Pierre> sPierre;
+class Pierre : public std::enable_shared_from_this<Pierre> {
+public:
+  typedef const std::string &csr;
 
 public:
-  Pierre() = default;
-  ~Pierre() = default;
+  ~Pierre();
 
-  Pierre(const Pierre &) = delete;
-  Pierre &operator=(const Pierre &) = delete;
+  [[nodiscard]] static sPierre create(csr app_name, const ArgsMap &args_map) {
+    // Not using std::make_shared<Best> because the c'tor is private.
 
-  const string &appName() const { return _app_name; }
+    return sPierre(new Pierre(app_name, args_map));
+  }
 
-  std::tuple<bool, ArgsMap> prepareToRun(int argc, char *argv[]);
+  // main entry point
   void run();
 
 private:
-  string _app_name;
-  bool _daemonize = false;
-  string _dmx_host;
+  Pierre(csr app_name, const ArgsMap &args_map);
 
-  std::shared_ptr<Config> _cfg;
+private:
+  Config cfg;
 };
 
 } // namespace pierre

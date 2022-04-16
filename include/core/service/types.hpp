@@ -29,6 +29,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace pierre {
 namespace core {
 namespace service {
+
 enum Type : int8_t { AirPlayTCP = 0, RaopTCP };
 
 enum Key : int8_t {

@@ -40,40 +40,62 @@ namespace pierre {
 using namespace rtsp;
 using boost::system::error_code;
 
-Rtsp::Rtsp(sService service, uint16_t port)
-    : _thread{}, _port(port), _service(service) {
-  _aes_ctx = AesCtx::create(_service->fetchVal(apDeviceID));
+Rtsp::Rtsp(sHost _host) : host(_host), service_name(_host->serviceName()) {
+  // maybe more later
+}
+
+Rtsp::~Rtsp() {
+  // need cleanup code
 }
 
 void Rtsp::start() {
+  fmt::print("\nPierre {:>25}\n\n", host->firmwareVerson());
+
+  // create the Service for Rtsp
+  service = Service::create(host);
+
+  // create and start mDNS
+  mdns = mDNS::create(service);
+  mdns->start();
+
+  // create and start Nptp
+  nptp = Nptp::create(service);
+  nptp->start();
+
+  // create the AesCtx
+  _aes_ctx = AesCtx::create(host->deviceID());
+
+  // bind to AirPlay2 port and accept connectinon
   _thread = std::thread([this]() { runLoop(); });
 
+  // save the native handle of the Rtsp thread
   _handle = _thread.native_handle();
 }
 
 void Rtsp::runLoop() {
-  // optional<boost::asio::io_service::work> work =
-  // in_place(boost::ref(io_service));
+  // NOTE: a IPv6 endpoint accepts both IPv6 and IPv4
+  tcp::endpoint endpoint{tcp::v6(), service->basePort()};
 
-  tcp::endpoint endpoint_v4{tcp::v4(), _port};
-  _accept_v4 = new tcp_acceptor{_ioservice, endpoint_v4};
+  // setup the tcp_acceptor - NOTE: this becomes 'work' for the ioservice
+  _acceptor = new tcp_acceptor{_ioservice, endpoint};
 
-  tcp::endpoint endpoint_v6(tcp::v6(), _port);
-  _accept_v6 = new tcp_acceptor{_ioservice, endpoint_v6};
+  // tell the acceptor to listen
+  _acceptor->listen();
 
-  _accept_v4->listen();
-
+  // create a co-routine for ioservice
+  // NOTE: ioservice will run this work until it returns
   spawn(_ioservice, [this](yield_context yield) { doAccept(yield); });
 
+  // run the queued work (accepting connections)
   _ioservice.run();
 }
 
 void Rtsp::doAccept(yield_context yield) {
   do {
     _sockets.emplace_back(_ioservice);
-    _accept_v4->async_accept(_sockets.back(), yield);
+    _acceptor->async_accept(_sockets.back(), yield);
 
-    // fmt::print("Rtsp::doAccept() spawning...\n");
+    // add more work to the ioservice
     spawn(_ioservice, // lamba
           [this](yield_context yield) {
             auto &socket = _sockets.back();
@@ -85,7 +107,7 @@ void Rtsp::doAccept(yield_context yield) {
 }
 
 void Rtsp::doRead(tcp::socket &socket, yield_context yield) {
-  auto request = rtsp::Request::create(_aes_ctx, _service);
+  auto request = rtsp::Request::create(_aes_ctx, service);
 
   auto &packet = request->packet();
   packet.clear();

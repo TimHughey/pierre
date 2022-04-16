@@ -57,13 +57,6 @@ public:
   using sstream = std::stringstream;
 
 public:
-  struct Opts {
-    sHost host;
-    const string &service_base;
-    const string &firmware_vsn;
-  };
-
-public:
   void advertise(AvahiClient *client);
 
   [[nodiscard]] static smDNS create(sService service) {
@@ -97,22 +90,25 @@ private:
 
 private: // Callbacks
   static void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface,
-                       AvahiProtocol protocol, AvahiBrowserEvent event, const char *name,
-                       const char *type, const char *domain,
-                       AVAHI_GCC_UNUSED AvahiLookupResultFlags flags, void *userdata);
+                       AvahiProtocol protocol, AvahiBrowserEvent event,
+                       const char *name, const char *type, const char *domain,
+                       AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+                       void *userdata);
 
-  static void cbClient(AvahiClient *client, AvahiClientState state, void *userdata);
+  static void cbClient(AvahiClient *client, AvahiClientState state,
+                       void *userdata);
 
   static void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state,
                            void *userdata);
 
-  static void cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
-                        [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
-                        const char *name, const char *type, const char *domain,
-                        [[maybe_unused]] const char *host_name,
-                        [[maybe_unused]] const AvahiAddress *address, uint16_t port,
-                        [[maybe_unused]] AvahiStringList *txt,
-                        [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata);
+  static void
+  cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
+            [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
+            const char *name, const char *type, const char *domain,
+            [[maybe_unused]] const char *host_name,
+            [[maybe_unused]] const AvahiAddress *address, uint16_t port,
+            [[maybe_unused]] AvahiStringList *txt,
+            [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata);
 
 private: // error reporting helpers
   static string error_string(AvahiClient *client);
@@ -120,13 +116,15 @@ private: // error reporting helpers
   static string error_string(AvahiServiceBrowser *browser);
 
 private:
-  bool groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepped_entries);
+  bool groupAddService(AvahiEntryGroup *group, auto stype,
+                       const auto &prepped_entries);
   void makePK();
   // void serviceNameCollision(AvahiEntryGroup *group);
 
-  bool resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol,
-                   const char *name, const char *type, const char *domain,
-                   AvahiProtocol aprotocol, AvahiLookupFlags flags,
+  bool resolverNew(AvahiClient *client, AvahiIfIndex interface,
+                   AvahiProtocol protocol, const char *name, const char *type,
+                   const char *domain, AvahiProtocol aprotocol,
+                   AvahiLookupFlags flags,
                    AvahiServiceResolverCallback callback, void *userdata);
 
 private:
@@ -135,7 +133,6 @@ private:
 
   sHost _host;
   string _service_base;
-  string _firmware_vsn;
 
   static constexpr auto _port = 7000;
 

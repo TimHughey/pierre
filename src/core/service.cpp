@@ -24,10 +24,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "core/service.hpp"
 namespace pierre {
-namespace core {
 
-using namespace service;
-using enum service::Key;
+using namespace core::service;
+using enum Key;
 
 Service::Service(sHost host) {
   // stora calculated key/vals available from Host
@@ -37,30 +36,14 @@ Service::Service(sHost host) {
   saveCalcVal(apGroupUUID, host->uuid());
   saveCalcVal(apSerialNumber, host->serialNum());
 
-  saveCalcVal(ServiceName, host->serviceName());
-  saveCalcVal(FirmwareVsn, host->firmware_vsn());
+  saveCalcVal(ServiceName, host->cfg.serviceName());
+  saveCalcVal(FirmwareVsn, host->firmwareVerson());
 
-  addPublicKey(host);
-  addRegAndName(host);
+  saveCalcVal(PublicKey, host->pk());
+
+  addRegAndName();
   addSystemFlags();
   addFeatures();
-}
-
-void Service::addRegAndName(auto host) {
-  // these must go into the calc map
-
-  for (auto key : std::array{AirPlayRegNameType, RaopRegNameType}) {
-    if (key == AirPlayRegNameType) {
-      // _airplay._tcp service name is just the service
-      saveCalcVal(key, host->serviceName());
-    }
-
-    if (key == RaopRegNameType) {
-      // _airplay._tcp service name is device_id@service
-      auto service_name = fmt::format("{}@{}", host->deviceID(), host->serviceName());
-      saveCalcVal(key, service_name);
-    }
-  }
 }
 
 void Service::addFeatures() {
@@ -75,27 +58,41 @@ void Service::addFeatures() {
 
   for (auto key : array{apFeatures, mdFeatures, plFeatures}) {
     switch (key) {
-      case apFeatures:
-      case mdFeatures: {
-        auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
-        saveCalcVal(key, str);
-      } break;
+    case apFeatures:
+    case mdFeatures: {
+      auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
+      saveCalcVal(key, str);
+    } break;
 
-      case plFeatures: {
-        auto str = fmt::format("{}", (int64_t)_features_val);
-        saveCalcVal(key, str);
-      } break;
+    case plFeatures: {
+      auto str = fmt::format("{}", (int64_t)_features_val);
+      saveCalcVal(key, str);
+    } break;
 
-      default:
-        break;
+    default:
+      break;
     }
   }
 }
 
-void Service::addPublicKey(auto host) {
-  auto pk = host->pk();
+void Service::addRegAndName() {
+  // these must go into the calc map
 
-  saveCalcVal(PublicKey, pk);
+  for (auto key : std::array{AirPlayRegNameType, RaopRegNameType}) {
+    if (key == AirPlayRegNameType) {
+      // _airplay._tcp service name is just the service
+      saveCalcVal(key, fetchVal(ServiceName));
+    }
+
+    if (key == RaopRegNameType) {
+      // _airplay._tcp service name is device_id@service
+      auto device_id = fetchVal(apDeviceID);
+      auto service_name = fetchVal(ServiceName);
+      auto raop_service_name = fmt::format("{}@{}", device_id, service_name);
+
+      saveCalcVal(key, raop_service_name);
+    }
+  }
 }
 
 void Service::addSystemFlags() {
@@ -156,11 +153,11 @@ sKeyValList Service::keyValList(Type service_type) const {
 
 const KeyVal Service::nameAndReg(Type type) const {
   switch (type) {
-    case AirPlayTCP:
-      return fetch(AirPlayRegNameType);
+  case AirPlayTCP:
+    return fetch(AirPlayRegNameType);
 
-    case RaopTCP:
-      return fetch(RaopRegNameType);
+  case RaopTCP:
+    return fetch(RaopRegNameType);
   }
 
   throw(runtime_error("bad service type"));
@@ -171,99 +168,19 @@ void Service::saveCalcVal(Key key, const string &val) {
   auto &[key_str, __unused] = _kvm.at(key);
 
   // create the new val str
-  auto len = val.size();
-  ValStrCalc val_str(new char[len]);
+  auto len = val.size() + 1; // plus null terminator
+  ValStrCalc val_str(new char[len]{0});
+
   memcpy(val_str.get(), val.c_str(), len);
 
   // put the key/val tuple into the calc map
   _kvm_calc.emplace(key, KeyValCalc{key_str, val_str});
 }
 
-// const KeyValMap Service::advertiseMap(ServiceType type) const {
-//   KeyValMap map;
+void Service::saveCalcVal(Key key, ccs val_ptr) {
+  const auto val = string(val_ptr);
 
-//   const auto &order = (type == AirPlayTCP) ? apKeyOrder : mdKeyOrder;
+  saveCalcVal(key, val);
+}
 
-//   // first add all the AirPlay2 key/val
-//   for (const auto &key : order) {
-//     auto calc = txtVals.end();
-//     auto txt_entry = txtVals.find(key);
-
-//     if (txt_entry == calc) {
-//       // entry is not a constant, calculate
-//       const auto &key_str = txtKeyVals.at(key);
-//       const auto val = calcTxtVal(key);
-//       addEntry(map, key_str, val);
-//     } else {
-//       // entry is a constant, store it
-//       const auto &[txt_key, val_str] = *txt_entry;
-//       const auto &key_str = txtKeyVals.at(txt_key);
-
-//       addEntry(map, key_str, val_str);
-//     }
-//   }
-
-//   return map;
-// }
-
-// string Service::calcTxtVal(Key key) const {
-//   const auto key_str = txtKeyVals.at(key);
-
-//   switch (key) {
-//     case PublicKey:
-//       return _base.pk;
-
-//     default:
-//       fmt::print("key={} unhandled\n", key_str);
-//       break;
-//   }
-
-//   return string("unknown");
-// }
-
-// const string Service::keyString(TxtKey key) const { return txtKeyVals.at(key); }
-
-// const string Service::keyValue(TxtKey key) const {
-//   auto calc = txtVals.end();
-//   auto txt_entry = txtVals.find(key);
-
-//   // value is a constant
-//   if (txt_entry != calc) {
-//     const auto val = txt_entry->second;
-
-//     return val;
-//   }
-
-//   // value must be calculated
-//   const auto val = calcTxtVal(key);
-
-//   return val;
-// }
-
-// const ServiceAndReg Service::nameAndReg(Type type) const {
-//   return _service_vals.at(atype);
-
-//   if (type == AirPlayTCP) {
-//     // _airplay._tcp the service name is just the service base
-//     return make_tuple(string(_base.service), string("_airplay._tcp"));
-//   }
-
-//   if (type == RaopTCP) {
-//     // _raop._tcp service name is:
-//     //   hw_addr bytes (no separator between bytes), followed by '@'
-//     //   then service base
-//     ServiceName name = fmt::format("{}@{}", _base.host->deviceId(), _base.service);
-
-//     return make_tuple(name, string("_raop._tcp"));
-//   }
-
-//   throw(runtime_error("bad service type"));
-// }
-
-// const char *Service::plKey(Key key) const { return keyString(key).c_str(); }
-
-// plist_t Service::plVal(Key key) const { return plist_new_string(keyValue(key).c_str());
-// }
-
-} // namespace core
 } // namespace pierre

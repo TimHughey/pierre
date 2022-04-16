@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <thread>
 
+#include "core/service.hpp"
 #include "rtsp/nptp.hpp"
 
 namespace pierre {
@@ -38,44 +39,38 @@ using std::runtime_error;
 
 // using namespace std;
 
-Nptp::Nptp(const string &app_name, sHost host)
-    : _app_name(app_name), _thread{} {
-  _interface_name = fmt::format("/{}-{}", app_name, host->deviceID());
+Nptp::Nptp(sService service) {
+  const auto &name = service->name();
+  const auto &device_id = service->deviceID();
 
-  resetPeerList();
-  openAndMap();
+  _shm_name = fmt::format("/{}-{}", name, device_id);
 
-  // more later
-}
-
-Nptp::~Nptp() {
-  if (_mapped && (_mapped != MAP_FAILED)) {
-    constexpr auto bytes = sizeof(struct shm_structure);
-
-    munmap(_mapped, bytes);
-    _mapped = nullptr;
-  }
+  resetPeerList(); // registers _shm_name with nqptp
+  openAndMap();    // gains access to shared memory segment
 }
 
 void Nptp::openAndMap() {
-  // fmt::print("opening {}\n", _interface_name.c_str());
-  _shm_fd = shm_open(_interface_name.c_str(), O_RDWR, 0);
+  if (isMapped() == false) {
+    // fmt::print("opening {}\n", _shm_name, .c_str());
+    _shm_fd = shm_open(_shm_name.c_str(), O_RDWR, 0);
 
-  if (_shm_fd >= 0) {
-    // flags must be PROT_READ | PROT_WRITE to allow writes the mapped memory
-    //  for the mutex
-    constexpr auto flags = PROT_READ | PROT_WRITE;
-    constexpr auto bytes = sizeof(struct shm_structure);
+    if (_shm_fd >= 0) {
+      // flags must be PROT_READ | PROT_WRITE to allow writes the mapped memory
+      //  for the mutex
+      constexpr auto flags = PROT_READ | PROT_WRITE;
+      constexpr auto bytes = sizeof(shm_structure);
 
-    _mapped = mmap(NULL, bytes, flags, MAP_SHARED, _shm_fd, 0);
+      _mapped = mmap(NULL, bytes, flags, MAP_SHARED, _shm_fd, 0);
 
-    _ok = ((_mapped == MAP_FAILED) ? false : true);
+      _ok = ((_mapped == MAP_FAILED) ? false : true);
 
-    // close the shared memory fd regardless of mmap result
-    _ok = (close(_shm_fd) >= 0) ? true : false;
+      // close the shared memory fd regardless of mmap result
+      _ok = (close(_shm_fd) >= 0) ? true : false;
+      _shm_fd = -1;
+    }
+
+    // fmt::print("_shm_fd={} _mapped={} _ok={}\n", _shm_fd, _mapped, _ok);
   }
-
-  // fmt::print("_shm_fd={} _mapped={} _ok={}\n", _shm_fd, _mapped, _ok);
 }
 
 void Nptp::runLoop() {
@@ -92,28 +87,33 @@ void Nptp::runLoop() {
 }
 
 void Nptp::sendCtrlMsg(const char *msg) {
-  auto full_msg = fmt::format("{} {}", _interface_name, msg);
+  auto full_msg = fmt::format("{} {}", _shm_name, msg);
 
+  // NOTE: not worth pulling in boost::asio for this quick datagram
+  // create a datagram socket in the internet domain and use the
+  // default protocol (UDP).
   int s;
-  unsigned short port = htons(_ctrl_port);
-  struct sockaddr_in server;
 
-  /* Create a datagram socket in the internet domain and use the
-   * default protocol (UDP).
-   */
   if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    fmt::print("Can't open a socket to NQPTP");
-    throw(runtime_error("could not open socket"));
+    constexpr auto msg = "unable to open a socket to NQPTP";
+    fmt::print(msg);
+    throw(runtime_error(msg));
   }
 
-  /* Set up the server name */
-  server.sin_family = AF_INET; /* Internet Domain    */
-  server.sin_port = port;      /* Server Port        */
-  server.sin_addr.s_addr = 0;  /* Server's Address   */
+  // set up the packet destination info
+  struct sockaddr_in server;
+  server.sin_family = AF_INET;
+  server.sin_port = htons(_ctrl_port); // server port
+  server.sin_addr.s_addr = 0;          // server address (unspecified)
 
-  /* Send the message in buf to the server */
-  if (sendto(s, full_msg.c_str(), full_msg.size(), 0,
-             (struct sockaddr *)&server, sizeof(server)) < 0) {
+  const auto buf = full_msg.c_str();
+  const auto bytes = full_msg.size();
+
+  // sendto requires a sockaddr struct
+  auto addr = reinterpret_cast<struct sockaddr *>(&server);
+  constexpr auto addr_len = sizeof(server);
+
+  if (sendto(s, buf, bytes, 0, addr, addr_len) < 0) {
     fmt::print("error sending peer list");
     throw(runtime_error("error sending peer list"));
   }
@@ -126,6 +126,21 @@ void Nptp::start() {
   _handle = _thread.native_handle();
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &_prev_state);
+}
+
+void Nptp::unMap() {
+  if (_mapped && (_mapped != MAP_FAILED)) {
+    constexpr auto bytes = sizeof(shm_structure);
+
+    munmap(_mapped, bytes);
+    _shm_fd = -1;
+    _mapped = nullptr;
+  }
+
+  if (_shm_fd >= 0) {
+    close(_shm_fd);
+    _shm_fd = -1;
+  }
 }
 
 } // namespace rtsp

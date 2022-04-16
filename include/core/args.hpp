@@ -31,9 +31,8 @@ struct ArgsMap {
   string pid_file{};
   bool colorbars = false;
 
-  // ArgsMap() = default;
-  // ArgsMap(ArgsMap &&args_map) = default;
-  // ArgsMap &operator=(ArgsMap &&args_mao) = default;
+  // public api
+  bool ok() const { return parse_ok; }
 };
 
 class Args {

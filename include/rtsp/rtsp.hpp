@@ -32,9 +32,11 @@
 #include <string>
 #include <thread>
 
+#include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/aes_ctx.hpp"
+#include "rtsp/nptp.hpp"
 
 namespace pierre {
 
@@ -54,19 +56,24 @@ public:
   typedef std::list<tcp_socket> SocketList;
 
 public:
-  [[nodiscard]] static sRtsp create(sService service, uint16_t port) {
-    // Not using std::make_shared<Best> because the c'tor is private.
+  ~Rtsp();
 
-    return sRtsp(new Rtsp(service, port));
+  // shared_ptr API
+  [[nodiscard]] static sRtsp create(sHost host) {
+    // must call constructor directly since it's private
+    return sRtsp(new Rtsp(host));
   }
 
   sRtsp getPtr() { return shared_from_this(); }
+
+  // public API
+  void join() { return _thread.join(); }
   void start();
 
   std::thread &thread() { return _thread; }
 
 private:
-  Rtsp(sService service, uint16_t port);
+  Rtsp(sHost host);
 
   void doAccept(yield_context yield);
   void doRead(tcp_socket &socket, yield_context yield);
@@ -76,15 +83,26 @@ private:
   void session(tcp_socket &socket, auto request, yield_context yield);
 
 private:
-  std::thread _thread;
+  // required config/data providers
+  sHost host;
+  sService service;
+
+  // required network services
+  rtsp::sNptp nptp;
+  smDNS mdns;
+
+  // internal
+
+  std::thread _thread{};
   uint16_t _port;
-  sService _service;
   rtsp::sAesCtx _aes_ctx;
   std::thread::native_handle_type _handle;
 
+  // local reference to service name, for convenience
+  const string &service_name;
+
   io_service _ioservice;
-  tcp_acceptor *_accept_v4;
-  tcp_acceptor *_accept_v6;
+  tcp_acceptor *_acceptor;
 
   SocketList _sockets;
 };

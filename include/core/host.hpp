@@ -22,6 +22,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <memory>
 #include <uuid/uuid.h>
 
+#include "core/config.hpp"
+
 namespace pierre {
 
 typedef std::array<uint8_t, 6> HwAddrBytes;
@@ -38,10 +40,9 @@ typedef std::shared_ptr<Host> sHost;
 class Host : public std::enable_shared_from_this<Host> {
 public:
   // NOTE: creation of the shared instance
-  [[nodiscard]] static sHost create(const string &firmware_vsn,
-                                    const string &service_name) {
+  [[nodiscard]] static sHost create(const Config &cfg) {
     // Not using std::make_shared<T> because the c'tor is private.
-    return sHost(new Host(firmware_vsn, service_name));
+    return sHost(new Host(cfg));
   }
 
   sHost getPtr() { return shared_from_this(); }
@@ -49,22 +50,22 @@ public:
   // general API
 
   cc_str deviceID() const { return _device_id.c_str(); }
-  cc_str firmware_vsn() const { return _firmware_vsn.c_str(); };
+  cc_str firmwareVerson() const { return cfg.firmwareVersion().c_str(); };
 
   cc_str hwAddr() const { return _hw_addr.c_str(); }
   const HwAddrBytes &hwAddrBytes() const { return _hw_addr_bytes; }
-
   const IpAddrs &ipAddrs() const { return _ip_addrs; }
 
   // default format is without 0x prefix
   const string pk(const char *format = "{:02x}") const;
   cc_str serialNum() const { return _serial_num.c_str(); }
-  cc_str serviceName() const { return _service_name.c_str(); }
+  cc_str serviceName() const { return cfg.serviceName().c_str(); }
+
   cc_str uuid() const { return _uuid.c_str(); }
 
 private:
   // private, only accessible via shared_ptr
-  Host(const string &_firmware_vsn, const string &service_name);
+  Host(const Config &cfg);
 
   void createHostIdentifiers();
   void createPublicKey();
@@ -75,9 +76,10 @@ private:
   bool findHardwareAddr(HwAddrBytes &dest);
 
 public:
+  // config provider
+  const Config &cfg;
+
   string _app_name;
-  string _firmware_vsn;
-  string _service_name;
 
   string _device_id;
   string _hw_addr;

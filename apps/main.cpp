@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
+#include "fmt/core.h"
+#include <fmt/format.h>
 #include <iostream>
 #include <signal.h>
 #include <sys/resource.h>
@@ -24,13 +26,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 #include "core/args.hpp"
 #include "pierre.hpp"
 
-static pierre::Pierre *pierre_ptr = nullptr;
+pierre::sPierre pierre_instance;
 
 void exitting() {
   using namespace std;
 
-  if (pierre_ptr)
-    delete pierre_ptr;
+  pierre_instance.reset();
 
   cerr << endl << "farewell" << endl;
 }
@@ -57,11 +58,11 @@ void handleSignal(int signal) {
 
 int main(int argc, char *argv[]) {
   using namespace std;
+  using namespace pierre;
 
-  // we setup interactions with the OS then
-  // immediately pass control to Pierre
+  // we setup signal handling
 
-  // control-c (SIGINT) cleanly
+  // control-c (SIGINT)
   struct sigaction act = {};
   act.sa_handler = handleSignal;
   sigaction(SIGINT, &act, NULL);
@@ -73,22 +74,25 @@ int main(int argc, char *argv[]) {
 
   atexit(exitting);
 
-  pierre_ptr = new pierre::Pierre();
+  // what's our name?
+  const auto app_name = string(basename(argv[0]));
 
-  bool ok;
-  pierre::ArgsMap args_map;
+  // parse args
+  Args args;
+  const auto args_map = args.parse(argc, argv);
 
-  tie(ok, args_map) = pierre_ptr->prepareToRun(argc, argv);
-
-  if (args_map.daemon) {
-    cerr << "want daemon" << endl;
-  }
-
-  if (ok) {
-    pierre_ptr->run();
-  } else {
+  //
+  if (args_map.ok() == false) {
+    // either the parsing of args failed OR --help
     exit(1);
   }
+
+  if (args_map.daemon) {
+    fmt::print("main{}: daemon requested\n");
+  }
+
+  pierre_instance = Pierre::create(app_name, args_map);
+  pierre_instance->run();
 
   exit(0);
 }
