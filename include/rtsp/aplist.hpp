@@ -34,6 +34,7 @@ class Aplist {
 public:
   typedef const char *ccs;
   typedef std::string string;
+  typedef const std::string &csr;
 
   typedef std::vector<string> ArrayStrings;
   typedef std::vector<ccs> Dictionaries;
@@ -46,6 +47,7 @@ public:
 
   // general API
   // NOTE: api naming convention is dict* to support subclassing
+  void dictDump(plist_t sub_dict = nullptr) const;
   bool dictCompareString(ccs path, ccs compare);
   bool dictItemExists(ccs path);
 
@@ -58,6 +60,7 @@ public:
 
   bool dictSetStringArray(ccs sub_dict_key, ccs key,
                           const ArrayStrings &array_strings);
+  bool dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val);
 
 private:
   void track(plist_t pl);

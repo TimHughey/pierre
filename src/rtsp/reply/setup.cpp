@@ -38,9 +38,9 @@ Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
 }
 
 bool Setup::checksOK() const {
-  auto rc_false = [](const auto rc) { return rc == false; };
+  auto rc_true = [](const auto &rc) { return rc == true; };
 
-  return std::any_of(_checks.begin(), _checks.end(), rc_false);
+  return std::all_of(_checks.begin(), _checks.end(), rc_true);
 }
 
 void Setup::validateTimingProtocol() {
@@ -102,7 +102,15 @@ bool Setup::populate() {
     getTimingList();
 
     if (checksOK()) {
-      Aplist reply_dict(Dictionaries{"timingPeerInfo"});
+      constexpr auto timing_peer = "timingPeerInfo";
+      constexpr auto addresses = "Addresses";
+      constexpr auto ID = "ID";
+      Aplist reply_dict(Dictionaries{timing_peer});
+      const auto &ip_addrs = host()->ipAddrs();
+
+      reply_dict.dictSetStringArray(timing_peer, addresses, ip_addrs);
+      reply_dict.dictSetStringVal(timing_peer, ID, ip_addrs[0]);
+      reply_dict.dictDump();
     }
   }
 

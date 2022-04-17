@@ -49,8 +49,6 @@ Aplist::Aplist(const Dictionaries &dictionaries) {
     auto node = plist_new_dict();            // create sub dictionary
     plist_dict_set_item(_plist, dict, node); // add to root
   }
-
-  fmt::print("created dict size={}\n", plist_dict_get_size(_plist));
 }
 
 Aplist::~Aplist() {
@@ -76,6 +74,24 @@ bool Aplist::dictCompareString(ccs path, ccs compare) {
   }
 
   return rc;
+}
+
+void Aplist::dictDump(plist_t sub_dict) const {
+  auto dump_dict = (sub_dict) ? sub_dict : _plist;
+
+  char *buf = nullptr;
+  uint32_t bytes = 0;
+
+  plist_to_xml(dump_dict, &buf, &bytes);
+
+  fmt::print("\nDICT DUMP dict={} ", fmt::ptr(dump_dict));
+
+  if (buf) {
+    fmt::print("buf={} bytes={}\n", buf, bytes);
+    fmt::print("{}\n", buf);
+  } else {
+    fmt::print("DUMP FAILED\n");
+  }
 }
 
 bool Aplist::dictItemExists(ccs path) {
@@ -187,6 +203,29 @@ bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key,
   }
 
   constexpr auto msg = "unable to add array to missing or non-dict node";
+  fmt::print("{}\n", msg);
+  throw(runtime_error(msg));
+}
+
+// set a string at a sub_dict_key and ket
+bool Aplist::dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val) {
+  auto sub_dict = _plist;
+
+  if (sub_dict_key) {
+    // get the EXISTING sub dictionary
+    sub_dict = dictGetItem(sub_dict_key);
+  }
+
+  // just for giggles let's confirm the sub_dict is actually a dictionary
+  if (sub_dict && (PLIST_DICT == plist_get_node_type(sub_dict))) {
+    auto cstr = str_val.c_str();
+    auto val = plist_new_string(cstr);
+    plist_dict_set_item(sub_dict, key, val);
+
+    return true;
+  }
+
+  constexpr auto msg = "unable to add string to missing or non-dict node";
   fmt::print("{}\n", msg);
   throw(runtime_error(msg));
 }
