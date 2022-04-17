@@ -35,6 +35,7 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/nptp.hpp"
 
@@ -80,16 +81,18 @@ private:
   void doWrite(tcp_socket &socket, yield_context yield);
 
   void runLoop();
-  void session(tcp_socket &socket, auto request, yield_context yield);
+  void session(tcp_socket &socket, auto request);
 
 private:
-  // required config/data providers
+  // NOTE: order of member variables must match the order
+  // created by the constructor
+
+  // required config, data and network services
   sHost host;
   sService service;
-
-  // required network services
-  rtsp::sNptp nptp;
   smDNS mdns;
+  rtsp::sNptp nptp;
+  sRtp rtp;
 
   // internal
 
@@ -97,9 +100,6 @@ private:
   uint16_t _port;
   rtsp::sAesCtx _aes_ctx;
   std::thread::native_handle_type _handle;
-
-  // local reference to service name, for convenience
-  const string &service_name;
 
   io_service _ioservice;
   tcp_acceptor *_acceptor;

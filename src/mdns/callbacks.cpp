@@ -31,11 +31,14 @@ using namespace fmt;
 // all functions are static
 //
 
-void mDNS::cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
-                    AvahiBrowserEvent event, const char *name, const char *type, const char *domain,
-                    [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata) {
+void mDNS::cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface,
+                    AvahiProtocol protocol, AvahiBrowserEvent event,
+                    const char *name, const char *type, const char *domain,
+                    [[maybe_unused]] AvahiLookupResultFlags flags,
+                    void *userdata) {
 
-  // NOTE:  Called when a service becomes available or is removed from the network
+  // NOTE:  Called when a service becomes available or is removed from the
+  // network
 
   auto mdns = (mDNS *)userdata;
 
@@ -54,17 +57,18 @@ void mDNS::cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtoco
        function we free it. If the server is terminated before
        the callback function is called the server will free
        the resolver for us. */
-    if (!(avahi_service_resolver_new(mdns->_client, interface, protocol, name, type, domain,
-                                     AVAHI_PROTO_UNSPEC, (AvahiLookupFlags)9, cbResolve,
-                                     userdata))) {
-      mdns->error =
-          format("BROWSER RESOLVE failed, service[{}] {} ", name, error_string(mdns->_client));
+    if (!(avahi_service_resolver_new(
+            mdns->_client, interface, protocol, name, type, domain,
+            AVAHI_PROTO_UNSPEC, (AvahiLookupFlags)9, cbResolve, userdata))) {
+      mdns->error = format("BROWSER RESOLVE failed, service[{}] {} ", name,
+                           error_string(mdns->_client));
     }
 
     break;
 
   case AVAHI_BROWSER_REMOVE:
-    fmt::print("BROWSER REMOVE: service={} type={} domain={}\n", name, type, domain);
+    fmt::print("BROWSER REMOVE: service={} type={} domain={}\n", name, type,
+               domain);
     break;
 
   case AVAHI_BROWSER_ALL_FOR_NOW:
@@ -75,7 +79,8 @@ void mDNS::cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtoco
   }
 }
 
-void mDNS::cbClient(AvahiClient *client, AvahiClientState state, void *userdata) {
+void mDNS::cbClient(AvahiClient *client, AvahiClientState state,
+                    void *userdata) {
   mDNS *mdns = static_cast<mDNS *>(userdata);
 
   if (mdns == nullptr) {
@@ -107,7 +112,8 @@ void mDNS::cbClient(AvahiClient *client, AvahiClientState state, void *userdata)
   }
 }
 
-void mDNS::cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void *userdata) {
+void mDNS::cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state,
+                        void *userdata) {
   mDNS *mdns = static_cast<mDNS *>(userdata);
 
   if (mdns == nullptr) {
@@ -141,13 +147,14 @@ void mDNS::cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void
   }
 }
 
-void mDNS::cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
-                     [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
-                     const char *name, const char *type, const char *domain,
-                     [[maybe_unused]] const char *host_name,
-                     [[maybe_unused]] const AvahiAddress *address, uint16_t port,
-                     [[maybe_unused]] AvahiStringList *txt,
-                     [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata) {
+void mDNS::cbResolve(
+    AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
+    [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
+    const char *name, const char *type, const char *domain,
+    [[maybe_unused]] const char *host_name,
+    [[maybe_unused]] const AvahiAddress *address,
+    [[maybe_unused]] uint16_t port, [[maybe_unused]] AvahiStringList *txt,
+    [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata) {
 
   const string dacp_id{name};
   auto *mdns = (mDNS *)userdata;
@@ -162,7 +169,8 @@ void mDNS::cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex inte
   switch (event) {
   case AVAHI_RESOLVER_FAILURE:
     mdns->found = false;
-    mdns->error = avahi_strerror(avahi_client_errno(avahi_service_resolver_get_client(r)));
+    mdns->error = avahi_strerror(
+        avahi_client_errno(avahi_service_resolver_get_client(r)));
 
     // debug(2,
     //       "(Resolver) Failed to resolve service '%s' of type '%s' in domain "
@@ -172,8 +180,10 @@ void mDNS::cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex inte
     break;
   case AVAHI_RESOLVER_FOUND: // found
     //    char a[AVAHI_ADDRESS_STR_MAX], *t;
-    // debug(3, "resolve_callback: Service '%s' of type '%s' in domain '%s':", name, type, domain);
-    fmt::print("cbResolve: found service={} type={} domain={}\n", name, type, domain);
+    // debug(3, "resolve_callback: Service '%s' of type '%s' in domain '%s':",
+    // name, type, domain);
+    fmt::print("cbResolve: found service={} type={} domain={}\n", name, type,
+               domain);
 
     if (dacp_id.ends_with(mdns->_dacp_id)) {
       mdns->found = true;

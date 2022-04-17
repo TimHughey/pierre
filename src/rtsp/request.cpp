@@ -150,7 +150,7 @@ void Request::parse() {
     constexpr auto CR = 0x0a;
 
     // lamba
-    auto isCarriageReturn = [](const auto i) { return i == CR; };
+    auto isCarriageReturn = [CR](const auto i) { return i == CR; };
     auto eol = find_if(bol, headers_end, isCarriageReturn);
 
     if (eol < headers_end) {

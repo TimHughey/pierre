@@ -23,27 +23,30 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
-  set(CMAKE_CXX_EXTENSIONS ON)
-  set(CMAKE_CXX_STANDARD 20)
-  set(CMAKE_CXX_STANDARD_REQUIRED True)
+  set(CMAKE_CXX_EXTENSIONS         ON)
+  set(CMAKE_CXX_STANDARD           20)
+  set(CMAKE_CXX_STANDARD_REQUIRED  TRUE)
 
-  set(CMAKE_C_STANDARD 17)
-  set(CMAKE_C_STANDARD_REQUIRED True)
+  set(CMAKE_C_EXTENSIONS         ON)
+  set(CMAKE_C_STANDARD           17)
+  set(CMAKE_C_STANDARD_REQUIRED  TRUE)
 
-  set(COMPILER_FLAGS)
-  list(APPEND CXX_FLAGS
-  "-Wall" "-Wextra" "-pedantic"
-  "-Wno-parentheses"
-  "-O3"
-  "-march=native")
+  add_compile_options(-Wall -Wextra -pedantic -Werror)
 
   # Let's nicely support folders in IDEs
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
 
+# find pthreads
+
+set(THREADS_PREFER_PTHREAD_FLAG true)
 find_package(Threads REQUIRED)
 
-message(STATUS "Resolving GIT Version")
+IF(Threads_FOUND) 
+  message(VERBOSE "using threads: ${CMAKE_THREAD_LIBS_INIT}")
+endif()
+
+message(VERBOSE "Resolving GIT Version")
 
 set(_build_version "unknown")
 
@@ -56,9 +59,9 @@ if(GIT_FOUND)
     ERROR_QUIET
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  message( STATUS "GIT hash: ${_build_version}")
+  message(VERBOSE "GIT hash: ${_build_version}")
 else()
-  message(STATUS "GIT not found")
+  message(VERBOSE "GIT not found")
 endif()
 
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
@@ -77,7 +80,7 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  Misc Core Audio DMX Lightdesk mDNS RTSP
+  Misc Core Audio DMX Lightdesk mDNS RTSP RTP
   ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs

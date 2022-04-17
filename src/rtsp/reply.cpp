@@ -40,26 +40,29 @@ using enum RespCode;
 
 typedef const std::string &csr;
 
-static RespCodeMap _resp_text{
-    {OK, "OK"},
-    {AuthRequired, "Connection Authorization Required"},
-    {BadRequest, "Bad Request"},
-    {InternalServerError, "Internal Server Error"},
-    {Unauthorized, "Unauthorized"},
-    {Unavailable, "Unavailable"},
-    {NotImplemented, "Not Implemented"}};
+static RespCodeMap _resp_text{{OK, "OK"},
+                              {AuthRequired, "Connection Authorization Required"},
+                              {BadRequest, "Bad Request"},
+                              {InternalServerError, "Internal Server Error"},
+                              {Unauthorized, "Unauthorized"},
+                              {Unavailable, "Unavailable"},
+                              {NotImplemented, "Not Implemented"}};
 
 // this static member function is in the .cpp due to the call to Factory to
 // create the approprite Reply subclass
-[[nodiscard]] sReply Reply::create(const Reply::Opts &opts) {
-  return Factory::create(opts);
-}
+[[nodiscard]] sReply Reply::create(const Reply::Opts &opts) { return Factory::create(opts); }
 
 Reply::Reply(const Reply::Opts &opts)
-    : Method(opts.method), Path(opts.path), _request_content(opts.content),
-      _host(opts.host), _service(opts.service), _aes_ctx(opts.aes_ctx),
-      _mdns(opts.mdns), _nptp(opts.nptp) {
-
+    : Method(opts.method),           // request method
+      Path(opts.path),               // request path
+      _host(opts.host),              // local shared_ptr to Host
+      _service(opts.service),        // local shared_ptr to Service
+      _aes_ctx(opts.aes_ctx),        // local shared_ptr to AexCtx
+      _mdns(opts.mdns),              // local shared_ptr to mDNS
+      _nptp(opts.nptp),              // local shared_ptr to Nptp
+      _rtp(opts.rtp),                // local shared_ptr to Rtp
+      _request_content(opts.content) // request content
+{
   // copy the sequence header, must be part of the reply headers
   headerCopy(opts.headers, Headers::Type2::CSeq);
   headerAdd(Server, AirPierre);
@@ -89,6 +92,12 @@ Reply::Reply(const Reply::Opts &opts)
   }
 
   return _packet;
+}
+
+void Reply::copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {
+  // const uint8_t *begin = data.get();
+
+  copyToContent(data.get(), bytes);
 }
 
 void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {

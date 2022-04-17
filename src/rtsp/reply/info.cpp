@@ -25,6 +25,7 @@
 #include <string>
 
 #include "core/service.hpp"
+#include "rtsp/aplist.hpp"
 #include "rtsp/reply/info.hpp"
 #include "rtsp/reply/xml.hpp"
 
@@ -98,7 +99,7 @@ bool Info::stage1() {
 
   // an entry in the plist is an concatenated list of txt values
   // published via mDNS
-  for (const auto entry : *digest) {
+  for (const auto &entry : *digest) {
     const auto [key_str, val_str] = entry;
     fmt::format_to(here, "{}={}", key_str, val_str);
   }
@@ -118,8 +119,7 @@ bool Info::stage1() {
   plist_dict_set_item(rplist, system_flags_key, system_flags_pl);
 
   // second, handle the strings
-  auto want_keys =
-      array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
+  auto want_keys = array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
 
   for (const auto key : want_keys) {
     const auto [key_str, val_str] = service()->fetch(key);

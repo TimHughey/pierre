@@ -49,7 +49,7 @@ bool State::isSilent() { return i.s.mode == Mode::Silence; }
 bool State::isSuspended() { return i.s.mode == Mode::Suspend; }
 bool State::isRunning() { return i.s.mode != Mode::Shutdown; }
 
-void State::setup(std::unique_ptr<Args> args) {}
+void State::setup([[maybe_unused]] std::unique_ptr<Args> args) {}
 
 void State::silent(bool silent) {
   auto &silence = i.s.silence;

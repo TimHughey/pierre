@@ -80,7 +80,7 @@ shared_ptr<thread> LightDesk::run() {
 }
 
 void LightDesk::leave() {
-  auto x = State::leavingDuration<seconds>().count();
+  // auto x = State::leavingDuration<seconds>().count();
 
   {
     lock_guard lck(_active.mtx);

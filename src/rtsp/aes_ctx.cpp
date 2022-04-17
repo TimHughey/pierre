@@ -52,7 +52,8 @@ AesCtx::AesCtx(const char *device_str) {
   }
 }
 
-Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body, size_t bytes) const {
+Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body,
+                            size_t bytes) const {
   out.clear();
 
   if (body && (bytes > 0)) {
@@ -77,8 +78,8 @@ size_t AesCtx::encrypt(rtsp::PacketOut &packet) {
     uint8_t *ciphered_data;
     size_t ciphered_len;
 
-    auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(), packet.size(),
-                           _cipher);
+    auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(),
+                           packet.size(), _cipher);
 
     auto __ciphered_data = make_unique<uint8_t *>(ciphered_data);
 
@@ -109,7 +110,8 @@ size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
     size_t plain_len = 0;
     const uint8_t *cipher_data = (uint8_t *)packet.data();
 
-    bytes_consumed = pair_decrypt(&plain_data, &plain_len, cipher_data, bytes, cipher());
+    bytes_consumed =
+        pair_decrypt(&plain_data, &plain_len, cipher_data, bytes, cipher());
     // when we've decrypted an inbound packet we should always encrypt outbound
     _encrypt_out = true;
 
@@ -119,7 +121,7 @@ size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
       uint8_t *replace_packet = (uint8_t *)packet.data();
       // copy the plain text back to the inbound packet
       // NOTE: PacketIn is based on array so we must do the copy manually
-      for (auto idx = 0; idx < bytes_consumed; idx++) {
+      for (size_t idx = 0; idx < bytes_consumed; idx++) {
         replace_packet[idx] = plain_data[idx];
       }
     }
@@ -134,7 +136,6 @@ AesResult AesCtx::verify(const Content &in, Content &out) {
   AesResult aes_result;
   uint8_t *body = nullptr;
   size_t body_bytes = 0;
-  auto rc = 0;
 
   if (pair_verify(&body, &body_bytes, _verify, in.data(), in.size()) < 0) {
     aes_result.resp_code = AuthRequired;
@@ -162,7 +163,6 @@ AesResult AesCtx::setup(const Content &in, Content &out) {
   AesResult aes_result;
   uint8_t *body = nullptr;
   size_t body_bytes = 0;
-  auto rc = 0;
 
   // first time pair_setup is called it will not be able to find the state
   // return AuthRequired

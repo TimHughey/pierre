@@ -30,16 +30,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace pierre {
 
-using namespace std;
-using namespace core;
-
 // forward decl for shared_ptr typedef
 class Service;
 typedef std::shared_ptr<Service> sService;
 
 class Service : public std::enable_shared_from_this<Service> {
+public:
+  using KeyVal = core::service::KeyVal;
+  using sKeyValList = core::service::sKeyValList;
+  using Type = core::service::Type;
+  using Key = core::service::Key;
+  using enum core::service::Key;
+
   typedef const char *ccs;
-  using enum service::Key;
+  typedef const std::string &csr;
 
 public:
   // shared_ptr API
@@ -52,11 +56,11 @@ public:
 
   // general API
   auto features() const { return _features_val; }
-  const service::KeyVal fetch(const service::Key key) const;
-  ccs fetchKey(const service::Key key) const;
-  ccs fetchVal(const service::Key key) const;
-  service::sKeyValList keyValList(service::Type service_type) const;
-  const service::KeyVal nameAndReg(service::Type type) const;
+  const KeyVal fetch(const Key key) const;
+  ccs fetchKey(const Key key) const;
+  ccs fetchVal(const Key key) const;
+  sKeyValList keyValList(Type service_type) const;
+  const KeyVal nameAndReg(Type type) const;
 
   // primary port for AirPlay2 connections
   uint16_t basePort() { return _base_port; }
@@ -75,8 +79,8 @@ private:
   void addRegAndName();
   void addSystemFlags();
 
-  void saveCalcVal(service::Key key, const string &val);
-  void saveCalcVal(service::Key key, ccs val);
+  void saveCalcVal(Key key, csr val);
+  void saveCalcVal(Key key, ccs val);
 
 private:
   static constexpr uint16_t _base_port = 7000;
@@ -102,11 +106,11 @@ private:
 
   // uint64_t _features_val = 0x1C340445F8A00; // based on Sonos Amp
   uint64_t _features_val = 0x00;
-  string _features_mdns;
-  string _features_plist;
+  std::string _features_mdns;
+  std::string _features_plist;
 
-  static service::KeyValMap _kvm;
-  static service::KeyValMapCalc _kvm_calc;
-  static service::KeySequences _key_sequences;
+  static core::service::KeyValMap _kvm;
+  static core::service::KeyValMapCalc _kvm_calc;
+  static core::service::KeySequences _key_sequences;
 };
 } // namespace pierre

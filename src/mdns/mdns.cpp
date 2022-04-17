@@ -100,14 +100,14 @@ bool mDNS::groupAddService(AvahiEntryGroup *group, auto stype,
   const auto [reg_type, name] = _service->nameAndReg(stype);
 
   std::vector<const char *> string_pointers;
-  for (auto i = 0; auto &entry : prepped_entries) {
+  for (auto &entry : prepped_entries) {
     string_pointers.emplace_back(entry.c_str());
   }
 
-  auto sl =
-      avahi_string_list_new_from_array(string_pointers.data(), string_pointers.size());
-  auto rc = avahi_entry_group_add_service_strlst(group, iface, proto, pub_flags, name,
-                                                 reg_type, NULL, NULL, _port, sl);
+  auto sl = avahi_string_list_new_from_array(string_pointers.data(),
+                                             string_pointers.size());
+  auto rc = avahi_entry_group_add_service_strlst(
+      group, iface, proto, pub_flags, name, reg_type, NULL, NULL, _port, sl);
 
   if (rc == AVAHI_ERR_COLLISION) {
     fmt::print("AirPlay2 name already in use\n");
@@ -123,16 +123,19 @@ bool mDNS::groupAddService(AvahiEntryGroup *group, auto stype,
 }
 
 bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface,
-                       AvahiProtocol protocol, const char *name, const char *type,
-                       const char *domain, AvahiProtocol aprotocol,
-                       AvahiLookupFlags flags, AvahiServiceResolverCallback callback,
+                       AvahiProtocol protocol, const char *name,
+                       const char *type, const char *domain,
+                       [[maybe_unused]] AvahiProtocol aprotocol,
+                       [[maybe_unused]] AvahiLookupFlags flags,
+                       [[maybe_unused]] AvahiServiceResolverCallback callback,
                        void *userdata) {
-  _resolver = avahi_service_resolver_new(client, interface, protocol, name, type, domain,
-                                         AVAHI_PROTO_UNSPEC, (AvahiLookupFlags)9,
-                                         cbResolve, userdata);
+  _resolver = avahi_service_resolver_new(
+      client, interface, protocol, name, type, domain, AVAHI_PROTO_UNSPEC,
+      (AvahiLookupFlags)9, cbResolve, userdata);
 
   if (_resolver == nullptr) {
-    error = format("BROWSER RESOLVE failed, service[{}] {} ", name, error_string(client));
+    error = format("BROWSER RESOLVE failed, service[{}] {} ", name,
+                   error_string(client));
     return false;
   }
 
@@ -162,10 +165,12 @@ bool mDNS::start() {
 // void mDNS::serviceNameCollision(AvahiEntryGroup *group) {
 //   char *n;
 
-//   auto alt_service_name = avahi_alternative_service_name(_service_name.c_str());
-//   _service_name = alt_service_name;
+//   auto alt_service_name =
+//   avahi_alternative_service_name(_service_name.c_str()); _service_name =
+//   alt_service_name;
 
-//   cerr << format("attempting to register alternate service[{}]", _service_name);
+//   cerr << format("attempting to register alternate service[{}]",
+//   _service_name);
 
 //   /* And recreate the services */
 //   AvahiClient *client = avahi_entry_group_get_client(group);

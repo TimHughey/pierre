@@ -30,10 +30,10 @@ enum XMLDocs { InfoStage1 = 0 };
 class XML {
 public:
   static const char *doc(XMLDocs doc);
-  static const size_t len(XMLDocs doc);
+  static size_t len(XMLDocs doc);
 
   static const char *binDoc(XMLDocs doc);
-  static const size_t binLen(XMLDocs doc);
+  static size_t binLen(XMLDocs doc);
 };
 
 } // namespace rtsp

@@ -792,9 +792,8 @@ srp_verifier_get_session_key(struct SRPVerifier *ver, int *key_length) {
 
 static void hexread(uint8_t *out, size_t out_len, const char *in) {
   char hex[] = {0, 0, 0};
-  int i;
 
-  for (i = 0; i < out_len; i++, in += 2) {
+  for (size_t i = 0; i < out_len; i++, in += 2) {
     hex[0] = in[0];
     hex[1] = in[1];
     out[i] = strtol(hex, NULL, 16);
@@ -1330,7 +1329,7 @@ static int client_setup_response1(struct pair_setup_context *handle,
   }
 
   pk = pair_tlv_get_value(response, TLVType_PublicKey);
-  if (!pk || pk->size > N_len(SRP_NG_3072)) // max 384 bytes
+  if (!pk || pk->size > (size_t)N_len(SRP_NG_3072)) // max 384 bytes
   {
     handle->errmsg = "Setup response 1: Missing or invalid public key";
     goto error;
@@ -1395,7 +1394,7 @@ static int client_setup_response2(struct pair_setup_context *handle,
       goto error;
     }
 
-    assert(sizeof(handle->result.shared_secret) >= session_key_len);
+    assert(sizeof(handle->result.shared_secret) >= (size_t)session_key_len);
 
     memcpy(handle->result.shared_secret, session_key, session_key_len);
     handle->result.shared_secret_len = session_key_len;
@@ -1534,7 +1533,6 @@ error:
 
 static int client_setup_result(struct pair_setup_context *handle) {
   char *ptr;
-  int i;
 
   assert(sizeof(handle->result_str) >=
          2 * sizeof(handle->result.client_private_key) +
@@ -1544,10 +1542,10 @@ static int client_setup_result(struct pair_setup_context *handle) {
   // extracted from that with crypto_sign_ed25519_sk_to_pk (it is the last 32
   // bytes)
   ptr = handle->result_str;
-  for (i = 0; i < sizeof(handle->result.client_private_key); i++)
+  for (size_t i = 0; i < sizeof(handle->result.client_private_key); i++)
     ptr += sprintf(ptr, "%02x",
                    handle->result.client_private_key[i]); // 2 x 64 bytes
-  for (i = 0; i < sizeof(handle->result.server_public_key); i++)
+  for (size_t i = 0; i < sizeof(handle->result.server_public_key); i++)
     ptr += sprintf(ptr, "%02x",
                    handle->result.server_public_key[i]); // 2 x 32 bytes
   *ptr = '\0';
@@ -1556,8 +1554,11 @@ static int client_setup_result(struct pair_setup_context *handle) {
 }
 
 static int client_verify_new(struct pair_verify_context *handle,
-                             const char *client_setup_keys, pair_cb cb,
-                             void *cb_arg, const char *device_id) {
+                             __attribute__((unused))
+                             const char *client_setup_keys,
+                             __attribute__((unused)) pair_cb cb,
+                             __attribute__((unused)) void *cb_arg,
+                             const char *device_id) {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   size_t hexkey_len;
 
@@ -1987,7 +1988,7 @@ static int server_setup_request2(struct pair_setup_context *handle,
   }
 
   pk = pair_tlv_get_value(request, TLVType_PublicKey);
-  if (!pk || pk->size > N_len(SRP_NG_3072)) // 384 bytes or less
+  if (!pk || pk->size > (size_t)N_len(SRP_NG_3072)) // 384 bytes or less
   {
     RETURN_ERROR(PAIR_STATUS_INVALID,
                  "Setup request 2: Missing og invalid public key");
@@ -2213,7 +2214,7 @@ static uint8_t *server_setup_response2(size_t *len,
                    "Setup request 2: Could not compute session key");
     }
 
-    assert(sizeof(handle->result.shared_secret) >= session_key_len);
+    assert(sizeof(handle->result.shared_secret) >= (size_t)session_key_len);
 
     memcpy(handle->result.shared_secret, session_key, session_key_len);
     handle->result.shared_secret_len = session_key_len;
@@ -2770,7 +2771,8 @@ error:
 }
 
 static int server_list(uint8_t **out, size_t *out_len, pair_list_cb cb,
-                       void *cb_arg, const uint8_t *in, size_t in_len) {
+                       void *cb_arg, __attribute__((unused)) const uint8_t *in,
+                       __attribute__((unused)) size_t in_len) {
   // Skip reading the request, it just has state = 1 and pair method =
   // PairingMethodListPairings
 

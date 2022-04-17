@@ -26,9 +26,11 @@
 #include <string>
 
 #include "core/service.hpp"
+#include "rtp/event/receiver.hpp"
 #include "rtsp/reply/setup.hpp"
 
 using namespace std;
+using namespace pierre;
 
 namespace pierre {
 namespace rtsp {
@@ -77,8 +79,7 @@ void Setup::getTimingList() {
   constexpr auto timing_peer_info_path = "timingPeerInfo";
   constexpr auto addresses_node = "Addresses";
 
-  auto rc = dictGetStringArray(timing_peer_info_path, addresses_node,
-                               _timing_peer_info);
+  auto rc = dictGetStringArray(timing_peer_info_path, addresses_node, _timing_peer_info);
 
   // fmt::print("Setup::getTimingList(): rc={} num_strings={}\n", rc,
   //            _timing_peer_info.size());
@@ -102,15 +103,32 @@ bool Setup::populate() {
     getTimingList();
 
     if (checksOK()) {
-      constexpr auto timing_peer = "timingPeerInfo";
-      constexpr auto addresses = "Addresses";
-      constexpr auto ID = "ID";
-      Aplist reply_dict(Dictionaries{timing_peer});
+      constexpr auto key_timing_peer = "timingPeerInfo";
+      constexpr auto key_addresses = "Addresses";
+      constexpr auto key_ID = "ID";
+      constexpr auto key_event_port = "eventPort";
+      constexpr auto key_timing_port = "timingPort";
+
+      Aplist reply_dict(Dictionaries{key_timing_peer});
       const auto &ip_addrs = host()->ipAddrs();
 
-      reply_dict.dictSetStringArray(timing_peer, addresses, ip_addrs);
-      reply_dict.dictSetStringVal(timing_peer, ID, ip_addrs[0]);
-      reply_dict.dictDump();
+      reply_dict.dictSetStringArray(key_timing_peer, key_addresses, ip_addrs);
+      reply_dict.dictSetStringVal(key_timing_peer, key_ID, ip_addrs[0]);
+
+      auto port_barrier = rtp()->startEventReceiver();
+      auto event_port = port_barrier.get(); // wait here until port is available
+
+      reply_dict.dictSetUint(nullptr, key_event_port, event_port);
+      reply_dict.dictSetUint(nullptr, key_timing_port, 0); // dummy
+
+      size_t bytes = 0;
+      auto binary = reply_dict.dictBinary(bytes);
+      copyToContent(binary, bytes);
+
+      headerAdd(ContentType, AppleBinPlist);
+      responseCode(OK);
+
+      return true;
     }
   }
 

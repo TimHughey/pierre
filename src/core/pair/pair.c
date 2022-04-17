@@ -76,7 +76,8 @@ int hash_init(enum hash_alg alg, HashCTX *c) {
   return 0;
 }
 
-int hash_update(enum hash_alg alg, HashCTX *c, const void *data, size_t len) {
+int hash_update(__attribute__((unused)) enum hash_alg alg, HashCTX *c,
+                const void *data, size_t len) {
   gcry_md_write(*c, data, len);
   return 0;
 }
@@ -569,7 +570,7 @@ void pair_cipher_free(struct pair_cipher_context *cctx) {
   if (!cctx->type->pair_cipher_free)
     return;
 
-  return cctx->type->pair_cipher_free(cctx);
+  cctx->type->pair_cipher_free(cctx);
 }
 
 const char *pair_cipher_errmsg(struct pair_cipher_context *cctx) {

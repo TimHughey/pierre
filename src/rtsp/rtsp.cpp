@@ -19,55 +19,50 @@
 */
 
 #include <array>
+#include <boost/system/error_code.hpp>
 #include <fmt/format.h>
 #include <iostream>
 #include <pthread.h>
-#include <string_view>
 
 #include "core/service.hpp"
+#include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
-#include "rtsp/request/final.hpp"
 #include "rtsp/rtsp.hpp"
 
+namespace pierre {
 using namespace boost;
 using namespace boost::asio;
 using namespace boost::asio::ip;
-using namespace boost::system;
-
-namespace pierre {
-
+// using namespace boost::system;
 using namespace rtsp;
-using boost::system::error_code;
 
-Rtsp::Rtsp(sHost _host) : host(_host), service_name(_host->serviceName()) {
+Rtsp::Rtsp(sHost _host)
+    : host(_host),                               // local copy of Host shared ptr
+      service(Service::create(host)),            // create Service
+      mdns(mDNS::create(service)),               // create mDNS
+      nptp(Nptp::create(service)),               // create "Not Quite PTP"
+      rtp(Rtp::create()),                        // create Real Time Protocol
+      _aes_ctx(AesCtx::create(host->deviceID())) // create AES ctx
+{
   // maybe more later
 }
 
 Rtsp::~Rtsp() {
-  fmt::print("Rtsp destructure called\n");
+  fmt::print("Rtsp destructor called\n");
   // need cleanup code
 }
 
 void Rtsp::start() {
   fmt::print("\nPierre {:>25}\n\n", host->firmwareVerson());
 
-  // create the Service for Rtsp
-  service = Service::create(host);
-
-  // create and start mDNS
-  mdns = mDNS::create(service);
+  // start network services
   mdns->start();
-
-  // create and start Nptp
-  nptp = Nptp::create(service);
   nptp->start();
+  rtp->start();
 
-  // create the AesCtx
-  _aes_ctx = AesCtx::create(host->deviceID());
-
-  // bind to AirPlay2 port and accept connectinon
+  // spin up thread to handle AirPlay2 comms
   _thread = std::thread([this]() { runLoop(); });
 
   // save the native handle of the Rtsp thread
@@ -102,13 +97,15 @@ void Rtsp::doAccept(yield_context yield) {
           [this](yield_context yield) {
             auto &socket = _sockets.back();
 
-            doRead(_sockets.back(), yield);
+            doRead(socket, yield);
           });
 
   } while (true);
 }
 
 void Rtsp::doRead(tcp::socket &socket, yield_context yield) {
+  using error_code = system::error_code;
+
   auto request = rtsp::Request::create(_aes_ctx, service);
 
   auto &packet = request->packet();
@@ -116,27 +113,27 @@ void Rtsp::doRead(tcp::socket &socket, yield_context yield) {
 
   mutable_buffer buf(packet.data(), packet.size());
 
-  socket.async_receive(
-      buf, 0, // lamba
-      [this, request, &socket, yield](const error_code &ec, size_t bytesp) {
-        if (ec == system::errc::success) {
-          // NOTE this is a NOP until cipher is established
-          auto &packet = request->packet();
-          _aes_ctx->decrypt(packet, bytesp);
+  socket.async_receive(buf, 0,
+                       // lamba
+                       [this, request, &socket, yield](const error_code &ec, size_t bytesp) {
+                         if (ec == system::errc::success) {
+                           // NOTE this is a NOP until cipher is established
+                           auto &packet = request->packet();
+                           _aes_ctx->decrypt(packet, bytesp);
 
-          request->sessionStart(bytesp, ec.message());
+                           request->sessionStart(bytesp, ec.message());
 
-          session(socket, request, yield);
+                           session(socket, request);
 
-          doRead(socket, yield);
-        } else {
-          fmt::print("socket shutdown: {}\n", ec.message());
-          socket.shutdown(tcp::socket::shutdown_both);
-        }
-      });
+                           doRead(socket, yield);
+                         } else {
+                           fmt::print("socket shutdown: {}\n", ec.message());
+                           socket.shutdown(tcp::socket::shutdown_both);
+                         }
+                       });
 }
 
-void Rtsp::session(tcp::socket &socket, auto request, yield_context yield) {
+void Rtsp::session(tcp::socket &socket, auto request) {
   using enum Request::DumpKind;
 
   request->parse();
@@ -150,7 +147,7 @@ void Rtsp::session(tcp::socket &socket, auto request, yield_context yield) {
 
     fmt::print("rtsp: loading {} bytes...\n", buf.size());
 
-    error_code ec;
+    system::error_code ec;
     auto bytes = socket.receive(buf, 0, ec);
 
     if (ec != system::errc::success) {
@@ -171,7 +168,8 @@ void Rtsp::session(tcp::socket &socket, auto request, yield_context yield) {
                                 .service = service,
                                 .aes_ctx = _aes_ctx,
                                 .mdns = mdns,
-                                .nptp = nptp});
+                                .nptp = nptp,
+                                .rtp = rtp});
 
     auto &packet = reply->build();
 
@@ -181,7 +179,6 @@ void Rtsp::session(tcp::socket &socket, auto request, yield_context yield) {
       socket.send(buffer(packet.data(), packet.size()));
     }
   } catch (const std::runtime_error &error) {
-
     auto eptr = std::current_exception();
     request->dump(Request::DumpKind::RawOnly);
     rethrow_exception(eptr);

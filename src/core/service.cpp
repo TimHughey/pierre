@@ -25,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "core/service.hpp"
 namespace pierre {
 
+using namespace std;
 using namespace core::service;
 using enum Key;
 
@@ -56,7 +57,7 @@ void Service::addFeatures() {
   const uint64_t hi = (_features_val >> 32) & mask32;
   const uint64_t lo = _features_val & mask32;
 
-  for (auto key : array{apFeatures, mdFeatures, plFeatures}) {
+  for (auto key : std::array{apFeatures, mdFeatures, plFeatures}) {
     switch (key) {
     case apFeatures:
     case mdFeatures: {

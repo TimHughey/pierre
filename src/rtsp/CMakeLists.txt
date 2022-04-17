@@ -2,9 +2,6 @@
 # RTSP
 #
 
-include(${pierre_SOURCE_DIR}/cmake/FileEmbed.cmake)
-FileEmbedSetup()
-
 set(THREADS_PREFER_PTHREAD_FLAG true)
 
 set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
@@ -49,6 +46,7 @@ target_link_libraries(RTSP PUBLIC
   ${plist}
   Core
   mDNS
+  RTP
   fmt::fmt
   rt
 )

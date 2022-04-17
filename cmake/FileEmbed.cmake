@@ -4,7 +4,10 @@ function(FileEmbedSetup)
     endif ()
 
     if (NOT EXISTS ${CMAKE_BINARY_DIR}/file_embed/file_embed_empty.c)
-        file(WRITE ${CMAKE_BINARY_DIR}/file_embed/file_embed_empty.c "")
+        file(WRITE
+            ${CMAKE_BINARY_DIR}/file_embed/file_embed_empty.c
+            "static bool __empty_file = true;"
+        )
     endif ()
 
     add_library(file_embed ${CMAKE_BINARY_DIR}/file_embed/file_embed_empty.c)

@@ -142,7 +142,7 @@ bool Host::findHardwareAddr(HwAddrBytes &dest) {
         auto *s = (struct sockaddr_ll *)ifa->ifa_addr;
 
         // only copy bytes that fit into the destination
-        for (auto idx = 0; idx < dest.size(); idx++) {
+        for (size_t idx = 0; idx < dest.size(); idx++) {
           dest.at(idx) = s->sll_addr[idx];
         }
 

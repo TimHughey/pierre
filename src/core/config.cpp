@@ -40,62 +40,62 @@
 #include "config.hpp"
 #include "version.h"
 
-static int get_device_id(uint8_t *id, int int_length) {
-  int response = 0;
-  struct ifaddrs *ifaddr = NULL;
-  struct ifaddrs *ifa = NULL;
-  int i = 0;
-  uint8_t *t = id;
-  for (i = 0; i < int_length; i++) {
-    *t++ = 0;
-  }
+// static int get_device_id(uint8_t *id, int int_length) {
+//   int response = 0;
+//   struct ifaddrs *ifaddr = NULL;
+//   struct ifaddrs *ifa = NULL;
+//   int i = 0;
+//   uint8_t *t = id;
+//   for (i = 0; i < int_length; i++) {
+//     *t++ = 0;
+//   }
 
-  if (getifaddrs(&ifaddr) == -1) {
-    response = -1;
-  } else {
-    t = id;
-    int found = 0;
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-      if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
-        struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
-        if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
-          for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
-            *t++ = s->sll_addr[i];
-          }
-          found = 1;
-        }
-      }
-    }
-    freeifaddrs(ifaddr);
-  }
-  return response;
-}
+//   if (getifaddrs(&ifaddr) == -1) {
+//     response = -1;
+//   } else {
+//     t = id;
+//     int found = 0;
+//     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+//       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
+//         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
+//         if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
+//           for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
+//             *t++ = s->sll_addr[i];
+//           }
+//           found = 1;
+//         }
+//       }
+//     }
+//     freeifaddrs(ifaddr);
+//   }
+//   return response;
+// }
 
-static uint32_t nctohl(const uint8_t *p) {
-  // read 4 characters from *p and do ntohl on them
-  // this is to avoid possible aliasing violations
-  uint32_t holder;
-  memcpy(&holder, p, sizeof(holder));
-  return ntohl(holder);
-}
+// static uint32_t nctohl(const uint8_t *p) {
+//   // read 4 characters from *p and do ntohl on them
+//   // this is to avoid possible aliasing violations
+//   uint32_t holder;
+//   memcpy(&holder, p, sizeof(holder));
+//   return ntohl(holder);
+// }
 
-static uint16_t nctohs(const uint8_t *p) {
-  // read 2 characters from *p and do ntohs on them
-  // this is to avoid possible aliasing violations
-  uint16_t holder;
-  memcpy(&holder, p, sizeof(holder));
-  return ntohs(holder);
-}
+// static uint16_t nctohs(const uint8_t *p) {
+//   // read 2 characters from *p and do ntohs on them
+//   // this is to avoid possible aliasing violations
+//   uint16_t holder;
+//   memcpy(&holder, p, sizeof(holder));
+//   return ntohs(holder);
+// }
 
-static uint64_t nctoh64(const uint8_t *p) {
-  uint32_t landing = nctohl(p); // get the high order 32 bits
-  uint64_t vl = landing;
-  vl = vl << 32; // shift them into the correct location
-  landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
-  uint64_t ul = landing;
-  vl = vl + ul;
-  return vl;
-}
+// static uint64_t nctoh64(const uint8_t *p) {
+//   uint32_t landing = nctohl(p); // get the high order 32 bits
+//   uint64_t vl = landing;
+//   vl = vl << 32; // shift them into the correct location
+//   landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
+//   uint64_t ul = landing;
+//   vl = vl + ul;
+//   return vl;
+// }
 
 namespace pierre {
 
@@ -111,7 +111,7 @@ const string_view suffix{".conf"};
 typedef std::vector<fs::path> paths;
 
 Config::Config(csr app_name, csr file)
-    : _cli_cfg_file(file), _app_name(app_name), _firmware_vsn(GIT_REVISION) {}
+    : _app_name(app_name), _cli_cfg_file(file), _firmware_vsn(GIT_REVISION) {}
 
 bool Config::findFile() {
   const auto file = _cli_cfg_file;

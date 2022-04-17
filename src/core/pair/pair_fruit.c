@@ -498,8 +498,9 @@ error:
 /* -------------------------- IMPLEMENTATION -------------------------------- */
 
 static int client_setup_new(struct pair_setup_context *handle, const char *pin,
-                            pair_cb add_cb, void *cb_arg,
-                            const char *device_id) {
+                            __attribute__((unused)) pair_cb add_cb,
+                            __attribute__((unused)) void *cb_arg,
+                            __attribute__((unused)) const char *device_id) {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
 
   if (!is_initialized())
@@ -750,7 +751,7 @@ static int client_setup_response3(struct pair_setup_context *handle,
 static int client_setup_result(struct pair_setup_context *handle) {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
   char *ptr;
-  int i;
+  size_t i;
 
   // Last 32 bytes of the private key is the public key, so we don't need to
   // explicitly export that
@@ -763,13 +764,15 @@ static int client_setup_result(struct pair_setup_context *handle) {
 }
 
 static int client_verify_new(struct pair_verify_context *handle,
-                             const char *client_setup_keys, pair_cb cb,
-                             void *cb_arg, const char *device_id) {
+                             __attribute__((unused))
+                             const char *client_setup_keys,
+                             __attribute__((unused)) pair_cb cb,
+                             __attribute__((unused)) void *cb_arg,
+                             const char *device_id) {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   char hex[] = {0, 0, 0};
   size_t hexkey_len;
   const char *ptr;
-  int i;
 
   if (!is_initialized())
     return -1;
@@ -789,7 +792,7 @@ static int client_verify_new(struct pair_verify_context *handle,
     memcpy(vctx->device_id, device_id, strlen(device_id));
 
   ptr = client_setup_keys;
-  for (i = 0; i < sizeof(vctx->client_private_key); i++, ptr += 2) {
+  for (size_t i = 0; i < sizeof(vctx->client_private_key); i++, ptr += 2) {
     hex[0] = ptr[0];
     hex[1] = ptr[1];
     vctx->client_private_key[i] = strtol(hex, NULL, 16);
@@ -927,7 +930,8 @@ static int client_verify_response1(struct pair_verify_context *handle,
 }
 
 static int client_verify_response2(struct pair_verify_context *handle,
-                                   const uint8_t *data, size_t data_len) {
+                                   __attribute__((unused)) const uint8_t *data,
+                                   __attribute__((unused)) size_t data_len) {
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   // TODO actually check response
 

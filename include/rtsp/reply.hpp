@@ -33,6 +33,7 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
@@ -43,9 +44,7 @@
 
 namespace pierre {
 namespace rtsp {
-using Service = pierre::Service;
-using std::string, std::string_view, std::tuple, std::unordered_map,
-    std::vector;
+// using std::string, std::tuple, std::unordered_map, std::vector;
 
 // Building the response
 // 1. Include CSeq header from request
@@ -69,12 +68,11 @@ class Reply; // forward decl for shared_ptr typedef
 typedef std::shared_ptr<Reply> sReply;
 
 typedef std::tuple<char *, size_t> PacketInInfo;
-typedef const unordered_map<RespCode, const char *> RespCodeMap;
+typedef const std::unordered_map<RespCode, const char *> RespCodeMap;
 
 class Reply : public Headers, protected reply::Method, protected reply::Path {
 public:
   using string = std::string;
-
   struct Opts {
     using string = std::string;
 
@@ -87,6 +85,7 @@ public:
     sAesCtx aes_ctx = nullptr;
     smDNS mdns = nullptr;
     sNptp nptp = nullptr;
+    sRtp rtp = nullptr;
   };
 
 public:
@@ -101,6 +100,7 @@ public:
 
   sAesCtx aesCtx() { return _aes_ctx; }
   PacketOut &build();
+  void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes);
   void copyToContent(const uint8_t *begin, const size_t bytes);
   void dump() const;
   auto &errMsg() { return _err_msg; }
@@ -111,6 +111,9 @@ public:
   virtual bool populate() = 0;
   inline void responseCode(RespCode code) { _rcode = code; }
   inline const Content &requestContent() const { return _request_content; }
+
+  sRtp rtp() { return _rtp; }
+
   sService service() { return _service; }
 
 protected:
@@ -123,6 +126,7 @@ protected:
   sAesCtx _aes_ctx;
   smDNS _mdns;
   sNptp _nptp;
+  sRtp _rtp;
   const Content &_request_content;
 
   Content _content;
