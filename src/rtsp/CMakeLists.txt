@@ -24,7 +24,7 @@ add_library(RTSP
   request.cpp  
   reply.cpp aplist.cpp
   reply/factory.cpp reply/fairplay.cpp reply/options.cpp
-  reply/info.cpp reply/xml.cpp reply/pairing.cpp
+  reply/info.cpp reply/pairing.cpp
   reply/setup.cpp
   ${HEADER_LIST}
 )

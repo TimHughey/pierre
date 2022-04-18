@@ -27,7 +27,6 @@
 #include "core/service.hpp"
 #include "rtsp/aplist.hpp"
 #include "rtsp/reply/info.hpp"
-#include "rtsp/reply/xml.hpp"
 
 using namespace std;
 
