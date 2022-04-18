@@ -36,10 +36,14 @@ typedef std::shared_ptr<Service> sService;
 
 class Service : public std::enable_shared_from_this<Service> {
 public:
+  enum Flags : uint8_t { DeviceSupportsRelay = 11 };
+
+public:
   using KeyVal = core::service::KeyVal;
   using sKeyValList = core::service::sKeyValList;
   using Type = core::service::Type;
   using Key = core::service::Key;
+  using KeySeq = core::service::KeySeq;
   using enum core::service::Key;
 
   typedef const char *ccs;
@@ -55,11 +59,13 @@ public:
   sService getPtr() { return shared_from_this(); }
 
   // general API
+  void adjustSystemFlags(Flags flag);
   auto features() const { return _features_val; }
   const KeyVal fetch(const Key key) const;
   ccs fetchKey(const Key key) const;
   ccs fetchVal(const Key key) const;
   sKeyValList keyValList(Type service_type) const;
+  sKeyValList keyValList(const KeySeq &keys_want) const;
   const KeyVal nameAndReg(Type type) const;
 
   // primary port for AirPlay2 connections
@@ -70,7 +76,7 @@ public:
   ccs name() const { return fetchVal(ServiceName); }
 
   // system flags (these change based on AirPlay)
-  auto systemFlags() const { return _system_flags; }
+  uint64_t systemFlags() const { return _system_flags; }
 
 private:
   Service(sHost host);
@@ -91,6 +97,7 @@ private:
   // 0x204: Audio cable attached, OneTimePairingRequired
   // 0x604: Audio cable attached, OneTimePairingRequired, device setup for
   // Homekit access control
+  const uint32_t _system_flags_initial = 0x04;
   uint32_t _system_flags = 0x04;
 
   // features code is 64-bits and is used for both mDNS and plist

@@ -45,6 +45,7 @@ enum Key : int8_t {
   apProtocolVsn,
   apRequiredSenderFeatures,
   apSerialNumber,
+  apStatusFlags,
   apSystemFlags,
   FirmwareVsn,
   mdAirPlayVsn,
@@ -81,6 +82,8 @@ typedef std::unordered_map<Key, KeyValCalc> KeyValMapCalc;
 
 // single key sequence
 typedef std::vector<Key> KeySeq;
+
+// custom key sequences
 
 // sequences of keys for AirPlayTCP, RaopUDP
 typedef std::array<KeySeq, 2> KeySequences;

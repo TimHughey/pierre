@@ -34,35 +34,27 @@ namespace mdns {
 
 using namespace std;
 
-struct DacpBrowser {
-  mDNS *mdns = nullptr;
-  AvahiServiceBrowser *service_browser;
-  const string dacp_id;
-};
+extern void cbClient(AvahiClient *client, AvahiClientState state, void *userdata);
+extern void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
+                     AvahiBrowserEvent event, const char *name, const char *type,
+                     const char *domain, AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+                     void *userdata);
 
-extern AvahiClient *client;
-extern AvahiEntryGroup *group;
-extern AvahiThreadedPoll *tpoll;
-extern DacpBrowser dacp_browser;
-extern AvahiServiceBrowser *browser;
+extern void cbBrowse(AvahiClient *c, AvahiClientState state, void *userdata);
 
-void browser_callback(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
-                      AvahiBrowserEvent event, const char *name, const char *type,
-                      const char *domain, AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
-                      void *userdata);
+extern void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void *userdata);
 
-string error_string(AvahiServiceBrowser *browser);
-string error_string(AvahiClient *client);
-
-void client_callback(AvahiClient *c, AvahiClientState state, void *userdata);
-
-void resolve_callback(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
+extern void cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
                       [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
                       const char *name, const char *type, const char *domain,
                       [[maybe_unused]] const char *host_name,
                       [[maybe_unused]] const AvahiAddress *address, uint16_t port,
                       [[maybe_unused]] AvahiStringList *txt,
                       [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata);
+
+extern string error_string(AvahiClient *client);
+extern string error_string(AvahiEntryGroup *group);
+extern string error_string(AvahiServiceBrowser *browser);
 
 } // namespace mdns
 

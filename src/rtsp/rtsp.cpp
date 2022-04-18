@@ -67,6 +67,7 @@ void Rtsp::start() {
 
   // save the native handle of the Rtsp thread
   _handle = _thread.native_handle();
+  pthread_setname_np(_handle, "RTSP");
 }
 
 void Rtsp::runLoop() {

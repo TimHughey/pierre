@@ -71,7 +71,6 @@ void Setup::getGroupInfo() {
 
   // add the result of dictGetString to the checks vector
   saveCheck(dictGetString(group_uuid_path, _group_uuid));
-
   saveCheck(dictGetBool(gcl_path, _group_contains_leader));
 }
 
@@ -80,9 +79,6 @@ void Setup::getTimingList() {
   constexpr auto addresses_node = "Addresses";
 
   auto rc = dictGetStringArray(timing_peer_info_path, addresses_node, _timing_peer_info);
-
-  // fmt::print("Setup::getTimingList(): rc={} num_strings={}\n", rc,
-  //            _timing_peer_info.size());
 
   saveCheck(rc);
 }
@@ -120,6 +116,10 @@ bool Setup::populate() {
 
       reply_dict.dictSetUint(nullptr, key_event_port, event_port);
       reply_dict.dictSetUint(nullptr, key_timing_port, 0); // dummy
+
+      // adjust Service system flags and request mDNS update
+      service()->adjustSystemFlags(Service::Flags::DeviceSupportsRelay);
+      mdns()->update();
 
       size_t bytes = 0;
       auto binary = reply_dict.dictBinary(bytes);

@@ -72,7 +72,9 @@ public:
 
   bool registerService(AvahiClient *client = nullptr);
   bool start();
-  void saveGroup(AvahiEntryGroup *group) { _groups.emplace_back(group); }
+  void saveGroup(AvahiEntryGroup *group);
+
+  void update();
 
 public:
   string _dacp_id;
@@ -88,44 +90,38 @@ public:
 private:
   mDNS(sService service);
 
-private: // Callbacks
-  static void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface,
-                       AvahiProtocol protocol, AvahiBrowserEvent event,
-                       const char *name, const char *type, const char *domain,
-                       AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
-                       void *userdata);
+  // private: // Callbacks
+  //   static void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
+  //                        AvahiBrowserEvent event, const char *name, const char *type,
+  //                        const char *domain, AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
+  //                        void *userdata);
 
-  static void cbClient(AvahiClient *client, AvahiClientState state,
-                       void *userdata);
+  //   static void cbClient(AvahiClient *client, AvahiClientState state, void *userdata);
 
-  static void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state,
-                           void *userdata);
+  //   static void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void
+  //   *userdata);
 
-  static void
-  cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
-            [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
-            const char *name, const char *type, const char *domain,
-            [[maybe_unused]] const char *host_name,
-            [[maybe_unused]] const AvahiAddress *address, uint16_t port,
-            [[maybe_unused]] AvahiStringList *txt,
-            [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata);
+  //   static void cbResolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
+  //                         [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event,
+  //                         const char *name, const char *type, const char *domain,
+  //                         [[maybe_unused]] const char *host_name,
+  //                         [[maybe_unused]] const AvahiAddress *address, uint16_t port,
+  //                         [[maybe_unused]] AvahiStringList *txt,
+  //                         [[maybe_unused]] AvahiLookupResultFlags flags, void *userdata);
 
-private: // error reporting helpers
-  static string error_string(AvahiClient *client);
-  static string error_string(AvahiEntryGroup *group);
-  static string error_string(AvahiServiceBrowser *browser);
+  // private: // error reporting helpers
+  //   static string error_string(AvahiClient *client);
+  //   static string error_string(AvahiEntryGroup *group);
+  //   static string error_string(AvahiServiceBrowser *browser);
 
 private:
-  bool groupAddService(AvahiEntryGroup *group, auto stype,
-                       const auto &prepped_entries);
+  bool groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepped_entries);
   void makePK();
   // void serviceNameCollision(AvahiEntryGroup *group);
 
-  bool resolverNew(AvahiClient *client, AvahiIfIndex interface,
-                   AvahiProtocol protocol, const char *name, const char *type,
-                   const char *domain, AvahiProtocol aprotocol,
-                   AvahiLookupFlags flags,
-                   AvahiServiceResolverCallback callback, void *userdata);
+  bool resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol,
+                   const char *name, const char *type, const char *domain, AvahiProtocol aprotocol,
+                   AvahiLookupFlags flags, AvahiServiceResolverCallback callback, void *userdata);
 
 private:
   sService _service;

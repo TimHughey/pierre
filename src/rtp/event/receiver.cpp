@@ -58,7 +58,7 @@ void Receiver::recvEvent(tcp_socket &socket, yield_context yield) {
 
   mutable_buffer buf(packet.data(), packet.size());
 
-  fmt::print("Receiver::recvEvent(): accepted conn socket={}\n", socket.native_handle());
+  // fmt::print("Receiver::recvEvent(): accepted conn socket={}\n", socket.native_handle());
 
   socket.async_receive(buf, 0,
                        // lamba
@@ -97,7 +97,7 @@ void Receiver::runLoop() {
   _port = _acceptor->local_endpoint().port();
   _port_promise.set_value(_port);
 
-  fmt::print("Receiver::runLoop(): _port={}\n", _port);
+  // fmt::print("Receiver::runLoop(): _port={}\n", _port);
 
   // tell the acceptor to listen
   _acceptor->listen();
@@ -114,7 +114,9 @@ PortFuture Receiver::start() {
   _thread = std::thread([this]() { runLoop(); });
   _handle = _thread.native_handle();
 
-  fmt::print("Receiver::start() _handle={}\n", _handle);
+  pthread_setname_np(_handle, "RTP Event");
+
+  // fmt::print("Receiver::start() _handle={}\n", _handle);
 
   return _port_promise.get_future();
 }

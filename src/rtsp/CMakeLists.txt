@@ -5,7 +5,8 @@
 set(THREADS_PREFER_PTHREAD_FLAG true)
 
 set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
-file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS 
+file(GLOB_RECURSE
+  HEADER_LIST CONFIGURE_DEPENDS 
   "${HEADER_PATH}/rtsp/*.h*"
 )
 
@@ -19,29 +20,39 @@ find_library(plist  NAMES plist REQUIRED)
 find_library(rt     NAMES rt    REQUIRED)
 
 add_library(RTSP
-  rtsp.cpp headers.cpp aes_ctx.cpp
-  request.cpp reply.cpp aplist.cpp
-  nptp.cpp
-    reply/factory.cpp reply/fairplay.cpp reply/options.cpp
-    reply/info.cpp reply/xml.cpp reply/pairing.cpp
-    reply/setup.cpp
+  rtsp.cpp headers.cpp aes_ctx.cpp nptp.cpp
+  request.cpp  
+  reply.cpp aplist.cpp
+  reply/factory.cpp reply/fairplay.cpp reply/options.cpp
+  reply/info.cpp reply/xml.cpp reply/pairing.cpp
+  reply/setup.cpp
   ${HEADER_LIST}
 )
 
-# FileEmbedAdd(${CMAKE_CURRENT_LIST_DIR}/plist_get_info_resp.xml)
+# embed statis plists
+set(PLIST_EMBED ${CMAKE_CURRENT_SOURCE_DIR}/plist_embed)
+set(PLIST_GET_INFO get_info_resp.plist)
+set(PLIST_GET_INFO_BIN ${CMAKE_CURRENT_BINARY_DIR}/${PLIST_GET_INFO}.bin)
+
+add_custom_command(TARGET 
+  RTSP PRE_BUILD
+  COMMAND ld -r -b binary -o  ${PLIST_GET_INFO_BIN} ${PLIST_GET_INFO}
+  BYPRODUCTS ${PLIST_GET_INFO_BIN}
+  WORKING_DIRECTORY ${PLIST_EMBED}
+  COMMENT "Generating binary version of ${PLIST_GET_INFO}"
+  VERBATIM
+)
 
 # source files compiled for the library can include headers
 # without usinf the full path
-target_include_directories(RTSP PRIVATE
-  ${HEADER_PATH}/rtsp
-  ${CMAKE_BINARY_DIR}/file_embed
-)
+target_include_directories(RTSP PRIVATE ${HEADER_PATH}/rtsp)
 
 # external users of this library include headers relative to
 # the based include directory
 target_include_directories(RTSP PUBLIC ${HEADER_PATH})
 
 target_link_libraries(RTSP PUBLIC
+  ${PLIST_GET_INFO_BIN}
   ${Boost_LIBRARIES}
   ${plist}
   Core
@@ -50,27 +61,6 @@ target_link_libraries(RTSP PUBLIC
   fmt::fmt
   rt
 )
-
-
-# FUNCTION(ADD_RESOURCES out_var)
-#   SET(result)
-#   FOREACH(in_f ${ARGN})
-#     FILE(RELATIVE_PATH src_f ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${in_f})
-#     SET(out_f "${PROJECT_BINARY_DIR}/${in_f}.o")
-#     ADD_CUSTOM_COMMAND(OUTPUT ${out_f}
-#       COMMAND ld -r -b binary -o ${out_f} ${src_f}
-#       DEPENDS ${in_f}
-#       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#       COMMENT "Building GLSL object ${out_f}"
-#       VERBATIM
-#       )
-#     LIST(APPEND result ${out_f})
-#   ENDFOREACH()
-#   SET(${out_var} "${result}" PARENT_SCOPE)
-# ENDFUNCTION()
-# # A simple program that uses resources
-# ADD_RESOURCES(someResources test.txt)
-# ADD_EXECUTABLE(main.cpp ${someResources})
 
 # IDEs should put the headers in a nice place
 # source_group(

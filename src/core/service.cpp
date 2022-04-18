@@ -59,19 +59,19 @@ void Service::addFeatures() {
 
   for (auto key : std::array{apFeatures, mdFeatures, plFeatures}) {
     switch (key) {
-    case apFeatures:
-    case mdFeatures: {
-      auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
-      saveCalcVal(key, str);
-    } break;
+      case apFeatures:
+      case mdFeatures: {
+        auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
+        saveCalcVal(key, str);
+      } break;
 
-    case plFeatures: {
-      auto str = fmt::format("{}", (int64_t)_features_val);
-      saveCalcVal(key, str);
-    } break;
+      case plFeatures: {
+        auto str = fmt::format("{}", (int64_t)_features_val);
+        saveCalcVal(key, str);
+      } break;
 
-    default:
-      break;
+      default:
+        break;
     }
   }
 }
@@ -97,11 +97,16 @@ void Service::addRegAndName() {
 }
 
 void Service::addSystemFlags() {
-  for (auto key : array{apSystemFlags, mdSystemFlags}) {
+  for (auto key : array{apSystemFlags, apStatusFlags, mdSystemFlags}) {
     auto str = fmt::format("{:#x}", _system_flags);
 
     saveCalcVal(key, str);
   }
+}
+
+void Service::adjustSystemFlags(Flags flag) {
+  _system_flags |= 1 << flag; // apply the adjustment
+  addSystemFlags();           // update the calculated key/val map
 }
 
 const KeyVal Service::fetch(const Key key) const {
@@ -152,13 +157,25 @@ sKeyValList Service::keyValList(Type service_type) const {
   return kv_list;
 }
 
+// return a key/val list for an adhoc list of keys
+sKeyValList Service::keyValList(const KeySeq &want_keys) const {
+  sKeyValList kv_list = std::make_shared<KeyValList>();
+
+  for (const auto key : want_keys) {
+    const auto &kv = fetch(key);
+    kv_list->emplace_back(kv);
+  }
+
+  return kv_list;
+}
+
 const KeyVal Service::nameAndReg(Type type) const {
   switch (type) {
-  case AirPlayTCP:
-    return fetch(AirPlayRegNameType);
+    case AirPlayTCP:
+      return fetch(AirPlayRegNameType);
 
-  case RaopTCP:
-    return fetch(RaopRegNameType);
+    case RaopTCP:
+      return fetch(RaopRegNameType);
   }
 
   throw(runtime_error("bad service type"));
@@ -175,7 +192,7 @@ void Service::saveCalcVal(Key key, const string &val) {
   memcpy(val_str.get(), val.c_str(), len);
 
   // put the key/val tuple into the calc map
-  _kvm_calc.emplace(key, KeyValCalc{key_str, val_str});
+  _kvm_calc.insert_or_assign(key, KeyValCalc{key_str, val_str});
 }
 
 void Service::saveCalcVal(Key key, ccs val_ptr) {

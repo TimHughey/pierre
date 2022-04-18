@@ -19,6 +19,7 @@
 */
 
 #include <algorithm>
+#include <cstdarg>
 #include <exception>
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -28,6 +29,10 @@
 
 #include "rtsp/aplist.hpp"
 
+// embedded binary data via ld (see CMakeLists.txt)
+extern uint8_t _binary_get_info_resp_plist_start[];
+extern uint8_t _binary_get_info_resp_plist_end;
+extern uint8_t _binary_get_info_resp_plist_size;
 namespace pierre {
 namespace rtsp {
 
@@ -36,10 +41,15 @@ using namespace std;
 Aplist::Aplist() { _plist = plist_new_dict(); }
 
 Aplist::Aplist(const Content &content) {
-  const char *data = (const char *)content.data();
+  constexpr auto header = "*bplist";
+  constexpr auto header_len = strlen(header);
 
-  // create the plist and wrap the pointer
-  plist_from_memory(data, content.size(), &_plist);
+  if (content.size() > header_len) {
+    const char *data = (const char *)content.data();
+
+    // create the plist and wrap the pointer
+    plist_from_memory(data, content.size(), &_plist);
+  }
 }
 
 Aplist::Aplist(const Dictionaries &dictionaries) {
@@ -48,6 +58,23 @@ Aplist::Aplist(const Dictionaries &dictionaries) {
   for (const auto &dict : dictionaries) {
     auto node = plist_new_dict();            // create sub dictionary
     plist_dict_set_item(_plist, dict, node); // add to root
+  }
+}
+
+Aplist::Aplist(Embedded embedded) {
+  const char *begin = nullptr;
+  const char *end = nullptr;
+
+  switch (embedded) {
+    case GetInfoRespStage1:
+      begin = (const char *)&_binary_get_info_resp_plist_start;
+      end = (const char *)&_binary_get_info_resp_plist_end;
+      break;
+  }
+
+  if (begin) {
+    size_t bytes = end - begin;
+    plist_from_memory(begin, bytes, &_plist);
   }
 }
 
@@ -76,13 +103,33 @@ bool Aplist::dictCompareString(ccs path, ccs compare) {
   if (item == nullptr)
     return rc;
 
-  track(item);
-
   uint64_t len = 0;
   ccs val = plist_get_string_ptr(item, &len);
 
   if (len && (strncmp(val, compare, len) == 0)) {
     rc = true;
+  }
+
+  return rc;
+}
+
+bool Aplist::dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) const {
+  auto rc = false;
+  va_list args;
+
+  va_start(args, path_count); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, path_count, args);
+  va_end(args); // all done with arg, clean up
+
+  if (node && (PLIST_STRING == plist_get_node_type(node))) {
+    // we found a node and it's a string, good.
+
+    uint64_t len = 0;
+    ccs val = plist_get_string_ptr(node, &len);
+
+    if (len && (strncmp(val, compare, len) == 0)) {
+      rc = true;
+    }
   }
 
   return rc;
@@ -105,6 +152,8 @@ void Aplist::dictDump(plist_t sub_dict) const {
     fmt::print("DUMP FAILED\n");
   }
 }
+
+bool Aplist::dictEmpty() const { return _plist == nullptr; }
 
 bool Aplist::dictItemExists(ccs path) { return dictGetItem(path) != nullptr ? true : false; }
 
@@ -183,6 +232,11 @@ bool Aplist::dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings)
   return rc;
 }
 
+void Aplist::dictSetData(ccs key, const fmt::memory_buffer &buf) {
+  auto data = plist_new_data(buf.data(), buf.size());
+  plist_dict_set_item(_plist, key, data);
+}
+
 // add am array of strings with key node_name to the dict at key path
 bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up
@@ -236,7 +290,7 @@ bool Aplist::dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val) {
 }
 
 // set a string at a sub_dict_key and ket
-bool Aplist::dictSetUint(ccs sub_dict_key, ccs key, uint32_t uint_val) {
+bool Aplist::dictSetUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
   auto sub_dict = _plist;
 
   // get the EXISTING sub dictionary, if requested

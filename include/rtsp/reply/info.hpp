@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "rtsp/aplist.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
@@ -27,9 +28,9 @@ namespace rtsp {
 
 enum InfoStage { StageUnknown, Stage1, Stage2 };
 
-class Info : public Reply {
+class Info : public Reply, Aplist {
 public:
-  Info(const Reply::Opts &opts) : Reply(opts) {}
+  Info(const Reply::Opts &opts);
 
   bool populate() override;
 

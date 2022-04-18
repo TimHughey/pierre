@@ -31,6 +31,8 @@ namespace rtsp {
 
 class Aplist {
 public:
+  enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
+
   typedef const char *ccs;
   typedef std::string string;
   typedef const std::string &csr;
@@ -43,14 +45,18 @@ public:
   Aplist();
   Aplist(const Content &content);
   Aplist(const Dictionaries &dicts);
+  Aplist(Embedded embedded);
   ~Aplist();
 
   // general API
   // NOTE: api naming convention is dict* to support subclassing
   Binary dictBinary(size_t &bytes) const;
 
-  void dictDump(plist_t sub_dict = nullptr) const;
   bool dictCompareString(ccs path, ccs compare);
+  bool dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) const;
+
+  void dictDump(plist_t sub_dict = nullptr) const;
+  bool dictEmpty() const;
   bool dictItemExists(ccs path);
 
   bool dictGetBool(ccs path, bool &dest);
@@ -59,9 +65,12 @@ public:
   bool dictGetString(ccs path, string &dest);
   bool dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings);
   bool dictReady() const { return _plist != nullptr; }
+
+  void dictSetData(ccs key, const fmt::memory_buffer &buf);
+
   bool dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
   bool dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val);
-  bool dictSetUint(ccs sub_dict, ccs key, uint32_t val);
+  bool dictSetUint(ccs sub_dict, ccs key, uint64_t val);
 
 private:
   void track(plist_t pl);

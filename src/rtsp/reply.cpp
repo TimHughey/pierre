@@ -69,7 +69,7 @@ Reply::Reply(const Reply::Opts &opts)
 }
 
 [[nodiscard]] PacketOut &Reply::build() {
-  const auto ok = populate();
+  [[maybe_unused]] const auto ok = populate();
 
   auto where = back_inserter(_packet);
   auto resp_text = _resp_text.at(_rcode);
@@ -78,7 +78,7 @@ Reply::Reply(const Reply::Opts &opts)
     headerAdd(ContentLength, _content.size());
   }
 
-  fmt::print("Reply::build() --> {} {:#} {}\n", ok, _rcode, resp_text);
+  // fmt::print("Reply::build() --> {} {:#} {}\n", ok, _rcode, resp_text);
 
   fmt::format_to(where, "RTSP/1.0 {:d} {}\r\n", _rcode, resp_text);
 

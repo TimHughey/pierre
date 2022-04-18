@@ -49,9 +49,7 @@ Nptp::Nptp(sService service) {
   openAndMap();    // gains access to shared memory segment
 }
 
-bool Nptp::isMapped() const {
-  return ((_mapped != nullptr) && (_mapped != MAP_FAILED));
-}
+bool Nptp::isMapped() const { return ((_mapped != nullptr) && (_mapped != MAP_FAILED)); }
 
 void Nptp::openAndMap() {
   if (isMapped() == false) {
@@ -129,6 +127,7 @@ void Nptp::start() {
   _thread = std::thread([this]() { runLoop(); });
   _handle = _thread.native_handle();
 
+  pthread_setname_np(_handle, "NPTP");
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &_prev_state);
 }
 
