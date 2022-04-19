@@ -49,6 +49,10 @@ private:
 
   void getGroupInfo();
   void getTimingList();
+
+  bool handleNoStreams();
+  bool handleStreams();
+
   void validateTimingProtocol();
 
   // capture the bool result of a get or set

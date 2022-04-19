@@ -50,7 +50,7 @@ public:
   typedef tuple<HeaderType, HeaderVal> Entry;
 
   enum Type2 : uint8_t { CSeq = 1, Server, ContentType, ContentLength, Public };
-  enum Val2 : uint8_t { OctetStream = 1, AirPierre, AppleBinPlist };
+  enum Val2 : uint8_t { OctetStream = 1, AirPierre, AppleBinPlist, TextParameters };
 
 public:
   Headers() = default;

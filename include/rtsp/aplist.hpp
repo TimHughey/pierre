@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstdarg>
+#include <fmt/format.h>
 #include <memory>
 #include <plist/plist++.h>
 #include <string>
@@ -73,6 +74,7 @@ public:
   bool dictSetUint(ccs sub_dict, ccs key, uint64_t val);
 
 private:
+  bool checkType(plist_t node, plist_type type) const;
   void track(plist_t pl);
 
 private:

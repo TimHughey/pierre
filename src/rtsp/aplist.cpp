@@ -41,7 +41,7 @@ using namespace std;
 Aplist::Aplist() { _plist = plist_new_dict(); }
 
 Aplist::Aplist(const Content &content) {
-  constexpr auto header = "*bplist";
+  constexpr auto header = "bplist00";
   constexpr auto header_len = strlen(header);
 
   if (content.size() > header_len) {
@@ -138,14 +138,19 @@ bool Aplist::dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) con
 void Aplist::dictDump(plist_t sub_dict) const {
   auto dump_dict = (sub_dict) ? sub_dict : _plist;
 
+  if (dump_dict == nullptr) {
+    fmt::print("\nDICT DUMP dict={} NOTHING TO DUMP\n", fmt::ptr(dump_dict));
+    return;
+  }
+
+  fmt::print("\nDICT DUMP dict={} ", fmt::ptr(dump_dict));
+
   char *buf = nullptr;
   uint32_t bytes = 0;
 
   plist_to_xml(dump_dict, &buf, &bytes);
 
-  fmt::print("\nDICT DUMP dict={} ", fmt::ptr(dump_dict));
-
-  if (buf) {
+  if (bytes > 0) {
     fmt::print("buf={} bytes={}\n", fmt::ptr(buf), bytes);
     fmt::print("{}\n", buf);
   } else {
@@ -196,36 +201,45 @@ bool Aplist::dictGetString(ccs path, string &dest) {
   return rc;
 }
 
-bool Aplist::dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings) {
+bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings) {
   auto rc = false;
 
-  // get the base path
-  auto dict = plist_dict_get_item(_plist, path);
+  // start at the root
+  auto node = _plist;
 
-  array_strings.clear();
+  // do the level1_key and key point to an array?
+  if (checkType(node, PLIST_DICT)) {
+    // ok, the root is a dict so let's look for the level1_key
+    auto level1_dict = plist_dict_get_item(node, level1_key);
 
-  if (dict && (PLIST_DICT == plist_get_node_type(dict))) {
-    auto dict_node = plist_dict_get_item(dict, node);
+    if (checkType(level1_dict, PLIST_DICT)) {
+      // fine, the level one key is also a dict, now look for key
+      auto key_dict = plist_dict_get_item(level1_dict, key);
 
-    // confirm this is an array
-    if (dict_node && (PLIST_ARRAY == plist_get_node_type(dict_node))) {
-      // good we found the base dict and the node within it that's an array
-
-      // get the number of items in the array
-      auto items = plist_array_get_size(dict_node);
-
-      for (uint32_t idx = 0; idx < items; idx++) {
-        auto array_item = plist_array_get_item(dict_node, idx);
-
-        if (array_item && (PLIST_STRING == plist_get_node_type(array_item))) {
-          uint64_t len = 0;
-          auto str_ptr = plist_get_string_ptr(array_item, &len);
-
-          array_strings.emplace_back(string(str_ptr));
-        }
+      if (checkType(key_dict, PLIST_ARRAY)) {
+        // great, key is an array, set node to key_dict
+        node = key_dict;
+        // yes, there will be a second check of the type below, so what
       }
     }
+  }
 
+  if (checkType(node, PLIST_ARRAY)) {
+    // good we have an array
+
+    // get the number of items in the array
+    auto items = plist_array_get_size(node);
+
+    for (uint32_t idx = 0; idx < items; idx++) {
+      auto array_item = plist_array_get_item(node, idx);
+
+      if (array_item && (PLIST_STRING == plist_get_node_type(array_item))) {
+        uint64_t len = 0;
+        auto str_ptr = plist_get_string_ptr(array_item, &len);
+
+        array_strings.emplace_back(string(str_ptr));
+      }
+    }
     rc = true;
   }
 
@@ -309,6 +323,10 @@ bool Aplist::dictSetUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
   constexpr auto msg = "unable to add uint to missing or non-dict node";
   fmt::print("{}\n", msg);
   throw(runtime_error(msg));
+}
+
+bool Aplist::checkType(plist_t node, plist_type type) const {
+  return (node && (type == plist_get_node_type(node)));
 }
 
 void Aplist::track(plist_t item) {

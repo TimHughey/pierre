@@ -36,8 +36,7 @@ namespace rtsp {
 
 using namespace std;
 
-Request::Request(sAesCtx aes_ctx, sService service)
-    : _aes_ctx(aes_ctx), _service(service) {}
+Request::Request(sAesCtx aes_ctx, sService service) : _aes_ctx(aes_ctx), _service(service) {}
 
 void Request::dump(DumpKind dump_type) {
   std::time_t now = std::time(nullptr);
@@ -118,7 +117,7 @@ bool Request::findSeparator() {
   constexpr const size_t sep_len = strlen(sep);
 
   // strstr() returns a pointer to the start of the seperator string
-  auto sep_offset = strstr(_packet.begin(), sep);
+  auto sep_offset = strstr(_packet.data(), sep);
 
   if (sep_offset == nullptr) {
     fmt::print("Request::findSeperator() could not find separator\n");
@@ -126,10 +125,10 @@ bool Request::findSeparator() {
   }
 
   // keep the final header block separator for regex to find them
-  _header_bytes = std::distance(_packet.begin(), sep_offset) + (sep_len / 2);
+  _header_bytes = std::distance(_packet.data(), sep_offset) + (sep_len / 2);
 
   // calculate the content offset from the beginning of the packet
-  _content_offset = std::distance(_packet.begin(), sep_offset) + sep_len;
+  _content_offset = std::distance(_packet.data(), sep_offset) + sep_len;
 
   return true;
 }
@@ -141,9 +140,7 @@ void Request::parse() {
   auto headers_begin = _packet.begin();
   auto headers_end = _packet.begin() + _header_bytes;
 
-  auto printable = [](const char ch) {
-    return std::isprint(static_cast<unsigned char>(ch));
-  };
+  auto printable = [](const char ch) { return std::isprint(static_cast<unsigned char>(ch)); };
 
   for (auto bol = headers_begin; printable(*bol) && (bol < headers_end);) {
     // end of line sentinel
@@ -237,7 +234,7 @@ void Request::parseMethod(const string &line) {
   fmt::print("Request::parseMethod() -> {}\n", line);
 
   smatch sm;
-  static auto re_method = regex(R"(([A-Z]*) (.*) (RTSP.*))", re_syntax);
+  static auto re_method = regex(R"(([A-Z_]*) (.*) (RTSP.*))", re_syntax);
   regex_search(line, sm, re_method);
 
   _ok = sm.ready();
@@ -254,9 +251,7 @@ void Request::sessionStart(const size_t bytes, string ec_msg) {
   _session_msg = ec_msg;
 }
 
-bool Request::shouldLoadContent() {
-  return ((_content_length != 0) && _content.empty());
-}
+bool Request::shouldLoadContent() { return ((_content_length != 0) && _content.empty()); }
 
 } // namespace rtsp
 } // namespace pierre

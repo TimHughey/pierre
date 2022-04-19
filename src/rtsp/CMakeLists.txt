@@ -20,12 +20,14 @@ find_library(plist  NAMES plist REQUIRED)
 find_library(rt     NAMES rt    REQUIRED)
 
 add_library(RTSP
-  rtsp.cpp headers.cpp aes_ctx.cpp nptp.cpp
+  rtsp.cpp headers.cpp content.cpp aes_ctx.cpp nptp.cpp
   request.cpp  
   reply.cpp aplist.cpp
   reply/factory.cpp reply/fairplay.cpp reply/options.cpp
-  reply/info.cpp reply/pairing.cpp
-  reply/setup.cpp
+  reply/info.cpp reply/pairing.cpp reply/parameter.cpp
+  reply/setup.cpp reply/record.cpp reply/set_peers.cpp
+  reply/feedback.cpp
+  "reply/command.cpp"
   ${HEADER_LIST}
 )
 

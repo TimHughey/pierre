@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -16,25 +17,21 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include <string_view>
+#include "rtsp/reply/record.hpp"
+#include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
-namespace reply {
 
-class Method {
-public:
-  Method(const std::string &method) : _method(method) {}
+Record::Record(const Reply::Opts &opts) : Reply(opts) {
+  // maybe more
+}
 
-protected:
-  const std::string_view method() const { return _method; }
+bool Record::populate() {
+  responseCode(OK);
 
-private:
-  const std::string_view _method;
-};
+  return true;
+}
 
-} // namespace reply
 } // namespace rtsp
 } // namespace pierre

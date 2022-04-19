@@ -29,7 +29,9 @@
 #include <memory>
 #include <mutex>
 #include <pthread.h>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "core/service.hpp"
 
@@ -62,7 +64,7 @@ public: // object creation and shared_ptr API
 
 public: // public API
   void resetPeerList() { sendCtrlMsg("T"); }
-  void sendMsg(const char *msg);
+  void sendTimingPeers(const std::vector<std::string> &peers);
   void start();
 
   auto threadHandle() { return _handle; }
@@ -79,15 +81,14 @@ private:
 
 private:
   struct shm_structure {
-    pthread_mutex_t shm_mutex; // for safely accessing the structure
-    uint16_t version; // check this is equal to NQPTP_SHM_STRUCTURES_VERSION
-    uint64_t master_clock_id;      // the current master clock
-    MasterClockIp master_clock_ip; // where it's coming from
-    uint64_t local_time;           // the time when the offset was calculated
+    pthread_mutex_t shm_mutex;            // for safely accessing the structure
+    uint16_t version;                     // check this is equal to NQPTP_SHM_STRUCTURES_VERSION
+    uint64_t master_clock_id;             // the current master clock
+    MasterClockIp master_clock_ip;        // where it's coming from
+    uint64_t local_time;                  // the time when the offset was calculated
     uint64_t local_to_master_time_offset; // add this to the local time to get
                                           // master clock time
-    uint64_t
-        master_clock_start_time; // this is when the master clock became master
+    uint64_t master_clock_start_time;     // this is when the master clock became master
   };
 
 private:

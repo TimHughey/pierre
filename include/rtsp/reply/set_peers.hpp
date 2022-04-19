@@ -20,16 +20,22 @@
 
 #pragma once
 
-#include <array>
-#include <cstddef>
-#include <tuple>
+#include <vector>
+
+#include "rtsp/aplist.hpp"
+#include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-class PacketIn : public std::vector<char> {
+class SetPeers : public Reply, Aplist {
 public:
-  PacketIn() { resize(4096); };
+  using string = std::string;
+
+public:
+  SetPeers(const Reply::Opts &opts);
+
+  bool populate() override;
 };
 
 } // namespace rtsp

@@ -109,20 +109,23 @@ void Rtsp::doRead(tcp::socket &socket, yield_context yield) {
 
   auto request = rtsp::Request::create(_aes_ctx, service);
 
-  auto &packet = request->packet();
-  packet.clear();
+  std::array<mutable_buffer, 1> buffers = {buffer(request->packet())};
+  // auto buffers = std::array{buffer(request->packet())};
 
-  mutable_buffer buf(packet.data(), packet.size());
-
-  socket.async_receive(buf, 0,
+  socket.async_receive(buffers, 0,
                        // lamba
-                       [this, request, &socket, yield](const error_code &ec, size_t bytesp) {
+                       [this, request, &socket, yield](const error_code &ec, size_t rbytes) {
                          if (ec == system::errc::success) {
-                           // NOTE this is a NOP until cipher is established
-                           auto &packet = request->packet();
-                           _aes_ctx->decrypt(packet, bytesp);
+                           auto more_bytes = socket.available();
 
-                           request->sessionStart(bytesp, ec.message());
+                           if (more_bytes) {
+                             fmt::print("Rtsp::async_receive() more bytes={}\n", more_bytes);
+                           }
+
+                           auto &packet = request->packet();
+                           _aes_ctx->decrypt(packet, rbytes); // NOP until cipher is established
+
+                           request->sessionStart(rbytes, ec.message());
 
                            session(socket, request);
 

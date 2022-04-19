@@ -24,10 +24,13 @@
 #include <fcntl.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <iterator>
 #include <netinet/in.h>
+#include <string>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <thread>
+#include <vector>
 
 #include "core/service.hpp"
 #include "rtsp/nptp.hpp"
@@ -88,8 +91,20 @@ void Nptp::runLoop() {
   } while (true);
 }
 
+void Nptp::sendTimingPeers(const std::vector<std::string> &peers) {
+  auto peer_list = fmt::format("T {}", fmt::join(peers, " "));
+
+  // fmt::print("peer list={}\n", peer_list);
+
+  const auto msg_string = peer_list.c_str();
+  sendCtrlMsg(msg_string);
+}
+
 void Nptp::sendCtrlMsg(const char *msg) {
-  auto full_msg = fmt::format("{} {}", _shm_name, msg);
+  fmt::basic_memory_buffer<uint8_t, 1024> full_msg;
+  auto where = std::back_inserter(full_msg);
+
+  fmt::format_to(where, "{} {}", _shm_name, msg);
 
   // NOTE: not worth pulling in boost::asio for this quick datagram
   // create a datagram socket in the internet domain and use the
@@ -108,7 +123,7 @@ void Nptp::sendCtrlMsg(const char *msg) {
   server.sin_port = htons(_ctrl_port); // server port
   server.sin_addr.s_addr = 0;          // server address (unspecified)
 
-  const auto buf = full_msg.c_str();
+  const auto buf = full_msg.data();
   const auto bytes = full_msg.size();
 
   // sendto requires a sockaddr struct

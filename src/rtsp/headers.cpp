@@ -45,7 +45,8 @@ static unordered_map<Headers::Type2, const char *> _header_types // next line
 static unordered_map<Headers::Val2, const char *> _header_vals // next line
     {{OctetStream, "application/octet-stream"},
      {AirPierre, "AirPierre/366.0"},
-     {AppleBinPlist, "application/x-apple-binary-plist"}};
+     {AppleBinPlist, "application/x-apple-binary-plist"},
+     {TextParameters, "text/parameters"}};
 
 //
 // BEGIN MEMBER FUNCTIONS

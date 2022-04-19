@@ -53,15 +53,17 @@ static RespCodeMap _resp_text{{OK, "OK"},
 [[nodiscard]] sReply Reply::create(const Reply::Opts &opts) { return Factory::create(opts); }
 
 Reply::Reply(const Reply::Opts &opts)
-    : Method(opts.method),           // request method
-      Path(opts.path),               // request path
-      _host(opts.host),              // local shared_ptr to Host
-      _service(opts.service),        // local shared_ptr to Service
-      _aes_ctx(opts.aes_ctx),        // local shared_ptr to AexCtx
-      _mdns(opts.mdns),              // local shared_ptr to mDNS
-      _nptp(opts.nptp),              // local shared_ptr to Nptp
-      _rtp(opts.rtp),                // local shared_ptr to Rtp
-      _request_content(opts.content) // request content
+    : Method(opts.method),            // request method
+      Path(opts.path),                // request path
+      _host(opts.host),               // local shared_ptr to Host
+      _service(opts.service),         // local shared_ptr to Service
+      _aes_ctx(opts.aes_ctx),         // local shared_ptr to AexCtx
+      _mdns(opts.mdns),               // local shared_ptr to mDNS
+      _nptp(opts.nptp),               // local shared_ptr to Nptp
+      _rtp(opts.rtp),                 // local shared_ptr to Rtp
+      _request_content(opts.content), // request content
+      _request_headers(opts.headers)  // reqquest headers
+
 {
   // copy the sequence header, must be part of the reply headers
   headerCopy(opts.headers, Headers::Type2::CSeq);
@@ -69,29 +71,44 @@ Reply::Reply(const Reply::Opts &opts)
 }
 
 [[nodiscard]] PacketOut &Reply::build() {
+  constexpr auto seperator = "\r\n";
   [[maybe_unused]] const auto ok = populate();
 
   auto where = back_inserter(_packet);
   auto resp_text = _resp_text.at(_rcode);
 
+  // fmt::print("Reply::build() --> {} {:#} {}\n", ok, _rcode, resp_text);
+
+  fmt::format_to(where, "RTSP/1.0 {:d} {}{}", _rcode, resp_text, seperator);
+
   if (_content.empty() == false) {
     headerAdd(ContentLength, _content.size());
   }
-
-  // fmt::print("Reply::build() --> {} {:#} {}\n", ok, _rcode, resp_text);
-
-  fmt::format_to(where, "RTSP/1.0 {:d} {}\r\n", _rcode, resp_text);
 
   auto headers_list = headersList();
 
   std::copy(headers_list.begin(), headers_list.end(), where);
 
+  // always write the separator between heqders and content
+  fmt::format_to(where, "{}", seperator);
+
   if (_content.empty() == false) {
-    fmt::format_to(where, "\r\n");
+    // we have content for the reply, add it now
     std::copy(_content.begin(), _content.end(), where);
   }
 
+  // fmt::print("Reply::build(): final packet size={}", _packet.size());
+
   return _packet;
+}
+
+void Reply::copyToContent(const fmt::memory_buffer &buffer) {
+  const auto begin = buffer.begin();
+  const auto end = buffer.end();
+
+  auto where = std::back_inserter(_content);
+
+  std::copy(begin, end, where);
 }
 
 void Reply::copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {

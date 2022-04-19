@@ -75,6 +75,7 @@ public:
   using string = std::string;
   struct Opts {
     using string = std::string;
+    using string_view = std::string_view;
 
     const string &method;
     const string &path;
@@ -100,6 +101,7 @@ public:
 
   sAesCtx aesCtx() { return _aes_ctx; }
   PacketOut &build();
+  void copyToContent(const fmt::memory_buffer &buf);
   void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes);
   void copyToContent(const uint8_t *begin, const size_t bytes);
   void dump() const;
@@ -111,6 +113,7 @@ public:
   virtual bool populate() = 0;
   inline void responseCode(RespCode code) { _rcode = code; }
   inline const Content &requestContent() const { return _request_content; }
+  inline const Headers &requestHeaders() const { return _request_headers; };
 
   sRtp rtp() { return _rtp; }
 
@@ -128,6 +131,7 @@ protected:
   sNptp _nptp;
   sRtp _rtp;
   const Content &_request_content;
+  const Headers &_request_headers;
 
   Content _content;
   PacketOut _packet;

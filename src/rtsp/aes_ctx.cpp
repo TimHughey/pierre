@@ -52,8 +52,9 @@ AesCtx::AesCtx(const char *device_str) {
   }
 }
 
-Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body,
-                            size_t bytes) const {
+AesCtx::~AesCtx() { fmt::print("AesCtx::~AesCtx() called\n"); }
+
+Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body, size_t bytes) const {
   out.clear();
 
   if (body && (bytes > 0)) {
@@ -78,8 +79,7 @@ size_t AesCtx::encrypt(rtsp::PacketOut &packet) {
     uint8_t *ciphered_data;
     size_t ciphered_len;
 
-    auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(),
-                           packet.size(), _cipher);
+    auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(), packet.size(), _cipher);
 
     auto __ciphered_data = make_unique<uint8_t *>(ciphered_data);
 
@@ -110,8 +110,7 @@ size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
     size_t plain_len = 0;
     const uint8_t *cipher_data = (uint8_t *)packet.data();
 
-    bytes_consumed =
-        pair_decrypt(&plain_data, &plain_len, cipher_data, bytes, cipher());
+    bytes_consumed = pair_decrypt(&plain_data, &plain_len, cipher_data, bytes, cipher());
     // when we've decrypted an inbound packet we should always encrypt outbound
     _encrypt_out = true;
 

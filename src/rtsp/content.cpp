@@ -16,25 +16,55 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
+#include <cctype>
+#include <fmt/format.h>
 #include <string_view>
+
+#include "rtsp/content.hpp"
 
 namespace pierre {
 namespace rtsp {
-namespace reply {
 
-class Method {
-public:
-  Method(const std::string &method) : _method(method) {}
+const std::string_view Content::toStringView() const {
+  ccs _data = (const char *)data();
 
-protected:
-  const std::string_view method() const { return _method; }
+  return std::string_view(_data, size());
+}
 
-private:
-  const std::string_view _method;
-};
+void Content::dump() const {
+  fmt::print("\nCONTENT DUMP bytes={}\n", size());
 
-} // namespace reply
+  if (size() > 0) {
+    if (printable()) {
+      fmt::print("{}\n", toStringView());
+      return;
+    }
+
+    // not printable data, dump as bytes
+    for (size_t idx = 0; idx < size();) {
+      fmt::print("{:03}[0x{:02x}] ", idx, at(idx));
+
+      if ((++idx % 10) == 0)
+        fmt::print("\n");
+    }
+
+    fmt::print("\n");
+  }
+}
+
+bool Content::printable() const {
+  auto rc = true;
+
+  for (size_t idx = 0; rc && (idx < size());) {
+    const auto byte = at(0);
+
+    if (byte != 0x00) {
+      rc &= std::isprint(static_cast<unsigned char>(byte));
+    }
+  }
+
+  return rc;
+}
+
 } // namespace rtsp
 } // namespace pierre

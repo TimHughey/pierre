@@ -26,7 +26,17 @@
 namespace pierre {
 namespace rtsp {
 
-typedef std::vector<uint8_t> Content;
+class Content : public std::vector<uint8_t> {
+public:
+  typedef const char *ccs;
+
+public:
+  void dump() const;
+  const std::string_view toStringView() const;
+
+private:
+  bool printable() const;
+};
 
 } // namespace rtsp
 } // namespace pierre

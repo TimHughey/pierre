@@ -18,23 +18,17 @@
 
 #pragma once
 
-#include <string_view>
+#include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
-namespace reply {
 
-class Method {
+class Feedback : public Reply {
 public:
-  Method(const std::string &method) : _method(method) {}
+  Feedback(const Reply::Opts &opts);
 
-protected:
-  const std::string_view method() const { return _method; }
-
-private:
-  const std::string_view _method;
+  bool populate() override;
 };
 
-} // namespace reply
 } // namespace rtsp
 } // namespace pierre

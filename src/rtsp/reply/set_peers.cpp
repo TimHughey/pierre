@@ -18,19 +18,42 @@
     https://www.wisslanding.com
 */
 
-#pragma once
+#include <algorithm>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <iterator>
+#include <memory>
+#include <string>
 
-#include <array>
-#include <cstddef>
-#include <tuple>
+#include "rtsp/nptp.hpp"
+#include "rtsp/reply/set_peers.hpp"
+
+using namespace std;
+using namespace pierre;
 
 namespace pierre {
 namespace rtsp {
 
-class PacketIn : public std::vector<char> {
-public:
-  PacketIn() { resize(4096); };
-};
+SetPeers::SetPeers(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+  // dictDump();
+  // maybe more
+}
+
+bool SetPeers::populate() {
+  Aplist::ArrayStrings timing_peers;
+
+  auto rc = dictGetStringArray(nullptr, nullptr, timing_peers);
+
+  if (rc) {
+    nptp()->sendTimingPeers(timing_peers);
+
+    responseCode(OK);
+
+    return true;
+  }
+
+  return false;
+}
 
 } // namespace rtsp
 } // namespace pierre

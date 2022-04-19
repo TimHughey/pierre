@@ -50,6 +50,9 @@ struct AesResult {
 // NOTE: this struct consolidates the pairing "state"
 class AesCtx : public std::enable_shared_from_this<AesCtx> {
 public:
+  ~AesCtx();
+
+public:
   [[nodiscard]] static sAesCtx create(const char *device_str) {
     return sAesCtx(new AesCtx(device_str));
   }
