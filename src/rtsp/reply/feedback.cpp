@@ -27,6 +27,7 @@ namespace pierre {
 namespace rtsp {
 
 Feedback::Feedback(const Reply::Opts &opts) : Reply(opts) {
+  _log = false;
   // maybe more
 }
 

@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -15,29 +16,20 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+//
+//  This work based on and inspired by
 
-#include "rtp/rtp.hpp"
-#include "rtp/buffered.hpp"
-#include "rtp/control.hpp"
-#include "rtp/event.hpp"
+#pragma once
+
+#include <cstdint>
+#include <future>
+#include <memory>
 
 namespace pierre {
-using namespace rtp;
+namespace rtp {
 
-Rtp::Rtp()
-    : _event(rtp::Event::create()), _control(rtp::Control::create()),
-      _buffered(rtp::Buffered::create()) {
-  // more later
-}
+typedef std::promise<uint16_t> PortPromise;
+typedef std::future<uint16_t> PortFuture;
 
-Rtp::~Rtp() {
-  // more later
-}
-
-void Rtp::saveSessionInfo(csr shk, csr active_remote, csr dacp_id) {
-  _session_key = shk;
-  _active_remote = active_remote;
-  _dacp_id = dacp_id;
-}
-
+} // namespace rtp
 } // namespace pierre

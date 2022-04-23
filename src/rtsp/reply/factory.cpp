@@ -33,6 +33,8 @@
 #include "rtsp/reply/record.hpp"
 #include "rtsp/reply/set_peers.hpp"
 #include "rtsp/reply/setup.hpp"
+#include <rtsp/reply/unhandled.hpp>
+
 namespace pierre {
 namespace rtsp {
 
@@ -102,9 +104,11 @@ sReply Factory::create(const Reply::Opts &opts) {
 
   const auto loc = std::source_location::current();
   fmt::print("In file {} at line {}\n", loc.file_name(), loc.line());
-  fmt::print("\tunhandled method={} path={}\n\n", method, path);
+  const auto log_method = (method.empty()) ? "<empty>" : method;
+  const auto log_path = (path.empty()) ? "<empty>" : path;
+  fmt::print("\t{}: unhandled method={} path={}\n\n", loc.function_name(), log_method, log_path);
 
-  throw(std::runtime_error("unhandled method/path"));
+  return std::make_shared<Unhandled>(opts);
 }
 
 } // namespace reply

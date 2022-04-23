@@ -21,7 +21,9 @@
 #pragma once
 
 #include <array>
+#include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/spawn.hpp>
@@ -38,6 +40,8 @@
 #include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/nptp.hpp"
+#include "rtsp/server.hpp"
+#include "rtsp/session.hpp"
 
 namespace pierre {
 
@@ -51,6 +55,7 @@ class Rtsp : public std::enable_shared_from_this<Rtsp> {
 public:
   using yield_context = boost::asio::yield_context;
   using io_service = boost::asio::io_service;
+  using io_context = boost::asio::io_context;
   using tcp_acceptor = boost::asio::ip::tcp::acceptor;
   using tcp_socket = boost::asio::ip::tcp::socket;
 
@@ -71,17 +76,15 @@ public:
   void join() { return _thread.join(); }
   void start();
 
-  std::thread &thread() { return _thread; }
-
 private:
   Rtsp(sHost host);
 
-  void doAccept(yield_context yield);
-  void doRead(tcp_socket &socket, yield_context yield);
-  void doWrite(tcp_socket &socket, yield_context yield);
+  // void doAccept(yield_context yield);
+  // void doRead(tcp_socket &socket, yield_context yield);
+  // void doWrite(tcp_socket &socket, yield_context yield);
 
   void runLoop();
-  void session(tcp_socket &socket, auto request);
+  // void session(tcp_socket &socket, auto request);
 
 private:
   // NOTE: order of member variables must match the order
@@ -96,14 +99,17 @@ private:
 
   // internal
 
-  std::thread _thread{};
+  std::thread _thread;
   uint16_t _port;
-  rtsp::sAesCtx _aes_ctx;
+
   std::thread::native_handle_type _handle;
 
-  io_service _ioservice;
+  // io_service _ioservice;
   tcp_acceptor *_acceptor;
 
   SocketList _sockets;
+
+  io_context io_ctx;
+  rtsp::sServer server;
 };
 } // namespace pierre

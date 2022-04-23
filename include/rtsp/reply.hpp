@@ -24,6 +24,7 @@
 #include <cctype>
 #include <fmt/core.h>
 #include <memory>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -70,15 +71,16 @@ typedef std::shared_ptr<Reply> sReply;
 typedef std::tuple<char *, size_t> PacketInInfo;
 typedef const std::unordered_map<RespCode, const char *> RespCodeMap;
 
-class Reply : public Headers, protected reply::Method, protected reply::Path {
+class Reply : protected reply::Method, protected reply::Path {
 public:
   using string = std::string;
+  using string_view = std::string_view;
   struct Opts {
     using string = std::string;
     using string_view = std::string_view;
 
-    const string &method;
-    const string &path;
+    const string_view method;
+    const string_view path;
     const Content &content;
     const Headers &headers;
     sHost host = nullptr;
@@ -107,6 +109,7 @@ public:
   void dump() const;
   auto &errMsg() { return _err_msg; }
   sHost host() { return _host; }
+  bool log() const { return _log; }
   smDNS mdns() { return _mdns; }
   sNptp nptp() { return _nptp; }
 
@@ -118,6 +121,17 @@ public:
   sRtp rtp() { return _rtp; }
 
   sService service() { return _service; }
+
+protected:
+  // misc
+  const std::source_location
+  __here(std::source_location loc = std::source_location::current()) const {
+    return loc;
+  };
+
+  const char *fnName(std::source_location loc = std::source_location::current()) const {
+    return __here(loc).function_name();
+  }
 
 protected:
   string _err_msg;
@@ -133,8 +147,12 @@ protected:
   const Content &_request_content;
   const Headers &_request_headers;
 
+  Headers headers;
+
   Content _content;
   PacketOut _packet;
+
+  bool _log = true;
 };
 
 } // namespace rtsp

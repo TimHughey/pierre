@@ -185,6 +185,25 @@ bool Aplist::dictGetBool(ccs path, bool &dest) {
   return rc;
 }
 
+const std::string Aplist::dictGetData(uint32_t path_count, ...) {
+  va_list args;
+
+  va_start(args, path_count); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, path_count, args);
+  va_end(args); // all done with arg, clean up
+
+  if (node && (PLIST_DATA == plist_get_node_type(node))) {
+    // we found a node and it's a string, good.
+
+    uint64_t len = 0;
+    ccs val = plist_get_data_ptr(node, &len);
+
+    return string(val);
+  }
+
+  return string();
+}
+
 bool Aplist::dictGetString(ccs path, string &dest) {
   auto rc = false;
   auto node = plist_dict_get_item(_plist, path);
@@ -244,6 +263,37 @@ bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_str
   }
 
   return rc;
+}
+
+uint64_t Aplist::dictGetUint(uint32_t path_count, ...) {
+  va_list args;
+
+  va_start(args, path_count); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, path_count, args);
+  va_end(args); // all done with arg, clean up
+
+  if (node && (PLIST_UINT == plist_get_node_type(node))) {
+    // we found a node and it's a string, good.
+
+    uint64_t val = 0;
+    plist_get_uint_val(node, &val);
+
+    return val;
+  }
+
+  throw(std::out_of_range("unknown dict key"));
+}
+
+void Aplist::dictSetArray(ccs root_key, ArrayDicts &dicts) {
+  auto array = plist_new_array();
+  track(array);
+
+  // add each dict to the newly created array
+  for_each(dicts.begin(), dicts.end(),
+           [array](auto &item) { plist_array_append_item(array, item.dict()); });
+
+  // place the array at the specified key
+  plist_dict_set_item(_plist, root_key, array);
 }
 
 void Aplist::dictSetData(ccs key, const fmt::memory_buffer &buf) {

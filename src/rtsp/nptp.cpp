@@ -92,19 +92,18 @@ void Nptp::runLoop() {
 }
 
 void Nptp::sendTimingPeers(const std::vector<std::string> &peers) {
-  auto peer_list = fmt::format("T {}", fmt::join(peers, " "));
+  const string peer_list = fmt::format("T {}", fmt::join(peers, " "));
 
   // fmt::print("peer list={}\n", peer_list);
 
-  const auto msg_string = peer_list.c_str();
-  sendCtrlMsg(msg_string);
+  sendCtrlMsg(peer_list);
 }
 
-void Nptp::sendCtrlMsg(const char *msg) {
-  fmt::basic_memory_buffer<uint8_t, 1024> full_msg;
-  auto where = std::back_inserter(full_msg);
+void Nptp::sendCtrlMsg(const string msg) {
+  // std::vector<char> full_msg;
+  // auto where = std::back_inserter(full_msg);
 
-  fmt::format_to(where, "{} {}", _shm_name, msg);
+  const string full_msg = fmt::format("{} {}", _shm_name, msg);
 
   // NOTE: not worth pulling in boost::asio for this quick datagram
   // create a datagram socket in the internet domain and use the

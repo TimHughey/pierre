@@ -23,9 +23,14 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
 #include <memory>
+#include <string>
 
-#include "event/receiver.hpp"
+#include "rtp/buffered.hpp"
+#include "rtp/control.hpp"
+#include "rtp/event.hpp"
+#include "rtp/input_info.hpp"
 
 namespace pierre {
 
@@ -34,6 +39,9 @@ class Rtp;
 typedef std::shared_ptr<Rtp> sRtp;
 
 class Rtp : public std::enable_shared_from_this<Rtp> {
+public:
+  using string = std::string;
+  typedef const string &csr;
 
 public:
   ~Rtp();
@@ -48,16 +56,35 @@ public: // object creation and shared_ptr API
 
 public:
   void start() {}
-  rtp::event::PortFuture startEventReceiver() {
-    return _event_receiver->start();
-  }
+
+  size_t bufferSize() const { return 1024 * 1024 * 8; };
+
   // Public API
+  void saveSessionInfo(csr shk, csr active_remote, csr dacp_id);
+
+  rtp::PortFuture startBuffered() { return _buffered->start(); }
+  rtp::PortFuture startControl() { return _control->start(); }
+  rtp::PortFuture startEvent() { return _event->start(); }
 
 private:
   Rtp();
 
 private:
-  rtp::event::sReceiver _event_receiver;
+  // order dependent for constructor
+  rtp::sEvent _event;
+  rtp::sControl _control;
+  rtp::sBuffered _buffered;
+
+  // order independent
+  rtp::InputInfo _input_info;
+  uint32_t _frames_per_packet_max = 352; // audio frames per packet
+  string _session_key;
+  string _active_remote;
+  string _dacp_id;
+
+  uint32_t _backend_latency = 0;
+  uint64_t _rate;
+
   bool running = false;
   uint64_t last_resend_request_error_ns = 0;
 };

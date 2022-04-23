@@ -19,6 +19,7 @@
 */
 
 #include <algorithm>
+#include <cstdlib>
 #include <exception>
 #include <fmt/format.h>
 #include <iterator>
@@ -84,15 +85,13 @@ size_t AesCtx::encrypt(rtsp::PacketOut &packet) {
     auto __ciphered_data = make_unique<uint8_t *>(ciphered_data);
 
     if (rc >= 0) { // success
-      packet.reset();
-
-      // NOTE: PacketOUt is based on a vector so we can use std::copy()
+      packet.clear();
+      // NOTE: PacketOut is based on a vector so we can use std::copy()
       auto where = std::back_inserter(packet);
       auto last_byte = ciphered_data + ciphered_len;
 
       std::copy(ciphered_data, last_byte, where);
       bytes_ciphered = ciphered_len;
-
     } else {
       auto msg = string(pair_cipher_errmsg(_cipher));
       fmt::print("encryption failed: {}\n", msg);
@@ -103,7 +102,7 @@ size_t AesCtx::encrypt(rtsp::PacketOut &packet) {
 }
 
 size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
-  size_t bytes_consumed = bytes;
+  size_t bytes_consumed = 0;
 
   if (cipher()) {
     uint8_t *plain_data = nullptr;
@@ -111,21 +110,24 @@ size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
     const uint8_t *cipher_data = (uint8_t *)packet.data();
 
     bytes_consumed = pair_decrypt(&plain_data, &plain_len, cipher_data, bytes, cipher());
+    auto __plain_data = make_unique<uint8_t *>(plain_data);
     // when we've decrypted an inbound packet we should always encrypt outbound
     _encrypt_out = true;
 
     //   fmt::print("decrypted bytes={}\n", bytes_consumed);
 
     if (bytes_consumed > 0) {
-      uint8_t *replace_packet = (uint8_t *)packet.data();
-      // copy the plain text back to the inbound packet
-      // NOTE: PacketIn is based on array so we must do the copy manually
-      for (size_t idx = 0; idx < bytes_consumed; idx++) {
-        replace_packet[idx] = plain_data[idx];
-      }
+      packet.clear();
+      auto where = std::back_inserter(packet);
+      auto last_byte = plain_data + plain_len;
+
+      std::copy(plain_data, last_byte, where);
     }
 
-    delete plain_data;
+    // if (bytes_consumed == plain_len) {
+    //   fmt::print("bytes_consumed={} plain_len={} diff={}\n", bytes_consumed, plain_len,
+    //              bytes_consumed - plain_len);
+    // }
   }
 
   return bytes_consumed;
@@ -184,6 +186,7 @@ AesResult AesCtx::setup(const Content &in, Content &out) {
   }
 
   copyBodyTo(out, body, body_bytes);
+
   return aes_result;
 }
 

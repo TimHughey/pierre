@@ -16,46 +16,20 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include <string>
-#include <tuple>
-
-#include "rtsp/content.hpp"
+#include "rtsp/aplist.hpp"
+#include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-typedef const std::string &cmethod;
-typedef const std::string &cpath;
-
-namespace reply {
-
-class Final {
+class Teardown : public Reply, public Aplist {
 public:
-  using Content = pierre::rtsp::Content;
+  Teardown(const Reply::Opts &opts);
 
-public:
-  Final(const auto final_tuple, const Content &content) : _content(content) {
-    const auto &[ok, method, path] = final_tuple;
-
-    _method = method;
-    _path = path;
-  }
-
-  // public API
-  const Content &content() const { return _content; }
-  cmethod method() const { return _method; }
-  cpath path() const { return _path; }
+  bool populate() override;
 
 private:
-  using string = std::string;
-
-  string _method;
-  string _path;
-  const Content &_content;
 };
 
-} // namespace reply
 } // namespace rtsp
 } // namespace pierre

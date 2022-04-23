@@ -13,7 +13,7 @@ file(GLOB_RECURSE
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
-find_package(Boost 1.78.0 COMPONENTS context thread coroutine system REQUIRED)
+find_package(Boost 1.78.0 COMPONENTS context thread coroutine system regex REQUIRED)
 
 find_package(fmt                REQUIRED)
 find_library(plist  NAMES plist REQUIRED)
@@ -21,12 +21,13 @@ find_library(rt     NAMES rt    REQUIRED)
 
 add_library(RTSP
   rtsp.cpp headers.cpp content.cpp aes_ctx.cpp nptp.cpp
-  request.cpp  
+  server.cpp session.cpp
   reply.cpp aplist.cpp
   reply/factory.cpp reply/fairplay.cpp reply/options.cpp
   reply/info.cpp reply/pairing.cpp reply/parameter.cpp
   reply/setup.cpp reply/record.cpp reply/set_peers.cpp
-  reply/feedback.cpp
+  reply/feedback.cpp reply/unhandled.cpp reply/anchor.cpp
+  reply/teardown.cpp
   "reply/command.cpp"
   ${HEADER_LIST}
 )

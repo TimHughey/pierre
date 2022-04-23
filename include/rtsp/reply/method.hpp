@@ -26,7 +26,7 @@ namespace reply {
 
 class Method {
 public:
-  Method(const std::string &method) : _method(method) {}
+  Method(const std::string_view method) : _method(method) {}
 
 protected:
   const std::string_view method() const { return _method; }

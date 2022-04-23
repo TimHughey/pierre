@@ -21,77 +21,69 @@
 #include <array>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_service.hpp>
-#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ip/udp.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/write.hpp>
 #include <ctime>
-#include <future>
 #include <list>
 #include <memory>
 #include <string>
 #include <thread>
 
+#include "rtp/port_promise.hpp"
+
 namespace pierre {
 namespace rtp {
-namespace event {
 
-typedef std::promise<uint16_t> PortPromise;
-typedef std::future<uint16_t> PortFuture;
+class Control; // forward decl for typedef
+typedef std::shared_ptr<Control> sControl;
 
-class Receiver; // forward decl for typedef
-typedef std::shared_ptr<Receiver> sReceiver;
-
-class Receiver : public std::enable_shared_from_this<Receiver> {
+class Control : public std::enable_shared_from_this<Control> {
 public:
   using yield_context = boost::asio::yield_context;
   using io_service = boost::asio::io_service;
-  using tcp_acceptor = boost::asio::ip::tcp::acceptor;
-  using tcp_socket = boost::asio::ip::tcp::socket;
-
-  typedef std::list<tcp_socket> SocketList;
+  using udp_endpoint = boost::asio::ip::udp::endpoint;
+  using udp_socket = boost::asio::ip::udp::socket;
 
 public:
-  ~Receiver();
+  ~Control();
 
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sReceiver create() {
+  [[nodiscard]] static sControl create() {
     // not using std::make_shared; constructor is private
-    return sReceiver(new Receiver());
+    return sControl(new Control());
   }
 
-  sReceiver getPtr() { return shared_from_this(); }
+  sControl getPtr() { return shared_from_this(); }
 
 public:
   // Public API
 
   void join() { return _thread.join(); }
-  uint16_t localPort() const { return _port; }
+  uint16_t localPort() const;
 
   PortFuture start();
 
   std::thread &thread() { return _thread; }
 
 private:
-  Receiver();
+  Control();
 
-  void doAccept(yield_context yield);
-  void recvEvent(tcp_socket &socket, yield_context yield);
+  void recvPacket(yield_context yield);
 
   void runLoop();
 
 private:
   std::thread _thread{};
   std::thread::native_handle_type _handle;
-  uint16_t _port = 0; // choose any port
+  const uint16_t _port = 0; // choose any port
 
   io_service _ioservice;
-  tcp_acceptor *_acceptor;
-
-  SocketList _sockets;
+  udp_socket _socket;
+  udp_endpoint _remote_endpoint;
 
   PortPromise _port_promise;
 };
 
-} // namespace event
 } // namespace rtp
 } // namespace pierre

@@ -76,7 +76,7 @@ private:
   bool isMapped() const;
   void openAndMap();
   void runLoop();
-  void sendCtrlMsg(const char *msg);
+  void sendCtrlMsg(const string msg);
   void unMap();
 
 private:

@@ -33,6 +33,9 @@ using namespace std;
 namespace pierre {
 namespace rtsp {
 
+using enum Headers::Type2;
+using enum Headers::Val2;
+
 Info::Info(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
   // maybe more
 }
@@ -105,7 +108,7 @@ bool Info::stage1() {
   copyToContent(binary, bytes);
 
   responseCode(OK);
-  headerAdd(ContentType, AppleBinPlist);
+  headers.add(ContentType, AppleBinPlist);
 
   return true;
 }
@@ -145,7 +148,7 @@ bool Info::stage2() {
   copyToContent(binary, bytes);
 
   responseCode(OK);
-  headerAdd(ContentType, AppleBinPlist);
+  headers.add(ContentType, AppleBinPlist);
 
   // plist_dict_set_item(response_plist, "deviceID",
   // plist_new_string(config.airplay_device_id));

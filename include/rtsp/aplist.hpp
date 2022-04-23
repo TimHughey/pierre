@@ -39,6 +39,7 @@ public:
   typedef const std::string &csr;
 
   typedef std::vector<string> ArrayStrings;
+  typedef std::vector<Aplist> ArrayDicts;
   typedef std::vector<ccs> Dictionaries;
   typedef std::shared_ptr<uint8_t[]> Binary;
 
@@ -61,12 +62,15 @@ public:
   bool dictItemExists(ccs path);
 
   bool dictGetBool(ccs path, bool &dest);
+  const string dictGetData(uint32_t path_count, ...);
   plist_t dictGetItem(ccs path);
 
   bool dictGetString(ccs path, string &dest);
   bool dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings);
+  uint64_t dictGetUint(uint32_t path_count, ...);
   bool dictReady() const { return _plist != nullptr; }
 
+  void dictSetArray(ccs root_key, ArrayDicts &dicts);
   void dictSetData(ccs key, const fmt::memory_buffer &buf);
 
   bool dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
@@ -75,6 +79,7 @@ public:
 
 private:
   bool checkType(plist_t node, plist_type type) const;
+  plist_t dict() { return _plist; }
   void track(plist_t pl);
 
 private:

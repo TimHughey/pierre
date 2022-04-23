@@ -16,28 +16,19 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp/rtp.hpp"
-#include "rtp/buffered.hpp"
-#include "rtp/control.hpp"
-#include "rtp/event.hpp"
+#pragma once
+
+#include "rtsp/reply.hpp"
 
 namespace pierre {
-using namespace rtp;
+namespace rtsp {
 
-Rtp::Rtp()
-    : _event(rtp::Event::create()), _control(rtp::Control::create()),
-      _buffered(rtp::Buffered::create()) {
-  // more later
-}
+class Unhandled : public Reply {
+public:
+  Unhandled(const Reply::Opts &opts) : Reply(opts) {}
 
-Rtp::~Rtp() {
-  // more later
-}
+  bool populate() override;
+};
 
-void Rtp::saveSessionInfo(csr shk, csr active_remote, csr dacp_id) {
-  _session_key = shk;
-  _active_remote = active_remote;
-  _dacp_id = dacp_id;
-}
-
+} // namespace rtsp
 } // namespace pierre

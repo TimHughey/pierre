@@ -20,16 +20,18 @@
 
 #pragma once
 
-#include <array>
-#include <cstddef>
-#include <tuple>
+#include <cstdint>
+#include <string_view>
+#include <vector>
 
 namespace pierre {
 namespace rtsp {
 
-class PacketIn : public std::vector<char> {
+class PacketIn : public std::vector<uint8_t> {
 public:
-  PacketIn() { resize(4096); };
+  PacketIn() { clear(); };
+  const char *raw() { return (const char *)data(); }
+  const std::string_view view() const { return std::string_view((const char *)data(), size()); }
 };
 
 } // namespace rtsp

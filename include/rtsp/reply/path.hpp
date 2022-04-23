@@ -26,13 +26,13 @@ namespace reply {
 
 class Path {
 public:
-  Path(const std::string &path) : _path(path) {}
+  Path(const std::string_view path) : _path(path) {}
 
 protected:
-  const std::string &path() const { return _path; }
+  const std::string_view path() const { return _path; }
 
 private:
-  const std::string &_path;
+  const std::string_view _path;
 };
 
 } // namespace reply

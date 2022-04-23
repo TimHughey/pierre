@@ -18,7 +18,7 @@
 
 #include <fmt/format.h>
 
-#include "rtp/event/receiver.hpp"
+#include "rtp/buffered.hpp"
 
 using namespace boost;
 using namespace boost::asio;
@@ -27,17 +27,16 @@ using namespace boost::system;
 
 namespace pierre {
 namespace rtp {
-namespace event {
 
-Receiver::Receiver() {
+Buffered::Buffered() {
   // more later
 }
 
-Receiver::~Receiver() {
+Buffered::~Buffered() {
   // more later
 }
 
-void Receiver::doAccept(yield_context yield) {
+void Buffered::doAccept(yield_context yield) {
   do {
     _sockets.emplace_back(_ioservice);
     _acceptor->async_accept(_sockets.back(), yield);
@@ -47,48 +46,38 @@ void Receiver::doAccept(yield_context yield) {
           [this](yield_context yield) {
             auto &socket = _sockets.back();
 
-            recvEvent(socket, yield);
+            recvBuffered(socket, yield);
           });
 
   } while (true);
 }
 
-void Receiver::recvEvent(tcp_socket &socket, yield_context yield) {
+void Buffered::recvBuffered(tcp_socket &socket, yield_context yield) {
   std::array<uint8_t, 4096> packet{0};
 
   mutable_buffer buf(packet.data(), packet.size());
 
-  // fmt::print("Receiver::recvEvent(): accepted conn socket={}\n", socket.native_handle());
+  // fmt::print("Buffered::recvBuffered(): accepted conn socket={}\n", socket.native_handle());
 
-  socket.async_receive(buf, 0,
-                       // lamba
-                       [this, &packet, &socket, yield](const error_code &ec, size_t bytesp) {
-                         if (ec != system::errc::success) {
-                           const auto &msg = ec.message();
-                           fmt::print("Receiver::recvEvent(): socket shutdown: {}\n", msg);
+  socket.async_receive(
+      buf, 0,
+      // lamba
+      [this, &packet, &socket, yield](const error_code &ec, [[maybe_unused]] size_t bytesp) {
+        if (ec != system::errc::success) {
+          const auto &msg = ec.message();
+          fmt::print("Buffered::recvBuffered(): socket shutdown: {}\n", msg);
 
-                           socket.shutdown(tcp::socket::shutdown_both);
+          socket.shutdown(tcp::socket::shutdown_both);
 
-                           return;
-                         }
+          return;
+        }
 
-                         // got a packet, what type is it?
-                         constexpr auto time_announce = 0xd7;
-                         const auto type = packet[1];
-
-                         if (type == time_announce) {
-                           fmt::print("Receiver::recvEvent() Time Announce RTP packet ");
-                           fmt::print("type={:#02x} bytes={}\n", type, bytesp);
-                         } else {
-                           fmt::print("Receiver::recvEvent() Unknown RTP packet ");
-                           fmt::print("type={:#02x} bytes={}\n", type, bytesp);
-                         }
-
-                         recvEvent(socket, yield);
-                       });
+        // for now just sink the buffered data
+        recvBuffered(socket, yield);
+      });
 }
 
-void Receiver::runLoop() {
+void Buffered::runLoop() {
   // NOTE: a IPv6 endpoint accepts both IPv6 and IPv4
   tcp::endpoint endpoint{tcp::v6(), _port};
 
@@ -97,7 +86,7 @@ void Receiver::runLoop() {
   _port = _acceptor->local_endpoint().port();
   _port_promise.set_value(_port);
 
-  // fmt::print("Receiver::runLoop(): _port={}\n", _port);
+  // fmt::print("Buffered::runLoop(): _port={}\n", _port);
 
   // tell the acceptor to listen
   _acceptor->listen();
@@ -110,17 +99,14 @@ void Receiver::runLoop() {
   _ioservice.run();
 }
 
-PortFuture Receiver::start() {
+PortFuture Buffered::start() {
   _thread = std::thread([this]() { runLoop(); });
   _handle = _thread.native_handle();
 
-  pthread_setname_np(_handle, "RTP Event");
-
-  // fmt::print("Receiver::start() _handle={}\n", _handle);
+  pthread_setname_np(_handle, "RTP Buffered");
 
   return _port_promise.get_future();
 }
 
-} // namespace event
 } // namespace rtp
 } // namespace pierre

@@ -18,39 +18,16 @@
     https://www.wisslanding.com
 */
 
-#include <exception>
-#include <fmt/format.h>
-#include <iterator>
-#include <memory>
-#include <string>
-
-#include "rtsp/aes_ctx.hpp"
-#include "rtsp/reply/pairing.hpp"
-
-using namespace std;
+#include "rtsp/reply.hpp"
+#include "rtsp/reply/unhandled.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-bool Pairing::populate() {
-  AesResult aes_result;
+bool Unhandled::populate() {
+  responseCode(BadRequest);
 
-  if (path().compare("/pair-setup") == 0) {
-    aes_result = aesCtx()->setup(requestContent(), _content);
-  }
-
-  if (path().compare("/pair-verify") == 0) {
-    aes_result = aesCtx()->verify(requestContent(), _content);
-  }
-
-  responseCode(aes_result.resp_code);
-
-  if (_content.empty() == false) {
-    headers.add(Headers::Type2::ContentType, Headers::Val2::OctetStream);
-  }
-
-  return aes_result.ok;
+  return true;
 }
-
 } // namespace rtsp
 } // namespace pierre

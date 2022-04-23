@@ -16,28 +16,19 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp/rtp.hpp"
-#include "rtp/buffered.hpp"
-#include "rtp/control.hpp"
-#include "rtp/event.hpp"
+#pragma once
+
+#include <cstdint>
 
 namespace pierre {
-using namespace rtp;
+namespace rtp {
 
-Rtp::Rtp()
-    : _event(rtp::Event::create()), _control(rtp::Control::create()),
-      _buffered(rtp::Buffered::create()) {
-  // more later
-}
+struct InputInfo {
+  uint32_t rate = 44100; // max available at the moment
+  uint8_t channels = 2;
+  uint8_t bit_depth = 16;
+  uint32_t bytes_per_frame = (bit_depth * 7) / 8;
+};
 
-Rtp::~Rtp() {
-  // more later
-}
-
-void Rtp::saveSessionInfo(csr shk, csr active_remote, csr dacp_id) {
-  _session_key = shk;
-  _active_remote = active_remote;
-  _dacp_id = dacp_id;
-}
-
+} // namespace rtp
 } // namespace pierre

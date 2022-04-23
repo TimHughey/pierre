@@ -27,7 +27,7 @@ find_package(OpenSSL              REQUIRED)
 
 add_library(RTP
   conn_info.cpp rtp.cpp stream.cpp
-  event/receiver.cpp
+  event.cpp control.cpp buffered.cpp
   ${HEADER_LIST}
 )
 

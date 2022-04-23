@@ -21,6 +21,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace pierre {
@@ -32,10 +33,15 @@ public:
 
 public:
   void dump() const;
+  void storeContentType(const std::string &type) { _type = type; }
   const std::string_view toStringView() const;
+  const std::string &type() const { return _type; }
 
 private:
   bool printable() const;
+
+private:
+  std::string _type;
 };
 
 } // namespace rtsp

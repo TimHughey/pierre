@@ -37,6 +37,8 @@ using namespace reply;
 
 using std::string, std::string_view, std::unordered_map, std::back_inserter;
 using enum RespCode;
+using enum Headers::Type2;
+using enum Headers::Val2;
 
 typedef const std::string &csr;
 
@@ -66,8 +68,8 @@ Reply::Reply(const Reply::Opts &opts)
 
 {
   // copy the sequence header, must be part of the reply headers
-  headerCopy(opts.headers, Headers::Type2::CSeq);
-  headerAdd(Server, AirPierre);
+  headers.copy(opts.headers, Headers::Type2::CSeq);
+  headers.add(Server, AirPierre);
 }
 
 [[nodiscard]] PacketOut &Reply::build() {
@@ -82,12 +84,12 @@ Reply::Reply(const Reply::Opts &opts)
   fmt::format_to(where, "RTSP/1.0 {:d} {}{}", _rcode, resp_text, seperator);
 
   if (_content.empty() == false) {
-    headerAdd(ContentLength, _content.size());
+    headers.add(ContentLength, _content.size());
   }
 
-  auto headers_list = headersList();
+  const auto hdr_list = headers.list();
 
-  std::copy(headers_list.begin(), headers_list.end(), where);
+  std::copy(hdr_list.begin(), hdr_list.end(), where);
 
   // always write the separator between heqders and content
   fmt::format_to(where, "{}", seperator);
@@ -127,7 +129,7 @@ void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
   std::copy(begin, end, where);
 }
 
-void Reply::dump() const { headersDump(); }
+void Reply::dump() const { headers.dump(); }
 
 } // namespace rtsp
 } // namespace pierre

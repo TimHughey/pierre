@@ -32,7 +32,7 @@ const std::string_view Content::toStringView() const {
 }
 
 void Content::dump() const {
-  fmt::print("\nCONTENT DUMP bytes={}\n", size());
+  fmt::print("\nCONTENT DUMP type={} bytes={}\n", _type, size());
 
   if (size() > 0) {
     if (printable()) {
@@ -46,6 +46,10 @@ void Content::dump() const {
 
       if ((++idx % 10) == 0)
         fmt::print("\n");
+
+      if (idx > 100) {
+        break;
+      }
     }
 
     fmt::print("\n");

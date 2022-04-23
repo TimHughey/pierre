@@ -22,7 +22,6 @@
 
 #include "rtsp/nptp.hpp"
 #include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
 
 namespace pierre {
 namespace rtsp {

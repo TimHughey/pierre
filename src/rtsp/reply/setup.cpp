@@ -26,7 +26,7 @@
 #include <string>
 
 #include "core/service.hpp"
-#include "rtp/event/receiver.hpp"
+#include "rtp/rtp.hpp"
 #include "rtsp/reply/setup.hpp"
 
 using namespace std;
@@ -67,7 +67,7 @@ bool Setup::handleNoStreams() {
     reply_dict.dictSetStringArray(key_timing_peer, key_addresses, ip_addrs);
     reply_dict.dictSetStringVal(key_timing_peer, key_ID, ip_addrs[0]);
 
-    auto port_barrier = rtp()->startEventReceiver();
+    auto port_barrier = rtp()->startEvent();
     auto event_port = port_barrier.get(); // wait here until port is available
 
     reply_dict.dictSetUint(nullptr, key_event_port, event_port);
@@ -81,8 +81,8 @@ bool Setup::handleNoStreams() {
     auto binary = reply_dict.dictBinary(bytes);
     copyToContent(binary, bytes);
 
-    headerAdd(ContentType, AppleBinPlist);
-    responseCode(OK);
+    headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
+    responseCode(RespCode::OK);
 
     rc = true;
   }
@@ -91,10 +91,46 @@ bool Setup::handleNoStreams() {
 }
 
 bool Setup::handleStreams() {
-  requestHeaders().headersDump();
-  dictDump();
+  using enum Headers::Type2;
+  auto rc = true;
 
-  return false;
+  // start the control channel
+  auto control_port_barrier = rtp()->startControl();
+  auto control_port = control_port_barrier.get(); // wait here until port is available
+
+  // get session info
+  const auto session_key = dictGetData(1, "shk");
+  const auto active_remote = requestHeaders().getVal(DacpActiveRemote);
+  const auto dacp_id = requestHeaders().getVal(DacpID);
+
+  rtp()->saveSessionInfo(session_key, active_remote, dacp_id);
+
+  auto buffered_port_barrier = rtp()->startBuffered();
+  auto buffered_port = buffered_port_barrier.get(); // wait here until port is available
+
+  ArrayDicts array_dicts;
+
+  auto &stream0_dict = array_dicts.emplace_back(Aplist());
+
+  stream0_dict.dictSetUint(nullptr, "type", 103);
+  stream0_dict.dictSetUint(nullptr, "dataPort", buffered_port);
+  stream0_dict.dictSetUint(nullptr, "audioBufferSize", rtp()->bufferSize());
+  stream0_dict.dictSetUint(nullptr, "controlPort", control_port);
+
+  Aplist reply_dict;
+
+  reply_dict.dictSetArray("streams", array_dicts);
+
+  size_t bytes = 0;
+  auto binary = reply_dict.dictBinary(bytes);
+  copyToContent(binary, bytes);
+
+  headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
+  responseCode(RespCode::OK);
+
+  reply_dict.dictDump();
+
+  return rc;
 }
 
 void Setup::getGroupInfo() {
