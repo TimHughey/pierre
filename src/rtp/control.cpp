@@ -38,7 +38,11 @@ Control::~Control() {
   // more later
 }
 
-uint16_t Control::localPort() const { return _socket.local_endpoint().port(); }
+uint16_t Control::localPort() {
+  _port = _socket.local_endpoint().port();
+
+  return _port;
+}
 
 void Control::recvPacket(yield_context yield) {
   std::array<uint8_t, 4096> packet{0};
@@ -69,7 +73,7 @@ void Control::recvPacket(yield_context yield) {
 void Control::runLoop() {
   // add some work to the ioservice
   spawn(_ioservice, [&](yield_context yield) {
-    _port_promise.set_value(_port);
+    _port_promise.set_value(localPort());
 
     recvPacket(yield);
   });

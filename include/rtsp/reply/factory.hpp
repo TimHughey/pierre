@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <source_location>
+
 #include "rtsp/nptp.hpp"
 #include "rtsp/reply.hpp"
 
@@ -29,6 +31,9 @@ namespace reply {
 
 struct Factory {
   static sReply create(const Reply::Opts &opts);
+
+private:
+  // misc
 };
 
 } // namespace reply

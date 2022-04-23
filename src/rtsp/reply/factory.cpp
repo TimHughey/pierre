@@ -20,6 +20,7 @@
 #include <array>
 #include <source_location>
 #include <string_view>
+#include <unordered_set>
 
 #include "fmt/format.h"
 #include "rtsp/reply/command.hpp"
@@ -33,6 +34,7 @@
 #include "rtsp/reply/record.hpp"
 #include "rtsp/reply/set_peers.hpp"
 #include "rtsp/reply/setup.hpp"
+#include <rtsp/reply/anchor.hpp>
 #include <rtsp/reply/unhandled.hpp>
 
 namespace pierre {
@@ -42,12 +44,21 @@ namespace reply {
 
 using std::find_if, std::array;
 
+static const std::unordered_set __nolog = {std::string_view("/feedback")};
+
+static const char *fnName(std::source_location loc = std::source_location::current()) {
+  return loc.function_name();
+}
+
 sReply Factory::create(const Reply::Opts &opts) {
   const std::string_view method = opts.method;
   const std::string_view path = opts.path;
 
-  // NOTE: compare sequence equivalent to AirPlay conversation
+  if (__nolog.contains(path) == false) {
+    fmt::print("{} mathod={} path={}\n", fnName(), method, path);
+  }
 
+  // NOTE: compare sequence equivalent to AirPlay conversation
   if (method.compare("GET") == 0) {
     if (path.compare("/info") == 0) {
       return std::make_shared<Info>(opts);
@@ -98,8 +109,12 @@ sReply Factory::create(const Reply::Opts &opts) {
     return std::make_shared<Record>(opts);
   }
 
-  if (method.compare("SETPEERS") == 0) {
+  if (method.starts_with("SETPEERS")) {
     return std::make_shared<SetPeers>(opts);
+  }
+
+  if (method.starts_with("SETRATEANCHORTIME")) {
+    return std::make_shared<Anchor>(opts);
   }
 
   const auto loc = std::source_location::current();

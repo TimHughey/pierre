@@ -22,11 +22,12 @@ namespace pierre {
 namespace rtsp {
 
 Anchor::Anchor(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+  dictDump();
   // maybe more
 }
 
 bool Anchor::populate() {
-  // more later
+  responseCode(RespCode::OK);
 
   return true;
 }

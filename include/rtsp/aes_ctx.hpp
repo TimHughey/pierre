@@ -28,6 +28,7 @@
 #include "rtsp/headers.hpp"
 #include "rtsp/packet_in.hpp"
 #include "rtsp/reply/packet_out.hpp"
+#include "rtsp/resp_code.hpp"
 
 namespace pierre {
 namespace rtsp {

@@ -42,6 +42,7 @@
 #include "rtsp/reply/method.hpp"
 #include "rtsp/reply/packet_out.hpp"
 #include "rtsp/reply/path.hpp"
+#include "rtsp/resp_code.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -68,17 +69,12 @@ namespace rtsp {
 class Reply; // forward decl for shared_ptr typedef
 typedef std::shared_ptr<Reply> sReply;
 
-typedef std::tuple<char *, size_t> PacketInInfo;
-typedef const std::unordered_map<RespCode, const char *> RespCodeMap;
-
 class Reply : protected reply::Method, protected reply::Path {
 public:
   using string = std::string;
   using string_view = std::string_view;
+  using enum RespCode;
   struct Opts {
-    using string = std::string;
-    using string_view = std::string_view;
-
     const string_view method;
     const string_view path;
     const Content &content;
@@ -114,13 +110,18 @@ public:
   sNptp nptp() { return _nptp; }
 
   virtual bool populate() = 0;
+
   inline void responseCode(RespCode code) { _rcode = code; }
+  inline string_view responseCodeView() const { return respCodeToView(_rcode); }
   inline const Content &requestContent() const { return _request_content; }
   inline const Headers &requestHeaders() const { return _request_headers; };
 
   sRtp rtp() { return _rtp; }
 
   sService service() { return _service; }
+
+  // sequence number of this request/reply exchange
+  size_t sequence() { return headers.getValInt(Headers::Type2::CSeq); };
 
 protected:
   // misc

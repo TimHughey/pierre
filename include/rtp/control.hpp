@@ -60,7 +60,7 @@ public:
   // Public API
 
   void join() { return _thread.join(); }
-  uint16_t localPort() const;
+  uint16_t localPort();
 
   PortFuture start();
 
@@ -76,7 +76,7 @@ private:
 private:
   std::thread _thread{};
   std::thread::native_handle_type _handle;
-  const uint16_t _port = 0; // choose any port
+  uint16_t _port = 0; // choose any port
 
   io_service _ioservice;
   udp_socket _socket;

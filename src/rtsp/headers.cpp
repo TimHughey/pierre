@@ -30,6 +30,7 @@
 
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
+#include "rtsp/resp_code.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -56,13 +57,15 @@ static unordered_map<Headers::Type2, const char *> _header_types // next line
      {XApplePD, "X-Apple-PD"},
      {XAppleProtocolVersion, "X-Apple-ProtocolVersion"},
      {XAppleHKP, "X-Apple-HKP"},
-     {XAppleET, "X-Apple-ET"}};
+     {XAppleET, "X-Apple-ET"},
+     {RtpInfo, "RTP-Info"}};
 
 static unordered_map<Headers::Val2, const char *> _header_vals // next line
     {{OctetStream, "application/octet-stream"},
      {AirPierre, "AirPierre/366.0"},
      {AppleBinPlist, "application/x-apple-binary-plist"},
-     {TextParameters, "text/parameters"}};
+     {TextParameters, "text/parameters"},
+     {ImagePng, "image/png"}};
 
 //
 // BEGIN MEMBER FUNCTIONS
@@ -153,6 +156,9 @@ bool Headers::loadMore(const string_view view, Content &content) {
     return true;
   }
 
+  // NOTE:
+  // this function does not clear previously found header key/val
+
   //  we've found the separaters, parse method and headers then check content length
   const size_t method_begin = 0;
   const size_t method_end = _separators.front();
@@ -169,7 +175,7 @@ bool Headers::loadMore(const string_view view, Content &content) {
     return false;
   }
 
-  // there's content, confirm we have it all
+   // there's content, confirm we have it all
 
   const size_t content_begin = headers_end + SEP.size();
   const size_t content_end = content_begin + getValInt(ContentLength);
@@ -181,6 +187,9 @@ bool Headers::loadMore(const string_view view, Content &content) {
   if (view_size != content_end) {
     const size_t diff = content_end - view_size;
     fmt::print("{} seq={} path={} need more={}\n", fnName(), getVal(CSeq), path(), diff);
+
+    dump();
+
     return true;
   }
 
@@ -202,10 +211,6 @@ void Headers::parseHeaderBlock(const string_view &view) {
   // Content-Length: 16
   // User-Agent: Music/1.2.2 (Macintosh; OS X 12.2.1) AppleWebKit/612.4.9.1.8
   // Client-Instance: BAFE421337BA1913
-
-  _order.clear();
-  _map.clear();
-  // _content_len = 0;
 
   auto blk_begin = view.begin();
   auto blk_end = view.end();
@@ -255,10 +260,6 @@ void Headers::parseMethod(const string_view &view) {
   // Example Method
   //
   // POST /fp-setup RTSP/1.0
-
-  _method.clear();
-  _path.clear();
-  _protocol.clear();
 
   // NOTE: index 0 is entire string
   constexpr auto method_idx = 1;

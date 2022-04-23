@@ -258,8 +258,9 @@ bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_str
 
         array_strings.emplace_back(string(str_ptr));
       }
+      // we found an array of strings and have copied them
+      rc = true;
     }
-    rc = true;
   }
 
   return rc;

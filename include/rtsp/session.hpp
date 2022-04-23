@@ -50,9 +50,11 @@ public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
 
 public:
+  using error_code = boost::system::error_code;
   using tcp_socket = boost::asio::ip::tcp::socket;
   using string = std::string;
   using string_view = std::string_view;
+  using src_loc = std::source_location;
 
 public:
   struct Opts {
@@ -76,13 +78,12 @@ private:
 
 public:
   // primary entry point
-  void start() { readApRequest(); }
+  void start();
 
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
 
-  const PacketIn &packet() const { return _packet; }
-
+  // const PacketIn &packet() const { return _packet; }
   const string_view packetView() const { return _packet.view(); }
 
   // Getters
@@ -93,18 +94,19 @@ public:
   const string_view protocol() const { return _headers.protocol(); }
 
 private:
+  void accumulateRx(size_t bytes) { _rx_bytes += bytes; }
+  void accumulateTx(size_t bytes) { _tx_bytes += bytes; }
+  void ensureAllContent(); // uses Headers functionality to ensure all content loaded
+  bool isReady() const { return socket.is_open(); };
+  bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
   void readApRequest(); // returns when socket is closed
+  void readAvailable(); // load bytes immediately available
   void createAndSendReply();
 
   // misc
-  const std::source_location
-  here(std::source_location loc = std::source_location::current()) const {
-    return loc;
-  };
+  const std::source_location here(src_loc loc = src_loc::current()) const { return loc; };
 
-  const char *fnName(std::source_location loc = std::source_location::current()) const {
-    return here(loc).function_name();
-  }
+  const char *fnName(src_loc loc = src_loc::current()) const { return here(loc).function_name(); }
 
   // void log(fmt::string_view format, fmt::format_args args,
   //          const std::source_location loc = std::source_location::current());
@@ -118,13 +120,17 @@ private:
   sNptp nptp;
   sRtp rtp;
 
+  rtsp::sAesCtx aes_ctx;
+
+  PacketIn _wire;
   PacketIn _packet;
   Headers _headers;
   Content _content;
 
-  rtsp::sAesCtx aes_ctx;
-
+  uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;
+
+  bool _shutdown = false;
 
 private:
   static constexpr auto re_syntax = std::regex_constants::ECMAScript;

@@ -42,14 +42,6 @@ using enum Headers::Val2;
 
 typedef const std::string &csr;
 
-static RespCodeMap _resp_text{{OK, "OK"},
-                              {AuthRequired, "Connection Authorization Required"},
-                              {BadRequest, "Bad Request"},
-                              {InternalServerError, "Internal Server Error"},
-                              {Unauthorized, "Unauthorized"},
-                              {Unavailable, "Unavailable"},
-                              {NotImplemented, "Not Implemented"}};
-
 // this static member function is in the .cpp due to the call to Factory to
 // create the approprite Reply subclass
 [[nodiscard]] sReply Reply::create(const Reply::Opts &opts) { return Factory::create(opts); }
@@ -77,7 +69,7 @@ Reply::Reply(const Reply::Opts &opts)
   [[maybe_unused]] const auto ok = populate();
 
   auto where = back_inserter(_packet);
-  auto resp_text = _resp_text.at(_rcode);
+  auto resp_text = respCodeToView(_rcode);
 
   // fmt::print("Reply::build() --> {} {:#} {}\n", ok, _rcode, resp_text);
 

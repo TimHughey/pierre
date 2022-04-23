@@ -24,85 +24,55 @@ namespace pierre {
 namespace rtsp {
 
 Command::Command(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
-  // maybe more
+  // default to OK
+  responseCode(RespCode::OK);
 }
 
 bool Command::populate() {
+  auto rc = true;
+
   // NOTE
   //
   // /command msgs come in two flavors:
   //  1. plist with specific keys
 
-  responseCode(OK); // default
+  rc &= dictEmpty(); // empty dictionary is OK
 
-  if (checkUpdateSupportedCommands() == false) {
-    responseCode(BadRequest);
-    dictDump();
-    return true;
-  }
+  rc &= (rc && checkUpdateSupportedCommands()); // check for dict entries
 
-  return true;
+  return rc;
 }
 
 bool Command::checkUpdateSupportedCommands() {
-  if (dictCompareString("type", "updateMRSupportedCommands")) {
+  auto rc = true;
+
+  rc &= dictCompareString("type", "updateMRSupportedCommands");
+
+  if (rc) {
+    // anytime params -> updateMRSupportedCommands is present
+    // response code is bad request
+    responseCode(RespCode::BadRequest);
+
     ArrayStrings array;
 
-    if (dictGetStringArray("params", "mrSupportedCommandsFromSender", array) == false) {
-      return false;
+    rc &= dictGetStringArray("params", "mrSupportedCommandsFromSender", array);
+
+    if (rc) {
+      fmt::print("{} supported commands from sender", fnName());
+
+      if (array.empty()) {
+        fmt::print(" is empty\n");
+      } else {
+        fmt::print("\n");
+        for (const auto &item : array) {
+          fmt::print("\t\t{}\n", item);
+        }
+      }
     }
   }
 
-  return true;
+  return rc;
 }
-
-// we have a plist -- try to get the dict item keyed to
-// "updateMRSupportedCommands"
-// plist_t item = plist_dict_get_item(command_dict, "type");
-// if (item != NULL) {
-//   char *typeValue = NULL;
-//   plist_get_string_val(item, &typeValue);
-//   if (typeValue && (strcmp(typeValue, "updateMRSupportedCommands") == 0)) {
-//     item = plist_dict_get_item(command_dict, "params");
-//     if (item != NULL) {
-//       // the item should be a dict
-//       plist_t item_array = plist_dict_get_item(item, "mrSupportedCommandsFromSender");
-//       if (item_array != NULL) {
-//         // here we have an array of data items
-//         uint32_t items = plist_array_get_size(item_array);
-//         if (items) {
-//           uint32_t item_number;
-//           for (item_number = 0; item_number < items; item_number++) {
-//             plist_t the_item = plist_array_get_item(item_array, item_number);
-//             char *buff = NULL;
-//             uint64_t length = 0;
-//             plist_get_data_val(the_item, &buff, &length);
-//             // debug(1,"Item %d, length: %" PRId64 " bytes", item_number,
-//             // length);
-//             if (buff && (length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
-//               // debug(1,"Contains a plist.");
-//               plist_t subsidiary_plist = NULL;
-//               plist_from_memory(buff, length, &subsidiary_plist);
-//               if (subsidiary_plist) {
-//                 char *printable_plist = plist_content(subsidiary_plist);
-//                 if (printable_plist) {
-//                   debug(3, "\n%s", printable_plist);
-//                   free(printable_plist);
-//                 } else {
-//                   debug(1, "Can't print the plist!");
-//                 }
-//                 // plist_free(subsidiary_plist);
-//               } else {
-//                 debug(1, "Can't access the plist!");
-//               }
-//             }
-//           }
-//         }
-//       }
-//     }
-//     resp->respcode = 400; // say it's a bad request
-//   }
-// }
 
 } // namespace rtsp
 } // namespace pierre
