@@ -38,6 +38,7 @@ namespace rtsp {
 Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
   // dictDump();
   // maybe more
+  debugFlag(false);
 }
 
 bool Setup::checksOK() const {
@@ -127,8 +128,6 @@ bool Setup::handleStreams() {
 
   headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
   responseCode(RespCode::OK);
-
-  reply_dict.dictDump();
 
   return rc;
 }

@@ -26,7 +26,7 @@ find_library(rt       NAMES rt    REQUIRED)
 find_package(OpenSSL              REQUIRED)
 
 add_library(RTP
-  conn_info.cpp rtp.cpp stream.cpp
+  conn_info.cpp rtp.cpp stream.cpp anchor_info.cpp
   event.cpp control.cpp buffered.cpp
   ${HEADER_LIST}
 )
@@ -40,6 +40,7 @@ target_link_libraries(RTP PUBLIC
   # Core
   # mDNS
   ssl
+  nPTP
   RTSP
   fmt::fmt
   rt

@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "rtp/rtp.hpp"
+#include "rtp/anchor_info.hpp"
 #include "rtp/buffered.hpp"
 #include "rtp/control.hpp"
 #include "rtp/event.hpp"
@@ -32,6 +33,11 @@ Rtp::Rtp()
 
 Rtp::~Rtp() {
   // more later
+}
+
+void Rtp::saveAnchorInfo(const rtp::AnchorData &data) {
+  _anchor = data;
+  _anchor.dump();
 }
 
 void Rtp::saveSessionInfo(csr shk, csr active_remote, csr dacp_id) {

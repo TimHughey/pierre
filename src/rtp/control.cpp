@@ -61,7 +61,7 @@ void Control::recvPacket(yield_context yield) {
 
     auto remote_ip = _remote_endpoint.address().to_string();
 
-    fmt::print("{} remote_ip={} bytes={}", loc.function_name(), remote_ip, bytesp);
+    fmt::print("{} remote_ip={} bytes={}\n", loc.function_name(), remote_ip, bytesp);
     recvPacket(yield);
   };
 

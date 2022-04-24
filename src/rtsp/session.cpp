@@ -16,6 +16,7 @@
 //
 //  https://www.wisslanding.com
 
+#include <algorithm>
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <cstdint>
@@ -57,6 +58,8 @@ Session::Session(tcp_socket &socket, const Session::Opts &opts)
 
 size_t Session::decrypt(PacketIn &packet) {
   auto consumed = aes_ctx->decrypt(packet, _wire);
+
+  // fmt::print("{} packet_size={}\n", fnName(), packet.size());
   _wire.clear(); // wire bytes have been deciphered, clear them
 
   return consumed;
@@ -134,16 +137,18 @@ void Session::ensureAllContent() {
 
   // if more bytes are needed, reply Continue
   if (more_bytes) {
-    auto reply = Reply::create({.method = method(),
-                                .path = path(),
-                                .content = content(),
-                                .headers = headers(),
-                                .host = host,
-                                .service = service,
-                                .aes_ctx = aes_ctx,
-                                .mdns = mdns,
-                                .nptp = nptp,
-                                .rtp = rtp});
+    // fmt::print("{} MORE BYTES HEADERS\n", fnName());
+    // _headers.dump();
+
+    // fmt::print("{} more bytes={} have bytes={} content_type={}\n", fnName(), more_bytes,
+    //            packet.size(), _headers.getVal(Headers::Type2::ContentType));
+    // fmt::print("{} PACKET BEGIN BEFORE LOADING MORE BYTES\n", fnName());
+    // fmt::print("{}\n", packet.view());
+    // fmt::print("{} PACKET END BEFORE LOADING MORE BYTES\n", fnName());
+
+    constexpr auto CONTINUE = "CONTINUE";
+    auto reply = Reply::create(
+        {.method = CONTINUE, .path = path(), .content = content(), .headers = headers()});
 
     auto &reply_packet = reply->build();
 
@@ -174,17 +179,18 @@ void Session::createAndSendReply() {
                               .path = path(),
                               .content = content(),
                               .headers = headers(),
-                              .host = host,
-                              .service = service,
+                              .host = host->getPtr(),
+                              .service = service->getPtr(),
                               .aes_ctx = aes_ctx,
-                              .mdns = mdns,
-                              .nptp = nptp,
-                              .rtp = rtp});
+                              .mdns = mdns->getPtr(),
+                              .nptp = nptp->getPtr(),
+                              .rtp = rtp->getPtr()});
 
   auto &reply_packet = reply->build();
 
-  if (reply->log()) {
-    fmt::print("{} reply seq={} method={} path={} resp_code={}\n", fnName(), reply->sequence(),
+  if (reply->debug()) {
+    auto prefix = std::string_view("SESSION");
+    fmt::print("{} reply seq={:03} method={} path={} resp_code={}\n", prefix, reply->sequence(),
                method(), path(), reply->responseCodeView());
   }
 
@@ -227,20 +233,31 @@ bool Session::rxAtLeast(size_t bytes) {
   if (isReady()) {
     auto buff = dynamic_buffer(_wire);
 
+    // fmt::print("{} want bytes={}\n", fnName(), bytes);
+
     error_code ec;
     auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
+
+    // fmt::print("\n");
+    // const size_t max_len = 100;
+    // const size_t len = _wire.size();
+    // const auto dump_bytes = std::min(max_len, len);
+    // for (size_t idx = 0; idx < dump_bytes; idx++) {
+    //   fmt::print("{:02x} ", _wire.at(idx));
+
+    //   if (((idx + 1) % 30) == 0) {
+    //     fmt::print("\n");
+    //   }
+    // }
+
+    // fmt::print("\n{} END DUMP\n", fnName());
+
     accumulateRx(rx_bytes);
   }
   return isReady();
 }
 
-void Session::start() {
-  readApRequest();
-
-  const auto id = pthread_self();
-
-  fmt::print("{} thread ID={} returning from start\n", fnName(), id);
-}
+void Session::start() { readApRequest(); }
 
 void Session::dump(DumpKind dump_type) {
   std::time_t now = std::time(nullptr);

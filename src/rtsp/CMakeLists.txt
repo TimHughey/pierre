@@ -13,14 +13,14 @@ file(GLOB_RECURSE
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
-find_package(Boost 1.78.0 COMPONENTS context thread coroutine system regex REQUIRED)
+find_package(Boost 1.78.0 COMPONENTS thread system regex REQUIRED)
 
 find_package(fmt                REQUIRED)
 find_library(plist  NAMES plist REQUIRED)
 find_library(rt     NAMES rt    REQUIRED)
 
 add_library(RTSP
-  rtsp.cpp headers.cpp content.cpp aes_ctx.cpp nptp.cpp
+  rtsp.cpp headers.cpp content.cpp aes_ctx.cpp
   server.cpp session.cpp
   reply.cpp aplist.cpp resp_code.cpp
   reply/factory.cpp reply/fairplay.cpp reply/options.cpp
@@ -58,9 +58,7 @@ target_link_libraries(RTSP PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${Boost_LIBRARIES}
   ${plist}
-  Core
-  mDNS
-  RTP
+  Core nPTP mDNS RTP
   fmt::fmt
   rt
 )

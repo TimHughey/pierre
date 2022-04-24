@@ -24,6 +24,8 @@ namespace pierre {
 namespace rtsp {
 
 Command::Command(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+  debugFlag(false);
+
   // default to OK
   responseCode(RespCode::OK);
 }

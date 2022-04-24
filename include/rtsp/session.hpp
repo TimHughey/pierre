@@ -30,11 +30,11 @@
 
 #include "core/host.hpp"
 #include "mdns/mdns.hpp"
+#include "nptp/nptp.hpp"
 #include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
-#include "rtsp/nptp.hpp"
 #include "rtsp/packet_in.hpp"
 
 namespace pierre {
@@ -107,9 +107,6 @@ private:
   const std::source_location here(src_loc loc = src_loc::current()) const { return loc; };
 
   const char *fnName(src_loc loc = src_loc::current()) const { return here(loc).function_name(); }
-
-  // void log(fmt::string_view format, fmt::format_args args,
-  //          const std::source_location loc = std::source_location::current());
 
 private:
   // order dependent - initialized by constructor

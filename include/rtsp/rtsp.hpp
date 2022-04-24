@@ -37,9 +37,9 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "nptp/nptp.hpp"
 #include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
-#include "rtsp/nptp.hpp"
 #include "rtsp/server.hpp"
 #include "rtsp/session.hpp"
 

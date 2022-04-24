@@ -135,15 +135,21 @@ bool Aplist::dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) con
   return rc;
 }
 
-void Aplist::dictDump(plist_t sub_dict) const {
+void Aplist::dictDump(plist_t sub_dict, csv prefix) const {
   auto dump_dict = (sub_dict) ? sub_dict : _plist;
 
+  if (prefix.size()) {
+    fmt::print("{}\n", prefix);
+  } else {
+    fmt::print("\n");
+  }
+
   if (dump_dict == nullptr) {
-    fmt::print("\nDICT DUMP dict={} NOTHING TO DUMP\n", fmt::ptr(dump_dict));
+    fmt::print("DICT DUMP dict={} is empty\n", fmt::ptr(dump_dict));
     return;
   }
 
-  fmt::print("\nDICT DUMP dict={} ", fmt::ptr(dump_dict));
+  fmt::print("DICT DUMP dict={} ", fmt::ptr(dump_dict));
 
   char *buf = nullptr;
   uint32_t bytes = 0;

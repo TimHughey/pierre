@@ -26,7 +26,7 @@
 #include <core/host.hpp>
 #include <core/service.hpp>
 #include <mdns/mdns.hpp>
-#include <rtsp/nptp.hpp>
+#include <nptp/nptp.hpp>
 
 namespace pierre {
 namespace rtsp {

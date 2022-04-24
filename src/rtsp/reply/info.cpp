@@ -37,7 +37,9 @@ using enum Headers::Type2;
 using enum Headers::Val2;
 
 Info::Info(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
-  // maybe more
+  // disable debug logging
+
+  debugFlag(false);
 }
 
 bool Info::populate() {

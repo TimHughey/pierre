@@ -34,6 +34,7 @@
 #include "rtsp/reply/record.hpp"
 #include "rtsp/reply/set_peers.hpp"
 #include "rtsp/reply/setup.hpp"
+#include "rtsp/reply/teardown.hpp"
 #include <rtsp/reply/anchor.hpp>
 #include <rtsp/reply/load_more.hpp>
 #include <rtsp/reply/unhandled.hpp>
@@ -44,8 +45,11 @@ namespace rtsp {
 namespace reply {
 
 using std::find_if, std::array;
+using strv = std::string_view;
+// typedef const std::unordered_set<strv> NoLogSet;
 
-static const std::unordered_set __nolog = {std::string_view("/feedback")};
+// static NoLogSet __nolog = {strv("/feedback"),   strv("/info"),     strv("/pair-verify"),
+//                            strv("/pair-setup"), strv("/fp-setup"), strv("/command")};
 
 static const char *fnName(std::source_location loc = std::source_location::current()) {
   return loc.function_name();
@@ -55,7 +59,8 @@ sReply Factory::create(const Reply::Opts &opts) {
   const std::string_view method = opts.method;
   const std::string_view path = opts.path;
 
-  if (opts.headers.isContentType(Headers::Val2::ImagePng)) {
+  if (method.starts_with("CONTINUE")) {
+    // fmt::print("{} creating Continue\n", fnName());
     return std::make_shared<LoadMore>(opts);
   }
 
@@ -120,6 +125,10 @@ sReply Factory::create(const Reply::Opts &opts) {
 
   if (method.starts_with("SETRATEANCHORTIME")) {
     return std::make_shared<Anchor>(opts);
+  }
+
+  if (method.starts_with("TEARDOWN")) {
+    return std::make_shared<Teardown>(opts);
   }
 
   const auto loc = std::source_location::current();

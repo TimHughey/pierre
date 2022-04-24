@@ -25,6 +25,7 @@ namespace rtsp {
 
 Record::Record(const Reply::Opts &opts) : Reply(opts) {
   // maybe more
+  debugFlag(false);
 }
 
 bool Record::populate() {

@@ -22,11 +22,12 @@ namespace pierre {
 namespace rtsp {
 
 Teardown::Teardown(const Reply::Opts &opts) : Reply(opts) {
+  headers.dump();
   // maybe more
 }
 
 bool Teardown::populate() {
-  // more later
+  responseCode(RespCode::OK);
   return true;
 }
 } // namespace rtsp

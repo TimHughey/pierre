@@ -25,7 +25,7 @@
 #include <memory>
 #include <string>
 
-#include "rtsp/nptp.hpp"
+#include "nptp/nptp.hpp"
 #include "rtsp/reply/set_peers.hpp"
 
 using namespace std;
@@ -37,6 +37,7 @@ namespace rtsp {
 SetPeers::SetPeers(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
   // dictDump();
   // maybe more
+  debugFlag(false);
 }
 
 bool SetPeers::populate() {

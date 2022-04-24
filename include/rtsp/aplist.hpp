@@ -23,6 +23,7 @@
 #include <memory>
 #include <plist/plist++.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "content.hpp"
@@ -37,6 +38,7 @@ public:
   typedef const char *ccs;
   typedef std::string string;
   typedef const std::string &csr;
+  typedef const std::string_view csv;
 
   typedef std::vector<string> ArrayStrings;
   typedef std::vector<Aplist> ArrayDicts;
@@ -57,7 +59,7 @@ public:
   bool dictCompareString(ccs path, ccs compare);
   bool dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) const;
 
-  void dictDump(plist_t sub_dict = nullptr) const;
+  void dictDump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
   bool dictEmpty() const;
   bool dictItemExists(ccs path);
 
@@ -67,7 +69,13 @@ public:
 
   bool dictGetString(ccs path, string &dest);
   bool dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings);
+
+  // retrive the uint64_t at the named node (at the root)
+  uint64_t dictGetUint(ccs root_key) { return dictGetUint(1, root_key); }
+
+  // retrieve the uint64_t using path specified
   uint64_t dictGetUint(uint32_t path_count, ...);
+
   bool dictReady() const { return _plist != nullptr; }
 
   void dictSetArray(ccs root_key, ArrayDicts &dicts);

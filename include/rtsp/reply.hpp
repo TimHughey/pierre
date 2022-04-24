@@ -34,11 +34,11 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "nptp/nptp.hpp"
 #include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
-#include "rtsp/nptp.hpp"
 #include "rtsp/reply/method.hpp"
 #include "rtsp/reply/packet_out.hpp"
 #include "rtsp/reply/path.hpp"
@@ -105,7 +105,11 @@ public:
   void dump() const;
   auto &errMsg() { return _err_msg; }
   sHost host() { return _host; }
-  bool log() const { return _log; }
+  bool debugFlag(bool debug_flag) {
+    _debug_flag = debug_flag;
+    return _debug_flag;
+  }
+  bool debug() const { return _debug_flag; }
   smDNS mdns() { return _mdns; }
   sNptp nptp() { return _nptp; }
 
@@ -116,7 +120,7 @@ public:
   inline const Content &requestContent() const { return _request_content; }
   inline const Headers &requestHeaders() const { return _request_headers; };
 
-  sRtp rtp() { return _rtp; }
+  sRtp rtp() { return _rtp->getPtr(); }
 
   sService service() { return _service; }
 
@@ -153,7 +157,7 @@ protected:
   Content _content;
   PacketOut _packet;
 
-  bool _log = true;
+  bool _debug_flag = true;
 };
 
 } // namespace rtsp

@@ -212,18 +212,23 @@ size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
 
   // there's content, confirm we have it all
   const size_t content_begin = headers_end + SEP.size();
-  const size_t content_end = content_begin + getValInt(ContentLength);
+  // const size_t content_end = content_begin + getValInt(ContentLength);
 
   const auto view_size = view.size();
-  _more_bytes = content_end - view_size; // save amount of bytes we need
+  // _more_bytes = content_end - view_size; // save amount of bytes we need
 
-  // we don't have all the content yet
-  if (view_size != content_end) {
+  int32_t byte_diff = view_size - getValInt(ContentLength);
+
+  // byte diff is negative indicating we need more data
+  if (byte_diff < 0) {
     if (debug) {
       auto content_type = getVal(ContentType, None);
-      fmt::print("{} method={} path={} content_type={} more_bytes={}\n", fnName(), method(),
-                 path(), content_type, _more_bytes);
+
+      fmt::print("{} method={} path={} content_type={} have={} content_len={} diff={}\n", fnName(),
+                 method(), path(), content_type, view_size, getValInt(ContentLength), byte_diff);
     }
+
+    _more_bytes = std::abs(byte_diff);
 
     return _more_bytes;
   }

@@ -27,6 +27,7 @@
 #include <memory>
 #include <string>
 
+#include "rtp/anchor_info.hpp"
 #include "rtp/buffered.hpp"
 #include "rtp/control.hpp"
 #include "rtp/event.hpp"
@@ -60,6 +61,7 @@ public:
   size_t bufferSize() const { return 1024 * 1024 * 8; };
 
   // Public API
+  void saveAnchorInfo(const rtp::AnchorData &anchor_data);
   void saveSessionInfo(csr shk, csr active_remote, csr dacp_id);
 
   rtp::PortFuture startBuffered() { return _buffered->start(); }
@@ -84,6 +86,8 @@ private:
 
   uint32_t _backend_latency = 0;
   uint64_t _rate;
+
+  rtp::AnchorInfo _anchor;
 
   bool running = false;
   uint64_t last_resend_request_error_ns = 0;
