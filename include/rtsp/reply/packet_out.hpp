@@ -20,19 +20,32 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
+#include <fmt/format.h>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 namespace pierre {
 namespace rtsp {
-
 class PacketOut : public std::vector<uint8_t> {
   static constexpr size_t reserve_default = 1024;
 
 public:
   PacketOut() { reserve(reserve_default); };
+
+  void dump() const {
+    fmt::print("PACKET OUT DUMP BEGIN bytes={}\n", size());
+    fmt::print("{}\n", view());
+    fmt::print("PACKET OUT DUMP END\n");
+  }
+
+  std::string_view view() const {
+    const char *view_data = (const char *)data();
+    size_t view_len = size();
+
+    return std::string_view(view_data, view_len);
+  }
 
   void reset(size_t reserve_bytes = reserve_default) {
     clear();

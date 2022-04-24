@@ -43,7 +43,8 @@ using enum Headers::Val2;
 
 // map enums for header type and val to actual text
 static unordered_map<Headers::Type2, const char *> _header_types // next line
-    {{CSeq, "CSeq"},
+    {{None, "None"},
+     {CSeq, "CSeq"},
      {Server, "Server"},
      {ContentType, "Content-Type"},
      {ContentLength, "Content-Length"},
@@ -66,10 +67,6 @@ static unordered_map<Headers::Val2, const char *> _header_vals // next line
      {AppleBinPlist, "application/x-apple-binary-plist"},
      {TextParameters, "text/parameters"},
      {ImagePng, "image/png"}};
-
-//
-// BEGIN MEMBER FUNCTIONS
-//
 
 // add to headers matching how it is stored in the map
 void Headers::add(Type2 type, const string &val) {
@@ -98,29 +95,65 @@ void Headers::add(Type2 type, size_t val) { add(type, fmt::format("{}", val)); }
 
 void Headers::copy(const Headers &from, Type2 type) { add(type, from.getVal(type)); }
 
+void Headers::clear() {
+  _map.clear();
+  _order.clear();
+  _separators.clear();
+
+  _method.clear();
+  _path.clear();
+  _protocol.clear();
+
+  _more_bytes = 0;
+  _ok = false;
+}
+
 bool Headers::exists(Type2 type) const { return _map.contains(type); }
 
-const string &Headers::getVal(Type2 want_type) const {
+bool Headers::isContentType(Val2 val) const {
+  auto rc = false;
+
+  if (exists(ContentType)) {
+    const auto want_val_str = stringFrom(val);
+    const auto val_str = getVal(ContentType);
+
+    rc = want_val_str.compare(val_str) == 0;
+  }
+
+  return rc;
+}
+
+const string &Headers::getVal(Type2 want_type, Type2 default_type) const {
   if (exists(want_type)) {
     return _map.at(want_type);
+  }
+
+  if (default_type != Unknown) {
+    return getVal(default_type);
   }
 
   fmt::print("{} not in map type={}\n", fnName(), toString(want_type));
   throw(std::runtime_error("header type not found"));
 }
 
-size_t Headers::getValInt(Type2 want_type) const {
+size_t Headers::getValInt(Type2 want_type, size_t def_val) const {
   if (exists(want_type)) {
     const auto val = getVal(want_type);
 
     return static_cast<size_t>(std::atoi(val.c_str()));
   }
 
-  return 0;
+  if (def_val != THROW) {
+    return def_val;
+  }
+
+  throw(std::runtime_error("header type not found"));
 }
 
 bool Headers::haveSeparators(const string_view &view) {
-  _separators.clear();
+  if (_separators.size() == 2) {
+    return true;
+  }
 
   const auto want = std::array{EOL, SEP};
   for (size_t search_pos = 0; const auto &it : want) {
@@ -150,14 +183,16 @@ const HeaderList Headers::list() const {
   return list_text;
 }
 
-bool Headers::loadMore(const string_view view, Content &content) {
+size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
   // keep loading if we haven't found the separators
   if (haveSeparators(view) == false) {
-    return true;
+    fmt::print("{} separators not found separators={}\n", fnName(), _separators.size());
+    return 1;
   }
 
   // NOTE:
-  // this function does not clear previously found header key/val
+  // this function does not clear previously found header key/val to avoid
+  // the cost of recreating the header map on subsequent calls
 
   //  we've found the separaters, parse method and headers then check content length
   const size_t method_begin = 0;
@@ -172,25 +207,25 @@ bool Headers::loadMore(const string_view view, Content &content) {
 
   // no content, we're done
   if (exists(ContentType) == false) {
-    return false;
+    return 0;
   }
 
-   // there's content, confirm we have it all
-
+  // there's content, confirm we have it all
   const size_t content_begin = headers_end + SEP.size();
   const size_t content_end = content_begin + getValInt(ContentLength);
 
   const auto view_size = view.size();
-  // fmt::print("{} view_size={} content_end={}\n", fnName(), view_size, content_end);
+  _more_bytes = content_end - view_size; // save amount of bytes we need
 
   // we don't have all the content yet
   if (view_size != content_end) {
-    const size_t diff = content_end - view_size;
-    fmt::print("{} seq={} path={} need more={}\n", fnName(), getVal(CSeq), path(), diff);
+    if (debug) {
+      auto content_type = getVal(ContentType, None);
+      fmt::print("{} method={} path={} content_type={} more_bytes={}\n", fnName(), method(),
+                 path(), content_type, _more_bytes);
+    }
 
-    dump();
-
-    return true;
+    return _more_bytes;
   }
 
   // we have all the content, copy it
@@ -201,7 +236,12 @@ bool Headers::loadMore(const string_view view, Content &content) {
   content.assign(copy_begin, copy_end);
 
   // if we've reached here then everything is as it should be
-  return false;
+  if (debug) {
+    fmt::print("{} complete method={} path={} content_type={} content_len={}\n", fnName(),
+               method(), path(), getVal(ContentType), content.size());
+  }
+
+  return 0;
 }
 
 void Headers::parseHeaderBlock(const string_view &view) {
@@ -256,7 +296,7 @@ void Headers::parseHeaderBlock(const string_view &view) {
   }
 }
 
-void Headers::parseMethod(const string_view &view) {
+void Headers::parseMethod(csv &view) {
   // Example Method
   //
   // POST /fp-setup RTSP/1.0
@@ -293,7 +333,7 @@ void Headers::dump() const {
 const string Headers::stringFrom(Type2 type) const { return string(_header_types[type]); }
 const string Headers::stringFrom(Val2 val) const { return string(_header_vals[val]); }
 
-Headers::Type2 Headers::toType(const string_view type_view) const {
+Headers::Type2 Headers::toType(csv type_view) const {
   for (const auto &kv : _header_types) {
     const auto &[key_type, key_str] = kv;
 

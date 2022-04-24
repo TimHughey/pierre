@@ -24,6 +24,7 @@ namespace pierre {
 namespace rtsp {
 
 enum RespCode : uint16_t {
+  Continue = 100,
   OK = 200,
   AuthRequired = 470,
   BadRequest = 400,

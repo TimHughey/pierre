@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "core/pair/pair.h"
 #include "rtsp/content.hpp"
@@ -51,6 +52,9 @@ struct AesResult {
 // NOTE: this struct consolidates the pairing "state"
 class AesCtx : public std::enable_shared_from_this<AesCtx> {
 public:
+  typedef const std::string_view csv;
+
+public:
   ~AesCtx();
 
 public:
@@ -58,7 +62,7 @@ public:
     return sAesCtx(new AesCtx(device_str));
   }
 
-  size_t decrypt(PacketIn &packet, size_t bytes);
+  size_t decrypt(PacketIn &packet, const PacketIn &ciphered);
   size_t encrypt(rtsp::PacketOut &packet);
 
   // size_t decrypt()

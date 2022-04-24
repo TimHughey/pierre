@@ -35,6 +35,7 @@
 #include "rtsp/reply/set_peers.hpp"
 #include "rtsp/reply/setup.hpp"
 #include <rtsp/reply/anchor.hpp>
+#include <rtsp/reply/load_more.hpp>
 #include <rtsp/reply/unhandled.hpp>
 
 namespace pierre {
@@ -54,9 +55,13 @@ sReply Factory::create(const Reply::Opts &opts) {
   const std::string_view method = opts.method;
   const std::string_view path = opts.path;
 
-  if (__nolog.contains(path) == false) {
-    fmt::print("{} mathod={} path={}\n", fnName(), method, path);
+  if (opts.headers.isContentType(Headers::Val2::ImagePng)) {
+    return std::make_shared<LoadMore>(opts);
   }
+
+  // if (__nolog.contains(path) == false) {
+  //   fmt::print("{} mathod={} path={}\n", fnName(), method, path);
+  // }
 
   // NOTE: compare sequence equivalent to AirPlay conversation
   if (method.compare("GET") == 0) {
@@ -121,7 +126,7 @@ sReply Factory::create(const Reply::Opts &opts) {
   fmt::print("In file {} at line {}\n", loc.file_name(), loc.line());
   const auto log_method = (method.empty()) ? "<empty>" : method;
   const auto log_path = (path.empty()) ? "<empty>" : path;
-  fmt::print("\t{}: unhandled method={} path={}\n\n", loc.function_name(), log_method, log_path);
+  fmt::print("\t{}: unhandled method={} path={}\n\n", fnName(), log_method, log_path);
 
   return std::make_shared<Unhandled>(opts);
 }

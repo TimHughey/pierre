@@ -16,30 +16,22 @@
 //
 //  https://www.wisslanding.com
 
-#include <string_view>
-#include <unordered_map>
+#pragma once
 
-#include "rtsp/resp_code.hpp"
+#include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-typedef const std::unordered_map<RespCode, const char *> RespCodeMap;
+class LoadMore : public Reply {
+public:
+  LoadMore(const Reply::Opts &opts) : Reply(opts) {
+    // just set response code, no payload
+    responseCode(RespCode::Continue);
+  }
 
-using enum RespCode;
-
-static RespCodeMap _resp_code_ccs{{OK, "OK"},
-                                  {AuthRequired, "Connection Authorization Required"},
-                                  {BadRequest, "Bad Request"},
-                                  {InternalServerError, "Internal Server Error"},
-                                  {Unauthorized, "Unauthorized"},
-                                  {Unavailable, "Unavailable"},
-                                  {NotImplemented, "Not Implemented"},
-                                  {Continue, "Continue"}};
-
-std::string_view respCodeToView(RespCode resp_code) {
-  return std::string_view(_resp_code_ccs.at(resp_code));
-}
+  bool populate() override { return true; };
+};
 
 } // namespace rtsp
 } // namespace pierre

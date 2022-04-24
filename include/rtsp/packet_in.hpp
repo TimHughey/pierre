@@ -29,9 +29,12 @@ namespace rtsp {
 
 class PacketIn : public std::vector<uint8_t> {
 public:
-  PacketIn() { clear(); };
-  const char *raw() { return (const char *)data(); }
-  const std::string_view view() const { return std::string_view((const char *)data(), size()); }
+  typedef const std::string_view csv;
+  typedef const char *ccs;
+
+public:
+  ccs raw() const { return (ccs)data(); }
+  const csv view() const { return csv(raw(), size()); }
 };
 
 } // namespace rtsp

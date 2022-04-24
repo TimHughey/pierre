@@ -55,7 +55,12 @@ Session::Session(tcp_socket &socket, const Session::Opts &opts)
   // maybe more
 }
 
-// member functions organized by call sequence
+size_t Session::decrypt(PacketIn &packet) {
+  auto consumed = aes_ctx->decrypt(packet, _wire);
+  _wire.clear(); // wire bytes have been deciphered, clear them
+
+  return consumed;
+}
 
 void Session::readApRequest() {
   // bail out if the socket isn't ready
@@ -64,10 +69,9 @@ void Session::readApRequest() {
   }
 
   // this function is recursive via the lambda, reset stateful objects
-  _wire = PacketIn();
-  _packet = PacketIn();
-  _headers = Headers();
-  _content = Content();
+  _wire.clear();
+  _headers.clear();
+  _content.clear();
 
   auto buff = dynamic_buffer(_wire);
 
@@ -75,10 +79,12 @@ void Session::readApRequest() {
              [&](error_code ec, size_t rx_bytes) {
                accumulateRx(rx_bytes);
 
-               if (isReady(ec)) {
-                 readAvailable(); // if there bytes available read them now
-                 ensureAllContent();
+               if (isReady(ec) == false) {
+                 return;
                }
+
+               rxAvailable();      // drain the socket
+               ensureAllContent(); // load additional content
 
                try {
                  createAndSendReply();
@@ -87,36 +93,28 @@ void Session::readApRequest() {
                } catch (const std::exception &e) {
                  fmt::print("{} create reply failed: {}\n", fnName(), e.what());
 
-                 //  const size_t len = _packet.size();
-                 //  const char *data = (const char *)_packet.data();
-                 //  const std::string_view packet_str(data, len);
-
                  _headers.dump();
                  _content.dump();
                }
              });
 }
 
-void Session::readAvailable() {
-  error_code ec;
-  auto want_bytes = socket.available(ec);
-
-  if (isReady(ec) && want_bytes) {
+bool Session::rxAvailable() {
+  if (isReady()) {
     error_code ec;
+    size_t avail_bytes = socket.available(ec);
+
     auto buff = dynamic_buffer(_wire);
-    auto rx_bytes = read(socket, buff, transfer_at_least(want_bytes));
-    accumulateRx(rx_bytes);
 
-    // check the most recent ec
-    if (isReady(ec)) {
-      fmt::print("{} read want_bytes={} rx_bytes={}\n", fnName(), want_bytes, rx_bytes);
+    while (isReady(ec) && (avail_bytes > 0)) {
+      auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
+      accumulateTx(tx_bytes);
+
+      avail_bytes = socket.available(ec);
     }
-
-    // if (ec != errc::success) {
-    //   fmt::print("{} read secondary msg={} bytes={}", fnName(), ec.message(), rx_bytes);
-    //   return;
-    // }
   }
+
+  return isReady();
 }
 
 void Session::ensureAllContent() {
@@ -125,32 +123,45 @@ void Session::ensureAllContent() {
     return;
   }
 
-  auto load_more = false; // default to no
+  // if subsequent data is loaded it will all need up in this packet
+  auto packet = PacketIn();
 
-  // Headers provides functionality to ensure all content is loaded
-  // by using Content-Length to compare the packet size
+  // decrypt the wire bytes resceived thus far
+  [[maybe_unused]] auto consumed = decrypt(packet);
 
-  do {
-    // create a packet from the bytes received over the wire
-    _packet = PacketIn(_wire);
+  // need more content? send Continue reply
+  auto more_bytes = _headers.loadMore(packet.view(), _content);
 
-    aes_ctx->decrypt(_packet, _packet.size()); // NOP until encryption available
-    load_more = _headers.loadMore(packetView(), _content);
+  // if more bytes are needed, reply Continue
+  if (more_bytes) {
+    auto reply = Reply::create({.method = method(),
+                                .path = path(),
+                                .content = content(),
+                                .headers = headers(),
+                                .host = host,
+                                .service = service,
+                                .aes_ctx = aes_ctx,
+                                .mdns = mdns,
+                                .nptp = nptp,
+                                .rtp = rtp});
 
-    if (load_more) {
-      error_code ec;
-      PacketIn packet_more;
+    auto &reply_packet = reply->build();
 
-      auto buff = dynamic_buffer(packet_more);
-      auto rx_bytes = read(socket, buff, boost::asio::transfer_at_least(1), ec);
-      accumulateRx(rx_bytes);
+    aes_ctx->encrypt(reply_packet); // NOTE: noop until cipher exchange completed
+    auto buff = const_buffer(reply_packet.data(), reply_packet.size());
 
-      if (isReady(ec)) {
-        // load more into the wire packet, if may need decryption
-        _wire.insert(_wire.cend(), packet_more.begin(), packet_more.end());
-      }
+    error_code ec;
+    auto tx_bytes = write(socket, buff, ec);
+    accumulateTx(tx_bytes);
+  }
+
+  // if wire bytes are loaded remember this is an entirely new packet
+  while (more_bytes && isReady()) {
+    if (rxAtLeast(more_bytes)) {
+      [[maybe_unused]] auto consumed = decrypt(packet);
+      more_bytes = _headers.loadMore(packet.view(), _content);
     }
-  } while (isReady() && load_more);
+  }
 }
 
 void Session::createAndSendReply() {
@@ -212,6 +223,17 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
   return rc;
 }
 
+bool Session::rxAtLeast(size_t bytes) {
+  if (isReady()) {
+    auto buff = dynamic_buffer(_wire);
+
+    error_code ec;
+    auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
+    accumulateRx(rx_bytes);
+  }
+  return isReady();
+}
+
 void Session::start() {
   readApRequest();
 
@@ -235,7 +257,7 @@ void Session::dump(DumpKind dump_type) {
   }
 
   if (dump_type == RawOnly) {
-    const std::string_view out((const char *)_packet.data(), _packet.size());
+    const std::string_view out((const char *)_wire.data(), _wire.size());
     fmt::print("{}\n", out);
   }
 

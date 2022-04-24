@@ -101,36 +101,31 @@ size_t AesCtx::encrypt(rtsp::PacketOut &packet) {
   return bytes_ciphered;
 }
 
-size_t AesCtx::decrypt(PacketIn &packet, size_t bytes) {
-  size_t bytes_consumed = 0;
+size_t AesCtx::decrypt(PacketIn &packet, const PacketIn &ciphered) {
+  // even is cipher isn't available we will still copy to packet
+  auto to = std::back_inserter(packet);
 
   if (cipher()) {
-    uint8_t *plain_data = nullptr;
-    size_t plain_len = 0;
-    const uint8_t *cipher_data = (uint8_t *)packet.data();
-
-    bytes_consumed = pair_decrypt(&plain_data, &plain_len, cipher_data, bytes, cipher());
-    auto __plain_data = make_unique<uint8_t *>(plain_data);
     // when we've decrypted an inbound packet we should always encrypt outbound
     _encrypt_out = true;
 
-    //   fmt::print("decrypted bytes={}\n", bytes_consumed);
+    // we have a cipher
+    uint8_t *data = nullptr;
+    size_t len = 0;
 
-    if (bytes_consumed > 0) {
-      packet.clear();
-      auto where = std::back_inserter(packet);
-      auto last_byte = plain_data + plain_len;
+    auto consumed = pair_decrypt(&data, &len, ciphered.data(), ciphered.size(), cipher());
+    auto __data = make_unique<uint8_t *>(data);
 
-      std::copy(plain_data, last_byte, where);
+    if (consumed > 0) {
+      std::copy(data, data + len, to);
     }
 
-    // if (bytes_consumed == plain_len) {
-    //   fmt::print("bytes_consumed={} plain_len={} diff={}\n", bytes_consumed, plain_len,
-    //              bytes_consumed - plain_len);
-    // }
+    return consumed;
   }
 
-  return bytes_consumed;
+  std::copy(ciphered.begin(), ciphered.end(), to);
+
+  return ciphered.size();
 }
 
 AesResult AesCtx::verify(const Content &in, Content &out) {

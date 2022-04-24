@@ -20,16 +20,15 @@
 
 #include <array>
 #include <fmt/format.h>
+#include <limits>
 #include <list>
 #include <regex>
 #include <source_location>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <vector>
 
 #include "rtsp/content.hpp"
-#include "rtsp/packet_in.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -39,7 +38,9 @@ typedef fmt::basic_memory_buffer<char, 256> HeaderList;
 class Headers {
 public:
   enum Type2 : uint8_t {
-    CSeq = 1,
+    Unknown = 1,
+    None,
+    CSeq,
     Server,
     ContentType,
     ContentLength,
@@ -55,7 +56,6 @@ public:
     XAppleHKP,
     XAppleET,
     RtpInfo
-
   };
 
   enum Val2 : uint8_t { OctetStream = 1, AirPierre, AppleBinPlist, TextParameters, ImagePng };
@@ -68,6 +68,8 @@ public:
   typedef std::unordered_map<Type2, string> HeaderMap;
   typedef std::list<Type2> HeaderOrder;
   typedef const char *ccs;
+  typedef const std::string_view csv;
+  typedef const std::string_view &csvr;
 
 public:
   Headers() = default;
@@ -82,20 +84,18 @@ public:
   size_t contentLength() const { return getValInt(ContentLength); }
   void copy(const Headers &from, Type2 type);
   bool exists(Type2 type) const;
-  const string &getVal(Type2 want_type) const;
-  size_t getValInt(Type2 want_type) const;
+  bool isContentType(Val2 val) const;
+  const string &getVal(Type2 want_type, Type2 default_type = Unknown) const;
+  size_t getValInt(Type2 want_type, size_t def_val = THROW) const;
 
   // member functions that act on the entire container
-  inline void clear() {
-    _map.clear();
-    _order.clear();
-    _separators.clear();
-  }
+  void clear();
   inline auto count() const { return _map.size(); }
   void dump() const;
 
   const HeaderList list() const;
-  bool loadMore(const string_view view, Content &content);
+  size_t loadMore(csv view, Content &content, bool debug = false);
+  size_t moreBytes() const { return _more_bytes; }
 
   // preamble info
   const string_view method() const { return string_view(_method); }
@@ -129,7 +129,7 @@ private:
   string _method;
   string _path;
   string _protocol;
-  // size_t _content_len = 0;
+  size_t _more_bytes = 0;
 
   bool _ok = false;
   std::vector<size_t> _separators;
@@ -137,6 +137,7 @@ private:
   static constexpr auto re_syntax = std::regex_constants::ECMAScript;
   static constexpr string_view EOL{"\r\n"};
   static constexpr string_view SEP{"\r\n\r\n"};
+  static constexpr auto THROW = std::numeric_limits<size_t>::max();
 };
 
 } // namespace rtsp

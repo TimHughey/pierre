@@ -83,9 +83,6 @@ public:
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
 
-  // const PacketIn &packet() const { return _packet; }
-  const string_view packetView() const { return _packet.view(); }
-
   // Getters
   const Content &content() const { return _content; }
   const Headers &headers() const { return _headers; }
@@ -96,12 +93,15 @@ public:
 private:
   void accumulateRx(size_t bytes) { _rx_bytes += bytes; }
   void accumulateTx(size_t bytes) { _tx_bytes += bytes; }
+  void createAndSendReply();
+  size_t decrypt(PacketIn &packet);
   void ensureAllContent(); // uses Headers functionality to ensure all content loaded
   bool isReady() const { return socket.is_open(); };
   bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
   void readApRequest(); // returns when socket is closed
-  void readAvailable(); // load bytes immediately available
-  void createAndSendReply();
+  bool rxAtLeast(size_t bytes = 1);
+  bool rxAvailable(); // load bytes immediately available
+  void wireToPacket();
 
   // misc
   const std::source_location here(src_loc loc = src_loc::current()) const { return loc; };
@@ -123,7 +123,6 @@ private:
   rtsp::sAesCtx aes_ctx;
 
   PacketIn _wire;
-  PacketIn _packet;
   Headers _headers;
   Content _content;
 
