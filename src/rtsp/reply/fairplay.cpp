@@ -80,7 +80,7 @@ static const uint8_t reply4[] = {
 FairPlay::FairPlay(const Reply::Opts &opts) : Reply(opts) { debugFlag(false); }
 
 bool FairPlay::populate() {
-  const auto &content = requestContent();
+  const auto &content = rContent();
 
   if (content.empty()) {
     return false;
@@ -159,8 +159,8 @@ void FairPlay::payload2() {
   auto header_bytes = std::size(header);
   copyToContent(header, header_bytes);
 
-  uint8_t *request_data = (uint8_t *)requestContent().data();
-  size_t request_len = requestContent().size();
+  uint8_t *request_data = (uint8_t *)rContent().data();
+  size_t request_len = rContent().size();
 
   // appears we're sending back part of the content we received??
   uint8_t *begin = request_data + request_len - suffix_len;

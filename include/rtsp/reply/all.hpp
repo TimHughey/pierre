@@ -16,19 +16,23 @@
 //
 //  https://www.wisslanding.com
 
+#pragma once
+
+// once header to rule them all
+
+#include "rtsp/reply/anchor.hpp"
+#include "rtsp/reply/cmd.hpp"
+#include "rtsp/reply/factory.hpp"
+#include "rtsp/reply/fairplay.hpp"
+#include "rtsp/reply/feedback.hpp"
+#include "rtsp/reply/flush.hpp"
+#include "rtsp/reply/info.hpp"
+#include "rtsp/reply/load_more.hpp"
+#include "rtsp/reply/options.hpp"
+#include "rtsp/reply/pairing.hpp"
+#include "rtsp/reply/parameter.hpp"
+#include "rtsp/reply/record.hpp"
+#include "rtsp/reply/set_peers.hpp"
+#include "rtsp/reply/setup.hpp"
 #include "rtsp/reply/teardown.hpp"
-
-namespace pierre {
-namespace rtsp {
-
-Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), Aplist(plist()) {
-  rHeaders().dump();
-  dictDump();
-}
-
-bool Teardown::populate() {
-  responseCode(RespCode::OK);
-  return true;
-}
-} // namespace rtsp
-} // namespace pierre
+#include "rtsp/reply/unhandled.hpp"

@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdarg>
 #include <fmt/format.h>
 #include <memory>
@@ -59,9 +60,11 @@ public:
   bool dictCompareString(ccs path, ccs compare);
   bool dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) const;
 
+  void dictDump(csv prefix) const;
   void dictDump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
   bool dictEmpty() const;
   bool dictItemExists(ccs path);
+  bool dictItemsExist(const std::vector<ccs> &items);
 
   bool dictGetBool(ccs path, bool &dest);
   const string dictGetData(uint32_t path_count, ...);

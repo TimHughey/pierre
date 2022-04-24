@@ -19,6 +19,7 @@
 */
 
 #include <algorithm>
+#include <array>
 #include <cstdarg>
 #include <exception>
 #include <fmt/core.h>
@@ -135,6 +136,8 @@ bool Aplist::dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) con
   return rc;
 }
 
+void Aplist::dictDump(csv prefix) const { dictDump(nullptr, prefix); }
+
 void Aplist::dictDump(plist_t sub_dict, csv prefix) const {
   auto dump_dict = (sub_dict) ? sub_dict : _plist;
 
@@ -167,6 +170,16 @@ void Aplist::dictDump(plist_t sub_dict, csv prefix) const {
 bool Aplist::dictEmpty() const { return _plist == nullptr; }
 
 bool Aplist::dictItemExists(ccs path) { return dictGetItem(path) != nullptr ? true : false; }
+
+bool Aplist::dictItemsExist(const std::vector<ccs> &items) {
+  auto rc = true;
+
+  for (const auto &item : items) {
+    rc &= dictItemExists(item);
+  }
+
+  return rc;
+}
 
 plist_t Aplist::dictGetItem(ccs path) { return plist_dict_get_item(_plist, path); }
 

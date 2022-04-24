@@ -63,7 +63,10 @@ public:
   AnchorData data;
   AnchorData actual;
 
+  bool _play_enabled = false;
+
 private:
+  void __init();
   void calcNetTime();
 };
 

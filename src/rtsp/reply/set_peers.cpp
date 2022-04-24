@@ -34,7 +34,7 @@ using namespace pierre;
 namespace pierre {
 namespace rtsp {
 
-SetPeers::SetPeers(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+SetPeers::SetPeers(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // dictDump();
   // maybe more
   debugFlag(false);

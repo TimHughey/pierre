@@ -36,7 +36,7 @@ namespace rtsp {
 using enum Headers::Type2;
 using enum Headers::Val2;
 
-Info::Info(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+Info::Info(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // disable debug logging
 
   debugFlag(false);

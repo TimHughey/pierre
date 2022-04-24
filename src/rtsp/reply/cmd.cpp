@@ -17,13 +17,13 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtsp/reply/command.hpp"
+#include "rtsp/reply/cmd.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-Command::Command(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+Command::Command(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   debugFlag(false);
 
   // default to OK

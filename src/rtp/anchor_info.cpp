@@ -30,24 +30,24 @@ namespace rtp {
 // goal is to have at least well-formed user object copy/assignment example
 
 // construct with AnchorData (copy)
-AnchorInfo::AnchorInfo(const AnchorData &ad) : data(ad) { calcNetTime(); }
+AnchorInfo::AnchorInfo(const AnchorData &ad) : data(ad) { __init(); }
 
 // construct with AnchorData (move)
-AnchorInfo::AnchorInfo(const AnchorData &&ad) : data(std::move(ad)) { calcNetTime(); }
+AnchorInfo::AnchorInfo(const AnchorData &&ad) : data(std::move(ad)) { __init(); }
 
 // construct from AnchorInfo (copy)
-AnchorInfo::AnchorInfo(const AnchorInfo &ai) : data(ai.data), actual(ai.actual) { calcNetTime(); }
+AnchorInfo::AnchorInfo(const AnchorInfo &ai) : data(ai.data), actual(ai.actual) { __init(); }
 
 // construct from AnchorInfo (move)
 AnchorInfo::AnchorInfo(AnchorInfo &&ai) : data(std::move(ai.data)), actual(std::move(ai.actual)) {
-  calcNetTime();
+  __init();
 }
 
 // assignment (copy)
 AnchorInfo &AnchorInfo::operator=(const AnchorData &ad) {
   data = ad;
 
-  calcNetTime();
+  __init();
 
   return *this;
 }
@@ -56,7 +56,7 @@ AnchorInfo &AnchorInfo::operator=(const AnchorData &ad) {
 AnchorInfo &AnchorInfo::operator=(AnchorData &&ad) {
   data = std::move(ad);
 
-  calcNetTime();
+  __init();
 
   return *this;
 }
@@ -66,7 +66,7 @@ AnchorInfo &AnchorInfo::operator=(const AnchorInfo &ai) {
   data = ai.data;
   actual = ai.actual;
 
-  calcNetTime();
+  __init();
 
   return *this;
 }
@@ -76,9 +76,15 @@ AnchorInfo &AnchorInfo::operator=(AnchorInfo &&ai) {
   data = std::move(ai.data);
   actual = std::move(ai.actual);
 
-  calcNetTime();
+  __init();
 
   return *this;
+}
+
+void AnchorInfo::__init() {
+  _play_enabled = data.rate & 1;
+
+  calcNetTime();
 }
 
 void AnchorInfo::calcNetTime() {
@@ -99,15 +105,17 @@ void AnchorInfo::calcNetTime() {
 
 void AnchorInfo::dump(const std::source_location loc) {
   const auto prefix = loc.function_name();
+  const auto fmt_str = FMT_STRING("{:>15}={:#x}\n");
 
   fmt::print("{}\n", prefix);
-  fmt::print("\t{:>15}={:#x}\n", "rate", data.rate);
-  fmt::print("\t{:>15}={:#x}\n", "timelineID", data.timelineID);
-  fmt::print("\t{:>15}={:#x}\n", "secs", data.secs);
-  fmt::print("\t{:>15}={:#x}\n", "frac", data.frac);
-  fmt::print("\t{:>15}={:#x}\n", "flags", data.flags);
-  fmt::print("\t{:>15}={:#x}\n", "rtpTime", data.rtpTime);
-  fmt::print("\t{:>15}={:#x}\n", "netTime", data.netTime);
+  fmt::print(fmt_str, "rate", data.rate);
+  fmt::print("{:>15}={:#x}\n", "timelineID", data.timelineID);
+  fmt::print("{:>15}={:#x}\n", "secs", data.secs);
+  fmt::print("{:>15}={:#x}\n", "frac", data.frac);
+  fmt::print("{:>15}={:#x}\n", "flags", data.flags);
+  fmt::print("{:>15}={:#x}\n", "rtpTime", data.rtpTime);
+  fmt::print("{:>15}={:#x}\n", "netTime", data.netTime);
+  fmt::print("{:>15}={}\n", "play_enabled", _play_enabled);
 }
 
 } // namespace rtp

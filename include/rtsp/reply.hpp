@@ -115,10 +115,12 @@ public:
 
   virtual bool populate() = 0;
 
+  inline const Content &plist() const { return _request_content; }
+
   inline void responseCode(RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
-  inline const Content &requestContent() const { return _request_content; }
-  inline const Headers &requestHeaders() const { return _request_headers; };
+  inline const Content &rContent() const { return _request_content; }
+  inline const Headers &rHeaders() const { return _request_headers; };
 
   sRtp rtp() { return _rtp->getPtr(); }
 

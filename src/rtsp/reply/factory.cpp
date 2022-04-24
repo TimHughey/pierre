@@ -18,27 +18,12 @@
 
 #include <algorithm>
 #include <array>
+#include <fmt/format.h>
 #include <source_location>
 #include <string_view>
 #include <unordered_set>
 
-#include "fmt/format.h"
-#include "rtsp/reply/command.hpp"
-#include "rtsp/reply/factory.hpp"
-#include "rtsp/reply/fairplay.hpp"
-#include "rtsp/reply/feedback.hpp"
-#include "rtsp/reply/info.hpp"
-#include "rtsp/reply/options.hpp"
-#include "rtsp/reply/pairing.hpp"
-#include "rtsp/reply/parameter.hpp"
-#include "rtsp/reply/record.hpp"
-#include "rtsp/reply/set_peers.hpp"
-#include "rtsp/reply/setup.hpp"
-#include "rtsp/reply/teardown.hpp"
-#include <rtsp/reply/anchor.hpp>
-#include <rtsp/reply/load_more.hpp>
-#include <rtsp/reply/unhandled.hpp>
-
+#include "rtsp/reply/all.hpp"
 namespace pierre {
 namespace rtsp {
 
@@ -46,10 +31,6 @@ namespace reply {
 
 using std::find_if, std::array;
 using strv = std::string_view;
-// typedef const std::unordered_set<strv> NoLogSet;
-
-// static NoLogSet __nolog = {strv("/feedback"),   strv("/info"),     strv("/pair-verify"),
-//                            strv("/pair-setup"), strv("/fp-setup"), strv("/command")};
 
 static const char *fnName(std::source_location loc = std::source_location::current()) {
   return loc.function_name();
@@ -60,13 +41,8 @@ sReply Factory::create(const Reply::Opts &opts) {
   const std::string_view path = opts.path;
 
   if (method.starts_with("CONTINUE")) {
-    // fmt::print("{} creating Continue\n", fnName());
     return std::make_shared<LoadMore>(opts);
   }
-
-  // if (__nolog.contains(path) == false) {
-  //   fmt::print("{} mathod={} path={}\n", fnName(), method, path);
-  // }
 
   // NOTE: compare sequence equivalent to AirPlay conversation
   if (method.compare("GET") == 0) {
@@ -129,6 +105,10 @@ sReply Factory::create(const Reply::Opts &opts) {
 
   if (method.starts_with("TEARDOWN")) {
     return std::make_shared<Teardown>(opts);
+  }
+
+  if (method.starts_with("FLUSHBUFFERED")) {
+    return std::make_shared<FlushBuffered>(opts);
   }
 
   const auto loc = std::source_location::current();

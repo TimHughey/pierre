@@ -47,7 +47,7 @@ bool Parameter::populate() {
 
 bool Parameter::handleGet() {
   auto rc = false;
-  const auto param = requestContent().toStringView();
+  const auto param = rContent().toStringView();
 
   if (param.starts_with("volume")) {
     auto buff = fmt::memory_buffer();

@@ -27,8 +27,7 @@ add_library(RTSP
   reply/info.cpp reply/pairing.cpp reply/parameter.cpp
   reply/setup.cpp reply/record.cpp reply/set_peers.cpp
   reply/feedback.cpp reply/unhandled.cpp reply/anchor.cpp
-  reply/teardown.cpp
-  "reply/command.cpp"
+  reply/teardown.cpp reply/cmd.cpp reply/flush.cpp
   ${HEADER_LIST}
 )
 

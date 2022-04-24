@@ -16,12 +16,14 @@
 //
 //  https://www.wisslanding.com
 
+#include <array>
+
 #include "rtsp/reply/anchor.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-Anchor::Anchor(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+Anchor::Anchor(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // maybe more
 }
 
@@ -41,7 +43,11 @@ void Anchor::saveAnchorData() {
   constexpr auto Flags = "networkTimeFlags";
   constexpr auto RtpTime = "rtpTime";
 
-  try {
+  // a complete anchor message contains these keys
+  const std::vector all_keys = {Rate, TimelineID, Secs, Frac, Flags, RtpTime};
+
+  if (dictItemsExist(all_keys)) {
+    // this is a complete anchor set
     const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate),
                                              .timelineID = dictGetUint(TimelineID),
                                              .secs = dictGetUint(Secs),
@@ -50,10 +56,9 @@ void Anchor::saveAnchorData() {
                                              .rtpTime = dictGetUint(RtpTime)};
 
     rtp()->saveAnchorInfo(anchor_data);
-
-  } catch (const std::out_of_range &) {
-    fmt::print("{} network time data not found\n", fnName());
-    dictDump(nullptr, fnName());
+  } else {
+    const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate)};
+    rtp()->saveAnchorInfo(anchor_data);
   }
 }
 

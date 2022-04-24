@@ -35,7 +35,7 @@ using namespace pierre;
 namespace pierre {
 namespace rtsp {
 
-Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(requestContent()) {
+Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // dictDump();
   // maybe more
   debugFlag(false);
@@ -101,8 +101,8 @@ bool Setup::handleStreams() {
 
   // get session info
   const auto session_key = dictGetData(1, "shk");
-  const auto active_remote = requestHeaders().getVal(DacpActiveRemote);
-  const auto dacp_id = requestHeaders().getVal(DacpID);
+  const auto active_remote = rHeaders().getVal(DacpActiveRemote);
+  const auto dacp_id = rHeaders().getVal(DacpID);
 
   rtp()->saveSessionInfo(session_key, active_remote, dacp_id);
 

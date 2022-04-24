@@ -137,15 +137,6 @@ void Session::ensureAllContent() {
 
   // if more bytes are needed, reply Continue
   if (more_bytes) {
-    // fmt::print("{} MORE BYTES HEADERS\n", fnName());
-    // _headers.dump();
-
-    // fmt::print("{} more bytes={} have bytes={} content_type={}\n", fnName(), more_bytes,
-    //            packet.size(), _headers.getVal(Headers::Type2::ContentType));
-    // fmt::print("{} PACKET BEGIN BEFORE LOADING MORE BYTES\n", fnName());
-    // fmt::print("{}\n", packet.view());
-    // fmt::print("{} PACKET END BEFORE LOADING MORE BYTES\n", fnName());
-
     constexpr auto CONTINUE = "CONTINUE";
     auto reply = Reply::create(
         {.method = CONTINUE, .path = path(), .content = content(), .headers = headers()});
@@ -217,11 +208,10 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
         break;
 
       default:
-        fmt::print("{} closing socket={} err_value={} msg={}\n", loc.function_name(),
+        fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());
 
         socket.shutdown(tcp_socket::shutdown_both);
-        socket.close();
         rc = false;
     }
   }

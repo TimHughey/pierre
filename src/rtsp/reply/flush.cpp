@@ -16,17 +16,18 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtsp/reply/teardown.hpp"
+#include "rtsp/reply/flush.hpp"
+#include <rtsp/aplist.hpp>
 
 namespace pierre {
 namespace rtsp {
 
-Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), Aplist(plist()) {
+FlushBuffered::FlushBuffered(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   rHeaders().dump();
-  dictDump();
+  dictDump(fnName());
 }
 
-bool Teardown::populate() {
+bool FlushBuffered::populate() {
   responseCode(RespCode::OK);
   return true;
 }

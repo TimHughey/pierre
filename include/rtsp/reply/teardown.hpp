@@ -16,6 +16,8 @@
 //
 //  https://www.wisslanding.com
 
+#pragma once
+
 #include "rtsp/aplist.hpp"
 #include "rtsp/reply.hpp"
 
