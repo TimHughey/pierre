@@ -21,7 +21,6 @@
 #include <boost/asio.hpp>
 #include <boost/asio/io_context.hpp>
 #include <cstdint>
-// #include <list>
 #include <memory>
 #include <optional>
 
@@ -76,8 +75,6 @@ private:
   const Opts &opts;
   io_context &io_ctx;
   tcp_acceptor acceptor;
-  // std::list<sSession> _sessions;  // session storage
-  // std::list<tcp_socket> _sockets; // socket storage
 
   std::optional<tcp_socket> socket;
 

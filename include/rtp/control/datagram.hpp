@@ -18,72 +18,84 @@
 
 #pragma once
 
-#include <array>
+#include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/udp.hpp>
-#include <boost/asio/spawn.hpp>
-#include <boost/asio/write.hpp>
-#include <ctime>
-#include <list>
+#include <future>
 #include <memory>
+#include <source_location>
 #include <string>
 #include <thread>
 
+#include "packet/in.hpp"
 #include "rtp/port_promise.hpp"
 
 namespace pierre {
 namespace rtp {
+namespace control {
 
-class Control; // forward decl for typedef
-typedef std::shared_ptr<Control> sControl;
+class Datagram; // forward decl for typedef
+typedef std::shared_ptr<Datagram> sDatagram;
 
-class Control : public std::enable_shared_from_this<Control> {
+class Datagram : public std::enable_shared_from_this<Datagram> {
 public:
-  using yield_context = boost::asio::yield_context;
-  using io_service = boost::asio::io_service;
+  using error_code = boost::system::error_code;
+  using io_context = boost::asio::io_context;
   using udp_endpoint = boost::asio::ip::udp::endpoint;
   using udp_socket = boost::asio::ip::udp::socket;
+  using ip_udp = boost::asio::ip::udp;
+  using src_loc = std::source_location;
+  typedef const char *ccs;
 
 public:
-  ~Control();
+  ~Datagram();
 
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sControl create() {
+  [[nodiscard]] static sDatagram create(io_context &io_ctx) {
     // not using std::make_shared; constructor is private
-    return sControl(new Control());
+    return sDatagram(new Datagram(io_ctx));
   }
 
-  sControl getSelf() { return shared_from_this(); }
+  sDatagram getSelf() { return shared_from_this(); }
+
+private:
+  Datagram(io_context &io_ctx);
 
 public:
   // Public API
-
-  void join() { return _thread.join(); }
-  uint16_t localPort();
-
+  void asyncControlLoop();
+  uint16_t localPort() const { return _port; }
   PortFuture start();
 
-  std::thread &thread() { return _thread; }
+private:
+  bool isReady() const { return socket.is_open(); };
+  bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
+
+  void handleControlBlock(size_t bytes);
+  void nextControlBlock();
+
+  packet::In &wire() { return _wire; }
+
+  static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
-  Control();
+  // order dependent
+  io_context &io_ctx;
+  udp_socket socket;
 
-  void recvPacket(yield_context yield);
+  // latest sender endpoint
+  udp_endpoint endpoint;
 
-  void runLoop();
-
-private:
-  std::thread _thread{};
-  std::thread::native_handle_type _handle;
   uint16_t _port = 0; // choose any port
 
-  io_service _ioservice;
-  udp_socket _socket;
-  udp_endpoint _remote_endpoint;
+  packet::In _wire;
+  uint64_t _rx_bytes = 0;
+  uint64_t _tx_bytes = 0;
 
   PortPromise _port_promise;
 };
 
+} // namespace control
 } // namespace rtp
 } // namespace pierre

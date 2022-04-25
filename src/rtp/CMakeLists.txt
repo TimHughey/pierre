@@ -14,22 +14,22 @@ set(Boost_USE_DEBUG_LIBS         ON)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_DEBUG                  OFF)
 set(Boost_THREADAPI              pthread)
-find_package(Boost 1.78
-  COMPONENTS
-    context thread coroutine system
-  REQUIRED
-)
 
-find_package(fmt                  REQUIRED)
-# find_library(plist  NAMES plist REQUIRED)
-find_library(rt       NAMES rt    REQUIRED)
-find_package(OpenSSL              REQUIRED)
+find_package(Boost 1.78 COMPONENTS thread system REQUIRED)
+find_package(fmt                                 REQUIRED)
+find_library(rt       NAMES rt                   REQUIRED)
+find_package(OpenSSL                             REQUIRED)
 
 add_library(RTP
   conn_info.cpp rtp.cpp stream.cpp anchor_info.cpp
-  event.cpp control.cpp buffered.cpp
+  audio/buffered/server.cpp audio/buffered/session.cpp
+  control/datagram.cpp timing/datagram.cpp
+  event/server.cpp event/session.cpp
   ${HEADER_LIST}
 )
+
+# all includes are relative to base includes
+target_include_directories(RTP PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
 
 # all includes are relative to base includes
 target_include_directories(RTP PUBLIC ${HEADER_PATH})
@@ -40,35 +40,7 @@ target_link_libraries(RTP PUBLIC
   # Core
   # mDNS
   ssl
-  nPTP
-  RTSP
+  nPTP RTSP PACKET
   fmt::fmt
   rt
 )
-
-
-# FUNCTION(ADD_RESOURCES out_var)
-#   SET(result)
-#   FOREACH(in_f ${ARGN})
-#     FILE(RELATIVE_PATH src_f ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${in_f})
-#     SET(out_f "${PROJECT_BINARY_DIR}/${in_f}.o")
-#     ADD_CUSTOM_COMMAND(OUTPUT ${out_f}
-#       COMMAND ld -r -b binary -o ${out_f} ${src_f}
-#       DEPENDS ${in_f}
-#       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-#       COMMENT "Building GLSL object ${out_f}"
-#       VERBATIM
-#       )
-#     LIST(APPEND result ${out_f})
-#   ENDFOREACH()
-#   SET(${out_var} "${result}" PARENT_SCOPE)
-# ENDFUNCTION()
-# # A simple program that uses resources
-# ADD_RESOURCES(someResources test.txt)
-# ADD_EXECUTABLE(main.cpp ${someResources})
-
-# IDEs should put the headers in a nice place
-# source_group(
-#   TREE ${HEADER_PATH}
-#   PREFIX "Header Files"
-#   FILES ${HEADER_LIST})

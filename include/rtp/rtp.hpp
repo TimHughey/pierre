@@ -22,16 +22,20 @@
 
 #pragma once
 
+#include <boost/asio/io_context.hpp>
 #include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
+#include <thread>
+#include <unordered_map>
 
 #include "rtp/anchor_info.hpp"
-#include "rtp/buffered.hpp"
-#include "rtp/control.hpp"
-#include "rtp/event.hpp"
+#include "rtp/audio/buffered/server.hpp"
+#include "rtp/control/datagram.hpp"
+#include "rtp/event/server.hpp"
 #include "rtp/input_info.hpp"
+#include "rtp/timing/datagram.hpp"
 
 namespace pierre {
 
@@ -39,46 +43,66 @@ namespace pierre {
 class Rtp;
 typedef std::shared_ptr<Rtp> sRtp;
 
+enum ServerType : uint8_t { AudioBuffered = 0, Event, Control, Timing };
+
 class Rtp : public std::enable_shared_from_this<Rtp> {
+private:
+  struct Servers {
+    rtp::event::sServer event;
+    rtp::audio::buffered::sServer audio_buffered;
+    rtp::control::sDatagram control;
+    rtp::timing::sDatagram timing;
+  };
+
 public:
+  using io_context = boost::asio::io_context;
   using string = std::string;
   typedef const string &csr;
 
-public:
-  ~Rtp();
-
 public: // object creation and shared_ptr API
   [[nodiscard]] static sRtp create() {
+    if (_instance == nullptr) {
+      _instance = sRtp(new Rtp());
+    }
     // not using std::make_shared; constructor is private
-    return sRtp(new Rtp());
+    return _instance;
   }
+
+  [[nodiscard]] static sRtp instance() { return create(); }
 
   sRtp getSelf() { return shared_from_this(); }
 
-public:
-  void start() {}
+  void static shutdown() { _instance.reset(); }
 
-  size_t bufferSize() const { return 1024 * 1024 * 8; };
+public:
+  void start();
 
   // Public API
   void saveAnchorInfo(const rtp::AnchorData &anchor_data);
   void saveSessionInfo(csr shk, csr active_remote, csr dacp_id);
 
-  rtp::PortFuture startBuffered() { return _buffered->start(); }
-  rtp::PortFuture startControl() { return _control->start(); }
-  rtp::PortFuture startEvent() { return _event->start(); }
+  rtp::PortFuture startServer(ServerType type);
+
+  rtp::PortFuture startBuffered() { return servers.audio_buffered->start(); }
+  rtp::PortFuture startControl() { return servers.control->start(); }
+  rtp::PortFuture startEvent() { return servers.event->start(); }
+
+  // Getters
+  size_t bufferSize() const { return 1024 * 1024 * 8; };
+  rtp::event::sServer eventServer() { return servers.event; }
 
 private:
   Rtp();
 
+  void runLoop();
+
 private:
-  // order dependent for constructor
-  rtp::sEvent _event;
-  rtp::sControl _control;
-  rtp::sBuffered _buffered;
+  io_context io_ctx;
+  // shared pointers to all servers spun up for RTP
+  Servers servers;
 
   // order independent
-  rtp::InputInfo _input_info;
+
   uint32_t _frames_per_packet_max = 352; // audio frames per packet
   string _session_key;
   string _active_remote;
@@ -87,10 +111,15 @@ private:
   uint32_t _backend_latency = 0;
   uint64_t _rate;
 
+  // runtime info
   rtp::AnchorInfo _anchor;
+  rtp::InputInfo _input_info;
 
   bool running = false;
   uint64_t last_resend_request_error_ns = 0;
+
+  static std::shared_ptr<Rtp> _instance;
+  std::thread _thread;
 };
 
 } // namespace pierre

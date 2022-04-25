@@ -18,77 +18,74 @@
 
 #pragma once
 
-#include <array>
+#include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/spawn.hpp>
-#include <boost/asio/write.hpp>
-#include <ctime>
 #include <future>
-#include <list>
 #include <memory>
+#include <optional>
 #include <string>
-#include <thread>
 
 #include "rtp/port_promise.hpp"
 
 namespace pierre {
 namespace rtp {
+namespace event {
 
-class Buffered; // forward decl for typedef
-typedef std::shared_ptr<Buffered> sBuffered;
+class Server; // forward decl for typedef
+typedef std::shared_ptr<Server> sServer;
 
-class Buffered : public std::enable_shared_from_this<Buffered> {
+class Server : public std::enable_shared_from_this<Server> {
 public:
-  using yield_context = boost::asio::yield_context;
-  using io_service = boost::asio::io_service;
+  using io_context = boost::asio::io_context;
   using tcp_acceptor = boost::asio::ip::tcp::acceptor;
+  using tcp_endpoint = boost::asio::ip::tcp::endpoint;
   using tcp_socket = boost::asio::ip::tcp::socket;
+  using ip_tcp = boost::asio::ip::tcp;
 
-  typedef std::list<tcp_socket> SocketList;
+  typedef const char *ccs;
 
 public:
-  ~Buffered();
+  ~Server();
 
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sBuffered create() {
+  [[nodiscard]] static sServer create(io_context &io_ctx) {
     // not using std::make_shared; constructor is private
-    return sBuffered(new Buffered());
+    return sServer(new Server(io_ctx));
   }
 
-  sBuffered getSelf() { return shared_from_this(); }
+  sServer getSelf() { return shared_from_this(); }
 
 public:
   // Public API
-
-  void join() { return _thread.join(); }
   uint16_t localPort() const { return _port; }
-
   PortFuture start();
 
-  std::thread &thread() { return _thread; }
+private:
+  Server(io_context &io_ctx);
+
+  void asyncAccept();
 
 private:
-  Buffered();
-
-  void doAccept(yield_context yield);
-  void recvBuffered(tcp_socket &socket, yield_context yield);
-
-  void runLoop();
+  static ccs fnName(std::source_location loc = std::source_location::current()) {
+    return loc.function_name();
+  }
 
 private:
-  std::thread _thread{};
-  std::thread::native_handle_type _handle;
+  // order dependent
+  io_context &io_ctx;
+  tcp_acceptor acceptor;
+
+  // temporary holder of socket (io_ctx) which waiting for
+  // a connection
+  std::optional<tcp_socket> socket;
+
   uint16_t _port = 0; // choose any port
-
-  io_service _ioservice;
-  tcp_acceptor *_acceptor;
-
-  SocketList _sockets;
 
   PortPromise _port_promise;
 };
 
+} // namespace event
 } // namespace rtp
 } // namespace pierre

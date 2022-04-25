@@ -20,18 +20,8 @@
 
 #pragma once
 
-#include <array>
-#include <boost/asio.hpp>
-#include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/spawn.hpp>
-#include <boost/asio/write.hpp>
-#include <ctime>
-#include <list>
 #include <memory>
-#include <string>
 #include <thread>
 
 #include "core/host.hpp"
@@ -49,21 +39,10 @@ namespace pierre {
 class Rtsp;
 
 typedef std::shared_ptr<Rtsp> sRtsp;
-typedef std::shared_ptr<std::thread> stRtsp;
 
 class Rtsp : public std::enable_shared_from_this<Rtsp> {
 public:
-  using yield_context = boost::asio::yield_context;
-  using io_service = boost::asio::io_service;
-  using io_context = boost::asio::io_context;
-  using tcp_acceptor = boost::asio::ip::tcp::acceptor;
-  using tcp_socket = boost::asio::ip::tcp::socket;
-
-  typedef std::list<tcp_socket> SocketList;
-
-public:
   ~Rtsp();
-
   // shared_ptr API
   [[nodiscard]] static sRtsp create(sHost host) {
     // must call constructor directly since it's private
@@ -79,18 +58,13 @@ public:
 private:
   Rtsp(sHost host);
 
-  // void doAccept(yield_context yield);
-  // void doRead(tcp_socket &socket, yield_context yield);
-  // void doWrite(tcp_socket &socket, yield_context yield);
-
   void runLoop();
-  // void session(tcp_socket &socket, auto request);
 
 private:
   // NOTE: order of member variables must match the order
   // created by the constructor
 
-  // required config, data and network services
+  // order dependent
   sHost host;
   sService service;
   smDNS mdns;
@@ -98,18 +72,10 @@ private:
   sRtp rtp;
 
   // internal
-
   std::thread _thread;
-  uint16_t _port;
 
-  std::thread::native_handle_type _handle;
-
-  // io_service _ioservice;
-  tcp_acceptor *_acceptor;
-
-  SocketList _sockets;
-
-  io_context io_ctx;
+  // network
+  boost::asio::io_context io_ctx;
   rtsp::sServer server;
 };
 } // namespace pierre

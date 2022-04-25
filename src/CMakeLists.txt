@@ -1,5 +1,6 @@
 
 add_subdirectory(core)
+add_subdirectory(packet)
 add_subdirectory(misc)
 add_subdirectory(audio)
 add_subdirectory(dmx)

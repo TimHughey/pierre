@@ -16,23 +16,55 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp/rtp.hpp"
+#include <exception>
+#include <fmt/format.h>
+
 #include "rtp/anchor_info.hpp"
-#include "rtp/buffered.hpp"
-#include "rtp/control.hpp"
-#include "rtp/event.hpp"
+#include "rtp/audio/buffered/server.hpp"
+#include "rtp/control/datagram.hpp"
+#include "rtp/event/server.hpp"
+#include "rtp/rtp.hpp"
 
 namespace pierre {
 using namespace rtp;
 
 Rtp::Rtp()
-    : _event(rtp::Event::create()), _control(rtp::Control::create()),
-      _buffered(rtp::Buffered::create()) {
+    : servers{.event = rtp::event::Server::create(io_ctx),
+              .audio_buffered = rtp::audio::buffered::Server::create(io_ctx),
+              .control = rtp::control::Datagram::create(io_ctx),
+              .timing = rtp::timing::Datagram::create(io_ctx)} {
   // more later
 }
 
-Rtp::~Rtp() {
-  // more later
+void Rtp::runLoop() {
+  io_ctx.run(); // returns until no more work
+
+  std::array<char, 24> thread_name{0};
+  pthread_getname_np(_thread.native_handle(), thread_name.data(), thread_name.size());
+  fmt::print("{} has run out of work\n", thread_name.data());
+}
+
+rtp::PortFuture Rtp::startServer(ServerType type) {
+  switch (type) {
+    case AudioBuffered:
+      return servers.audio_buffered->start();
+
+    case Event:
+      return servers.event->start();
+
+    case Control:
+      return servers.control->start();
+
+    case Timing:
+      return servers.timing->start();
+  }
+
+  throw(std::runtime_error("unhandled enum"));
+}
+
+void Rtp::start() {
+  _thread = std::thread([this]() { runLoop(); });
+  pthread_setname_np(_thread.native_handle(), "RTP");
 }
 
 void Rtp::saveAnchorInfo(const rtp::AnchorData &data) {
@@ -45,5 +77,7 @@ void Rtp::saveSessionInfo(csr shk, csr active_remote, csr dacp_id) {
   _active_remote = active_remote;
   _dacp_id = dacp_id;
 }
+
+std::shared_ptr<Rtp> pierre::Rtp::_instance;
 
 } // namespace pierre
