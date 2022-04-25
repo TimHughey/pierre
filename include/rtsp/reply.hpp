@@ -122,7 +122,7 @@ public:
   inline const Content &rContent() const { return _request_content; }
   inline const Headers &rHeaders() const { return _request_headers; };
 
-  sRtp rtp() { return _rtp->getPtr(); }
+  sRtp rtp() { return _rtp->getSelf(); }
 
   sService service() { return _service; }
 

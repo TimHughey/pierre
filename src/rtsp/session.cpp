@@ -44,16 +44,98 @@ using string_view = std::string_view;
 
 using enum Headers::Type2;
 
-Session::Session(tcp_socket &socket, const Session::Opts &opts)
-    : socket(socket),        // io_context / socket for this session
-      host(opts.host),       // the Host (config, platform info)
-      service(opts.service), // service definition for mDNS (used by Reply)
-      mdns(opts.mdns),       // mDNS (used by Reply)
-      nptp(opts.nptp),       // Nptp (used by Reply)
-      rtp(Rtp::create()),    // Real Time Protocol (used by Reply to create audio)
+// notes:
+//  1. socket is passed as a reference to a reference so we must move to our local socket reference
+Session::Session(tcp_socket &&new_socket, const Session::Opts &opts)
+    : socket(std::move(new_socket)), // io_context / socket for this session
+      host(opts.host),               // the Host (config, platform info)
+      service(opts.service),         // service definition for mDNS (used by Reply)
+      mdns(opts.mdns),               // mDNS (used by Reply)
+      nptp(opts.nptp),               // Nptp (used by Reply)
+      rtp(Rtp::create()),            // Real Time Protocol (used by Reply to create audio)
       aes_ctx(AesCtx::create(host->deviceID())) // cipher
 {
-  // maybe more
+  fmt::print("rtsp::Session socket={}\n", socket.native_handle());
+}
+
+Session::~Session() {
+  // announce the session has ended
+  fmt::print("{} complete\n", fnName());
+}
+
+void Session::asyncRequestLoop() {
+  // notes:
+  //  1. nothing within this function can be captured by the lamba
+  //     because the scope of this function ends before
+  //     the lamba executes
+  //
+  //  2. the async_read call will attach the lamba to the io_ctx
+  //     then immediately return and then this function returns
+  //
+  //  3. we capture a shared_ptr (self) for access within the lamba,
+  //     that shared_ptr is kept in scope while async_read is
+  //     waiting for data on the socket then during execution
+  //     of the lamba
+  //
+  //  4. when called again from within the lamba the sequence of
+  //     events repeats (this function returns) and the shared_ptr
+  //     once again goes out of scope
+  //
+  //  5. the crucial point -- we must keep the use count
+  //     of the session above zero until the session ends
+  //     (e.g. due to error, natural completion, io_ctx is stopped)
+
+  async_read(socket, dynamic_buffer(wire()), boost::asio::transfer_at_least(16),
+             [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+               // general notes:
+               //
+               // 1. this was not captured so the lamba is not in 'this' context
+               // 2. all calls to the session must be via self (which was captured)
+               // 3. we do minimal activities to quickly get to 'this' context
+
+               // essential activies:
+               //
+               // 1. check the error code
+               if (self->isReady(ec)) {
+                 // 2. handle the request (remember the data received is in the wire buffer)
+                 //    handleRequest will perform the request/reply transaction (serially)
+                 //    and returns when the transaction completes or errors
+                 self->handleRequest(rx_bytes);
+
+                 if (self->isReady()) {
+                   // 3. call nextRequest() to reset buffers and state
+                   self->nextRequest();
+
+                   // 4. the socket is still ready, call asyncRequest to await next request
+                   // 5. async_read captures a fresh shared_ptr
+                   // 6. reminder... call returns when async_read registers the work with io_ctx
+                   self->asyncRequestLoop();
+                   // 7. falls through
+                 }
+               } // self is about to go out of scope...
+             }); // self is out of scope and the shared_ptr use count is reduced by one
+
+  // final notes:
+  // 1. the first return of this function traverses back to the Server that created the
+  //    Session (in the same io_ctx)
+  // 2. subsequent returns are to the io_ctx and match the required void return signature
+}
+
+void Session::handleRequest(size_t rx_bytes) {
+  // the following function calls do not contain async_* calls
+  accumulateRx(rx_bytes);
+
+  rxAvailable();      // drain the socket
+  ensureAllContent(); // load additional content
+
+  try {
+    createAndSendReply();
+  } catch (const std::exception &e) {
+    fmt::print("{} create reply failed: {}\n", fnName(), e.what());
+
+    _headers.dump();
+    _content.dump();
+  }
 }
 
 size_t Session::decrypt(PacketIn &packet) {
@@ -63,43 +145,6 @@ size_t Session::decrypt(PacketIn &packet) {
   _wire.clear(); // wire bytes have been deciphered, clear them
 
   return consumed;
-}
-
-void Session::readApRequest() {
-  // bail out if the socket isn't ready
-  if (isReady() == false) {
-    return;
-  }
-
-  // this function is recursive via the lambda, reset stateful objects
-  _wire.clear();
-  _headers.clear();
-  _content.clear();
-
-  auto buff = dynamic_buffer(_wire);
-
-  async_read(socket, buff, boost::asio::transfer_at_least(16),
-             [&](error_code ec, size_t rx_bytes) {
-               accumulateRx(rx_bytes);
-
-               if (isReady(ec) == false) {
-                 return;
-               }
-
-               rxAvailable();      // drain the socket
-               ensureAllContent(); // load additional content
-
-               try {
-                 createAndSendReply();
-
-                 readApRequest();
-               } catch (const std::exception &e) {
-                 fmt::print("{} create reply failed: {}\n", fnName(), e.what());
-
-                 _headers.dump();
-                 _content.dump();
-               }
-             });
 }
 
 bool Session::rxAvailable() {
@@ -170,12 +215,12 @@ void Session::createAndSendReply() {
                               .path = path(),
                               .content = content(),
                               .headers = headers(),
-                              .host = host->getPtr(),
-                              .service = service->getPtr(),
+                              .host = host->getSelf(),
+                              .service = service->getSelf(),
                               .aes_ctx = aes_ctx,
-                              .mdns = mdns->getPtr(),
-                              .nptp = nptp->getPtr(),
-                              .rtp = rtp->getPtr()});
+                              .mdns = mdns->getSelf(),
+                              .nptp = nptp->getSelf(),
+                              .rtp = rtp->getSelf()});
 
   auto &reply_packet = reply->build();
 
@@ -212,11 +257,18 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
                    socket.native_handle(), ec.value(), ec.message());
 
         socket.shutdown(tcp_socket::shutdown_both);
+        socket.close();
         rc = false;
     }
   }
 
   return rc;
+}
+
+void Session::nextRequest() {
+  _wire.clear();
+  _headers.clear();
+  _content.clear();
 }
 
 bool Session::rxAtLeast(size_t bytes) {
@@ -246,8 +298,6 @@ bool Session::rxAtLeast(size_t bytes) {
   }
   return isReady();
 }
-
-void Session::start() { readApRequest(); }
 
 void Session::dump(DumpKind dump_type) {
   std::time_t now = std::time(nullptr);

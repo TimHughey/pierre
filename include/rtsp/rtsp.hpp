@@ -70,7 +70,7 @@ public:
     return sRtsp(new Rtsp(host));
   }
 
-  sRtsp getPtr() { return shared_from_this(); }
+  sRtsp getSelf() { return shared_from_this(); }
 
   // public API
   void join() { return _thread.join(); }

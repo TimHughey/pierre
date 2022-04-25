@@ -45,7 +45,7 @@ public:
     return sHost(new Host(cfg));
   }
 
-  sHost getPtr() { return shared_from_this(); }
+  sHost getSelf() { return shared_from_this(); }
 
   // general API
 

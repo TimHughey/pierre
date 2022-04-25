@@ -21,8 +21,9 @@
 #include <boost/asio.hpp>
 #include <boost/asio/io_context.hpp>
 #include <cstdint>
-#include <list>
+// #include <list>
 #include <memory>
+#include <optional>
 
 #include "core/host.hpp"
 #include "core/service.hpp"
@@ -61,7 +62,7 @@ public:
     return sServer(new Server(opts));
   }
 
-  sServer getPtr() { return shared_from_this(); }
+  sServer getSelf() { return shared_from_this(); }
 
   // public API
   void start();
@@ -75,8 +76,10 @@ private:
   const Opts &opts;
   io_context &io_ctx;
   tcp_acceptor acceptor;
-  std::list<sSession> _sessions;  // session storage
-  std::list<tcp_socket> _sockets; // socket storage
+  // std::list<sSession> _sessions;  // session storage
+  // std::list<tcp_socket> _sockets; // socket storage
+
+  std::optional<tcp_socket> socket;
 
   static constexpr uint16_t _port = 7000;
 };

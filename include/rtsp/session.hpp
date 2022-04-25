@@ -65,20 +65,21 @@ public:
   };
 
 public:
+  ~Session();
   // shared_ptr API
-  [[nodiscard]] static sSession create(tcp_socket &socket, const Opts &opts) {
-    // must call constructor directly since it's private
-    return sSession(new Session(socket, opts));
+  [[nodiscard]] static sSession create(tcp_socket &&new_socket, const Opts &opts) {
+     // must call constructor directly since it's private
+    return sSession(new Session(std::forward<tcp_socket>(new_socket), opts));
   }
 
-  sSession getPtr() { return shared_from_this(); }
+  sSession getSelf() { return shared_from_this(); }
 
 private:
-  Session(tcp_socket &socket, const Opts &opts);
+  Session(tcp_socket &&socket, const Opts &opts);
 
 public:
-  // primary entry point
-  void start();
+  // initiates async request run loop
+  void asyncRequestLoop(); // see .cpp file for critical function details
 
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
@@ -97,10 +98,14 @@ private:
   size_t decrypt(PacketIn &packet);
   void ensureAllContent(); // uses Headers functionality to ensure all content loaded
   bool isReady() const { return socket.is_open(); };
+  void nextRequest();
   bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
-  void readApRequest(); // returns when socket is closed
+
+  // receives the rx_bytes from async_read
+  void handleRequest(size_t bytes);
   bool rxAtLeast(size_t bytes = 1);
   bool rxAvailable(); // load bytes immediately available
+  PacketIn &wire() { return _wire; }
   void wireToPacket();
 
   // misc
@@ -110,7 +115,7 @@ private:
 
 private:
   // order dependent - initialized by constructor
-  tcp_socket &socket;
+  tcp_socket socket;
   sHost host;
   sService service;
   smDNS mdns;

@@ -57,7 +57,7 @@ public: // object creation and shared_ptr API
     return sEvent(new Event());
   }
 
-  sEvent getPtr() { return shared_from_this(); }
+  sEvent getSelf() { return shared_from_this(); }
 
 public:
   // Public API

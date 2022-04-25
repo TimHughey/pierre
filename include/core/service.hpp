@@ -56,7 +56,7 @@ public:
     return sService(new Service(host));
   }
 
-  sService getPtr() { return shared_from_this(); }
+  sService getSelf() { return shared_from_this(); }
 
   // general API
   void adjustSystemFlags(Flags flag);

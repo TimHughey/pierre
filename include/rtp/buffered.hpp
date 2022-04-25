@@ -57,7 +57,7 @@ public: // object creation and shared_ptr API
     return sBuffered(new Buffered());
   }
 
-  sBuffered getPtr() { return shared_from_this(); }
+  sBuffered getSelf() { return shared_from_this(); }
 
 public:
   // Public API

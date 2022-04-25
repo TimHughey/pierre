@@ -43,25 +43,30 @@ Server::Server(const Server::Opts &opts)
 }
 
 void Server::async_accept() {
-  acceptor.async_accept(_sockets.emplace_back(io_ctx), [&](error_code ec) {
-    const src_loc loc = std::source_location::current();
+  // capture the io_ctx in this optional for use when a request is accepted
+  // call it socket since it will become one once accepted
+  socket.emplace(io_ctx);
 
-    tcp_socket &socket = _sockets.back(); // grab the socket just accepted
-
+  // since the io_ctx is wrapped in the optional and async_accept wants the actual
+  // io_ctx we must deference or get the value of the optional
+  acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      auto handle = socket.native_handle();
+      const std::source_location loc = std::source_location::current();
+      auto handle = (*socket).native_handle();
       fmt::print("{} accepted connection, handle={}\n", loc.function_name(), handle);
 
-      // auto session = Session::create(
-      //     std::move(*socket), {.host = opts.host, .service = opts.service, .mdns = opts.mdns});
-
+      // create the session passing all the options
+      // notes
+      //  1: we move the socket (value of the optional) to session
+      //  2. we then start the session using the shared_ptr returned by Session::create()
+      //  3. Session::start() must ensure the shared_ptr pointer is captured in the
+      //     async lamba so it doesn't go out of scope
       auto session = Session::create(
-          socket,
+          std::move(socket.value()),
           {.host = opts.host, .service = opts.service, .mdns = opts.mdns, .nptp = opts.nptp});
 
-      _sessions.emplace_back(session);
+      session->asyncRequestLoop();
 
-      session->start();
     } else {
       fmt::print("{} accept connection failed, error={}\n", ec.message());
     }

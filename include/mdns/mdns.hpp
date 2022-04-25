@@ -66,7 +66,7 @@ public:
 
   const string deviceID();
 
-  smDNS getPtr() { return shared_from_this(); }
+  smDNS getSelf() { return shared_from_this(); }
 
   void makePrivateKey();
 

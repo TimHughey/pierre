@@ -60,7 +60,7 @@ public: // object creation and shared_ptr API
     return sNptp(new Nptp(service));
   }
 
-  sNptp getPtr() { return shared_from_this(); }
+  sNptp getSelf() { return shared_from_this(); }
 
 public: // public API
   void resetPeerList() { sendCtrlMsg("T"); }

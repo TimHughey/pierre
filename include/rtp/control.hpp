@@ -54,7 +54,7 @@ public: // object creation and shared_ptr API
     return sControl(new Control());
   }
 
-  sControl getPtr() { return shared_from_this(); }
+  sControl getSelf() { return shared_from_this(); }
 
 public:
   // Public API

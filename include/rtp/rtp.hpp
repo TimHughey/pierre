@@ -53,7 +53,7 @@ public: // object creation and shared_ptr API
     return sRtp(new Rtp());
   }
 
-  sRtp getPtr() { return shared_from_this(); }
+  sRtp getSelf() { return shared_from_this(); }
 
 public:
   void start() {}
