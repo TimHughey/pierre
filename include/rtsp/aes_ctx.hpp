@@ -55,9 +55,6 @@ public:
   typedef const std::string_view csv;
 
 public:
-  ~AesCtx();
-
-public:
   [[nodiscard]] static sAesCtx create(const char *device_str) {
     return sAesCtx(new AesCtx(device_str));
   }

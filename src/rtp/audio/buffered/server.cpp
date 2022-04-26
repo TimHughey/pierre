@@ -43,17 +43,14 @@ using error_code = boost::system::error_code;
 using src_loc = std::source_location;
 
 Server::Server(io_context &io_ctx)
-    : io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v6(), _port)} {
+    : io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v6(), port)} {
   // store a reference to the io_ctx and create the acceptor
 
   // with the endpoint created we know the port selected, grab it
   // and put in the promise to the original caller.  the caller needs to
   // know the port for an AirPlay2 request reply
-  _port = acceptor.local_endpoint().port();
-  _port_promise.set_value(_port); // used to inform the creator of the choosen port
+  port = acceptor.local_endpoint().port();
 }
-
-Server::~Server() {}
 
 void Server::asyncAccept() {
   // capture the io_ctx in this optional for use when a request is accepted
@@ -64,9 +61,9 @@ void Server::asyncAccept() {
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      const std::source_location loc = std::source_location::current();
-      auto handle = (*socket).native_handle();
-      fmt::print("{} accepted connection, handle={}\n", loc.function_name(), handle);
+      // const std::source_location loc = std::source_location::current();
+      // auto handle = (*socket).native_handle();
+      // fmt::print("{} accepted connection, handle={}\n", loc.function_name(), handle);
 
       // create the session passing all the options
       // notes
@@ -86,10 +83,14 @@ void Server::asyncAccept() {
   });
 }
 
-PortFuture Server::start() {
-  asyncAccept();
+uint16_t Server::localPort() {
+  // only start the server once
+  if (live == false) {
+    asyncAccept();
+    live = true;
+  }
 
-  return _port_promise.get_future();
+  return port;
 }
 
 } // namespace buffered

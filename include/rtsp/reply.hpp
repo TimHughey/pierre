@@ -35,7 +35,6 @@
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "nptp/nptp.hpp"
-#include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
@@ -84,7 +83,6 @@ public:
     sAesCtx aes_ctx = nullptr;
     smDNS mdns = nullptr;
     sNptp nptp = nullptr;
-    sRtp rtp = nullptr;
   };
 
 public:
@@ -122,8 +120,6 @@ public:
   inline const Content &rContent() const { return _request_content; }
   inline const Headers &rHeaders() const { return _request_headers; };
 
-  sRtp rtp() { return _rtp->getSelf(); }
-
   sService service() { return _service; }
 
   // sequence number of this request/reply exchange
@@ -150,7 +146,7 @@ protected:
   sAesCtx _aes_ctx;
   smDNS _mdns;
   sNptp _nptp;
-  sRtp _rtp;
+
   const Content &_request_content;
   const Headers &_request_headers;
 

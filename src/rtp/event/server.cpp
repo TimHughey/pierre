@@ -21,7 +21,6 @@
 
 #include "event/server.hpp"
 #include "event/session.hpp"
-#include "rtp/port_promise.hpp"
 
 namespace pierre {
 namespace rtp {
@@ -37,14 +36,8 @@ using error_code = boost::system::error_code;
 using src_loc = std::source_location;
 
 Server::Server(io_context &io_ctx)
-    : io_ctx(io_ctx), acceptor(io_ctx, tcp_endpoint(ip_tcp::v6(), _port)) {
-  _port = acceptor.local_endpoint().port();
-
-  _port_promise.set_value(_port); // used to inform the creator of the choosen port
-}
-
-Server::~Server() {
-  // more later
+    : io_ctx(io_ctx), acceptor(io_ctx, tcp_endpoint(ip_tcp::v6(), port)) {
+  port = acceptor.local_endpoint().port(); // save the chosen port
 }
 
 void Server::asyncAccept() {
@@ -56,8 +49,8 @@ void Server::asyncAccept() {
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      auto handle = (*socket).native_handle();
-      fmt::print("{} accepted connection, handle={}\n", fnName(), handle);
+      // auto handle = (*socket).native_handle();
+      // fmt::print("{} accepted connection, handle={}\n", fnName(), handle);
 
       // create the session passing all the options
       // notes
@@ -77,12 +70,15 @@ void Server::asyncAccept() {
   });
 }
 
-PortFuture Server::start() {
-  // attach async_accept as work to the io_ctx
-  asyncAccept();
+uint16_t Server::localPort() {
+  if (live == false) {
+    // attach async_accept as work to the io_ctx
+    asyncAccept();
+    live = true;
+  }
 
   // return the selected port to the caller
-  return _port_promise.get_future();
+  return port;
 }
 
 } // namespace event

@@ -27,7 +27,6 @@
 #include <string_view>
 #include <thread>
 
-#include "rtp/rtp.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/session.hpp"
@@ -37,7 +36,6 @@ namespace rtsp {
 
 using namespace boost::asio;
 using namespace boost::system;
-using namespace pierre::rtp;
 using error_code = boost::system::error_code;
 using src_loc = std::source_location;
 using string_view = std::string_view;
@@ -47,20 +45,14 @@ using enum Headers::Type2;
 // notes:
 //  1. socket is passed as a reference to a reference so we must move to our local socket reference
 Session::Session(tcp_socket &&new_socket, const Session::Opts &opts)
-    : socket(std::move(new_socket)), // io_context / socket for this session
-      host(opts.host),               // the Host (config, platform info)
-      service(opts.service),         // service definition for mDNS (used by Reply)
-      mdns(opts.mdns),               // mDNS (used by Reply)
-      nptp(opts.nptp),               // Nptp (used by Reply)
-      rtp(Rtp::create()),            // Real Time Protocol (used by Reply to create audio)
+    : socket(std::move(new_socket)),            // io_context / socket for this session
+      host(opts.host),                          // the Host (config, platform info)
+      service(opts.service),                    // service definition for mDNS (used by Reply)
+      mdns(opts.mdns),                          // mDNS (used by Reply)
+      nptp(opts.nptp),                          // Nptp (used by Reply)
       aes_ctx(AesCtx::create(host->deviceID())) // cipher
 {
-  fmt::print("rtsp::Session socket={}\n", socket.native_handle());
-}
-
-Session::~Session() {
-  // announce the session has ended
-  fmt::print("{} complete\n", fnName());
+  fmt::print("{} socket={}\n", fnName(), socket.native_handle());
 }
 
 void Session::asyncRequestLoop() {
@@ -219,8 +211,7 @@ void Session::createAndSendReply() {
                               .service = service->getSelf(),
                               .aes_ctx = aes_ctx,
                               .mdns = mdns->getSelf(),
-                              .nptp = nptp->getSelf(),
-                              .rtp = rtp->getSelf()});
+                              .nptp = nptp->getSelf()});
 
   auto &reply_packet = reply->build();
 
@@ -256,8 +247,8 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
         fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());
 
-        socket.shutdown(tcp_socket::shutdown_both);
-        socket.close();
+        // socket.shutdown(tcp_socket::shutdown_both);
+        // socket.close();
         rc = false;
     }
   }

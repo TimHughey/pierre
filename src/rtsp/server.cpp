@@ -51,9 +51,9 @@ void Server::async_accept() {
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      const std::source_location loc = std::source_location::current();
-      auto handle = (*socket).native_handle();
-      fmt::print("{} accepted connection, handle={}\n", loc.function_name(), handle);
+      // const std::source_location loc = std::source_location::current();
+      // auto handle = (*socket).native_handle();
+      // fmt::print("{} accepted connection, handle={}\n", loc.function_name(), handle);
 
       // create the session passing all the options
       // notes

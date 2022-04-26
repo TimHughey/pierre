@@ -50,13 +50,16 @@ void Rtsp::start() {
 
   mdns->start();
   nptp->start();
-  rtp->start();
 
   _thread = std::thread([this]() { runLoop(); });
   pthread_setname_np(_thread.native_handle(), "RTSP");
 }
 
 void Rtsp::runLoop() {
+  // create and start Rtp, it will be needed later
+  auto rtp = Rtp::create();
+  rtp->start();
+
   // create server
   server = rtsp::Server::create(
       {.io_ctx = io_ctx, .host = host, .service = service, .mdns = mdns, .nptp = nptp});

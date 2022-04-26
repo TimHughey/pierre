@@ -37,34 +37,49 @@ Rtp::Rtp()
 }
 
 void Rtp::runLoop() {
+  using WorkGuard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
+
+  WorkGuard work_guard(io_ctx.get_executor());
   io_ctx.run(); // returns until no more work
 
+  auto self = pthread_self();
+
   std::array<char, 24> thread_name{0};
-  pthread_getname_np(_thread.native_handle(), thread_name.data(), thread_name.size());
-  fmt::print("{} has run out of work\n", thread_name.data());
+  pthread_getname_np(self, thread_name.data(), thread_name.size());
+  fmt::print("{} work is complete\n", thread_name.data());
 }
 
-rtp::PortFuture Rtp::startServer(ServerType type) {
+uint16_t Rtp::localPort(ServerType type) {
+  uint16_t port = 0;
+
   switch (type) {
     case AudioBuffered:
-      return servers.audio_buffered->start();
+      port = servers.audio_buffered->localPort();
+      break;
 
     case Event:
-      return servers.event->start();
+      port = servers.event->localPort();
+      break;
 
     case Control:
-      return servers.control->start();
+      port = servers.control->localPort();
+      break;
 
     case Timing:
-      return servers.timing->start();
+      port = servers.timing->localPort();
+      break;
   }
 
-  throw(std::runtime_error("unhandled enum"));
+  return port;
 }
 
 void Rtp::start() {
-  _thread = std::thread([this]() { runLoop(); });
-  pthread_setname_np(_thread.native_handle(), "RTP");
+  _thread = std::thread([this]() {
+    auto self = pthread_self();
+    pthread_setname_np(self, "RTP");
+
+    runLoop();
+  });
 }
 
 void Rtp::saveAnchorInfo(const rtp::AnchorData &data) {

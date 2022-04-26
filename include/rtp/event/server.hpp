@@ -27,8 +27,6 @@
 #include <optional>
 #include <string>
 
-#include "rtp/port_promise.hpp"
-
 namespace pierre {
 namespace rtp {
 namespace event {
@@ -46,9 +44,6 @@ public:
 
   typedef const char *ccs;
 
-public:
-  ~Server();
-
 public: // object creation and shared_ptr API
   [[nodiscard]] static sServer create(io_context &io_ctx) {
     // not using std::make_shared; constructor is private
@@ -59,8 +54,7 @@ public: // object creation and shared_ptr API
 
 public:
   // Public API
-  uint16_t localPort() const { return _port; }
-  PortFuture start();
+  uint16_t localPort();
 
 private:
   Server(io_context &io_ctx);
@@ -77,13 +71,11 @@ private:
   io_context &io_ctx;
   tcp_acceptor acceptor;
 
-  // temporary holder of socket (io_ctx) which waiting for
-  // a connection
+  uint16_t port = 0; // choose any port and put it here
+  bool live = false;
+
+  // temporary holder of socket (io_ctx) while waiting for a connection
   std::optional<tcp_socket> socket;
-
-  uint16_t _port = 0; // choose any port
-
-  PortPromise _port_promise;
 };
 
 } // namespace event

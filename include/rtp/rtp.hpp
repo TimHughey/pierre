@@ -75,17 +75,13 @@ public: // object creation and shared_ptr API
   void static shutdown() { _instance.reset(); }
 
 public:
+  // Public API
+  uint16_t localPort(ServerType type); // local endpoint port
   void start();
 
-  // Public API
+  // Savers
   void saveAnchorInfo(const rtp::AnchorData &anchor_data);
   void saveSessionInfo(csr shk, csr active_remote, csr dacp_id);
-
-  rtp::PortFuture startServer(ServerType type);
-
-  rtp::PortFuture startBuffered() { return servers.audio_buffered->start(); }
-  rtp::PortFuture startControl() { return servers.control->start(); }
-  rtp::PortFuture startEvent() { return servers.event->start(); }
 
   // Getters
   size_t bufferSize() const { return 1024 * 1024 * 8; };

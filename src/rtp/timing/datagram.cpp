@@ -41,10 +41,9 @@ using udp_socket = boost::asio::ip::udp::socket;
 using ip_udp = boost::asio::ip::udp;
 
 Datagram::Datagram(io_context &io_ctx)
-    : io_ctx(io_ctx), socket(io_ctx, udp_endpoint(ip_udp::v6(), _port)) {
+    : io_ctx(io_ctx), socket(io_ctx, udp_endpoint(ip_udp::v6(), port)) {
   // local endpoint is created, capture the port for the original caller
-  _port = socket.local_endpoint().port();
-  _port_promise.set_value(_port);
+  port = socket.local_endpoint().port();
 }
 
 Datagram::~Datagram() {
@@ -137,16 +136,19 @@ bool Datagram::isReady(const error_code &ec, const src_loc loc) {
   return rc;
 }
 
+uint16_t Datagram::localPort() {
+  if (live == false) {
+    asyncControlLoop();
+  }
+
+  return port;
+}
+
 void Datagram::nextControlBlock() {
   // reset all buffers and state
   _wire.clear();
 }
 
-PortFuture Datagram::start() {
-  asyncControlLoop();
-
-  return _port_promise.get_future();
-}
 } // namespace timing
 } // namespace rtp
 } // namespace pierre

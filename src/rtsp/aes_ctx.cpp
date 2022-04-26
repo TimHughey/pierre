@@ -53,8 +53,6 @@ AesCtx::AesCtx(const char *device_str) {
   }
 }
 
-AesCtx::~AesCtx() { fmt::print("AesCtx::~AesCtx() called\n"); }
-
 Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body, size_t bytes) const {
   out.clear();
 

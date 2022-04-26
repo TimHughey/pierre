@@ -35,6 +35,8 @@ using namespace pierre;
 namespace pierre {
 namespace rtsp {
 
+using enum ServerType;
+
 Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // dictDump();
   // maybe more
@@ -62,16 +64,17 @@ bool Setup::handleNoStreams() {
     constexpr auto key_event_port = "eventPort";
     constexpr auto key_timing_port = "timingPort";
 
+    // RTP is a singleton, grab the shared_ptr (save some typing)
+    auto rtp = Rtp::instance();
+
     Aplist reply_dict(Dictionaries{key_timing_peer});
     const auto &ip_addrs = host()->ipAddrs();
 
     reply_dict.dictSetStringArray(key_timing_peer, key_addresses, ip_addrs);
     reply_dict.dictSetStringVal(key_timing_peer, key_ID, ip_addrs[0]);
 
-    auto port_barrier = rtp()->startEvent();
-    auto event_port = port_barrier.get(); // wait here until port is available
-
-    reply_dict.dictSetUint(nullptr, key_event_port, event_port);
+    // rtp-localPort() returns the local port (and starts the service if needed)
+    reply_dict.dictSetUint(nullptr, key_event_port, rtp->localPort(Event));
     reply_dict.dictSetUint(nullptr, key_timing_port, 0); // dummy
 
     // adjust Service system flags and request mDNS update
@@ -92,35 +95,39 @@ bool Setup::handleNoStreams() {
 }
 
 bool Setup::handleStreams() {
+  constexpr auto PTP = 103;
+  constexpr auto key_shared_key = "shk";
+  constexpr auto key_control_port = "controlPort";
+  constexpr auto key_type = "type";
+  constexpr auto key_data_port = "dataPort";
+  constexpr auto key_audio_buff_size = "audioBufferSize";
+  constexpr auto key_streams = "streams";
   using enum Headers::Type2;
   auto rc = true;
 
-  // start the control channel
-  auto control_port_barrier = rtp()->startControl();
-  auto control_port = control_port_barrier.get(); // wait here until port is available
-
   // get session info
-  const auto session_key = dictGetData(1, "shk");
+  const auto session_key = dictGetData(1, key_shared_key);
   const auto active_remote = rHeaders().getVal(DacpActiveRemote);
   const auto dacp_id = rHeaders().getVal(DacpID);
 
-  rtp()->saveSessionInfo(session_key, active_remote, dacp_id);
+  // RTP is a singleton, grab the shared_ptr (save some typing)
+  auto rtp = Rtp::instance();
 
-  auto buffered_port_barrier = rtp()->startBuffered();
-  auto buffered_port = buffered_port_barrier.get(); // wait here until port is available
+  rtp->saveSessionInfo(session_key, active_remote, dacp_id);
 
+  // build the reply (includes port for started services)
   ArrayDicts array_dicts;
-
   auto &stream0_dict = array_dicts.emplace_back(Aplist());
 
-  stream0_dict.dictSetUint(nullptr, "type", 103);
-  stream0_dict.dictSetUint(nullptr, "dataPort", buffered_port);
-  stream0_dict.dictSetUint(nullptr, "audioBufferSize", rtp()->bufferSize());
-  stream0_dict.dictSetUint(nullptr, "controlPort", control_port);
+  // rtp->localPort() returns the local port (and starts the service if needed)
+  stream0_dict.dictSetUint(nullptr, key_control_port, rtp->localPort(Control));
+  stream0_dict.dictSetUint(nullptr, key_type, PTP);
+  stream0_dict.dictSetUint(nullptr, key_data_port, rtp->localPort(AudioBuffered));
+  stream0_dict.dictSetUint(nullptr, key_audio_buff_size, rtp->bufferSize());
 
   Aplist reply_dict;
 
-  reply_dict.dictSetArray("streams", array_dicts);
+  reply_dict.dictSetArray(key_streams, array_dicts);
 
   size_t bytes = 0;
   auto binary = reply_dict.dictBinary(bytes);
@@ -177,7 +184,8 @@ void Setup::validateTimingProtocol() {
   auto match = dictCompareString(timing_path, ptp);
 
   if (!match) {
-    fmt::print("Setup: only {} timing allowed\n", ptp);
+    const auto prefix = fmt::format("{} timing type != {}", fnName(), ptp);
+    dictDump(prefix.c_str());
     saveCheck(false);
     return;
   }

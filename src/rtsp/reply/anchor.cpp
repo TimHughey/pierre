@@ -18,6 +18,7 @@
 
 #include <array>
 
+#include "rtp/rtp.hpp"
 #include "rtsp/reply/anchor.hpp"
 
 namespace pierre {
@@ -55,10 +56,10 @@ void Anchor::saveAnchorData() {
                                              .flags = dictGetUint(Flags),
                                              .rtpTime = dictGetUint(RtpTime)};
 
-    rtp()->saveAnchorInfo(anchor_data);
+    Rtp::instance()->saveAnchorInfo(anchor_data);
   } else {
     const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate)};
-    rtp()->saveAnchorInfo(anchor_data);
+    Rtp::instance()->saveAnchorInfo(anchor_data);
   }
 }
 

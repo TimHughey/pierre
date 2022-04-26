@@ -112,6 +112,8 @@ void Session::asyncEventLoop() {
 }
 
 void Session::handleEvent(size_t rx_bytes) {
+  fmt::print("{} bytes={}\n", fnName(), rx_bytes);
+
   // the following function calls do not contain async_* calls
   accumulate(Accumulate::RX, rx_bytes);
 

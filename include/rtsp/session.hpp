@@ -31,7 +31,6 @@
 #include "core/host.hpp"
 #include "mdns/mdns.hpp"
 #include "nptp/nptp.hpp"
-#include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
@@ -65,10 +64,9 @@ public:
   };
 
 public:
-  ~Session();
   // shared_ptr API
   [[nodiscard]] static sSession create(tcp_socket &&new_socket, const Opts &opts) {
-     // must call constructor directly since it's private
+    // must call constructor directly since it's private
     return sSession(new Session(std::forward<tcp_socket>(new_socket), opts));
   }
 
@@ -120,7 +118,6 @@ private:
   sService service;
   smDNS mdns;
   sNptp nptp;
-  sRtp rtp;
 
   rtsp::sAesCtx aes_ctx;
 

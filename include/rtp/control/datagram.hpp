@@ -29,7 +29,6 @@
 #include <thread>
 
 #include "packet/in.hpp"
-#include "rtp/port_promise.hpp"
 
 namespace pierre {
 namespace rtp {
@@ -65,8 +64,7 @@ private:
 public:
   // Public API
   void asyncControlLoop();
-  uint16_t localPort() const { return _port; }
-  PortFuture start();
+  uint16_t localPort();
 
 private:
   bool isReady() const { return socket.is_open(); };
@@ -84,16 +82,15 @@ private:
   io_context &io_ctx;
   udp_socket socket;
 
+  uint16_t port = 0; // choose any port
+  bool live = false;
+
   // latest sender endpoint
   udp_endpoint endpoint;
-
-  uint16_t _port = 0; // choose any port
 
   packet::In _wire;
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;
-
-  PortPromise _port_promise;
 };
 
 } // namespace control
