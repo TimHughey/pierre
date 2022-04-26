@@ -10,15 +10,14 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS
 
 message(STATUS "header list ${HEADER_LIST}")
 
-set(Boost_USE_DEBUG_LIBS         ON)  # ignore debug libs and
+set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
-set(Boost_DEBUG                  OFF)
-set(Boost_THREADAPI              pthread)
+set(Boost_USE_MULTITHREADED      ON)
 
-find_package(Boost 1.78 COMPONENTS thread system REQUIRED)
-find_package(fmt                                 REQUIRED)
-find_library(rt       NAMES rt                   REQUIRED)
-find_package(OpenSSL                             REQUIRED)
+find_package(Boost 1.78 COMPONENTS system REQUIRED)
+find_package(fmt                          REQUIRED)
+find_library(rt       NAMES rt            REQUIRED)
+find_package(OpenSSL                      REQUIRED)
 
 add_library(RTP
   conn_info.cpp rtp.cpp stream.cpp anchor_info.cpp

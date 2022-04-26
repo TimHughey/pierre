@@ -13,7 +13,7 @@ file(GLOB_RECURSE
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
-find_package(Boost 1.78.0 COMPONENTS thread system regex REQUIRED)
+find_package(Boost 1.78.0 COMPONENTS system regex REQUIRED)
 
 find_package(fmt                REQUIRED)
 find_library(plist  NAMES plist REQUIRED)
