@@ -27,7 +27,7 @@
 #include <string_view>
 #include <thread>
 
-#include "rtsp/content.hpp"
+#include "packet/content.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/session.hpp"
 
@@ -130,7 +130,7 @@ void Session::handleRequest(size_t rx_bytes) {
   }
 }
 
-size_t Session::decrypt(PacketIn &packet) {
+size_t Session::decrypt(packet::In &packet) {
   auto consumed = aes_ctx->decrypt(packet, _wire);
 
   // fmt::print("{} packet_size={}\n", fnName(), packet.size());
@@ -164,7 +164,7 @@ void Session::ensureAllContent() {
   }
 
   // if subsequent data is loaded it will all need up in this packet
-  auto packet = PacketIn();
+  auto packet = packet::In();
 
   // decrypt the wire bytes resceived thus far
   [[maybe_unused]] auto consumed = decrypt(packet);

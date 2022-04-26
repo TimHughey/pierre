@@ -25,11 +25,11 @@
 #include <string_view>
 
 #include "core/pair/pair.h"
-#include "rtsp/content.hpp"
-#include "rtsp/headers.hpp"
-#include "rtsp/packet_in.hpp"
-#include "rtsp/reply/packet_out.hpp"
-#include "rtsp/resp_code.hpp"
+#include "packet/content.hpp"
+#include "packet/headers.hpp"
+#include "packet/in.hpp"
+#include "packet/out.hpp"
+#include "packet/resp_code.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -45,8 +45,8 @@ typedef struct pair_result *PairResult;
 
 struct AesResult {
   bool ok = true;
-  Headers::Val2 content_val = Headers::Val2::OctetStream;
-  RespCode resp_code = RespCode::OK;
+  packet::Headers::Val2 content_val = packet::Headers::Val2::OctetStream;
+  packet::RespCode resp_code = packet::RespCode::OK;
 };
 
 // NOTE: this struct consolidates the pairing "state"
@@ -59,25 +59,25 @@ public:
     return sAesCtx(new AesCtx(device_str));
   }
 
-  size_t decrypt(PacketIn &packet, const PacketIn &ciphered);
-  size_t encrypt(rtsp::PacketOut &packet);
+  size_t decrypt(packet::In &packet, const packet::In &ciphered);
+  size_t encrypt(packet::Out &packet);
 
   // size_t decrypt()
 
   inline bool haveSharedSecret() const { return secretBytes() > 0; }
-  AesResult verify(const Content &in, Content &out);
+  AesResult verify(const packet::Content &in, packet::Content &out);
 
   inline auto secret() { return _result->shared_secret; }
   inline size_t secretBytes() const { return _result->shared_secret_len; }
 
-  AesResult setup(const Content &in, Content &out);
+  AesResult setup(const packet::Content &in, packet::Content &out);
 
 private:
   AesCtx(const char *device_str);
 
   inline CipherCtx cipher() { return _cipher; }
 
-  Content &copyBodyTo(Content &out, const uint8_t *data, size_t bytes) const;
+  packet::Content &copyBodyTo(packet::Content &out, const uint8_t *data, size_t bytes) const;
 
 private:
   bool _decrypt_in = false;

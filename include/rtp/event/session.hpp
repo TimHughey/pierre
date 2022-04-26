@@ -80,7 +80,7 @@ public:
 private:
   void accumulate(Accumulate type, size_t bytes);
   // void createAndSendReply();
-  // size_t decrypt(PacketIn &packet);
+  // size_t decrypt(packet::In &packet);
   // void ensureAllContent(); // uses Headers functionality to ensure all content loaded
   bool isReady() const { return socket.is_open(); };
   void nextEvent();

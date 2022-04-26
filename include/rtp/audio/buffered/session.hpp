@@ -70,18 +70,8 @@ public:
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
 
-  // Getters
-  // const Content &content() const { return _content; }
-  // const Headers &headers() const { return _headers; }
-  // const string_view method() const { return _headers.method(); }
-  // const string_view path() const { return _headers.path(); }
-  // const string_view protocol() const { return _headers.protocol(); }
-
 private:
   void accumulate(Accumulate type, size_t bytes);
-  // void createAndSendReply();
-  // size_t decrypt(PacketIn &packet);
-  // void ensureAllContent(); // uses Headers functionality to ensure all content loaded
   bool isReady() const { return socket.is_open(); };
   bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
 

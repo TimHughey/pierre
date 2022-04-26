@@ -24,11 +24,11 @@
 #include "rtsp/reply/fairplay.hpp"
 
 namespace pierre {
+
 namespace rtsp {
 
 using namespace std::literals;
-using enum Headers::Type2;
-using enum Headers::Val2;
+using namespace packet;
 
 static const uint8_t header[] = {0x46, 0x50, 0x4c, 0x59, 0x03, 0x01,
                                  0x04, 0x00, 0x00, 0x00, 0x00, 0x14};
@@ -80,7 +80,7 @@ static const uint8_t reply4[] = {
 FairPlay::FairPlay(const Reply::Opts &opts) : Reply(opts) { debugFlag(false); }
 
 bool FairPlay::populate() {
-  const auto &content = rContent();
+  const auto &content = Content();
 
   if (content.empty()) {
     return false;
@@ -106,7 +106,7 @@ bool FairPlay::populate() {
   }
 
   if (_content.size() > 0) {
-    headers.add(ContentType, OctetStream);
+    headers.add(Headers::Type2::ContentType, Headers::Val2::OctetStream);
     responseCode(OK);
 
     return true;

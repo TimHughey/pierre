@@ -35,13 +35,13 @@
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "nptp/nptp.hpp"
+#include "packet/content.hpp"
+#include "packet/headers.hpp"
+#include "packet/out.hpp"
+#include "packet/resp_code.hpp"
 #include "rtsp/aes_ctx.hpp"
-#include "rtsp/content.hpp"
-#include "rtsp/headers.hpp"
 #include "rtsp/reply/method.hpp"
-#include "rtsp/reply/packet_out.hpp"
 #include "rtsp/reply/path.hpp"
-#include "rtsp/resp_code.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -72,12 +72,12 @@ class Reply : protected reply::Method, protected reply::Path {
 public:
   using string = std::string;
   using string_view = std::string_view;
-  using enum RespCode;
+  using enum packet::RespCode;
   struct Opts {
     const string_view method;
     const string_view path;
-    const Content &content;
-    const Headers &headers;
+    const packet::Content &content;
+    const packet::Headers &headers;
     sHost host = nullptr;
     sService service = nullptr;
     sAesCtx aes_ctx = nullptr;
@@ -96,34 +96,41 @@ public:
   Reply(const Opts &opts);
 
   sAesCtx aesCtx() { return _aes_ctx; }
-  PacketOut &build();
+  packet::Out &build();
+
   void copyToContent(const fmt::memory_buffer &buf);
   void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes);
   void copyToContent(const uint8_t *begin, const size_t bytes);
+
   void dump() const;
   auto &errMsg() { return _err_msg; }
+
   sHost host() { return _host; }
+
   bool debugFlag(bool debug_flag) {
     _debug_flag = debug_flag;
     return _debug_flag;
   }
+
   bool debug() const { return _debug_flag; }
+
   smDNS mdns() { return _mdns; }
   sNptp nptp() { return _nptp; }
 
   virtual bool populate() = 0;
 
-  inline const Content &plist() const { return _request_content; }
+  inline const packet::Content &plist() const { return _request_content; }
 
-  inline void responseCode(RespCode code) { _rcode = code; }
+  inline void responseCode(packet::RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
-  inline const Content &rContent() const { return _request_content; }
-  inline const Headers &rHeaders() const { return _request_headers; };
+
+  inline const packet::Content &rContent() const { return _request_content; }
+  inline const packet::Headers &rHeaders() const { return _request_headers; };
 
   sService service() { return _service; }
 
   // sequence number of this request/reply exchange
-  size_t sequence() { return headers.getValInt(Headers::Type2::CSeq); };
+  size_t sequence() { return headers.getValInt(packet::Headers::Type2::CSeq); };
 
 protected:
   // misc
@@ -139,7 +146,7 @@ protected:
 protected:
   string _err_msg;
 
-  RespCode _rcode = RespCode::NotImplemented;
+  packet::RespCode _rcode = packet::RespCode::NotImplemented;
 
   sHost _host;
   sService _service;
@@ -147,13 +154,13 @@ protected:
   smDNS _mdns;
   sNptp _nptp;
 
-  const Content &_request_content;
-  const Headers &_request_headers;
+  const packet::Content &_request_content;
+  const packet::Headers &_request_headers;
 
-  Headers headers;
+  packet::Headers headers;
 
-  Content _content;
-  PacketOut _packet;
+  packet::Content _content;
+  packet::Out _packet;
 
   bool _debug_flag = true;
 };

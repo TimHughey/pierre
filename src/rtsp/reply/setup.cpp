@@ -34,6 +34,7 @@ using namespace pierre;
 
 namespace pierre {
 namespace rtsp {
+using namespace packet;
 
 using enum ServerType;
 

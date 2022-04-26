@@ -18,13 +18,13 @@
 
 #pragma once
 
-#include "rtsp/aplist.hpp"
+#include "packet/aplist.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-class Teardown : public Reply, public Aplist {
+class Teardown : public Reply, public packet::Aplist {
 public:
   Teardown(const Reply::Opts &opts);
 

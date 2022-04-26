@@ -18,12 +18,13 @@
 
 #pragma once
 
-#include "rtsp/aplist.hpp"
+#include "packet/aplist.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
+using namespace packet;
 class FlushBuffered : public Reply, public Aplist {
 public:
   FlushBuffered(const Reply::Opts &opts);

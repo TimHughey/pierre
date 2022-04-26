@@ -22,13 +22,13 @@
 
 #include <vector>
 
-#include "rtsp/aplist.hpp"
+#include "packet/aplist.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-class SetPeers : public Reply, Aplist {
+class SetPeers : public Reply, packet::Aplist {
 public:
   using string = std::string;
 

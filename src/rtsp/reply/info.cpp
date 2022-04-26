@@ -25,14 +25,14 @@
 #include <string>
 
 #include "core/service.hpp"
-#include "rtsp/aplist.hpp"
+#include "packet/aplist.hpp"
 #include "rtsp/reply/info.hpp"
 
 using namespace std;
 
 namespace pierre {
 namespace rtsp {
-
+using namespace packet;
 using enum Headers::Type2;
 using enum Headers::Val2;
 

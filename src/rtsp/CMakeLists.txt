@@ -20,9 +20,7 @@ find_library(plist  NAMES plist REQUIRED)
 find_library(rt     NAMES rt    REQUIRED)
 
 add_library(RTSP
-  rtsp.cpp headers.cpp content.cpp aes_ctx.cpp
-  server.cpp session.cpp
-  reply.cpp aplist.cpp resp_code.cpp
+  rtsp.cpp aes_ctx.cpp server.cpp session.cpp reply.cpp
   reply/factory.cpp reply/fairplay.cpp reply/options.cpp
   reply/info.cpp reply/pairing.cpp reply/parameter.cpp
   reply/setup.cpp reply/record.cpp reply/set_peers.cpp
@@ -57,7 +55,7 @@ target_link_libraries(RTSP PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${Boost_LIBRARIES}
   ${plist}
-  Core nPTP mDNS RTP
+  Core nPTP mDNS RTP PACKET
   fmt::fmt
   rt
 )

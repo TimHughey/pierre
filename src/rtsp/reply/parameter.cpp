@@ -25,6 +25,7 @@
 
 namespace pierre {
 namespace rtsp {
+using namespace packet;
 
 Parameter::Parameter(const Reply::Opts &opts) : Reply(opts) {
   // maybe more

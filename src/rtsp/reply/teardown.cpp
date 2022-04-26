@@ -21,6 +21,8 @@
 namespace pierre {
 namespace rtsp {
 
+using namespace packet;
+
 Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), Aplist(plist()) {
   rHeaders().dump();
   dictDump();

@@ -18,11 +18,13 @@
 
 #include <cstdint>
 
-#include "rtsp/aplist.hpp"
+#include "packet/aplist.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
+
+using namespace packet;
 
 class Anchor : public Reply, public Aplist {
 public:

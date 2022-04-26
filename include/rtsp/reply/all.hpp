@@ -18,7 +18,7 @@
 
 #pragma once
 
-// once header to rule them all
+// one header to rule them all
 
 #include "rtsp/reply/anchor.hpp"
 #include "rtsp/reply/cmd.hpp"

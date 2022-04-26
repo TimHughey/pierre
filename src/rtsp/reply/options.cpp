@@ -27,6 +27,8 @@ using namespace std;
 namespace pierre {
 namespace rtsp {
 
+using namespace packet;
+
 static const string _opts{"ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, "
                           "TEARDOWN, OPTIONS, POST, GET, PUT"};
 

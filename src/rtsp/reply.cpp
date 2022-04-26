@@ -25,14 +25,15 @@
 #include <typeinfo>
 #include <unordered_map>
 
-#include "rtsp/headers.hpp"
+#include "packet/headers.hpp"
+#include "packet/out.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/reply/factory.hpp"
 #include "rtsp/reply/method.hpp"
-#include "rtsp/reply/packet_out.hpp"
 
 namespace pierre {
 namespace rtsp {
+using namespace packet;
 using namespace reply;
 
 using std::string, std::string_view, std::unordered_map, std::back_inserter;
@@ -63,7 +64,7 @@ Reply::Reply(const Reply::Opts &opts)
   headers.add(Server, AirPierre);
 }
 
-[[nodiscard]] PacketOut &Reply::build() {
+[[nodiscard]] packet::Out &Reply::build() {
   constexpr auto seperator = "\r\n";
   [[maybe_unused]] const auto ok = populate();
 

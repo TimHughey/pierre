@@ -32,6 +32,8 @@ using namespace std;
 namespace pierre {
 namespace rtsp {
 
+using namespace packet;
+
 bool Pairing::populate() {
   AesResult aes_result;
 

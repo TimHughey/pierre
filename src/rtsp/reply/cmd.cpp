@@ -22,12 +22,13 @@
 
 namespace pierre {
 namespace rtsp {
+using namespace packet;
 
-Command::Command(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
+Command::Command(const Reply::Opts &opts) : Reply(opts), packet::Aplist(plist()) {
   debugFlag(false);
 
   // default to OK
-  responseCode(RespCode::OK);
+  responseCode(packet::RespCode::OK);
 }
 
 bool Command::populate() {
