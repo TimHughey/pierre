@@ -38,7 +38,6 @@ using namespace fx;
 shared_ptr<LightDesk> LightDesk::_instance = nullptr;
 
 LightDesk::LightDesk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {
-
   Fx::setTracker(_tracker);
 
   _tracker->insert<PinSpot>("main", 1);
@@ -73,8 +72,8 @@ void LightDesk::executeFx() {
   }
 }
 
-shared_ptr<thread> LightDesk::run() {
-  auto t = make_shared<thread>([this]() { this->stream(); });
+shared_ptr<jthread> LightDesk::run() {
+  auto t = make_shared<jthread>([this]() { this->stream(); });
 
   return t;
 }
@@ -104,7 +103,6 @@ void LightDesk::leave() {
 
 void LightDesk::stream() {
   while (State::isRunning()) {
-
     // nominal condition:
     // sound is present and MajorPeak is active
     if (_active.fx->matchName("MajorPeak"sv)) {

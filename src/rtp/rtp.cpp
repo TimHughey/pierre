@@ -74,7 +74,7 @@ uint16_t Rtp::localPort(ServerType type) {
 }
 
 void Rtp::start() {
-  _thread = std::thread([this]() {
+  _thread = std::jthread([this]() {
     auto self = pthread_self();
     pthread_setname_np(self, "RTP");
 

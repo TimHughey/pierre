@@ -115,7 +115,7 @@ private:
   uint64_t last_resend_request_error_ns = 0;
 
   static std::shared_ptr<Rtp> _instance;
-  std::thread _thread;
+  std::jthread _thread;
 };
 
 } // namespace pierre

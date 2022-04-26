@@ -34,8 +34,8 @@ class Dsp : public Samples {
 public:
   using mutex = std::mutex;
   using string = std::string;
-  using thread = std::thread;
-  using spThread = std::shared_ptr<thread>;
+  using jthread = std::jthread;
+  using spThread = std::shared_ptr<jthread>;
 
 public:
   Dsp();

@@ -90,8 +90,7 @@ void AudioTx::audioInThread() {
     if (frames > 0) {
       auto bytes_actual = snd_pcm_frames_to_bytes(_pcm, frames);
       if (bytes_actual != bytes_ready) {
-        cerr << "pcm reported " << bytes_ready << " but only read "
-             << bytes_actual;
+        cerr << "pcm reported " << bytes_ready << " but only read " << bytes_actual;
         buff.get()->resize(bytes_actual);
       }
 
@@ -117,8 +116,7 @@ void AudioTx::dmxThread() {
   io_context io_ctx;
   tcp::resolver resolver(io_ctx);
 
-  tcp::resolver::results_type endpoints =
-      resolver.resolve(_dest_host, _dmx_port);
+  tcp::resolver::results_type endpoints = resolver.resolve(_dest_host, _dmx_port);
 
   for (auto entry : endpoints) {
     cerr << entry.host_name() << endl;
@@ -128,7 +126,6 @@ void AudioTx::dmxThread() {
   uint retries = 0;
   bool aborting = false;
   do {
-
     tcp::socket socket(io_ctx);
     boost::asio::connect(socket, endpoints, conn_ec);
 
@@ -221,7 +218,6 @@ void AudioTx::FFTThread() {
     auto end = data.get()->cend();
 
     while (byte != end) {
-
       if (left_pos == left_end) {
         //        auto_cpu_timer t(fft_log, 5, "%t sec CPU, %w sec real\n");
         // got enough data for FFT
@@ -273,7 +269,6 @@ bool AudioTx::init() {
 }
 
 void AudioTx::netOutThread() {
-
   // allocate and zero the initial network buffer
   ptrByteBuffer net_buff(new ByteBuffer_t);
   net_buff.get()->resize(_net_packet_size);
@@ -316,10 +311,10 @@ void AudioTx::netOutThread() {
 }
 
 bool AudioTx::run() {
-  audio_in = std::thread([this]() { this->audioInThread(); });
-  dmx = std::thread([this]() { this->dmxThread(); });
-  fft_calc = std::thread([this]() { this->FFTThread(); });
-  net_out = std::thread([this]() { this->netOutThread(); });
+  audio_in = std::jthread([this]() { this->audioInThread(); });
+  dmx = std::jthread([this]() { this->dmxThread(); });
+  fft_calc = std::jthread([this]() { this->FFTThread(); });
+  net_out = std::jthread([this]() { this->netOutThread(); });
 
   audio_in.join();
   dmx.join();
@@ -449,8 +444,7 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
   err = snd_pcm_avail_delay(_pcm, &avail, &delay);
 
   if (avail || delay || err) {
-    cerr << "err[" << err << "] avail [" << avail << "] avail_delay[" << delay
-         << "]";
+    cerr << "err[" << err << "] avail [" << avail << "] avail_delay[" << delay << "]";
   }
 
   if (err < 0) {
@@ -458,8 +452,7 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
   }
 
   outofrange = (coef * (snd_pcm_sframes_t)buffer_frames) / 2;
-  if (avail > outofrange || avail < -outofrange || delay > outofrange ||
-      delay < -outofrange) {
+  if (avail > outofrange || avail < -outofrange || delay > outofrange || delay < -outofrange) {
     badavail = avail;
     baddelay = delay;
     availsum = delaysum = samples = 0;
@@ -492,9 +485,8 @@ void AudioTx::testPosition(snd_pcm_uframes_t buffer_frames) {
   delaysum += delay;
   samples++;
   if (avail != 0 && now != tmr) {
-    cerr << "BUFPOS: avg=" << long(availsum / samples) << "min=" << minavail
-         << "max=" << maxavail << "(" << buffer_frames << ") (" << counter
-         << ":" << badavail << "/" << baddelay;
+    cerr << "BUFPOS: avg=" << long(availsum / samples) << "min=" << minavail << "max=" << maxavail
+         << "(" << buffer_frames << ") (" << counter << ":" << badavail << "/" << baddelay;
     tmr = now;
   }
 }

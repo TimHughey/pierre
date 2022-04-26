@@ -35,8 +35,8 @@ constexpr size_t net_packet_size = 1024;
 class RawOut : public Samples {
 public:
   using string = std::string;
-  using thread = std::thread;
-  using spThread = std::shared_ptr<thread>;
+  using jthread = std::jthread;
+  using spThread = std::shared_ptr<jthread>;
 
 public:
   typedef boost::asio::io_context io_context;

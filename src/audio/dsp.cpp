@@ -53,7 +53,7 @@ spPeaks Dsp::peaks() {
 }
 
 Dsp::spThread Dsp::run() {
-  return make_shared<thread>([this]() { this->stream(); });
+  return make_shared<jthread>([this]() { this->stream(); });
 }
 
 void Dsp::stream() {

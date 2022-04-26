@@ -118,8 +118,8 @@ private:
 
   int _shm_fd;
   void *_mapped = nullptr;
-  std::thread _thread;
-  std::thread::native_handle_type _handle;
+  std::jthread _thread;
+  std::jthread::native_handle_type _handle;
 
   // temporary
   int _prev_state = PTHREAD_CANCEL_DISABLE;

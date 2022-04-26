@@ -34,8 +34,8 @@ namespace dmx {
 class Render {
 public:
   using string = std::string;
-  using thread = std::thread;
-  using spThread = std::shared_ptr<thread>;
+  using jthread = std::jthread;
+  using spThread = std::shared_ptr<jthread>;
 
   typedef std::set<std::shared_ptr<Producer>> Producers;
   typedef std::error_code error_code;

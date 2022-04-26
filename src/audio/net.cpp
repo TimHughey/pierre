@@ -57,8 +57,8 @@ RawOut::RawOut(const string &dest, const string &port) {
   }
 }
 
-shared_ptr<thread> RawOut::run() {
-  auto t = make_shared<thread>([this]() { this->stream(); });
+shared_ptr<jthread> RawOut::run() {
+  auto t = make_shared<jthread>([this]() { this->stream(); });
 
   return t;
 }

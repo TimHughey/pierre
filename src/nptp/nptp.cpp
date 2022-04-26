@@ -138,7 +138,7 @@ void Nptp::sendCtrlMsg(const string msg) {
 }
 
 void Nptp::start() {
-  _thread = std::thread([this]() { runLoop(); });
+  _thread = std::jthread([this]() { runLoop(); });
   _handle = _thread.native_handle();
 
   pthread_setname_np(_handle, "NPTP");

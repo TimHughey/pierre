@@ -62,6 +62,8 @@ void Pierre::run() {
   // wait for Rtsp to complete
   rtsp->join();
 
+  fmt::print("Pierre: joined rtsp={}\n", fmt::ptr(rtsp.get()));
+
   // std::list<shared_ptr<thread>> threads;
 
   //   auto dsp = make_shared<audio::Dsp>();

@@ -37,10 +37,12 @@ namespace this_thread = std::this_thread;
 namespace pierre {
 namespace dmx {
 
-Render::Render() : _net(_io_ctx, string{"test-with-devs.ruth"}, string{"48005"}) { _frame.assign(256, 0x00); }
+Render::Render() : _net(_io_ctx, string{"test-with-devs.ruth"}, string{"48005"}) {
+  _frame.assign(256, 0x00);
+}
 
-std::shared_ptr<std::thread> Render::run() {
-  auto t = std::make_shared<std::thread>([this]() { this->stream(); });
+std::shared_ptr<std::jthread> Render::run() {
+  auto t = std::make_shared<std::jthread>([this]() { this->stream(); });
   return t;
 }
 

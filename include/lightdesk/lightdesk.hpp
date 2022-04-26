@@ -60,7 +60,7 @@ public:
 
   void prepare() override { _tracker->prepare(); }
 
-  std::shared_ptr<std::thread> run();
+  std::shared_ptr<std::jthread> run();
 
   void saveInstance(std::shared_ptr<LightDesk> desk) { _instance = desk; }
 
@@ -74,7 +74,9 @@ private:
   void executeFx();
   void stream();
 
-  template <typename T> std::shared_ptr<T> unit(const string name) { return _tracker->unit<T>(name); }
+  template <typename T> std::shared_ptr<T> unit(const string name) {
+    return _tracker->unit<T>(name);
+  }
 
 private:
   typedef std::shared_ptr<HeadUnitTracker> HUnits;

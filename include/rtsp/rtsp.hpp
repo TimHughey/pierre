@@ -70,7 +70,7 @@ private:
   rtsp::sNptp nptp;
 
   // internal
-  std::thread _thread;
+  std::jthread _thread;
 
   // network
   boost::asio::io_context io_ctx;

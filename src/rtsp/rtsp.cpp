@@ -51,7 +51,7 @@ void Rtsp::start() {
   mdns->start();
   nptp->start();
 
-  _thread = std::thread([this]() { runLoop(); });
+  _thread = std::jthread([this]() { runLoop(); });
   pthread_setname_np(_thread.native_handle(), "RTSP");
 }
 
