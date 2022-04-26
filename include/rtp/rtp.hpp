@@ -61,7 +61,7 @@ public:
 
 public: // object creation and shared_ptr API
   [[nodiscard]] static sRtp create() {
-    if (_instance == nullptr) {
+    if (_instance.use_count() == 0) {
       _instance = sRtp(new Rtp());
     }
     // not using std::make_shared; constructor is private

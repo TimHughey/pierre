@@ -80,7 +80,7 @@ static const uint8_t reply4[] = {
 FairPlay::FairPlay(const Reply::Opts &opts) : Reply(opts) { debugFlag(false); }
 
 bool FairPlay::populate() {
-  const auto &content = Content();
+  const auto &content = rContent();
 
   if (content.empty()) {
     return false;
