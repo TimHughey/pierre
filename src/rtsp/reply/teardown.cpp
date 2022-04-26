@@ -21,15 +21,13 @@
 namespace pierre {
 namespace rtsp {
 
-using namespace packet;
-
-Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), Aplist(plist()) {
+Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), packet::Aplist(plist()) {
   rHeaders().dump();
   dictDump();
 }
 
 bool Teardown::populate() {
-  responseCode(RespCode::OK);
+  responseCode(packet::RespCode::OK);
   return true;
 }
 } // namespace rtsp

@@ -49,11 +49,6 @@ Session::Session(tcp_socket &&new_socket)
   fmt::print("{} socket={}\n", fnName(), socket.native_handle());
 }
 
-Session::~Session() {
-  // announce the session has ended
-  fmt::print("{} complete\n", fnName());
-}
-
 void Session::asyncAudioBufferLoop() {
   // notes:
   //  1. nothing within this function can be captured by the lamba
@@ -113,12 +108,16 @@ void Session::asyncAudioBufferLoop() {
 }
 
 void Session::handleAudioBuffer(size_t rx_bytes) {
-  fmt::print("{} bytes={}\n", fnName(), rx_bytes);
-
+  constexpr size_t report_bytes = 1024 * 50; // 50k
   // the following function calls do not contain async_* calls
   accumulate(Accumulate::RX, rx_bytes);
 
   rxAvailable(); // drain the socket
+
+  if ((_rx_bytes % report_bytes) == 0) {
+    fmt::print("{} bytes={}\n", fnName(), _rx_bytes);
+  }
+
   // ensureAllContent(); // load additional content
 
   // try {

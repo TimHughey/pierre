@@ -104,9 +104,19 @@ void Service::addSystemFlags() {
   }
 }
 
-void Service::adjustSystemFlags(Flags flag) {
-  _system_flags |= 1 << flag; // apply the adjustment
-  addSystemFlags();           // update the calculated key/val map
+// void Service::adjustSystemFlags(Flags flag) {
+//   _system_flags |= 1 << flag; // apply the adjustment
+//   addSystemFlags();           // update the calculated key/val map
+// }
+
+void Service::deviceSupportsRelay(bool on_off) {
+  if (on_off == true) {
+    _system_flags |= 1 << DeviceSupportsRelay; // apply the adjustment
+  } else {
+    _system_flags &= (0xffffffff - (1 << DeviceSupportsRelay));
+  }
+
+  addSystemFlags(); // update the calculated key/val map
 }
 
 const KeyVal Service::fetch(const Key key) const {

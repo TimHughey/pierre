@@ -59,7 +59,8 @@ public:
   sService getSelf() { return shared_from_this(); }
 
   // general API
-  void adjustSystemFlags(Flags flag);
+  // void adjustSystemFlags(Flags flag);
+  void deviceSupportsRelay(bool on_off = true);
   auto features() const { return _features_val; }
   const KeyVal fetch(const Key key) const;
   ccs fetchKey(const Key key) const;

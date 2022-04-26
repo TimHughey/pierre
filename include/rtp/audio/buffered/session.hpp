@@ -51,7 +51,6 @@ public:
   typedef const char *ccs;
 
 public:
-  ~Session();
   // shared_ptr API
   [[nodiscard]] static sSession create(tcp_socket &&new_socket) {
     // must call constructor directly since it's private

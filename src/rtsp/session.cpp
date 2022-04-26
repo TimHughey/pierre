@@ -247,8 +247,6 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
         fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());
 
-        socket.shutdown(tcp_socket::shutdown_both);
-        socket.close();
         rc = false;
     }
   }
