@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 
 #include "packet/aplist.hpp"
@@ -33,10 +34,29 @@ public:
   using string = std::string;
 
 public:
-  enum StreamCategory : uint8_t { UnknownStream = 0, PtpStream };
-  enum TimingType : uint8_t { UnknownTiming = 0, TsPtp };
+  enum StreamType : uint8_t { Unknown = 0, Buffered, RealTime, NTP };
+  enum TimingProtocol : uint8_t { None = 0, PreciseTiming, NetworkTime };
+  enum DictKey : uint8_t {
+    audioMode = 0,
+    ct,
+    streamConnectionID,
+    spf,
+    shk,
+    supportsDyanamicStreamID,
+    audioFormat,
+    clientID,
+    type,
+    controlPort,
+    dataPort,
+    audioBufferSize,
+    streams,
+    timingProtocol
+  };
 
   typedef std::vector<bool> Checks;
+  typedef std::unordered_map<DictKey, ccs> DictKeyMap;
+  typedef std::unordered_map<StreamType, uint8_t> StreamTypeMap;
+  typedef std::unordered_map<TimingProtocol, ccs> TimingProtocolMap;
 
 public:
   Setup(const Reply::Opts &opts);
@@ -47,11 +67,15 @@ private:
   bool checksOK() const;
   void checksReset() { _checks.clear(); }
 
+  ccs dictKey(DictKey key) const { return _key_map[key]; }
+
   void getGroupInfo();
   void getTimingList();
 
   bool handleNoStreams();
   bool handleStreams();
+
+  ccs timingProtocolVal(TimingProtocol protocol) const { return _timing_protocol_map[protocol]; }
 
   void validateTimingProtocol();
 
@@ -62,12 +86,13 @@ private:
   // results of get/set operations
   Checks _checks;
 
-  TimingType _timing_type = UnknownTiming;
-  StreamCategory _stream_category = UnknownStream;
-
   string _group_uuid;
   bool _group_contains_leader = false;
   Aplist::ArrayStrings _timing_peer_info;
+
+  static DictKeyMap _key_map;
+  static StreamTypeMap _stream_type_map;
+  static TimingProtocolMap _timing_protocol_map;
 };
 
 } // namespace rtsp

@@ -50,6 +50,7 @@ Aplist::Aplist(const Content &content) {
 
     // create the plist and wrap the pointer
     plist_from_memory(data, content.size(), &_plist);
+    track(_plist);
   }
 }
 
@@ -80,7 +81,26 @@ Aplist::Aplist(Embedded embedded) {
 }
 
 Aplist::~Aplist() {
-  std::for_each(_keeper.begin(), _keeper.end(), [](auto pl) { plist_free(pl); });
+  std::for_each(_keeper.begin(), _keeper.end(), [](auto pl) {
+    if (pl)
+      plist_free(pl);
+  });
+}
+
+Aplist::Aplist(const Aplist &src, Level level, ...) {
+  va_list args;
+
+  va_start(args, level);
+  auto node = plist_access_pathv(src._plist, level, args);
+  va_end(args);
+
+  if (node && (PLIST_DICT == plist_get_node_type(node))) {
+    _plist = plist_copy(node);
+  } else {
+    _plist = plist_new_dict();
+  }
+
+  track(_plist);
 }
 
 Aplist::Binary Aplist::dictBinary(size_t &bytes) const {
@@ -204,23 +224,40 @@ bool Aplist::dictGetBool(ccs path, bool &dest) {
   return rc;
 }
 
-const std::string Aplist::dictGetData(uint32_t path_count, ...) {
+bool Aplist::dictGetBool(Level level, ...) {
   va_list args;
+  auto bool_val = false;
 
-  va_start(args, path_count); // initialize args before passing through
-  auto node = plist_access_pathv(_plist, path_count, args);
-  va_end(args); // all done with arg, clean up
+  va_start(args, level);
+  auto node = plist_access_pathv(_plist, level, args);
+  va_end(args);
 
-  if (node && (PLIST_DATA == plist_get_node_type(node))) {
-    // we found a node and it's a string, good.
+  if (checkType(node, PLIST_BOOLEAN)) {
+    uint8_t pseudo_bool = 255;
+    plist_get_bool_val(node, &pseudo_bool);
 
-    uint64_t len = 0;
-    ccs val = plist_get_data_ptr(node, &len);
-
-    return string(val);
+    // pseudo bool unchanged, failed
+    bool_val = (pseudo_bool == 255) ? false : true;
   }
 
-  return string();
+  return bool_val;
+}
+
+const std::string Aplist::dictGetData(Level level, ...) {
+  va_list args;
+
+  va_start(args, level); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, level, args);
+  va_end(args); // all done with arg, clean up
+
+  if (checkType(node, PLIST_DATA)) {
+    uint64_t len;
+    ccs ptr = plist_get_data_ptr(node, &len);
+
+    return std::string(csv(ptr, len));
+  }
+
+  return std::string();
 }
 
 bool Aplist::dictGetString(ccs path, string &dest) {
@@ -237,6 +274,23 @@ bool Aplist::dictGetString(ccs path, string &dest) {
   }
 
   return rc;
+}
+
+std::string Aplist::dictGetStringConst(Level level, ...) {
+  va_list args;
+
+  va_start(args, level); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, level, args);
+  va_end(args); // all done with arg, clean up
+
+  if (checkType(node, PLIST_STRING)) {
+    uint64_t len;
+    ccs ptr = plist_get_string_ptr(node, &len);
+
+    return std::string(csv(ptr, len));
+  }
+
+  return std::string("not found");
 }
 
 bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings) {
@@ -285,16 +339,14 @@ bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_str
   return rc;
 }
 
-uint64_t Aplist::dictGetUint(uint32_t path_count, ...) {
+uint64_t Aplist::dictGetUint(Level level, ...) {
   va_list args;
 
-  va_start(args, path_count); // initialize args before passing through
-  auto node = plist_access_pathv(_plist, path_count, args);
+  va_start(args, level); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, level, args);
   va_end(args); // all done with arg, clean up
 
-  if (node && (PLIST_UINT == plist_get_node_type(node))) {
-    // we found a node and it's a string, good.
-
+  if (checkType(node, PLIST_UINT)) {
     uint64_t val = 0;
     plist_get_uint_val(node, &val);
 

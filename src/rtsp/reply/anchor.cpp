@@ -24,25 +24,29 @@
 namespace pierre {
 namespace rtsp {
 
+using namespace packet;
+
 Anchor::Anchor(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // maybe more
 }
 
 bool Anchor::populate() {
-  saveAnchorData();
+  saveAnchorInfo();
 
   responseCode(RespCode::OK);
 
   return true;
 }
 
-void Anchor::saveAnchorData() {
+void Anchor::saveAnchorInfo() {
   constexpr auto Rate = "rate";
   constexpr auto TimelineID = "networkTimeTimelineID";
   constexpr auto Secs = "networkTimeSecs";
   constexpr auto Frac = "networkTimeFrac";
   constexpr auto Flags = "networkTimeFlags";
   constexpr auto RtpTime = "rtpTime";
+
+  auto rtp = Rtp::instance(); // save some typing below
 
   // a complete anchor message contains these keys
   const std::vector all_keys = {Rate, TimelineID, Secs, Frac, Flags, RtpTime};
@@ -56,10 +60,10 @@ void Anchor::saveAnchorData() {
                                              .flags = dictGetUint(Flags),
                                              .rtpTime = dictGetUint(RtpTime)};
 
-    Rtp::instance()->saveAnchorInfo(anchor_data);
+    rtp->save(anchor_data);
   } else {
     const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate)};
-    Rtp::instance()->saveAnchorInfo(anchor_data);
+    rtp->save(anchor_data);
   }
 }
 

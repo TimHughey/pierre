@@ -17,6 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/reply/teardown.hpp"
+#include "core/service.hpp"
+#include "mdns/mdns.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -27,6 +29,9 @@ Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), packet::Aplist(plist(
 }
 
 bool Teardown::populate() {
+  service()->deviceSupportsRelay(false);
+  mdns()->update();
+
   responseCode(packet::RespCode::OK);
   return true;
 }

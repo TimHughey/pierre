@@ -36,7 +36,6 @@
 #include "nptp/nptp.hpp"
 
 namespace pierre {
-namespace rtsp {
 
 using std::runtime_error;
 
@@ -160,5 +159,4 @@ void Nptp::unMap() {
   }
 }
 
-} // namespace rtsp
 } // namespace pierre

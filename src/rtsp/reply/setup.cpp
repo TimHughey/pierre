@@ -27,6 +27,7 @@
 
 #include "core/service.hpp"
 #include "rtp/rtp.hpp"
+#include "rtp/stream_info.hpp"
 #include "rtsp/reply/setup.hpp"
 
 using namespace std;
@@ -79,7 +80,7 @@ bool Setup::handleNoStreams() {
     reply_dict.dictSetUint(nullptr, key_timing_port, 0); // dummy
 
     // adjust Service system flags and request mDNS update
-    service()->adjustSystemFlags(Service::Flags::DeviceSupportsRelay);
+    service()->deviceSupportsRelay();
     mdns()->update();
 
     size_t bytes = 0;
@@ -89,6 +90,8 @@ bool Setup::handleNoStreams() {
     headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
     responseCode(RespCode::OK);
 
+    reply_dict.dictDump();
+
     rc = true;
   }
 
@@ -97,38 +100,43 @@ bool Setup::handleNoStreams() {
 
 bool Setup::handleStreams() {
   constexpr auto PTP = 103;
-  constexpr auto key_shared_key = "shk";
-  constexpr auto key_control_port = "controlPort";
-  constexpr auto key_type = "type";
-  constexpr auto key_data_port = "dataPort";
-  constexpr auto key_audio_buff_size = "audioBufferSize";
-  constexpr auto key_streams = "streams";
+
   using enum Headers::Type2;
   auto rc = true;
-
-  // get session info
-  const auto session_key = dictGetData(1, key_shared_key);
-  const auto active_remote = rHeaders().getVal(DacpActiveRemote);
-  const auto dacp_id = rHeaders().getVal(DacpID);
 
   // RTP is a singleton, grab the shared_ptr (save some typing)
   auto rtp = Rtp::instance();
 
-  rtp->saveSessionInfo(session_key, active_remote, dacp_id);
+  // save session info
+  // path is streams -> array[0]
+  auto rstream0 = Aplist(dictSelf(), Level::Second, dictKey(streams), 0);
 
-  // build the reply (includes port for started services)
+  rtp->save(
+      {.audio_mode = rstream0.dictGetStringConst(Root, dictKey(audioMode)),
+       .ct = (uint8_t)rstream0.dictGetUint(Root, dictKey(ct)),
+       .conn_id = rstream0.dictGetUint(Root, dictKey(streamConnectionID)),
+       .spf = (uint32_t)rstream0.dictGetUint(Root, dictKey(spf)),
+       .key = rstream0.dictGetData(Root, dictKey(shk)),
+       .supports_dynamic_stream_id = rstream0.dictGetBool(Root, dictKey(supportsDyanamicStreamID)),
+       .audio_format = (uint32_t)rstream0.dictGetUint(Root, dictKey(audioFormat)),
+       .client_id = rstream0.dictGetStringConst(Root, dictKey(clientID)),
+       .type = (uint8_t)rstream0.dictGetUint(Root, dictKey(type)),
+       .active_remote = rHeaders().getVal(DacpActiveRemote),
+       .dacp_id = rHeaders().getVal(DacpID)});
+
+  // build the reply (includes portS for started services)
   ArrayDicts array_dicts;
   auto &stream0_dict = array_dicts.emplace_back(Aplist());
 
   // rtp->localPort() returns the local port (and starts the service if needed)
-  stream0_dict.dictSetUint(nullptr, key_control_port, rtp->localPort(Control));
-  stream0_dict.dictSetUint(nullptr, key_type, PTP);
-  stream0_dict.dictSetUint(nullptr, key_data_port, rtp->localPort(AudioBuffered));
-  stream0_dict.dictSetUint(nullptr, key_audio_buff_size, rtp->bufferSize());
+  stream0_dict.dictSetUint(nullptr, dictKey(controlPort), rtp->localPort(Control));
+  stream0_dict.dictSetUint(nullptr, dictKey(type), PTP);
+  stream0_dict.dictSetUint(nullptr, dictKey(dataPort), rtp->localPort(AudioBuffered));
+  stream0_dict.dictSetUint(nullptr, dictKey(audioBufferSize), rtp->bufferSize());
 
   Aplist reply_dict;
 
-  reply_dict.dictSetArray(key_streams, array_dicts);
+  reply_dict.dictSetArray(dictKey(streams), array_dicts);
 
   size_t bytes = 0;
   auto binary = reply_dict.dictBinary(bytes);
@@ -136,6 +144,8 @@ bool Setup::handleStreams() {
 
   headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
   responseCode(RespCode::OK);
+
+  reply_dict.dictDump();
 
   return rc;
 }
@@ -179,25 +189,45 @@ bool Setup::populate() {
 }
 
 void Setup::validateTimingProtocol() {
-  constexpr auto timing_path = "timingProtocol";
-  constexpr auto ptp = "PTP";
-
-  auto match = dictCompareString(timing_path, ptp);
+  auto match = dictCompareString(dictKey(timingProtocol), timingProtocolVal(PreciseTiming));
 
   if (!match) {
-    const auto prefix = fmt::format("{} timing type != {}", fnName(), ptp);
+    const auto prefix = fmt::format("{} unhandled timing protocol={}", fnName(),
+                                    dictGetStringConst(Root, dictKey(timingProtocol)));
     dictDump(prefix.c_str());
     saveCheck(false);
     return;
   }
-
-  _stream_category = PtpStream;
-  _timing_type = TsPtp;
 
   // get play lock??
 
   saveCheck(true);
 }
 
+// static maps
+
+using enum Setup::DictKey;
+Setup::DictKeyMap Setup::_key_map{{audioMode, "audioMode"},
+                                  {ct, "ct"},
+                                  {streamConnectionID, "streamConnectionID"},
+                                  {spf, "spf"},
+                                  {shk, "shk"},
+                                  {supportsDyanamicStreamID, "supportsDynamicStreamID"},
+                                  {audioFormat, "audioFormat"},
+                                  {clientID, "clientID"},
+                                  {type, "type"},
+                                  {controlPort, "controlPort"},
+                                  {dataPort, "dataPort"},
+                                  {audioBufferSize, "audioBufferSize"},
+                                  {streams, "streams"},
+                                  {timingProtocol, "timingProtocol"}};
+
+Setup::StreamTypeMap Setup::_stream_type_map{
+    {StreamType::Unknown, 0}, {StreamType::Buffered, 103}, {StreamType::RealTime, 96}};
+
+Setup::TimingProtocolMap Setup::_timing_protocol_map{{TimingProtocol::None, "None"},
+                                                     {PreciseTiming, "PTP"}
+
+};
 } // namespace rtsp
 } // namespace pierre

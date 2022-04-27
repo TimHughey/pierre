@@ -47,9 +47,6 @@ public:
   using src_loc = std::source_location;
   typedef const char *ccs;
 
-public:
-  ~Datagram();
-
 public: // object creation and shared_ptr API
   [[nodiscard]] static sDatagram create(io_context &io_ctx) {
     // not using std::make_shared; constructor is private

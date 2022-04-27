@@ -82,15 +82,14 @@ void Rtp::start() {
   });
 }
 
-void Rtp::saveAnchorInfo(const rtp::AnchorData &data) {
+void Rtp::save(const rtp::AnchorData &data) {
   _anchor = data;
   _anchor.dump();
 }
 
-void Rtp::saveSessionInfo(csr shk, csr active_remote, csr dacp_id) {
-  _session_key = shk;
-  _active_remote = active_remote;
-  _dacp_id = dacp_id;
+void Rtp::save(const rtp::StreamData &data) {
+  _stream_info = data;
+  _stream_info.dump();
 }
 
 std::shared_ptr<Rtp> pierre::Rtp::_instance;

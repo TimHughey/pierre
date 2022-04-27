@@ -67,7 +67,7 @@ private:
   sHost host;
   sService service;
   smDNS mdns;
-  rtsp::sNptp nptp;
+  sNptp nptp;
 
   // internal
   std::jthread _thread;

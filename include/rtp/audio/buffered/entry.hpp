@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -16,23 +17,26 @@
 //
 //  https://www.wisslanding.com
 
-#include <cstdint>
-
-#include "packet/aplist.hpp"
-#include "rtsp/reply.hpp"
-
 namespace pierre {
-namespace rtsp {
+namespace rtp {
+namespace audio {
 
-class Anchor : public Reply, public packet::Aplist {
-public:
-  Anchor(const Reply::Opts &opts);
+typedef uint16_t seq_t;
 
-  bool populate() override;
-
-private:
-  void saveAnchorInfo();
+struct BufferEntry { // decoded audio packets
+  uint8_t ready;
+  uint8_t status; // flags
+  uint16_t resend_request_number;
+  signed short *data;
+  seq_t sequence_number;
+  uint64_t initialisation_time; // the time the packet was added or the time it
+                                // was noticed the packet was missing
+  uint64_t resend_time;         // time of last resend request or zero
+  uint32_t given_timestamp;     // for debugging and checking
+  int length;                   // the length of the decoded data
 };
 
-} // namespace rtsp
+} // namespace audio
+
+} // namespace rtp
 } // namespace pierre

@@ -35,6 +35,7 @@
 #include "rtp/control/datagram.hpp"
 #include "rtp/event/server.hpp"
 #include "rtp/input_info.hpp"
+#include "rtp/stream_info.hpp"
 #include "rtp/timing/datagram.hpp"
 
 namespace pierre {
@@ -76,16 +77,17 @@ public: // object creation and shared_ptr API
 
 public:
   // Public API
+  size_t bufferFrames() const { return 1024; }
+  size_t bufferStartFill() const { return 220; }
   uint16_t localPort(ServerType type); // local endpoint port
   void start();
 
   // Savers
-  void saveAnchorInfo(const rtp::AnchorData &anchor_data);
-  void saveSessionInfo(csr shk, csr active_remote, csr dacp_id);
+  void save(const rtp::AnchorData &anchor_data);
+  void save(const rtp::StreamData &stream_data);
 
   // Getters
   size_t bufferSize() const { return 1024 * 1024 * 8; };
-  rtp::event::sServer eventServer() { return servers.event; }
 
 private:
   Rtp();
@@ -98,16 +100,12 @@ private:
   Servers servers;
 
   // order independent
-
   uint32_t _frames_per_packet_max = 352; // audio frames per packet
-  string _session_key;
-  string _active_remote;
-  string _dacp_id;
-
   uint32_t _backend_latency = 0;
   uint64_t _rate;
 
   // runtime info
+  rtp::StreamInfo _stream_info;
   rtp::AnchorInfo _anchor;
   rtp::InputInfo _input_info;
 

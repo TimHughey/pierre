@@ -35,6 +35,7 @@ namespace packet {
 class Aplist {
 public:
   enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
+  enum Level : uint32_t { Root = 1, Second, Third, Fourth };
 
   typedef const char *ccs;
   typedef std::string string;
@@ -51,10 +52,19 @@ public:
   Aplist(const Content &content);
   Aplist(const Dictionaries &dicts);
   Aplist(Embedded embedded);
+
+  // create a new Aplist using the dict at the specified path
+  Aplist(const Aplist &src, Level level, ...);
+
   ~Aplist();
 
   // general API
   // NOTE: api naming convention is dict* to support subclassing
+
+  // sets the base node for all dict* get/set to something other
+  // than the root
+  Aplist dictBaseNode(Level level, plist_type type, ...);
+
   Binary dictBinary(size_t &bytes) const;
 
   bool dictCompareString(ccs path, ccs compare);
@@ -67,20 +77,24 @@ public:
   bool dictItemsExist(const std::vector<ccs> &items);
 
   bool dictGetBool(ccs path, bool &dest);
-  const string dictGetData(uint32_t path_count, ...);
+  bool dictGetBool(Level level, ...);
+  const string dictGetData(Level level, ...);
   plist_t dictGetItem(ccs path);
 
   bool dictGetString(ccs path, string &dest);
+  std::string dictGetStringConst(Level level, ...);
+
   bool dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings);
 
   // retrive the uint64_t at the named node (at the root)
-  uint64_t dictGetUint(ccs root_key) { return dictGetUint(1, root_key); }
+  uint64_t dictGetUint(ccs root_key) { return dictGetUint(Level::Root, root_key); }
 
   // retrieve the uint64_t using path specified
-  uint64_t dictGetUint(uint32_t path_count, ...);
+  uint64_t dictGetUint(Level level, ...);
 
   bool dictReady() const { return _plist != nullptr; }
 
+  const Aplist &dictSelf() const { return (const Aplist &)*this; };
   void dictSetArray(ccs root_key, ArrayDicts &dicts);
   void dictSetData(ccs key, const fmt::memory_buffer &buf);
 
@@ -89,12 +103,14 @@ public:
   bool dictSetUint(ccs sub_dict, ccs key, uint64_t val);
 
 private:
+  plist_t baseNode() { return (_base) ? _base : _plist; }
   bool checkType(plist_t node, plist_type type) const;
   plist_t dict() { return _plist; }
   void track(plist_t pl);
 
 private:
   plist_t _plist = nullptr;
+  plist_t _base = nullptr;
 
   std::vector<plist_t> _keeper;
 };

@@ -44,10 +44,7 @@ Datagram::Datagram(io_context &io_ctx)
     : io_ctx(io_ctx), socket(io_ctx, udp_endpoint(ip_udp::v6(), port)) {
   // local endpoint is created, capture the port for the original caller
   port = socket.local_endpoint().port();
-}
-
-Datagram::~Datagram() {
-  // more later
+  _wire.resize(4096);
 }
 
 void Datagram::asyncControlLoop() {
@@ -146,6 +143,8 @@ uint16_t Datagram::localPort() {
 }
 
 void Datagram::nextControlBlock() {
+  fmt::print("{} wire_bytes={}\n", fnName(), _wire.size());
+
   // reset all buffers and state
   _wire.clear();
 }

@@ -20,7 +20,8 @@ find_library(rt       NAMES rt            REQUIRED)
 find_package(OpenSSL                      REQUIRED)
 
 add_library(RTP
-  conn_info.cpp rtp.cpp stream.cpp anchor_info.cpp
+  conn_info.cpp rtp.cpp
+  anchor_info.cpp stream_info.cpp
   audio/buffered/server.cpp audio/buffered/session.cpp
   control/datagram.cpp timing/datagram.cpp
   event/server.cpp event/session.cpp

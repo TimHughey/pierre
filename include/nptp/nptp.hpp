@@ -36,7 +36,6 @@
 #include "core/service.hpp"
 
 namespace pierre {
-namespace rtsp {
 
 // forward decl for shared_ptr typedef
 class Nptp;
@@ -128,5 +127,4 @@ private:
   std::condition_variable _condv;
 };
 
-} // namespace rtsp
 } // namespace pierre

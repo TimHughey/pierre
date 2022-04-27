@@ -1,4 +1,3 @@
-
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -17,23 +16,19 @@
 //
 //  https://www.wisslanding.com
 
+#pragma once
+
+#include <cstdint>
+
 namespace pierre {
-namespace rtp {
+namespace nptp {
 
-typedef uint16_t seq_t;
-
-struct AudioBufferEntry { // decoded audio packets
-  uint8_t ready;
-  uint8_t status; // flags
-  uint16_t resend_request_number;
-  signed short *data;
-  seq_t sequence_number;
-  uint64_t initialisation_time; // the time the packet was added or the time it
-                                // was noticed the packet was missing
-  uint64_t resend_time;         // time of last resend request or zero
-  uint32_t given_timestamp;     // for debugging and checking
-  int length;                   // the length of the decoded data
+struct ClockInfo {
+  uint64_t actual_clock_id;
+  uint64_t time_of_sample;
+  uint64_t raw_offset;
+  uint64_t mastership_start_time;
 };
 
-} // namespace rtp
+} // namespace nptp
 } // namespace pierre

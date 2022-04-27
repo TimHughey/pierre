@@ -108,15 +108,11 @@ void Session::asyncAudioBufferLoop() {
 }
 
 void Session::handleAudioBuffer(size_t rx_bytes) {
-  constexpr size_t report_bytes = 1024 * 50; // 50k
+  // constexpr size_t report_bytes = 1024 * 50; // 50k
   // the following function calls do not contain async_* calls
   accumulate(Accumulate::RX, rx_bytes);
 
-  rxAvailable(); // drain the socket
-
-  if ((_rx_bytes % report_bytes) == 0) {
-    fmt::print("{} bytes={}\n", fnName(), _rx_bytes);
-  }
+  // rxAvailable(); // drain the socket
 
   // ensureAllContent(); // load additional content
 

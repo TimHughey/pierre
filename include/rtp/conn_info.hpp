@@ -25,7 +25,7 @@
 #include <string>
 #include <sys/socket.h>
 
-#include "rtp/audio_buff.hpp"
+#include "rtp/audio/buffered/entry.hpp"
 #include "rtp/flush_request.hpp"
 #include "rtp/ping_record.hpp"
 #include "rtp/stream.hpp"
@@ -67,8 +67,8 @@ struct ConnInfo {
   int connection_number; // for debug ID purposes, nothing else...
   int resend_interval;   // this is really just for debugging
   string UserAgent;      // free this on teardown
-  int AirPlayVersion; // zero if not an AirPlay session. Used to help calculate
-                      // latency
+  int AirPlayVersion;    // zero if not an AirPlay session. Used to help calculate
+                         // latency
   int latency_warning_issued;
   uint32_t latency;          // the actual latency used for this play session
   uint32_t minimum_latency;  // set if an a=min-latency: line appears in the
@@ -84,14 +84,14 @@ struct ConnInfo {
   volatile int stop;
   volatile int running;
   volatile uint64_t watchdog_bark_time;
-  volatile int watchdog_barks; // number of times the watchdog has timed out and
-                               // done something
+  volatile int watchdog_barks;  // number of times the watchdog has timed out and
+                                // done something
   int unfixable_error_reported; // set when an unfixable error command has been
                                 // executed.
 
   time_t playstart;
-  pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread,
-      rtp_timing_thread, player_watchdog_thread;
+  pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread,
+      player_watchdog_thread;
 
   // buffers to delete on exit
   int32_t *tbuf;
@@ -118,9 +118,8 @@ struct ConnInfo {
 
   // other stuff...
   pthread_t *player_thread;
-  AudioBufferEntry audio_buffer[buffer_frames];
-  unsigned int max_frames_per_packet, input_num_channels, input_bit_depth,
-      input_rate;
+  rtp::audio::BufferEntry audio_buffer[buffer_frames];
+  unsigned int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;
   int64_t previous_random_number;
@@ -152,7 +151,7 @@ struct ConnInfo {
   int flush_output_flushed; // true if the output device has been flushed.
   uint32_t flush_rtp_timestamp;
   uint64_t time_of_last_audio_packet;
-  seq_t ab_read, ab_write;
+  audio::seq_t ab_read, ab_write;
   AES_KEY aes;
 
   int amountStuffed;
@@ -174,7 +173,7 @@ struct ConnInfo {
                            // program -- it
   uint16_t self_rtsp_port; // could be one of many, so we need to know it
 
-  uint32_t self_scope_id; // if it's an ipv6 connection, this will be its scope
+  uint32_t self_scope_id;       // if it's an ipv6 connection, this will be its scope
   int16_t connection_ip_family; // AF_INET / AF_INET6
 
   sockaddr_storage rtp_client_control_socket; // a socket pointing to the
@@ -182,8 +181,8 @@ struct ConnInfo {
   sockaddr_storage rtp_client_timing_socket;  // a socket pointing to the timing
                                               // port of the client
   int audio_socket;                           // our local [server] audio socket
-  int control_socket; // our local [server] control socket
-  int timing_socket;  // local timing socket
+  int control_socket;                         // our local [server] control socket
+  int timing_socket;                          // local timing socket
 
   uint16_t remote_control_port;
   uint16_t remote_timing_port;
@@ -212,18 +211,16 @@ struct ConnInfo {
 
   clock_status_t clock_status;
 
-  airplay_stream_c
-      airplay_stream_category; // is it a remote control stream or a normal
-                               // "full service" stream? (will be unspecified if
-                               // not build for AirPlay 2)
+  airplay_stream_c airplay_stream_category; // is it a remote control stream or a normal
+                                            // "full service" stream? (will be unspecified if
+                                            // not build for AirPlay 2)
 
-  string airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group
-                      // UUID is the same as the pi UUID
-  airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on
-                          // this connection?
-  airplay_stream_t
-      airplay_stream_type; // is it realtime audio or buffered audio...
-  timing_t timing_type;    // are we using NTP or PTP on this connection?
+  string airplay_gid;                   // UUID in the Bonjour advertisement -- if NULL, the group
+                                        // UUID is the same as the pi UUID
+  airplay_t airplay_type;               // are we using AirPlay 1 or AirPlay 2 protocol on
+                                        // this connection?
+  airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
+  timing_t timing_type;                 // are we using NTP or PTP on this connection?
 
   pthread_t *rtp_event_thread;
   pthread_t rtp_ap2_control_thread;
@@ -247,7 +244,7 @@ struct ConnInfo {
   uint32_t ap2_flush_from_sequence_number;
   uint32_t ap2_flush_until_rtp_timestamp;
   uint32_t ap2_flush_until_sequence_number;
-  int ap2_rate; // protect with flush mutex, 0 means don't play, 1 means play
+  int ap2_rate;         // protect with flush mutex, 0 means don't play, 1 means play
   int ap2_play_enabled; // protect with flush mutex
 
   // ap2_pairing ap2_control_pairing;
