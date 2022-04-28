@@ -18,16 +18,73 @@
 
 #pragma once
 
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <fmt/format.h>
+#include <iterator>
+#include <pthread.h>
+#include <source_location>
+#include <vector>
+
+#include "nptp/shm_struct.hpp"
 
 namespace pierre {
 namespace nptp {
 
-struct ClockInfo {
-  uint64_t actual_clock_id;
-  uint64_t time_of_sample;
-  uint64_t raw_offset;
-  uint64_t mastership_start_time;
+class ClockInfo {
+public:
+  typedef std::vector<uint8_t> Data;
+
+public:
+  using Clock = std::chrono::steady_clock;
+
+  typedef uint64_t ClockId;
+
+public:
+  ClockInfo(){}; // allow for placeholder objects
+
+  ClockInfo(void *shm_data);
+
+  // clock info (direct access)
+  ClockId clockID = 0;
+  uint64_t sampleTime = 0;
+  uint64_t rawOffset = 0;
+  uint64_t mastershipStartTime = 0;
+
+  // refresh the clock sample data
+  void refresh(void *shm_data);
+
+  // size of the memory mapped region
+  static constexpr size_t mappedSize() { return sizeof(shm_structure); }
+
+  // current time
+  uint64_t now() const { return Clock::now().time_since_epoch().count(); }
+
+  // is this sample too old?
+  bool tooOld() const { return too_old; }
+
+  void dump() const;
+
+private:
+  void __init();
+
+  void copyData();
+  void populate();
+
+private:
+  static const char *fnName(const std::source_location loc = std::source_location::current()) {
+    return loc.function_name();
+  }
+
+private:
+  bool too_old = false;
+
+private:
+  static constexpr auto VERSION = 7;
+
+  void *_shm_data = nullptr;
+  Data _nqptp;
 };
 
 } // namespace nptp

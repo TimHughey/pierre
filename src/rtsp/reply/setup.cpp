@@ -90,7 +90,7 @@ bool Setup::handleNoStreams() {
     headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
     responseCode(RespCode::OK);
 
-    reply_dict.dictDump();
+    // reply_dict.dictDump();
 
     rc = true;
   }
@@ -145,7 +145,7 @@ bool Setup::handleStreams() {
   headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
   responseCode(RespCode::OK);
 
-  reply_dict.dictDump();
+  // reply_dict.dictDump();
 
   return rc;
 }

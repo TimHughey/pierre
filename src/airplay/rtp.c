@@ -77,8 +77,7 @@ typedef struct {
   pthread_cond_t not_full_cv;
 } buffered_tcp_desc;
 
-void check64conversion(const char *prompt, const uint8_t *source,
-                       uint64_t value) {
+void check64conversion(const char *prompt, const uint8_t *source, uint64_t value) {
   char converted_value[128];
   sprintf(converted_value, "%" PRIx64 "", value);
 
@@ -105,13 +104,11 @@ void check64conversion(const char *prompt, const uint8_t *source,
   };
   *obfp = 0;
   if (strcmp(converted_value, obf) != 0) {
-    debug(1, "%s check64conversion error converting \"%s\" to %" PRIx64 ".",
-          prompt, obf, value);
+    debug(1, "%s check64conversion error converting \"%s\" to %" PRIx64 ".", prompt, obf, value);
   }
 }
 
-void check32conversion(const char *prompt, const uint8_t *source,
-                       uint32_t value) {
+void check32conversion(const char *prompt, const uint8_t *source, uint32_t value) {
   char converted_value[128];
   sprintf(converted_value, "%" PRIx32 "", value);
 
@@ -138,8 +135,7 @@ void check32conversion(const char *prompt, const uint8_t *source,
   };
   *obfp = 0;
   if (strcmp(converted_value, obf) != 0) {
-    debug(1, "%s check32conversion error converting \"%s\" to %" PRIx32 ".",
-          prompt, obf, value);
+    debug(1, "%s check32conversion error converting \"%s\" to %" PRIx32 ".", prompt, obf, value);
   }
 }
 
@@ -165,20 +161,17 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
   // that was used so, if we have a non-zero clock drift, we will calculate the
   // drift there would be from the time of the last time ping
   uint64_t time_since_last_local_to_remote_time_difference_measurement =
-      get_absolute_time_in_ns() -
-      conn->local_to_remote_time_difference_measurement_time;
+      get_absolute_time_in_ns() - conn->local_to_remote_time_difference_measurement_time;
 
   uint64_t result = conn->local_to_remote_time_difference;
   if (conn->local_to_remote_time_gradient >= 1.0) {
-    result =
-        conn->local_to_remote_time_difference +
-        (uint64_t)((conn->local_to_remote_time_gradient - 1.0) *
-                   time_since_last_local_to_remote_time_difference_measurement);
+    result = conn->local_to_remote_time_difference +
+             (uint64_t)((conn->local_to_remote_time_gradient - 1.0) *
+                        time_since_last_local_to_remote_time_difference_measurement);
   } else {
-    result =
-        conn->local_to_remote_time_difference -
-        (uint64_t)((1.0 - conn->local_to_remote_time_gradient) *
-                   time_since_last_local_to_remote_time_difference_measurement);
+    result = conn->local_to_remote_time_difference -
+             (uint64_t)((1.0 - conn->local_to_remote_time_gradient) *
+                        time_since_last_local_to_remote_time_difference_measurement);
   }
   return result;
 }
@@ -214,8 +207,7 @@ void *rtp_audio_receiver(void *arg) {
 
     uint64_t local_time_now_ns = get_absolute_time_in_ns();
     if (time_of_previous_packet_ns) {
-      float time_interval_us =
-          (local_time_now_ns - time_of_previous_packet_ns) * 0.001;
+      float time_interval_us = (local_time_now_ns - time_of_previous_packet_ns) * 0.001;
       time_of_previous_packet_ns = local_time_now_ns;
       if (time_interval_us > longest_packet_time_interval_us)
         longest_packet_time_interval_us = time_interval_us;
@@ -228,8 +220,7 @@ void *rtp_audio_receiver(void *arg) {
               "Packet reception interval stats: mean, standard deviation and "
               "max for the last "
               "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
-              stat_mean, sqrtf(stat_M2 / (stat_n - 1)),
-              longest_packet_time_interval_us);
+              stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_packet_time_interval_us);
         stat_n = 0;
         stat_mean = 0.0;
         stat_M2 = 0.0;
@@ -276,10 +267,7 @@ void *rtp_audio_receiver(void *arg) {
             last_seqno = seqno; // reset warning...
           }
         } else {
-          debug(
-              3,
-              "Audio Receiver -- Retransmitted Audio Data Packet %u received.",
-              seqno);
+          debug(3, "Audio Receiver -- Retransmitted Audio Data Packet %u received.", seqno);
         }
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
@@ -308,8 +296,7 @@ void *rtp_audio_receiver(void *arg) {
               "seqno %d",
               type, nread, seqno);
       }
-      warn("Audio receiver -- Unknown RTP packet of type 0x%02X length %d.",
-           type, nread);
+      warn("Audio receiver -- Unknown RTP packet of type 0x%02X length %d.", type, nread);
     } else {
       char em[1024];
       strerror_r(errno, em, sizeof(em));
@@ -347,7 +334,6 @@ void *rtp_control_receiver(void *arg) {
     nread = recv(conn->control_socket, packet, sizeof(packet), 0);
 
     if (nread >= 0) {
-
       ssize_t plen = nread;
       if (packet[1] == 0xd4) { // sync data
         /*
@@ -435,16 +421,14 @@ void *rtp_control_receiver(void *arg) {
           // Sigh, it would be nice to have a published protocol...
 
           uint16_t flags = nctohs(&packet[2]);
-          uint32_t la = sync_rtp_timestamp -
-                        rtp_timestamp_less_latency; // note, this might
-                                                    // loop around in
-                                                    // modulo. Not sure if
-                                                    // you'll get an error!
+          uint32_t la = sync_rtp_timestamp - rtp_timestamp_less_latency; // note, this might
+                                                                         // loop around in
+                                                                         // modulo. Not sure if
+                                                                         // you'll get an error!
           // debug(1, "Latency from the sync packet is %" PRIu32 " frames.",
           // la);
 
-          if ((flags == 7) ||
-              ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) ||
+          if ((flags == 7) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) ||
               ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion >= 371))) {
             la += config.fixedLatencyOffset;
             // debug(1, "Latency offset by %" PRIu32" frames due to the
@@ -465,12 +449,10 @@ void *rtp_control_receiver(void *arg) {
                  "Latency remains at %" PRIu32 " frames.",
                  la, max_frames, conn->latency);
           } else {
-
             // here we have the latency but it does not yet account for the
             // audio_backend_latency_offset
             int32_t latency_offset =
-                (int32_t)(config.audio_backend_latency_offset *
-                          conn->input_rate);
+                (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
 
             // debug(1,"latency offset is %" PRId32 ", input rate is %u",
             // latency_offset, conn->input_rate);
@@ -478,8 +460,7 @@ void *rtp_control_receiver(void *arg) {
             if ((adjusted_latency < 0) ||
                 (adjusted_latency >
                  (int32_t)(conn->max_frames_per_packet *
-                           (BUFFER_FRAMES -
-                            config.minimum_free_buffer_headroom))))
+                           (BUFFER_FRAMES - config.minimum_free_buffer_headroom))))
               warn("audio_backend_latency_offset out of range -- ignored.");
             else
               la = adjusted_latency;
@@ -491,10 +472,8 @@ void *rtp_control_receiver(void *arg) {
                     ", minimum latency: %" PRIu32 ", maximum "
                     "latency: %" PRIu32 ", fixed offset: %" PRIu32
                     ", audio_backend_latency_offset: %f.",
-                    conn->latency,
-                    sync_rtp_timestamp - rtp_timestamp_less_latency,
-                    conn->minimum_latency, conn->maximum_latency,
-                    config.fixedLatencyOffset,
+                    conn->latency, sync_rtp_timestamp - rtp_timestamp_less_latency,
+                    conn->minimum_latency, conn->maximum_latency, config.fixedLatencyOffset,
                     config.audio_backend_latency_offset);
             }
           }
@@ -512,13 +491,11 @@ void *rtp_control_receiver(void *arg) {
             }
           } else {
             uint64_t remote_frame_time_interval =
-                conn->anchor_time -
-                conn->initial_reference_time; // here, this should never be
-                                              // zero
+                conn->anchor_time - conn->initial_reference_time; // here, this should never be
+                                                                  // zero
             if (remote_frame_time_interval) {
               conn->remote_frame_rate =
-                  (1.0E9 *
-                   (conn->anchor_rtptime - conn->initial_reference_timestamp)) /
+                  (1.0E9 * (conn->anchor_rtptime - conn->initial_reference_timestamp)) /
                   remote_frame_time_interval;
             } else {
               conn->remote_frame_rate = 0.0; // use as a flag.
@@ -580,11 +557,9 @@ void *rtp_control_receiver(void *arg) {
               packet[1], nread);
 
     } else {
-
       char em[1024];
       strerror_r(errno, em, sizeof(em));
-      debug(1, "Control Receiver -- error %d receiving a packet: \"%s\".",
-            errno, em);
+      debug(1, "Control Receiver -- error %d receiving a packet: \"%s\".", errno, em);
     }
   }
   debug(1, "Control RTP thread \"normal\" exit -- this can't happen. Hah!");
@@ -643,12 +618,10 @@ void *rtp_timing_sender(void *arg) {
 #endif
 
     if (sendto(conn->timing_socket, &req, sizeof(req), 0,
-               (struct sockaddr *)&conn->rtp_client_timing_socket,
-               msgsize) == -1) {
+               (struct sockaddr *)&conn->rtp_client_timing_socket, msgsize) == -1) {
       char em[1024];
       strerror_r(errno, em, sizeof(em));
-      debug(1, "Error %d using send-to to the timing socket: \"%s\".", errno,
-            em);
+      debug(1, "Error %d using send-to to the timing socket: \"%s\".", errno, em);
     }
 
     request_number++;
@@ -669,8 +642,8 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
   // walk down the list of DACP / gradient pairs, if any
   nvll *gradients = config.gradients;
   if (conn->dacp_id)
-    while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string,
-                                      gradients->name) != 0))
+    while ((gradients) &&
+           (strcasecmp((const char *)&conn->client_ip_string, gradients->name) != 0))
       gradients = gradients->next;
 
   // if gradients comes out of this non-null, it is pointing to the DACP and
@@ -712,8 +685,7 @@ void *rtp_timing_receiver(void *arg) {
   ssize_t nread;
   pthread_create(&conn->timer_requester, NULL, &rtp_timing_sender, arg);
   //    struct timespec att;
-  uint64_t distant_receive_time, distant_transmit_time, arrival_time,
-      return_time;
+  uint64_t distant_receive_time, distant_transmit_time, arrival_time, return_time;
   local_to_remote_time_jitter = 0;
   local_to_remote_time_jitter_count = 0;
   // uint64_t first_remote_time = 0;
@@ -724,8 +696,7 @@ void *rtp_timing_receiver(void *arg) {
   conn->local_to_remote_time_gradient = 1.0; // initial value.
   // walk down the list of DACP / gradient pairs, if any
   nvll *gradients = config.gradients;
-  while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string,
-                                    gradients->name) != 0))
+  while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string, gradients->name) != 0))
     gradients = gradients->next;
 
   // if gradients comes out of this non-null, it is pointing to the IP and it's
@@ -746,8 +717,7 @@ void *rtp_timing_receiver(void *arg) {
   // where n is the number of elements in the array
 
   const double diffusion_expansion_factor = 10;
-  double log_of_multiplier =
-      log10(diffusion_expansion_factor) / time_ping_history;
+  double log_of_multiplier = log10(diffusion_expansion_factor) / time_ping_history;
   double multiplier = pow(10, log_of_multiplier);
   uint64_t dispersion_factor = (uint64_t)(multiplier * 100);
   if (dispersion_factor == 0)
@@ -767,7 +737,6 @@ void *rtp_timing_receiver(void *arg) {
     nread = recv(conn->timing_socket, packet, sizeof(packet), 0);
 
     if (nread >= 0) {
-
       arrival_time = get_absolute_time_in_ns();
 
       // ssize_t plen = nread;
@@ -806,8 +775,7 @@ void *rtp_timing_receiver(void *arg) {
           uint64_t remote_processing_time = 0;
 
           if (distant_transmit_time >= distant_receive_time)
-            remote_processing_time =
-                distant_transmit_time - distant_receive_time;
+            remote_processing_time = distant_transmit_time - distant_receive_time;
           else {
             debug(1, "Yikes: distant_transmit_time is before "
                      "distant_receive_time; remote "
@@ -830,8 +798,7 @@ void *rtp_timing_receiver(void *arg) {
             //                conn->time_pings[cc].dispersion =
             //                  conn->time_pings[cc].dispersion * pow(2.14,
             //                  1.0/conn->time_ping_count);
-            if (conn->time_pings[cc].dispersion >
-                UINT64_MAX / dispersion_factor)
+            if (conn->time_pings[cc].dispersion > UINT64_MAX / dispersion_factor)
               debug(1, "dispersion factor is too large at %" PRIu64 ".");
             else
               conn->time_pings[cc].dispersion =
@@ -841,8 +808,7 @@ void *rtp_timing_receiver(void *arg) {
           // these are used for doing a least squares calculation to get the
           // drift
           conn->time_pings[0].local_time = arrival_time;
-          conn->time_pings[0].remote_time =
-              distant_transmit_time + return_time / 2;
+          conn->time_pings[0].remote_time = distant_transmit_time + return_time / 2;
           conn->time_pings[0].sequence_number = sequence_number++;
           conn->time_pings[0].chosen = 0;
           conn->time_pings[0].dispersion = return_time;
@@ -887,17 +853,14 @@ void *rtp_timing_receiver(void *arg) {
             }
           // debug(1,"Record %d has the lowest dispersion with %0.2f us
           // dispersion.",chosen,1.0*((tld * 1000000) >> 32));
-          conn->time_pings[chosen].chosen =
-              1; // record the fact that it has been used for timing
+          conn->time_pings[chosen].chosen = 1; // record the fact that it has been used for timing
 
           conn->local_to_remote_time_difference =
               rt - lt; // make this the new local-to-remote-time-difference
-          conn->local_to_remote_time_difference_measurement_time =
-              lt; // done at this time.
+          conn->local_to_remote_time_difference_measurement_time = lt; // done at this time.
 
           if (first_local_to_remote_time_difference == 0) {
-            first_local_to_remote_time_difference =
-                conn->local_to_remote_time_difference;
+            first_local_to_remote_time_difference = conn->local_to_remote_time_difference;
             // first_local_to_remote_time_difference_time =
             // get_absolute_time_in_fp();
           }
@@ -928,10 +891,8 @@ void *rtp_timing_receiver(void *arg) {
                  (settling_time / 3))) { // wait for a approximate settling time
               // have to scale them down so that the sum, possibly over
               // every term in the array, doesn't overflow
-              y_bar += (conn->time_pings[cc].remote_time >>
-                        time_ping_history_power_of_two);
-              x_bar += (conn->time_pings[cc].local_time >>
-                        time_ping_history_power_of_two);
+              y_bar += (conn->time_pings[cc].remote_time >> time_ping_history_power_of_two);
+              x_bar += (conn->time_pings[cc].local_time >> time_ping_history_power_of_two);
               sample_count++;
             }
           conn->local_to_remote_time_gradient_sample_count = sample_count;
@@ -945,18 +906,14 @@ void *rtp_timing_receiver(void *arg) {
             mbl = 0;
             for (cc = 0; cc < conn->time_ping_count; cc++)
               if ((conn->time_pings[cc].chosen) &&
-                  (conn->time_pings[cc].sequence_number >
-                   (settling_time / 3))) {
-
-                uint64_t slt = conn->time_pings[cc].local_time >>
-                               time_ping_history_power_of_two;
+                  (conn->time_pings[cc].sequence_number > (settling_time / 3))) {
+                uint64_t slt = conn->time_pings[cc].local_time >> time_ping_history_power_of_two;
                 if (slt > x_bar)
                   xid = slt - x_bar;
                 else
                   xid = -(x_bar - slt);
 
-                uint64_t srt = conn->time_pings[cc].remote_time >>
-                               time_ping_history_power_of_two;
+                uint64_t srt = conn->time_pings[cc].remote_time >> time_ping_history_power_of_two;
                 if (srt > y_bar)
                   yid = srt - y_bar;
                 else
@@ -996,25 +953,21 @@ void *rtp_timing_receiver(void *arg) {
                 return_time);
         }
       } else {
-        debug(1, "Timing port -- Unknown RTP packet of type 0x%02X length %d.",
-              packet[1], nread);
+        debug(1, "Timing port -- Unknown RTP packet of type 0x%02X length %d.", packet[1], nread);
       }
     } else {
       debug(1, "Timing receiver -- error receiving a packet.");
     }
   }
 
-  debug(
-      1,
-      "Timing Receiver RTP thread \"normal\" exit -- this can't happen. Hah!");
+  debug(1, "Timing Receiver RTP thread \"normal\" exit -- this can't happen. Hah!");
   pthread_cleanup_pop(0); // don't execute anything here.
   debug(2, "Timing Receiver RTP thread exit.");
   pthread_exit(NULL);
 }
 
-void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport,
-               uint16_t tport, rtsp_conn_info *conn) {
-
+void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport,
+               rtsp_conn_info *conn) {
   // this gets the local and remote ip numbers (and ports used for the TCD
   // stuff) we use the local stuff to specify the address we are coming from and
   // we use the remote stuff to specify where we're goint to
@@ -1024,7 +977,6 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport,
          "Possible duplicate "
          "SETUP call?");
   else {
-
     debug(3, "rtp_setup: cport=%d tport=%d.", cport, tport);
 
     // print out what we know about the client
@@ -1061,16 +1013,14 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport,
     inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
               sizeof(conn->self_ip_string));
 
-    debug(2, "Connection %d: SETUP -- Connection from %s to self at %s.",
-          conn->connection_number, conn->client_ip_string,
-          conn->self_ip_string);
+    debug(2, "Connection %d: SETUP -- Connection from %s to self at %s.", conn->connection_number,
+          conn->client_ip_string, conn->self_ip_string);
 
     // set up a the record of the remote's control socket
     struct addrinfo hints;
     struct addrinfo *servinfo;
 
-    memset(&conn->rtp_client_control_socket, 0,
-           sizeof(conn->rtp_client_control_socket));
+    memset(&conn->rtp_client_control_socket, 0, sizeof(conn->rtp_client_control_socket));
     memset(&hints, 0, sizeof hints);
     hints.ai_family = conn->connection_ip_family;
     hints.ai_socktype = SOCK_DGRAM;
@@ -1081,22 +1031,18 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport,
 
 #ifdef AF_INET6
     if (servinfo->ai_family == AF_INET6) {
-      memcpy(&conn->rtp_client_control_socket, servinfo->ai_addr,
-             sizeof(struct sockaddr_in6));
+      memcpy(&conn->rtp_client_control_socket, servinfo->ai_addr, sizeof(struct sockaddr_in6));
       // ensure the scope id matches that of remote. this is needed for
       // link-local addresses.
-      struct sockaddr_in6 *sa6 =
-          (struct sockaddr_in6 *)&conn->rtp_client_control_socket;
+      struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&conn->rtp_client_control_socket;
       sa6->sin6_scope_id = conn->self_scope_id;
     } else
 #endif
-      memcpy(&conn->rtp_client_control_socket, servinfo->ai_addr,
-             sizeof(struct sockaddr_in));
+      memcpy(&conn->rtp_client_control_socket, servinfo->ai_addr, sizeof(struct sockaddr_in));
     freeaddrinfo(servinfo);
 
     // set up a the record of the remote's timing socket
-    memset(&conn->rtp_client_timing_socket, 0,
-           sizeof(conn->rtp_client_timing_socket));
+    memset(&conn->rtp_client_timing_socket, 0, sizeof(conn->rtp_client_timing_socket));
     memset(&hints, 0, sizeof hints);
     hints.ai_family = conn->connection_ip_family;
     hints.ai_socktype = SOCK_DGRAM;
@@ -1105,17 +1051,14 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport,
       die("Can't get address of client's timing port");
 #ifdef AF_INET6
     if (servinfo->ai_family == AF_INET6) {
-      memcpy(&conn->rtp_client_timing_socket, servinfo->ai_addr,
-             sizeof(struct sockaddr_in6));
+      memcpy(&conn->rtp_client_timing_socket, servinfo->ai_addr, sizeof(struct sockaddr_in6));
       // ensure the scope id matches that of remote. this is needed for
       // link-local addresses.
-      struct sockaddr_in6 *sa6 =
-          (struct sockaddr_in6 *)&conn->rtp_client_timing_socket;
+      struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&conn->rtp_client_timing_socket;
       sa6->sin6_scope_id = conn->self_scope_id;
     } else
 #endif
-      memcpy(&conn->rtp_client_timing_socket, servinfo->ai_addr,
-             sizeof(struct sockaddr_in));
+      memcpy(&conn->rtp_client_timing_socket, servinfo->ai_addr, sizeof(struct sockaddr_in));
     freeaddrinfo(servinfo);
 
     // now, we open three sockets -- one for the audio stream, one for the
@@ -1123,19 +1066,15 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport,
     conn->remote_control_port = cport;
     conn->remote_timing_port = tport;
 
-    conn->local_control_port =
-        bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
-                      conn->self_scope_id, &conn->control_socket);
-    conn->local_timing_port =
-        bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
-                      conn->self_scope_id, &conn->timing_socket);
-    conn->local_audio_port =
-        bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
-                      conn->self_scope_id, &conn->audio_socket);
+    conn->local_control_port = bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
+                                             conn->self_scope_id, &conn->control_socket);
+    conn->local_timing_port = bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
+                                            conn->self_scope_id, &conn->timing_socket);
+    conn->local_audio_port = bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
+                                           conn->self_scope_id, &conn->audio_socket);
 
     debug(3, "listening for audio, control and timing on ports %d, %d, %d.",
-          conn->local_audio_port, conn->local_control_port,
-          conn->local_timing_port);
+          conn->local_audio_port, conn->local_control_port, conn->local_timing_port);
 
     conn->anchor_rtptime = 0;
 
@@ -1160,11 +1099,9 @@ int have_ntp_timestamp_timing_information(rtsp_conn_info *conn) {
 
 // set this to zero to use the rates supplied by the sources, which might not
 // always be completely right...
-const int use_nominal_rate =
-    0; // specify whether to use the nominal input rate, usually 44100 fps
+const int use_nominal_rate = 0; // specify whether to use the nominal input rate, usually 44100 fps
 
-int sanitised_source_rate_information(uint32_t *frames, uint64_t *time,
-                                      rtsp_conn_info *conn) {
+int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_conn_info *conn) {
   int result = 1;
   if (conn->input_rate == 0)
     die("conn->input_rate is zero!");
@@ -1174,8 +1111,8 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time,
   if ((conn->initial_reference_time) && (conn->initial_reference_timestamp)) {
     //    uint32_t local_frames = conn->reference_timestamp -
     //    conn->initial_reference_timestamp;
-    uint32_t local_frames = modulo_32_offset(conn->initial_reference_timestamp,
-                                             conn->anchor_rtptime);
+    uint32_t local_frames =
+        modulo_32_offset(conn->initial_reference_timestamp, conn->anchor_rtptime);
     uint64_t local_time = conn->anchor_time - conn->initial_reference_time;
     if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
       result = 1;
@@ -1185,11 +1122,9 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time,
         calculated_frame_rate = (1.0E9 * local_frames) / local_time;
       else
         debug(1, "sanitised_source_rate_information: local_time is zero");
-      if ((local_time == 0) ||
-          ((calculated_frame_rate / conn->input_rate) > 1.002) ||
+      if ((local_time == 0) || ((calculated_frame_rate / conn->input_rate) > 1.002) ||
           ((calculated_frame_rate / conn->input_rate) < 0.998)) {
-        debug(3, "input frame rate out of bounds at %.2f fps.",
-              calculated_frame_rate);
+        debug(3, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
         result = 1;
       } else {
         *frames = local_frames;
@@ -1205,8 +1140,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time,
   return result;
 }
 
-void set_ntp_anchor_info(rtsp_conn_info *conn, uint32_t rtptime,
-                         uint64_t networktime) {
+void set_ntp_anchor_info(rtsp_conn_info *conn, uint32_t rtptime, uint64_t networktime) {
   conn->anchor_remote_info_is_valid = 1;
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
@@ -1215,42 +1149,36 @@ void set_ntp_anchor_info(rtsp_conn_info *conn, uint32_t rtptime,
 // the timestamp is a timestamp calculated at the input rate
 // the reference timestamps are denominated in terms of the input rate
 
-int frame_to_ntp_local_time(uint32_t timestamp, uint64_t *time,
-                            rtsp_conn_info *conn) {
+int frame_to_ntp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   int result = 0;
   uint64_t time_difference;
   uint32_t frame_difference;
-  result = sanitised_source_rate_information(&frame_difference,
-                                             &time_difference, conn);
+  result = sanitised_source_rate_information(&frame_difference, &time_difference, conn);
 
   uint64_t remote_time_of_timestamp;
   int32_t timestamp_interval = timestamp - conn->anchor_rtptime;
   int64_t timestamp_interval_time = timestamp_interval;
   timestamp_interval_time = timestamp_interval_time * time_difference;
   timestamp_interval_time =
-      timestamp_interval_time /
-      frame_difference; // this is the nominal time, based on the
-                        // fps specified between current and
-                        // previous sync frame.
+      timestamp_interval_time / frame_difference; // this is the nominal time, based on the
+                                                  // fps specified between current and
+                                                  // previous sync frame.
   remote_time_of_timestamp =
-      conn->anchor_time +
-      timestamp_interval_time; // based on the reference timestamp time
-                               // plus the time interval calculated based
-                               // on the specified fps.
+      conn->anchor_time + timestamp_interval_time; // based on the reference timestamp time
+                                                   // plus the time interval calculated based
+                                                   // on the specified fps.
   *time = remote_time_of_timestamp - local_to_remote_time_difference_now(conn);
   debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
 }
 
-int local_ntp_time_to_frame(uint64_t time, uint32_t *frame,
-                            rtsp_conn_info *conn) {
+int local_ntp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   int result = 0;
   uint64_t time_difference;
   uint32_t frame_difference;
-  result = sanitised_source_rate_information(&frame_difference,
-                                             &time_difference, conn);
+  result = sanitised_source_rate_information(&frame_difference, &time_difference, conn);
   // first, get from [local] time to remote time.
   uint64_t remote_time = time + local_to_remote_time_difference_now(conn);
   // next, get the remote time interval from the remote_time to the reference
@@ -1299,7 +1227,6 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
     if ((conn->rtp_time_of_last_resend_request_error_ns == 0) ||
         ((time_of_sending_ns - conn->rtp_time_of_last_resend_request_error_ns) >
          resend_error_backoff_time)) {
-
       // put a time limit on the sendto
 
       struct timeval timeout;
@@ -1308,17 +1235,15 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
       int response;
 
       if (conn->airplay_type == ap_2) {
-        if (setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_SNDTIMEO,
-                       (char *)&timeout, sizeof(timeout)) < 0)
+        if (setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
+                       sizeof(timeout)) < 0)
           debug(1, "Can't set timeout on resend request socket.");
-        response =
-            sendto(conn->ap2_control_socket, req, sizeof(req), 0,
-                   (struct sockaddr *)&conn->ap2_remote_control_socket_addr,
-                   conn->ap2_remote_control_socket_addr_length);
+        response = sendto(conn->ap2_control_socket, req, sizeof(req), 0,
+                          (struct sockaddr *)&conn->ap2_remote_control_socket_addr,
+                          conn->ap2_remote_control_socket_addr_length);
       } else {
-
-        if (setsockopt(conn->control_socket, SOL_SOCKET, SO_SNDTIMEO,
-                       (char *)&timeout, sizeof(timeout)) < 0)
+        if (setsockopt(conn->control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
+                       sizeof(timeout)) < 0)
           debug(1, "Can't set timeout on resend request socket.");
         socklen_t msgsize = sizeof(struct sockaddr_in);
 #ifdef AF_INET6
@@ -1327,15 +1252,13 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
         }
 #endif
         response = sendto(conn->control_socket, req, sizeof(req), 0,
-                          (struct sockaddr *)&conn->rtp_client_control_socket,
-                          msgsize);
+                          (struct sockaddr *)&conn->rtp_client_control_socket, msgsize);
       }
 
       if (response == -1) {
         char em[1024];
         strerror_r(errno, em, sizeof(em));
-        debug(2, "Error %d using sendto to request a resend: \"%s\".", errno,
-              em);
+        debug(2, "Error %d using sendto to request a resend: \"%s\".", errno, em);
         conn->rtp_time_of_last_resend_request_error_ns = time_of_sending_ns;
       } else {
         conn->rtp_time_of_last_resend_request_error_ns = 0;
@@ -1352,12 +1275,11 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
   }
 }
 
-void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id,
-                         uint32_t rtptime, uint64_t networktime) {
+void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
+                         uint64_t networktime) {
   // debug(1,"clock: %" PRIx64 ", rtptime: %" PRIu32 ".", clock_id, rtptime);
   if (conn->anchor_clock != clock_id) {
-    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".",
-          conn->connection_number, clock_id);
+    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
     conn->anchor_clock_is_new = 1;
   }
   // debug(1,"set anchor info clock: %" PRIx64", rtptime: %u, networktime: %"
@@ -1367,27 +1289,23 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id,
   // last_anchor_info has not been valid for some minimum time (and thus may not
   // be reliable), we need to invalidate last_anchor_info
 
-  if ((conn->airplay_stream_type == buffered_stream) &&
-      (conn->ap2_play_enabled != 0) &&
+  if ((conn->airplay_stream_type == buffered_stream) && (conn->ap2_play_enabled != 0) &&
       ((clock_id != conn->anchor_clock) || (conn->anchor_rtptime != rtptime) ||
        (conn->anchor_time != networktime))) {
     uint64_t master_clock_id = 0;
     ptp_get_clock_info(&master_clock_id, NULL, NULL, NULL);
     debug(1,
           "Connection %d: Note: anchor parameters have changed. Old clock: "
-          "%" PRIx64 ", rtptime: %u, networktime: %" PRIu64
-          ". New clock: %" PRIx64 ", rtptime: %u, networktime: %" PRIu64
-          ". Current master clock: %" PRIx64 ".",
-          conn->connection_number, conn->anchor_clock, conn->anchor_rtptime,
-          conn->anchor_time, clock_id, rtptime, networktime, master_clock_id);
+          "%" PRIx64 ", rtptime: %u, networktime: %" PRIu64 ". New clock: %" PRIx64
+          ", rtptime: %u, networktime: %" PRIu64 ". Current master clock: %" PRIx64 ".",
+          conn->connection_number, conn->anchor_clock, conn->anchor_rtptime, conn->anchor_time,
+          clock_id, rtptime, networktime, master_clock_id);
   }
 
   if ((clock_id == conn->anchor_clock) &&
-      ((conn->anchor_rtptime != rtptime) ||
-       (conn->anchor_time != networktime))) {
+      ((conn->anchor_rtptime != rtptime) || (conn->anchor_time != networktime))) {
     uint64_t time_now = get_absolute_time_in_ns();
-    int64_t last_anchor_validity_duration =
-        time_now - conn->last_anchor_validity_start_time;
+    int64_t last_anchor_validity_duration = time_now - conn->last_anchor_validity_start_time;
     if (last_anchor_validity_duration < 5000000000) {
       if (conn->airplay_stream_type == buffered_stream)
         debug(1,
@@ -1422,10 +1340,9 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
 int long_time_notifcation_done = 0;
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
-  uint64_t actual_clock_id, actual_time_of_sample, actual_offset,
-      start_of_mastership;
-  int response = ptp_get_clock_info(&actual_clock_id, &actual_time_of_sample,
-                                    &actual_offset, &start_of_mastership);
+  uint64_t actual_clock_id, actual_time_of_sample, actual_offset, start_of_mastership;
+  int response = ptp_get_clock_info(&actual_clock_id, &actual_time_of_sample, &actual_offset,
+                                    &start_of_mastership);
 
   if (response == clock_ok) {
     uint64_t time_now = get_absolute_time_in_ns();
@@ -1436,8 +1353,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
               0.000000001 * time_since_sample);
         long_time_notifcation_done = 1;
       }
-    } else if ((time_since_sample < 2000000000) &&
-               (long_time_notifcation_done != 0)) {
+    } else if ((time_since_sample < 2000000000) && (long_time_notifcation_done != 0)) {
       debug(1, "The last PTP timing sample is no longer too old: %f seconds.",
             0.000000001 * time_since_sample);
       long_time_notifcation_done = 0;
@@ -1457,8 +1373,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // wait at least this time before using the new master clock
         // note that mastership may be backdated
         if (duration_of_mastership < 1500000000) {
-          debug(3, "master not old enough yet: %f ms",
-                0.000001 * duration_of_mastership);
+          debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
                    (conn->last_anchor_info_is_valid == 0)) {
@@ -1475,8 +1390,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                   "Connection %d: Clock %" PRIx64
                   " is now the new anchor clock and master clock. History: %f "
                   "milliseconds.",
-                  conn->connection_number, conn->anchor_clock,
-                  0.000001 * duration_of_mastership);
+                  conn->connection_number, conn->anchor_clock, 0.000001 * duration_of_mastership);
           conn->anchor_clock_is_new = 0;
         }
       } else {
@@ -1489,21 +1403,19 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // has changed
         if (conn->anchor_clock_is_new != 0)
           debug(3,
-                "Connection %d: Anchor clock has changed to %" PRIx64
-                ", master clock is: %" PRIx64 ". History: %f milliseconds.",
+                "Connection %d: Anchor clock has changed to %" PRIx64 ", master clock is: %" PRIx64
+                ". History: %f milliseconds.",
                 conn->connection_number, conn->anchor_clock, actual_clock_id,
                 0.000001 * duration_of_mastership);
 
-        if ((conn->last_anchor_info_is_valid != 0) &&
-            (conn->anchor_clock_is_new == 0)) {
+        if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
             debug(1,
                   "Connection %d: Master clock has changed to %" PRIx64
                   ". History: %f milliseconds.",
-                  conn->connection_number, actual_clock_id,
-                  0.000001 * duration_of_mastership);
+                  conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
             // here we adjust the time of the anchor rtptime
             // we know its local time, so we use the new clocks's offset to
             // calculate what time that must be on the new clock
@@ -1533,8 +1445,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
             // to clock and back around to the master clock
 
             if (actual_clock_id == conn->actual_anchor_clock) {
-              int64_t cumulative_deviation =
-                  conn->anchor_time - conn->actual_anchor_time;
+              int64_t cumulative_deviation = conn->anchor_time - conn->actual_anchor_time;
               debug(1,
                     "Master clock has become equal to the anchor clock. The "
                     "estimated clock time "
@@ -1564,56 +1475,48 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   // here, check and update the clock status
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
-    case clock_ok:
-      debug(1, "Connection %d: NQPTP new master clock %" PRIx64 ".",
-            conn->connection_number, actual_clock_id);
-      break;
-    case clock_not_ready:
-      debug(2,
-            "Connection %d: NQPTP master clock %" PRIx64
-            " is available but not ready.",
-            conn->connection_number, actual_clock_id);
-      break;
-    case clock_service_unavailable:
-      debug(1, "Connection %d: NQPTP clock is not available.",
-            conn->connection_number);
-      warn("Can't access the NQPTP clock. Is NQPTP running?");
-      break;
-    case clock_access_error:
-      debug(1, "Connection %d: Error accessing the NQPTP clock interface.",
-            conn->connection_number);
-      break;
-    case clock_data_unavailable:
-      debug(1, "Connection %d: Can not access NQPTP clock information.",
-            conn->connection_number);
-      break;
-    case clock_no_master:
-      debug(2, "Connection %d: No NQPTP master clock.",
-            conn->connection_number);
-      break;
-    case clock_no_anchor_info:
-      debug(1, "Connection %d: No clock anchor information.",
-            conn->connection_number);
-      break;
-    case clock_version_mismatch:
-      debug(1, "Connection %d: NQPTP clock interface mismatch.",
-            conn->connection_number);
-      warn("This version of Shairport Sync is not compatible with the "
-           "installed version of NQPTP. "
-           "Please update.");
-      break;
-    case clock_not_synchronised:
-      debug(1, "Connection %d: NQPTP clock is not synchronised.",
-            conn->connection_number);
-      break;
-    case clock_not_valid:
-      debug(1, "Connection %d: NQPTP clock information is not valid.",
-            conn->connection_number);
-      break;
-    default:
-      debug(1, "Connection %d: NQPTP clock reports an unrecognised status: %u.",
-            conn->connection_number, response);
-      break;
+      case clock_ok:
+        debug(1, "Connection %d: NQPTP new master clock %" PRIx64 ".", conn->connection_number,
+              actual_clock_id);
+        break;
+      case clock_not_ready:
+        debug(2, "Connection %d: NQPTP master clock %" PRIx64 " is available but not ready.",
+              conn->connection_number, actual_clock_id);
+        break;
+      case clock_service_unavailable:
+        debug(1, "Connection %d: NQPTP clock is not available.", conn->connection_number);
+        warn("Can't access the NQPTP clock. Is NQPTP running?");
+        break;
+      case clock_access_error:
+        debug(1, "Connection %d: Error accessing the NQPTP clock interface.",
+              conn->connection_number);
+        break;
+      case clock_data_unavailable:
+        debug(1, "Connection %d: Can not access NQPTP clock information.",
+              conn->connection_number);
+        break;
+      case clock_no_master:
+        debug(2, "Connection %d: No NQPTP master clock.", conn->connection_number);
+        break;
+      case clock_no_anchor_info:
+        debug(1, "Connection %d: No clock anchor information.", conn->connection_number);
+        break;
+      case clock_version_mismatch:
+        debug(1, "Connection %d: NQPTP clock interface mismatch.", conn->connection_number);
+        warn("This version of Shairport Sync is not compatible with the "
+             "installed version of NQPTP. "
+             "Please update.");
+        break;
+      case clock_not_synchronised:
+        debug(1, "Connection %d: NQPTP clock is not synchronised.", conn->connection_number);
+        break;
+      case clock_not_valid:
+        debug(1, "Connection %d: NQPTP clock information is not valid.", conn->connection_number);
+        break;
+      default:
+        debug(1, "Connection %d: NQPTP clock reports an unrecognised status: %u.",
+              conn->connection_number, response);
+        break;
     }
     conn->clock_status = response;
   }
@@ -1635,13 +1538,11 @@ int have_ptp_timing_information(rtsp_conn_info *conn) {
     return 0;
 }
 
-int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time,
-                            rtsp_conn_info *conn) {
+int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   int result = -1;
   uint32_t anchor_rtptime = 0;
   uint64_t anchor_local_time = 0;
-  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime,
-                                     &anchor_local_time) == clock_ok) {
+  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
     int32_t frame_difference = timestamp - anchor_rtptime;
     int64_t time_difference = frame_difference;
     time_difference = time_difference * 1000000000;
@@ -1657,17 +1558,14 @@ int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time,
   return result;
 }
 
-int local_ptp_time_to_frame(uint64_t time, uint32_t *frame,
-                            rtsp_conn_info *conn) {
+int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   int result = -1;
   uint32_t anchor_rtptime = 0;
   uint64_t anchor_local_time = 0;
-  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime,
-                                     &anchor_local_time) == clock_ok) {
+  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
     int64_t time_difference = time - anchor_local_time;
     int64_t frame_difference = time_difference;
-    frame_difference =
-        frame_difference * conn->input_rate; // but this is by 10^9
+    frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
     frame_difference = frame_difference / 1000000000;
     int32_t fd32 = frame_difference;
     uint32_t lframe = anchor_rtptime + fd32;
@@ -1681,14 +1579,12 @@ int local_ptp_time_to_frame(uint64_t time, uint32_t *frame,
 
 void rtp_event_receiver_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(2, "Connection %d: AP2 Event Receiver Cleanup.",
-        conn->connection_number);
+  debug(2, "Connection %d: AP2 Event Receiver Cleanup.", conn->connection_number);
 }
 
 void *rtp_event_receiver(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(2, "Connection %d: AP2 Event Receiver started",
-        conn->connection_number);
+  debug(2, "Connection %d: AP2 Event Receiver started", conn->connection_number);
   pthread_cleanup_push(rtp_event_receiver_cleanup_handler, arg);
 
   listen(conn->event_socket, 5);
@@ -1699,8 +1595,7 @@ void *rtp_event_receiver(void *arg) {
   memset(&remote_addr, 0, sizeof(remote_addr));
   socklen_t addr_size = sizeof(remote_addr);
 
-  int fd =
-      accept(conn->event_socket, (struct sockaddr *)&remote_addr, &addr_size);
+  int fd = accept(conn->event_socket, (struct sockaddr *)&remote_addr, &addr_size);
   intptr_t pfd = fd;
   pthread_cleanup_push(socket_cleanup, (void *)pfd);
   int finished = 0;
@@ -1716,7 +1611,6 @@ void *rtp_event_receiver(void *arg) {
             conn->connection_number, errno, errorstring);
 
     } else if (nread > 0) {
-
       // ssize_t plen = nread;
       debug(1, "Packet Received on Event Port.");
       if (packet[1] == 0xD7) {
@@ -1746,11 +1640,10 @@ void *rtp_event_receiver(void *arg) {
 
 void rtp_ap2_control_handler_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(2, "Connection %d: AP2 Control Receiver Cleanup.",
-        conn->connection_number);
+  debug(2, "Connection %d: AP2 Control Receiver Cleanup.", conn->connection_number);
   close(conn->ap2_control_socket);
-  debug(2, "Connection %d: UDP control port %u closed.",
-        conn->connection_number, conn->local_ap2_control_port);
+  debug(2, "Connection %d: UDP control port %u closed.", conn->connection_number,
+        conn->local_ap2_control_port);
   conn->ap2_control_socket = 0;
   conn->ap2_remote_control_socket_addr_length =
       0; // indicates to the control receiver thread that the socket address
@@ -1760,7 +1653,6 @@ void rtp_ap2_control_handler_cleanup_handler(void *arg) {
 
 int32_t decipher_player_put_packet(uint8_t *ciphered_audio_alt, ssize_t nread,
                                    rtsp_conn_info *conn) {
-
   // this deciphers the packet -- it doesn't decode it from ALAC
   uint16_t sequence_number = 0;
 
@@ -1769,7 +1661,6 @@ int32_t decipher_player_put_packet(uint8_t *ciphered_audio_alt, ssize_t nread,
   // by the ciphertext and then followed by an eight-byte nonce. Thus it must be
   // greater than 18
   if (nread > 18) {
-
     memcpy(&sequence_number, ciphered_audio_alt, sizeof(uint16_t));
     sequence_number = ntohs(sequence_number);
 
@@ -1841,9 +1732,8 @@ void *rtp_ap2_control_receiver(void *arg) {
     socklen_t from_sock_addr_length = sizeof(SOCKADDR);
     memset(&from_sock_addr, 0, sizeof(SOCKADDR));
 
-    nread =
-        recvfrom(conn->ap2_control_socket, packet, sizeof(packet), 0,
-                 (struct sockaddr *)&from_sock_addr, &from_sock_addr_length);
+    nread = recvfrom(conn->ap2_control_socket, packet, sizeof(packet), 0,
+                     (struct sockaddr *)&from_sock_addr, &from_sock_addr_length);
     uint64_t time_now = get_absolute_time_in_ns();
 
     int64_t time_since_start = time_now - start_time;
@@ -1871,113 +1761,109 @@ void *rtp_ap2_control_receiver(void *arg) {
         // store the from_sock_addr if we haven't already done so
         // v remember to zero this when you're finished!
         if (conn->ap2_remote_control_socket_addr_length == 0) {
-          memcpy(&conn->ap2_remote_control_socket_addr, &from_sock_addr,
-                 from_sock_addr_length);
+          memcpy(&conn->ap2_remote_control_socket_addr, &from_sock_addr, from_sock_addr_length);
           conn->ap2_remote_control_socket_addr_length = from_sock_addr_length;
         }
         switch (packet[1]) {
-        case 215: // code 215, effectively an anchoring announcement
-        {
-          // struct timespec tnr;
-          // clock_gettime(CLOCK_REALTIME, &tnr);
-          // uint64_t local_realtime_now = timespec_to_ns(&tnr);
+          case 215: // code 215, effectively an anchoring announcement
+          {
+            // struct timespec tnr;
+            // clock_gettime(CLOCK_REALTIME, &tnr);
+            // uint64_t local_realtime_now = timespec_to_ns(&tnr);
 
-          /*
-                    char obf[4096];
-                    char *obfp = obf;
-                    int obfc;
-                    for (obfc=0;obfc<nread;obfc++) {
-                      snprintf(obfp, 3, "%02X", packet[obfc]);
-                      obfp+=2;
-                    };
-                    *obfp=0;
-                    debug(1,"AP2 Timing Control Received: \"%s\"",obf);
-          */
+            /*
+                      char obf[4096];
+                      char *obfp = obf;
+                      int obfc;
+                      for (obfc=0;obfc<nread;obfc++) {
+                        snprintf(obfp, 3, "%02X", packet[obfc]);
+                        obfp+=2;
+                      };
+                      *obfp=0;
+                      debug(1,"AP2 Timing Control Received: \"%s\"",obf);
+            */
 
-          uint64_t remote_packet_time_ns = nctoh64(packet + 8);
-          check64conversion("remote_packet_time_ns", packet + 8,
-                            remote_packet_time_ns);
-          uint64_t clock_id = nctoh64(packet + 20);
-          check64conversion("clock_id", packet + 20, clock_id);
+            uint64_t remote_packet_time_ns = nctoh64(packet + 8);
+            check64conversion("remote_packet_time_ns", packet + 8, remote_packet_time_ns);
+            uint64_t clock_id = nctoh64(packet + 20);
+            check64conversion("clock_id", packet + 20, clock_id);
 
-          // debug(1, "we have clock_id: %" PRIx64 ".", clock_id);
-          // debug(1,"remote_packet_time_ns: %" PRIx64 ",
-          // local_realtime_now_ns: %" PRIx64 ".", remote_packet_time_ns,
-          // local_realtime_now);
-          uint32_t frame_1 = nctohl(
-              packet +
-              4); // this seems to be the frame with latency of 77165 included
-          check32conversion("frame_1", packet + 4, frame_1);
-          uint32_t frame_2 = nctohl(
-              packet + 16); // this seems to be the frame the time refers to
-          check32conversion("frame_2", packet + 16, frame_2);
-          // this just updates the anchor information contained in the packet
-          // the frame and its remote time
-          // add in the audio_backend_latency_offset;
-          int32_t notified_latency = frame_2 - frame_1;
-          if (notified_latency != 77175)
-            debug(1, "Notified latency is %d frames.", notified_latency);
-          int32_t added_latency =
-              (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
-          // the actual latency is the notified latency plus the fixed latency
-          // + the added latency
+            // debug(1, "we have clock_id: %" PRIx64 ".", clock_id);
+            // debug(1,"remote_packet_time_ns: %" PRIx64 ",
+            // local_realtime_now_ns: %" PRIx64 ".", remote_packet_time_ns,
+            // local_realtime_now);
+            uint32_t frame_1 =
+                nctohl(packet + 4); // this seems to be the frame with latency of 77165 included
+            check32conversion("frame_1", packet + 4, frame_1);
+            uint32_t frame_2 =
+                nctohl(packet + 16); // this seems to be the frame the time refers to
+            check32conversion("frame_2", packet + 16, frame_2);
+            // this just updates the anchor information contained in the packet
+            // the frame and its remote time
+            // add in the audio_backend_latency_offset;
+            int32_t notified_latency = frame_2 - frame_1;
+            if (notified_latency != 77175)
+              debug(1, "Notified latency is %d frames.", notified_latency);
+            int32_t added_latency =
+                (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
+            // the actual latency is the notified latency plus the fixed latency
+            // + the added latency
 
-          int32_t net_latency = notified_latency + 11035 +
-                                added_latency; // this is the latency between
-                                               // incoming frames and the DAC
-          net_latency = net_latency -
-                        (int32_t)(config.audio_backend_buffer_desired_length *
-                                  conn->input_rate);
-          // debug(1, "Net latency is %d frames.", net_latency);
+            int32_t net_latency =
+                notified_latency + 11035 + added_latency; // this is the latency between
+                                                          // incoming frames and the DAC
+            net_latency = net_latency -
+                          (int32_t)(config.audio_backend_buffer_desired_length * conn->input_rate);
+            // debug(1, "Net latency is %d frames.", net_latency);
 
-          if (net_latency <= 0) {
-            if (conn->latency_warning_issued == 0) {
-              warn("The stream latency (%f seconds) it too short to "
-                   "accommodate an offset of %f "
-                   "seconds and a backend buffer of %f seconds.",
-                   ((notified_latency + 11035) * 1.0) / conn->input_rate,
-                   config.audio_backend_latency_offset,
-                   config.audio_backend_buffer_desired_length);
-              warn("(FYI the stream latency needed would be %f seconds.)",
-                   config.audio_backend_buffer_desired_length -
-                       config.audio_backend_latency_offset);
-              conn->latency_warning_issued = 1;
+            if (net_latency <= 0) {
+              if (conn->latency_warning_issued == 0) {
+                warn("The stream latency (%f seconds) it too short to "
+                     "accommodate an offset of %f "
+                     "seconds and a backend buffer of %f seconds.",
+                     ((notified_latency + 11035) * 1.0) / conn->input_rate,
+                     config.audio_backend_latency_offset,
+                     config.audio_backend_buffer_desired_length);
+                warn("(FYI the stream latency needed would be %f seconds.)",
+                     config.audio_backend_buffer_desired_length -
+                         config.audio_backend_latency_offset);
+                conn->latency_warning_issued = 1;
+              }
+              conn->latency = notified_latency + 11035;
+            } else {
+              conn->latency = notified_latency + 11035 + added_latency;
             }
-            conn->latency = notified_latency + 11035;
-          } else {
-            conn->latency = notified_latency + 11035 + added_latency;
-          }
 
-          /*
-          debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
-          conn->remote_reference_timestamp_time = remote_packet_time_ns;
-          conn->reference_timestamp =
-              frame_1 - 11035 - added_latency; // add the latency in to the
-          anchortime debug_mutex_unlock(&conn->reference_time_mutex, 0);
-          */
-          // this is now only used for calculating when to ask for resends
-          // debug(1, "conn->latency is %d.", conn->latency);
-          // debug(1,"frame_1: %" PRIu32 ", added latency: %" PRId32 ".",
-          // frame_1, added_latency);
-          set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
-                              remote_packet_time_ns);
-        } break;
-        case 0xd6:
-          // six bytes in is the sequence number at the start of the encrypted
-          // audio packet returns the sequence number but we're not really
-          // interested
-          decipher_player_put_packet(packet + 6, nread - 6, conn);
-          break;
-        default: {
-          char *packet_in_hex_cstring = debug_malloc_hex_cstring(
-              packet, nread); // remember to free this afterwards
-          debug(1,
-                "AP2 Control Receiver Packet of first byte 0x%02X, type "
-                "0x%02X length %d received: "
-                "\"%s\".",
-                packet[0], packet[1], nread, packet_in_hex_cstring);
-          free(packet_in_hex_cstring);
-        } break;
+            /*
+            debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
+            conn->remote_reference_timestamp_time = remote_packet_time_ns;
+            conn->reference_timestamp =
+                frame_1 - 11035 - added_latency; // add the latency in to the
+            anchortime debug_mutex_unlock(&conn->reference_time_mutex, 0);
+            */
+            // this is now only used for calculating when to ask for resends
+            // debug(1, "conn->latency is %d.", conn->latency);
+            // debug(1,"frame_1: %" PRIu32 ", added latency: %" PRId32 ".",
+            // frame_1, added_latency);
+            set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
+                                remote_packet_time_ns);
+          } break;
+          case 0xd6:
+            // six bytes in is the sequence number at the start of the encrypted
+            // audio packet returns the sequence number but we're not really
+            // interested
+            decipher_player_put_packet(packet + 6, nread - 6, conn);
+            break;
+          default: {
+            char *packet_in_hex_cstring =
+                debug_malloc_hex_cstring(packet, nread); // remember to free this afterwards
+            debug(1,
+                  "AP2 Control Receiver Packet of first byte 0x%02X, type "
+                  "0x%02X length %d received: "
+                  "\"%s\".",
+                  packet[0], packet[1], nread, packet_in_hex_cstring);
+            free(packet_in_hex_cstring);
+          } break;
         }
       }
 
@@ -1998,8 +1884,7 @@ void rtp_realtime_audio_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "Realtime Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->realtime_audio_socket);
-  debug(2, "Connection %d: closing realtime audio port %u",
-        conn->local_realtime_audio_port);
+  debug(2, "Connection %d: closing realtime audio port %u", conn->local_realtime_audio_port);
   conn->realtime_audio_socket = 0;
   debug(2, "Realtime Audio Receiver Cleanup Done.");
 }
@@ -2067,14 +1952,11 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count,
   if (descriptor->closed == 0) {
     if ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
       if (count == 2)
-        debug(2,
-              "buffered_read: waiting for %u bytes (okay at start of a track).",
-              count);
+        debug(2, "buffered_read: waiting for %u bytes (okay at start of a track).", count);
       else
         debug(1, "buffered_read: waiting for %u bytes.", count);
     }
-    while ((descriptor->buffer_occupancy == 0) &&
-           (descriptor->error_code == 0)) {
+    while ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
       if (pthread_cond_wait(&descriptor->not_empty_cv, &descriptor->mutex))
         debug(1, "Error waiting for buffered read");
     }
@@ -2086,8 +1968,7 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count,
       bytes_to_move = descriptor->buffer_occupancy;
     }
 
-    ssize_t top_gap =
-        descriptor->buffer + descriptor->buffer_max_size - descriptor->toq;
+    ssize_t top_gap = descriptor->buffer + descriptor->buffer_max_size - descriptor->toq;
     if (top_gap < bytes_to_move)
       bytes_to_move = top_gap;
 
@@ -2128,8 +2009,7 @@ void *buffered_tcp_reader(void *arg) {
   memset(&remote_addr, 0, sizeof(remote_addr));
   socklen_t addr_size = sizeof(remote_addr);
   int finished = 0;
-  int fd =
-      accept(descriptor->sock_fd, (struct sockaddr *)&remote_addr, &addr_size);
+  int fd = accept(descriptor->sock_fd, (struct sockaddr *)&remote_addr, &addr_size);
   intptr_t pfd = fd;
   pthread_cleanup_push(socket_cleanup, (void *)pfd);
 
@@ -2147,14 +2027,12 @@ void *buffered_tcp_reader(void *arg) {
     // now we know it is not full, so go ahead and try to read some more into it
 
     // wrap
-    if ((size_t)(descriptor->eoq - descriptor->buffer) ==
-        descriptor->buffer_max_size)
+    if ((size_t)(descriptor->eoq - descriptor->buffer) == descriptor->buffer_max_size)
       descriptor->eoq = descriptor->buffer;
 
     // figure out how much to ask for
     size_t bytes_to_request = STANDARD_PACKET_SIZE;
-    size_t free_space =
-        descriptor->buffer_max_size - descriptor->buffer_occupancy;
+    size_t free_space = descriptor->buffer_max_size - descriptor->buffer_occupancy;
     if (bytes_to_request > free_space)
       bytes_to_request = free_space; // don't ask for more than will fit
 
@@ -2175,9 +2053,8 @@ void *buffered_tcp_reader(void *arg) {
     if (nread < 0) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1,
-            "error in buffered_tcp_reader %d: \"%s\". Could not recv a packet.",
-            errno, errorstring);
+      debug(1, "error in buffered_tcp_reader %d: \"%s\". Could not recv a packet.", errno,
+            errorstring);
       descriptor->error_code = errno;
     } else if (nread == 0) {
       descriptor->closed = 1;
@@ -2196,9 +2073,7 @@ void *buffered_tcp_reader(void *arg) {
   debug(1, "Buffered TCP Reader Thread Exit \"Normal\" Exit Begin.");
   pthread_cleanup_pop(1); // close the socket
   pthread_cleanup_pop(1); // cleanup
-  debug(
-      1,
-      "Buffered TCP Reader Thread Exit \"Normal\" Exit -- Shouldn't happen!.");
+  debug(1, "Buffered TCP Reader Thread Exit \"Normal\" Exit -- Shouldn't happen!.");
   pthread_exit(NULL);
 }
 
@@ -2234,15 +2109,14 @@ void av_packet_alloc_cleanup_handler(void *arg) {
 
 // this will read a block of the size specified to the buffer
 // and will return either with the block or on error
-ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf,
-                          size_t count, size_t *bytes_remaining) {
+ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf, size_t count,
+                          size_t *bytes_remaining) {
   ssize_t response, nread;
   size_t inbuf = 0; // bytes already in the buffer
   int keep_trying = 1;
 
   do {
-    nread =
-        buffered_read(descriptor, buf + inbuf, count - inbuf, bytes_remaining);
+    nread = buffered_read(descriptor, buf + inbuf, count - inbuf, bytes_remaining);
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection
       // closed
@@ -2256,8 +2130,7 @@ ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf,
       if ((errno != ECONNRESET) && (errno != EAGAIN) && (errno != EINTR)) {
         char errorstring[1024];
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-        debug(1, "read_sized_block read error %d: \"%s\".", errno,
-              (char *)errorstring);
+        debug(1, "read_sized_block read error %d: \"%s\".", errno, (char *)errorstring);
         keep_trying = 0;
       }
     } else {
@@ -2301,15 +2174,15 @@ void rtp_buffered_audio_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "Buffered Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->buffered_audio_socket);
-  debug(2, "Connection %d: TCP Buffered Audio port closed: %u.",
-        conn->connection_number, conn->local_buffered_audio_port);
+  debug(2, "Connection %d: TCP Buffered Audio port closed: %u.", conn->connection_number,
+        conn->local_buffered_audio_port);
   conn->buffered_audio_socket = 0;
   debug(2, "Buffered Audio Receiver Cleanup Done.");
 }
 
 // not used right now, but potentially useful for understanding flush requests
-void display_flush_requests(int activeOnly, uint32_t currentSeq,
-                            uint32_t currentTS, rtsp_conn_info *conn) {
+void display_flush_requests(int activeOnly, uint32_t currentSeq, uint32_t currentTS,
+                            rtsp_conn_info *conn) {
   if (conn->flush_requests == NULL) {
     if (activeOnly == 0)
       debug(1, "No flush requests.");
@@ -2317,23 +2190,21 @@ void display_flush_requests(int activeOnly, uint32_t currentSeq,
     flush_request_t *t = conn->flush_requests;
     do {
       if (t->flushNow) {
-        debug(1, "immediate flush          to untilSeq: %u, untilTS: %u.",
-              t->flushUntilSeq, t->flushUntilTS);
+        debug(1, "immediate flush          to untilSeq: %u, untilTS: %u.", t->flushUntilSeq,
+              t->flushUntilTS);
       } else {
         if (activeOnly == 0)
-          debug(1, "fromSeq: %u, fromTS: %u, to untilSeq: %u, untilTS: %u.",
-                t->flushFromSeq, t->flushFromTS, t->flushUntilSeq,
-                t->flushUntilTS);
+          debug(1, "fromSeq: %u, fromTS: %u, to untilSeq: %u, untilTS: %u.", t->flushFromSeq,
+                t->flushFromTS, t->flushUntilSeq, t->flushUntilTS);
         else if ((activeOnly == 1) &&
-                 (currentSeq >=
-                  (t->flushFromSeq - 1))) // the -1 is because you might have to
-                                          // trim the end of the previous block
+                 (currentSeq >= (t->flushFromSeq - 1))) // the -1 is because you might have to
+                                                        // trim the end of the previous block
           debug(1,
                 "fromSeq: %u, fromTS: %u, to untilSeq: %u, untilTS: %u, with "
                 "currentSeq: %u, "
                 "currentTS: %u.",
-                t->flushFromSeq, t->flushFromTS, t->flushUntilSeq,
-                t->flushUntilTS, currentSeq, currentTS);
+                t->flushFromSeq, t->flushFromTS, t->flushUntilSeq, t->flushUntilTS, currentSeq,
+                currentTS);
       }
       t = t->next;
     } while (t != NULL);
@@ -2358,26 +2229,23 @@ void *rtp_buffered_audio_processor(void *arg) {
   pthread_cleanup_push(malloc_cleanup, buffered_audio);
 
   if (pthread_mutex_init(&buffered_audio->mutex, NULL))
-    debug(1, "Connection %d: error %d initialising buffered_audio mutex.",
-          conn->connection_number, errno);
+    debug(1, "Connection %d: error %d initialising buffered_audio mutex.", conn->connection_number,
+          errno);
   pthread_cleanup_push(mutex_cleanup, &buffered_audio->mutex);
 
   if (pthread_cond_init(&buffered_audio->not_empty_cv, NULL))
-    die("Connection %d: error %d initialising not_empty cv.",
-        conn->connection_number, errno);
+    die("Connection %d: error %d initialising not_empty cv.", conn->connection_number, errno);
   pthread_cleanup_push(cv_cleanup, &buffered_audio->not_empty_cv);
 
   if (pthread_cond_init(&buffered_audio->not_full_cv, NULL))
-    die("Connection %d: error %d initialising not_full cv.",
-        conn->connection_number, errno);
+    die("Connection %d: error %d initialising not_full cv.", conn->connection_number, errno);
   pthread_cleanup_push(cv_cleanup, &buffered_audio->not_full_cv);
 
   // initialise the buffer data structure
   buffered_audio->buffer_max_size = conn->ap2_audio_buffer_size;
   buffered_audio->buffer = malloc(conn->ap2_audio_buffer_size);
   if (buffered_audio->buffer == NULL)
-    debug(1, "cannot allocate an audio buffer of %u bytes!",
-          buffered_audio->buffer_max_size);
+    debug(1, "cannot allocate an audio buffer of %u bytes!", buffered_audio->buffer_max_size);
   pthread_cleanup_push(malloc_cleanup, buffered_audio->buffer);
 
   // pthread_mutex_lock(&conn->buffered_audio_mutex);
@@ -2386,8 +2254,7 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   buffered_audio->sock_fd = conn->buffered_audio_socket;
 
-  pthread_create(buffered_reader_thread, NULL, &buffered_tcp_reader,
-                 buffered_audio);
+  pthread_create(buffered_reader_thread, NULL, &buffered_tcp_reader, buffered_audio);
   pthread_cleanup_push(thread_cleanup, buffered_reader_thread);
 
   // ideas and some code from
@@ -2456,51 +2323,48 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   enum AVSampleFormat av_format;
   switch (config.output_format) {
-  case SPS_FORMAT_S32:
-  case SPS_FORMAT_S32_LE:
-  case SPS_FORMAT_S32_BE:
-  case SPS_FORMAT_S24:
-  case SPS_FORMAT_S24_LE:
-  case SPS_FORMAT_S24_BE:
-  case SPS_FORMAT_S24_3LE:
-  case SPS_FORMAT_S24_3BE:
-    av_format = AV_SAMPLE_FMT_S32;
-    conn->input_bytes_per_frame =
-        8; // the output from the decoder will be input to the player
-    conn->input_bit_depth = 32;
-    debug(2, "32-bit output format chosen");
-    break;
-  case SPS_FORMAT_S16:
-  case SPS_FORMAT_S16_LE:
-  case SPS_FORMAT_S16_BE:
-    av_format = AV_SAMPLE_FMT_S16;
-    conn->input_bytes_per_frame = 4;
-    conn->input_bit_depth = 16;
-    break;
-  case SPS_FORMAT_U8:
-    av_format = AV_SAMPLE_FMT_U8;
-    conn->input_bytes_per_frame = 2;
-    conn->input_bit_depth = 8;
-    break;
-  default:
-    debug(1,
-          "Unsupported DAC output format %u. AV_SAMPLE_FMT_S16 decoding "
-          "chosen. Good luck!",
-          config.output_format);
-    av_format = AV_SAMPLE_FMT_S16;
-    conn->input_bytes_per_frame =
-        4; // the output from the decoder will be input to the player
-    conn->input_bit_depth = 16;
-    break;
+    case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+      av_format = AV_SAMPLE_FMT_S32;
+      conn->input_bytes_per_frame = 8; // the output from the decoder will be input to the player
+      conn->input_bit_depth = 32;
+      debug(2, "32-bit output format chosen");
+      break;
+    case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
+      av_format = AV_SAMPLE_FMT_S16;
+      conn->input_bytes_per_frame = 4;
+      conn->input_bit_depth = 16;
+      break;
+    case SPS_FORMAT_U8:
+      av_format = AV_SAMPLE_FMT_U8;
+      conn->input_bytes_per_frame = 2;
+      conn->input_bit_depth = 8;
+      break;
+    default:
+      debug(1,
+            "Unsupported DAC output format %u. AV_SAMPLE_FMT_S16 decoding "
+            "chosen. Good luck!",
+            config.output_format);
+      av_format = AV_SAMPLE_FMT_S16;
+      conn->input_bytes_per_frame = 4; // the output from the decoder will be input to the player
+      conn->input_bit_depth = 16;
+      break;
   };
 
   av_opt_set_sample_fmt(swr, "out_sample_fmt", av_format, 0);
   swr_init(swr);
 
   uint8_t packet[16 * 1024];
-  unsigned char
-      m[16 * 1024]; // leave the first 7 bytes blank to make room for the ADTS
-  uint8_t *pcm_audio = NULL; // the S16 output
+  unsigned char m[16 * 1024]; // leave the first 7 bytes blank to make room for the ADTS
+  uint8_t *pcm_audio = NULL;  // the S16 output
   unsigned char *data_to_process;
   ssize_t data_remaining;
   uint32_t seq_no; // audio packet number
@@ -2513,8 +2377,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   uint8_t pcm_buffer[pcm_buffer_size];
 
   int pcm_buffer_occupancy = 0;
-  int pcm_buffer_read_point =
-      0; // offset to where the next buffer should come from
+  int pcm_buffer_read_point = 0; // offset to where the next buffer should come from
   uint32_t pcm_buffer_read_point_rtptime = 0;
   // uint32_t expected_rtptime;
 
@@ -2526,8 +2389,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
-  double requested_lead_time =
-      0.1; // normal lead time minimum -- maybe  it should be about 0.1
+  double requested_lead_time = 0.1; // normal lead time minimum -- maybe  it should be about 0.1
 
   // wait until our timing information is valid
 
@@ -2560,8 +2422,7 @@ void *rtp_buffered_audio_processor(void *arg) {
       } else {
         flush_is_delayed = 1;
         flush_from_timestamp = conn->ap2_flush_from_rtp_timestamp;
-        int32_t blocks_to_start_of_flush =
-            conn->ap2_flush_from_sequence_number - seq_no;
+        int32_t blocks_to_start_of_flush = conn->ap2_flush_from_sequence_number - seq_no;
         if (blocks_to_start_of_flush <= 0) {
           flush_request_active = 1;
         }
@@ -2575,13 +2436,11 @@ void *rtp_buffered_audio_processor(void *arg) {
         debug(2, "Flush requested.");
         if (conn->ap2_flush_from_valid) {
           debug(2, "  fromTS:          %u", conn->ap2_flush_from_rtp_timestamp);
-          debug(2, "  fromSeq:         %u",
-                conn->ap2_flush_from_sequence_number);
+          debug(2, "  fromSeq:         %u", conn->ap2_flush_from_sequence_number);
           debug(2, "--");
         }
         debug(2, "  untilTS:         %u", conn->ap2_flush_until_rtp_timestamp);
-        debug(2, "  untilSeq:        %u",
-              conn->ap2_flush_until_sequence_number);
+        debug(2, "  untilSeq:        %u", conn->ap2_flush_until_sequence_number);
         debug(2, "--");
         debug(2, "  currentTS_Start: %u", pcm_buffer_read_point_rtptime);
         uint32_t fib = (pcm_buffer_occupancy - pcm_buffer_read_point) / 4;
@@ -2650,13 +2509,11 @@ void *rtp_buffered_audio_processor(void *arg) {
     if (flush_requested == 0) {
       // is there space in the player thread's buffer system?
       unsigned int player_buffer_size, player_buffer_occupancy;
-      get_audio_buffer_size_and_occupancy(&player_buffer_size,
-                                          &player_buffer_occupancy, conn);
+      get_audio_buffer_size_and_occupancy(&player_buffer_size, &player_buffer_occupancy, conn);
       // debug(1,"player buffer size and occupancy: %u and %u",
       // player_buffer_size, player_buffer_occupancy);
-      if (player_buffer_occupancy >
-          ((requested_lead_time + 0.4) * conn->input_rate /
-           352)) { // must be greater than the lead time.
+      if (player_buffer_occupancy > ((requested_lead_time + 0.4) * conn->input_rate /
+                                     352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while
         // and try again
         usleep(1000); // wait for a while
@@ -2678,26 +2535,23 @@ void *rtp_buffered_audio_processor(void *arg) {
 
           if ((play_enabled) && (have_ptp_timing_information(conn) != 0)) {
             uint64_t buffer_should_be_time;
-            if (frame_to_local_time(pcm_buffer_read_point_rtptime,
-                                    &buffer_should_be_time, conn) == 0) {
-              int64_t lead_time =
-                  buffer_should_be_time - get_absolute_time_in_ns();
+            if (frame_to_local_time(pcm_buffer_read_point_rtptime, &buffer_should_be_time, conn) ==
+                0) {
+              int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
 
               // it seems that some garbage blocks can be left after the flush,
               // so only accept them if they have sensible lead times
               if ((lead_time < (int64_t)5000000000L) && (lead_time >= 0)) {
                 // if it's the very first block (thus no priming needed)
                 if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
-                  if ((lead_time >=
-                       (int64_t)(requested_lead_time * 1000000000L)) ||
+                  if ((lead_time >= (int64_t)(requested_lead_time * 1000000000L)) ||
                       (streaming_has_started != 0)) {
                     if (streaming_has_started == 0)
                       debug(2,
                             "Connection %d: buffered audio starting frame: %u, "
                             "lead time: %f "
                             "seconds.",
-                            conn->connection_number,
-                            pcm_buffer_read_point_rtptime,
+                            conn->connection_number, pcm_buffer_read_point_rtptime,
                             0.000000001 * lead_time);
                     // else {
                     // if (expected_rtptime != pcm_buffer_read_point_rtptime)
@@ -2724,8 +2578,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                     // clang-format on
 
                     player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
-                                      pcm_buffer + pcm_buffer_read_point, 352,
-                                      conn);
+                                      pcm_buffer + pcm_buffer_read_point, 352, conn);
                     streaming_has_started++;
                   }
                 }
@@ -2733,8 +2586,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                 debug(2,
                       "Dropping packet %u from block %u with out-of-range "
                       "lead_time: %.3f seconds.",
-                      pcm_buffer_read_point_rtptime, seq_no,
-                      0.000000001 * lead_time);
+                      pcm_buffer_read_point_rtptime, seq_no, 0.000000001 * lead_time);
               }
 
               pcm_buffer_read_point_rtptime += 352;
@@ -2758,8 +2610,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               // pcm_buffer");
               memcpy(pcm_buffer, pcm_buffer + pcm_buffer_read_point,
                      pcm_buffer_occupancy - pcm_buffer_read_point);
-              pcm_buffer_occupancy =
-                  pcm_buffer_occupancy - pcm_buffer_read_point;
+              pcm_buffer_occupancy = pcm_buffer_occupancy - pcm_buffer_read_point;
             } else {
               // debug(1,"nothing to move to the front of the buffer");
               pcm_buffer_occupancy = 0;
@@ -2770,7 +2621,6 @@ void *rtp_buffered_audio_processor(void *arg) {
       }
     }
     if ((flush_requested) || (new_buffer_needed)) {
-
       // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy
       // (frames): %u", pcm_buffer_read_point/4, pcm_buffer_occupancy/4); ok, so
       // here we know we need material from the sender do we will get in a
@@ -2781,8 +2631,7 @@ void *rtp_buffered_audio_processor(void *arg) {
       nread = lread_sized_block(buffered_audio, &data_len, sizeof(data_len),
                                 &bytes_remaining_in_buffer);
       if ((conn->ap2_audio_buffer_minimum_size < 0) ||
-          (bytes_remaining_in_buffer <
-           (size_t)conn->ap2_audio_buffer_minimum_size))
+          (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
         conn->ap2_audio_buffer_minimum_size = bytes_remaining_in_buffer;
       if (nread < 0) {
         char errorstring[1024];
@@ -2794,11 +2643,9 @@ void *rtp_buffered_audio_processor(void *arg) {
       }
       data_len = ntohs(data_len);
       // debug(1,"buffered audio packet of size %u detected.", data_len - 2);
-      nread = lread_sized_block(buffered_audio, packet, data_len - 2,
-                                &bytes_remaining_in_buffer);
+      nread = lread_sized_block(buffered_audio, packet, data_len - 2, &bytes_remaining_in_buffer);
       if ((conn->ap2_audio_buffer_minimum_size < 0) ||
-          (bytes_remaining_in_buffer <
-           (size_t)conn->ap2_audio_buffer_minimum_size))
+          (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
         conn->ap2_audio_buffer_minimum_size = bytes_remaining_in_buffer;
       // debug(1, "buffered audio packet of size %u received.", nread);
       if (nread < 0) {
@@ -2833,11 +2680,9 @@ void *rtp_buffered_audio_processor(void *arg) {
         // seq_no, timestamp);
 
         uint64_t local_should_be_time = 0;
-        int have_time_information =
-            frame_to_local_time(timestamp, &local_should_be_time, conn);
+        int have_time_information = frame_to_local_time(timestamp, &local_should_be_time, conn);
         int64_t local_lead_time = 0;
-        int64_t requested_lead_time_ns =
-            (int64_t)(requested_lead_time * 1000000000);
+        int64_t requested_lead_time_ns = (int64_t)(requested_lead_time * 1000000000);
         // requested_lead_time_ns = (int64_t)(-300000000);
         // debug(1,"requested_lead_time_ns is actually %f milliseconds.",
         // requested_lead_time_ns * 1E-6);
@@ -2865,11 +2710,9 @@ void *rtp_buffered_audio_processor(void *arg) {
                   "flush completed to seq: %u, flushUntilTS; %u with rtptime: "
                   "%u, lead time: "
                   "0x%" PRIx64 " nanoseconds, i.e. %f sec.",
-                  seq_no, flushUntilTS, timestamp, local_lead_time,
-                  local_lead_time * 0.000000001);
+                  seq_no, flushUntilTS, timestamp, local_lead_time, local_lead_time * 0.000000001);
           } else {
-            debug(2, "flush completed to seq: %u with rtptime: %u.", seq_no,
-                  timestamp);
+            debug(2, "flush completed to seq: %u with rtptime: %u.", seq_no, timestamp);
           }
         }
 
@@ -2899,7 +2742,6 @@ void *rtp_buffered_audio_processor(void *arg) {
 
         if (((flush_requested != 0) && (seq_no == flushUntilSeq)) ||
             ((flush_requested == 0) && (new_buffer_needed))) {
-
           unsigned char nonce[12];
           memset(nonce, 0, sizeof(nonce));
           memcpy(nonce + 4, packet + nread - 8,
@@ -2913,24 +2755,22 @@ void *rtp_buffered_audio_processor(void *arg) {
               m + 7,               // m
               &new_payload_length, // mlen_p
               NULL,                // nsec,
-              packet + 12, // the ciphertext starts 12 bytes in and is followed
-                           // by the MAC tag,
-              nread - (8 + 12), // clen -- the last 8 bytes are the nonce
-              packet + 4,       // authenticated additional data
-              8,                // authenticated additional data length
+              packet + 12,         // the ciphertext starts 12 bytes in and is followed
+                                   // by the MAC tag,
+              nread - (8 + 12),    // clen -- the last 8 bytes are the nonce
+              packet + 4,          // authenticated additional data
+              8,                   // authenticated additional data length
               nonce,
               conn->session_key); // *k
           if (response != 0) {
-            debug(1, "Error decrypting audio packet %u -- packet length %d.",
-                  seq_no, nread);
+            debug(1, "Error decrypting audio packet %u -- packet length %d.", seq_no, nread);
           } else {
             // now pass it in to the regular processing chain
 
             unsigned long long max_int = INT_MAX; // put in the right format
             if (new_payload_length > max_int)
               debug(1, "Madly long payload length!");
-            int payload_length =
-                new_payload_length; // change from long long to int
+            int payload_length = new_payload_length; // change from long long to int
             int aac_packet_length = payload_length + 7;
 
             // now, fill in the 7-byte ADTS information, which seems to be
@@ -2952,9 +2792,8 @@ void *rtp_buffered_audio_processor(void *arg) {
                 if (decoded_frame == NULL)
                   debug(1, "could not allocate av_frame");
               } else {
-                ret = av_parser_parse2(codec_parser_context, codec_context,
-                                       &pkt->data, &pkt->size, data_to_process,
-                                       data_remaining, AV_NOPTS_VALUE,
+                ret = av_parser_parse2(codec_parser_context, codec_context, &pkt->data, &pkt->size,
+                                       data_to_process, data_remaining, AV_NOPTS_VALUE,
                                        AV_NOPTS_VALUE, 0);
                 if (ret < 0) {
                   debug(1, "error while parsing deciphered audio packet.");
@@ -2976,29 +2815,23 @@ void *rtp_buffered_audio_processor(void *arg) {
                               "error sending frame %d of size %d to decoder, "
                               "blocks_read: %u, "
                               "blocks_read_since_flush: %u.",
-                              frame_within_block, pkt->size, blocks_read,
-                              blocks_read_since_flush);
+                              frame_within_block, pkt->size, blocks_read, blocks_read_since_flush);
                       } else {
                         while (ret >= 0) {
-                          ret = avcodec_receive_frame(codec_context,
-                                                      decoded_frame);
+                          ret = avcodec_receive_frame(codec_context, decoded_frame);
                           if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
                             break;
                           else if (ret < 0) {
                             debug(1, "error %d during decoding", ret);
                           } else {
-                            av_samples_alloc(&pcm_audio, &dst_linesize,
-                                             codec_context->channels,
-                                             decoded_frame->nb_samples,
-                                             av_format, 1);
+                            av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->channels,
+                                             decoded_frame->nb_samples, av_format, 1);
                             // remember to free pcm_audio
-                            ret = swr_convert(
-                                swr, &pcm_audio, decoded_frame->nb_samples,
-                                (const uint8_t **)decoded_frame->extended_data,
-                                decoded_frame->nb_samples);
+                            ret = swr_convert(swr, &pcm_audio, decoded_frame->nb_samples,
+                                              (const uint8_t **)decoded_frame->extended_data,
+                                              decoded_frame->nb_samples);
                             dst_bufsize = av_samples_get_buffer_size(
-                                &dst_linesize, codec_context->channels, ret,
-                                av_format, 1);
+                                &dst_linesize, codec_context->channels, ret, av_format, 1);
                             // debug(1,"generated %d bytes of PCM",
                             // dst_bufsize); copy the PCM audio into the PCM
                             // buffer. make sure it's big enough first
@@ -3009,44 +2842,34 @@ void *rtp_buffered_audio_processor(void *arg) {
                               // see if the flush_from_timestamp is in the
                               // buffer
                               int32_t samples_remaining =
-                                  (flush_from_timestamp -
-                                   pcm_buffer_read_point_rtptime);
+                                  (flush_from_timestamp - pcm_buffer_read_point_rtptime);
                               if ((samples_remaining > 0) &&
-                                  ((samples_remaining *
-                                    conn->input_bytes_per_frame) <
+                                  ((samples_remaining * conn->input_bytes_per_frame) <
                                    dst_bufsize)) {
                                 debug(2,
                                       "samples remaining before flush: %d, "
                                       "number of samples %d. "
                                       "flushFromTS: %u, "
                                       "pcm_buffer_read_point_rtptime: %u.",
-                                      samples_remaining,
-                                      dst_bufsize / conn->input_bytes_per_frame,
-                                      flush_from_timestamp,
-                                      pcm_buffer_read_point_rtptime);
-                                dst_bufsize = samples_remaining *
-                                              conn->input_bytes_per_frame;
+                                      samples_remaining, dst_bufsize / conn->input_bytes_per_frame,
+                                      flush_from_timestamp, pcm_buffer_read_point_rtptime);
+                                dst_bufsize = samples_remaining * conn->input_bytes_per_frame;
                               }
                             }
-                            if ((pcm_buffer_size - pcm_buffer_occupancy) <
-                                dst_bufsize) {
+                            if ((pcm_buffer_size - pcm_buffer_occupancy) < dst_bufsize) {
                               debug(1,
                                     "pcm_buffer_read_point (frames): %u, "
                                     "pcm_buffer_occupancy "
                                     "(frames): %u",
-                                    pcm_buffer_read_point /
-                                        conn->input_bytes_per_frame,
-                                    pcm_buffer_occupancy /
-                                        conn->input_bytes_per_frame);
-                              pcm_buffer_size =
-                                  dst_bufsize + pcm_buffer_occupancy;
+                                    pcm_buffer_read_point / conn->input_bytes_per_frame,
+                                    pcm_buffer_occupancy / conn->input_bytes_per_frame);
+                              pcm_buffer_size = dst_bufsize + pcm_buffer_occupancy;
                               debug(1,
                                     "fatal error! pcm buffer too small at %d "
                                     "bytes.",
                                     pcm_buffer_size);
                             } else {
-                              memcpy(pcm_buffer + pcm_buffer_occupancy,
-                                     pcm_audio, dst_bufsize);
+                              memcpy(pcm_buffer + pcm_buffer_occupancy, pcm_audio, dst_bufsize);
                               pcm_buffer_occupancy += dst_bufsize;
                             }
                             // debug(1,"decoded %d samples",
@@ -3094,8 +2917,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   pthread_exit(NULL);
 }
 
-int frame_to_local_time(uint32_t timestamp, uint64_t *time,
-                        rtsp_conn_info *conn) {
+int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   if (conn->timing_type == ts_ptp)
     return frame_to_ptp_local_time(timestamp, time, conn);
   else

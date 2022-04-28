@@ -89,7 +89,7 @@ void Rtp::save(const rtp::AnchorData &data) {
 
 void Rtp::save(const rtp::StreamData &data) {
   _stream_info = data;
-  _stream_info.dump();
+  // _stream_info.dump();
 }
 
 std::shared_ptr<Rtp> pierre::Rtp::_instance;

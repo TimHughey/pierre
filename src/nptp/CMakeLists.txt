@@ -11,7 +11,7 @@ file(GLOB_RECURSE
 )
 
 add_library(nPTP
-  nptp.cpp
+  nptp.cpp clock_info.cpp
   ${HEADER_LIST}
 )
 

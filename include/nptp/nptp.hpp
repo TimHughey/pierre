@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "core/service.hpp"
+#include "nptp/clock_info.hpp"
 
 namespace pierre {
 
@@ -47,9 +48,6 @@ class Nptp : public std::enable_shared_from_this<Nptp> {
 public:
   using string = std::string;
 
-public:
-  typedef std::array<char, 64> MasterClockIp;
-
 public: // destructor
   ~Nptp() { unMap(); }
 
@@ -62,6 +60,8 @@ public: // object creation and shared_ptr API
   sNptp getSelf() { return shared_from_this(); }
 
 public: // public API
+  const nptp::ClockInfo getClockInfo();
+  void refreshClockInfo(nptp::ClockInfo &clock_info);
   void resetPeerList() { sendCtrlMsg("T"); }
   void sendTimingPeers(const std::vector<std::string> &peers);
   void start();
@@ -79,19 +79,6 @@ private:
   void unMap();
 
 private:
-  struct shm_structure {
-    pthread_mutex_t shm_mutex;            // for safely accessing the structure
-    uint16_t version;                     // check this is equal to NQPTP_SHM_STRUCTURES_VERSION
-    uint64_t master_clock_id;             // the current master clock
-    MasterClockIp master_clock_ip;        // where it's coming from
-    uint64_t local_time;                  // the time when the offset was calculated
-    uint64_t local_to_master_time_offset; // add this to the local time to get
-                                          // master clock time
-    uint64_t master_clock_start_time;     // this is when the master clock became master
-  };
-
-private:
-  static constexpr auto _version = 7;
   static constexpr auto _ctrl_port = 9000;
   // The control port expects a UDP packet with the first space-delimited string
   // being the name of the shared memory interface (SMI) to be used.

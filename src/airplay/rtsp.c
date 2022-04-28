@@ -1503,7 +1503,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       // it looks like the networkTimeFrac is a fraction where the msb is work
       // 1/2, the next 1/4 and so on now, convert the network time and fraction
       // into nanoseconds
-      networkTimeFrac = networkTimeFrac >> 32; // reduce precision to about 1/4 nanosecond
+      networkTimeFrac = networkTimeFrac >> 32;
       networkTimeFrac = networkTimeFrac * 1000000000;
       networkTimeFrac = networkTimeFrac >> 32; // we should now be left with the ns
 

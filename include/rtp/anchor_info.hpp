@@ -22,17 +22,23 @@
 #include <fmt/format.h>
 #include <source_location>
 
+#include "nptp/clock_info.hpp"
+#include "nptp/nptp.hpp"
+
 namespace pierre {
 namespace rtp {
 
 struct AnchorData {
   uint64_t rate = 0;
-  uint64_t timelineID = 0;
+  uint64_t timelineID = 0; // aka clock id
   uint64_t secs = 0;
   uint64_t frac = 0;
   uint64_t flags = 0;
   uint64_t rtpTime = 0;
-  uint64_t netTime = 0;
+  uint64_t networkTime = 0; // from set anchor packet
+  uint64_t anchorTime = 0;
+  uint64_t anchorRtpTime = 0;
+  sNptp nptp = nullptr; // dependency injection
 };
 
 class AnchorInfo {
@@ -63,11 +69,28 @@ public:
   AnchorData data;
   AnchorData actual;
 
+  nptp::ClockInfo clock_info;
+
+  sNptp nptp;
+
   bool _play_enabled = false;
 
 private:
   void __init();
+
   void calcNetTime();
+  void chooseAnchorClock();
+
+  static const char *fnName(const std::source_location loc = std::source_location::current()) {
+    return loc.function_name();
+  }
+
+private:
+  uint64_t anchor_clock = 0;
+  uint64_t anchor_rptime = 0;
+  uint64_t anchor_time = 0;
+
+  uint64_t anchor_clock_new_ns = 0;
 };
 
 } // namespace rtp

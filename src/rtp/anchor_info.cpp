@@ -16,6 +16,7 @@
 //
 //  https://www.wisslanding.com
 
+#include <cmath>
 #include <cstdint>
 #include <fmt/format.h>
 #include <memory>
@@ -84,38 +85,96 @@ AnchorInfo &AnchorInfo::operator=(AnchorInfo &&ai) {
 void AnchorInfo::__init() {
   _play_enabled = data.rate & 1;
 
+  // if our local nptp shared_ptr isn't set use the
+  // shared_ptr passed via AnchorData
+  if ((nptp.use_count() == 0) && data.nptp.use_count()) {
+    nptp = data.nptp;  // copy the shared_ptr locally
+    data.nptp.reset(); // reset the shared_ptr passed via AnchorData
+  }
+
+  if (nptp.use_count() == 0) {
+    auto fmt_str = FMT_STRING("WARN {} nptp shared ptr is not set (not refreshing ClockInfo\n");
+    fmt::print(fmt_str, fnName());
+  }
+
   calcNetTime();
+  chooseAnchorClock();
 }
 
 void AnchorInfo::calcNetTime() {
-  constexpr uint64_t factor_ns = 1000000000;
+  constexpr uint64_t ns_factor = std::pow(10, 9);
 
+  uint64_t frac = data.frac;
   // it looks like the networkTimeFrac is a fraction where the msb is work
   // 1/2, the next 1/4 and so on now, convert the network time and fraction
   // into nanoseconds
-  uint64_t frac = data.frac;
 
   frac >>= 32; // reduce precision to about 1/4 nanosecond
-  frac *= factor_ns;
-  frac >>= 32; // we should now be left with the ns
+  frac *= ns_factor;
+  frac >>= 32; // now we should have nanoseconds
 
-  frac *= factor_ns; // turn the whole seconds into ns
-  data.netTime = data.secs + frac;
+  data.networkTime = data.networkTime + frac; // this may become the anchor time
+  data.anchorRtpTime = data.rtpTime;          // no backend latency, directly use rtpTime
+}
+
+void AnchorInfo::chooseAnchorClock() {
+  if (data.timelineID != anchor_clock) {
+    // warn if anchor clock is changing too quickly
+    if (anchor_clock_new_ns != 0) {
+      int64_t diff = clock_info.now() - anchor_clock_new_ns;
+
+      if (diff > 5000000000) {
+        fmt::print("WARN {} anchor clock changing too quickly diff={}\n", diff);
+      }
+    }
+  }
+
+  // NOTE: should confirm this is a buffered stream and AirPlay 2
+
+  if ((anchor_clock != data.timelineID) || (anchor_rptime != data.rtpTime) ||
+      (anchor_time != data.networkTime)) {
+    nptp->refreshClockInfo(clock_info);
+    auto hex_fmt = FMT_STRING("{:>35}={:#x}\n");
+    auto dec_fmt = FMT_STRING("{:>35}={}\n");
+
+    fmt::print("{} anchor change\n", fnName());
+    fmt::print(hex_fmt, "clock_old", anchor_clock);
+    fmt::print(hex_fmt, "clock_new", data.timelineID);
+    fmt::print(hex_fmt, "clock_current", clock_info.clockID);
+    fmt::print(dec_fmt, "rptTime", data.rtpTime);
+    fmt::print(dec_fmt, "networkTime", data.networkTime);
+    fmt::print("\n");
+  }
+
+  anchor_clock = data.timelineID;
+  anchor_rptime = data.anchorRtpTime;
+  anchor_time = data.networkTime;
+  anchor_clock_new_ns = clock_info.now();
+
+  actual = data;
 }
 
 void AnchorInfo::dump(const std::source_location loc) {
   const auto prefix = loc.function_name();
-  const auto fmt_str = FMT_STRING("{:>15}={:#x}\n");
+  const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
+  const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
 
   fmt::print("{}\n", prefix);
-  fmt::print(fmt_str, "rate", data.rate);
-  fmt::print("{:>15}={:#x}\n", "timelineID", data.timelineID);
-  fmt::print("{:>15}={:#x}\n", "secs", data.secs);
-  fmt::print("{:>15}={:#x}\n", "frac", data.frac);
-  fmt::print("{:>15}={:#x}\n", "flags", data.flags);
-  fmt::print("{:>15}={:#x}\n", "rtpTime", data.rtpTime);
-  fmt::print("{:>15}={:#x}\n", "netTime", data.netTime);
-  fmt::print("{:>15}={}\n", "play_enabled", _play_enabled);
+  fmt::print(hex_fmt_str, "rate", data.rate);
+  fmt::print(hex_fmt_str, "timelineID", data.timelineID);
+  fmt::print(dec_fmt_str, "secs", data.secs);
+  fmt::print(dec_fmt_str, "frac", data.frac);
+  fmt::print(hex_fmt_str, "flags", data.flags);
+  fmt::print(dec_fmt_str, "rtpTime", data.rtpTime);
+  fmt::print(dec_fmt_str, "networkTime", data.networkTime);
+  fmt::print(dec_fmt_str, "anchorTime", data.anchorTime);
+  fmt::print(dec_fmt_str, "anchorRtpTime", data.anchorRtpTime);
+  fmt::print(dec_fmt_str, "play_enabled", _play_enabled);
+  fmt::print(dec_fmt_str, "nptp.use_count()", nptp.use_count());
+
+  fmt::print("\n");
+
+  clock_info.dump();
 }
 
 } // namespace rtp

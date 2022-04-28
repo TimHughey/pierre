@@ -388,15 +388,15 @@ extern sigset_t pselect_sigset;
 
 extern pthread_mutex_t the_conn_lock;
 
-#define conn_lock(arg)                                                                                       \
-  pthread_mutex_lock(&the_conn_lock);                                                                        \
-  arg;                                                                                                       \
+#define conn_lock(arg)                                                                            \
+  pthread_mutex_lock(&the_conn_lock);                                                             \
+  arg;                                                                                            \
   pthread_mutex_unlock(&the_conn_lock);
 
 // wait for the specified time in microseconds -- it checks every 20
 // milliseconds
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time, const char *debugmessage,
-                                int debuglevel);
+int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
+                                const char *debugmessage, int debuglevel);
 // wait for the specified time, checking every 20 milliseconds, and block if it
 // can't acquire the lock
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexName,
@@ -404,20 +404,20 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
 
 #define debug_mutex_lock(mu, t, d) _debug_mutex_lock(mu, t, #mu, __FILE__, __LINE__, d)
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexName, const char *filename, const int line,
-                        int debuglevel);
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexName, const char *filename,
+                        const int line, int debuglevel);
 
 #define debug_mutex_unlock(mu, d) _debug_mutex_unlock(mu, #mu, __FILE__, __LINE__, d)
 
 void pthread_cleanup_debug_mutex_unlock(void *arg);
 
-#define pthread_cleanup_debug_mutex_lock(mu, t, d)                                                           \
-  if (_debug_mutex_lock(mu, t, #mu, __FILE__, __LINE__, d) == 0)                                             \
+#define pthread_cleanup_debug_mutex_lock(mu, t, d)                                                \
+  if (_debug_mutex_lock(mu, t, #mu, __FILE__, __LINE__, d) == 0)                                  \
   pthread_cleanup_push(pthread_cleanup_debug_mutex_unlock, (void *)mu)
 
-#define config_lock                                                                                          \
-  if (pthread_mutex_trylock(&config.lock) != 0) {                                                            \
-    debug(1, "config_lock: cannot acquire config.lock");                                                     \
+#define config_lock                                                                               \
+  if (pthread_mutex_trylock(&config.lock) != 0) {                                                 \
+    debug(1, "config_lock: cannot acquire config.lock");                                          \
   }
 
 #define config_unlock pthread_mutex_unlock(&config.lock)
@@ -431,8 +431,8 @@ extern pthread_mutex_t r64_mutex;
 char *get_version_string(); // mallocs a string space -- remember to free it
                             // afterwards
 
-int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format, int with_dither,
-                             int64_t random_number_in);
+int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format,
+                             int with_dither, int64_t random_number_in);
 
 void malloc_cleanup(void *arg);
 

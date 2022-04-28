@@ -58,11 +58,12 @@ void Anchor::saveAnchorInfo() {
                                              .secs = dictGetUint(Secs),
                                              .frac = dictGetUint(Frac),
                                              .flags = dictGetUint(Flags),
-                                             .rtpTime = dictGetUint(RtpTime)};
+                                             .rtpTime = dictGetUint(RtpTime),
+                                             .nptp = nptp()};
 
     rtp->save(anchor_data);
   } else {
-    const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate)};
+    const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate), .nptp = nptp()};
     rtp->save(anchor_data);
   }
 }

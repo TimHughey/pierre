@@ -26,6 +26,7 @@
 #include <fmt/format.h>
 #include <iterator>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <string>
 #include <sys/mman.h>
 #include <sys/socket.h>
@@ -33,6 +34,7 @@
 #include <vector>
 
 #include "core/service.hpp"
+#include "nptp/clock_info.hpp"
 #include "nptp/nptp.hpp"
 
 namespace pierre {
@@ -51,6 +53,18 @@ Nptp::Nptp(sService service) {
   openAndMap();    // gains access to shared memory segment
 }
 
+const nptp::ClockInfo Nptp::getClockInfo() {
+  // first things first, confirm the mapped region is ready
+  if (isMapped() == false) {
+    fmt::print("WANRING: nqptp data is not mapped\n");
+    return nptp::ClockInfo();
+  }
+
+  auto clock_info = nptp::ClockInfo(_mapped);
+
+  return clock_info;
+}
+
 bool Nptp::isMapped() const { return ((_mapped != nullptr) && (_mapped != MAP_FAILED)); }
 
 void Nptp::openAndMap() {
@@ -62,7 +76,7 @@ void Nptp::openAndMap() {
       // flags must be PROT_READ | PROT_WRITE to allow writes the mapped memory
       //  for the mutex
       constexpr auto flags = PROT_READ | PROT_WRITE;
-      constexpr auto bytes = sizeof(shm_structure);
+      constexpr auto bytes = sizeof(nptp::shm_structure);
 
       _mapped = mmap(NULL, bytes, flags, MAP_SHARED, _shm_fd, 0);
 
@@ -72,10 +86,10 @@ void Nptp::openAndMap() {
       _ok = (close(_shm_fd) >= 0) ? true : false;
       _shm_fd = -1;
     }
-
-    // fmt::print("_shm_fd={} _mapped={} _ok={}\n", _shm_fd, _mapped, _ok);
   }
 }
+
+void Nptp::refreshClockInfo(nptp::ClockInfo &clock_info) { clock_info.refresh(_mapped); }
 
 void Nptp::runLoop() {
   do {
@@ -83,10 +97,8 @@ void Nptp::runLoop() {
 
     std::unique_lock lk(_mutex);
 
-    // fmt::print("Nptp::runLoop() cv={}\n", _ready);
     _condv.wait(lk, [this] { return _ready; });
 
-    // fmt::print("Nptp::runLoop() cv={} \n", _ready);
   } while (true);
 }
 
@@ -146,9 +158,7 @@ void Nptp::start() {
 
 void Nptp::unMap() {
   if (_mapped && (_mapped != MAP_FAILED)) {
-    constexpr auto bytes = sizeof(shm_structure);
-
-    munmap(_mapped, bytes);
+    munmap(_mapped, nptp::ClockInfo::mappedSize());
     _shm_fd = -1;
     _mapped = nullptr;
   }
