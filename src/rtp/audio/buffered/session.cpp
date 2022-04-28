@@ -46,7 +46,9 @@ using string_view = std::string_view;
 Session::Session(tcp_socket &&new_socket)
     : socket(std::move(new_socket)) // io_context / socket for this session
 {
-  fmt::print("{} socket={}\n", fnName(), socket.native_handle());
+  // fmt::print("{} socket={}\n", fnName(), socket.native_handle());
+
+  _wire.resize(_buff_size);
 }
 
 void Session::asyncAudioBufferLoop() {
@@ -71,7 +73,7 @@ void Session::asyncAudioBufferLoop() {
   //     of the session above zero until the session ends
   //     (e.g. due to error, natural completion, io_ctx is stopped)
 
-  async_read(socket, dynamic_buffer(wire()), boost::asio::transfer_at_least(16),
+  async_read(socket, buffer(wire()), boost::asio::transfer_exactly(_buff_size),
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // general notes:
                //

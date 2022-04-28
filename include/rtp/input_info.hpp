@@ -28,6 +28,7 @@ struct InputInfo {
   uint8_t channels = 2;
   uint8_t bit_depth = 16;
   uint32_t bytes_per_frame = (bit_depth * 7) / 8;
+  size_t read_bytes_min = bytes_per_frame * 352;
 };
 
 } // namespace rtp

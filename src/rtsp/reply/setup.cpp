@@ -173,16 +173,26 @@ void Setup::getTimingList() {
 bool Setup::populate() {
   auto rc = false;
   constexpr auto streams = "streams";
+  constexpr auto remote_control = "isRemoteControlOnly";
 
   if (dictReady() == false) {
     return false;
   }
 
+  // handle RemoteControlOnly (not supported, but still RespCode=OK)
+  if (dictItemExists(remote_control)) {
+    auto fmt_str = FMT_STRING("{} isRemoteControlOnly=true\n");
+    fmt::print(fmt_str, fnName());
+    return true;
+  }
+
   // initial setup, no streams active
   if (dictItemExists(streams) == false) {
-    rc = handleNoStreams();
-  } else {
-    rc = handleStreams();
+    return handleNoStreams();
+  }
+
+  if (dictItemExists(streams)) {
+    return handleStreams();
   }
 
   return rc;

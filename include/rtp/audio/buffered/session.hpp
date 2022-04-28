@@ -95,6 +95,8 @@ private:
 
   bool _shutdown = false;
 
+  static constexpr size_t _buff_size = 4096;
+
   // private:
   //   static constexpr auto re_syntax = std::regex_constants::ECMAScript;
 };

@@ -123,10 +123,15 @@ void Session::handleRequest(size_t rx_bytes) {
   try {
     createAndSendReply();
   } catch (const std::exception &e) {
-    fmt::print("{} create reply failed: {}\n", fnName(), e.what());
+    auto fmt_str = FMT_STRING("{} CREATE REPLY FAILURE\n\t\tmwthod={} path={} reason={}"
+                              "(headers and content dump follow\n");
+
+    fmt::print(fmt_str, fnName(), _headers.method(), _headers.path(), e.what());
 
     _headers.dump();
     _content.dump();
+
+    fmt::print("{} END OF FAILED REPLY DUMP", fnName());
   }
 }
 
@@ -213,12 +218,15 @@ void Session::createAndSendReply() {
                               .mdns = mdns->getSelf(),
                               .nptp = nptp->getSelf()});
 
+  // auto fmt_str = FMT_STRING("{} creating reply method={} path={}\n");
+  // fmt::print(fmt_str, fnName(), method(), path());
+
   auto &reply_packet = reply->build();
 
   if (reply->debug()) {
+    auto fmt_str = FMT_STRING("{} reply seq={:03} method={} path={} resp_code={}\n");
     auto prefix = std::string_view("SESSION");
-    fmt::print("{} reply seq={:03} method={} path={} resp_code={}\n", prefix, reply->sequence(),
-               method(), path(), reply->responseCodeView());
+    fmt::print(fmt_str, prefix, reply->sequence(), method(), path(), reply->responseCodeView());
   }
 
   // only send the reply packet if there's data

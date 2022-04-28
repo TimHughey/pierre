@@ -81,6 +81,9 @@ private:
   void calcNetTime();
   void chooseAnchorClock();
 
+  void infoNewClock();
+  void warnFrequentChanges();
+
   static const char *fnName(const std::source_location loc = std::source_location::current()) {
     return loc.function_name();
   }
@@ -91,6 +94,8 @@ private:
   uint64_t anchor_time = 0;
 
   uint64_t anchor_clock_new_ns = 0;
+
+  bool _debug_ = false;
 };
 
 } // namespace rtp

@@ -84,7 +84,7 @@ void Rtp::start() {
 
 void Rtp::save(const rtp::AnchorData &data) {
   _anchor = data;
-  _anchor.dump();
+  // _anchor.dump();
 }
 
 void Rtp::save(const rtp::StreamData &data) {
@@ -95,3 +95,25 @@ void Rtp::save(const rtp::StreamData &data) {
 std::shared_ptr<Rtp> pierre::Rtp::_instance;
 
 } // namespace pierre
+
+// notes:
+//
+// Standard Packet Size = 4096
+//
+// rtp_buffered_audio_processor (thread)
+//  -> creates a bunch of cond_var and mutex
+//  -> starts buffered_tcp_reader
+//  -> initializes avcodec
+//
+//  uint8_t packet[16 * 1024];
+//  unsigned char m[16 * 1024]; // leave the first 7 bytes blank to make room for the ADTS
+//
+// ensures ptp timing info is available
+//
+// enters do loop
+//    ->  handles flushes
+//
+//    -> checks have buffers vs lead time
+//      -> if enough buffers sleep
+//    ->
+//

@@ -16,6 +16,7 @@
 //
 //  https://www.wisslanding.com
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <fmt/format.h>
@@ -118,22 +119,30 @@ void AnchorInfo::calcNetTime() {
 }
 
 void AnchorInfo::chooseAnchorClock() {
-  if (data.timelineID != anchor_clock) {
-    // warn if anchor clock is changing too quickly
-    if (anchor_clock_new_ns != 0) {
-      int64_t diff = clock_info.now() - anchor_clock_new_ns;
+  nptp->refreshClockInfo(clock_info); // get the most recent clock info
 
-      if (diff > 5000000000) {
-        fmt::print("WARN {} anchor clock changing too quickly diff={}\n", diff);
-      }
-    }
-  }
+  warnFrequentChanges();
+  infoNewClock();
 
   // NOTE: should confirm this is a buffered stream and AirPlay 2
 
-  if ((anchor_clock != data.timelineID) || (anchor_rptime != data.rtpTime) ||
-      (anchor_time != data.networkTime)) {
-    nptp->refreshClockInfo(clock_info);
+  anchor_clock = data.timelineID;
+  anchor_rptime = data.anchorRtpTime;
+  anchor_time = data.networkTime;
+  anchor_clock_new_ns = clock_info.now();
+
+  actual = data;
+}
+
+void AnchorInfo::infoNewClock() {
+  auto rc = false;
+
+  // when any of these conditions are true this is a new Anchor
+  rc |= (anchor_clock != data.timelineID); // anchot is different
+  rc |= (anchor_rptime != data.rtpTime);   // rtpTime is different
+  rc |= (anchor_time != data.networkTime); // anchor time is different
+
+  if (rc && _debug_) {
     auto hex_fmt = FMT_STRING("{:>35}={:#x}\n");
     auto dec_fmt = FMT_STRING("{:>35}={}\n");
 
@@ -145,13 +154,26 @@ void AnchorInfo::chooseAnchorClock() {
     fmt::print(dec_fmt, "networkTime", data.networkTime);
     fmt::print("\n");
   }
+}
 
-  anchor_clock = data.timelineID;
-  anchor_rptime = data.anchorRtpTime;
-  anchor_time = data.networkTime;
-  anchor_clock_new_ns = clock_info.now();
+void AnchorInfo::warnFrequentChanges() {
+  if (_debug_ == true) {
+    using namespace std::chrono_literals;
+    using Nanos = std::chrono::nanoseconds;
+    constexpr auto threshold = Nanos(5s);
 
-  actual = data;
+    if (data.timelineID != anchor_clock) {
+      // warn if anchor clock is changing too quickly
+      if (anchor_clock_new_ns != 0) {
+        int64_t diff = clock_info.now() - anchor_clock_new_ns;
+
+        if (diff > threshold.count()) {
+          auto fmt_str = FMT_STRING("WARN {} anchor clock changing too quickly diff={}\n");
+          fmt::print(fmt_str, fnName(), diff);
+        }
+      }
+    }
+  }
 }
 
 void AnchorInfo::dump(const std::source_location loc) {
