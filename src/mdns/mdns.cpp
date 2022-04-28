@@ -119,6 +119,26 @@ bool mDNS::groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepp
   return (rc == AVAHI_OK) ? true : false;
 }
 
+bool mDNS::resetGroupIfNeeded() {
+  auto rc = true;
+
+  // if there is already a group, reset it
+  if (_groups.size()) {
+    auto group = _groups.front();
+
+    auto ac = avahi_entry_group_reset(group);
+
+    if (ac != 0) {
+      auto fmt_str = FMT_STRING("{} group reset failed={}\n");
+      fmt::print(fmt_str, fnName(), ac);
+
+      rc = false;
+    }
+  }
+
+  return rc;
+}
+
 bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol,
                        const char *name, const char *type, const char *domain,
                        [[maybe_unused]] AvahiProtocol aprotocol,

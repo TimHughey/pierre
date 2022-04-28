@@ -46,6 +46,7 @@ void cbClient(AvahiClient *client, AvahiClientState state, void *userdata) {
 
   switch (state) {
     case AVAHI_CLIENT_S_REGISTERING:
+      mdns->resetGroupIfNeeded();
       break;
 
     case AVAHI_CLIENT_S_RUNNING:

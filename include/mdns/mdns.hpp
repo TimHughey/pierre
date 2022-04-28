@@ -22,6 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <fmt/format.h>
 #include <list>
 #include <memory>
+#include <source_location>
 #include <string>
 #include <vector>
 
@@ -71,6 +72,7 @@ public:
   void makePrivateKey();
 
   bool registerService(AvahiClient *client = nullptr);
+  bool resetGroupIfNeeded();
   bool start();
   void saveGroup(AvahiEntryGroup *group);
 
@@ -122,6 +124,9 @@ private:
   bool resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol,
                    const char *name, const char *type, const char *domain, AvahiProtocol aprotocol,
                    AvahiLookupFlags flags, AvahiServiceResolverCallback callback, void *userdata);
+
+  using src_loc = std::source_location;
+  const char *fnName(src_loc loc = src_loc::current()) const { return loc.function_name(); }
 
 private:
   sService _service;
