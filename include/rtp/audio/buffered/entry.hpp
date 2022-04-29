@@ -17,24 +17,43 @@
 //
 //  https://www.wisslanding.com
 
+#pragma once
+
+#include <cstdint>
+#include <memory>
+
 namespace pierre {
 namespace rtp {
 namespace audio {
-
 typedef uint16_t seq_t;
 
-struct BufferEntry { // decoded audio packets
-  uint8_t ready;
+namespace buffered {
+
+struct Entry { // decoded audio packets
+  bool ready = false;
   uint8_t status; // flags
   uint16_t resend_request_number;
   signed short *data;
   seq_t sequence_number;
-  uint64_t initialisation_time; // the time the packet was added or the time it
-                                // was noticed the packet was missing
-  uint64_t resend_time;         // time of last resend request or zero
-  uint32_t given_timestamp;     // for debugging and checking
-  int length;                   // the length of the decoded data
+
+  // the time the packet was added or the time it
+  // was noticed the packet was missing
+  uint64_t initialisation_time;
+
+  uint64_t resend_time; // time of last resend request or zero
+
+  uint32_t given_timestamp; // for debugging and checking
+
+  int length; // the length of the decoded data
+
+public:
+  size_t needBytes() const;
+
+private:
+  static constexpr size_t STANDARD_PACKET_SIZE = 4096;
 };
+
+} // namespace buffered
 
 } // namespace audio
 

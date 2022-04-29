@@ -63,7 +63,8 @@ void Server::asyncAccept() {
       session->asyncEventLoop();
 
     } else {
-      fmt::print("{} accept connection failed, error={}\n", ec.message());
+      auto fmt_str = FMT_STRING("{} accept connection failed, error={}\n");
+      fmt::print(fmt_str, fnName(), ec.message());
     }
 
     asyncAccept();

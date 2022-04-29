@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -35,6 +36,7 @@
 #include "rtp/control/datagram.hpp"
 #include "rtp/event/server.hpp"
 #include "rtp/input_info.hpp"
+#include "rtp/servers.hpp"
 #include "rtp/stream_info.hpp"
 #include "rtp/timing/datagram.hpp"
 
@@ -58,7 +60,13 @@ private:
 public:
   using io_context = boost::asio::io_context;
   using string = std::string;
+  using WatchDog = boost::asio::high_resolution_timer;
+
+  typedef std::future<bool> TeardownBarrier;
+  typedef std::promise<bool> Teardown;
   typedef const string &csr;
+  typedef std::optional<Teardown> TeardownKeeper;
+  typedef const char *ccs;
 
 public: // object creation and shared_ptr API
   [[nodiscard]] static sRtp create() {
@@ -80,7 +88,9 @@ public:
   size_t bufferFrames() const { return 1024; }
   size_t bufferStartFill() const { return 220; }
   uint16_t localPort(ServerType type); // local endpoint port
+  bool playEnabled() const { return _anchor.data.rate & 0x01; }
   void start();
+  [[nodiscard]] TeardownBarrier teardown();
 
   // Savers
   void save(const rtp::AnchorData &anchor_data);
@@ -92,12 +102,23 @@ public:
 private:
   Rtp();
 
+  void createServers();
+
   void runLoop();
+  void watchForTeardown(WatchDog &watch_dog);
+  void teardownNow();
+
+  // misc helpers
+  static ccs fnName(std::source_location loc = std::source_location::current()) {
+    return loc.function_name();
+  }
 
 private:
   io_context io_ctx;
   // shared pointers to all servers spun up for RTP
   Servers servers;
+
+  rtp::ServerDepot depot;
 
   // order independent
   uint32_t _frames_per_packet_max = 352; // audio frames per packet
@@ -108,6 +129,8 @@ private:
   rtp::StreamInfo _stream_info;
   rtp::AnchorInfo _anchor;
   rtp::InputInfo _input_info;
+
+  TeardownKeeper _teardown;
 
   bool running = false;
   uint64_t last_resend_request_error_ns = 0;

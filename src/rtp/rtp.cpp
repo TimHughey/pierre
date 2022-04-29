@@ -16,6 +16,7 @@
 //
 //  https://www.wisslanding.com
 
+#include <chrono>
 #include <exception>
 #include <fmt/format.h>
 
@@ -24,29 +25,24 @@
 #include "rtp/control/datagram.hpp"
 #include "rtp/event/server.hpp"
 #include "rtp/rtp.hpp"
+#include "rtp/servers.hpp"
 
 namespace pierre {
+
+using namespace std::chrono_literals;
+using io_context = boost::asio::io_context;
+using error_code = boost::system::error_code;
 using namespace rtp;
 
-Rtp::Rtp()
-    : servers{.event = rtp::event::Server::create(io_ctx),
-              .audio_buffered = rtp::audio::buffered::Server::create(io_ctx),
-              .control = rtp::control::Datagram::create(io_ctx),
-              .timing = rtp::timing::Datagram::create(io_ctx)} {
+Rtp::Rtp() : depot(ServerDepot(io_ctx)) {
   // more later
 }
 
-void Rtp::runLoop() {
-  using WorkGuard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
-
-  WorkGuard work_guard(io_ctx.get_executor());
-  io_ctx.run(); // returns until no more work
-
-  auto self = pthread_self();
-
-  std::array<char, 24> thread_name{0};
-  pthread_getname_np(self, thread_name.data(), thread_name.size());
-  fmt::print("{} work is complete\n", thread_name.data());
+void Rtp::createServers() {
+  servers.event = event::Server::create(io_ctx);
+  servers.audio_buffered = audio::buffered::Server::create({.io_ctx = io_ctx, .anchor = _anchor});
+  servers.control = control::Datagram::create(io_ctx);
+  servers.timing = timing::Datagram::create(io_ctx);
 }
 
 uint16_t Rtp::localPort(ServerType type) {
@@ -57,15 +53,15 @@ uint16_t Rtp::localPort(ServerType type) {
       port = servers.audio_buffered->localPort();
       break;
 
-    case Event:
+    case ServerType::Event:
       port = servers.event->localPort();
       break;
 
-    case Control:
+    case ServerType::Control:
       port = servers.control->localPort();
       break;
 
-    case Timing:
+    case ServerType::Timing:
       port = servers.timing->localPort();
       break;
   }
@@ -73,13 +69,38 @@ uint16_t Rtp::localPort(ServerType type) {
   return port;
 }
 
-void Rtp::start() {
-  _thread = std::jthread([this]() {
-    auto self = pthread_self();
-    pthread_setname_np(self, "RTP");
+void Rtp::runLoop() {
+  running = true;
 
-    runLoop();
-  });
+  do {
+    WatchDog watch_dog(io_ctx);
+    watchForTeardown(watch_dog);
+
+    io_ctx.run();
+
+    if (_teardown.has_value()) {
+      teardownNow();
+    }
+
+    io_ctx.reset();
+
+  } while (running);
+
+  auto self = pthread_self();
+
+  std::array<char, 24> thread_name{0};
+  pthread_getname_np(self, thread_name.data(), thread_name.size());
+  fmt::print("{} work is complete\n", thread_name.data());
+}
+
+void Rtp::start() {
+  createServers();
+
+  _thread = std::jthread([this]() { runLoop(); });
+
+  //  give this thread a name
+  const auto handle = _thread.native_handle();
+  pthread_setname_np(handle, "RTP");
 }
 
 void Rtp::save(const rtp::AnchorData &data) {
@@ -92,28 +113,53 @@ void Rtp::save(const rtp::StreamData &data) {
   // _stream_info.dump();
 }
 
+Rtp::TeardownBarrier Rtp::teardown() {
+  fmt::print(FMT_STRING("{} teardown initiated\n"), fnName());
+
+  return _teardown.emplace(Teardown()).get_future();
+}
+
+void Rtp::teardownNow() {
+  constexpr auto attempts = 10;
+
+  // give io_context an opportunity to shutdown gracefully
+  for (auto attempt = 0; (io_ctx.stopped() == false) && (attempt < attempts); attempt++) {
+    std::this_thread::sleep_for(10ms);
+  }
+
+  fmt::print(FMT_STRING("{} io_ctx stopped\n"), fnName());
+
+  // reset all shared pointers
+  servers.event.reset();
+  servers.audio_buffered.reset();
+  servers.control.reset();
+  servers.timing.reset();
+
+  // create new io context and servers
+  createServers();
+
+  // remove the barrier
+  _teardown.value().set_value(true);
+
+  // clear the promise
+  _teardown.reset();
+
+  fmt::print(FMT_STRING("{} teardown complete\n"), fnName());
+}
+
+void Rtp::watchForTeardown(WatchDog &watch_dog) {
+  watch_dog.expires_after(250ms);
+
+  watch_dog.async_wait([&]([[maybe_unused]] error_code ec) {
+    if (_teardown.has_value()) {
+      io_ctx.stop();
+      return;
+    }
+
+    watchForTeardown(watch_dog);
+  });
+}
+
 std::shared_ptr<Rtp> pierre::Rtp::_instance;
 
 } // namespace pierre
-
-// notes:
-//
-// Standard Packet Size = 4096
-//
-// rtp_buffered_audio_processor (thread)
-//  -> creates a bunch of cond_var and mutex
-//  -> starts buffered_tcp_reader
-//  -> initializes avcodec
-//
-//  uint8_t packet[16 * 1024];
-//  unsigned char m[16 * 1024]; // leave the first 7 bytes blank to make room for the ADTS
-//
-// ensures ptp timing info is available
-//
-// enters do loop
-//    ->  handles flushes
-//
-//    -> checks have buffers vs lead time
-//      -> if enough buffers sleep
-//    ->
-//

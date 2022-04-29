@@ -116,17 +116,15 @@ void reset_input_flow_metrics(rtsp_conn_info *conn) {
   conn->initial_reference_timestamp = 0;
 }
 
-void unencrypted_packet_decode(unsigned char *packet, int length, short *dest,
-                               int *outsize, int size_limit,
-                               rtsp_conn_info *conn) {
+void unencrypted_packet_decode(unsigned char *packet, int length, short *dest, int *outsize,
+                               int size_limit, rtsp_conn_info *conn) {
   if (conn->stream.type == ast_apple_lossless) {
     {
       if (conn->decoder_in_use != 1 << decoder_hammerton) {
         debug(2, "Hammerton Decoder used on encrypted audio.");
         conn->decoder_in_use = 1 << decoder_hammerton;
       }
-      alac_decode_frame(conn->decoder_info, packet, (unsigned char *)dest,
-                        outsize);
+      alac_decode_frame(conn->decoder_info, packet, (unsigned char *)dest, outsize);
     }
   } else if (conn->stream.type == ast_uncompressed) {
     int length_to_use = length;
@@ -148,8 +146,7 @@ void unencrypted_packet_decode(unsigned char *packet, int length, short *dest,
   }
 }
 
-int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len,
-                        rtsp_conn_info *conn) {
+int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_conn_info *conn) {
   // parameters: where the decoded stuff goes, its length in samples,
   // the incoming packet, the length of the incoming packet in bytes
   // destlen should contain the allowed max number of samples on entry
@@ -164,8 +161,8 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len,
   // unsigned char packetp[MAX_PACKET];
   assert(len <= MAX_PACKET);
   int reply = 0; // everything okay
-  int outsize = conn->input_bytes_per_frame *
-                (*destlen); // the size the output should be, in bytes
+  int outsize =
+      conn->input_bytes_per_frame * (*destlen); // the size the output should be, in bytes
   int maximum_possible_outsize = outsize;
 
   if (conn->stream.encrypted) {
@@ -176,12 +173,10 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len,
     AES_cbc_encrypt(buf, packet, aeslen, &conn->aes, iv, AES_DECRYPT);
 
     memcpy(packet + aeslen, buf + aeslen, len - aeslen);
-    unencrypted_packet_decode(packet, len, dest, &outsize,
-                              maximum_possible_outsize, conn);
+    unencrypted_packet_decode(packet, len, dest, &outsize, maximum_possible_outsize, conn);
   } else {
     // not encrypted
-    unencrypted_packet_decode(buf, len, dest, &outsize,
-                              maximum_possible_outsize, conn);
+    unencrypted_packet_decode(buf, len, dest, &outsize, maximum_possible_outsize, conn);
   }
 
   if (outsize > maximum_possible_outsize) {
@@ -207,7 +202,6 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len,
 }
 
 static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
-
   // This is a guess, but the format of the fmtp looks identical to the format
   // of an ALACSpecificCOnfig which is detailed in the file
   // ALACMagicCookieDescription.txt in the Apple ALAC sample implementation Here
@@ -289,9 +283,8 @@ static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
 
   alac_file *alac;
 
-  alac = alac_create(
-      conn->input_bit_depth,
-      conn->input_num_channels); // no pthread cancellation point in here
+  alac = alac_create(conn->input_bit_depth,
+                     conn->input_num_channels); // no pthread cancellation point in here
   if (!alac)
     return 1;
   conn->decoder_info = alac;
@@ -312,9 +305,7 @@ static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
   return 0;
 }
 
-static void terminate_decoders(rtsp_conn_info *conn) {
-  alac_free(conn->decoder_info);
-}
+static void terminate_decoders(rtsp_conn_info *conn) { alac_free(conn->decoder_info); }
 
 static void init_buffer(rtsp_conn_info *conn) {
   // debug(1,"input_bytes_per_frame: %d.", conn->input_bytes_per_frame);
@@ -323,8 +314,7 @@ static void init_buffer(rtsp_conn_info *conn) {
   for (i = 0; i < BUFFER_FRAMES; i++)
     //    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame *
     //    conn->max_frames_per_packet);
-    conn->audio_buffer[i].data =
-        malloc(8 * conn->max_frames_per_packet); // todo
+    conn->audio_buffer[i].data = malloc(8 * conn->max_frames_per_packet); // todo
 }
 
 static void free_audio_buffers(rtsp_conn_info *conn) {
@@ -340,22 +330,19 @@ void reset_buffer(rtsp_conn_info *conn) {
   ab_resync(conn);
   debug_mutex_unlock(&conn->ab_mutex, 0);
   if (config.output->flush) {
-    config.output
-        ->flush(); // no cancellation points
-                   //            debug(1, "reset_buffer: flush output device.");
+    config.output->flush(); // no cancellation points
+                            //            debug(1, "reset_buffer: flush output device.");
   }
 }
 
-void get_audio_buffer_size_and_occupancy(unsigned int *size,
-                                         unsigned int *occupancy,
+void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occupancy,
                                          rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->ab_mutex, 30000, 0);
   *size = BUFFER_FRAMES;
   if (conn->ab_synced) {
     int16_t occ =
-        conn->ab_write -
-        conn->ab_read; // will be zero or positive if read and write are within
-                       // 2^15 of each other and write is at or after read
+        conn->ab_write - conn->ab_read; // will be zero or positive if read and write are within
+                                        // 2^15 of each other and write is at or after read
     *occupancy = occ;
   } else {
     *occupancy = 0;
@@ -363,10 +350,8 @@ void get_audio_buffer_size_and_occupancy(unsigned int *size,
   debug_mutex_unlock(&conn->ab_mutex, 0);
 }
 
-void player_put_packet(int original_format, seq_t seqno,
-                       uint32_t actual_timestamp, uint8_t *data, int len,
-                       rtsp_conn_info *conn) {
-
+void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data,
+                       int len, rtsp_conn_info *conn) {
   // if it's original format, it has a valid seqno and must be decoded
   // otherwise, it can take the next seqno and doesn't need decoding.
 
@@ -391,8 +376,7 @@ void player_put_packet(int original_format, seq_t seqno,
       conn->ab_read = seqno;
       conn->ab_synced = 1;
       conn->first_packet_timestamp = 0;
-      debug(2, "Connection %d: synced by first packet, seqno %u.",
-            conn->connection_number, seqno);
+      debug(2, "Connection %d: synced by first packet, seqno %u.", conn->connection_number, seqno);
     } else if (original_format == 0) {
       // if the packet is coming in original format, the sequence number is
       // important otherwise, ignore is by setting it equal to the expected
@@ -402,20 +386,16 @@ void player_put_packet(int original_format, seq_t seqno,
     if (conn->ab_write == seqno) { // if this is the expected packet (which
                                    // could be the first packet...)
       if (conn->input_frame_rate_starting_point_is_valid == 0) {
-        if ((conn->packet_count_since_flush >= 500) &&
-            (conn->packet_count_since_flush <= 510)) {
+        if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
           conn->frames_inward_measurement_start_time = time_now;
-          conn->frames_inward_frames_received_at_measurement_start_time =
-              actual_timestamp;
+          conn->frames_inward_frames_received_at_measurement_start_time = actual_timestamp;
           conn->input_frame_rate_starting_point_is_valid = 1; // valid now
         }
       }
       conn->frames_inward_measurement_time = time_now;
-      conn->frames_inward_frames_received_at_measurement_time =
-          actual_timestamp;
+      conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
       abuf = conn->audio_buffer + BUFIDX(seqno);
-      conn->ab_write =
-          seqno + 1; // move the write pointer to the next free space
+      conn->ab_write = seqno + 1;                 // move the write pointer to the next free space
     } else if (is_after(conn->ab_write, seqno)) { // newer than expected
       int32_t gap = seqno - conn->ab_write;
       if (gap <= 0)
@@ -479,15 +459,12 @@ void player_put_packet(int original_format, seq_t seqno,
     // resend checks
     {
       uint64_t minimum_wait_time =
-          (uint64_t)(config.resend_control_first_check_time *
-                     (uint64_t)1000000000);
+          (uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
       uint64_t resend_repeat_interval =
-          (uint64_t)(config.resend_control_check_interval_time *
-                     (uint64_t)1000000000);
-      uint64_t minimum_remaining_time =
-          (uint64_t)((config.resend_control_last_check_time +
-                      config.audio_backend_buffer_desired_length) *
-                     (uint64_t)1000000000);
+          (uint64_t)(config.resend_control_check_interval_time * (uint64_t)1000000000);
+      uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time +
+                                                    config.audio_backend_buffer_desired_length) *
+                                                   (uint64_t)1000000000);
       uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
       latency_time = latency_time / (uint64_t)conn->input_rate;
 
@@ -495,11 +472,9 @@ void player_put_packet(int original_format, seq_t seqno,
       int x = conn->ab_read;
       if (first_possibly_missing_frame >= 0) {
         // if it's within the range
-        int16_t buffer_size =
-            conn->ab_write - conn->ab_read; // must be positive
+        int16_t buffer_size = conn->ab_write - conn->ab_read; // must be positive
         if (buffer_size >= 0) {
-          int16_t position_in_buffer =
-              first_possibly_missing_frame - conn->ab_read;
+          int16_t position_in_buffer = first_possibly_missing_frame - conn->ab_read;
           if ((position_in_buffer >= 0) && (position_in_buffer < buffer_size))
             x = first_possibly_missing_frame;
         }
@@ -521,17 +496,14 @@ void player_put_packet(int original_format, seq_t seqno,
           // minimum_remaining_time is 0x%" PRIx64 ".", x,
           // check_buf->initialisation_time, latency_time, time_now,
           // minimum_remaining_time);
-          int too_late =
-              ((check_buf->initialisation_time < (time_now - latency_time)) ||
-               ((check_buf->initialisation_time - (time_now - latency_time)) <
-                minimum_remaining_time));
-          int too_early =
-              ((time_now - check_buf->initialisation_time) < minimum_wait_time);
-          int too_soon_after_last_request =
-              ((check_buf->resend_time != 0) &&
-               ((time_now - check_buf->resend_time) <
-                resend_repeat_interval)); // time_now can never be less than the
-                                          // time_tag
+          int too_late = ((check_buf->initialisation_time < (time_now - latency_time)) ||
+                          ((check_buf->initialisation_time - (time_now - latency_time)) <
+                           minimum_remaining_time));
+          int too_early = ((time_now - check_buf->initialisation_time) < minimum_wait_time);
+          int too_soon_after_last_request = ((check_buf->resend_time != 0) &&
+                                             ((time_now - check_buf->resend_time) <
+                                              resend_repeat_interval)); // time_now can never be
+                                                                        // less than the time_tag
 
           if (too_late)
             check_buf->status |= 1 << 2; // too late
@@ -544,8 +516,7 @@ void player_put_packet(int original_format, seq_t seqno,
           if (too_soon_after_last_request)
             check_buf->status |= 1 << 4; // too soon after last request
           else
-            check_buf->status &=
-                0xFF - (1 << 4); // not too soon after last request
+            check_buf->status &= 0xFF - (1 << 4); // not too soon after last request
 
           if ((!too_soon_after_last_request) && (!too_late) && (!too_early)) {
             if (start_of_missing_frame_run == -1) {
@@ -554,13 +525,11 @@ void player_put_packet(int original_format, seq_t seqno,
             } else {
               missing_frame_run_count++;
             }
-            check_buf->resend_time =
-                time_now; // setting the time to now because we are
-                          // definitely going to take action
+            check_buf->resend_time = time_now; // setting the time to now because we are
+                                               // definitely going to take action
             check_buf->resend_request_number++;
-            debug(3,
-                  "Frame %d is missing with ab_read of %u and ab_write of %u.",
-                  x, conn->ab_read, conn->ab_write);
+            debug(3, "Frame %d is missing with ab_read of %u and ab_write of %u.", x,
+                  conn->ab_read, conn->ab_write);
           }
           // if (too_late) {
           //   debug(1,"too late to get missing frame %u.", x);
@@ -571,16 +540,14 @@ void player_put_packet(int original_format, seq_t seqno,
         //  first_possibly_missing_frame = %d.", x, conn->ab_read,
         //  conn->ab_write, first_possibly_missing_frame);
         x = (x + 1) & 0xffff;
-        if (((check_buf->ready) || (x == conn->ab_write)) &&
-            (missing_frame_run_count > 0)) {
+        if (((check_buf->ready) || (x == conn->ab_write)) && (missing_frame_run_count > 0)) {
           // send a resend request
           if (missing_frame_run_count > 1)
-            debug(3, "request resend of %d packets starting at seqno %u.",
-                  missing_frame_run_count, start_of_missing_frame_run);
+            debug(3, "request resend of %d packets starting at seqno %u.", missing_frame_run_count,
+                  start_of_missing_frame_run);
           if (config.disable_resend_requests == 0) {
             debug_mutex_unlock(&conn->ab_mutex, 3);
-            rtp_request_resend(start_of_missing_frame_run,
-                               missing_frame_run_count, conn);
+            rtp_request_resend(start_of_missing_frame_run, missing_frame_run_count, conn);
             debug_mutex_lock(&conn->ab_mutex, 20000, 1);
             conn->resend_requests++;
           }
@@ -602,14 +569,13 @@ int32_t rand_in_range(int32_t exclusive_range_limit) {
   int64_t sp = lcg_prev;
   int64_t rl = exclusive_range_limit;
   lcg_prev = lcg_prev * 69069 + 3; // crappy psrg
-  sp = sp * rl; // 64 bit calculation. Interesting part is above the 32
-                // rightmost bits;
+  sp = sp * rl;                    // 64 bit calculation. Interesting part is above the 32
+                                   // rightmost bits;
   return sp >> 32;
 }
 
-static inline void process_sample(int32_t sample, char **outp,
-                                  sps_format_t format, int volume, int dither,
-                                  rtsp_conn_info *conn) {
+static inline void process_sample(int32_t sample, char **outp, sps_format_t format, int volume,
+                                  int dither, rtsp_conn_info *conn) {
   /*
   {
                 static int old_volume = 0;
@@ -628,15 +594,12 @@ static inline void process_sample(int32_t sample, char **outp,
                          // the Loudness DSP filter
   } else {
     int64_t hyper_volume = (int64_t)volume << 16;
-    hyper_sample =
-        hyper_sample *
-        hyper_volume; // this is 64 bit bit multiplication -- we may need
-                      // to dither it down to its target resolution
+    hyper_sample = hyper_sample * hyper_volume; // this is 64 bit bit multiplication -- we may need
+                                                // to dither it down to its target resolution
   }
 
   // next, do dither, if necessary
   if (dither) {
-
     // add a TPDF dither -- see
     // http://educypedia.karadimov.info/library/DitherExplained.pdf
     // and the discussion around
@@ -655,42 +618,41 @@ static inline void process_sample(int32_t sample, char **outp,
 
     int64_t dither_mask = 0;
     switch (format) {
-    case SPS_FORMAT_S32:
-    case SPS_FORMAT_S32_LE:
-    case SPS_FORMAT_S32_BE:
-      dither_mask = (int64_t)1 << (64 - 32);
-      break;
-    case SPS_FORMAT_S24:
-    case SPS_FORMAT_S24_LE:
-    case SPS_FORMAT_S24_BE:
-    case SPS_FORMAT_S24_3LE:
-    case SPS_FORMAT_S24_3BE:
-      dither_mask = (int64_t)1 << (64 - 24);
-      break;
-    case SPS_FORMAT_S16:
-    case SPS_FORMAT_S16_LE:
-    case SPS_FORMAT_S16_BE:
-      dither_mask = (int64_t)1 << (64 - 16);
-      break;
-    case SPS_FORMAT_S8:
-    case SPS_FORMAT_U8:
-      dither_mask = (int64_t)1 << (64 - 8);
-      break;
-    case SPS_FORMAT_UNKNOWN:
-      die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
-      break;
-    case SPS_FORMAT_AUTO:
-      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
-      break;
-    case SPS_FORMAT_INVALID:
-      die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
-      break;
+      case SPS_FORMAT_S32:
+      case SPS_FORMAT_S32_LE:
+      case SPS_FORMAT_S32_BE:
+        dither_mask = (int64_t)1 << (64 - 32);
+        break;
+      case SPS_FORMAT_S24:
+      case SPS_FORMAT_S24_LE:
+      case SPS_FORMAT_S24_BE:
+      case SPS_FORMAT_S24_3LE:
+      case SPS_FORMAT_S24_3BE:
+        dither_mask = (int64_t)1 << (64 - 24);
+        break;
+      case SPS_FORMAT_S16:
+      case SPS_FORMAT_S16_LE:
+      case SPS_FORMAT_S16_BE:
+        dither_mask = (int64_t)1 << (64 - 16);
+        break;
+      case SPS_FORMAT_S8:
+      case SPS_FORMAT_U8:
+        dither_mask = (int64_t)1 << (64 - 8);
+        break;
+      case SPS_FORMAT_UNKNOWN:
+        die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+        break;
+      case SPS_FORMAT_AUTO:
+        die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
+        break;
+      case SPS_FORMAT_INVALID:
+        die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
+        break;
     }
     dither_mask -= 1;
     int64_t r = r64i();
 
-    int64_t tpdf =
-        (r & dither_mask) - (conn->previous_random_number & dither_mask);
+    int64_t tpdf = (r & dither_mask) - (conn->previous_random_number & dither_mask);
     conn->previous_random_number = r;
     // add dither, allowing for clipping
     if (tpdf >= 0) {
@@ -711,123 +673,123 @@ static inline void process_sample(int32_t sample, char **outp,
   char *op = *outp;
   uint8_t byt;
   switch (format) {
-  case SPS_FORMAT_S32_LE:
-    hyper_sample >>= (64 - 32);
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 16);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 24);
-    *op++ = byt;
-    result = 4;
-    break;
-  case SPS_FORMAT_S32_BE:
-    hyper_sample >>= (64 - 32);
-    byt = (uint8_t)(hyper_sample >> 24);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 16);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    result = 4;
-    break;
-  case SPS_FORMAT_S32:
-    hyper_sample >>= (64 - 32);
-    *(int32_t *)op = hyper_sample;
-    result = 4;
-    break;
-  case SPS_FORMAT_S24_3LE:
-    hyper_sample >>= (64 - 24);
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 16);
-    *op++ = byt;
-    result = 3;
-    break;
-  case SPS_FORMAT_S24_3BE:
-    hyper_sample >>= (64 - 24);
-    byt = (uint8_t)(hyper_sample >> 16);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    result = 3;
-    break;
-  case SPS_FORMAT_S24_LE:
-    hyper_sample >>= (64 - 24);
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 16);
-    *op++ = byt;
-    *op++ = 0;
-    result = 4;
-    break;
-  case SPS_FORMAT_S24_BE:
-    hyper_sample >>= (64 - 24);
-    *op++ = 0;
-    byt = (uint8_t)(hyper_sample >> 16);
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    result = 4;
-    break;
-  case SPS_FORMAT_S24:
-    hyper_sample >>= (64 - 24);
-    *(int32_t *)op = hyper_sample;
-    result = 4;
-    break;
-  case SPS_FORMAT_S16_LE:
-    hyper_sample >>= (64 - 16);
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    result = 2;
-    break;
-  case SPS_FORMAT_S16_BE:
-    hyper_sample >>= (64 - 16);
-    byt = (uint8_t)(hyper_sample >> 8);
-    *op++ = byt;
-    byt = (uint8_t)hyper_sample;
-    *op++ = byt;
-    result = 2;
-    break;
-  case SPS_FORMAT_S16:
-    hyper_sample >>= (64 - 16);
-    *(int16_t *)op = (int16_t)hyper_sample;
-    result = 2;
-    break;
-  case SPS_FORMAT_S8:
-    hyper_sample >>= (int8_t)(64 - 8);
-    *op = hyper_sample;
-    result = 1;
-    break;
-  case SPS_FORMAT_U8:
-    hyper_sample >>= (uint8_t)(64 - 8);
-    hyper_sample += 128;
-    *op = hyper_sample;
-    result = 1;
-    break;
-  case SPS_FORMAT_UNKNOWN:
-    die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
-    break;
-  case SPS_FORMAT_AUTO:
-    die("Unexpected SPS_FORMAT_AUTO while outputting samples");
-    break;
-  case SPS_FORMAT_INVALID:
-    die("Unexpected SPS_FORMAT_INVALID while outputting samples");
-    break;
+    case SPS_FORMAT_S32_LE:
+      hyper_sample >>= (64 - 32);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 24);
+      *op++ = byt;
+      result = 4;
+      break;
+    case SPS_FORMAT_S32_BE:
+      hyper_sample >>= (64 - 32);
+      byt = (uint8_t)(hyper_sample >> 24);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 4;
+      break;
+    case SPS_FORMAT_S32:
+      hyper_sample >>= (64 - 32);
+      *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24_3LE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      result = 3;
+      break;
+    case SPS_FORMAT_S24_3BE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 3;
+      break;
+    case SPS_FORMAT_S24_LE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      *op++ = 0;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24_BE:
+      hyper_sample >>= (64 - 24);
+      *op++ = 0;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24:
+      hyper_sample >>= (64 - 24);
+      *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S16_LE:
+      hyper_sample >>= (64 - 16);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      result = 2;
+      break;
+    case SPS_FORMAT_S16_BE:
+      hyper_sample >>= (64 - 16);
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 2;
+      break;
+    case SPS_FORMAT_S16:
+      hyper_sample >>= (64 - 16);
+      *(int16_t *)op = (int16_t)hyper_sample;
+      result = 2;
+      break;
+    case SPS_FORMAT_S8:
+      hyper_sample >>= (int8_t)(64 - 8);
+      *op = hyper_sample;
+      result = 1;
+      break;
+    case SPS_FORMAT_U8:
+      hyper_sample >>= (uint8_t)(64 - 8);
+      hyper_sample += 128;
+      *op = hyper_sample;
+      result = 1;
+      break;
+    case SPS_FORMAT_UNKNOWN:
+      die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
+      break;
+    case SPS_FORMAT_AUTO:
+      die("Unexpected SPS_FORMAT_AUTO while outputting samples");
+      break;
+    case SPS_FORMAT_INVALID:
+      die("Unexpected SPS_FORMAT_INVALID while outputting samples");
+      break;
   }
 
   *outp += result;
@@ -857,14 +819,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   pthread_cleanup_push(buffer_get_frame_cleanup_handler,
                        (void *)conn); // undo what's been done so far
   do {
-
     // get the time
     local_time_now = get_absolute_time_in_ns(); // type okay
     // debug(3, "buffer_get_frame is iterating");
 
     // we must have timing information before we can do anything here
     if (have_timestamp_timing_information(conn)) {
-
       int rco = get_requested_connection_state_to_output();
 
       if (conn->connection_state_to_output != rco) {
@@ -880,8 +840,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       }
 
       if (config.output->is_running)
-        if (config.output->is_running() !=
-            0) { // if the back end isn't running for any reason
+        if (config.output->is_running() != 0) { // if the back end isn't running for any reason
           debug(2, "request flush because back end is not running");
           debug_mutex_lock(&conn->flush_mutex, 1000, 0);
           conn->flush_requested = 1;
@@ -904,15 +863,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       int drop_request = 0;
       if (conn->flush_requested == 1) {
         if (conn->flush_rtp_timestamp == 0) {
-          debug(1,
-                "flush request: flush frame 0 -- flush assumed to be needed.");
+          debug(1, "flush request: flush frame 0 -- flush assumed to be needed.");
           flush_needed = 1;
           drop_request = 1;
         } else {
           if ((conn->ab_synced) && ((conn->ab_write - conn->ab_read) > 0)) {
             abuf_t *firstPacket = conn->audio_buffer + BUFIDX(conn->ab_read);
-            abuf_t *lastPacket =
-                conn->audio_buffer + BUFIDX(conn->ab_write - 1);
+            abuf_t *lastPacket = conn->audio_buffer + BUFIDX(conn->ab_write - 1);
             if ((firstPacket != NULL) && (firstPacket->ready)) {
               // discard flushes more than 10 seconds into the future -- they
               // are probably bogus
@@ -940,8 +897,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   // buffer, no flush is needed. Drop the request.
                   if (offset_from_first_frame > 0) {
                     int32_t offset_to_last_frame =
-                        (int32_t)(last_frame_in_buffer -
-                                  conn->flush_rtp_timestamp);
+                        (int32_t)(last_frame_in_buffer - conn->flush_rtp_timestamp);
                     if (offset_to_last_frame >= 0) {
                       debug(2,
                             "flush request: flush frame %u active -- buffer "
@@ -970,8 +926,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                           "from %u "
                           "to %u",
                           conn->flush_rtp_timestamp,
-                          last_frame_in_buffer - first_frame_in_buffer + 1,
-                          first_frame_in_buffer, last_frame_in_buffer);
+                          last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer,
+                          last_frame_in_buffer);
                     drop_request = 1;
                   }
                 }
@@ -983,8 +939,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   "empty: synced: %d, "
                   "ab_read: "
                   "%u, ab_write: %u",
-                  conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read,
-                  conn->ab_write);
+                  conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
             conn->flush_requested = 0; // remove the request
             // leave flush request pending and don't do a buffer flush, because
             // there isn't one
@@ -1029,18 +984,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         }
 
         if ((curframe) && (curframe->ready)) {
-          notified_buffer_empty =
-              0; // at least one buffer now -- diagnostic only.
-          if (conn->ab_buffering) { // if we are getting packets but not yet
-                                    // forwarding them to the
+          notified_buffer_empty = 0; // at least one buffer now -- diagnostic only.
+          if (conn->ab_buffering) {  // if we are getting packets but not yet
+                                     // forwarding them to the
             // player
-            if (conn->first_packet_timestamp ==
-                0) { // if this is the very first packet
+            if (conn->first_packet_timestamp == 0) { // if this is the very first packet
               // debug(1,"First frame seen with timestamp...");
               conn->first_packet_timestamp =
-                  curframe
-                      ->given_timestamp; // we will keep buffering until we are
-                                         // supposed to start playing this
+                  curframe->given_timestamp; // we will keep buffering until we are
+                                             // supposed to start playing this
 
               // Here, calculate when we should start playing. We need to know
               // when to allow the packets to be sent to the player.
@@ -1059,9 +1011,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               uint64_t should_be_time;
 
-              frame_to_local_time(
-                  conn->first_packet_timestamp, // this will go modulo 2^32
-                  &should_be_time, conn);
+              frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
+                                  &should_be_time, conn);
 
               conn->first_packet_time_to_play = should_be_time;
 
@@ -1071,15 +1022,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                 debug(1,
                       "Connection %d: Short lead time for first frame %" PRId64
                       ": %f seconds. Flushing 0.5 seconds",
-                      conn->connection_number, conn->first_packet_timestamp,
-                      lt * 0.000000001);
+                      conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
                 do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               } else {
-                debug(2,
-                      "Connection %d: Lead time for first frame %" PRId64
-                      ": %f seconds.",
-                      conn->connection_number, conn->first_packet_timestamp,
-                      lt * 0.000000001);
+                debug(2, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
+                      conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
               }
               /*
                             int64_t lateness = local_time_now -
@@ -1105,9 +1052,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                 uint64_t should_be_time;
 
                 // readjust first packet time to play
-                frame_to_local_time(
-                    conn->first_packet_timestamp, // this will go modulo 2^32
-                    &should_be_time, conn);
+                frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
+                                    &should_be_time, conn);
 
                 int64_t change_in_should_be_time =
                     (int64_t)(should_be_time - conn->first_packet_time_to_play);
@@ -1123,28 +1069,24 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
                 conn->first_packet_time_to_play = should_be_time;
 
-                int64_t lead_time = conn->first_packet_time_to_play -
-                                    local_time_now; // negative means late
+                int64_t lead_time =
+                    conn->first_packet_time_to_play - local_time_now; // negative means late
                 if (lead_time < 0) {
-                  debug(1,
-                        "Gone past starting time for %u by %" PRId64
-                        " nanoseconds.",
+                  debug(1, "Gone past starting time for %u by %" PRId64 " nanoseconds.",
                         conn->first_packet_timestamp, -lead_time);
                   conn->ab_buffering = 0;
                 } else {
                   // do some calculations
                   if ((config.audio_backend_silent_lead_in_time_auto == 1) ||
-                      (lead_time <=
-                       (int64_t)(config.audio_backend_silent_lead_in_time *
-                                 (int64_t)1000000000))) {
+                      (lead_time <= (int64_t)(config.audio_backend_silent_lead_in_time *
+                                              (int64_t)1000000000))) {
                     // debug(1, "Lead time: %" PRId64 " nanoseconds.",
                     // lead_time);
                     int resp = 0;
                     dac_delay = 0;
                     if (have_sent_prefiller_silence != 0)
-                      resp = config.output->delay(
-                          &dac_delay); // we know the output device must have a
-                                       // delay function
+                      resp = config.output->delay(&dac_delay); // we know the output device must
+                                                               // have a delay function
                     if (resp == 0) {
                       int64_t gross_frame_gap =
                           ((conn->first_packet_time_to_play - local_time_now) *
@@ -1162,8 +1104,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
                       // if there isn't enough time to have the desired buffer
                       // size
-                      if (exact_frame_gap <=
-                          frames_needed_to_maintain_desired_buffer) {
+                      if (exact_frame_gap <= frames_needed_to_maintain_desired_buffer) {
                         fs = conn->max_frames_per_packet * 2;
                       }
                       // if we are very close to the end of buffering, i.e.
@@ -1172,26 +1113,23 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                       if (exact_frame_gap <= conn->max_frames_per_packet * 2) {
                         fs = exact_frame_gap;
                         if (fs > first_frame_early_bias)
-                          fs = fs -
-                               first_frame_early_bias; // deliberately make the
-                                                       // first packet a tiny
-                                                       // bit early so that the
-                                                       // player may compensate
-                                                       // for it at the last
-                                                       // minute
+                          fs = fs - first_frame_early_bias; // deliberately make the
+                                                            // first packet a tiny
+                                                            // bit early so that the
+                                                            // player may compensate
+                                                            // for it at the last
+                                                            // minute
                         conn->ab_buffering = 0;
                       }
                       void *silence;
                       if (fs > 0) {
                         silence = malloc(conn->output_bytes_per_frame * fs);
                         if (silence == NULL)
-                          debug(1, "Failed to allocate %d byte silence buffer.",
-                                fs);
+                          debug(1, "Failed to allocate %d byte silence buffer.", fs);
                         else {
                           // generate frames of silence with dither if necessary
                           conn->previous_random_number = generate_zero_frames(
-                              silence, fs, config.output_format,
-                              conn->enable_dither,
+                              silence, fs, config.output_format, conn->enable_dither,
                               conn->previous_random_number);
                           config.output->play(silence, fs);
                           debug(2, "Sent %" PRId64 " frames of silence", fs);
@@ -1200,7 +1138,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         }
                       }
                     } else {
-
                       if (resp == sps_extra_code_output_stalled) {
                         if (conn->unfixable_error_reported == 0) {
                           conn->unfixable_error_reported = 1;
@@ -1211,9 +1148,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                               conn->connection_number);
                         }
                       } else {
-                        debug(3,
-                              "Unexpected response to getting dac delay: %d.",
-                              resp);
+                        debug(3, "Unexpected response to getting dac delay: %d.", resp);
                       }
                     }
                   }
@@ -1221,11 +1156,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               } else {
                 // if the output device doesn't have a delay, we simply send the
                 // lead-in
-                int64_t lead_time = conn->first_packet_time_to_play -
-                                    local_time_now; // negative if we are late
+                int64_t lead_time =
+                    conn->first_packet_time_to_play - local_time_now; // negative if we are late
                 void *silence;
-                int64_t frame_gap =
-                    (lead_time * config.output_rate) / 1000000000;
+                int64_t frame_gap = (lead_time * config.output_rate) / 1000000000;
                 // debug(1,"%d frames needed.",frame_gap);
                 while (frame_gap > 0) {
                   ssize_t fs = config.output_rate / 10;
@@ -1238,9 +1172,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   else {
                     // debug(1, "No delay function -- outputting %d frames of
                     // silence.", fs);
-                    conn->previous_random_number = generate_zero_frames(
-                        silence, fs, config.output_format, conn->enable_dither,
-                        conn->previous_random_number);
+                    conn->previous_random_number =
+                        generate_zero_frames(silence, fs, config.output_format,
+                                             conn->enable_dither, conn->previous_random_number);
                     config.output->play(silence, fs);
                     free(silence);
                   }
@@ -1267,15 +1201,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       // converted to time.
 
       int do_wait = 0; // don't wait unless we can really prove we must
-      if ((conn->ab_synced) && (curframe) && (curframe->ready) &&
-          (curframe->given_timestamp)) {
+      if ((conn->ab_synced) && (curframe) && (curframe->ready) && (curframe->given_timestamp)) {
         do_wait = 1; // if the current frame exists and is ready, then wait
                      // unless it's time to let it go...
 
         // here, get the time to play the current frame.
 
-        if (have_timestamp_timing_information(
-                conn)) { // if we have a reference time
+        if (have_timestamp_timing_information(conn)) { // if we have a reference time
 
           uint64_t time_to_play;
 
@@ -1283,12 +1215,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           // audio buffer to be filled to the desired length
 
           uint32_t buffer_latency_offset =
-              (uint32_t)(config.audio_backend_buffer_desired_length *
-                         conn->input_rate);
-          frame_to_local_time(
-              curframe->given_timestamp -
-                  buffer_latency_offset, // this will go modulo 2^32
-              &time_to_play, conn);
+              (uint32_t)(config.audio_backend_buffer_desired_length * conn->input_rate);
+          frame_to_local_time(curframe->given_timestamp -
+                                  buffer_latency_offset, // this will go modulo 2^32
+                              &time_to_play, conn);
 
           if (local_time_now >= time_to_play) {
             do_wait = 0;
@@ -1307,15 +1237,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             // (i.e. the first number comes "after" the second).
 
             int64_t time_difference = local_time_now - time_to_play;
-            if ((time_difference > 10000000000) ||
-                (time_difference < -10000000000)) {
+            if ((time_difference > 10000000000) || (time_difference < -10000000000)) {
               debug(2,
                     "crazy time interval of %f seconds between time now: "
                     "0x%" PRIx64 " and time of packet: %" PRIx64 ".",
-                    0.000000001 * time_difference, local_time_now,
-                    time_to_play);
-              debug(2, "packet rtptime: %u, reference_timestamp: %u",
-                    curframe->given_timestamp, conn->anchor_rtptime);
+                    0.000000001 * time_difference, local_time_now, time_to_play);
+              debug(2, "packet rtptime: %u, reference_timestamp: %u", curframe->given_timestamp,
+                    conn->anchor_rtptime);
 
               do_wait = 0; // let it go
             }
@@ -1323,8 +1251,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         }
       }
       if (do_wait == 0)
-        if ((conn->ab_synced != 0) &&
-            (conn->ab_read == conn->ab_write)) { // the buffer is empty!
+        if ((conn->ab_synced != 0) && (conn->ab_read == conn->ab_write)) { // the buffer is empty!
           if (notified_buffer_empty == 0) {
             debug(3, "Buffers exhausted.");
             notified_buffer_empty = 1;
@@ -1347,8 +1274,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_to_wait_for_wakeup_ns *= 2 * 352; // two full 352-frame packets
       time_to_wait_for_wakeup_ns /= 3;       // two thirds of a packet time
 
-      uint64_t time_of_wakeup_ns =
-          get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
+      uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
       uint64_t sec = time_of_wakeup_ns / 1000000000;
       uint64_t nsec = time_of_wakeup_ns % 1000000000;
 
@@ -1357,9 +1283,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_of_wakeup.tv_nsec = nsec;
       //      pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex,
       //      &time_of_wakeup);
-      int rc = pthread_cond_timedwait(
-          &conn->flowcontrol, &conn->ab_mutex,
-          &time_of_wakeup); // this is a pthread cancellation point
+      int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex,
+                                      &time_of_wakeup); // this is a pthread cancellation point
       if ((rc != 0) && (rc != ETIMEDOUT))
         debug(3, "pthread_cond_timedwait returned error code %d.", rc);
     }
@@ -1370,8 +1295,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     if (!curframe->ready) {
       // debug(1, "Supplying a silent frame for frame %u", read);
       conn->missing_packets++;
-      curframe->given_timestamp =
-          0; // indicate a silent frame should be substituted
+      curframe->given_timestamp = 0; // indicate a silent frame should be substituted
     }
     curframe->ready = 0;
   }
@@ -1397,9 +1321,8 @@ static inline int32_t mean_32(int32_t a, int32_t b) {
 // formats accepted so far include U8, S8, S16, S24, S24_3LE, S24_3BE and S32
 
 // stuff: 1 means add 1; 0 means do nothing; -1 means remove 1
-static int stuff_buffer_basic_32(int32_t *inptr, int length,
-                                 sps_format_t l_output_format, char *outptr,
-                                 int stuff, int dither, rtsp_conn_info *conn) {
+static int stuff_buffer_basic_32(int32_t *inptr, int length, sps_format_t l_output_format,
+                                 char *outptr, int stuff, int dither, rtsp_conn_info *conn) {
   if (length < 3)
     die("buffer length expected to be 3 or more, but is %d!", length);
   int tstuff = stuff;
@@ -1414,23 +1337,21 @@ static int stuff_buffer_basic_32(int32_t *inptr, int length,
   int stuffsamp = length;
   if (tstuff)
     //      stuffsamp = rand() % (length - 1);
-    stuffsamp = (rand() % (length - 2)) +
-                1; // ensure there's always a sample before and after the item
+    stuffsamp =
+        (rand() % (length - 2)) + 1; // ensure there's always a sample before and after the item
 
   for (i = 0; i < stuffsamp; i++) { // the whole frame, if no stuffing
-    process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume,
-                   dither, conn);
-    process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume,
-                   dither, conn);
+    process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume, dither, conn);
+    process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume, dither, conn);
   };
   if (tstuff) {
     if (tstuff == 1) {
       // debug(3, "+++++++++");
       // interpolate one sample
-      process_sample(mean_32(inptr[-2], inptr[0]), &l_outptr, l_output_format,
-                     conn->fix_volume, dither, conn);
-      process_sample(mean_32(inptr[-1], inptr[1]), &l_outptr, l_output_format,
-                     conn->fix_volume, dither, conn);
+      process_sample(mean_32(inptr[-2], inptr[0]), &l_outptr, l_output_format, conn->fix_volume,
+                     dither, conn);
+      process_sample(mean_32(inptr[-1], inptr[1]), &l_outptr, l_output_format, conn->fix_volume,
+                     dither, conn);
     } else if (stuff == -1) {
       // debug(3, "---------");
       inptr++;
@@ -1441,14 +1362,11 @@ static int stuff_buffer_basic_32(int32_t *inptr, int length,
     // adding, do all the rest.
     int remainder = length;
     if (tstuff < 0)
-      remainder = remainder +
-                  tstuff; // don't run over the correct end of the output buffer
+      remainder = remainder + tstuff; // don't run over the correct end of the output buffer
 
     for (i = stuffsamp; i < remainder; i++) {
-      process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume,
-                     dither, conn);
-      process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume,
-                     dither, conn);
+      process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume, dither, conn);
+      process_sample(*inptr++, &l_outptr, l_output_format, conn->fix_volume, dither, conn);
     }
   }
   conn->amountStuffed = tstuff;
@@ -1464,8 +1382,8 @@ void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 char line_of_stats[1024];
-int statistics_row; // statistics_line 0 means print the headings; anything else
-                    // 1 means print the values. Set to 0 the first time out.
+int statistics_row;    // statistics_line 0 means print the headings; anything else
+                       // 1 means print the values. Set to 0 the first time out.
 int statistics_column; // used to index through the statistics_print_profile
                        // array to check if it should be printed
 int was_a_previous_column;
@@ -1491,8 +1409,7 @@ int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 0, 0, 0, 
 
 void statistics_item(const char *heading, const char *format, ...) {
   if (((statistics_print_profile[statistics_column] == 1) && (debuglev != 0)) ||
-      (statistics_print_profile[statistics_column] ==
-       2)) { // include this column?
+      (statistics_print_profile[statistics_column] == 2)) { // include this column?
     if (was_a_previous_column != 0)
       strcat(line_of_stats, " ");
     if (statistics_row == 0) {
@@ -1514,12 +1431,10 @@ void statistics_item(const char *heading, const char *format, ...) {
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
-
     pthread_cleanup_push(mutex_unlock, &playing_conn_lock);
     if (playing_conn == conn) {
       if (config.output->stop) {
-        debug(3, "Connection %d: Stop the output backend.",
-              conn->connection_number);
+        debug(3, "Connection %d: Stop the output backend.", conn->connection_number);
         config.output->stop();
       }
     } else {
@@ -1547,9 +1462,8 @@ void player_thread_cleanup_handler(void *arg) {
              "%02d:%02d:%02d. Input: %0.2f, "
              " Output: %0.2f (raw), %0.2f (corrected) "
              "frames per second.",
-             conn->connection_number, elapsedHours, elapsedMin, elapsedSec,
-             conn->input_frame_rate, conn->raw_frame_rate,
-             conn->corrected_frame_rate);
+             conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate,
+             conn->raw_frame_rate, conn->corrected_frame_rate);
     else
       inform("Connection %d: Playback Stopped. Total playing time "
              "%02d:%02d:%02d. Input: %0.2f "
@@ -1558,8 +1472,7 @@ void player_thread_cleanup_handler(void *arg) {
              conn->input_frame_rate);
   }
 
-  mdns_dacp_monitor_set_id(
-      NULL); // say we're not interested in following that DACP id any more
+  mdns_dacp_monitor_set_id(NULL); // say we're not interested in following that DACP id any more
 
   // four possibilities
   // 1 -- regular AirPlay 1
@@ -1571,14 +1484,11 @@ void player_thread_cleanup_handler(void *arg) {
     debug(2, "Cancelling AP2 timing, control and audio threads...");
 
     if (conn->airplay_stream_type == realtime_stream) {
-      debug(2, "Connection %d: Delete Realtime Audio Stream thread",
-            conn->connection_number);
+      debug(2, "Connection %d: Delete Realtime Audio Stream thread", conn->connection_number);
       pthread_cancel(conn->rtp_realtime_audio_thread);
       pthread_join(conn->rtp_realtime_audio_thread, NULL);
     } else if (conn->airplay_stream_type == buffered_stream) {
-
-      debug(2, "Connection %d: Delete Buffered Audio Stream thread",
-            conn->connection_number);
+      debug(2, "Connection %d: Delete Buffered Audio Stream thread", conn->connection_number);
       pthread_cancel(conn->rtp_buffered_audio_thread);
       pthread_join(conn->rtp_buffered_audio_thread, NULL);
     } else {
@@ -1658,11 +1568,9 @@ void *player_thread_func(void *arg) {
   conn->ab_synced = 0;
   conn->first_packet_timestamp = 0;
   conn->flush_requested = 0;
-  conn->flush_output_flushed =
-      0; // only send a flush command to the output device once
-  conn->flush_rtp_timestamp =
-      0; // it seems this number has a special significance -- it seems to
-         // be used as a null operand, so we'll use it like that too
+  conn->flush_output_flushed = 0; // only send a flush command to the output device once
+  conn->flush_rtp_timestamp = 0;  // it seems this number has a special significance -- it seems to
+                                  // be used as a null operand, so we'll use it like that too
   conn->fix_volume = 0x10000;
 
   conn->ap2_flush_requested = 0;
@@ -1682,12 +1590,10 @@ void *player_thread_func(void *arg) {
   ab_resync(conn);
 
   if (conn->stream.encrypted) {
-
     AES_set_decrypt_key(conn->stream.aeskey, 128, &conn->aes);
   }
 
-  conn->timestamp_epoch =
-      0; // indicate that the next timestamp will be the first one.
+  conn->timestamp_epoch = 0; // indicate that the next timestamp will be the first one.
   conn->maximum_timestamp_interval =
       conn->input_rate * 60; // actually there shouldn't be more than
                              // about 13 seconds of a gap between
@@ -1718,22 +1624,22 @@ void *player_thread_func(void *arg) {
 
   int output_rtptime_sign_bit;
   switch (conn->output_sample_ratio) {
-  case 1:
-    output_rtptime_sign_bit = 31;
-    break;
-  case 2:
-    output_rtptime_sign_bit = 32;
-    break;
-  case 4:
-    output_rtptime_sign_bit = 33;
-    break;
-  case 8:
-    output_rtptime_sign_bit = 34;
-    break;
-  default:
-    debug(1, "error with output ratio -- can't calculate sign bit number");
-    output_rtptime_sign_bit = 31;
-    break;
+    case 1:
+      output_rtptime_sign_bit = 31;
+      break;
+    case 2:
+      output_rtptime_sign_bit = 32;
+      break;
+    case 4:
+      output_rtptime_sign_bit = 33;
+      break;
+    case 8:
+      output_rtptime_sign_bit = 34;
+      break;
+    default:
+      debug(1, "error with output ratio -- can't calculate sign bit number");
+      output_rtptime_sign_bit = 31;
+      break;
   }
 
   //  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
@@ -1747,8 +1653,7 @@ void *player_thread_func(void *arg) {
   output_rtptime_mask_not = ~output_rtptime_mask;
 
   int64_t output_rtptime_sign_mask = 1;
-  output_rtptime_sign_mask = output_rtptime_sign_mask
-                             << output_rtptime_sign_bit;
+  output_rtptime_sign_mask = output_rtptime_sign_mask << output_rtptime_sign_bit;
 
   conn->max_frame_size_change =
       1 * conn->output_sample_ratio; // we add or subtract one frame at the
@@ -1757,30 +1662,29 @@ void *player_thread_func(void *arg) {
                                      // one frame could be added
 
   switch (config.output_format) {
-  case SPS_FORMAT_S24_3LE:
-  case SPS_FORMAT_S24_3BE:
-    conn->output_bytes_per_frame = 6;
-    break;
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+      conn->output_bytes_per_frame = 6;
+      break;
 
-  case SPS_FORMAT_S24:
-  case SPS_FORMAT_S24_LE:
-  case SPS_FORMAT_S24_BE:
-    conn->output_bytes_per_frame = 8;
-    break;
-  case SPS_FORMAT_S32:
-  case SPS_FORMAT_S32_LE:
-  case SPS_FORMAT_S32_BE:
-    conn->output_bytes_per_frame = 8;
-    break;
-  default:
-    conn->output_bytes_per_frame = 4;
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
+      conn->output_bytes_per_frame = 8;
+      break;
+    case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
+      conn->output_bytes_per_frame = 8;
+      break;
+    default:
+      conn->output_bytes_per_frame = 4;
   }
 
   debug(3, "Output frame bytes is %d.", conn->output_bytes_per_frame);
 
   conn->dac_buffer_queue_minimum_length =
-      (uint64_t)(config
-                     .audio_backend_buffer_interpolation_threshold_in_seconds *
+      (uint64_t)(config.audio_backend_buffer_interpolation_threshold_in_seconds *
                  config.output_rate);
   debug(3, "dac_buffer_queue_minimum_length is %" PRIu64 " frames.",
         conn->dac_buffer_queue_minimum_length);
@@ -1796,8 +1700,8 @@ void *player_thread_func(void *arg) {
   int number_of_statistics, oldest_statistic, newest_statistic;
   int at_least_one_frame_seen = 0;
   int at_least_one_frame_seen_this_session = 0;
-  int64_t tsum_of_sync_errors, tsum_of_corrections,
-      tsum_of_insertions_and_deletions, tsum_of_drifts;
+  int64_t tsum_of_sync_errors, tsum_of_corrections, tsum_of_insertions_and_deletions,
+      tsum_of_drifts;
   int64_t previous_sync_error = 0, previous_correction = 0;
   uint64_t minimum_dac_queue_size = UINT64_MAX;
   int32_t minimum_buffer_occupancy = INT32_MAX;
@@ -1824,8 +1728,8 @@ void *player_thread_func(void *arg) {
   conn->time_of_last_audio_packet = 0;
   // conn->shutdown_requested = 0;
   number_of_statistics = oldest_statistic = newest_statistic = 0;
-  tsum_of_sync_errors = tsum_of_corrections = tsum_of_insertions_and_deletions =
-      tsum_of_drifts = 0;
+  tsum_of_sync_errors = tsum_of_corrections = tsum_of_insertions_and_deletions = tsum_of_drifts =
+      0;
 
   const int print_interval = trend_interval; // don't ask...
   // I think it's useful to keep this prime to prevent it from falling into a
@@ -1840,36 +1744,36 @@ void *player_thread_func(void *arg) {
   unsigned int output_bit_depth = 16; // default;
 
   switch (config.output_format) {
-  case SPS_FORMAT_S8:
-  case SPS_FORMAT_U8:
-    output_bit_depth = 8;
-    break;
-  case SPS_FORMAT_S16:
-  case SPS_FORMAT_S16_LE:
-  case SPS_FORMAT_S16_BE:
-    output_bit_depth = 16;
-    break;
-  case SPS_FORMAT_S24:
-  case SPS_FORMAT_S24_LE:
-  case SPS_FORMAT_S24_BE:
-  case SPS_FORMAT_S24_3LE:
-  case SPS_FORMAT_S24_3BE:
-    output_bit_depth = 24;
-    break;
-  case SPS_FORMAT_S32:
-  case SPS_FORMAT_S32_LE:
-  case SPS_FORMAT_S32_BE:
-    output_bit_depth = 32;
-    break;
-  case SPS_FORMAT_UNKNOWN:
-    die("Unknown format choosing output bit depth");
-    break;
-  case SPS_FORMAT_AUTO:
-    die("Invalid format -- SPS_FORMAT_AUTO -- choosing output bit depth");
-    break;
-  case SPS_FORMAT_INVALID:
-    die("Invalid format -- SPS_FORMAT_INVALID -- choosing output bit depth");
-    break;
+    case SPS_FORMAT_S8:
+    case SPS_FORMAT_U8:
+      output_bit_depth = 8;
+      break;
+    case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
+      output_bit_depth = 16;
+      break;
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+      output_bit_depth = 24;
+      break;
+    case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
+      output_bit_depth = 32;
+      break;
+    case SPS_FORMAT_UNKNOWN:
+      die("Unknown format choosing output bit depth");
+      break;
+    case SPS_FORMAT_AUTO:
+      die("Invalid format -- SPS_FORMAT_AUTO -- choosing output bit depth");
+      break;
+    case SPS_FORMAT_INVALID:
+      die("Invalid format -- SPS_FORMAT_INVALID -- choosing output bit depth");
+      break;
   }
 
   debug(3, "Output bit depth is %d.", output_bit_depth);
@@ -1884,8 +1788,7 @@ void *player_thread_func(void *arg) {
              "altered in software");
   }
 
-  if ((config.output->parameters == NULL) ||
-      (conn->input_bit_depth > output_bit_depth) ||
+  if ((config.output->parameters == NULL) || (conn->input_bit_depth > output_bit_depth) ||
       (config.playback_mode == ST_mono))
     conn->enable_dither = 1;
 
@@ -1896,31 +1799,29 @@ void *player_thread_func(void *arg) {
 
   // we need an intermediate "transition" buffer
 
-  conn->tbuf = malloc(sizeof(int32_t) * 2 *
-                      (conn->max_frames_per_packet * conn->output_sample_ratio +
-                       conn->max_frame_size_change));
+  conn->tbuf = malloc(
+      sizeof(int32_t) * 2 *
+      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
   if (conn->tbuf == NULL)
     die("Failed to allocate memory for the transition buffer.");
 
   // initialise this, because soxr stuffing might be chosen later
 
-  conn->sbuf = malloc(sizeof(int32_t) * 2 *
-                      (conn->max_frames_per_packet * conn->output_sample_ratio +
-                       conn->max_frame_size_change));
+  conn->sbuf = malloc(
+      sizeof(int32_t) * 2 *
+      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
   if (conn->sbuf == NULL)
     die("Failed to allocate memory for the sbuf buffer.");
 
   // The size of these dependents on the number of frames, the size of each
   // frame and the maximum size change
-  conn->outbuf =
-      malloc(conn->output_bytes_per_frame *
-             (conn->max_frames_per_packet * conn->output_sample_ratio +
-              conn->max_frame_size_change));
+  conn->outbuf = malloc(
+      conn->output_bytes_per_frame *
+      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
   if (conn->outbuf == NULL)
     die("Failed to allocate memory for an output buffer.");
   conn->first_packet_timestamp = 0;
-  conn->missing_packets = conn->late_packets = conn->too_late_packets =
-      conn->resend_requests = 0;
+  conn->missing_packets = conn->late_packets = conn->too_late_packets = conn->resend_requests = 0;
   int sync_error_out_of_bounds =
       0; // number of times in a row that there's been a serious sync error
 
@@ -1931,50 +1832,16 @@ void *player_thread_func(void *arg) {
   conn->framesProcessedInThisEpoch = 0;
   conn->framesGeneratedInThisEpoch = 0;
   conn->correctionsRequestedInThisEpoch = 0;
-  statistics_row =
-      0; // statistics_line 0 means print the headings; anything else 1 means
-         // print the values. Set to 0 the first time out.
+  statistics_row = 0; // statistics_line 0 means print the headings; anything else 1 means
+                      // print the values. Set to 0 the first time out.
 
   // decide on what statistics profile to use, if requested
 
-  if (conn->airplay_type == ap_2) {
-    if (conn->airplay_stream_type == realtime_stream) {
-      if (config.output->stats) {
-
-        statistics_print_profile =
-            ap2_realtime_nosync_stream_statistics_print_profile;
-      } else {
-        statistics_print_profile =
-            ap2_realtime_nodelay_stream_statistics_print_profile;
-      }
-    } else {
-      if (config.output->stats) {
-
-        statistics_print_profile =
-            ap2_buffered_nosync_stream_statistics_print_profile;
-      } else {
-        statistics_print_profile =
-            ap2_buffered_nodelay_stream_statistics_print_profile;
-      }
-    }
-  } else {
-
-    if (config.output->stats) {
-      statistics_print_profile = ap1_nosync_statistics_print_profile;
-    } else {
-      statistics_print_profile = ap1_nodelay_statistics_print_profile;
-    }
-  }
-
   if (conn->timing_type == ts_ntp) {
-
     // create and start the timing, control and audio receiver threads
-    pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver,
-                   (void *)conn);
-    pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver,
-                   (void *)conn);
-    pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver,
-                   (void *)conn);
+    pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
+    pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
+    pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
   }
 
   pthread_cleanup_push(player_thread_cleanup_handler,
@@ -1989,8 +1856,8 @@ void *player_thread_func(void *arg) {
   pthread_setcancelstate(oldState, NULL);
 
   double initial_volume = config.airplay_volume; // default
-  if (conn->initial_airplay_volume_set) // if we have been given an initial
-                                        // volume
+  if (conn->initial_airplay_volume_set)          // if we have been given an initial
+                                                 // volume
     initial_volume = conn->initial_airplay_volume;
   // set the default volume to whatever it was before, as stored in the config
   // airplay_volume
@@ -2000,7 +1867,6 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
-
     // check a few parameters to ensure they are non-zero
     if (config.output_rate == 0)
       debug(1, "config.output_rate is zero!");
@@ -2011,10 +1877,9 @@ void *player_thread_func(void *arg) {
     if (conn->input_bytes_per_frame == 0)
       debug(1, "conn->input_bytes_per_frame is zero!");
 
-    pthread_testcancel(); // allow a pthread_cancel request to take effect.
-    abuf_t *inframe =
-        buffer_get_frame(conn); // this has cancellation point(s), but it's not
-                                // guaranteed that they'll always be executed
+    pthread_testcancel();                     // allow a pthread_cancel request to take effect.
+    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
+                                              // guaranteed that they'll always be executed
     uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
     if (inframe) {
       inbuf = inframe->data;
@@ -2032,26 +1897,19 @@ void *player_thread_func(void *arg) {
                 conn->last_seqno_read + 1, play_number, inframe->status,
                 inframe->resend_request_number);
           conn->last_seqno_read =
-              ((conn->last_seqno_read + 1) &
-               0xffff); // manage the packet out of sequence minder
+              ((conn->last_seqno_read + 1) & 0xffff); // manage the packet out of sequence minder
 
-          void *silence =
-              malloc(conn->output_bytes_per_frame *
-                     conn->max_frames_per_packet * conn->output_sample_ratio);
+          void *silence = malloc(conn->output_bytes_per_frame * conn->max_frames_per_packet *
+                                 conn->output_sample_ratio);
           if (silence == NULL) {
-            debug(
-                1,
-                "Failed to allocate memory for a silent frame silence buffer.");
+            debug(1, "Failed to allocate memory for a silent frame silence buffer.");
           } else {
             // the player may change the contents of the buffer, so it has to be
             // zeroed each time; might as well malloc and free it locally
             conn->previous_random_number = generate_zero_frames(
-                silence,
-                conn->max_frames_per_packet * conn->output_sample_ratio,
-                config.output_format, conn->enable_dither,
-                conn->previous_random_number);
-            config.output->play(silence, conn->max_frames_per_packet *
-                                             conn->output_sample_ratio);
+                silence, conn->max_frames_per_packet * conn->output_sample_ratio,
+                config.output_format, conn->enable_dither, conn->previous_random_number);
+            config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
         } else if (conn->play_number_after_flush < 10) {
@@ -2063,30 +1921,23 @@ void *player_thread_func(void *arg) {
           debug(1, "Play number %d, monotonic timestamp %llx, difference
           %lld.",conn->play_number_after_flush,inframe->timestamp,difference);
           */
-          void *silence =
-              malloc(conn->output_bytes_per_frame *
-                     conn->max_frames_per_packet * conn->output_sample_ratio);
+          void *silence = malloc(conn->output_bytes_per_frame * conn->max_frames_per_packet *
+                                 conn->output_sample_ratio);
           if (silence == NULL) {
             debug(1, "Failed to allocate memory for a flush silence buffer.");
           } else {
             // the player may change the contents of the buffer, so it has to be
             // zeroed each time; might as well malloc and free it locally
             conn->previous_random_number = generate_zero_frames(
-                silence,
-                conn->max_frames_per_packet * conn->output_sample_ratio,
-                config.output_format, conn->enable_dither,
-                conn->previous_random_number);
-            config.output->play(silence, conn->max_frames_per_packet *
-                                             conn->output_sample_ratio);
+                silence, conn->max_frames_per_packet * conn->output_sample_ratio,
+                config.output_format, conn->enable_dither, conn->previous_random_number);
+            config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
         } else {
-
-          if (((config.output->parameters == NULL) &&
-               (config.ignore_volume_control == 0) &&
+          if (((config.output->parameters == NULL) && (config.ignore_volume_control == 0) &&
                (config.airplay_volume != 0.0)) ||
-              (conn->input_bit_depth > output_bit_depth) ||
-              (config.playback_mode == ST_mono))
+              (conn->input_bit_depth > output_bit_depth) || (config.playback_mode == ST_mono))
             conn->enable_dither = 1;
           else
             conn->enable_dither = 0;
@@ -2094,115 +1945,113 @@ void *player_thread_func(void *arg) {
           // here, let's transform the frame of data, if necessary
 
           switch (conn->input_bit_depth) {
-          case 16: {
-            int i, j;
-            int16_t ls, rs;
-            int32_t ll = 0, rl = 0;
-            int16_t *inps = inbuf;
-            // int16_t *outps = tbuf;
-            int32_t *outpl = (int32_t *)conn->tbuf;
-            for (i = 0; i < inbuflength; i++) {
-              ls = *inps++;
-              rs = *inps++;
+            case 16: {
+              int i, j;
+              int16_t ls, rs;
+              int32_t ll = 0, rl = 0;
+              int16_t *inps = inbuf;
+              // int16_t *outps = tbuf;
+              int32_t *outpl = (int32_t *)conn->tbuf;
+              for (i = 0; i < inbuflength; i++) {
+                ls = *inps++;
+                rs = *inps++;
 
-              // here, do the mode stuff -- mono / reverse stereo / leftonly /
-              // rightonly also, raise the 16-bit samples to 32 bits.
+                // here, do the mode stuff -- mono / reverse stereo / leftonly /
+                // rightonly also, raise the 16-bit samples to 32 bits.
 
-              switch (config.playback_mode) {
-              case ST_mono: {
-                int32_t both = ls + rs;
-                both = both
-                       << (16 -
-                           1); // keep all 17 bits of the sum of the 16bit left
-                               // and right
-                               // -- the 17th bit will influence dithering later
-                ll = both;
-                rl = both;
-              } break;
-              case ST_reverse_stereo: {
-                ll = rs;
-                rl = ls;
-                ll = ll << 16;
-                rl = rl << 16;
-              } break;
-              case ST_left_only:
-                rl = ls;
-                ll = ls;
-                ll = ll << 16;
-                rl = rl << 16;
-                break;
-              case ST_right_only:
-                ll = rs;
-                rl = rs;
-                ll = ll << 16;
-                rl = rl << 16;
-                break;
-              case ST_stereo:
-                ll = ls;
-                rl = rs;
-                ll = ll << 16;
-                rl = rl << 16;
-                break; // nothing extra to do
+                switch (config.playback_mode) {
+                  case ST_mono: {
+                    int32_t both = ls + rs;
+                    both = both << (16 - 1); // keep all 17 bits of the sum of the 16bit left
+                                             // and right
+                                             // -- the 17th bit will influence dithering later
+                    ll = both;
+                    rl = both;
+                  } break;
+                  case ST_reverse_stereo: {
+                    ll = rs;
+                    rl = ls;
+                    ll = ll << 16;
+                    rl = rl << 16;
+                  } break;
+                  case ST_left_only:
+                    rl = ls;
+                    ll = ls;
+                    ll = ll << 16;
+                    rl = rl << 16;
+                    break;
+                  case ST_right_only:
+                    ll = rs;
+                    rl = rs;
+                    ll = ll << 16;
+                    rl = rl << 16;
+                    break;
+                  case ST_stereo:
+                    ll = ls;
+                    rl = rs;
+                    ll = ll << 16;
+                    rl = rl << 16;
+                    break; // nothing extra to do
+                }
+
+                // here, replicate the samples if you're upsampling
+
+                for (j = 0; j < conn->output_sample_ratio; j++) {
+                  *outpl++ = ll;
+                  *outpl++ = rl;
+                }
               }
+            } break;
+            case 32: {
+              int i, j;
+              int32_t ls, rs;
+              int32_t ll = 0, rl = 0;
+              int32_t *inps = (int32_t *)inbuf;
+              int32_t *outpl = (int32_t *)conn->tbuf;
+              for (i = 0; i < inbuflength; i++) {
+                ls = *inps++;
+                rs = *inps++;
 
-              // here, replicate the samples if you're upsampling
+                // here, do the mode stuff -- mono / reverse stereo / leftonly /
+                // rightonly
 
-              for (j = 0; j < conn->output_sample_ratio; j++) {
-                *outpl++ = ll;
-                *outpl++ = rl;
+                switch (config.playback_mode) {
+                  case ST_mono: {
+                    int64_t both = ls + rs;
+                    both = both >> 1;
+                    uint32_t both32 = both;
+                    ll = both32;
+                    rl = both32;
+                  } break;
+                  case ST_reverse_stereo: {
+                    ll = rs;
+                    rl = ls;
+                  } break;
+                  case ST_left_only:
+                    rl = ls;
+                    ll = ls;
+                    break;
+                  case ST_right_only:
+                    ll = rs;
+                    rl = rs;
+                    break;
+                  case ST_stereo:
+                    ll = ls;
+                    rl = rs;
+                    break; // nothing extra to do
+                }
+
+                // here, replicate the samples if you're upsampling
+
+                for (j = 0; j < conn->output_sample_ratio; j++) {
+                  *outpl++ = ll;
+                  *outpl++ = rl;
+                }
               }
-            }
-          } break;
-          case 32: {
-            int i, j;
-            int32_t ls, rs;
-            int32_t ll = 0, rl = 0;
-            int32_t *inps = (int32_t *)inbuf;
-            int32_t *outpl = (int32_t *)conn->tbuf;
-            for (i = 0; i < inbuflength; i++) {
-              ls = *inps++;
-              rs = *inps++;
+            } break;
 
-              // here, do the mode stuff -- mono / reverse stereo / leftonly /
-              // rightonly
-
-              switch (config.playback_mode) {
-              case ST_mono: {
-                int64_t both = ls + rs;
-                both = both >> 1;
-                uint32_t both32 = both;
-                ll = both32;
-                rl = both32;
-              } break;
-              case ST_reverse_stereo: {
-                ll = rs;
-                rl = ls;
-              } break;
-              case ST_left_only:
-                rl = ls;
-                ll = ls;
-                break;
-              case ST_right_only:
-                ll = rs;
-                rl = rs;
-                break;
-              case ST_stereo:
-                ll = ls;
-                rl = rs;
-                break; // nothing extra to do
-              }
-
-              // here, replicate the samples if you're upsampling
-
-              for (j = 0; j < conn->output_sample_ratio; j++) {
-                *outpl++ = ll;
-                *outpl++ = rl;
-              }
-            }
-          } break;
-
-          default:
-            die("Shairport Sync only supports 16 or 32 bit input");
+            default:
+              die("Shairport Sync only supports 16 or 32 bit input");
           }
 
           inbuflength *= conn->output_sample_ratio;
@@ -2227,24 +2076,20 @@ void *player_thread_func(void *arg) {
 
           // check sequencing
           if (conn->last_seqno_read == -1)
-            conn->last_seqno_read =
-                inframe->sequence_number; // int32_t from seq_t, i.e. uint16_t,
-                                          // so okay.
+            conn->last_seqno_read = inframe->sequence_number; // int32_t from seq_t, i.e. uint16_t,
+                                                              // so okay.
           else {
-            conn->last_seqno_read =
-                (conn->last_seqno_read + 1) &
-                0xffff; // int32_t from seq_t, i.e. uint16_t, so okay.
-            if (inframe->sequence_number !=
-                conn->last_seqno_read) { // seq_t, ei.e. uint16_t and int32_t,
-                                         // so okay
+            conn->last_seqno_read = (conn->last_seqno_read + 1) &
+                                    0xffff; // int32_t from seq_t, i.e. uint16_t, so okay.
+            if (inframe->sequence_number != conn->last_seqno_read) { // seq_t, ei.e. uint16_t and
+                                                                     // int32_t, so okay
               debug(2,
                     "Player: packets out of sequence: expected: %u, got: %u, "
                     "with ab_read: %u "
                     "and ab_write: %u.",
-                    conn->last_seqno_read, inframe->sequence_number,
-                    conn->ab_read, conn->ab_write);
-              conn->last_seqno_read =
-                  inframe->sequence_number; // reset warning...
+                    conn->last_seqno_read, inframe->sequence_number, conn->ab_read,
+                    conn->ab_write);
+              conn->last_seqno_read = inframe->sequence_number; // reset warning...
             }
           }
 
@@ -2261,23 +2106,19 @@ void *player_thread_func(void *arg) {
           // stats
 
           if (play_number % print_interval == 0) {
-
             // here, calculate the input and output frame rates, where possible,
             // even if statistics have not been requested this is to calculate
             // them in case they are needed by the D-Bus interface or elsewhere.
 
             if (conn->input_frame_rate_starting_point_is_valid) {
               uint64_t elapsed_reception_time, frames_received;
-              elapsed_reception_time =
-                  conn->frames_inward_measurement_time -
-                  conn->frames_inward_measurement_start_time;
-              frames_received =
-                  conn->frames_inward_frames_received_at_measurement_time -
-                  conn->frames_inward_frames_received_at_measurement_start_time;
+              elapsed_reception_time = conn->frames_inward_measurement_time -
+                                       conn->frames_inward_measurement_start_time;
+              frames_received = conn->frames_inward_frames_received_at_measurement_time -
+                                conn->frames_inward_frames_received_at_measurement_start_time;
               conn->input_frame_rate =
-                  (1.0E9 * frames_received) /
-                  elapsed_reception_time; // an IEEE double calculation with two
-                                          // 64-bit integers
+                  (1.0E9 * frames_received) / elapsed_reception_time; // an IEEE double calculation
+                                                                      // with two 64-bit integers
             } else {
               conn->input_frame_rate = 0.0;
             }
@@ -2288,9 +2129,9 @@ void *player_thread_func(void *arg) {
               uint64_t raw_measurement_time;
               uint64_t corrected_measurement_time;
               uint64_t actual_delay;
-              stats_status = config.output->stats(
-                  &raw_measurement_time, &corrected_measurement_time,
-                  &actual_delay, &frames_sent_for_play);
+              stats_status =
+                  config.output->stats(&raw_measurement_time, &corrected_measurement_time,
+                                       &actual_delay, &frames_sent_for_play);
               // debug(1,"status: %d, actual_delay: %" PRIu64 ",
               // frames_sent_for_play: %" PRIu64 ", frames_played: %" PRIu64
               // ".", stats_status, actual_delay, frames_sent_for_play,
@@ -2300,19 +2141,14 @@ void *player_thread_func(void *arg) {
               // problems since the last time the stats call was made. Thus, the
               // frame rate should be valid.
               if ((stats_status == 0) && (previous_frames_played_valid != 0)) {
-                uint64_t frames_played_in_this_interval =
-                    frames_played - previous_frames_played;
-                int64_t raw_interval =
-                    raw_measurement_time - previous_raw_measurement_time;
+                uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
+                int64_t raw_interval = raw_measurement_time - previous_raw_measurement_time;
                 int64_t corrected_interval =
-                    corrected_measurement_time -
-                    previous_corrected_measurement_time;
+                    corrected_measurement_time - previous_corrected_measurement_time;
                 if (raw_interval != 0) {
-                  conn->raw_frame_rate =
-                      (1e9 * frames_played_in_this_interval) / raw_interval;
+                  conn->raw_frame_rate = (1e9 * frames_played_in_this_interval) / raw_interval;
                   conn->corrected_frame_rate =
-                      (1e9 * frames_played_in_this_interval) /
-                      corrected_interval;
+                      (1e9 * frames_played_in_this_interval) / corrected_interval;
                   conn->frame_rate_valid = 1;
                   // debug(1,"frames_played_in_this_interval: %" PRIu64 ",
                   // interval: %" PRId64 ", rate: %f.",
@@ -2331,8 +2167,7 @@ void *player_thread_func(void *arg) {
                   conn->frame_rate_valid = 0;
                 previous_frames_played = frames_played;
                 previous_raw_measurement_time = raw_measurement_time;
-                previous_corrected_measurement_time =
-                    corrected_measurement_time;
+                previous_corrected_measurement_time = corrected_measurement_time;
                 previous_frames_played_valid = 1;
               }
             }
@@ -2345,13 +2180,10 @@ void *player_thread_func(void *arg) {
             if (number_of_statistics == 0) {
               debug(3, "number_of_statistics is zero!");
             } else {
-              moving_average_sync_error =
-                  (1.0 * tsum_of_sync_errors) / number_of_statistics;
-              moving_average_correction =
-                  (1.0 * tsum_of_corrections) / number_of_statistics;
+              moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
+              moving_average_correction = (1.0 * tsum_of_corrections) / number_of_statistics;
               moving_average_insertions_plus_deletions =
-                  (1.0 * tsum_of_insertions_and_deletions) /
-                  number_of_statistics;
+                  (1.0 * tsum_of_insertions_and_deletions) / number_of_statistics;
               // double moving_average_drift = (1.0 * tsum_of_drifts) /
               // number_of_statistics;
             }
@@ -2360,37 +2192,27 @@ void *player_thread_func(void *arg) {
             // of stream
 
             if (config.statistics_requested) {
-
               if (at_least_one_frame_seen) {
                 do {
                   line_of_stats[0] = '\0';
                   statistics_column = 0;
                   was_a_previous_column = 0;
                   statistics_item("sync error ms", "%*.2f", 13,
-                                  1000 * moving_average_sync_error /
-                                      config.output_rate);
+                                  1000 * moving_average_sync_error / config.output_rate);
                   statistics_item("net sync ppm", "%*.1f", 12,
                                   moving_average_correction * 1000000 /
                                       (352 * conn->output_sample_ratio));
                   statistics_item("all sync ppm", "%*.1f", 12,
-                                  moving_average_insertions_plus_deletions *
-                                      1000000 /
+                                  moving_average_insertions_plus_deletions * 1000000 /
                                       (352 * conn->output_sample_ratio));
                   statistics_item("    packets", "%*d", 11, play_number);
-                  statistics_item("missing", "%*" PRIu64 "", 7,
-                                  conn->missing_packets);
-                  statistics_item("  late", "%*" PRIu64 "", 6,
-                                  conn->late_packets);
-                  statistics_item("too late", "%*" PRIu64 "", 8,
-                                  conn->too_late_packets);
-                  statistics_item("resend reqs", "%*" PRIu64 "", 11,
-                                  conn->resend_requests);
-                  statistics_item("min DAC queue", "%*" PRIu64 "", 13,
-                                  minimum_dac_queue_size);
-                  statistics_item("min buffers", "%*" PRIu32 "", 11,
-                                  minimum_buffer_occupancy);
-                  statistics_item("max buffers", "%*" PRIu32 "", 11,
-                                  maximum_buffer_occupancy);
+                  statistics_item("missing", "%*" PRIu64 "", 7, conn->missing_packets);
+                  statistics_item("  late", "%*" PRIu64 "", 6, conn->late_packets);
+                  statistics_item("too late", "%*" PRIu64 "", 8, conn->too_late_packets);
+                  statistics_item("resend reqs", "%*" PRIu64 "", 11, conn->resend_requests);
+                  statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
+                  statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
+                  statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
 
                   if (conn->ap2_audio_buffer_minimum_size > 10 * 1024)
                     statistics_item("min buffer size", "%*" PRIu32 "k", 14,
@@ -2399,25 +2221,19 @@ void *player_thread_func(void *arg) {
                     statistics_item("min buffer size", "%*" PRIu32 "", 15,
                                     conn->ap2_audio_buffer_minimum_size);
 
-                  statistics_item("nominal fps", "%*.2f", 11,
-                                  conn->remote_frame_rate);
-                  statistics_item("received fps", "%*.2f", 12,
-                                  conn->input_frame_rate);
+                  statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
+                  statistics_item("received fps", "%*.2f", 12, conn->input_frame_rate);
                   if (conn->frame_rate_valid) {
-                    statistics_item("output fps (r)", "%*.2f", 14,
-                                    conn->raw_frame_rate);
-                    statistics_item("output fps (c)", "%*.2f", 14,
-                                    conn->corrected_frame_rate);
+                    statistics_item("output fps (r)", "%*.2f", 14, conn->raw_frame_rate);
+                    statistics_item("output fps (c)", "%*.2f", 14, conn->corrected_frame_rate);
                   } else {
                     statistics_item("output fps (r)", "           N/A");
                     statistics_item("output fps (c)", "           N/A");
                   }
                   statistics_item("source drift ppm", "%*.2f", 16,
-                                  (conn->local_to_remote_time_gradient - 1.0) *
-                                      1000000);
-                  statistics_item(
-                      "drift samples", "%*d", 13,
-                      conn->local_to_remote_time_gradient_sample_count);
+                                  (conn->local_to_remote_time_gradient - 1.0) * 1000000);
+                  statistics_item("drift samples", "%*d", 13,
+                                  conn->local_to_remote_time_gradient_sample_count);
                   /*
                   statistics_item("estimated (unused) correction ppm", "%*.2f",
                                   strlen("estimated (unused) correction ppm"),
@@ -2449,8 +2265,8 @@ void *player_thread_func(void *arg) {
 
           // If any of these are false, we don't do any synchronisation stuff
 
-          int resp = -1; // use this as a flag -- if negative, we can't rely on
-                         // a real known delay
+          int resp = -1;      // use this as a flag -- if negative, we can't rely on
+                              // a real known delay
           current_delay = -1; // use this as a failure flag
 
           if (config.output->delay) {
@@ -2461,14 +2277,12 @@ void *player_thread_func(void *arg) {
               if (l_delay >= 0)
                 current_delay = l_delay;
               else {
-                debug(2, "Underrun of %ld frames reported, but ignored.",
-                      l_delay);
+                debug(2, "Underrun of %ld frames reported, but ignored.", l_delay);
                 current_delay = 0; // could get a negative value if there was
                                    // underrun, but ignore it.
               }
               if (current_delay < minimum_dac_queue_size) {
-                minimum_dac_queue_size =
-                    current_delay; // update for display later
+                minimum_dac_queue_size = current_delay; // update for display later
               }
             } else {
               current_delay = 0;
@@ -2490,7 +2304,6 @@ void *player_thread_func(void *arg) {
           }
 
           if (resp == 0) {
-
             uint32_t should_be_frame_32;
             // this is denominated in the frame rate of the incoming stream
             local_time_to_frame(local_time_now, &should_be_frame_32, conn);
@@ -2502,10 +2315,9 @@ void *player_thread_func(void *arg) {
             // stream
             int64_t will_be_frame = inframe->given_timestamp;
             will_be_frame = will_be_frame * conn->output_sample_ratio;
-            will_be_frame =
-                (will_be_frame - current_delay) &
-                output_rtptime_mask; // this is to make sure it's unsigned
-                                     // modulo 2^bits for the rtptime
+            will_be_frame = (will_be_frame - current_delay) &
+                            output_rtptime_mask; // this is to make sure it's unsigned
+                                                 // modulo 2^bits for the rtptime
 
             // Now we have a tricky piece of calculation to perform.
             // We know the rtptimes are unsigned in 32 or more bits -- call it r
@@ -2514,14 +2326,12 @@ void *player_thread_func(void *arg) {
             // the unsigned subtraction result, modulo 2^r, if interpreted as a
             // signed number, should yield the difference _and_ the ordering.
 
-            sync_error =
-                should_be_frame - will_be_frame; // this is done in int64_t form
+            sync_error = should_be_frame - will_be_frame; // this is done in int64_t form
 
             // sign-extend the r-bit unsigned int calculation by treating it as
             // an r-bit signed integer
-            if ((sync_error & output_rtptime_sign_mask) !=
-                0) { // check what would be the sign bit in "r" bit unsigned
-                     // arithmetic
+            if ((sync_error & output_rtptime_sign_mask) != 0) { // check what would be the sign bit
+                                                                // in "r" bit unsigned arithmetic
               // result is negative
               sync_error = sync_error | output_rtptime_mask_not;
             } else {
@@ -2553,8 +2363,7 @@ void *player_thread_func(void *arg) {
                     "first frame sync error (positive --> late): %" PRId64
                     " frames, %.3f mS at %d frames per second output.",
                     sync_error + first_frame_early_bias,
-                    (1000.0 * (sync_error + first_frame_early_bias)) /
-                        config.output_rate,
+                    (1000.0 * (sync_error + first_frame_early_bias)) / config.output_rate,
                     config.output_rate);
 
               // if the packet is early, add the frames needed to put it in
@@ -2562,23 +2371,18 @@ void *player_thread_func(void *arg) {
               if (sync_error < 0) {
                 size_t final_adjustment_length_sized = -sync_error;
                 char *final_adjustment_silence =
-                    malloc(conn->output_bytes_per_frame *
-                           final_adjustment_length_sized);
+                    malloc(conn->output_bytes_per_frame * final_adjustment_length_sized);
                 if (final_adjustment_silence) {
-
                   conn->previous_random_number = generate_zero_frames(
                       final_adjustment_silence, final_adjustment_length_sized,
-                      config.output_format, conn->enable_dither,
-                      conn->previous_random_number);
+                      config.output_format, conn->enable_dither, conn->previous_random_number);
                   int final_adjustment = -sync_error;
                   final_adjustment = final_adjustment - first_frame_early_bias;
                   debug(2,
                         "final sync adjustment: %" PRId64
-                        " silent frames added with a bias of %" PRId64
-                        " frames.",
+                        " silent frames added with a bias of %" PRId64 " frames.",
                         -sync_error, first_frame_early_bias);
-                  config.output->play(final_adjustment_silence,
-                                      final_adjustment_length_sized);
+                  config.output->play(final_adjustment_silence, final_adjustment_length_sized);
                   free(final_adjustment_silence);
                 } else {
                   warn("Failed to allocate memory for a "
@@ -2596,10 +2400,8 @@ void *player_thread_func(void *arg) {
             if (abs_sync_error < 0)
               abs_sync_error = -abs_sync_error;
 
-            if ((inframe->given_timestamp != 0) &&
-                (config.resyncthreshold > 0.0) &&
-                (abs_sync_error >
-                 config.resyncthreshold * config.output_rate)) {
+            if ((inframe->given_timestamp != 0) && (config.resyncthreshold > 0.0) &&
+                (abs_sync_error > config.resyncthreshold * config.output_rate)) {
               sync_error_out_of_bounds++;
             } else {
               sync_error_out_of_bounds = 0;
@@ -2618,43 +2420,35 @@ void *player_thread_func(void *arg) {
               if ((config.output->delay) && (config.output->stats)) {
                 uint64_t raw_measurement_time;
                 uint64_t corrected_measurement_time;
-                config.output->stats(&raw_measurement_time,
-                                     &corrected_measurement_time, &actual_delay,
-                                     &frames_sent_for_play);
+                config.output->stats(&raw_measurement_time, &corrected_measurement_time,
+                                     &actual_delay, &frames_sent_for_play);
               }
 
               int64_t filler_length =
-                  (int64_t)(config.resyncthreshold *
-                            config.output_rate); // number of samples
+                  (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(1,
                       "Large positive sync error of %" PRId64
                       " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
-                debug(1,
-                      "%" PRId64
-                      " frames sent to DAC. DAC buffer contains %" PRId64
-                      " frames.",
+                debug(1, "%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
                       frames_sent_for_play, actual_delay);
                 // the sync error is output frames, but we have to work out how
                 // many source frames to drop there may be a multiple (the
                 // conn->output_sample_ratio) of output frames per input
                 // frame...
                 int64_t source_frames_to_drop = sync_error;
-                source_frames_to_drop =
-                    source_frames_to_drop / conn->output_sample_ratio;
+                source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;
 
                 // add some time to give the pipeline a chance to recover -- a
                 // bit hacky
                 double extra_time_to_drop = 0.1; // seconds
-                int64_t extra_frames_to_drop =
-                    (int64_t)(conn->input_rate * extra_time_to_drop);
+                int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * extra_time_to_drop);
                 source_frames_to_drop += extra_frames_to_drop;
 
                 uint32_t frames_to_drop = source_frames_to_drop;
-                uint32_t flush_to_frame =
-                    inframe->given_timestamp + frames_to_drop;
+                uint32_t flush_to_frame = inframe->given_timestamp + frames_to_drop;
 
                 do_flush(flush_to_frame, conn);
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
@@ -2663,25 +2457,19 @@ void *player_thread_func(void *arg) {
                       " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
-                debug(1,
-                      "%" PRId64
-                      " frames sent to DAC. DAC buffer contains %" PRId64
-                      " frames.",
+                debug(1, "%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
                       frames_sent_for_play, actual_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;
                 size_t silence_length_sized = silence_length;
-                char *long_silence =
-                    malloc(conn->output_bytes_per_frame * silence_length_sized);
+                char *long_silence = malloc(conn->output_bytes_per_frame * silence_length_sized);
                 if (long_silence) {
-
                   conn->previous_random_number = generate_zero_frames(
                       long_silence, silence_length_sized, config.output_format,
                       conn->enable_dither, conn->previous_random_number);
 
-                  debug(2, "Play a silence of %d frames.",
-                        silence_length_sized);
+                  debug(2, "Play a silence of %d frames.", silence_length_sized);
                   config.output->play(long_silence, silence_length_sized);
                   free(long_silence);
                 } else {
@@ -2693,7 +2481,6 @@ void *player_thread_func(void *arg) {
                 reset_input_flow_metrics(conn);
               }
             } else {
-
               /*
               // before we finally commit to this frame, check its sequencing
               and timing
@@ -2711,11 +2498,9 @@ void *player_thread_func(void *arg) {
                 int64_t s = r64i();
                 s = s >> 31;
                 s = s * config.tolerance * config.output_rate;
-                s = (s >> 32) +
-                    config.tolerance *
-                        config.output_rate; // should be a number from 0
-                                            // to config.tolerance *
-                                            // config.output_rate;
+                s = (s >> 32) + config.tolerance * config.output_rate; // should be a number from 0
+                                                                       // to config.tolerance *
+                                                                       // config.output_rate;
                 if ((sync_error > 0) && (sync_error > s)) {
                   // debug(1,"Extra stuff -1");
                   amount_to_stuff = -1;
@@ -2734,11 +2519,9 @@ void *player_thread_func(void *arg) {
               if (amount_to_stuff) {
                 if ((local_time_now) && (conn->first_packet_time_to_play) &&
                     (local_time_now >= conn->first_packet_time_to_play)) {
-
-                  int64_t tp =
-                      (local_time_now - conn->first_packet_time_to_play) /
-                      1000000000; // seconds int64_t from uint64_t which is
-                                  // always positive, so ok
+                  int64_t tp = (local_time_now - conn->first_packet_time_to_play) /
+                               1000000000; // seconds int64_t from uint64_t which is
+                                           // always positive, so ok
 
                   if (tp < 5)
                     amount_to_stuff = 0; // wait at least five seconds
@@ -2794,9 +2577,9 @@ void *player_thread_func(void *arg) {
                 }
               }
 
-              play_samples = stuff_buffer_basic_32(
-                  (int32_t *)conn->tbuf, inbuflength, config.output_format,
-                  conn->outbuf, amount_to_stuff, conn->enable_dither, conn);
+              play_samples =
+                  stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
+                                        conn->outbuf, amount_to_stuff, conn->enable_dither, conn);
 
               /*
               {
@@ -2820,9 +2603,8 @@ void *player_thread_func(void *arg) {
                   debug(1, "play_samples==0 skipping it (1).");
                 else {
                   if (conn->software_mute_enabled) {
-                    generate_zero_frames(
-                        conn->outbuf, play_samples, config.output_format,
-                        conn->enable_dither, conn->previous_random_number);
+                    generate_zero_frames(conn->outbuf, play_samples, config.output_format,
+                                         conn->enable_dither, conn->previous_random_number);
                   }
                   config.output->play(conn->outbuf, play_samples);
                 }
@@ -2854,7 +2636,6 @@ void *player_thread_func(void *arg) {
               */
             }
           } else {
-
             // if this is the first frame, see if it's close to when it's
             // supposed to be release, which will be its time plus latency and
             // any offset_time
@@ -2862,16 +2643,15 @@ void *player_thread_func(void *arg) {
               at_least_one_frame_seen_this_session = 1;
             }
 
-            play_samples = stuff_buffer_basic_32(
-                (int32_t *)conn->tbuf, inbuflength, config.output_format,
-                conn->outbuf, 0, conn->enable_dither, conn);
+            play_samples =
+                stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
+                                      conn->outbuf, 0, conn->enable_dither, conn);
             if (conn->outbuf == NULL)
               debug(1, "NULL outbuf to play -- skipping it.");
             else {
               if (conn->software_mute_enabled) {
-                generate_zero_frames(conn->outbuf, play_samples,
-                                     config.output_format, conn->enable_dither,
-                                     conn->previous_random_number);
+                generate_zero_frames(conn->outbuf, play_samples, config.output_format,
+                                     conn->enable_dither, conn->previous_random_number);
               }
               config.output->play(conn->outbuf,
                                   play_samples); // remove the (short*)!
@@ -2906,17 +2686,13 @@ void *player_thread_func(void *arg) {
             if (number_of_statistics == trend_interval) {
               // here we remove the oldest statistical data and take it from the
               // summaries as well
-              tsum_of_sync_errors -=
-                  conn->statistics[oldest_statistic].sync_error;
+              tsum_of_sync_errors -= conn->statistics[oldest_statistic].sync_error;
               tsum_of_drifts -= conn->statistics[oldest_statistic].drift;
               if (conn->statistics[oldest_statistic].correction > 0)
-                tsum_of_insertions_and_deletions -=
-                    conn->statistics[oldest_statistic].correction;
+                tsum_of_insertions_and_deletions -= conn->statistics[oldest_statistic].correction;
               else
-                tsum_of_insertions_and_deletions +=
-                    conn->statistics[oldest_statistic].correction;
-              tsum_of_corrections -=
-                  conn->statistics[oldest_statistic].correction;
+                tsum_of_insertions_and_deletions += conn->statistics[oldest_statistic].correction;
+              tsum_of_corrections -= conn->statistics[oldest_statistic].correction;
               oldest_statistic = (oldest_statistic + 1) % trend_interval;
               number_of_statistics--;
             }
@@ -2952,15 +2728,13 @@ void *player_thread_func(void *arg) {
   }
 
   debug(1, "This should never be called.");
-  pthread_cleanup_pop(
-      1); // pop the cleanup handler
-          //  debug(1, "This should never be called either.");
-          //  pthread_cleanup_pop(1); // pop the initial cleanup handler
+  pthread_cleanup_pop(1); // pop the cleanup handler
+                          //  debug(1, "This should never be called either.");
+                          //  pthread_cleanup_pop(1); // pop the initial cleanup handler
   pthread_exit(NULL);
 }
 
-void player_volume_without_notification(double airplay_volume,
-                                        rtsp_conn_info *conn) {
+void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->volume_control_mutex, 5000, 1);
   // first, see if we are hw only, sw only, both with hw attenuation on the top
   // or both with sw attenuation on top
@@ -3035,7 +2809,6 @@ void player_volume_without_notification(double airplay_volume,
   // and mute.
 
   if (airplay_volume == -144.0) {
-
     if ((config.output->mute) && (config.output->mute(1) == 0))
       debug(2,
             "player_volume_without_notification: volume mode is %d, "
@@ -3053,34 +2826,31 @@ void player_volume_without_notification(double airplay_volume,
   } else {
     int32_t max_db = 0, min_db = 0;
     switch (volume_mode) {
-    case vol_hw_only:
-      max_db = hw_max_db;
-      min_db = hw_min_db;
-      break;
-    case vol_sw_only:
-      max_db = sw_max_db;
-      min_db = sw_min_db;
-      break;
-    case vol_both:
-      // debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db -
-      // hw_min_db,
-      //      sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db -
-      //      sw_min_db));
-      max_db = (hw_max_db - hw_min_db) +
-               (sw_max_db - sw_min_db); // this should be the range requested
-      min_db = 0;
-      break;
-    default:
-      debug(1,
-            "player_volume_without_notification: error: not in a volume mode");
-      break;
+      case vol_hw_only:
+        max_db = hw_max_db;
+        min_db = hw_min_db;
+        break;
+      case vol_sw_only:
+        max_db = sw_max_db;
+        min_db = sw_min_db;
+        break;
+      case vol_both:
+        // debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db -
+        // hw_min_db,
+        //      sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db -
+        //      sw_min_db));
+        max_db = (hw_max_db - hw_min_db) +
+                 (sw_max_db - sw_min_db); // this should be the range requested
+        min_db = 0;
+        break;
+      default:
+        debug(1, "player_volume_without_notification: error: not in a volume mode");
+        break;
     }
     double scaled_attenuation = max_db;
     if (config.ignore_volume_control == 0) {
-
       if (config.volume_control_profile == VCP_standard)
-        scaled_attenuation =
-            vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+        scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
       else if (config.volume_control_profile == VCP_flat)
         scaled_attenuation = flat_vol2attn(airplay_volume, max_db,
                                            min_db); // no cancellation points
@@ -3094,52 +2864,47 @@ void player_volume_without_notification(double airplay_volume,
     double software_attenuation = 0.0;
 
     switch (volume_mode) {
-    case vol_hw_only:
-      hardware_attenuation = scaled_attenuation;
-      break;
-    case vol_sw_only:
-      software_attenuation = scaled_attenuation;
-      break;
-    case vol_both:
-      // here, we now the attenuation required, so we have to apportion it to
-      // the sw and hw mixers if we give the hw priority, that means when
-      // lowering the volume, set the hw volume to its lowest before using the
-      // sw attenuation. similarly, if we give the sw priority, that means when
-      // lowering the volume, set the sw volume to its lowest before using the
-      // hw attenuation. one imagines that hw priority is likely to be much
-      // better if (config.volume_range_hw_priority) {
-      if (config.volume_range_hw_priority != 0) {
-        // hw priority
-        if ((sw_max_db - sw_min_db) > scaled_attenuation) {
-          software_attenuation = sw_min_db + scaled_attenuation;
-          hardware_attenuation = hw_min_db;
+      case vol_hw_only:
+        hardware_attenuation = scaled_attenuation;
+        break;
+      case vol_sw_only:
+        software_attenuation = scaled_attenuation;
+        break;
+      case vol_both:
+        // here, we now the attenuation required, so we have to apportion it to
+        // the sw and hw mixers if we give the hw priority, that means when
+        // lowering the volume, set the hw volume to its lowest before using the
+        // sw attenuation. similarly, if we give the sw priority, that means when
+        // lowering the volume, set the sw volume to its lowest before using the
+        // hw attenuation. one imagines that hw priority is likely to be much
+        // better if (config.volume_range_hw_priority) {
+        if (config.volume_range_hw_priority != 0) {
+          // hw priority
+          if ((sw_max_db - sw_min_db) > scaled_attenuation) {
+            software_attenuation = sw_min_db + scaled_attenuation;
+            hardware_attenuation = hw_min_db;
+          } else {
+            software_attenuation = sw_max_db;
+            hardware_attenuation = hw_min_db + scaled_attenuation - (sw_max_db - sw_min_db);
+          }
         } else {
-          software_attenuation = sw_max_db;
-          hardware_attenuation =
-              hw_min_db + scaled_attenuation - (sw_max_db - sw_min_db);
+          // sw priority
+          if ((hw_max_db - hw_min_db) > scaled_attenuation) {
+            hardware_attenuation = hw_min_db + scaled_attenuation;
+            software_attenuation = sw_min_db;
+          } else {
+            hardware_attenuation = hw_max_db;
+            software_attenuation = sw_min_db + scaled_attenuation - (hw_max_db - hw_min_db);
+          }
         }
-      } else {
-        // sw priority
-        if ((hw_max_db - hw_min_db) > scaled_attenuation) {
-          hardware_attenuation = hw_min_db + scaled_attenuation;
-          software_attenuation = sw_min_db;
-        } else {
-          hardware_attenuation = hw_max_db;
-          software_attenuation =
-              sw_min_db + scaled_attenuation - (hw_max_db - hw_min_db);
-        }
-      }
-      break;
-    default:
-      debug(1,
-            "player_volume_without_notification: error: not in a volume mode");
-      break;
+        break;
+      default:
+        debug(1, "player_volume_without_notification: error: not in a volume mode");
+        break;
     }
 
-    if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) &&
-        (config.output->volume)) {
-      config.output->volume(
-          hardware_attenuation); // otherwise set the output to the lowest value
+    if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) && (config.output->volume)) {
+      config.output->volume(hardware_attenuation); // otherwise set the output to the lowest value
       // debug(1,"Hardware attenuation set to %f for airplay volume of
       // %f.",hardware_attenuation,airplay_volume);
       if (volume_mode == vol_hw_only)
@@ -3179,8 +2944,7 @@ void player_volume_without_notification(double airplay_volume,
           "volume is %f, "
           "software_attenuation: %f, hardware_attenuation: %f, muting "
           "is disabled.",
-          volume_mode, airplay_volume, software_attenuation,
-          hardware_attenuation);
+          volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
   }
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
@@ -3188,17 +2952,14 @@ void player_volume_without_notification(double airplay_volume,
 }
 
 void player_volume(double airplay_volume, rtsp_conn_info *conn) {
-
   player_volume_without_notification(airplay_volume, conn);
 }
 
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
-
   debug(3, "do_flush: flush to %u.", timestamp);
   debug_mutex_lock(&conn->flush_mutex, 1000, 1);
   conn->flush_requested = 1;
-  conn->flush_rtp_timestamp =
-      timestamp; // flush all packets up to, but not including, this one.
+  conn->flush_rtp_timestamp = timestamp; // flush all packets up to, but not including, this one.
   reset_input_flow_metrics(conn);
   debug_mutex_unlock(&conn->flush_mutex, 3);
 }
@@ -3250,8 +3011,8 @@ int player_prepare_to_play(rtsp_conn_info *conn) {
   if (conn->player_thread != NULL)
     die("Trying to create a second player thread for this RTSP session");
   if (config.buffer_start_fill > BUFFER_FRAMES)
-    die("specified buffer starting fill %d > buffer size %d",
-        config.buffer_start_fill, BUFFER_FRAMES);
+    die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
+        BUFFER_FRAMES);
   // active, and should be before play's command hook, command_start()
 
   conn->input_bytes_per_frame = 4; // default -- may be changed later
@@ -3285,8 +3046,8 @@ int player_stop(rtsp_conn_info *conn) {
     if (pthread_join(*conn->player_thread, NULL) == -1) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "Connection %d: error %d joining player thread: \"%s\".",
-            conn->connection_number, errno, (char *)errorstring);
+      debug(1, "Connection %d: error %d joining player thread: \"%s\".", conn->connection_number,
+            errno, (char *)errorstring);
     } else {
       debug(3, "player_thread joined.");
     }
@@ -3297,8 +3058,7 @@ int player_stop(rtsp_conn_info *conn) {
 
     return 0;
   } else {
-    debug(3, "Connection %d: player thread already deleted.",
-          conn->connection_number);
+    debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
     // debuglev = dl;
     return -1;
   }

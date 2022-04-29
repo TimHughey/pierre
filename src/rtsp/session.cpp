@@ -251,6 +251,12 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
       case errc::success:
         break;
 
+      case errc::operation_canceled:
+      case errc::resource_unavailable_try_again:
+      case errc::no_such_file_or_directory:
+        rc = false;
+        break;
+
       default:
         fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());

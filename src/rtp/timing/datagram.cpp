@@ -117,6 +117,7 @@ void Datagram::handleControlBlock(size_t bytes) {
 }
 
 bool Datagram::isReady(const error_code &ec, const src_loc loc) {
+  [[maybe_unused]] error_code __ec;
   auto rc = isReady();
 
   if (rc) {
@@ -124,11 +125,16 @@ bool Datagram::isReady(const error_code &ec, const src_loc loc) {
       case errc::success:
         break;
 
+      case errc::operation_canceled:
+      case errc::resource_unavailable_try_again:
+        rc = false;
+        break;
+
       default:
         fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());
 
-        socket.shutdown(udp_socket::shutdown_both);
+        socket.shutdown(udp_socket::shutdown_both, __ec);
         rc = false;
     }
   }
@@ -147,6 +153,14 @@ uint16_t Datagram::localPort() {
 void Datagram::nextControlBlock() {
   // reset all buffers and state
   _wire.clear();
+}
+
+void Datagram::teardown() {
+  [[maybe_unused]] error_code ec;
+
+  socket.cancel(ec);
+  socket.shutdown(udp_socket::shutdown_both, ec);
+  socket.close(ec);
 }
 
 } // namespace timing

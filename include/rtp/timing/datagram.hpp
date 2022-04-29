@@ -65,6 +65,7 @@ public:
   // Public API
   void asyncControlLoop();
   uint16_t localPort();
+  void teardown();
 
 private:
   bool isReady() const { return socket.is_open(); };

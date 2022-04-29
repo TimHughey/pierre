@@ -28,6 +28,8 @@
 #include <vector>
 
 #include "packet/in.hpp"
+#include "rtp/anchor_info.hpp"
+#include "rtp/input_info.hpp"
 
 namespace pierre {
 namespace rtp {
@@ -51,20 +53,27 @@ public:
   typedef const char *ccs;
 
 public:
-  // shared_ptr API
-  [[nodiscard]] static sSession create(tcp_socket &&new_socket) {
-    // must call constructor directly since it's private
-    return sSession(new Session(std::forward<tcp_socket>(new_socket)));
-  }
+  struct Opts {
+    tcp_socket &&new_socket;
+    AnchorInfo &anchor;
+  };
+
+public:
+  ~Session() { teardown(); }
+
+public:
+  [[nodiscard]] static sSession create(const Opts &opts) { return sSession(new Session(opts)); }
 
   sSession getSelf() { return shared_from_this(); }
 
 private:
-  Session(tcp_socket &&socket);
+  // Session(tcp_socket &&socket);
+  Session(const Opts &opts);
 
 public:
   // initiates async audio buffer loop
   void asyncAudioBufferLoop(); // see .cpp file for critical function details
+  void teardown();
 
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
@@ -87,8 +96,12 @@ private:
 private:
   // order dependent - initialized by constructor
   tcp_socket socket;
+  AnchorInfo &anchor;
 
   packet::In _wire;
+
+  const InputInfo input_info;
+  uint32_t pcm_buffer_read_point_rtptime = 0;
 
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;

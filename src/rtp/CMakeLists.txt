@@ -23,6 +23,7 @@ add_library(RTP
   conn_info.cpp rtp.cpp
   anchor_info.cpp stream_info.cpp
   audio/buffered/server.cpp audio/buffered/session.cpp
+    audio/buffered/entry.cpp audio/buffered/raw.cpp
   control/datagram.cpp timing/datagram.cpp
   event/server.cpp event/session.cpp
   ${HEADER_LIST}

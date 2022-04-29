@@ -27,6 +27,7 @@
 #include <string_view>
 #include <thread>
 
+#include "rtp/audio/buffered/raw.hpp"
 #include "rtp/audio/buffered/session.hpp"
 
 namespace pierre {
@@ -43,12 +44,17 @@ using string_view = std::string_view;
 
 // notes:
 //  1. socket is passed as a reference to a reference so we must move to our local socket reference
-Session::Session(tcp_socket &&new_socket)
-    : socket(std::move(new_socket)) // io_context / socket for this session
-{
-  // fmt::print("{} socket={}\n", fnName(), socket.native_handle());
+// Session::Session(tcp_socket &&new_socket)
+//     : socket(std::move(new_socket)) // io_context / socket for this session
+// {
+//   // _wire.resize(input_info.wantFrames(50));
+// }
 
-  _wire.resize(_buff_size);
+Session::Session(const Opts &opts)
+    : socket(std::move(opts.new_socket)),
+      anchor(opts.anchor) // io_context / socket for this session
+{
+  // _wire.resize(input_info.wantFrames(50));
 }
 
 void Session::asyncAudioBufferLoop() {
@@ -73,7 +79,7 @@ void Session::asyncAudioBufferLoop() {
   //     of the session above zero until the session ends
   //     (e.g. due to error, natural completion, io_ctx is stopped)
 
-  async_read(socket, buffer(wire()), boost::asio::transfer_exactly(_buff_size),
+  async_read(socket, dynamic_buffer(wire()), boost::asio::transfer_exactly(2048),
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // general notes:
                //
@@ -110,8 +116,17 @@ void Session::asyncAudioBufferLoop() {
 }
 
 void Session::handleAudioBuffer(size_t rx_bytes) {
-  // constexpr size_t report_bytes = 1024 * 50; // 50k
   // the following function calls do not contain async_* calls
+  uint8_t type = _wire[1] & ~0x80;
+
+  if ((type == 0x60) || (type == 0x56)) {
+    fmt::print("type={:#x}\n", type);
+  }
+
+  // const auto seq_no = _wire[1] * (1 << 16) + _wire[2] * (1 << 8) + _wire[3];
+  // const auto timestamp = nctohl(&packet[4]);
+
+  // fmt::print(fmt_str, fnName(), seq_no);
   accumulate(Accumulate::RX, rx_bytes);
 
   // rxAvailable(); // drain the socket
@@ -242,6 +257,12 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
       case errc::success:
         break;
 
+      case errc::operation_canceled:
+      case errc::resource_unavailable_try_again:
+      case errc::no_such_file_or_directory:
+        rc = false;
+        break;
+
       default:
         fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());
@@ -256,7 +277,7 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
 }
 
 void Session::nextAudioBuffer() {
-  // _wire.clear();
+  _wire.clear();
   // _headers.clear();
   // _content.clear();
 }
@@ -285,6 +306,15 @@ void Session::accumulate(Accumulate type, size_t bytes) {
   }
 }
 
+void Session::teardown() {
+  [[maybe_unused]] error_code ec;
+
+  socket.cancel(ec);
+
+  socket.shutdown(socket_base::shutdown_both, ec);
+  socket.close(ec);
+}
+
 void Session::dump([[maybe_unused]] DumpKind dump_type) {
   // std::time_t now = std::time(nullptr);
   // std::string dt = std::ctime(&now);
@@ -306,6 +336,26 @@ void Session::dump([[maybe_unused]] DumpKind dump_type) {
 
   // fmt::print("\n");
 }
+
+// int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+//   int result = -1;
+//   uint32_t anchor_rtptime = 0;
+//   uint64_t anchor_local_time = 0;
+//   if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
+//     int32_t frame_difference = timestamp - anchor_rtptime;
+//     int64_t time_difference = frame_difference;
+//     time_difference = time_difference * 1000000000;
+//     if (conn->input_rate == 0)
+//       die("conn->input_rate is zero!");
+//     time_difference = time_difference / conn->input_rate;
+//     uint64_t ltime = anchor_local_time + time_difference;
+//     *time = ltime;
+//     result = 0;
+//   } else {
+//     debug(3, "frame_to_local_time can't get anchor local time information");
+//   }
+//   return result;
+// }
 
 } // namespace buffered
 } // namespace audio

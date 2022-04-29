@@ -19,6 +19,7 @@
 #include "rtsp/reply/teardown.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "rtp/rtp.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -31,6 +32,9 @@ Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), packet::Aplist(plist(
 bool Teardown::populate() {
   service()->deviceSupportsRelay(false);
   mdns()->update();
+
+  auto teardown = Rtp::instance()->teardown();
+  teardown.wait();
 
   responseCode(packet::RespCode::OK);
   return true;

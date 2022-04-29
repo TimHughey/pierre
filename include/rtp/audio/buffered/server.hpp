@@ -30,6 +30,8 @@
 #include <string>
 #include <thread>
 
+#include "rtp/anchor_info.hpp"
+
 namespace pierre {
 namespace rtp {
 namespace audio {
@@ -48,10 +50,21 @@ public:
 
   typedef const char *ccs;
 
+public:
+  struct Opts {
+    io_context &io_ctx;
+    AnchorInfo &anchor;
+  };
+
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sServer create(io_context &io_ctx) {
+  // [[nodiscard]] static sServer create(io_context &io_ctx) {
+  //   // not using std::make_shared; constructor is private
+  //   return sServer(new Server(io_ctx));
+  // }
+
+  [[nodiscard]] static sServer create(const Opts &opts) {
     // not using std::make_shared; constructor is private
-    return sServer(new Server(io_ctx));
+    return sServer(new Server(opts));
   }
 
   sServer getSelf() { return shared_from_this(); }
@@ -59,9 +72,11 @@ public: // object creation and shared_ptr API
 public:
   // Public API
   uint16_t localPort();
+  void teardown();
 
 private:
-  Server(io_context &io_ctx);
+  // Server(io_context &io_ctx);
+  Server(const Opts &opts);
 
   void asyncAccept();
 
@@ -74,6 +89,7 @@ private:
   // order dependent
   io_context &io_ctx;
   tcp_acceptor acceptor;
+  AnchorInfo &anchor;
 
   uint16_t port = 0;
   bool live = false;

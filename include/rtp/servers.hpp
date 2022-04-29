@@ -18,24 +18,40 @@
 
 #pragma once
 
+#include <boost/asio.hpp>
 #include <cstdint>
+#include <memory>
+#include <unordered_map>
+#include <variant>
+
+#include "rtp/audio/buffered/server.hpp"
+#include "rtp/control/datagram.hpp"
+#include "rtp/event/server.hpp"
 
 namespace pierre {
 namespace rtp {
 
-struct InputInfo {
-  uint32_t rate = 44100; // max available at the moment
-  uint8_t channels = 2;
-  uint8_t bit_depth = 16;
-  // uint32_t bytes_per_frame = (bit_depth * 7) / 8;
-  uint32_t frame_bytes = 4; // tied to pcm output type S16LE
-  size_t pcm_buffer_size = (1024 + 352) * frame_bytes;
-  size_t buffer_frames = 1024;
-  double lead_time = 0.1;
+enum ServerKind : uint8_t { Audio = 0, Control, Event };
 
-  size_t frameSize() const { return 352 * frame_bytes; }
-  size_t wantFrames(size_t frames) const { return frameSize() * frames; }
-  size_t packetSize() const { return 4096; }
+class ServerDepot {
+public:
+  using AudioBuffered = rtp::audio::buffered::Server;
+  using EventReceiver = rtp::event::Server;
+  using ControlDatagram = rtp::control::Datagram;
+
+  using Variant = std::variant<AudioBuffered, EventReceiver, ControlDatagram>;
+  using Map = std::unordered_map<ServerKind, Variant>;
+
+  using io_context = boost::asio::io_context;
+  using error_code = boost::system::error_code;
+
+  using enum ServerKind;
+
+public:
+  ServerDepot(io_context &io_ctx);
+
+private:
+  Map map;
 };
 
 } // namespace rtp

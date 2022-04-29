@@ -16,27 +16,16 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include <cstdint>
+#include "rtp/audio/buffered/raw.hpp"
 
 namespace pierre {
 namespace rtp {
+namespace audio {
+namespace buffered {
 
-struct InputInfo {
-  uint32_t rate = 44100; // max available at the moment
-  uint8_t channels = 2;
-  uint8_t bit_depth = 16;
-  // uint32_t bytes_per_frame = (bit_depth * 7) / 8;
-  uint32_t frame_bytes = 4; // tied to pcm output type S16LE
-  size_t pcm_buffer_size = (1024 + 352) * frame_bytes;
-  size_t buffer_frames = 1024;
-  double lead_time = 0.1;
+Raw::Raw() { buffer.reserve(1); }
 
-  size_t frameSize() const { return 352 * frame_bytes; }
-  size_t wantFrames(size_t frames) const { return frameSize() * frames; }
-  size_t packetSize() const { return 4096; }
-};
-
+} // namespace buffered
+} // namespace audio
 } // namespace rtp
 } // namespace pierre

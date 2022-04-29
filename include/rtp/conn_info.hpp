@@ -118,7 +118,7 @@ struct ConnInfo {
 
   // other stuff...
   pthread_t *player_thread;
-  rtp::audio::BufferEntry audio_buffer[buffer_frames];
+  rtp::audio::buffered::Entry audio_buffer[buffer_frames];
   unsigned int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;

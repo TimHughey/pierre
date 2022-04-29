@@ -18,25 +18,33 @@
 
 #pragma once
 
-#include <cstdint>
+#include <vector>
 
 namespace pierre {
 namespace rtp {
+namespace audio {
+namespace buffered {
 
-struct InputInfo {
-  uint32_t rate = 44100; // max available at the moment
-  uint8_t channels = 2;
-  uint8_t bit_depth = 16;
-  // uint32_t bytes_per_frame = (bit_depth * 7) / 8;
-  uint32_t frame_bytes = 4; // tied to pcm output type S16LE
-  size_t pcm_buffer_size = (1024 + 352) * frame_bytes;
-  size_t buffer_frames = 1024;
-  double lead_time = 0.1;
+class Raw {
+public:
+  Raw();
 
-  size_t frameSize() const { return 352 * frame_bytes; }
-  size_t wantFrames(size_t frames) const { return frameSize() * frames; }
-  size_t packetSize() const { return 4096; }
+public:
+  std::vector<char> buffer;
+
+  char *toq;
+  char *eoq;
+  size_t max_size;
+  size_t occupancy;
+  pthread_mutex_t mutex;
+  pthread_cond_t not_empty_cv;
+  pthread_cond_t not_full_cv;
+
+private:
+  static constexpr size_t STD_PACKET_SIZE = 4096;
 };
 
+} // namespace buffered
+} // namespace audio
 } // namespace rtp
 } // namespace pierre
