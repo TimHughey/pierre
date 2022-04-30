@@ -46,6 +46,7 @@ static unordered_map<Headers::Type2, const char *> _header_types // next line
     {{None, "None"},
      {CSeq, "CSeq"},
      {Server, "Server"},
+     {ContentSimple, "Content"},
      {ContentType, "Content-Type"},
      {ContentLength, "Content-Length"},
      {Public, "Public"},
@@ -59,14 +60,16 @@ static unordered_map<Headers::Type2, const char *> _header_types // next line
      {XAppleProtocolVersion, "X-Apple-ProtocolVersion"},
      {XAppleHKP, "X-Apple-HKP"},
      {XAppleET, "X-Apple-ET"},
-     {RtpInfo, "RTP-Info"}};
+     {RtpInfo, "RTP-Info"},
+     {XAppleAbsoulteTime, "X-Apple-AbsoluteTime"}};
 
 static unordered_map<Headers::Val2, const char *> _header_vals // next line
     {{OctetStream, "application/octet-stream"},
      {AirPierre, "AirPierre/366.0"},
      {AppleBinPlist, "application/x-apple-binary-plist"},
      {TextParameters, "text/parameters"},
-     {ImagePng, "image/png"}};
+     {ImagePng, "image/png"},
+     {ConnectionClosed, "close"}};
 
 // add to headers matching how it is stored in the map
 void Headers::add(Type2 type, const string &val) {

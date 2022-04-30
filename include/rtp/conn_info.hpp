@@ -19,19 +19,23 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
 #include <openssl/aes.h>
 #include <pthread.h>
 #include <string>
 #include <sys/socket.h>
 
-#include "rtp/audio/buffered/entry.hpp"
 #include "rtp/flush_request.hpp"
 #include "rtp/ping_record.hpp"
 #include "rtp/stream.hpp"
+#include "rtp/tcp/audio/entry.hpp"
 
 namespace pierre {
 namespace rtp {
+
+typedef uint32_t SeqNum;
 
 enum clock_status_t : uint8_t {
   clock_no_anchor_info = 0,
@@ -58,29 +62,22 @@ enum airplay_t : uint8_t { ap_1, ap_2 };
 enum airplay_stream_t : uint8_t { realtime_stream, buffered_stream };
 
 struct ConnInfo {
+  using Mutex = std::mutex;
+  using CondV = std::condition_variable;
   using string = std::string;
 
-  static constexpr auto buffer_frames = 1024;
+  static constexpr auto BUFFER_FRAMES = 1024;
   //  2^7 is 128. At 1 per three seconds; approximately six minutes of records
   static constexpr auto ping_history = (1 << 7);
 
-  int connection_number; // for debug ID purposes, nothing else...
-  int resend_interval;   // this is really just for debugging
-  string UserAgent;      // free this on teardown
-  int AirPlayVersion;    // zero if not an AirPlay session. Used to help calculate
-                         // latency
+  string UserAgent;   // free this on teardown
+  int AirPlayVersion; // zero if not an AirPlay session. Used to help calculate
+                      // latency
   int latency_warning_issued;
-  uint32_t latency;          // the actual latency used for this play session
-  uint32_t minimum_latency;  // set if an a=min-latency: line appears in the
-                             // ANNOUNCE message; zero otherwise
-  uint32_t maximum_latency;  // set if an a=max-latency: line appears in the
-                             // ANNOUNCE message; zero otherwise
-  int software_mute_enabled; // if we don't have a real mute that we can use
-  int fd;
-  int authorized;    // set if a password is required and has been supplied
+  uint32_t latency; // the actual latency used for this play session
+
   string auth_nonce; // the session nonce, if needed
   Stream stream;
-  sockaddr_storage remote, local;
   volatile int stop;
   volatile int running;
   volatile uint64_t watchdog_bark_time;
@@ -118,7 +115,7 @@ struct ConnInfo {
 
   // other stuff...
   pthread_t *player_thread;
-  rtp::audio::buffered::Entry audio_buffer[buffer_frames];
+  rtp::tcp::audio::Entry audio_buffer[BUFFER_FRAMES];
   unsigned int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;
@@ -151,7 +148,7 @@ struct ConnInfo {
   int flush_output_flushed; // true if the output device has been flushed.
   uint32_t flush_rtp_timestamp;
   uint64_t time_of_last_audio_packet;
-  audio::seq_t ab_read, ab_write;
+  SeqNum ab_read, ab_write;
   AES_KEY aes;
 
   int amountStuffed;

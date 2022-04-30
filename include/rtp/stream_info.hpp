@@ -64,6 +64,8 @@ public:
   // access the SessionData
   const std::string_view key() const { return std::string_view(data.key); }
 
+  void teardown();
+
   // utility
   void dump(const std::source_location loc = std::source_location::current());
 

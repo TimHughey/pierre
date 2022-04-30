@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -18,33 +19,40 @@
 
 #pragma once
 
-#include <vector>
+#include <cstdint>
+#include <memory>
 
 namespace pierre {
 namespace rtp {
+namespace tcp {
 namespace audio {
-namespace buffered {
+typedef uint16_t seq_t;
 
-class Raw {
+struct Entry { // decoded audio packets
+  bool ready = false;
+  uint8_t status; // flags
+  uint16_t resend_request_number;
+  signed short *data;
+  seq_t sequence_number;
+
+  // the time the packet was added or the time it
+  // was noticed the packet was missing
+  uint64_t initialisation_time;
+
+  uint64_t resend_time; // time of last resend request or zero
+
+  uint32_t given_timestamp; // for debugging and checking
+
+  int length; // the length of the decoded data
+
 public:
-  Raw();
-
-public:
-  std::vector<char> buffer;
-
-  char *toq;
-  char *eoq;
-  size_t max_size;
-  size_t occupancy;
-  pthread_mutex_t mutex;
-  pthread_cond_t not_empty_cv;
-  pthread_cond_t not_full_cv;
+  size_t needBytes() const;
 
 private:
-  static constexpr size_t STD_PACKET_SIZE = 4096;
+  static constexpr size_t STANDARD_PACKET_SIZE = 4096;
 };
 
-} // namespace buffered
 } // namespace audio
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

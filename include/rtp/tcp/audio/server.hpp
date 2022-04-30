@@ -29,24 +29,23 @@
 #include <source_location>
 #include <string>
 #include <thread>
+#include <unordered_set>
 
 #include "rtp/anchor_info.hpp"
 
 namespace pierre {
 namespace rtp {
-namespace audio {
-namespace buffered {
+namespace tcp {
 
-class Server; // forward decl for typedef
-typedef std::shared_ptr<Server> sServer;
-
-class Server : public std::enable_shared_from_this<Server> {
+class AudioServer {
 public:
   using io_context = boost::asio::io_context;
   using tcp_acceptor = boost::asio::ip::tcp::acceptor;
   using tcp_endpoint = boost::asio::ip::tcp::endpoint;
   using tcp_socket = boost::asio::ip::tcp::socket;
   using ip_tcp = boost::asio::ip::tcp;
+  using error_code = boost::system::error_code;
+  using src_loc = std::source_location;
 
   typedef const char *ccs;
 
@@ -56,34 +55,44 @@ public:
     AnchorInfo &anchor;
   };
 
-public: // object creation and shared_ptr API
-  // [[nodiscard]] static sServer create(io_context &io_ctx) {
-  //   // not using std::make_shared; constructor is private
-  //   return sServer(new Server(io_ctx));
-  // }
-
-  [[nodiscard]] static sServer create(const Opts &opts) {
-    // not using std::make_shared; constructor is private
-    return sServer(new Server(opts));
+public:
+  AudioServer(const Opts &opts)
+      : io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)},
+        anchor(opts.anchor) {
+    // 1. store a reference to the io_ctx
+    // 2. create the acceptor
+    // 3. store a reference to the anchor
   }
 
-  sServer getSelf() { return shared_from_this(); }
+  // ensure server is started and return the local endpoint port
+  uint16_t localPort() {
+    if (live == false) {
+      asyncAccept();
+      live = true;
+    }
 
-public:
-  // Public API
-  uint16_t localPort();
-  void teardown();
+    return acceptor.local_endpoint().port();
+  }
+
+  void teardown() {
+    [[maybe_unused]] error_code ec;
+    acceptor.close(ec);
+  }
 
 private:
-  // Server(io_context &io_ctx);
-  Server(const Opts &opts);
-
+  // start accepting connections
   void asyncAccept();
 
+  // check error code and either add more work or gracefully exit
+  void asyncAccept(const error_code &ec);
+
 private:
-  static ccs fnName(std::source_location loc = std::source_location::current()) {
-    return loc.function_name();
+  void announceAccept(const auto handle) {
+    auto fmt_str = FMT_STRING("{} accepted connection, handle={}\n");
+    fmt::print(fmt_str, fnName(), handle);
   }
+
+  static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   // order dependent
@@ -97,9 +106,10 @@ private:
   // temporary holder of socket (io_ctx) which waiting for
   // a connection
   std::optional<tcp_socket> socket;
+
+  static constexpr uint16_t ANY_PORT = 0;
 };
 
-} // namespace buffered
-} // namespace audio
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

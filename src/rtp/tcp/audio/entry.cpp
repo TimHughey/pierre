@@ -17,18 +17,16 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp/audio/buffered/entry.hpp"
+#include "rtp/tcp/audio/entry.hpp"
 
 namespace pierre {
 namespace rtp {
+namespace tcp {
 namespace audio {
-namespace buffered {
 
 size_t Entry::needBytes() const { return 0; }
 
-} // namespace buffered
-
 } // namespace audio
-
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

@@ -31,6 +31,8 @@ public:
   bool populate() override;
 
 private:
+  bool has_streams = false;
+  static constexpr auto STREAMS = "streams";
 };
 
 } // namespace rtsp

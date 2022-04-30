@@ -22,29 +22,30 @@
 #include <boost/asio/buffer.hpp>
 #include <fmt/format.h>
 #include <memory>
+#include <optional>
 #include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "packet/in.hpp"
 #include "rtp/anchor_info.hpp"
 #include "rtp/input_info.hpp"
+#include "rtp/tcp/audio/packet.hpp"
 
 namespace pierre {
 namespace rtp {
-namespace audio {
-namespace buffered {
+namespace tcp {
 
-class Session; // forward decl for shared_ptr def
-typedef std::shared_ptr<Session> sSession;
+class AudioSession; // forward decl for shared_ptr def
+typedef std::shared_ptr<AudioSession> sAudioSession;
 
-class Session : public std::enable_shared_from_this<Session> {
+class AudioSession : public std::enable_shared_from_this<AudioSession> {
 public:
-  enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
   enum Accumulate { RX, TX };
 
 public:
+  using io_context = boost::asio::io_context;
+  using high_res_timer = boost::asio::high_resolution_timer;
   using error_code = boost::system::error_code;
   using tcp_socket = boost::asio::ip::tcp::socket;
   using string = std::string;
@@ -59,24 +60,23 @@ public:
   };
 
 public:
-  ~Session() { teardown(); }
+  ~AudioSession() { teardown(); }
 
 public:
-  [[nodiscard]] static sSession create(const Opts &opts) { return sSession(new Session(opts)); }
+  [[nodiscard]] static sAudioSession create(const Opts &opts) {
+    return sAudioSession(new AudioSession(opts));
+  }
 
-  sSession getSelf() { return shared_from_this(); }
+  sAudioSession getSelf() { return shared_from_this(); }
 
 private:
-  // Session(tcp_socket &&socket);
-  Session(const Opts &opts);
+  // AudioSession(tcp_socket &&socket);
+  AudioSession(const Opts &opts);
 
 public:
   // initiates async audio buffer loop
   void asyncAudioBufferLoop(); // see .cpp file for critical function details
   void teardown();
-
-  void dump(DumpKind dump_type = RawOnly);
-  void dump(const auto *data, size_t len) const;
 
 private:
   void accumulate(Accumulate type, size_t bytes);
@@ -88,17 +88,20 @@ private:
   void nextAudioBuffer();
   bool rxAtLeast(size_t bytes = 1);
   bool rxAvailable(); // load bytes immediately available
-  packet::In &wire() { return _wire; }
+  audio::Packet &wire() { return _wire; }
   void wireToPacket();
 
+  // misc debug
   static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
+
+  void asyncReportRxBytes();
 
 private:
   // order dependent - initialized by constructor
   tcp_socket socket;
   AnchorInfo &anchor;
 
-  packet::In _wire;
+  audio::Packet _wire;
 
   const InputInfo input_info;
   uint32_t pcm_buffer_read_point_rtptime = 0;
@@ -106,15 +109,17 @@ private:
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;
 
+  std::optional<high_res_timer> timer;
+  uint64_t _rx_bytes_last = 0;
+
   bool _shutdown = false;
 
-  static constexpr size_t _buff_size = 4096;
+  static constexpr size_t STD_PACKET_SIZE = 2048;
 
   // private:
   //   static constexpr auto re_syntax = std::regex_constants::ECMAScript;
 };
 
-} // namespace buffered
-} // namespace audio
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

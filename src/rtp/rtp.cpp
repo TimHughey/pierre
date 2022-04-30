@@ -19,50 +19,42 @@
 #include <chrono>
 #include <exception>
 #include <fmt/format.h>
+#include <string_view>
 
 #include "rtp/anchor_info.hpp"
-#include "rtp/audio/buffered/server.hpp"
-#include "rtp/control/datagram.hpp"
-#include "rtp/event/server.hpp"
 #include "rtp/rtp.hpp"
 #include "rtp/servers.hpp"
 
 namespace pierre {
 
 using namespace std::chrono_literals;
-using io_context = boost::asio::io_context;
-using error_code = boost::system::error_code;
+using namespace std::string_view_literals;
 using namespace rtp;
 
-Rtp::Rtp() : depot(ServerDepot(io_ctx)) {
-  // more later
-}
+using io_context = boost::asio::io_context;
+using error_code = boost::system::error_code;
+using Clock = std::chrono::high_resolution_clock;
+using Millis = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
-void Rtp::createServers() {
-  servers.event = event::Server::create(io_ctx);
-  servers.audio_buffered = audio::buffered::Server::create({.io_ctx = io_ctx, .anchor = _anchor});
-  servers.control = control::Datagram::create(io_ctx);
-  servers.timing = timing::Datagram::create(io_ctx);
+Rtp::Rtp() : servers(Servers(io_ctx, _anchor)) {
+  // more later
 }
 
 uint16_t Rtp::localPort(ServerType type) {
   uint16_t port = 0;
 
+  // note: requesting the local port starts the server
   switch (type) {
-    case AudioBuffered:
-      port = servers.audio_buffered->localPort();
+    case ServerType::Audio:
+      port = servers.audio().localPort();
       break;
 
     case ServerType::Event:
-      port = servers.event->localPort();
+      port = servers.event().localPort();
       break;
 
     case ServerType::Control:
-      port = servers.control->localPort();
-      break;
-
-    case ServerType::Timing:
-      port = servers.timing->localPort();
+      port = servers.control().localPort();
       break;
   }
 
@@ -94,8 +86,6 @@ void Rtp::runLoop() {
 }
 
 void Rtp::start() {
-  createServers();
-
   _thread = std::jthread([this]() { runLoop(); });
 
   //  give this thread a name
@@ -113,47 +103,85 @@ void Rtp::save(const rtp::StreamData &data) {
   // _stream_info.dump();
 }
 
-Rtp::TeardownBarrier Rtp::teardown() {
-  fmt::print(FMT_STRING("{} teardown initiated\n"), fnName());
+Rtp::TeardownBarrier Rtp::teardown(Rtp::TeardownPhase phase) {
+  // auto fmt_str = FMT_STRING("{} started phase={}\n");
+  // std::string_view phase_sv;
 
+  // switch (phase) {
+  //   case Rtp::TeardownPhase::None:
+  //     phase_sv = "None";
+  //     break;
+
+  //   case Rtp::TeardownPhase::One:
+
+  //     phase_sv = "ONE";
+  //     break;
+
+  //   case Rtp::TeardownPhase::Two:
+  //     phase_sv = "TWO";
+  //     break;
+  // }
+
+  // fmt::print(fmt_str, fnName(), phase_sv);
+
+  // everything above is just logging setting _teardown_phase
+  // and returning the promise are the substance
+  _teardown_phase = phase;
+
+  // put a Teardown promise in the std::optional to trigger teardown
   return _teardown.emplace(Teardown()).get_future();
 }
 
-void Rtp::teardownNow() {
-  constexpr auto attempts = 10;
-
-  // give io_context an opportunity to shutdown gracefully
-  for (auto attempt = 0; (io_ctx.stopped() == false) && (attempt < attempts); attempt++) {
-    std::this_thread::sleep_for(10ms);
-  }
-
-  fmt::print(FMT_STRING("{} io_ctx stopped\n"), fnName());
-
-  // reset all shared pointers
-  servers.event.reset();
-  servers.audio_buffered.reset();
-  servers.control.reset();
-  servers.timing.reset();
-
-  // create new io context and servers
-  createServers();
+void Rtp::teardownFinished() {
+  // log before removing the barrier
+  fmt::print(FMT_STRING("{}\n"), fnName());
 
   // remove the barrier
-  _teardown.value().set_value(true);
+  _teardown.value().set_value(_teardown_phase);
 
   // clear the promise
   _teardown.reset();
 
-  fmt::print(FMT_STRING("{} teardown complete\n"), fnName());
+  _teardown_phase = None;
+}
+
+void Rtp::teardownNow() {
+  // we are only here if the io_ctx is stopped
+  // immediately tear everything down
+  servers.teardown();
+
+  // set all state objects to defqult
+  _stream_info = rtp::StreamInfo();
+  // _anchor = rtp::AnchorInfo();  FIX ME!!!!
+  _input_info = rtp::InputInfo();
+  _conn_info = rtp::ConnInfo();
+
+  teardownFinished();
 }
 
 void Rtp::watchForTeardown(WatchDog &watch_dog) {
   watch_dog.expires_after(250ms);
 
   watch_dog.async_wait([&]([[maybe_unused]] error_code ec) {
+    // is there a promise waitng?
     if (_teardown.has_value()) {
-      io_ctx.stop();
-      return;
+      // what promise did we make? Phase 1 or 2?
+      switch (_teardown_phase) {
+        case Rtp::TeardownPhase::None:
+          // odd but let's handle it
+          teardownFinished();
+          break;
+
+        case Rtp::TeardownPhase::One:
+          _stream_info.teardown(); // only reset the session key
+          teardownFinished();
+          break;
+
+        case Rtp::TeardownPhase::Two:
+          // this is the big phase, setting the vaalue and clearing promise
+          // handled in teardownNow() after the io_ctx is stopped
+          io_ctx.stop();
+      }
     }
 
     watchForTeardown(watch_dog);

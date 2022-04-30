@@ -61,8 +61,6 @@ public:
   AnchorInfo &operator=(const AnchorInfo &ai);
   AnchorInfo &operator=(AnchorInfo &&ai);
 
-  // copy/move
-
   void dump(const std::source_location loc = std::source_location::current());
 
 public:

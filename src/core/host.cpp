@@ -110,9 +110,11 @@ void Host::discoverIPs() {
       std::array<char, INET6_ADDRSTRLEN + 1> buf{0};
 
       if (iap->ifa_addr->sa_family == AF_INET6) {
-        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+        // exclude Ipv6 for the moment
 
-        inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
+        // struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+
+        // inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
       } else {
         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
 
@@ -132,11 +134,11 @@ bool Host::findHardwareAddr(HwAddrBytes &dest) {
   struct ifaddrs *ifaddr = NULL;
   constexpr auto exclude_lo = "lo";
 
-  if (getifaddrs(&ifaddr) == -1) {
+  if (getifaddrs(&ifaddr) < 0) {
     return found;
   }
 
-  for (auto ifa = ifaddr; (ifa != NULL) && !found; ifa = ifa->ifa_next) {
+  for (auto ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
     if (ifa->ifa_addr->sa_family == AF_PACKET) {
       if (strcmp(ifa->ifa_name, exclude_lo) != 0) {
         auto *s = (struct sockaddr_ll *)ifa->ifa_addr;
@@ -147,6 +149,7 @@ bool Host::findHardwareAddr(HwAddrBytes &dest) {
         }
 
         found = true;
+        break;
       }
     }
   }

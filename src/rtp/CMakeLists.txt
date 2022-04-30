@@ -20,12 +20,27 @@ find_library(rt       NAMES rt            REQUIRED)
 find_package(OpenSSL                      REQUIRED)
 
 add_library(RTP
-  conn_info.cpp rtp.cpp
-  anchor_info.cpp stream_info.cpp
-  audio/buffered/server.cpp audio/buffered/session.cpp
-    audio/buffered/entry.cpp audio/buffered/raw.cpp
-  control/datagram.cpp timing/datagram.cpp
-  event/server.cpp event/session.cpp
+  # Base
+    rtp.cpp
+
+  # Supporting data structures
+    conn_info.cpp servers.cpp anchor_info.cpp stream_info.cpp
+
+  # Keeper of server instances
+    servers.cpp
+
+  # TCP servers
+    tcp/audio/entry.cpp
+    tcp/audio/packet.cpp
+    tcp/audio/server.cpp
+    tcp/audio/session.cpp
+    tcp/event/server.cpp
+    tcp/event/session.cpp
+
+  # UDP servers
+    udp/control/packet.cpp
+    udp/control/server.cpp
+  
   ${HEADER_LIST}
 )
 

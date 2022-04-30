@@ -67,6 +67,7 @@ AnchorInfo &AnchorInfo::operator=(AnchorData &&ad) {
 AnchorInfo &AnchorInfo::operator=(const AnchorInfo &ai) {
   data = ai.data;
   actual = ai.actual;
+  nptp = ai.nptp;
 
   __init();
 
@@ -94,7 +95,7 @@ void AnchorInfo::__init() {
   }
 
   if (nptp.use_count() == 0) {
-    auto fmt_str = FMT_STRING("WARN {} nptp shared ptr is not set (not refreshing ClockInfo\n");
+    auto fmt_str = FMT_STRING("WARN {} nptp shared ptr is not set (not refreshing ClockInfo)\n");
     fmt::print(fmt_str, fnName());
   }
 

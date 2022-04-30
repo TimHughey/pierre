@@ -81,6 +81,13 @@ void StreamInfo::__init() {
   // nothing to init at the moment, might be later
 }
 
+void StreamInfo::teardown() {
+  // this is a "partial" teardown, just clear some items
+  data.key.clear();
+  data.active_remote.clear();
+  data.dacp_id.clear();
+}
+
 void StreamInfo::dump(const std::source_location loc) {
   const auto prefix = loc.function_name();
   const auto fmt_str = FMT_STRING("{:>15}={}\n");

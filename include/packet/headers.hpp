@@ -43,6 +43,7 @@ public:
     None,
     CSeq,
     Server,
+    ContentSimple,
     ContentType,
     ContentLength,
     Public,
@@ -56,10 +57,18 @@ public:
     XAppleProtocolVersion,
     XAppleHKP,
     XAppleET,
-    RtpInfo
+    RtpInfo,
+    XAppleAbsoulteTime
   };
 
-  enum Val2 : uint8_t { OctetStream = 1, AirPierre, AppleBinPlist, TextParameters, ImagePng };
+  enum Val2 : uint8_t {
+    ConnectionClosed = 1,
+    OctetStream,
+    AirPierre,
+    AppleBinPlist,
+    TextParameters,
+    ImagePng
+  };
 
 public:
   using string = std::string;

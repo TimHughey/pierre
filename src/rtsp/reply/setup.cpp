@@ -37,7 +37,7 @@ namespace pierre {
 namespace rtsp {
 using namespace packet;
 
-using enum ServerType;
+using enum rtp::ServerType;
 
 Setup::Setup(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // dictDump();
@@ -131,7 +131,7 @@ bool Setup::handleStreams() {
   // rtp->localPort() returns the local port (and starts the service if needed)
   stream0_dict.dictSetUint(nullptr, dictKey(controlPort), rtp->localPort(Control));
   stream0_dict.dictSetUint(nullptr, dictKey(type), PTP);
-  stream0_dict.dictSetUint(nullptr, dictKey(dataPort), rtp->localPort(AudioBuffered));
+  stream0_dict.dictSetUint(nullptr, dictKey(dataPort), rtp->localPort(Audio));
   stream0_dict.dictSetUint(nullptr, dictKey(audioBufferSize), rtp->bufferSize());
 
   Aplist reply_dict;

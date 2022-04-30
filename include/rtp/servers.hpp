@@ -24,33 +24,46 @@
 #include <unordered_map>
 #include <variant>
 
-#include "rtp/audio/buffered/server.hpp"
-#include "rtp/control/datagram.hpp"
-#include "rtp/event/server.hpp"
+#include "rtp/anchor_info.hpp"
+#include "rtp/tcp/audio/server.hpp"
+#include "rtp/tcp/event/server.hpp"
+#include "rtp/udp/control/server.hpp"
 
 namespace pierre {
 namespace rtp {
 
-enum ServerKind : uint8_t { Audio = 0, Control, Event };
+enum ServerType : uint8_t { Audio = 0, Control, Event };
 
-class ServerDepot {
+class Servers {
 public:
-  using AudioBuffered = rtp::audio::buffered::Server;
-  using EventReceiver = rtp::event::Server;
-  using ControlDatagram = rtp::control::Datagram;
-
-  using Variant = std::variant<AudioBuffered, EventReceiver, ControlDatagram>;
-  using Map = std::unordered_map<ServerKind, Variant>;
-
+  using AudioServer = rtp::tcp::AudioServer;
+  using EventServer = rtp::tcp::EventServer;
+  using ControlServer = rtp::udp::ControlServer;
   using io_context = boost::asio::io_context;
   using error_code = boost::system::error_code;
+  using enum ServerType;
 
-  using enum ServerKind;
+  typedef std::variant<AudioServer, ControlServer, EventServer> Variant;
+  typedef std::unordered_map<ServerType, Variant> Map;
 
 public:
-  ServerDepot(io_context &io_ctx);
+  Servers(io_context &io_ctx, AnchorInfo &anchor);
+
+  AudioServer &audio();
+  ControlServer &control();
+  EventServer &event();
+
+  void teardown();
 
 private:
+  Variant &getOrCreate(ServerType type);
+
+private:
+  // order dependent based on constructor
+  io_context &io_ctx;
+  AnchorInfo &anchor;
+
+  // order independent
   Map map;
 };
 

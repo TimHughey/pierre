@@ -19,24 +19,48 @@
 #include "rtsp/reply/teardown.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "packet/headers.hpp"
 #include "rtp/rtp.hpp"
 
 namespace pierre {
 namespace rtsp {
 
+using namespace packet;
+
 Teardown::Teardown(const Reply::Opts &opts) : Reply(opts), packet::Aplist(plist()) {
-  rHeaders().dump();
-  dictDump();
+  // does the plist contain a steams array?
+  has_streams = dictItemExists(STREAMS);
+
+  // rHeaders().dump();
+  // dictDump();
 }
 
 bool Teardown::populate() {
+  // get Rtp instance, we'll use it a copy of times
+  auto rtp = Rtp::instance();
+
   service()->deviceSupportsRelay(false);
   mdns()->update();
+  responseCode(packet::RespCode::OK); // always OK
 
-  auto teardown = Rtp::instance()->teardown();
-  teardown.wait();
+  if (has_streams == true) {
+    // when the plist contains streams we only want Teardown phase 1
 
-  responseCode(packet::RespCode::OK);
+    auto teardown = rtp->teardown(Rtp::TeardownPhase::One);
+    teardown.get();
+  } else {
+    // otherwise we want both phases
+
+    auto teardown1 = rtp->teardown(Rtp::TeardownPhase::One);
+    teardown1.get();
+
+    auto teardown2 = rtp->teardown(Rtp::TeardownPhase::Two);
+    teardown2.get();
+
+    // include connection was closed
+    headers.add(Headers::Type2::ContentSimple, Headers::Val2::ConnectionClosed);
+  }
+
   return true;
 }
 } // namespace rtsp

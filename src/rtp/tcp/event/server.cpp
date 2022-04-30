@@ -19,28 +19,16 @@
 #include <fmt/format.h>
 #include <source_location>
 
-#include "event/server.hpp"
-#include "event/session.hpp"
+#include "rtp/tcp/event/server.hpp"
+#include "rtp/tcp/event/session.hpp"
 
 namespace pierre {
 namespace rtp {
-namespace event {
+namespace tcp {
 
 using namespace boost::system;
-using io_context = boost::asio::io_context;
-using tcp_acceptor = boost::asio::ip::tcp::acceptor;
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-using tcp_socket = boost::asio::ip::tcp::socket;
-using ip_tcp = boost::asio::ip::tcp;
-using error_code = boost::system::error_code;
-using src_loc = std::source_location;
 
-Server::Server(io_context &io_ctx)
-    : io_ctx(io_ctx), acceptor(io_ctx, tcp_endpoint(ip_tcp::v6(), port)) {
-  port = acceptor.local_endpoint().port(); // save the chosen port
-}
-
-void Server::asyncAccept() {
+void EventServer::asyncAccept() {
   // capture the io_ctx in this optional for use when a request is accepted
   // call it socket since it will become one once accepted
   socket.emplace(io_ctx);
@@ -58,30 +46,33 @@ void Server::asyncAccept() {
       //  2. we then start the session using the shared_ptr returned by Session::create()
       //  3. Session::asyncRequestLoop() must ensure it captures the shared_ptr
       //     to ensure the Session stays in scope
-      auto session = Session::create(std::move(socket.value()));
+      auto session = EventSession::create(std::move(socket.value()));
 
       session->asyncEventLoop();
-
-    } else {
-      auto fmt_str = FMT_STRING("{} accept connection failed, error={}\n");
-      fmt::print(fmt_str, fnName(), ec.message());
     }
 
-    asyncAccept();
+    asyncAccept(ec); // schedule more work or gracefully exit
   });
 }
 
-uint16_t Server::localPort() {
-  if (live == false) {
-    // attach async_accept as work to the io_ctx
-    asyncAccept();
-    live = true;
+void EventServer::asyncAccept(const error_code &ec) {
+  if (ec == errc::success) {
+    // no error condition, schedule more io_ctx work if the socket is open
+    if (acceptor.is_open()) {
+      asyncAccept();
+    }
+    return;
   }
 
-  // return the selected port to the caller
-  return port;
+  if ((ec.value() != errc::operation_canceled) &&
+      (ec.value() != errc::resource_unavailable_try_again)) {
+    auto fmt_str = FMT_STRING("{} accept connection failed, error={}\n");
+    fmt::print(fmt_str, fnName(), ec.message());
+  }
+
+  acceptor.close();
 }
 
-} // namespace event
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

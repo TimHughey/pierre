@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <cstdint>
 #include <memory>
+#include <source_location>
 #include <uuid/uuid.h>
 
 #include "core/config.hpp"
@@ -38,6 +39,10 @@ class Host;
 typedef std::shared_ptr<Host> sHost;
 
 class Host : public std::enable_shared_from_this<Host> {
+public:
+  using src_loc = std::source_location;
+  typedef const char *ccs;
+
 public:
   // NOTE: creation of the shared instance
   [[nodiscard]] static sHost create(const Config &cfg) {
@@ -74,6 +79,9 @@ private:
 
   void initCrypto();
   bool findHardwareAddr(HwAddrBytes &dest);
+
+  // misc helpers
+  ccs fnName(src_loc loc = src_loc::current()) const { return loc.function_name(); }
 
 public:
   // config provider

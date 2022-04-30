@@ -31,12 +31,12 @@
 
 namespace pierre {
 namespace rtp {
-namespace event {
+namespace tcp {
 
-class Session; // forward decl for shared_ptr def
-typedef std::shared_ptr<Session> sSession;
+class EventSession; // forward decl for shared_ptr def
+typedef std::shared_ptr<EventSession> sEventSession;
 
-class Session : public std::enable_shared_from_this<Session> {
+class EventSession : public std::enable_shared_from_this<EventSession> {
 public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
   enum Accumulate { RX, TX };
@@ -51,16 +51,16 @@ public:
 
 public:
   // shared_ptr API
-  [[nodiscard]] static sSession create(tcp_socket &&new_socket) {
+  [[nodiscard]] static sEventSession create(tcp_socket &&new_socket) {
     // must call constructor directly since it's private
     // create() is a wrapper for new, forward the tcp_socket
-    return sSession(new Session(std::forward<tcp_socket>(new_socket)));
+    return sEventSession(new EventSession(std::forward<tcp_socket>(new_socket)));
   }
 
-  sSession getSelf() { return shared_from_this(); }
+  sEventSession getSelf() { return shared_from_this(); }
 
 private:
-  Session(tcp_socket &&socket);
+  EventSession(tcp_socket &&socket);
 
 public:
   // initiates async event run loop
@@ -107,6 +107,6 @@ private:
   bool _shutdown = false;
 };
 
-} // namespace event
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

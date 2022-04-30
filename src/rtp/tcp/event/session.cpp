@@ -27,11 +27,11 @@
 #include <string_view>
 #include <thread>
 
-#include "rtp/event/session.hpp"
+#include "rtp/tcp/event/session.hpp"
 
 namespace pierre {
 namespace rtp {
-namespace event {
+namespace tcp {
 
 using namespace boost::asio;
 using namespace boost::system;
@@ -42,13 +42,13 @@ using string_view = std::string_view;
 
 // notes:
 //  1. socket is passed as a reference to a reference so we must move to our local socket reference
-Session::Session(tcp_socket &&new_socket)
+EventSession::EventSession(tcp_socket &&new_socket)
     : socket(std::move(new_socket)) // io_context / socket for this session
 {
   fmt::print("{} socket={}\n", fnName(), socket.native_handle());
 }
 
-void Session::asyncEventLoop() {
+void EventSession::asyncEventLoop() {
   // notes:
   //  1. nothing within this function can be captured by the lamba
   //     because the scope of this function ends before
@@ -102,11 +102,11 @@ void Session::asyncEventLoop() {
 
   // final notes:
   // 1. the first return of this function traverses back to the Server that created the
-  //    Session (in the same io_ctx)
+  //    EventSession (in the same io_ctx)
   // 2. subsequent returns are to the io_ctx and match the required void return signature
 }
 
-void Session::handleEvent(size_t rx_bytes) {
+void EventSession::handleEvent(size_t rx_bytes) {
   fmt::print("{} bytes={}\n", fnName(), rx_bytes);
 
   // the following function calls do not contain async_* calls
@@ -125,16 +125,7 @@ void Session::handleEvent(size_t rx_bytes) {
   // }
 }
 
-// size_t Session::decrypt(packet::In &packet) {
-//   auto consumed = aes_ctx->decrypt(packet, _wire);
-
-//   // fmt::print("{} packet_size={}\n", fnName(), packet.size());
-//   _wire.clear(); // wire bytes have been deciphered, clear them
-
-//   return consumed;
-// }
-
-bool Session::rxAvailable() {
+bool EventSession::rxAvailable() {
   if (isReady()) {
     error_code ec;
     size_t avail_bytes = socket.available(ec);
@@ -152,86 +143,7 @@ bool Session::rxAvailable() {
   return isReady();
 }
 
-// void Session::ensureAllContent() {
-//   // bail out if the socket isn't ready
-//   if (isReady() == false) {
-//     return;
-//   }
-//
-//   // if subsequent data is loaded it will all need up in this packet
-//   auto packet = packet::In();
-//
-//   // decrypt the wire bytes resceived thus far
-//   [[maybe_unused]] auto consumed = decrypt(packet);
-//
-//   // need more content? send Continue reply
-//   auto more_bytes = _headers.loadMore(packet.view(), _content);
-//
-//   // if more bytes are needed, reply Continue
-//   if (more_bytes) {
-//     constexpr auto CONTINUE = "CONTINUE";
-//     auto reply = Reply::create(
-//         {.method = CONTINUE, .path = path(), .content = content(), .headers = headers()});
-//
-//     auto &reply_packet = reply->build();
-//
-//     aes_ctx->encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-//     auto buff = const_buffer(reply_packet.data(), reply_packet.size());
-//
-//     error_code ec;
-//     auto tx_bytes = write(socket, buff, ec);
-//     accumulateTx(tx_bytes);
-//   }
-//
-//   // if wire bytes are loaded remember this is an entirely new packet
-//   while (more_bytes && isReady()) {
-//     if (rxAtLeast(more_bytes)) {
-//       [[maybe_unused]] auto consumed = decrypt(packet);
-//       more_bytes = _headers.loadMore(packet.view(), _content);
-//     }
-//   }
-// }
-//
-// void Session::createAndSendReply() {
-//   if (isReady() == false) {
-//     return;
-//   }
-//
-//   // create the reply to the request
-//   auto reply = Reply::create({.method = method(),
-//                               .path = path(),
-//                               .content = content(),
-//                               .headers = headers(),
-//                               .host = host->getSelf(),
-//                               .service = service->getSelf(),
-//                               .aes_ctx = aes_ctx,
-//                               .mdns = mdns->getSelf(),
-//                               .nptp = nptp->getSelf(),
-//                               .rtp = rtp->getSelf()});
-//
-//   auto &reply_packet = reply->build();
-//
-//   if (reply->debug()) {
-//     auto prefix = std::string_view("SESSION");
-//     fmt::print("{} reply seq={:03} method={} path={} resp_code={}\n", prefix, reply->sequence(),
-//                method(), path(), reply->responseCodeView());
-//   }
-//
-//   // only send the reply packet if there's data
-//   if (reply_packet.size() > 0) {
-//     aes_ctx->encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-//     auto buff = const_buffer(reply_packet.data(), reply_packet.size());
-//
-//     error_code ec;
-//     auto tx_bytes = write(socket, buff, ec);
-//     accumulateTx(tx_bytes);
-//
-//     // check the most recent ec
-//     isReady(ec);
-//   }
-// }
-
-bool Session::isReady(const error_code &ec, const src_loc loc) {
+bool EventSession::isReady(const error_code &ec, const src_loc loc) {
   auto rc = isReady();
 
   if (rc) {
@@ -239,10 +151,18 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
       case errc::success:
         break;
 
+      case errc::operation_canceled:
+      case errc::resource_unavailable_try_again:
+      case errc::no_such_file_or_directory:
+        rc = false;
+        break;
+
       default:
         fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
                    socket.native_handle(), ec.value(), ec.message());
 
+        socket.shutdown(tcp_socket::shutdown_both);
+        socket.close();
         rc = false;
     }
   }
@@ -250,13 +170,9 @@ bool Session::isReady(const error_code &ec, const src_loc loc) {
   return rc;
 }
 
-void Session::nextEvent() {
-  // _wire.clear();
-  // _headers.clear();
-  // _content.clear();
-}
+void EventSession::nextEvent() { _wire.clear(); }
 
-bool Session::rxAtLeast(size_t bytes) {
+bool EventSession::rxAtLeast(size_t bytes) {
   if (isReady()) {
     auto buff = dynamic_buffer(_wire);
 
@@ -268,7 +184,7 @@ bool Session::rxAtLeast(size_t bytes) {
   return isReady();
 }
 
-void Session::accumulate(Accumulate type, size_t bytes) {
+void EventSession::accumulate(Accumulate type, size_t bytes) {
   switch (type) {
     case RX:
       _rx_bytes += bytes;
@@ -280,28 +196,6 @@ void Session::accumulate(Accumulate type, size_t bytes) {
   }
 }
 
-void Session::dump([[maybe_unused]] DumpKind dump_type) {
-  // std::time_t now = std::time(nullptr);
-  // std::string dt = std::ctime(&now);
-
-  // if (dump_type == HeadersOnly) {
-  //   fmt::print("method={} path={} protocol={} {}\n", method(), path(), protocol(), dt);
-
-  //   _headers.dump();
-  // }
-
-  // if (dump_type == ContentOnly) {
-  //   _content.dump();
-  // }
-
-  // if (dump_type == RawOnly) {
-  //   const std::string_view out((const char *)_wire.data(), _wire.size());
-  //   fmt::print("{}\n", out);
-  // }
-
-  // fmt::print("\n");
-}
-
-} // namespace event
+} // namespace tcp
 } // namespace rtp
 } // namespace pierre

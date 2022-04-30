@@ -32,13 +32,10 @@
 #include <unordered_map>
 
 #include "rtp/anchor_info.hpp"
-#include "rtp/audio/buffered/server.hpp"
-#include "rtp/control/datagram.hpp"
-#include "rtp/event/server.hpp"
+#include "rtp/conn_info.hpp"
 #include "rtp/input_info.hpp"
 #include "rtp/servers.hpp"
 #include "rtp/stream_info.hpp"
-#include "rtp/timing/datagram.hpp"
 
 namespace pierre {
 
@@ -46,24 +43,17 @@ namespace pierre {
 class Rtp;
 typedef std::shared_ptr<Rtp> sRtp;
 
-enum ServerType : uint8_t { AudioBuffered = 0, Event, Control, Timing };
-
 class Rtp : public std::enable_shared_from_this<Rtp> {
-private:
-  struct Servers {
-    rtp::event::sServer event;
-    rtp::audio::buffered::sServer audio_buffered;
-    rtp::control::sDatagram control;
-    rtp::timing::sDatagram timing;
-  };
+public:
+  enum TeardownPhase : uint8_t { None = 0, One, Two };
 
 public:
   using io_context = boost::asio::io_context;
   using string = std::string;
   using WatchDog = boost::asio::high_resolution_timer;
 
-  typedef std::future<bool> TeardownBarrier;
-  typedef std::promise<bool> Teardown;
+  typedef std::future<TeardownPhase> TeardownBarrier;
+  typedef std::promise<TeardownPhase> Teardown;
   typedef const string &csr;
   typedef std::optional<Teardown> TeardownKeeper;
   typedef const char *ccs;
@@ -87,10 +77,10 @@ public:
   // Public API
   size_t bufferFrames() const { return 1024; }
   size_t bufferStartFill() const { return 220; }
-  uint16_t localPort(ServerType type); // local endpoint port
-  bool playEnabled() const { return _anchor.data.rate & 0x01; }
+  uint16_t localPort(rtp::ServerType type); // local endpoint port
+  bool isPlayEnabled() const { return _anchor.data.rate & 0x01; }
   void start();
-  [[nodiscard]] TeardownBarrier teardown();
+  [[nodiscard]] TeardownBarrier teardown(TeardownPhase phase = TeardownPhase::Two);
 
   // Savers
   void save(const rtp::AnchorData &anchor_data);
@@ -102,11 +92,10 @@ public:
 private:
   Rtp();
 
-  void createServers();
-
   void runLoop();
   void watchForTeardown(WatchDog &watch_dog);
   void teardownNow();
+  void teardownFinished();
 
   // misc helpers
   static ccs fnName(std::source_location loc = std::source_location::current()) {
@@ -115,10 +104,9 @@ private:
 
 private:
   io_context io_ctx;
-  // shared pointers to all servers spun up for RTP
-  Servers servers;
 
-  rtp::ServerDepot depot;
+  // all servers spun up for RTP
+  rtp::Servers servers;
 
   // order independent
   uint32_t _frames_per_packet_max = 352; // audio frames per packet
@@ -129,8 +117,10 @@ private:
   rtp::StreamInfo _stream_info;
   rtp::AnchorInfo _anchor;
   rtp::InputInfo _input_info;
+  rtp::ConnInfo _conn_info;
 
   TeardownKeeper _teardown;
+  TeardownPhase _teardown_phase = None;
 
   bool running = false;
   uint64_t last_resend_request_error_ns = 0;

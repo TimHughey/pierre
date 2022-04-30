@@ -16,44 +16,36 @@
 //
 //  https://www.wisslanding.com
 
+#include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <cstdint>
 #include <exception>
 #include <fmt/format.h>
+#include <list>
 #include <source_location>
+#include <unordered_set>
 
-#include "rtsp/server.hpp"
-#include "rtsp/session.hpp"
-#include <core/host.hpp>
-#include <core/service.hpp>
-#include <mdns/mdns.hpp>
-#include <nptp/nptp.hpp>
+#include "rtp/tcp/audio/server.hpp"
+#include "rtp/tcp/audio/session.hpp"
 
 namespace pierre {
-namespace rtsp {
+namespace rtp {
+namespace tcp {
 
-using namespace boost::asio;
 using namespace boost::system;
-using error_code = boost::system::error_code;
-using src_loc = std::source_location;
 
-Server::Server(const Server::Opts &opts)
-    : opts(opts), io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), _port)} {
-  // store a reference to the io_ctx and create the acceptor
-  // see start()
-}
-
-void Server::async_accept() {
+void AudioServer::asyncAccept() {
   // capture the io_ctx in this optional for use when a request is accepted
   // call it socket since it will become one once accepted
   socket.emplace(io_ctx);
 
-  // since the io_ctx is wrapped in the optional and async_accept wants the actual
+  // since the io_ctx is wrapped in the optional and asyncAccept wants the actual
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      // const std::source_location loc = std::source_location::current();
-      // auto handle = (*socket).native_handle();
-      // fmt::print("{} accepted connection, handle={}\n", loc.function_name(), handle);
+      announceAccept((*socket).native_handle());
 
       // create the session passing all the options
       // notes
@@ -61,28 +53,34 @@ void Server::async_accept() {
       //  2. we then start the session using the shared_ptr returned by Session::create()
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
-      auto session = Session::create(
-          std::move(socket.value()),
-          {.host = opts.host, .service = opts.service, .mdns = opts.mdns, .nptp = opts.nptp});
+      auto session =
+          AudioSession::create({.new_socket = std::move(socket.value()), .anchor = anchor});
 
-      session->asyncRequestLoop();
-
-    } else {
-      fmt::print("{} accept connection failed, error={}\n", ec.message());
+      session->asyncAudioBufferLoop();
     }
 
-    async_accept();
+    asyncAccept(ec); // schedule more work or gracefully exit
   });
 }
 
-void Server::start() {
-  try {
-    async_accept();
-  } catch (std::exception &e) {
-    const src_loc loc = std::source_location::current();
-    fmt::print("{} caught {}\n", loc.function_name(), e.what());
+void AudioServer::asyncAccept(const error_code &ec) {
+  if (ec == errc::success) {
+    // no error condition, schedule more io_ctx work if the socket is open
+    if (acceptor.is_open()) {
+      asyncAccept();
+    }
+    return;
   }
+
+  if ((ec.value() != errc::operation_canceled) &&
+      (ec.value() != errc::resource_unavailable_try_again)) {
+    auto fmt_str = FMT_STRING("{} accept connection failed, error={}\n");
+    fmt::print(fmt_str, fnName(), ec.message());
+  }
+
+  acceptor.close();
 }
 
-} // namespace rtsp
+} // namespace tcp
+} // namespace rtp
 } // namespace pierre
