@@ -28,9 +28,9 @@
 #include <string_view>
 #include <vector>
 
+#include "core/input_info.hpp"
+#include "packet/queued.hpp"
 #include "rtp/anchor_info.hpp"
-#include "rtp/input_info.hpp"
-#include "rtp/tcp/audio/packet.hpp"
 
 namespace pierre {
 namespace rtp {
@@ -99,10 +99,7 @@ private:
   tcp_socket socket;
   AnchorInfo &anchor;
 
-  audio::Packet wire;
-
-  const InputInfo input_info;
-  uint32_t pcm_buffer_read_point_rtptime = 0;
+  packet::Queued wire;
 
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;

@@ -3,7 +3,7 @@
 #
 
 set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
-set(HEADER_PATH_LOCAL "${HEADER_PATH}/rtp")
+set(HEADER_PATH_LOCAL "${HEADER_PATH}/pcm")
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS 
   "${HEADER_PATH_LOCAL}/*.h*"
 )
@@ -19,29 +19,9 @@ find_package(fmt                          REQUIRED)
 find_library(rt       NAMES rt            REQUIRED)
 find_package(OpenSSL                      REQUIRED)
 
-add_library(RTP
+add_library(PCM
   # Base
-    rtp.cpp
-
-  # Supporting data structures
-    conn_info.cpp servers.cpp anchor_info.cpp stream_info.cpp
-
-  # Keeper of server instances
-    servers.cpp
-
-  # TCP audo server and supprt
-    tcp/audio/entry.cpp
-    tcp/audio/server.cpp
-    tcp/audio/session.cpp
-
-  # TCP event server and support
-
-    tcp/event/server.cpp
-    tcp/event/session.cpp
-
-  # UDP servers
-    udp/control/packet.cpp
-    udp/control/server.cpp
+    buffer.cpp
   
   ${HEADER_LIST}
 )
@@ -52,13 +32,11 @@ target_include_directories(RTP PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
 # all includes are relative to base includes
 target_include_directories(RTP PUBLIC ${HEADER_PATH})
 
-target_link_libraries(RTP PUBLIC
+target_link_libraries(PCM PUBLIC
   ${Boost_LIBRARIES}
-  # ${plist}
-  # Core
-  # mDNS
+  Core
+  RTP
   ssl
-  nPTP RTSP PACKET
   fmt::fmt
   rt
 )

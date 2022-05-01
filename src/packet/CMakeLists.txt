@@ -14,7 +14,7 @@ find_package(fmt               REQUIRED)
 find_library(plist NAMES plist REQUIRED)
 
 add_library(PACKET
-  headers.cpp content.cpp
+  headers.cpp content.cpp queued.cpp
   aplist.cpp resp_code.cpp
   ${HEADER_LIST}
 )

@@ -22,7 +22,6 @@
 
 #pragma once
 
-#include <boost/asio/io_context.hpp>
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -40,17 +39,15 @@
 namespace pierre {
 
 // forward decl for shared_ptr typedef
-class Rtp;
-typedef std::shared_ptr<Rtp> sRtp;
+class PulseCodeMod;
+typedef std::shared_ptr<PulseCodeMod> sPulseCodeMod;
 
-class Rtp : public std::enable_shared_from_this<Rtp> {
+class PulseCodeMod : public std::enable_shared_from_this<PulseCodeMod> {
 public:
   enum TeardownPhase : uint8_t { None = 0, One, Two };
 
 public:
-  using io_context = boost::asio::io_context;
   using string = std::string;
-  using WatchDog = boost::asio::high_resolution_timer;
 
   typedef std::future<TeardownPhase> TeardownBarrier;
   typedef std::promise<TeardownPhase> Teardown;
@@ -59,17 +56,17 @@ public:
   typedef const char *ccs;
 
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sRtp create() {
+  [[nodiscard]] static sPulseCodeMod create() {
     if (_instance.use_count() == 0) {
-      _instance = sRtp(new Rtp());
+      _instance = sPulseCodeMod(new PulseCodeMod());
     }
     // not using std::make_shared; constructor is private
     return _instance;
   }
 
-  [[nodiscard]] static sRtp instance() { return create(); }
+  [[nodiscard]] static sPulseCodeMod instance() { return create(); }
 
-  sRtp getSelf() { return shared_from_this(); }
+  sPulseCodeMod getSelf() { return shared_from_this(); }
 
   void static shutdown() { _instance.reset(); }
 
@@ -90,7 +87,7 @@ public:
   size_t bufferSize() const { return 1024 * 1024 * 8; };
 
 private:
-  Rtp();
+  PulseCodeMod();
 
   void runLoop();
   void watchForTeardown(WatchDog &watch_dog);
@@ -125,7 +122,7 @@ private:
   bool running = false;
   uint64_t last_resend_request_error_ns = 0;
 
-  static std::shared_ptr<Rtp> _instance;
+  static std::shared_ptr<PulseCodeMod> _instance;
   std::jthread _thread;
 };
 

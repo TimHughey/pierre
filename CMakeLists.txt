@@ -79,7 +79,7 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  Misc Core Audio DMX Lightdesk mDNS RTSP RTP nPTP
+  Misc Core Audio DMX Lightdesk mDNS RTSP RTP nPTP PCM
   ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs

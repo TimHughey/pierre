@@ -80,7 +80,9 @@ void AudioSession::asyncAudioBufferLoop() {
   //     of the session above zero until the session ends
   //     (e.g. due to error, natural completion, io_ctx is stopped)
 
-  async_read(socket, wire.buffer(), transfer_at_least(STD_PACKET_SIZE),
+  auto buf = dynamic_buffer(wire.buffer());
+
+  async_read(socket, buf, transfer_at_least(wire.nominal()),
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // general notes:
                //
@@ -119,11 +121,30 @@ void AudioSession::asyncAudioBufferLoop() {
   // 2. subsequent returns are to the io_ctx and match the required void return signature
 }
 
+void AudioSession::asyncReportRxBytes() {
+  timer->expires_after(30s);
+
+  timer->async_wait([self = shared_from_this()](error_code ec) {
+    if ((ec == errc::success) && (self->_rx_bytes != self->_rx_bytes_last)) {
+      const auto ready_bytes = self->wire.readyBytes();
+
+      auto fmt_str = FMT_STRING("{} queued_bytes={} rx_bytes={}\n");
+      fmt::print(fmt_str, fnName(), ready_bytes, self->_rx_bytes);
+
+      self->_rx_bytes_last = self->_rx_bytes;
+
+      self->asyncReportRxBytes();
+    } else {
+      self->timer.reset();
+    }
+  });
+}
+
 void AudioSession::handleAudioBuffer(size_t rx_bytes) {
   // the following function calls do not contain async_* calls
   accumulate(Accumulate::RX, rx_bytes);
 
-  wire.loaded(rx_bytes);
+  wire.gotBytes(rx_bytes);
 
   /*
  rxAvailable(); // drain the socket
@@ -151,23 +172,6 @@ size_t AudioSession::decrypt(packet::In &packet) {
   return consumed;
 }
 */
-
-void AudioSession::asyncReportRxBytes() {
-  timer->expires_after(30s);
-
-  timer->async_wait([self = shared_from_this()](error_code ec) {
-    if ((ec == errc::success) && (self->_rx_bytes != self->_rx_bytes_last)) {
-      auto fmt_str = FMT_STRING("{} total rx_bytes={}\n");
-      fmt::print(fmt_str, fnName(), self->_rx_bytes);
-
-      self->_rx_bytes_last = self->_rx_bytes;
-
-      self->asyncReportRxBytes();
-    } else {
-      self->timer.reset();
-    }
-  });
-}
 
 /*
 bool AudioSession::rxAvailable() {

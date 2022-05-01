@@ -153,7 +153,7 @@ void Rtp::teardownNow() {
   // set all state objects to defqult
   _stream_info = rtp::StreamInfo();
   // _anchor = rtp::AnchorInfo();  FIX ME!!!!
-  _input_info = rtp::InputInfo();
+  _input_info = InputInfo();
   _conn_info = rtp::ConnInfo();
 
   teardownFinished();
