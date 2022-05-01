@@ -29,11 +29,15 @@ add_library(RTP
   # Keeper of server instances
     servers.cpp
 
-  # TCP servers
+  # TCP audo server and supprt
     tcp/audio/entry.cpp
     tcp/audio/packet.cpp
     tcp/audio/server.cpp
     tcp/audio/session.cpp
+    tcp/audio/rfc3550.cpp
+
+  # TCP event server and support
+
     tcp/event/server.cpp
     tcp/event/session.cpp
 

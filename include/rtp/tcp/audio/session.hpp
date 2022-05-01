@@ -86,10 +86,8 @@ private:
   // receives the rx_bytes from async_read
   void handleAudioBuffer(size_t bytes);
   void nextAudioBuffer();
-  bool rxAtLeast(size_t bytes = 1);
-  bool rxAvailable(); // load bytes immediately available
-  audio::Packet &wire() { return _wire; }
-  void wireToPacket();
+  // bool rxAtLeast(size_t bytes = 1);
+  // bool rxAvailable(); // load bytes immediately available
 
   // misc debug
   static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
@@ -101,7 +99,7 @@ private:
   tcp_socket socket;
   AnchorInfo &anchor;
 
-  audio::Packet _wire;
+  audio::Packet wire;
 
   const InputInfo input_info;
   uint32_t pcm_buffer_read_point_rtptime = 0;

@@ -18,11 +18,8 @@
 
 #pragma once
 
-#include <boost/asio/buffer.hpp>
 #include <cstdint>
 #include <source_location>
-#include <string.h>
-#include <string_view>
 #include <vector>
 
 namespace pierre {
@@ -30,47 +27,44 @@ namespace rtp {
 namespace tcp {
 namespace audio {
 
-class Packet {
+class rfc3550 {
 public:
-  enum Types : uint8_t { Unknown = 0, Standard, Resend };
-
-public:
+  using RawData = std::vector<uint8_t>;
   using src_loc = std::source_location;
-  typedef const std::string_view csv;
   typedef const char *ccs;
-  typedef uint16_t SeqNum;
-  typedef uint8_t Type;
 
 public:
-  Packet() { reset(); }
+  rfc3550(RawData &raw, size_t rx_bytes);
+  rfc3550() = delete;
 
-  auto buffer() { return boost::asio::dynamic_buffer(_packet); }
-  bool loaded(size_t rx_bytes);
+  bool reduceToFirstMarker();
 
-  ccs raw() const { return (ccs)_packet.data(); }
-  void reset();
-  size_t size() const { return _packet.size(); }
+  // typical getters
+  uint16_t packetType() const { return type; }
+  uint16_t seqNum() const { return seq_num; }
+  uint32_t timestamp() const { return packet_timestamp; }
 
-  SeqNum sequenceNum() const { return _seq_num; }
-  uint32_t timestamp() const { return _timestamp; }
-  Type type() const { return _type; }
-  bool valid() const { return _valid; }
-  const csv view() const { return csv(raw(), size()); }
-
-  // misc helpers, debug, etc.
-  ccs fnName(src_loc loc = src_loc::current()) const { return loc.function_name(); }
+  // misc helpers
+  void dumpHeader(const src_loc loc = src_loc::current());
 
 private:
-  std::vector<uint8_t> _packet;
+  bool findFirstMarker();
 
-  SeqNum _seq_num = 0;
-  Type _type = 0;
-  uint32_t _timestamp = 0;
-  bool _valid = false;
+  ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
 
-  size_t _rx_bytes = 0;
+private:
+  RawData &_raw;
+  const size_t _rx_bytes;
+  size_t _tossed_bytes = 0;
 
-  static constexpr size_t STD_PACKET_SIZE = 2048;
+  uint8_t marker_bit = 0x00;
+  uint8_t type = 0x00;
+  uint16_t seq_num = 0x00;
+  uint8_t v2 = 0x00;
+  uint32_t packet_timestamp = 0x00;
+
+  static constexpr uint8_t STANDARD = 0x60;
+  static constexpr uint8_t RESEND = 0x56;
 };
 
 } // namespace audio

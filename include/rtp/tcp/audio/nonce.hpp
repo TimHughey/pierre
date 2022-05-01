@@ -30,47 +30,25 @@ namespace rtp {
 namespace tcp {
 namespace audio {
 
-class Packet {
-public:
-  enum Types : uint8_t { Unknown = 0, Standard, Resend };
+struct Nonce {
+  char bytes[12] = {0};
 
 public:
-  using src_loc = std::source_location;
-  typedef const std::string_view csv;
-  typedef const char *ccs;
-  typedef uint16_t SeqNum;
-  typedef uint8_t Type;
+  Nonce(uint8_t *packet, size_t size) {
+    // offset to the packet nonce is:
+    // size of the packet - hdr - nonce + 4
+    // the +4 is because the packet nonce is only 8 bytes and the expected
+    // nonce is 12 bytes
+    const size_t offset = size - rfc3550_hdr::size() - sizeof(Nonce) + 4;
 
-public:
-  Packet() { reset(); }
+    char *pkt_nonce = (char *)packet + offset;
+    char *nonce = bytes + 4;
 
-  auto buffer() { return boost::asio::dynamic_buffer(_packet); }
-  bool loaded(size_t rx_bytes);
+    // copy the 8 bytes of packet nonce into the lsb of the actual nonce
+    memcpy(nonce, pkt_nonce, sizeof(Nonce) - 4);
+  }
 
-  ccs raw() const { return (ccs)_packet.data(); }
-  void reset();
-  size_t size() const { return _packet.size(); }
-
-  SeqNum sequenceNum() const { return _seq_num; }
-  uint32_t timestamp() const { return _timestamp; }
-  Type type() const { return _type; }
-  bool valid() const { return _valid; }
-  const csv view() const { return csv(raw(), size()); }
-
-  // misc helpers, debug, etc.
-  ccs fnName(src_loc loc = src_loc::current()) const { return loc.function_name(); }
-
-private:
-  std::vector<uint8_t> _packet;
-
-  SeqNum _seq_num = 0;
-  Type _type = 0;
-  uint32_t _timestamp = 0;
-  bool _valid = false;
-
-  size_t _rx_bytes = 0;
-
-  static constexpr size_t STD_PACKET_SIZE = 2048;
+  const char *data() { return bytes; }
 };
 
 } // namespace audio

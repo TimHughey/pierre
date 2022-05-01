@@ -48,14 +48,14 @@ using string_view = std::string_view;
 // AudioSession::AudioSession(tcp_socket &&new_socket)
 //     : socket(std::move(new_socket)) // io_context / socket for this session
 // {
-//   // _wire.resize(input_info.wantFrames(50));
+//   // wire.resize(input_info.wantFrames(50));
 // }
 
 AudioSession::AudioSession(const Opts &opts)
     : socket(std::move(opts.new_socket)),
       anchor(opts.anchor) // io_context / socket for this session
 {
-  // _wire.resize(input_info.wantFrames(50));
+  // wire.resize(input_info.wantFrames(50));
 }
 
 void AudioSession::asyncAudioBufferLoop() {
@@ -80,38 +80,38 @@ void AudioSession::asyncAudioBufferLoop() {
   //     of the session above zero until the session ends
   //     (e.g. due to error, natural completion, io_ctx is stopped)
 
-  socket.async_read_some(buffer(wire()),
-                         [self = shared_from_this()](error_code ec, size_t rx_bytes) {
-                           // general notes:
-                           //
-                           // 1. this was not captured so the lamba is not in 'this' context
-                           // 2. all calls to the session must be via self (which was captured)
-                           // 3. we do minimal activities to quickly get to 'this' context
+  async_read(socket, wire.buffer(), transfer_at_least(STD_PACKET_SIZE),
+             [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+               // general notes:
+               //
+               // 1. this was not captured so the lamba is not in 'this' context
+               // 2. all calls to the session must be via self (which was captured)
+               // 3. we do minimal activities to quickly get to 'this' context
 
-                           // essential activies:
-                           //
-                           // 1. check the error code
-                           if (self->isReady(ec)) {
-                             // 2. handle the request (remember the data received is in the wire
-                             // buffer)
-                             //    handleRequest will perform the request/reply transaction
-                             //    (serially) and returns when the transaction completes or errors
-                             self->handleAudioBuffer(rx_bytes);
+               // essential activies:
+               //
+               // 1. check the error code
+               if (self->isReady(ec)) {
+                 // 2. handle the request (remember the data received is in the wire
+                 // buffer)
+                 //    handleRequest will perform the request/reply transaction
+                 //    (serially) and returns when the transaction completes or errors
+                 self->handleAudioBuffer(rx_bytes);
 
-                             if (self->isReady()) {
-                               // 3. call nextRequest() to reset buffers and state
-                               self->nextAudioBuffer();
+                 if (self->isReady()) {
+                   // 3. call nextRequest() to reset buffers and state
+                   self->nextAudioBuffer();
 
-                               // 4. the socket is still ready, call asyncRequest to await next
-                               // request
-                               // 5. async_read captures a fresh shared_ptr
-                               // 6. reminder... call returns when async_read registers the work
-                               // with io_ctx
-                               self->asyncAudioBufferLoop();
-                               // 7. falls through
-                             }
-                           } // self is about to go out of scope...
-                         }); // self is out of scope and the shared_ptr use count is reduced by one
+                   // 4. the socket is still ready, call asyncRequest to await next
+                   // request
+                   // 5. async_read captures a fresh shared_ptr
+                   // 6. reminder... call returns when async_read registers the work
+                   // with io_ctx
+                   self->asyncAudioBufferLoop();
+                   // 7. falls through
+                 }
+               } // self is about to go out of scope...
+             }); // self is out of scope and the shared_ptr use count is reduced by one
 
   // final notes:
   // 1. the first return of this function traverses back to the Server that created the
@@ -122,34 +122,31 @@ void AudioSession::asyncAudioBufferLoop() {
 void AudioSession::handleAudioBuffer(size_t rx_bytes) {
   // the following function calls do not contain async_* calls
   accumulate(Accumulate::RX, rx_bytes);
-  _wire.loaded(rx_bytes);
 
-  if (_wire.findFirstMarker()) {
-    _wire.dumpHeader();
-  }
+  wire.loaded(rx_bytes);
 
   /*
-  rxAvailable(); // drain the socket
-  ensureAllContent(); // load additional content
+ rxAvailable(); // drain the socket
+ ensureAllContent(); // load additional content
 
-  try {
-    createAndSendReply();
-  } catch (const std::exception &e) {
-    fmt::print("{} create reply failed: {}\n", fnName(), e.what());
+ try {
+   createAndSendReply();
+ } catch (const std::exception &e) {
+   fmt::print("{} create reply failed: {}\n", fnName(), e.what());
 
-    _headers.dump();
-    _content.dump();
-  }
+   _headers.dump();
+   _content.dump();
+ }
 
-  */
+ */
 }
 
 /*
 size_t AudioSession::decrypt(packet::In &packet) {
-  auto consumed = aes_ctx->decrypt(packet, _wire);
+  auto consumed = aes_ctx->decrypt(packet, wire);
 
   // fmt::print("{} packet_size={}\n", fnName(), packet.size());
-  _wire.clear(); // wire bytes have been deciphered, clear them
+  wire.clear(); // wire bytes have been deciphered, clear them
 
   return consumed;
 }
@@ -172,12 +169,13 @@ void AudioSession::asyncReportRxBytes() {
   });
 }
 
+/*
 bool AudioSession::rxAvailable() {
   if (isReady()) {
     error_code ec;
     size_t avail_bytes = socket.available(ec);
 
-    auto buff = dynamic_buffer(_wire);
+    auto buff = dynamic_buffer(wire);
 
     while (isReady(ec) && (avail_bytes > 0)) {
       auto rx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
@@ -189,6 +187,7 @@ bool AudioSession::rxAvailable() {
 
   return isReady();
 }
+*/
 
 // void AudioSession::ensureAllContent() {
 //   // bail out if the socket isn't ready
@@ -296,11 +295,12 @@ bool AudioSession::isReady(const error_code &ec, const src_loc loc) {
   return rc;
 }
 
-void AudioSession::nextAudioBuffer() { _wire.reset(); }
+void AudioSession::nextAudioBuffer() { wire.reset(); }
 
+/*
 bool AudioSession::rxAtLeast(size_t bytes) {
   if (isReady()) {
-    auto buff = dynamic_buffer(_wire);
+    auto buff = dynamic_buffer(wire);
 
     error_code ec;
     auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
@@ -310,6 +310,7 @@ bool AudioSession::rxAtLeast(size_t bytes) {
   return isReady();
 }
 
+*/
 void AudioSession::accumulate(Accumulate type, size_t bytes) {
   if (timer.has_value() == false) {
     timer.emplace(high_resolution_timer(socket.get_executor()));
