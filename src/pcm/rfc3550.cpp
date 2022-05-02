@@ -22,14 +22,12 @@
 #include <memory>
 #include <source_location>
 
-#include "rtp/tcp/audio/rfc3550.hpp"
-#include "rtp/tcp/audio/rfc3550/header.hpp"
-#include "rtp/tcp/audio/rfc3550/trailer.hpp"
+#include "pcm/rfc3550.hpp"
+#include "pcm/rfc3550/header.hpp"
+#include "pcm/rfc3550/trailer.hpp"
 
 namespace pierre {
-namespace rtp {
-namespace tcp {
-namespace audio {
+namespace pcm {
 
 rfc3550::rfc3550(RawData &raw, size_t rx_bytes) : _raw(raw), _rx_bytes(rx_bytes) {
   // more later
@@ -92,12 +90,10 @@ bool rfc3550::reduceToFirstMarker() {
 }
 
 void rfc3550::dumpHeader(const src_loc loc) {
-  auto fmt_str = FMT_STRING("{}  tossed={:>05}  pt={:#04x}  seqnum={:>8}  tsmp={:>14}\n");
+  auto fmt_str = FMT_STRING("{}  pt={:#04x}  seqnum={:>8}  tsmp={:>14}\n");
 
-  fmt::print(fmt_str, fnName(loc), _tossed_bytes, type, seq_num, packet_timestamp);
+  fmt::print(fmt_str, fnName(loc), type, seq_num, packet_timestamp);
 }
 
-} // namespace audio
-} // namespace tcp
-} // namespace rtp
+} // namespace pcm
 } // namespace pierre

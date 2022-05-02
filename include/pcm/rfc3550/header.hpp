@@ -18,13 +18,12 @@
 
 #pragma once
 
+#include <arpa/inet.h>
 #include <cstdint>
 #include <source_location>
 
 namespace pierre {
-namespace rtp {
-namespace tcp {
-namespace audio {
+namespace pcm {
 
 struct rfc3550_hdr {
   /*
@@ -80,12 +79,18 @@ struct rfc3550_hdr {
   };
 
 public:
-  static rfc3550_hdr *from(uint8_t *data) { return (rfc3550_hdr *)data; }
+  bool isValid() const { return ((type() == STANDARD) || type() == RESEND); }
+  static rfc3550_hdr *from(uint8_t *data) { return (rfc3550_hdr *)data; };
+  uint32_t timestamp() const { return aad.timestamp; }
+  uint16_t seqNum() const { return (mpt << 16) + seqnum; }
   static constexpr size_t size() { return sizeof(rfc3550_hdr); }
+  uint8_t type() const { return mpt & ~0x80; }
   static constexpr size_t validBytes() { return sizeof(vpxcc) + sizeof(mpt); }
+  uint8_t version() const { return (vpxcc & 0xc0 >> 6); }
+
+  static constexpr uint8_t STANDARD = 0x60;
+  static constexpr uint8_t RESEND = 0x56;
 };
 
-} // namespace audio
-} // namespace tcp
-} // namespace rtp
+} // namespace pcm
 } // namespace pierre

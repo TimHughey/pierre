@@ -23,7 +23,6 @@ namespace pcm {
 
 Buffer::Buffer() {
   // pre-allocate memory
-  buffer.reserve(STD_BUFFER_SIZE);
 }
 
 } // namespace pcm

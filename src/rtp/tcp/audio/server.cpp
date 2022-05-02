@@ -53,8 +53,8 @@ void AudioServer::asyncAccept() {
       //  2. we then start the session using the shared_ptr returned by Session::create()
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
-      auto session =
-          AudioSession::create({.new_socket = std::move(socket.value()), .anchor = anchor});
+      auto session = AudioSession::create(
+          {.new_socket = std::move(socket.value()), .anchor = anchor, .audio_raw = audio_raw});
 
       session->asyncAudioBufferLoop();
     }

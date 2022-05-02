@@ -29,21 +29,49 @@ namespace packet {
 
 Queued::Queued(size_t packet_size) : packet_size(packet_size) {}
 
+Queued::DataFuture Queued::dataRequest(size_t bytes) {
+  promises_mtx.lock();
+  promise.emplace(DataPromise());
+  promised_bytes = bytes;
+  promises_mtx.unlock();
+
+  return promise->get_future();
+}
+
+bool Queued::deque(Packet &buffer, size_t bytes) {
+  buffer.clear(); // buffer is always cleared
+
+  const std::lock_guard<std::mutex> __lock__(queue_mtx);
+  if (queued.size() < bytes) {
+    return false;
+  }
+
+  for (size_t i = 0; i < bytes; i++) {
+    buffer.emplace_back(queued.back());
+    queued.pop_back();
+  }
+
+  return true;
+}
+
 void Queued::gotBytes(const size_t rx_bytes) {
   queue_mtx.lock();
-  queued.insert(queued.end(), packet.begin(), packet.end());
+
+  for (auto &in : packet) {
+    queued.emplace_front(in);
+  }
+
   queue_mtx.unlock();
 
   _rx_bytes += rx_bytes; // track the bytes received (for fun)
 
   packet.clear(); // clear the packet for the next rx
 
-  if (queued.size() > InputInfo::pcmBufferSize()) {
-    data_ready_mtx.lock();
+  if (promised_bytes && (queued.size() >= promised_bytes)) {
+    auto bytes = promised_bytes;
+    promised_bytes = 0;
 
-    data_ready_cv.notify_all();
-
-    data_ready_mtx.unlock();
+    promise->set_value(bytes);
   }
 }
 

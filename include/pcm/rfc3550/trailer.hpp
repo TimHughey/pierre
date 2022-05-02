@@ -21,9 +21,7 @@
 #include <cstdint>
 
 namespace pierre {
-namespace rtp {
-namespace tcp {
-namespace audio {
+namespace pcm {
 
 struct rfc3550_trl {
   /*
@@ -66,7 +64,5 @@ public:
   static constexpr size_t size() { return sizeof(rfc3550_trl); }
 };
 
-} // namespace audio
-} // namespace tcp
-} // namespace rtp
+} // namespace pcm
 } // namespace pierre

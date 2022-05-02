@@ -32,6 +32,9 @@
 #include <unordered_map>
 
 #include "core/input_info.hpp"
+#include "nptp/nptp.hpp"
+#include "packet/queued.hpp"
+#include "pcm/pcm.hpp"
 #include "rtp/anchor_info.hpp"
 #include "rtp/conn_info.hpp"
 #include "rtp/servers.hpp"
@@ -48,6 +51,11 @@ public:
   enum TeardownPhase : uint8_t { None = 0, One, Two };
 
 public:
+  struct Opts {
+    sNptp nptp;
+  };
+
+public:
   using io_context = boost::asio::io_context;
   using string = std::string;
   using WatchDog = boost::asio::high_resolution_timer;
@@ -59,15 +67,15 @@ public:
   typedef const char *ccs;
 
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sRtp create() {
+  [[nodiscard]] static sRtp create(const Opts &opts) {
     if (_instance.use_count() == 0) {
-      _instance = sRtp(new Rtp());
+      _instance = sRtp(new Rtp(opts));
     }
     // not using std::make_shared; constructor is private
     return _instance;
   }
 
-  [[nodiscard]] static sRtp instance() { return create(); }
+  [[nodiscard]] static sRtp instance() { return _instance; }
 
   sRtp getSelf() { return shared_from_this(); }
 
@@ -90,7 +98,7 @@ public:
   size_t bufferSize() const { return 1024 * 1024 * 8; };
 
 private:
-  Rtp();
+  Rtp(const Opts &opts);
 
   void runLoop();
   void watchForTeardown(WatchDog &watch_dog);
@@ -103,10 +111,13 @@ private:
   }
 
 private:
+  // order dependent
+  packet::Queued audio_raw;
+  rtp::AnchorInfo _anchor;
   io_context io_ctx;
-
-  // all servers spun up for RTP
-  rtp::Servers servers;
+  rtp::Servers servers; // all servers spun up for RTP
+  sNptp nptp;
+  sPulseCodeMod pcm; // PCM processor
 
   // order independent
   uint32_t _frames_per_packet_max = 352; // audio frames per packet
@@ -115,7 +126,7 @@ private:
 
   // runtime info
   rtp::StreamInfo _stream_info;
-  rtp::AnchorInfo _anchor;
+
   InputInfo _input_info;
   rtp::ConnInfo _conn_info;
 

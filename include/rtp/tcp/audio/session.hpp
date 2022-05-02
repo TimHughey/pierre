@@ -56,7 +56,8 @@ public:
 public:
   struct Opts {
     tcp_socket &&new_socket;
-    AnchorInfo &anchor;
+    rtp::AnchorInfo &anchor;
+    packet::Queued &audio_raw;
   };
 
 public:
@@ -97,9 +98,8 @@ private:
 private:
   // order dependent - initialized by constructor
   tcp_socket socket;
-  AnchorInfo &anchor;
-
-  packet::Queued wire;
+  rtp::AnchorInfo &anchor;
+  packet::Queued &wire;
 
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;

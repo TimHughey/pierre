@@ -23,9 +23,7 @@
 #include <vector>
 
 namespace pierre {
-namespace rtp {
-namespace tcp {
-namespace audio {
+namespace pcm {
 
 class rfc3550 {
 public:
@@ -67,7 +65,5 @@ private:
   static constexpr uint8_t RESEND = 0x56;
 };
 
-} // namespace audio
-} // namespace tcp
-} // namespace rtp
+} // namespace pcm
 } // namespace pierre

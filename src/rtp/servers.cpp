@@ -28,9 +28,8 @@ using AudioServer = rtp::tcp::AudioServer;
 using EventServer = rtp::tcp::EventServer;
 using ControlServer = rtp::udp::ControlServer;
 
-Servers::Servers(io_context &io_ctx, AnchorInfo &anchor) : io_ctx(io_ctx), anchor(anchor) {
-  // placeholder
-}
+Servers::Servers(const Opts &opts)
+    : io_ctx(opts.io_ctx), anchor(opts.anchor), audio_raw(opts.audio_raw) {}
 
 AudioServer &Servers::audio() {
   auto &variant = getOrCreate(Audio);
@@ -53,7 +52,8 @@ EventServer &Servers::event() {
 Servers::Variant &Servers::getOrCreate(ServerType type) {
   switch (type) {
     case Audio:
-      map.try_emplace(type, Variant(AudioServer({.io_ctx = io_ctx, .anchor = anchor})));
+      map.try_emplace(type, Variant(AudioServer(
+                                {.io_ctx = io_ctx, .anchor = anchor, .audio_raw = audio_raw})));
       break;
 
     case Control:

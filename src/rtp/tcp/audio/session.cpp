@@ -45,18 +45,12 @@ using string_view = std::string_view;
 
 // notes:
 //  1. socket is passed as a reference to a reference so we must move to our local socket reference
-// AudioSession::AudioSession(tcp_socket &&new_socket)
-//     : socket(std::move(new_socket)) // io_context / socket for this session
-// {
-//   // wire.resize(input_info.wantFrames(50));
-// }
 
 AudioSession::AudioSession(const Opts &opts)
     : socket(std::move(opts.new_socket)),
-      anchor(opts.anchor) // io_context / socket for this session
-{
-  // wire.resize(input_info.wantFrames(50));
-}
+      anchor(opts.anchor), // io_context / socket for this session
+      wire(opts.audio_raw) // queued audio raw data
+{}
 
 void AudioSession::asyncAudioBufferLoop() {
   // notes:
@@ -82,7 +76,7 @@ void AudioSession::asyncAudioBufferLoop() {
 
   auto buf = dynamic_buffer(wire.buffer());
 
-  async_read(socket, buf, transfer_at_least(wire.nominal()),
+  async_read(socket, buf, transfer_exactly(wire.nominal()),
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // general notes:
                //

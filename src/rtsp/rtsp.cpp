@@ -57,7 +57,7 @@ void Rtsp::start() {
 
 void Rtsp::runLoop() {
   // create and start Rtp, it will be needed later
-  auto rtp = Rtp::create();
+  auto rtp = Rtp::create({.nptp = nptp});
   rtp->start();
 
   // create server

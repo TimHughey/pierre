@@ -27,8 +27,10 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <source_location>
 #include <vector>
 
@@ -47,20 +49,30 @@ private:
   typedef const char *ccs;
 
 public:
+  typedef std::promise<size_t> DataPromise;
+  typedef std::future<size_t> DataFuture;
+
+public:
   Queued(size_t packet_size = STD_PACKET_SIZE);
 
   Packet &buffer() { return packet; }
 
+  DataFuture dataRequest(size_t bytes);
+
+  [[nodiscard]] bool deque(Packet &buffer, size_t bytes);
+
   // notify that data has been queued
   void gotBytes(const size_t rx_bytes);
 
-  auto nominal() const { return packet_size; }
+  auto nominal() const { return packet_size / 8; }
 
   auto readyBytes() const { return queued.size(); }
 
   void reset();
 
 private:
+  auto lockQueue() { return std::unique_lock<mutex>(queue_mtx); }
+
   // misc helpers
   ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
 
@@ -68,9 +80,13 @@ private:
   QueuedData queued;
   Packet packet;
 
+  std::optional<DataPromise> promise;
+  size_t promised_bytes = 0;
+
   const size_t packet_size;
 
-  mutex queue_mtx; // protect the queued data
+  mutex queue_mtx;    // protect the queued data
+  mutex promises_mtx; // protect the promises and data_requests
 
   mutex data_ready_mtx;   // protect the data ready cv
   cond_var data_ready_cv; // sufficient data is available

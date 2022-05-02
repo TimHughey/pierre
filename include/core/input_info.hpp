@@ -26,16 +26,14 @@ namespace pierre {
 
 class InputInfo {
 public:
-  static constexpr size_t pcmBytesPerFrame() { return channels * (bit_depth + 7) / 8; };
-  static constexpr size_t pcmBufferSize() {
-    return (1024 + frames_per_packet) * pcmBytesPerFrame();
-  }
+  static constexpr size_t pcmBufferSize() { return (1024 + 352) * bytes_per_frame; }
+  static constexpr size_t frameSize() { return 352 * bytes_per_frame; }
 
 private:
   static constexpr uint32_t rate = 44100; // max available at the moment
   static constexpr uint8_t channels = 2;
   static constexpr uint8_t bit_depth = 16;
-  static constexpr size_t frames_per_packet = 352;
+  static constexpr uint8_t bytes_per_frame = (channels * (bit_depth + 7) / 8);
 };
 
 } // namespace pierre

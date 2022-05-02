@@ -34,14 +34,11 @@
 namespace pierre {
 namespace pcm {
 
-class Buffer {
+class Buffer : public std::vector<uint8_t> {
 public:
   using src_loc = std::source_location;
   typedef const std::string_view csv;
   typedef const char *ccs;
-
-private:
-  typedef std::vector<uint8_t> PcmBuffer;
 
 public:
   Buffer();
@@ -63,11 +60,7 @@ public:
   ccs fnName(src_loc loc = src_loc::current()) const { return loc.function_name(); }
 
 private:
-  PcmBuffer buffer;
-
-  size_t _rx_bytes = 0;
-
-  static constexpr size_t STD_BUFFER_SIZE = 16 * 1024;
+  static constexpr size_t STD_BUFFER_SIZE = 8 * 1024 * 1024;
 };
 
 } // namespace pcm

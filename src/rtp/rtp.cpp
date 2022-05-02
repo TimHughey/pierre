@@ -36,7 +36,9 @@ using error_code = boost::system::error_code;
 using Clock = std::chrono::high_resolution_clock;
 using Millis = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
-Rtp::Rtp() : servers(Servers(io_ctx, _anchor)) {
+Rtp::Rtp(const Opts &opts)
+    : servers({.io_ctx = io_ctx, .anchor = _anchor, .audio_raw = audio_raw}), nptp(opts.nptp),
+      pcm(PulseCodeMod::create({.audio_raw = audio_raw, .nptp = nptp})) {
   // more later
 }
 

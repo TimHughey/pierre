@@ -1,5 +1,5 @@
 #
-# RTP
+# PCM
 #
 
 set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
@@ -21,21 +21,21 @@ find_package(OpenSSL                      REQUIRED)
 
 add_library(PCM
   # Base
-    buffer.cpp
+    buffer.cpp pcm.cpp rfc3550.cpp
   
   ${HEADER_LIST}
 )
 
 # all includes are relative to base includes
-target_include_directories(RTP PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
+target_include_directories(PCM PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
 
 # all includes are relative to base includes
-target_include_directories(RTP PUBLIC ${HEADER_PATH})
+target_include_directories(PCM PUBLIC ${HEADER_PATH})
 
 target_link_libraries(PCM PUBLIC
   ${Boost_LIBRARIES}
   Core
-  RTP
+  nPTP
   ssl
   fmt::fmt
   rt

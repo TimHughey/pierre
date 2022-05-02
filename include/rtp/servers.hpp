@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <variant>
 
+#include "packet/queued.hpp"
 #include "rtp/anchor_info.hpp"
 #include "rtp/tcp/audio/server.hpp"
 #include "rtp/tcp/event/server.hpp"
@@ -47,7 +48,14 @@ public:
   typedef std::unordered_map<ServerType, Variant> Map;
 
 public:
-  Servers(io_context &io_ctx, AnchorInfo &anchor);
+  struct Opts {
+    io_context &io_ctx;
+    AnchorInfo &anchor;
+    packet::Queued &audio_raw;
+  };
+
+public:
+  Servers(const Opts &opts);
 
   AudioServer &audio();
   ControlServer &control();
@@ -62,6 +70,7 @@ private:
   // order dependent based on constructor
   io_context &io_ctx;
   AnchorInfo &anchor;
+  packet::Queued &audio_raw;
 
   // order independent
   Map map;
