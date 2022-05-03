@@ -37,6 +37,7 @@ namespace pierre {
 namespace packet {
 
 using namespace std::literals;
+using namespace std::literals::string_view_literals;
 using std::regex;
 using std::string, std::string_view, std::unordered_map, std::back_inserter;
 using enum Headers::Type2;
@@ -262,56 +263,81 @@ void Headers::parseHeaderBlock(const string_view &view) {
   // Client-Instance: BAFE421337BA1913
 
   auto sstream = std::istringstream(string(view));
+  string line;
 
-  // for (string line; std::getline(sstream, line);) {
-  //   auto trimmed = string_view(line);
-  //   trimmed.remove_suffix(1);
-  //   auto f = FMT_STRING("{} '{}'\n");
-  //   fmt::print(f, fnName(), trimmed);
-  // }
+  while (std::getline(sstream, line)) {
+    auto view = string_view(line);
 
-  auto blk_begin = view.begin();
-  auto blk_end = view.end();
-
-  constexpr auto CR = '\r';
-  auto isCR = [](char c) { return c == CR; };
-
-  for (auto bol = blk_begin; bol < blk_end;) {
-    // find the end of CR
-    auto eol = std::find_if(bol, blk_end, isCR);
-
-    // end of the block, break out to simplify the following logic
-    if (eol >= blk_end) {
-      break;
+    // eliminate those pesky \r at the end of the line
+    if (view.back() == '\r') {
+      view.remove_suffix(1);
     }
 
-    // we found a line, turn it into a string for Regex
-    const auto line = string(bol, eol);
-    bol = ++eol; // setup the next bol
+    // remember zero indexing!
+    auto colon_pos = view.find_first_of(':');
 
-    // NOTE: index 0 is entire string
-    constexpr auto key_idx = 1;
-    constexpr auto val_idx = 2;
-    constexpr auto match_count = 3;
+    if (colon_pos != view.npos) {                     // we found a header line
+      auto key = view.substr(0, colon_pos);           // bol to colon
+      colon_pos++;                                    // skip space after the colon
+      auto val = view.substr(++colon_pos, view.npos); // to eol
 
-    std::smatch sm;
-    // reminder...  (.+) will not match \r or \n
-    auto re_method = regex{"([\\w]+[\\w-]*): (.+)", re_syntax};
-    regex_search(line, sm, re_method);
-
-    // if the regex is ready and the num matches meet expectations
-    if (sm.ready() && (sm.size() == match_count)) {
-      const auto &key = sm[key_idx].str();
-      const auto &val = sm[val_idx].str();
+      if (false) { // debug
+        auto constexpr f = FMT_STRING("{} key={} val={}\n");
+        fmt::print(f, fnName(), key, val);
+      }
 
       try {
         add(key, val);
       } catch (const std::exception &e) {
-        fmt::print("{}\n{}\n", view, e.what());
-        throw(std::runtime_error("unknown header type"));
+        auto constexpr f = FMT_STRING("WARN {} {}\n\t{} <-- ignored\n");
+        fmt::print(f, fnName(), e.what(), line);
       }
+    } else {
+      constexpr auto f = FMT_STRING("WARN {} {}\n\t{} <-- ignored\n");
+
+      fmt::print(f, fnName(), "colon not found"sv, line);
     }
   }
+
+  /*
+
+    auto blk_begin = view.begin();
+    auto blk_end = view.end();
+
+    constexpr auto CR = '\r';
+    auto isCR = [](char c) { return c == CR; };
+
+    for (auto bol = blk_begin; bol < blk_end;) {
+      // find the end of CR
+      auto eol = std::find_if(bol, blk_end, isCR);
+
+      // end of the block, break out to simplify the following logic
+      if (eol >= blk_end) {
+        break;
+      }
+
+      // we found a line, turn it into a string for Regex
+      const auto line = string(bol, eol);
+      bol = ++eol; // setup the next bol
+
+      // NOTE: index 0 is entire string
+      constexpr auto key_idx = 1;
+      constexpr auto val_idx = 2;
+      constexpr auto match_count = 3;
+
+      std::smatch sm;
+      // reminder...  (.+) will not match \r or \n
+      auto re_method = regex{"([\\w]+[\\w-]*): (.+)", re_syntax};
+      regex_search(line, sm, re_method);
+
+      // if the regex is ready and the num matches meet expectations
+      if (sm.ready() && (sm.size() == match_count)) {
+        const auto &key = sm[key_idx].str();
+        const auto &val = sm[val_idx].str();
+
+
+      }
+    } */
 }
 
 void Headers::parseMethod(csv &view) {
