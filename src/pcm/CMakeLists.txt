@@ -21,7 +21,7 @@ find_package(OpenSSL                      REQUIRED)
 
 add_library(PCM
   # Base
-    buffer.cpp pcm.cpp rfc3550.cpp
+    buffer.cpp pcm.cpp
   
   ${HEADER_LIST}
 )

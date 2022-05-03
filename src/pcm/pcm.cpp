@@ -24,8 +24,8 @@
 #include <fmt/format.h>
 #include <string_view>
 
+#include "packet/rfc3550/hdr.hpp"
 #include "pcm/pcm.hpp"
-#include "pcm/rfc3550/header.hpp"
 
 namespace pierre {
 
@@ -58,10 +58,12 @@ void PulseCodeMod::runLoop() {
       continue;
     }
 
-    // auto *hdr = pcm::rfc3550_hdr::from(buffer.data());
+    // auto *hdr = packet::rfc3550_hdr::from(buffer.data());
 
-    // fmt::print("{}  len={:>7}  vsn={:#04x}  seqnum={:>7}  timestamp={:>11}\n", fnName(),
-    //            hdr->length(), hdr->version(), hdr->seqNum(), hdr->timestamp());
+    // { // new scope added for easy IDE folding
+    //   const auto f = FMT_STRING("{}  size={:>7}  vsn={:#04x}  seqnum={:>7} timestamp={:>11}\n");
+    //   fmt::print(f, fnName(), buffer.size(), hdr->version(), hdr->seqNum(), hdr->timestamp());
+    // }
   }
 
   auto self = pthread_self();

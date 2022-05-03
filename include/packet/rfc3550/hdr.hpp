@@ -21,11 +21,14 @@
 #include <arpa/inet.h>
 #include <cstdint>
 #include <source_location>
+#include <string>
+#include <vector>
 
 namespace pierre {
-namespace pcm {
+namespace packet {
+namespace rfc3550 {
 
-struct rfc3550_hdr {
+struct hdr {
   /*
   credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
 
@@ -58,10 +61,7 @@ struct rfc3550_hdr {
 
   */
 
-  // the purpose of this struct is to provide structure to raw uint8_t
-  // data. it is essential the member variables below remain in this
-  // specific order and additional class members are not added
-
+  // RFC3550 header
   uint8_t vpxcc;   // version, padding, extension, CSRC count
   uint8_t mpt;     // marker bit, payload type
   uint16_t seqnum; // sequence num
@@ -78,19 +78,39 @@ struct rfc3550_hdr {
     } aad;                // as defined by Apple
   };
 
-public:
-  bool isValid() const { return ((type() == STANDARD) || type() == RESEND); }
-  static rfc3550_hdr *from(uint8_t *data) { return (rfc3550_hdr *)data; };
-  uint32_t timestamp() const { return aad.timestamp; }
-  uint16_t seqNum() const { return (mpt << 16) + seqnum; }
-  static constexpr size_t size() { return sizeof(rfc3550_hdr); }
-  uint8_t type() const { return mpt & ~0x80; }
-  static constexpr size_t validBytes() { return sizeof(vpxcc) + sizeof(mpt); }
-  uint8_t version() const { return (vpxcc & 0xc0 >> 6); }
+private:
+  using src_loc = std::source_location;
+  using string = std::string;
+  typedef const char *ccs;
 
-  static constexpr uint8_t STANDARD = 0x60;
-  static constexpr uint8_t RESEND = 0x56;
+public:
+  hdr() { clear(); } // empty, allow for placeholders
+  hdr(const std::vector<uint8_t> &src) { build(src.data(), src.size()); }
+  hdr(const uint8_t *src, size_t len) { build(src, len); }
+
+  // struct operations
+  void clear();
+  static constexpr size_t size() { return sizeof(hdr); }
+
+  // validation determined by observation
+  bool isValid() const { return (version() == 0x02) && (type() == 0x13); }
+
+  // getters
+  uint16_t seqNum() const { return ntohs(seqnum); }
+  uint32_t seqNum32() const { return (mpt * 0x10000) + seqNum(); }
+  uint32_t timestamp() const { return ntohl(aad.timestamp); }
+  uint8_t type() const { return mpt & ~0x80; }
+  uint8_t version() const { return ((vpxcc & 0xc0) >> 6); }
+
+  // misc debug
+  void dump(const src_loc loc = src_loc::current()) const;
+  const string dumpString() const;
+
+private:
+  void build(const uint8_t *src, size_t len);
+  ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
 };
 
-} // namespace pcm
+} // namespace rfc3550
+} // namespace packet
 } // namespace pierre

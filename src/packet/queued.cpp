@@ -23,6 +23,7 @@
 
 #include "core/input_info.hpp"
 #include "packet/queued.hpp"
+#include "packet/rfc3550/hdr.hpp"
 
 namespace pierre {
 namespace packet {
@@ -55,24 +56,31 @@ bool Queued::deque(Packet &buffer, size_t bytes) {
 }
 
 void Queued::gotBytes(const size_t rx_bytes) {
-  queue_mtx.lock();
+  [[maybe_unused]] auto rfc = rfc3550::hdr(packet);
 
-  for (auto &in : packet) {
-    queued.emplace_front(in);
-  }
+  // if (rfc.invalid())
+  //   return;
 
-  queue_mtx.unlock();
+  // rfc.dump();
+
+  // queue_mtx.lock();
+
+  // for (auto &in : packet) {
+  //   queued.emplace_front(in);
+  // }
+
+  // queue_mtx.unlock();
 
   _rx_bytes += rx_bytes; // track the bytes received (for fun)
 
   packet.clear(); // clear the packet for the next rx
 
-  if (promised_bytes && (queued.size() >= promised_bytes)) {
-    auto bytes = promised_bytes;
-    promised_bytes = 0;
+  // if (promised_bytes && (queued.size() >= promised_bytes)) {
+  //   auto bytes = promised_bytes;
+  //   promised_bytes = 0;
 
-    promise->set_value(bytes);
-  }
+  //   promise->set_value(bytes);
+  // }
 }
 
 void Queued::reset() {

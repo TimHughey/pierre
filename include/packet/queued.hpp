@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <arpa/inet.h>
+#include <array>
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <condition_variable>
@@ -53,6 +55,10 @@ public:
   typedef std::future<size_t> DataFuture;
 
 public:
+  static constexpr size_t PACKET_LEN_BYTES = sizeof(uint16_t);
+  static constexpr size_t STD_PACKET_SIZE = 2048;
+
+public:
   Queued(size_t packet_size = STD_PACKET_SIZE);
 
   Packet &buffer() { return packet; }
@@ -65,6 +71,10 @@ public:
   void gotBytes(const size_t rx_bytes);
 
   auto nominal() const { return packet_size / 8; }
+
+  // buffer to receive the packet length
+  auto lengthBuffer() { return boost::asio::buffer(&packet_len, 2); }
+  auto length() { return ntohs(packet_len); }
 
   auto readyBytes() const { return queued.size(); }
 
@@ -80,6 +90,8 @@ private:
   QueuedData queued;
   Packet packet;
 
+  uint16_t packet_len; // each packet is prepended by it's length
+
   std::optional<DataPromise> promise;
   size_t promised_bytes = 0;
 
@@ -92,8 +104,6 @@ private:
   cond_var data_ready_cv; // sufficient data is available
 
   size_t _rx_bytes = 0;
-
-  static constexpr size_t STD_PACKET_SIZE = 2048;
 };
 
 } // namespace packet

@@ -21,7 +21,7 @@
 #include <cstdint>
 
 namespace pierre {
-namespace pcm {
+namespace packet {
 
 struct rfc3550_trl {
   /*
@@ -64,5 +64,5 @@ public:
   static constexpr size_t size() { return sizeof(rfc3550_trl); }
 };
 
-} // namespace pcm
+} // namespace packet
 } // namespace pierre

@@ -24,6 +24,7 @@
 #include <fmt/format.h>
 #include <iterator>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -260,15 +261,24 @@ void Headers::parseHeaderBlock(const string_view &view) {
   // User-Agent: Music/1.2.2 (Macintosh; OS X 12.2.1) AppleWebKit/612.4.9.1.8
   // Client-Instance: BAFE421337BA1913
 
+  auto sstream = std::istringstream(string(view));
+
+  // for (string line; std::getline(sstream, line);) {
+  //   auto trimmed = string_view(line);
+  //   trimmed.remove_suffix(1);
+  //   auto f = FMT_STRING("{} '{}'\n");
+  //   fmt::print(f, fnName(), trimmed);
+  // }
+
   auto blk_begin = view.begin();
   auto blk_end = view.end();
 
-  constexpr auto LF = '\n'; // this will include the \r
-  auto isLF = [](char c) { return c == LF; };
+  constexpr auto CR = '\r';
+  auto isCR = [](char c) { return c == CR; };
 
   for (auto bol = blk_begin; bol < blk_end;) {
-    // find the end of LF (defined by \n)
-    auto eol = std::find_if(bol, blk_end, isLF);
+    // find the end of CR
+    auto eol = std::find_if(bol, blk_end, isCR);
 
     // end of the block, break out to simplify the following logic
     if (eol >= blk_end) {
@@ -285,7 +295,7 @@ void Headers::parseHeaderBlock(const string_view &view) {
     constexpr auto match_count = 3;
 
     std::smatch sm;
-    // match the \r if they happen to be in the line
+    // reminder...  (.+) will not match \r or \n
     auto re_method = regex{"([\\w]+[\\w-]*): (.+)", re_syntax};
     regex_search(line, sm, re_method);
 

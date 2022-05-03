@@ -14,6 +14,7 @@ find_package(fmt               REQUIRED)
 find_library(plist NAMES plist REQUIRED)
 
 add_library(PACKET
+  rfc3550/hdr.cpp
   headers.cpp content.cpp queued.cpp
   aplist.cpp resp_code.cpp
   ${HEADER_LIST}

@@ -5,8 +5,6 @@
 
 abuf_t audio_buffer[BUFFER_FRAMES];
 
-#define BUFIDX(seqno) ((seq_t)(seqno) % BUFFER_FRAMES)
-
 #define STANDARD_PACKET_SIZE 4096
 
 // DAC buffer occupancy stuff

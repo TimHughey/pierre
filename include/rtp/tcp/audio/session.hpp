@@ -80,20 +80,20 @@ public:
   void teardown();
 
 private:
-  void accumulate(Accumulate type, size_t bytes);
+  void asyncReportRxBytes(int64_t rx_bytes = 0);
+  void asyncRxPacket(size_t packet_len);
+
   bool isReady() const { return socket.is_open(); };
   bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
 
-  // receives the rx_bytes from async_read
-  void handleAudioBuffer(size_t bytes);
-  void nextAudioBuffer();
+  void nextAudioBuffer(); // prepare for next buffer
+
   // bool rxAtLeast(size_t bytes = 1);
   // bool rxAvailable(); // load bytes immediately available
 
-  // misc debug
-  static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
-
-  void asyncReportRxBytes();
+  // misc stats and debug
+  void accumulate(Accumulate type, size_t bytes);
+  static ccs fnName(const src_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   // order dependent - initialized by constructor
@@ -101,18 +101,14 @@ private:
   rtp::AnchorInfo &anchor;
   packet::Queued &wire;
 
-  uint64_t _rx_bytes = 0;
-  uint64_t _tx_bytes = 0;
+  int64_t _rx_bytes = 0; // we do signed calculations
+  int64_t _tx_bytes = 0;
 
   std::optional<high_res_timer> timer;
-  uint64_t _rx_bytes_last = 0;
 
   bool _shutdown = false;
 
   static constexpr size_t STD_PACKET_SIZE = 2048;
-
-  // private:
-  //   static constexpr auto re_syntax = std::regex_constants::ECMAScript;
 };
 
 } // namespace tcp
