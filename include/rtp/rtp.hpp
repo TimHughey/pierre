@@ -32,13 +32,13 @@
 #include <unordered_map>
 
 #include "core/input_info.hpp"
+#include "decouple/conn_info.hpp"
+#include "decouple/stream_info.hpp"
 #include "nptp/nptp.hpp"
 #include "packet/queued.hpp"
 #include "pcm/pcm.hpp"
 #include "rtp/anchor_info.hpp"
-#include "rtp/conn_info.hpp"
 #include "rtp/servers.hpp"
-#include "rtp/stream_info.hpp"
 
 namespace pierre {
 
@@ -92,7 +92,7 @@ public:
 
   // Savers
   void save(const rtp::AnchorData &anchor_data);
-  void save(const rtp::StreamData &stream_data);
+  void save(const StreamData &stream_data);
 
   // Getters
   size_t bufferSize() const { return 1024 * 1024 * 8; };
@@ -125,10 +125,9 @@ private:
   uint64_t _rate;
 
   // runtime info
-  rtp::StreamInfo _stream_info;
+  StreamInfo _stream_info;
 
   InputInfo _input_info;
-  rtp::ConnInfo _conn_info;
 
   TeardownKeeper _teardown;
   TeardownPhase _teardown_phase = None;

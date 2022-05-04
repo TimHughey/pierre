@@ -25,7 +25,6 @@
 #include <string_view>
 
 namespace pierre {
-namespace rtp {
 
 struct StreamData {
   std::string audio_mode;
@@ -76,5 +75,4 @@ private:
   void __init();
 };
 
-} // namespace rtp
 } // namespace pierre

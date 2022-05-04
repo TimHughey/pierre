@@ -22,9 +22,13 @@
 
 #include <chrono>
 #include <fmt/format.h>
+#include <sodium.h>
 #include <string_view>
 
+#include "decouple/conn_info.hpp"
+#include "packet/basic.hpp"
 #include "packet/rfc3550/hdr.hpp"
+#include "packet/rfc3550/trl.hpp"
 #include "pcm/pcm.hpp"
 
 namespace pierre {
@@ -32,7 +36,8 @@ namespace pierre {
 using namespace std::chrono_literals;
 using namespace std::string_view_literals;
 
-PulseCodeMod::PulseCodeMod(const Opts &opts) : queued(opts.audio_raw), nptp(opts.nptp) {
+PulseCodeMod::PulseCodeMod(const Opts &opts)
+    : queued(opts.audio_raw), nptp(opts.nptp), stream_info(opts.stream_info) {
   thread = std::jthread([this]() { runLoop(); });
 
   //  give this thread a name
@@ -43,27 +48,46 @@ PulseCodeMod::PulseCodeMod(const Opts &opts) : queued(opts.audio_raw), nptp(opts
 void PulseCodeMod::runLoop() {
   running = true;
 
-  while (true) {
-    size_t frame_bytes = 0;
+  while (running) {
+    packet::Basic packet;
 
-    auto want_bytes = InputInfo::pcmBufferSize();
+    if (queued.waitForPacket()) {
+      auto packet = queued.nextPacket();
 
-    auto request = queued.dataRequest(want_bytes);
-    frame_bytes = request.get();
+      [[maybe_unused]] auto hdr = packet::rfc3550::hdr(packet);
+      [[maybe_unused]] auto trl = packet::rfc3550::trl(packet);
 
-    if (queued.deque(buffer, frame_bytes) == false) {
-      // fmt::print("{} deque failed\n", fnName());
+      if (true) {
+        std::array<uint8_t, 16 * 1024> m;
 
-      std::this_thread::sleep_for(1ms);
-      continue;
+        // https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction
+        // Note: the eight-byte nonce must be front-padded out to 12 bytes.
+        ullong_t deciphered_len = 0;
+        auto &shk = ConnInfo::inst()->sessionKey();
+        auto cipher_rc = crypto_aead_chacha20poly1305_ietf_decrypt(
+            m.data() + 7,             // m
+            &deciphered_len,          // mlen_p
+            nullptr,                  // nsec,
+            packet.data() + 12,       // the ciphertext starts 12 bytes in and is followed
+                                      // by the MAC tag,
+            packet.size() - (8 + 12), // clen -- the last 8 bytes are the nonce
+            packet.data() + 4,        // authenticated additional data
+            8,                        // authenticated additional data length
+            trl.noncePtr(),           // the nonce
+            shk.data());              // *k
+
+        if (cipher_rc) {
+          constexpr auto f = FMT_STRING("{} bytes={}  seq_num={:>8}  ts={>:12}\n");
+          fmt::print(f, fnName(), hdr.seqNum32(), hdr.timestamp());
+        }
+
+        // trl.dump();
+        std::this_thread::sleep_for(100ms);
+      }
+
+    } else {
+      std::this_thread::sleep_for(250ms);
     }
-
-    // auto *hdr = packet::rfc3550_hdr::from(buffer.data());
-
-    // { // new scope added for easy IDE folding
-    //   const auto f = FMT_STRING("{}  size={:>7}  vsn={:#04x}  seqnum={:>7} timestamp={:>11}\n");
-    //   fmt::print(f, fnName(), buffer.size(), hdr->version(), hdr->seqNum(), hdr->timestamp());
-    // }
   }
 
   auto self = pthread_self();

@@ -55,7 +55,7 @@ target_link_libraries(RTSP PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${Boost_LIBRARIES}
   ${plist}
-  Core nPTP mDNS RTP PACKET
+  Core nPTP mDNS RTP PACKET decouple
   fmt::fmt
   rt
 )

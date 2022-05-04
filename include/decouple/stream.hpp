@@ -16,5 +16,34 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+//
+//  This work based on and inspired by
+//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#include "rtp/conn_info.hpp"
+#pragma once
+
+#include <array>
+#include <cstdint>
+
+namespace pierre {
+
+class Stream {
+public:
+  enum Type : uint8_t {
+    Unknown = 0,
+    Uncompressed, // L16/44100/2
+    Lossless
+  };
+
+  typedef std::array<uint8_t, 16> Aes;
+  typedef std::array<int32_t, 12> Fmtp;
+
+private:
+  bool encrypted = false;
+  Aes iv{0};
+  Aes key{0};
+  Fmtp fmtp{0};
+  Type type = Unknown;
+};
+
+} // namespace pierre

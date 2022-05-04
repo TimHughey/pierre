@@ -18,40 +18,22 @@
 
 #pragma once
 
-#include <array>
-#include <boost/asio/buffer.hpp>
 #include <cstdint>
-#include <source_location>
-#include <vector>
+#include <list>
 
 namespace pierre {
-namespace packet {
 
-class BufferedTCP {
-public:
-  enum BufferType : uint8_t { All = 0, Static, Dynamic };
+// forward decl for typedef
+struct FlushRequest;
 
-public:
-  BufferedTCP() {
-    _buffer_.fill(0x00);
-    _toq_ = _buffer_.data();
-    _eoq_ = _buffer_.data();
-  }
+typedef std::list<FlushRequest> FlushList;
 
-  auto dynamicBuffer() { return boost::asio::dynamic_buffer(_dyn_buffer_;) }
-  auto staticBuffer() { return boost::asio::buffer(_buffer_, MAX_SIZE); }
-
-  size_t maxSize() { return MAX_SIZE; }
-
-public:
-  static constexpr size_t MAX_SIZE = 0x800000; // ap2 buffer max size
-
-private:
-  std::array<uint8_t, MAX_SIZE> _buffer_;
-  std::vector<uint8_t> _dyn_buffer_;
-  uint8_t *_toq_ = nullptr;
-  uint8_t *_eoq_ = nullptr;
+struct FlushRequest {
+  bool flushNow = false; // if true, the flushFrom stuff is invalid
+  uint32_t flushFromSeq;
+  uint32_t flushFromTS;
+  uint32_t flushUntilSeq;
+  uint32_t flushUntilTS;
 };
 
-} // namespace packet
 } // namespace pierre

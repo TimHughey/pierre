@@ -1025,44 +1025,6 @@ void *player_thread_func(void *arg) {
 
               // check the state of loudness and convolution flags here and
               // don't change them for the frame
-
-              int do_loudness = config.loudness;
-
-              if (do_loudness) {
-                int32_t *tbuf32 = (int32_t *)conn->tbuf;
-                float fbuf_l[inbuflength];
-                float fbuf_r[inbuflength];
-
-                // Deinterleave, and convert to float
-                int i;
-                for (i = 0; i < inbuflength; ++i) {
-                  fbuf_l[i] = tbuf32[2 * i];
-                  fbuf_r[i] = tbuf32[2 * i + 1];
-                }
-
-                if (do_loudness) {
-                  // Apply volume and loudness
-                  // Volume must be applied here because the loudness filter
-                  // will increase the signal level and it would saturate the
-                  // int32_t otherwise
-                  float gain = conn->fix_volume / 65536.0f;
-                  // float gain_db = 20 * log10(gain);
-                  // debug(1, "Applying soft volume dB: %f k: %f", gain_db,
-                  // gain);
-
-                  for (i = 0; i < inbuflength; ++i) {
-                    fbuf_l[i] = loudness_process(&loudness_l, fbuf_l[i] * gain);
-                    fbuf_r[i] = loudness_process(&loudness_r, fbuf_r[i] * gain);
-                  }
-                }
-
-                // Interleave and convert back to int32_t
-                for (i = 0; i < inbuflength; ++i) {
-                  tbuf32[2 * i] = fbuf_l[i];
-                  tbuf32[2 * i + 1] = fbuf_r[i];
-                }
-              }
-
               play_samples =
                   stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
                                         conn->outbuf, amount_to_stuff, conn->enable_dither, conn);
@@ -4395,55 +4357,6 @@ int have_ptp_timing_information(rtsp_conn_info *conn) {
     return 0;
 }
 
-ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count,
-                      size_t *bytes_remaining) {
-  ssize_t response = -1;
-  if (pthread_mutex_lock(&descriptor->mutex) != 0)
-    debug(1, "problem with mutex");
-  pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
-  if (descriptor->closed == 0) {
-    if ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
-      if (count == 2)
-        debug(2, "buffered_read: waiting for %u bytes (okay at start of a track).", count);
-      else
-        debug(1, "buffered_read: waiting for %u bytes.", count);
-    }
-    while ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
-      if (pthread_cond_wait(&descriptor->not_empty_cv, &descriptor->mutex))
-        debug(1, "Error waiting for buffered read");
-    }
-  }
-  if (descriptor->buffer_occupancy != 0) {
-    ssize_t bytes_to_move = count;
-
-    if (descriptor->buffer_occupancy < count) {
-      bytes_to_move = descriptor->buffer_occupancy;
-    }
-
-    ssize_t top_gap = descriptor->buffer + descriptor->buffer_max_size - descriptor->toq;
-    if (top_gap < bytes_to_move)
-      bytes_to_move = top_gap;
-
-    memcpy(buf, descriptor->toq, bytes_to_move);
-    descriptor->toq += bytes_to_move;
-    if (descriptor->toq == descriptor->buffer + descriptor->buffer_max_size)
-      descriptor->toq = descriptor->buffer;
-    descriptor->buffer_occupancy -= bytes_to_move;
-    if (bytes_remaining != NULL)
-      *bytes_remaining = descriptor->buffer_occupancy;
-    response = bytes_to_move;
-    if (pthread_cond_signal(&descriptor->not_full_cv))
-      debug(1, "Error signalling");
-  } else if (descriptor->error_code) {
-    errno = descriptor->error_code;
-    response = -1;
-  } else if (descriptor->closed != 0) {
-    response = 0;
-  }
-
-  pthread_cleanup_pop(1); // release the mutex
-  return response;
-}
 int long_time_notifcation_done = 0;
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
@@ -4817,84 +4730,6 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
     debug(1, "missing plist!");
   }
   resp->respcode = 200;
-}
-
-void *buffered_tcp_reader(void *arg) {
-  pthread_cleanup_push(buffered_tcp_reader_cleanup_handler, NULL);
-  buffered_tcp_desc *descriptor = (buffered_tcp_desc *)arg;
-
-  listen(descriptor->sock_fd, 5);
-  ssize_t nread;
-  SOCKADDR remote_addr;
-  memset(&remote_addr, 0, sizeof(remote_addr));
-  socklen_t addr_size = sizeof(remote_addr);
-  int finished = 0;
-  int fd = accept(descriptor->sock_fd, (struct sockaddr *)&remote_addr, &addr_size);
-  intptr_t pfd = fd;
-  pthread_cleanup_push(socket_cleanup, (void *)pfd);
-
-  do {
-    if (pthread_mutex_lock(&descriptor->mutex) != 0)
-      debug(1, "problem with mutex");
-    pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
-    while ((descriptor->buffer_occupancy == descriptor->buffer_max_size) ||
-           (descriptor->error_code != 0) || (descriptor->closed != 0)) {
-      if (pthread_cond_wait(&descriptor->not_full_cv, &descriptor->mutex))
-        debug(1, "Error waiting for buffered read");
-    }
-    pthread_cleanup_pop(1); // release the mutex
-
-    // now we know it is not full, so go ahead and try to read some more into it
-
-    // wrap
-    if ((size_t)(descriptor->eoq - descriptor->buffer) == descriptor->buffer_max_size)
-      descriptor->eoq = descriptor->buffer;
-
-    // figure out how much to ask for
-    size_t bytes_to_request = STANDARD_PACKET_SIZE;
-    size_t free_space = descriptor->buffer_max_size - descriptor->buffer_occupancy;
-    if (bytes_to_request > free_space)
-      bytes_to_request = free_space; // don't ask for more than will fit
-
-    size_t gap_to_end_of_buffer =
-        descriptor->buffer + descriptor->buffer_max_size - descriptor->eoq;
-    if (gap_to_end_of_buffer < bytes_to_request)
-      bytes_to_request = gap_to_end_of_buffer; // only ask for what will fill to
-                                               // the top of the buffer
-
-    // do the read
-    // debug(1, "Request buffered read  of up to %d bytes.", bytes_to_request);
-    nread = recv(fd, descriptor->eoq, bytes_to_request, 0);
-    // debug(1, "Received %d bytes for a buffer size of %d bytes.",nread,
-    // descriptor->buffer_occupancy + nread);
-    if (pthread_mutex_lock(&descriptor->mutex) != 0)
-      debug(1, "problem with not empty mutex");
-    pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
-    if (nread < 0) {
-      char errorstring[1024];
-      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "error in buffered_tcp_reader %d: \"%s\". Could not recv a packet.", errno,
-            errorstring);
-      descriptor->error_code = errno;
-    } else if (nread == 0) {
-      descriptor->closed = 1;
-    } else if (nread > 0) {
-      descriptor->eoq += nread;
-      descriptor->buffer_occupancy += nread;
-    } else {
-      debug(1, "buffered audio port closed!");
-    }
-    // signal if we got data or an error or the file closed
-    if (pthread_cond_signal(&descriptor->not_empty_cv))
-      debug(1, "Error signalling");
-    pthread_cleanup_pop(1); // release the mutex
-  } while (finished == 0);
-
-  debug(1, "Buffered TCP Reader Thread Exit \"Normal\" Exit Begin.");
-  pthread_cleanup_pop(1); // close the socket
-  pthread_cleanup_pop(1); // cleanup
-  debug(1, "Buffered TCP Reader Thread Exit \"Normal\" Exit -- Shouldn't happen!.");
-  pthread_exit(NULL);
 }
 
 void *rtp_ap2_control_receiver(void *arg) {

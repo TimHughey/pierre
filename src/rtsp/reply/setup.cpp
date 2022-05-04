@@ -26,8 +26,9 @@
 #include <string>
 
 #include "core/service.hpp"
+#include "decouple/conn_info.hpp"
+#include "decouple/stream_info.hpp"
 #include "rtp/rtp.hpp"
-#include "rtp/stream_info.hpp"
 #include "rtsp/reply/setup.hpp"
 
 using namespace std;
@@ -99,6 +100,7 @@ bool Setup::handleNoStreams() {
 }
 
 bool Setup::handleStreams() {
+  auto conn_info = ConnInfo::inst();
   constexpr auto PTP = 103;
 
   using enum Headers::Type2;
@@ -123,6 +125,8 @@ bool Setup::handleStreams() {
        .type = (uint8_t)rstream0.dictGetUint(Root, dictKey(type)),
        .active_remote = rHeaders().getVal(DacpActiveRemote),
        .dacp_id = rHeaders().getVal(DacpID)});
+
+  conn_info->saveSessionKey(rstream0.dictGetData(Root, dictKey(shk)));
 
   // build the reply (includes portS for started services)
   ArrayDicts array_dicts;

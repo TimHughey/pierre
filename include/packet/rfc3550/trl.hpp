@@ -18,51 +18,93 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <source_location>
+#include <string>
+#include <vector>
 
 namespace pierre {
 namespace packet {
+namespace rfc3550 {
 
-struct rfc3550_trl {
+class trl {
   /*
-    credit to https://emanuelecozzi.net/docs/airplay2/rtp packet info
+     credit to https://emanuelecozzi.net/docs/airplay2/rtp packet info
 
-          RFC 3550 Trailer
+     RFC 3550 Trailer
             0                   1                   2                   3
             0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
             :                                                               :
             |---------------------------------------------------------------|
-    N-0x18 |                                                               |
+     N-0x18 |                                                               |
             |--                          Nonce                            --|
-    N-0x14 |                                                               |
+     N-0x14 |                                                               |
             |---------------------------------------------------------------|
-    N-0x10 |                                                               |
+     N-0x10 |                                                               |
             |--                                                           --|
-    N-0xc  |                                                               |
+     N-0xc  |                                                               |
             |--                           Tag                             --|
-    N-0x8  |                                                               |
+     N-0x8  |                                                               |
             |--                                                           --|
-    N-0x4  |                                                               |
+     N-0x4  |                                                               |
             ---------------------------------------------------------------
     N
 
+    notes:
+
+     1.  Apple only provides eight (8) bytes of nonce (defined as a NonceMini
+         in this file).
+
+     2.  ChaCha requires a twelve (12) bytes of nonce.
+
+     3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
+         are zeroed
+
  */
 
-  // the purpose of this struct is to provide structure to raw uint8_t
-  // data. it is essential the member variables below remain in this
-  // specific order and additional class members are not added
+public:
+  using string = std::string;
+  typedef const char *ccs;
+  typedef const unsigned char *cuc;
 
-  // MSB ordering when applied to end of frame - sizeof(rfc3550_trl)
-  uint8_t nonce[4]; // nonce for payload decryption
-  uint8_t tag[16];  // tag for ChaCha20-Poly1305 verification
+  typedef std::array<uint8_t, 12> Nonce;
+  typedef std::array<uint8_t, 8> NonceMini;
+  typedef std::array<uint8_t, 12> Tags;
+
+private:
+  Nonce nonce; // Apple uses eight (8) bytes
+  Tags tags;   // Tags include crypto info for ChaCha
+
+private:
+  using src_loc = std::source_location;
 
 public:
-  static rfc3550_trl *from(uint8_t *data, size_t len) {
-    return (rfc3550_trl *)(data - len - size());
-  }
+  trl() { clear(); } // empty, allow for placeholders
+  trl(const std::vector<uint8_t> &src) { build(src.data(), src.size()); }
+  trl(const uint8_t *src, size_t len) { build(src, len); }
 
-  static constexpr size_t size() { return sizeof(rfc3550_trl); }
+  // struct operations
+  void clear();
+  static constexpr size_t size() { return sizeof(NonceMini); }
+
+  // validation determined by observation
+  bool isValid() const;
+
+  // getters
+  cuc noncePtr() const { return (cuc)nonce.data(); }
+  size_t nonceLen() const { return nonce.size(); }
+
+  // misc debug
+  void dump(const src_loc loc = src_loc::current()) const;
+  const string dumpString() const;
+
+private:
+  ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
+  void build(const uint8_t *src, size_t len);
+  const string makeIndexByteString(uint8_t *bytes, size_t len) const;
 };
 
+} // namespace rfc3550
 } // namespace packet
 } // namespace pierre

@@ -38,7 +38,8 @@ using Millis = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
 Rtp::Rtp(const Opts &opts)
     : servers({.io_ctx = io_ctx, .anchor = _anchor, .audio_raw = audio_raw}), nptp(opts.nptp),
-      pcm(PulseCodeMod::create({.audio_raw = audio_raw, .nptp = nptp})) {
+      pcm(PulseCodeMod::create(
+          {.audio_raw = audio_raw, .nptp = nptp, .stream_info = _stream_info})) {
   // more later
 }
 
@@ -100,7 +101,7 @@ void Rtp::save(const rtp::AnchorData &data) {
   // _anchor.dump();
 }
 
-void Rtp::save(const rtp::StreamData &data) {
+void Rtp::save(const StreamData &data) {
   _stream_info = data;
   // _stream_info.dump();
 }
@@ -153,10 +154,10 @@ void Rtp::teardownNow() {
   servers.teardown();
 
   // set all state objects to defqult
-  _stream_info = rtp::StreamInfo();
+  _stream_info = StreamInfo();
   // _anchor = rtp::AnchorInfo();  FIX ME!!!!
   _input_info = InputInfo();
-  _conn_info = rtp::ConnInfo();
+  ConnInfo::reset();
 
   teardownFinished();
 }

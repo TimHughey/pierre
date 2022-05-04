@@ -29,8 +29,10 @@
 #include <thread>
 
 #include "core/input_info.hpp"
+#include "decouple/stream_info.hpp"
 #include "nptp/nptp.hpp"
-#include "pcm/buffer.hpp"
+#include "packet/basic.hpp"
+#include "packet/queued.hpp"
 
 namespace pierre {
 
@@ -43,11 +45,13 @@ private:
   using src_loc = std::source_location;
   using string = std::string;
   typedef const char *ccs;
+  typedef unsigned long long int ullong_t;
 
 public:
   struct Opts {
     packet::Queued &audio_raw;
     sNptp nptp;
+    StreamInfo &stream_info;
   };
 
 public: // object creation and shared_ptr API
@@ -80,8 +84,9 @@ private:
   // order dependent
   packet::Queued &queued;
   sNptp nptp;
+  StreamInfo &stream_info;
 
-  pcm::Buffer buffer;
+  packet::Basic buffer;
 
   size_t rx_bytes = 0;
 

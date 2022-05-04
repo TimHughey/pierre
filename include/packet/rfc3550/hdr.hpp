@@ -32,22 +32,7 @@ struct hdr {
   /*
   credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
 
-  RFC 3550
-      0                   1                   2                   3
-      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0x0  |V=2|P|X|  CC   |M|     PT      |       sequence number         |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0x4  |                           timestamp                           |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 0x8  |           synchronization source (SSRC) identifier            |
-      +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
- 0xc  |            contributing source (CSRC) identifiers             |
-      |                             ....                              |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-  Apple Reuse of RFC3550 header
+  RFC3550 header (as tweaked by Apple)
        0                   1                   2                   3
        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
        ---------------------------------------------------------------
@@ -64,19 +49,13 @@ struct hdr {
   // RFC3550 header
   uint8_t vpxcc;   // version, padding, extension, CSRC count
   uint8_t mpt;     // marker bit, payload type
-  uint16_t seqnum; // sequence num
-  union {          // union of pure rfc3350 or Apple's defintion
-    struct {
-      uint16_t timestmp; // timestamp
-      uint16_t ssrc;     // sync source id
-    } rfc3550;           // as defined by the standard
+  uint32_t seqnum; // sequence nu
 
-    union {
-      uint32_t timestamp; // timestamp
-      uint32_t bytes[2];  // aad as an array
-      uint64_t full;      // a single uint64 of aad
-    } aad;                // as defined by Apple
-  };
+  union {
+    uint32_t timestamp; // timestamp
+    uint32_t bytes[2];  // aad as an array
+    uint64_t full;      // a single uint64 of aad
+  } aad;                // as defined by Apple
 
 private:
   using src_loc = std::source_location;
@@ -90,10 +69,10 @@ public:
 
   // struct operations
   void clear();
-  static constexpr size_t size() { return sizeof(hdr); }
+  static constexpr size_t size() { return 12; }
 
   // validation determined by observation
-  bool isValid() const { return (version() == 0x02) && (type() == 0x13); }
+  bool isValid() const { return version() == 0x02; }
 
   // getters
   uint16_t seqNum() const { return ntohs(seqnum); }

@@ -24,86 +24,83 @@
 
 #include <arpa/inet.h>
 #include <array>
+#include <atomic>
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <future>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <source_location>
 #include <vector>
+
+#include "packet/basic.hpp"
 
 namespace pierre {
 namespace packet {
 
 class Queued {
-public:
-  typedef std::vector<uint8_t> Packet;
-
 private:
   using cond_var = std::condition_variable;
   using mutex = std::mutex;
   using src_loc = std::source_location;
-  typedef std::deque<uint8_t> QueuedData;
+  using lock_guard = std::lock_guard<mutex>;
+  using unique_lock = std::unique_lock<mutex>;
+  typedef std::queue<packet::Basic> PacketQueue;
   typedef const char *ccs;
 
 public:
-  typedef std::promise<size_t> DataPromise;
-  typedef std::future<size_t> DataFuture;
+  typedef std::promise<bool> PacketPromise;
+  typedef std::future<bool> PacketFuture;
 
 public:
   static constexpr size_t PACKET_LEN_BYTES = sizeof(uint16_t);
   static constexpr size_t STD_PACKET_SIZE = 2048;
 
 public:
-  Queued(size_t packet_size = STD_PACKET_SIZE);
+  Queued() {}
 
-  Packet &buffer() { return packet; }
+  packet::Basic &buffer() { return packet; }
 
-  DataFuture dataRequest(size_t bytes);
-
-  [[nodiscard]] bool deque(Packet &buffer, size_t bytes);
+  packet::Basic nextPacket();
 
   // notify that data has been queued
-  void gotBytes(const size_t rx_bytes);
-
-  auto nominal() const { return packet_size / 8; }
+  void storePacket(const size_t rx_bytes);
 
   // buffer to receive the packet length
   auto lengthBuffer() { return boost::asio::buffer(&packet_len, 2); }
   auto length() { return ntohs(packet_len); }
 
-  auto readyBytes() const { return queued.size(); }
-
   void reset();
 
+  bool waitForPacket();
+  PacketFuture wantPacket();
+
 private:
-  auto lockQueue() { return std::unique_lock<mutex>(queue_mtx); }
+  inline auto lockQueue() { return unique_lock(qmtx); }
 
   // misc helpers
   ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
 
 private:
-  QueuedData queued;
-  Packet packet;
+  PacketQueue packet_q; // queue of received packets
+  packet::Basic packet; // packet received by Session
 
-  uint16_t packet_len; // each packet is prepended by it's length
+  std::optional<PacketPromise> promise;
 
-  std::optional<DataPromise> promise;
-  size_t promised_bytes = 0;
+  uint16_t packet_len; // populated by async_*
 
-  const size_t packet_size;
+  mutex qmtx; // protect the queued data
+  mutex pmtx; // protect the next packet promise
 
-  mutex queue_mtx;    // protect the queued data
-  mutex promises_mtx; // protect the promises and data_requests
-
-  mutex data_ready_mtx;   // protect the data ready cv
-  cond_var data_ready_cv; // sufficient data is available
-
-  size_t _rx_bytes = 0;
+  bool packet_ready = false;
+  mutex mtx_cv;             // protect the data ready cv
+  cond_var cv_packet_ready; // sufficient data is available
 };
 
 } // namespace packet

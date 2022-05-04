@@ -15,15 +15,40 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+//
+//  This work based on and inspired by
+//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#include "pcm/buffer.hpp"
+#include <chrono>
+#include <fmt/format.h>
+#include <memory>
+#include <string_view>
+
+#include "decouple/conn_info.hpp"
 
 namespace pierre {
-namespace pcm {
 
-Buffer::Buffer() {
-  // pre-allocate memory
+shConnInfo ConnInfo::__inst__;
+
+ConnInfo::ConnInfo(){};
+
+void ConnInfo::saveSessionKey(csr key) { session_key.assign(key.begin(), key.end()); }
+
+void ConnInfo::reset(const src_loc loc) {
+  if (__inst__.use_count() > 1) {
+    constexpr auto f = FMT_STRING("WARN {} ConnInfo use_count={}\n");
+    fmt::print(f, fnName(loc), __inst__.use_count());
+  }
+
+  __inst__.reset();
 }
 
-} // namespace pcm
+shConnInfo ConnInfo::inst() {
+  if (__inst__.use_count() == 0) {
+    __inst__ = shConnInfo(new ConnInfo());
+  }
+
+  return __inst__->shared_from_this();
+}
+
 } // namespace pierre

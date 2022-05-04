@@ -89,6 +89,7 @@ private:
   string _group_uuid;
   bool _group_contains_leader = false;
   Aplist::ArrayStrings _timing_peer_info;
+  string _session_key;
 
   static DictKeyMap _key_map;
   static StreamTypeMap _stream_type_map;

@@ -39,14 +39,14 @@ void hdr::build(const uint8_t *src, size_t len) {
   // afoul of string aliasing.  by setting each element to
   // either the specific byte or a calculated value we are
   // assured to comply with strict alias requirements
-  vpxcc = *src++;
-  mpt = *src++;
+  vpxcc = src[0];
+  mpt = src[1];
 
-  seqnum += *src++ << 16;
-  seqnum += *src++;
+  seqnum = src[1] * (1 << 16) + src[2] * (1 << 8) + src[3];
 
+  src += 4;
   for (int byte = sizeof(aad.full) - 1; byte >= 0; byte--) {
-    aad.full += *src++ << (byte * 8);
+    aad.full += (*src++) << (byte * 8);
   }
 }
 
@@ -57,14 +57,17 @@ void hdr::clear() {
   aad.full = 0x00;
 }
 
+// misc debug
+
 void hdr::dump(const src_loc loc) const {
   fmt::print(FMT_STRING("{}  {}\n"), fnName(loc), dumpString());
 }
 
 const hdr::string hdr::dumpString() const {
-  auto constexpr f = FMT_STRING("valid={:<5}  seqnum={:>05}  seqnum32= {:>06}  tsmp={:>012}");
+  auto constexpr f =
+      FMT_STRING("sizeof={:2}  valid={:<5}  seqnum={:>05}  seqnum32= {:>06}  tsmp={:>012}");
 
-  return fmt::format(f, isValid(), seqNum(), seqNum32(), timestamp());
+  return fmt::format(f, size(), isValid(), seqNum(), seqNum32(), timestamp());
 }
 
 } // namespace rfc3550

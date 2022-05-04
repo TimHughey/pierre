@@ -18,73 +18,77 @@
 
 #include <algorithm>
 #include <boost/asio/buffer.hpp>
+#include <chrono>
 #include <fmt/format.h>
 #include <iterator>
 
 #include "core/input_info.hpp"
 #include "packet/queued.hpp"
 #include "packet/rfc3550/hdr.hpp"
+#include "packet/rfc3550/trl.hpp"
+
+using namespace std::chrono_literals;
 
 namespace pierre {
 namespace packet {
 
-Queued::Queued(size_t packet_size) : packet_size(packet_size) {}
+packet::Basic Queued::nextPacket() {
+  unique_lock q_lck(qmtx);
 
-Queued::DataFuture Queued::dataRequest(size_t bytes) {
-  promises_mtx.lock();
-  promise.emplace(DataPromise());
-  promised_bytes = bytes;
-  promises_mtx.unlock();
+  auto next_packet = packet::Basic(packet_q.front()); // get the next available packet
+  packet_q.pop();                                     // pop the swapped packet from the queue
 
-  return promise->get_future();
+  unique_lock cv_lck(mtx_cv);
+  packet_ready = !packet_q.empty();
+
+  return next_packet;
 }
 
-bool Queued::deque(Packet &buffer, size_t bytes) {
-  buffer.clear(); // buffer is always cleared
-
-  const std::lock_guard<std::mutex> __lock__(queue_mtx);
-  if (queued.size() < bytes) {
-    return false;
+void Queued::storePacket([[maybe_unused]] const size_t rx_bytes) {
+  if (false) {
+    [[maybe_unused]] auto hdr = rfc3550::hdr(packet);
+    [[maybe_unused]] auto trl = rfc3550::trl(packet);
+    hdr.dump();
   }
 
-  for (size_t i = 0; i < bytes; i++) {
-    buffer.emplace_back(queued.back());
-    queued.pop_back();
+  // create the locks but don't lock them, yet
+  unique_lock q_lck(qmtx, std::defer_lock);
+
+  if (rfc3550::hdr(packet).isValid()) { // if the packet is valid
+    q_lck.lock();
+
+    packet_q.emplace(packet); // stuff it in the queue
+
+    packet.clear();
+
+    q_lck.unlock(); // done with queue
+
+    unique_lock cv_lck(mtx_cv);
+    packet_ready = true;
+    cv_lck.unlock();
+
+    cv_packet_ready.notify_all();
   }
-
-  return true;
-}
-
-void Queued::gotBytes(const size_t rx_bytes) {
-  [[maybe_unused]] auto rfc = rfc3550::hdr(packet);
-
-  // if (rfc.invalid())
-  //   return;
-
-  // rfc.dump();
-
-  // queue_mtx.lock();
-
-  // for (auto &in : packet) {
-  //   queued.emplace_front(in);
-  // }
-
-  // queue_mtx.unlock();
-
-  _rx_bytes += rx_bytes; // track the bytes received (for fun)
-
-  packet.clear(); // clear the packet for the next rx
-
-  // if (promised_bytes && (queued.size() >= promised_bytes)) {
-  //   auto bytes = promised_bytes;
-  //   promised_bytes = 0;
-
-  //   promise->set_value(bytes);
-  // }
 }
 
 void Queued::reset() {
   // maybe something later
+}
+
+bool Queued::waitForPacket() {
+  if (!packet_ready) {
+    unique_lock cv_lck(mtx_cv);
+
+    cv_packet_ready.wait_for(cv_lck, 15s, [&] { return packet_ready; });
+  }
+
+  return packet_ready;
+}
+
+Queued::PacketFuture Queued::wantPacket() {
+  unique_lock p_lck(pmtx);
+
+  return promise.emplace(PacketPromise()).get_future();
 }
 
 // misc helpers, debug, etc.

@@ -21,10 +21,9 @@
 #include <memory>
 #include <source_location>
 
-#include "rtp/stream_info.hpp"
+#include "decouple/stream_info.hpp"
 
 namespace pierre {
-namespace rtp {
 
 // this is overkill for this simple of a class
 // goal is to have at least well-formed user object copy/assignment example
@@ -98,5 +97,4 @@ void StreamInfo::dump(const std::source_location loc) {
   fmt::print(fmt_str, "DACP-ID", data.dacp_id);
 }
 
-} // namespace rtp
 } // namespace pierre

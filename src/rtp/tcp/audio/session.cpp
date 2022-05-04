@@ -118,7 +118,7 @@ void AudioSession::asyncAudioBufferLoop() {
       if (rx_bytes == Queued::PACKET_LEN_BYTES) {
         const auto len = self->wire.length();
 
-        if (false) { // new scope introduced for easy IDE folding
+        if (false) { // debug
           auto f = FMT_STRING("{} packet_len={}\n");
           fmt::print(f, fnName(), len);
         }
@@ -154,17 +154,12 @@ void AudioSession::asyncReportRxBytes(int64_t rx_bytes) {
 void AudioSession::asyncRxPacket(size_t packet_len) {
   [[maybe_unused]] const auto avail = socket.available();
 
-  // if (avail < packet_len) {
-  //   const auto f = FMT_STRING("{} avail={:>6} packet_len={:>6}\n");
-  //   fmt::print(f, fnName(), avail, packet_len);
-  // }
-
   async_read(socket, dynamic_buffer(wire.buffer()), transfer_exactly(packet_len - 2),
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                if (self->isReady(ec)) {
-                 self->accumulate(RX, rx_bytes); // track stats
-                 self->wire.gotBytes(rx_bytes);  // notify bytes received
-                 self->asyncAudioBufferLoop();   // schedule next packet
+                 self->accumulate(RX, rx_bytes);   // track stats
+                 self->wire.storePacket(rx_bytes); // notify bytes received
+                 self->asyncAudioBufferLoop();     // schedule next packet
                }
              });
   // will auto destruct if more work hasn't been scheduled

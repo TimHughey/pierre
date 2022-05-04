@@ -21,50 +21,74 @@
 #include <arpa/inet.h>
 #include <condition_variable>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <openssl/aes.h>
 #include <pthread.h>
+#include <source_location>
 #include <string>
 #include <sys/socket.h>
 
-#include "rtp/flush_request.hpp"
-#include "rtp/ping_record.hpp"
-#include "rtp/stream.hpp"
-#include "rtp/tcp/audio/entry.hpp"
+#include "decouple/flush_request.hpp"
+#include "decouple/ping_record.hpp"
+#include "decouple/stream.hpp"
 
 namespace pierre {
-namespace rtp {
 
 typedef uint32_t SeqNum;
 
-enum clock_status_t : uint8_t {
-  clock_no_anchor_info = 0,
-  clock_ok,
-  clock_service_unavailable,
-  clock_access_error,
-  clock_data_unavailable,
-  clock_no_master,
-  clock_version_mismatch,
-  clock_not_synchronised,
-  clock_not_valid,
-  clock_not_ready,
-};
+// shared pointer forward decl
+class ConnInfo;
 
-enum airplay_stream_c : uint8_t { // "c" for category
-  unspecified_stream_category = 0,
-  ptp_stream,
-  ntp_stream,
-  remote_control_stream
-};
+typedef std::shared_ptr<ConnInfo> shConnInfo;
 
-enum timing_t : uint8_t { ts_ntp = 0, ts_ptp };
-enum airplay_t : uint8_t { ap_1, ap_2 };
-enum airplay_stream_t : uint8_t { realtime_stream, buffered_stream };
+class ConnInfo : public std::enable_shared_from_this<ConnInfo> {
+private:
+  using src_loc = std::source_location;
+  using string = std::string;
+  using string_view = std::string_view;
 
-struct ConnInfo {
   using Mutex = std::mutex;
   using CondV = std::condition_variable;
-  using string = std::string;
+
+  typedef const char *ccs;
+  typedef const string &csr;
+  typedef const string_view csv;
+  typedef std::vector<unsigned char> SessionKey;
+
+public:
+  [[nodiscard]] static shConnInfo inst();
+  static void reset(const src_loc loc = src_loc::current());
+
+  // getters
+  const SessionKey &sessionKey() const { return session_key; }
+
+  // setters
+  void saveSessionKey(csr key);
+
+  enum clock_status_t : uint8_t {
+    clock_no_anchor_info = 0,
+    clock_ok,
+    clock_service_unavailable,
+    clock_access_error,
+    clock_data_unavailable,
+    clock_no_master,
+    clock_version_mismatch,
+    clock_not_synchronised,
+    clock_not_valid,
+    clock_not_ready,
+  };
+
+  enum airplay_stream_c : uint8_t { // "c" for category
+    unspecified_stream_category = 0,
+    ptp_stream,
+    ntp_stream,
+    remote_control_stream
+  };
+
+  enum timing_t : uint8_t { ts_ntp = 0, ts_ptp };
+  enum airplay_t : uint8_t { ap_1, ap_2 };
+  enum airplay_stream_t : uint8_t { realtime_stream, buffered_stream };
 
   static constexpr auto BUFFER_FRAMES = 1024;
   //  2^7 is 128. At 1 per three seconds; approximately six minutes of records
@@ -115,8 +139,7 @@ struct ConnInfo {
 
   // other stuff...
   pthread_t *player_thread;
-  rtp::tcp::audio::Entry audio_buffer[BUFFER_FRAMES];
-  unsigned int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
+
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;
   int64_t previous_random_number;
@@ -261,7 +284,7 @@ struct ConnInfo {
 
   uint64_t audio_format;
   uint64_t compression;
-  u_char *session_key; // needs to be free'd at the end
+  SessionKey session_key; // needs to be free'd at the end
   uint64_t frames_packet;
   uint64_t type;
   uint64_t networkTimeTimelineID;   // the clock ID used by the player
@@ -328,7 +351,15 @@ struct ConnInfo {
 
   int enable_dither; // needed for filling silences before play actually starts
   uint64_t dac_buffer_queue_minimum_length;
+
+public:
+  static ccs fnName(const src_loc loc = src_loc::current()) { return loc.function_name(); }
+
+private:
+  ConnInfo();
+
+private:
+  static shConnInfo __inst__;
 };
 
-} // namespace rtp
 } // namespace pierre

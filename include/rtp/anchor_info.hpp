@@ -42,6 +42,9 @@ struct AnchorData {
 };
 
 class AnchorInfo {
+private:
+  using src_loc = std::source_location;
+
 public:
   AnchorInfo() = default;
 
@@ -61,7 +64,7 @@ public:
   AnchorInfo &operator=(const AnchorInfo &ai);
   AnchorInfo &operator=(AnchorInfo &&ai);
 
-  void dump(const std::source_location loc = std::source_location::current());
+  void dump(const src_loc loc = src_loc::current());
 
 public:
   AnchorData data;

@@ -18,40 +18,16 @@
 
 #pragma once
 
-#include <array>
-#include <boost/asio/buffer.hpp>
 #include <cstdint>
-#include <source_location>
-#include <vector>
 
 namespace pierre {
-namespace packet {
 
-class BufferedTCP {
-public:
-  enum BufferType : uint8_t { All = 0, Static, Dynamic };
-
-public:
-  BufferedTCP() {
-    _buffer_.fill(0x00);
-    _toq_ = _buffer_.data();
-    _eoq_ = _buffer_.data();
-  }
-
-  auto dynamicBuffer() { return boost::asio::dynamic_buffer(_dyn_buffer_;) }
-  auto staticBuffer() { return boost::asio::buffer(_buffer_, MAX_SIZE); }
-
-  size_t maxSize() { return MAX_SIZE; }
-
-public:
-  static constexpr size_t MAX_SIZE = 0x800000; // ap2 buffer max size
-
-private:
-  std::array<uint8_t, MAX_SIZE> _buffer_;
-  std::vector<uint8_t> _dyn_buffer_;
-  uint8_t *_toq_ = nullptr;
-  uint8_t *_eoq_ = nullptr;
+struct PingRecord {
+  uint64_t dispersion;
+  uint64_t local_time;
+  uint64_t remote_time;
+  int sequence_number;
+  int chosen;
 };
 
-} // namespace packet
 } // namespace pierre

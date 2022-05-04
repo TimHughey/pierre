@@ -24,7 +24,7 @@ add_library(RTP
     rtp.cpp
 
   # Supporting data structures
-    conn_info.cpp servers.cpp anchor_info.cpp stream_info.cpp
+    servers.cpp anchor_info.cpp
 
   # Keeper of server instances
     servers.cpp
@@ -57,6 +57,7 @@ target_link_libraries(RTP PUBLIC
   # ${plist}
   # Core
   PCM
+  decouple
   ssl
   nPTP RTSP PACKET
   fmt::fmt
