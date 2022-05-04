@@ -289,11 +289,11 @@ void Headers::parseHeaderBlock(const string_view &view) {
       try {
         add(key, val);
       } catch (const std::exception &e) {
-        auto constexpr f = FMT_STRING("WARN {} {}\n\t{} <-- ignored\n");
+        auto constexpr f = FMT_STRING("WARN {} {}\n\tignored --> {} <-- ignored\n");
         fmt::print(f, fnName(), e.what(), line);
       }
     } else {
-      constexpr auto f = FMT_STRING("WARN {} {}\n\t{} <-- ignored\n");
+      constexpr auto f = FMT_STRING("WARN {} {}\n\tignored --> {} <-- ignored\n");
 
       fmt::print(f, fnName(), "colon not found"sv, line);
     }
