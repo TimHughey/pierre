@@ -1,5 +1,5 @@
 #
-# RTP
+# rtp
 #
 
 set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
@@ -19,12 +19,12 @@ find_package(fmt                          REQUIRED)
 find_library(rt       NAMES rt            REQUIRED)
 find_package(OpenSSL                      REQUIRED)
 
-add_library(RTP
+add_library(rtp
   # Base
     rtp.cpp
 
   # Supporting data structures
-    servers.cpp anchor_info.cpp
+    servers.cpp
 
   # Keeper of server instances
     servers.cpp
@@ -47,19 +47,17 @@ add_library(RTP
 )
 
 # all includes are relative to base includes
-target_include_directories(RTP PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
+target_include_directories(rtp PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
 
 # all includes are relative to base includes
-target_include_directories(RTP PUBLIC ${HEADER_PATH})
+target_include_directories(rtp PUBLIC ${HEADER_PATH})
 
-target_link_libraries(RTP PUBLIC
+target_link_libraries(rtp PUBLIC
   ${Boost_LIBRARIES}
-  # ${plist}
-  # Core
-  PCM
+  pcm
   decouple
   ssl
-  nPTP RTSP PACKET
+  rtsp packet
   fmt::fmt
   rt
 )

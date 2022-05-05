@@ -96,9 +96,7 @@ misc notes:
   2. subsequent returns are to the io_ctx and match the required void return signature
 */
 AudioSession::AudioSession(const Opts &opts)
-    : socket(std::move(opts.new_socket)),
-      anchor(opts.anchor), // io_context / socket for this session
-      wire(opts.audio_raw) // queued audio raw data
+    : socket(std::move(opts.new_socket)), wire(opts.audio_raw) // queued audio raw data
 {}
 
 void AudioSession::asyncAudioBufferLoop() {

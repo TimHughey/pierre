@@ -27,7 +27,6 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
-#include "nptp/nptp.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/server.hpp"
 #include "rtsp/session.hpp"
@@ -67,7 +66,6 @@ private:
   sHost host;
   sService service;
   smDNS mdns;
-  sNptp nptp;
 
   // internal
   std::jthread _thread;

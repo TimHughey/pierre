@@ -20,7 +20,6 @@
 
 // one header to rule them all
 
-#include "rtsp/reply/anchor.hpp"
 #include "rtsp/reply/cmd.hpp"
 #include "rtsp/reply/factory.hpp"
 #include "rtsp/reply/fairplay.hpp"
@@ -32,6 +31,7 @@
 #include "rtsp/reply/pairing.hpp"
 #include "rtsp/reply/parameter.hpp"
 #include "rtsp/reply/record.hpp"
+#include "rtsp/reply/set_anchor.hpp"
 #include "rtsp/reply/set_peers.hpp"
 #include "rtsp/reply/setup.hpp"
 #include "rtsp/reply/teardown.hpp"

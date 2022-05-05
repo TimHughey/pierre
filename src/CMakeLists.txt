@@ -1,4 +1,4 @@
-
+add_subdirectory(anchor)
 add_subdirectory(core)
 add_subdirectory(packet)
 add_subdirectory(misc)
@@ -8,6 +8,5 @@ add_subdirectory(lightdesk)
 add_subdirectory(mdns)
 add_subdirectory(rtsp)
 add_subdirectory(rtp)
-add_subdirectory(nptp)
 add_subdirectory(pcm)
 add_subdirectory(decouple)

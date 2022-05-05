@@ -13,7 +13,7 @@ file(GLOB_RECURSE
 find_package(fmt               REQUIRED)
 find_library(plist NAMES plist REQUIRED)
 
-add_library(PACKET
+add_library(packet
   rfc3550/hdr.cpp rfc3550/trl.cpp
   headers.cpp content.cpp queued.cpp
   aplist.cpp resp_code.cpp
@@ -22,13 +22,13 @@ add_library(PACKET
 
 # source files compiled for the library can include headers
 # without usinf the full path
-target_include_directories(PACKET PRIVATE ${HEADER_PATH}/packet)
+target_include_directories(packet PRIVATE ${HEADER_PATH}/packet)
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(PACKET PUBLIC ${HEADER_PATH})
+target_include_directories(packet PUBLIC ${HEADER_PATH})
 
-target_link_libraries(PACKET PUBLIC
+target_link_libraries(packet PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${plist}
   fmt::fmt

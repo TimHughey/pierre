@@ -31,13 +31,12 @@
 #include <thread>
 #include <unordered_map>
 
+#include "anchor/anchor.hpp"
 #include "core/input_info.hpp"
 #include "decouple/conn_info.hpp"
 #include "decouple/stream_info.hpp"
-#include "nptp/nptp.hpp"
 #include "packet/queued.hpp"
 #include "pcm/pcm.hpp"
-#include "rtp/anchor_info.hpp"
 #include "rtp/servers.hpp"
 
 namespace pierre {
@@ -51,11 +50,6 @@ public:
   enum TeardownPhase : uint8_t { None = 0, One, Two };
 
 public:
-  struct Opts {
-    sNptp nptp;
-  };
-
-public:
   using io_context = boost::asio::io_context;
   using string = std::string;
   using WatchDog = boost::asio::high_resolution_timer;
@@ -67,9 +61,9 @@ public:
   typedef const char *ccs;
 
 public: // object creation and shared_ptr API
-  [[nodiscard]] static sRtp create(const Opts &opts) {
+  [[nodiscard]] static sRtp create() {
     if (_instance.use_count() == 0) {
-      _instance = sRtp(new Rtp(opts));
+      _instance = sRtp(new Rtp());
     }
     // not using std::make_shared; constructor is private
     return _instance;
@@ -86,19 +80,17 @@ public:
   size_t bufferFrames() const { return 1024; }
   size_t bufferStartFill() const { return 220; }
   uint16_t localPort(rtp::ServerType type); // local endpoint port
-  bool isPlayEnabled() const { return _anchor.data.rate & 0x01; }
+
+  void save(const StreamData &stream_data);
+
   void start();
   [[nodiscard]] TeardownBarrier teardown(TeardownPhase phase = TeardownPhase::Two);
-
-  // Savers
-  void save(const rtp::AnchorData &anchor_data);
-  void save(const StreamData &stream_data);
 
   // Getters
   size_t bufferSize() const { return 1024 * 1024 * 8; };
 
 private:
-  Rtp(const Opts &opts);
+  Rtp();
 
   void runLoop();
   void watchForTeardown(WatchDog &watch_dog);
@@ -113,11 +105,9 @@ private:
 private:
   // order dependent
   packet::Queued audio_raw;
-  rtp::AnchorInfo _anchor;
   io_context io_ctx;
   rtp::Servers servers; // all servers spun up for RTP
-  sNptp nptp;
-  sPulseCodeMod pcm; // PCM processor
+  sPulseCodeMod pcm;    // PCM processor
 
   // order independent
   uint32_t _frames_per_packet_max = 352; // audio frames per packet

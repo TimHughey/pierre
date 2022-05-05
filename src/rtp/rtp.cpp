@@ -36,10 +36,9 @@ using error_code = boost::system::error_code;
 using Clock = std::chrono::high_resolution_clock;
 using Millis = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
-Rtp::Rtp(const Opts &opts)
-    : servers({.io_ctx = io_ctx, .anchor = _anchor, .audio_raw = audio_raw}), nptp(opts.nptp),
-      pcm(PulseCodeMod::create(
-          {.audio_raw = audio_raw, .nptp = nptp, .stream_info = _stream_info})) {
+Rtp::Rtp()
+    : servers({.io_ctx = io_ctx, .audio_raw = audio_raw}),
+      pcm(PulseCodeMod::create({.audio_raw = audio_raw, .stream_info = _stream_info})) {
   // more later
 }
 
@@ -96,39 +95,33 @@ void Rtp::start() {
   pthread_setname_np(handle, "RTP");
 }
 
-void Rtp::save(const rtp::AnchorData &data) {
-  _anchor = data;
-  // _anchor.dump();
-}
-
 void Rtp::save(const StreamData &data) {
   _stream_info = data;
   // _stream_info.dump();
 }
 
 Rtp::TeardownBarrier Rtp::teardown(Rtp::TeardownPhase phase) {
-  // auto fmt_str = FMT_STRING("{} started phase={}\n");
-  // std::string_view phase_sv;
+  if (false) { // debug
+    auto fmt_str = FMT_STRING("{} started phase={}\n");
+    std::string_view phase_sv;
 
-  // switch (phase) {
-  //   case Rtp::TeardownPhase::None:
-  //     phase_sv = "None";
-  //     break;
+    switch (phase) {
+      case Rtp::TeardownPhase::None:
+        phase_sv = "None";
+        break;
 
-  //   case Rtp::TeardownPhase::One:
+      case Rtp::TeardownPhase::One:
+        phase_sv = "ONE";
+        break;
 
-  //     phase_sv = "ONE";
-  //     break;
+      case Rtp::TeardownPhase::Two:
+        phase_sv = "TWO";
+        break;
+    }
 
-  //   case Rtp::TeardownPhase::Two:
-  //     phase_sv = "TWO";
-  //     break;
-  // }
+    fmt::print(fmt_str, fnName(), phase_sv);
+  }
 
-  // fmt::print(fmt_str, fnName(), phase_sv);
-
-  // everything above is just logging setting _teardown_phase
-  // and returning the promise are the substance
   _teardown_phase = phase;
 
   // put a Teardown promise in the std::optional to trigger teardown
@@ -136,15 +129,12 @@ Rtp::TeardownBarrier Rtp::teardown(Rtp::TeardownPhase phase) {
 }
 
 void Rtp::teardownFinished() {
-  // log before removing the barrier
-  fmt::print(FMT_STRING("{}\n"), fnName());
+  if (false) { // log before removing the barrier
+    fmt::print(FMT_STRING("{}\n"), fnName());
+  }
 
-  // remove the barrier
-  _teardown.value().set_value(_teardown_phase);
-
-  // clear the promise
-  _teardown.reset();
-
+  _teardown.value().set_value(_teardown_phase); // remove the barrier
+  _teardown.reset();                            // clear the promise
   _teardown_phase = None;
 }
 
@@ -155,7 +145,7 @@ void Rtp::teardownNow() {
 
   // set all state objects to defqult
   _stream_info = StreamInfo();
-  // _anchor = rtp::AnchorInfo();  FIX ME!!!!
+  Anchor::use()->teardown();
   _input_info = InputInfo();
   ConnInfo::reset();
 

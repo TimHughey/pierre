@@ -28,9 +28,9 @@
 #include <string>
 #include <thread>
 
+#include "anchor/anchor.hpp"
 #include "core/input_info.hpp"
 #include "decouple/stream_info.hpp"
-#include "nptp/nptp.hpp"
 #include "packet/basic.hpp"
 #include "packet/queued.hpp"
 
@@ -50,7 +50,6 @@ private:
 public:
   struct Opts {
     packet::Queued &audio_raw;
-    sNptp nptp;
     StreamInfo &stream_info;
   };
 
@@ -83,7 +82,6 @@ private:
 private:
   // order dependent
   packet::Queued &queued;
-  sNptp nptp;
   StreamInfo &stream_info;
 
   packet::Basic buffer;

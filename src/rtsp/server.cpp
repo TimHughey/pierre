@@ -26,7 +26,6 @@
 #include <core/host.hpp>
 #include <core/service.hpp>
 #include <mdns/mdns.hpp>
-#include <nptp/nptp.hpp>
 
 namespace pierre {
 namespace rtsp {
@@ -61,9 +60,9 @@ void Server::async_accept() {
       //  2. we then start the session using the shared_ptr returned by Session::create()
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
-      auto session = Session::create(
-          std::move(socket.value()),
-          {.host = opts.host, .service = opts.service, .mdns = opts.mdns, .nptp = opts.nptp});
+      auto session =
+          Session::create(std::move(socket.value()),
+                          {.host = opts.host, .service = opts.service, .mdns = opts.mdns});
 
       session->asyncRequestLoop();
 

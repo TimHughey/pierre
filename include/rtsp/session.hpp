@@ -30,7 +30,6 @@
 
 #include "core/host.hpp"
 #include "mdns/mdns.hpp"
-#include "nptp/nptp.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "packet/in.hpp"
@@ -61,7 +60,6 @@ public:
     sHost host = nullptr;
     sService service = nullptr;
     smDNS mdns = nullptr;
-    sNptp nptp = nullptr;
   };
 
 public:
@@ -118,7 +116,6 @@ private:
   sHost host;
   sService service;
   smDNS mdns;
-  sNptp nptp;
 
   rtsp::sAesCtx aes_ctx;
 

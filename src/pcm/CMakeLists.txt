@@ -1,5 +1,5 @@
 #
-# PCM
+# pcm
 #
 
 set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
@@ -20,22 +20,22 @@ find_library(rt       NAMES rt            REQUIRED)
 find_package(OpenSSL                      REQUIRED)
 find_package(Sodium                       REQUIRED)
 
-add_library(PCM
+add_library(pcm
   pcm.cpp
   
   ${HEADER_LIST}
 )
 
 # all includes are relative to base includes
-target_include_directories(PCM PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
+target_include_directories(pcm PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
 
 # all includes are relative to base includes
-target_include_directories(PCM PUBLIC ${HEADER_PATH})
+target_include_directories(pcm PUBLIC ${HEADER_PATH})
 
-target_link_libraries(PCM PUBLIC
+target_link_libraries(pcm PUBLIC
   ${Boost_LIBRARIES}
-  Core
-  nPTP
+  core
+  anchor
   decouple
   sodium
   ssl

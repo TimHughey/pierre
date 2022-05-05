@@ -1,5 +1,5 @@
 #
-# Core
+# core
 #
 
 set(THREADS_PREFER_PTHREAD_FLAG true)
@@ -22,7 +22,7 @@ set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
 find_package(Boost 1.78.0 COMPONENTS program_options)
 
-add_library(Core 
+add_library(core 
   args.cpp config.cpp state.cpp host.cpp
   service.cpp static.cpp
   pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
@@ -31,7 +31,7 @@ add_library(Core
 
 # source files compiled for the library can include headers
 # without usinf the full path
-target_include_directories(Core 
+target_include_directories(core 
   PRIVATE 
   ${HEADER_PATH_LOCAL}
   ${HEADER_PATH_PAIR}
@@ -40,12 +40,12 @@ target_include_directories(Core
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(Core 
+target_include_directories(core 
   PUBLIC 
   ${HEADER_PATH}
 )
 
-target_link_libraries(Core PUBLIC
+target_link_libraries(core PUBLIC
   ${libConfig}
   ${libUUID}
   ${Boost_LIBRARIES}

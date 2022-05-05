@@ -26,7 +26,7 @@ target_include_directories(Audio PRIVATE ${Boost_INCLUDE_DIRS} )
 
 target_link_libraries(Audio PUBLIC
   ${Boost_LIBRARIES}
-  Core
+  core
   Misc
 )
 

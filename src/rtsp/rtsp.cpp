@@ -22,6 +22,7 @@
 #include <fmt/format.h>
 #include <pthread.h>
 
+#include "anchor/anchor.hpp"
 #include "core/service.hpp"
 #include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
@@ -34,10 +35,9 @@ using namespace rtsp;
 Rtsp::Rtsp(sHost _host)
     : host(_host),                    // local copy of Host shared ptr
       service(Service::create(host)), // create Service
-      mdns(mDNS::create(service)),    // create mDNS
-      nptp(Nptp::create(service))     // create "Not Quite PTP"
+      mdns(mDNS::create(service))     // create mDNS
 {
-  // maybe more later
+  Anchor::use(host); // create Anchor
 }
 
 Rtsp::~Rtsp() {
@@ -49,7 +49,6 @@ void Rtsp::start() {
   fmt::print("\nPierre {:>25}\n\n", host->firmwareVerson());
 
   mdns->start();
-  nptp->start();
 
   _thread = std::jthread([this]() { runLoop(); });
   pthread_setname_np(_thread.native_handle(), "RTSP");
@@ -57,12 +56,12 @@ void Rtsp::start() {
 
 void Rtsp::runLoop() {
   // create and start Rtp, it will be needed later
-  auto rtp = Rtp::create({.nptp = nptp});
+  auto rtp = Rtp::create();
   rtp->start();
 
   // create server
-  server = rtsp::Server::create(
-      {.io_ctx = io_ctx, .host = host, .service = service, .mdns = mdns, .nptp = nptp});
+  server =
+      rtsp::Server::create({.io_ctx = io_ctx, .host = host, .service = service, .mdns = mdns});
   server->start();
 
   io_ctx.run(); // returns until no more work

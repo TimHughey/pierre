@@ -23,6 +23,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <fmt/format.h>
 #include <future>
 #include <memory>
 #include <optional>
@@ -32,7 +33,6 @@
 #include <unordered_set>
 
 #include "packet/queued.hpp"
-#include "rtp/anchor_info.hpp"
 
 namespace pierre {
 namespace rtp {
@@ -53,14 +53,13 @@ public:
 public:
   struct Opts {
     io_context &io_ctx;
-    AnchorInfo &anchor;
     packet::Queued &audio_raw;
   };
 
 public:
   AudioServer(const Opts &opts)
       : io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)},
-        anchor(opts.anchor), audio_raw(opts.audio_raw) {
+        audio_raw(opts.audio_raw) {
     // 1. store a reference to the io_ctx
     // 2. create the acceptor
     // 3. store a reference to the anchor
@@ -90,17 +89,17 @@ private:
 
 private:
   void announceAccept(const auto handle) {
-    auto fmt_str = FMT_STRING("{} accepted connection, handle={}\n");
-    fmt::print(fmt_str, fnName(), handle);
+    if (false) { // log accepted connection
+      auto fmt_str = FMT_STRING("{} accepted connection, handle={}\n");
+      fmt::print(fmt_str, fnName(), handle);
+    }
   }
-
   static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   // order dependent
   io_context &io_ctx;
   tcp_acceptor acceptor;
-  AnchorInfo &anchor;
   packet::Queued &audio_raw;
 
   uint16_t port = 0;

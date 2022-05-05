@@ -27,7 +27,6 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
-#include "nptp/nptp.hpp"
 #include "rtsp/session.hpp"
 
 namespace pierre {
@@ -51,7 +50,6 @@ public:
     sHost host = nullptr;
     sService service = nullptr;
     smDNS mdns = nullptr;
-    sNptp nptp = nullptr;
   };
 
 public:

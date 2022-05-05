@@ -49,6 +49,8 @@
 namespace pierre {
 using std::array, std::string, std::string_view;
 
+shHost Host::__instance__;
+
 Host::Host(const Config &_cfg) : cfg(_cfg) {
   initCrypto();
 

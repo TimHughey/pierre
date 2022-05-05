@@ -18,19 +18,19 @@
 
 #include <array>
 
-#include "rtp/rtp.hpp"
-#include "rtsp/reply/anchor.hpp"
+#include "anchor/anchor.hpp"
+#include "rtsp/reply/set_anchor.hpp"
 
 namespace pierre {
 namespace rtsp {
 
 using namespace packet;
 
-Anchor::Anchor(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
+SetAnchor::SetAnchor(const Reply::Opts &opts) : Reply(opts), Aplist(rContent()) {
   // maybe more
 }
 
-bool Anchor::populate() {
+bool SetAnchor::populate() {
   saveAnchorInfo();
 
   responseCode(RespCode::OK);
@@ -38,7 +38,7 @@ bool Anchor::populate() {
   return true;
 }
 
-void Anchor::saveAnchorInfo() {
+void SetAnchor::saveAnchorInfo() {
   constexpr auto Rate = "rate";
   constexpr auto TimelineID = "networkTimeTimelineID";
   constexpr auto Secs = "networkTimeSecs";
@@ -46,25 +46,22 @@ void Anchor::saveAnchorInfo() {
   constexpr auto Flags = "networkTimeFlags";
   constexpr auto RtpTime = "rtpTime";
 
-  auto rtp = Rtp::instance(); // save some typing below
-
   // a complete anchor message contains these keys
   const std::vector all_keys = {Rate, TimelineID, Secs, Frac, Flags, RtpTime};
 
   if (dictItemsExist(all_keys)) {
     // this is a complete anchor set
-    const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate),
-                                             .timelineID = dictGetUint(TimelineID),
-                                             .secs = dictGetUint(Secs),
-                                             .frac = dictGetUint(Frac),
-                                             .flags = dictGetUint(Flags),
-                                             .rtpTime = dictGetUint(RtpTime),
-                                             .nptp = nptp()};
+    auto anchor_data = AnchorData{.rate = dictGetUint(Rate),
+                                  .timelineID = dictGetUint(TimelineID),
+                                  .secs = dictGetUint(Secs),
+                                  .frac = dictGetUint(Frac),
+                                  .flags = dictGetUint(Flags),
+                                  .rtpTime = dictGetUint(RtpTime)};
 
-    rtp->save(anchor_data);
+    Anchor::use()->save(anchor_data);
   } else {
-    const auto anchor_data = rtp::AnchorData{.rate = dictGetUint(Rate), .nptp = nptp()};
-    rtp->save(anchor_data);
+    auto anchor_data = AnchorData{.rate = dictGetUint(Rate)};
+    Anchor::use()->save(anchor_data);
   }
 }
 

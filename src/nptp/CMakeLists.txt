@@ -1,5 +1,5 @@
 #
-# RTSP
+# nptp
 #
 
 set(THREADS_PREFER_PTHREAD_FLAG true)
@@ -10,35 +10,21 @@ file(GLOB_RECURSE
   "${HEADER_PATH}/nptp/*.h*"
 )
 
-add_library(nPTP
+add_library(nptp
   nptp.cpp clock_info.cpp
   ${HEADER_LIST}
 )
 
-# # embed statis plists
-# set(PLIST_EMBED ${CMAKE_CURRENT_SOURCE_DIR}/plist_embed)
-# set(PLIST_GET_INFO get_info_resp.plist)
-# set(PLIST_GET_INFO_BIN ${CMAKE_CURRENT_BINARY_DIR}/${PLIST_GET_INFO}.bin)
-
-# add_custom_command(TARGET 
-#   RTSP PRE_BUILD
-#   COMMAND ld -r -b binary -o  ${PLIST_GET_INFO_BIN} ${PLIST_GET_INFO}
-#   BYPRODUCTS ${PLIST_GET_INFO_BIN}
-#   WORKING_DIRECTORY ${PLIST_EMBED}
-#   COMMENT "Generating binary version of ${PLIST_GET_INFO}"
-#   VERBATIM
-# )
-
 # source files compiled for the library can include headers
 # without usinf the full path
-target_include_directories(nPTP PRIVATE ${HEADER_PATH}/nptp)
+target_include_directories(nptp PRIVATE ${HEADER_PATH}/nptp)
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(nPTP PUBLIC ${HEADER_PATH})
+target_include_directories(nptp PUBLIC ${HEADER_PATH})
 
-target_link_libraries(nPTP PUBLIC
-  Core
+target_link_libraries(nptp PUBLIC
+  core
 )
 
 # IDEs should put the headers in a nice place

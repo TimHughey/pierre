@@ -54,7 +54,6 @@ Reply::Reply(const Reply::Opts &opts)
       _service(opts.service),         // local shared_ptr to Service
       _aes_ctx(opts.aes_ctx),         // local shared_ptr to AexCtx
       _mdns(opts.mdns),               // local shared_ptr to mDNS
-      _nptp(opts.nptp),               // local shared_ptr to Nptp
       _request_content(opts.content), // request content
       _request_headers(opts.headers)  // reqquest headers
 

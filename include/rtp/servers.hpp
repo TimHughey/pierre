@@ -25,7 +25,6 @@
 #include <variant>
 
 #include "packet/queued.hpp"
-#include "rtp/anchor_info.hpp"
 #include "rtp/tcp/audio/server.hpp"
 #include "rtp/tcp/event/server.hpp"
 #include "rtp/udp/control/server.hpp"
@@ -50,7 +49,6 @@ public:
 public:
   struct Opts {
     io_context &io_ctx;
-    AnchorInfo &anchor;
     packet::Queued &audio_raw;
   };
 
@@ -69,7 +67,6 @@ private:
 private:
   // order dependent based on constructor
   io_context &io_ctx;
-  AnchorInfo &anchor;
   packet::Queued &audio_raw;
 
   // order independent

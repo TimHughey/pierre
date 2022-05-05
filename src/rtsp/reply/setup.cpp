@@ -25,6 +25,7 @@
 #include <memory>
 #include <string>
 
+#include "anchor/anchor.hpp"
 #include "core/service.hpp"
 #include "decouple/conn_info.hpp"
 #include "decouple/stream_info.hpp"
@@ -169,7 +170,9 @@ void Setup::getTimingList() {
 
   auto rc = dictGetStringArray(timing_peer_info_path, addresses_node, _timing_peer_info);
 
-  nptp()->sendTimingPeers(_timing_peer_info);
+  if (rc) {
+    Anchor::use()->peers(_timing_peer_info);
+  }
 
   saveCheck(rc);
 }

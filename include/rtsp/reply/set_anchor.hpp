@@ -24,9 +24,9 @@
 namespace pierre {
 namespace rtsp {
 
-class Anchor : public Reply, public packet::Aplist {
+class SetAnchor : public Reply, public packet::Aplist {
 public:
-  Anchor(const Reply::Opts &opts);
+  SetAnchor(const Reply::Opts &opts);
 
   bool populate() override;
 

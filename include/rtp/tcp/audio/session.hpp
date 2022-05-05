@@ -30,7 +30,6 @@
 
 #include "core/input_info.hpp"
 #include "packet/queued.hpp"
-#include "rtp/anchor_info.hpp"
 
 namespace pierre {
 namespace rtp {
@@ -56,7 +55,6 @@ public:
 public:
   struct Opts {
     tcp_socket &&new_socket;
-    rtp::AnchorInfo &anchor;
     packet::Queued &audio_raw;
   };
 
@@ -98,7 +96,6 @@ private:
 private:
   // order dependent - initialized by constructor
   tcp_socket socket;
-  rtp::AnchorInfo &anchor;
   packet::Queued &wire;
 
   int64_t _rx_bytes = 0; // we do signed calculations

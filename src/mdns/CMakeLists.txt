@@ -1,5 +1,5 @@
 #
-# mDNS
+# mdns
 #
 
 set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
@@ -19,13 +19,13 @@ find_package(fmt      REQUIRED)
 
 
 
-add_library(mDNS 
+add_library(mdns 
   mdns.cpp callbacks.cpp
   ${HEADER_LIST}
 )
 
 # library specific files need Avahi privately
-target_include_directories(mDNS
+target_include_directories(mdns
   PRIVATE
   ${HEADER_PATH_LOCAL}
   ${HEADER_PATH_PAIR}
@@ -33,12 +33,12 @@ target_include_directories(mDNS
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(mDNS PUBLIC ${HEADER_PATH} ${AVAHI_INCLUDE_DIR})
+target_include_directories(mdns PUBLIC ${HEADER_PATH} ${AVAHI_INCLUDE_DIR})
 
-target_link_libraries(mDNS PUBLIC
-  Core
+target_link_libraries(mdns PUBLIC
+  core
   ${AVAHI_LIBRARIES} 
   fmt::fmt
 )
 
-target_compile_definitions(mDNS PUBLIC ${AVAHI_DEFINITIONS})
+target_compile_definitions(mdns PUBLIC ${AVAHI_DEFINITIONS})

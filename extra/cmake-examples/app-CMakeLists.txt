@@ -1,5 +1,5 @@
 #
-# Core Application
+# core Application
 #
 
 add_executable(pierre pierre.cpp main.cpp)

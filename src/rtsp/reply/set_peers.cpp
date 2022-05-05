@@ -25,7 +25,7 @@
 #include <memory>
 #include <string>
 
-#include "nptp/nptp.hpp"
+#include "anchor/anchor.hpp"
 #include "rtsp/reply/set_peers.hpp"
 
 using namespace std;
@@ -46,10 +46,9 @@ bool SetPeers::populate() {
   auto rc = dictGetStringArray(nullptr, nullptr, timing_peers);
 
   if (rc) {
-    nptp()->sendTimingPeers(timing_peers);
+    Anchor::use()->peers(timing_peers);
 
     responseCode(OK);
-
     return true;
   }
 

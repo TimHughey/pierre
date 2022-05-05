@@ -34,7 +34,6 @@
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
-#include "nptp/nptp.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "packet/out.hpp"
@@ -82,7 +81,6 @@ public:
     sService service = nullptr;
     sAesCtx aes_ctx = nullptr;
     smDNS mdns = nullptr;
-    sNptp nptp = nullptr;
   };
 
 public:
@@ -115,7 +113,6 @@ public:
   bool debug() const { return _debug_flag; }
 
   smDNS mdns() { return _mdns; }
-  sNptp nptp() { return _nptp; }
 
   virtual bool populate() = 0;
 
@@ -152,7 +149,6 @@ protected:
   sService _service;
   sAesCtx _aes_ctx;
   smDNS _mdns;
-  sNptp _nptp;
 
   const packet::Content &_request_content;
   const packet::Headers &_request_headers;

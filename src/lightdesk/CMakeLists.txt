@@ -26,7 +26,7 @@ target_include_directories(Lightdesk PUBLIC ${HEADER_PATH})
 target_include_directories(Lightdesk PRIVATE ${Boost_INCLUDE_DIRS} )
 
 target_link_libraries(Lightdesk PUBLIC
-  Core Misc Audio DMX
+  core Misc Audio DMX
   ${Boost_LIBRARIES}
 )
 

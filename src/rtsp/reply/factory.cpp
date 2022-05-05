@@ -100,7 +100,7 @@ sReply Factory::create(const Reply::Opts &opts) {
   }
 
   if (method.starts_with("SETRATEANCHORTIME")) {
-    return std::make_shared<Anchor>(opts);
+    return std::make_shared<SetAnchor>(opts);
   }
 
   if (method.starts_with("TEARDOWN")) {

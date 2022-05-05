@@ -21,11 +21,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <memory>
 #include <source_location>
+#include <string_view>
 #include <uuid/uuid.h>
+#include <vector>
 
 #include "core/config.hpp"
 
 namespace pierre {
+
+using string_view = std::string_view;
 
 typedef std::array<uint8_t, 6> HwAddrBytes;
 typedef std::string IpAddr;
@@ -33,10 +37,12 @@ typedef std::vector<IpAddr> IpAddrs;
 typedef std::array<uint8_t, 32> PkBytes;
 typedef std::string string;
 typedef const char *cc_str;
+typedef const std::string_view csv;
 
 // forward decl for typedef
 class Host;
 typedef std::shared_ptr<Host> sHost;
+typedef std::shared_ptr<Host> shHost;
 
 class Host : public std::enable_shared_from_this<Host> {
 public:
@@ -47,13 +53,17 @@ public:
   // NOTE: creation of the shared instance
   [[nodiscard]] static sHost create(const Config &cfg) {
     // Not using std::make_shared<T> because the c'tor is private.
-    return sHost(new Host(cfg));
+    __instance__ = sHost(new Host(cfg));
+
+    return __instance__->shared_from_this();
   }
+
+  [[nodiscard]] static shHost use() { return __instance__->shared_from_this(); }
 
   sHost getSelf() { return shared_from_this(); }
 
   // general API
-
+  csv appName() const { return _app_name; }
   cc_str deviceID() const { return _device_id.c_str(); }
   cc_str firmwareVerson() const { return cfg.firmwareVersion().c_str(); };
 
@@ -97,6 +107,8 @@ public:
   string _serial_num;
 
   string _uuid;
+
+  static shHost __instance__;
 
 private:
   static constexpr auto _gcrypt_vsn = "1.5.4";

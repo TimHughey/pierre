@@ -37,7 +37,7 @@ using namespace std::chrono_literals;
 using namespace std::string_view_literals;
 
 PulseCodeMod::PulseCodeMod(const Opts &opts)
-    : queued(opts.audio_raw), nptp(opts.nptp), stream_info(opts.stream_info) {
+    : queued(opts.audio_raw), stream_info(opts.stream_info) {
   thread = std::jthread([this]() { runLoop(); });
 
   //  give this thread a name
@@ -54,6 +54,10 @@ void PulseCodeMod::runLoop() {
     if (queued.waitForPacket()) {
       auto packet = queued.nextPacket();
 
+      if (packet.empty()) {
+        continue;
+      }
+
       [[maybe_unused]] auto hdr = packet::rfc3550::hdr(packet);
       [[maybe_unused]] auto trl = packet::rfc3550::trl(packet);
 
@@ -64,6 +68,11 @@ void PulseCodeMod::runLoop() {
         // Note: the eight-byte nonce must be front-padded out to 12 bytes.
         ullong_t deciphered_len = 0;
         auto &shk = ConnInfo::inst()->sessionKey();
+
+        if (shk.size() == 0) {
+          continue;
+        }
+
         auto cipher_rc = crypto_aead_chacha20poly1305_ietf_decrypt(
             m.data() + 7,             // m
             &deciphered_len,          // mlen_p
@@ -77,8 +86,8 @@ void PulseCodeMod::runLoop() {
             shk.data());              // *k
 
         if (cipher_rc) {
-          constexpr auto f = FMT_STRING("{} bytes={}  seq_num={:>8}  ts={>:12}\n");
-          fmt::print(f, fnName(), hdr.seqNum32(), hdr.timestamp());
+          constexpr auto f = FMT_STRING("{} bytes={}  seq_num={:>8}  ts={:>12}\n");
+          fmt::print(f, fnName(), deciphered_len, hdr.seqNum32(), hdr.timestamp());
         }
 
         // trl.dump();

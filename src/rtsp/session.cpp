@@ -49,7 +49,6 @@ Session::Session(tcp_socket &&new_socket, const Session::Opts &opts)
       host(opts.host),                          // the Host (config, platform info)
       service(opts.service),                    // service definition for mDNS (used by Reply)
       mdns(opts.mdns),                          // mDNS (used by Reply)
-      nptp(opts.nptp),                          // Nptp (used by Reply)
       aes_ctx(AesCtx::create(host->deviceID())) // cipher
 {
   fmt::print("{} socket={}\n", fnName(), socket.native_handle());
@@ -215,8 +214,7 @@ void Session::createAndSendReply() {
                               .host = host->getSelf(),
                               .service = service->getSelf(),
                               .aes_ctx = aes_ctx,
-                              .mdns = mdns->getSelf(),
-                              .nptp = nptp->getSelf()});
+                              .mdns = mdns->getSelf()});
 
   // auto fmt_str = FMT_STRING("{} creating reply method={} path={}\n");
   // fmt::print(fmt_str, fnName(), method(), path());

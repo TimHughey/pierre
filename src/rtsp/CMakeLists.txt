@@ -1,5 +1,5 @@
 #
-# RTSP
+# rtsp
 #
 
 set(THREADS_PREFER_PTHREAD_FLAG true)
@@ -19,12 +19,12 @@ find_package(fmt                REQUIRED)
 find_library(plist  NAMES plist REQUIRED)
 find_library(rt     NAMES rt    REQUIRED)
 
-add_library(RTSP
+add_library(rtsp
   rtsp.cpp aes_ctx.cpp server.cpp session.cpp reply.cpp
   reply/factory.cpp reply/fairplay.cpp reply/options.cpp
   reply/info.cpp reply/pairing.cpp reply/parameter.cpp
   reply/setup.cpp reply/record.cpp reply/set_peers.cpp
-  reply/feedback.cpp reply/unhandled.cpp reply/anchor.cpp
+  reply/feedback.cpp reply/unhandled.cpp reply/set_anchor.cpp
   reply/teardown.cpp reply/cmd.cpp reply/flush.cpp
   ${HEADER_LIST}
 )
@@ -35,7 +35,7 @@ set(PLIST_GET_INFO get_info_resp.plist)
 set(PLIST_GET_INFO_BIN ${CMAKE_CURRENT_BINARY_DIR}/${PLIST_GET_INFO}.bin)
 
 add_custom_command(TARGET 
-  RTSP PRE_BUILD
+  rtsp PRE_BUILD
   COMMAND ld -r -b binary -o  ${PLIST_GET_INFO_BIN} ${PLIST_GET_INFO}
   BYPRODUCTS ${PLIST_GET_INFO_BIN}
   WORKING_DIRECTORY ${PLIST_EMBED}
@@ -45,17 +45,17 @@ add_custom_command(TARGET
 
 # source files compiled for the library can include headers
 # without usinf the full path
-target_include_directories(RTSP PRIVATE ${HEADER_PATH}/rtsp)
+target_include_directories(rtsp PRIVATE ${HEADER_PATH}/rtsp)
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(RTSP PUBLIC ${HEADER_PATH})
+target_include_directories(rtsp PUBLIC ${HEADER_PATH})
 
-target_link_libraries(RTSP PUBLIC
+target_link_libraries(rtsp PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${Boost_LIBRARIES}
   ${plist}
-  Core nPTP mDNS RTP PACKET decouple
+  core anchor mdns rtp packet decouple
   fmt::fmt
   rt
 )
