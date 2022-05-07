@@ -28,14 +28,11 @@
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <future>
-#include <list>
 #include <memory>
-#include <mutex>
-#include <optional>
 #include <queue>
+#include <semaphore>
 #include <source_location>
 #include <vector>
 
@@ -46,17 +43,16 @@ namespace packet {
 
 class Queued {
 private:
-  using cond_var = std::condition_variable;
-  using mutex = std::mutex;
   using src_loc = std::source_location;
-  using lock_guard = std::lock_guard<mutex>;
-  using unique_lock = std::unique_lock<mutex>;
-  typedef std::queue<packet::Basic> PacketQueue;
-  typedef const char *ccs;
+  using semaphore = std::counting_semaphore<1>;
+  using nanos = std::chrono::nanoseconds;
 
-public:
-  typedef std::promise<bool> PacketPromise;
-  typedef std::future<bool> PacketFuture;
+  typedef std::queue<packet::Basic> PacketQueue;
+  typedef std::binary_semaphore QueueAccess;
+  typedef std::promise<packet::Basic> PromisePacket;
+  typedef std::future<PromisePacket> FuturePacket;
+  typedef const char *ccs;
+  typedef const src_loc csrc_loc;
 
 public:
   static constexpr size_t PACKET_LEN_BYTES = sizeof(uint16_t);
@@ -65,42 +61,33 @@ public:
 public:
   Queued() {}
 
-  packet::Basic &buffer() { return packet; }
+  packet::Basic &buffer() {
+    packet.clear(); // ensure the buffer is cleared
+    return packet;
+  }
 
-  packet::Basic nextPacket();
+  FuturePacket nextPacket();
 
   // notify that data has been queued
   void storePacket(const size_t rx_bytes);
 
   // buffer to receive the packet length
-  auto lengthBuffer() { return boost::asio::buffer(&packet_len, 2); }
+  auto lenBuffer() { return boost::asio::buffer(&packet_len, 2); }
   auto length() { return ntohs(packet_len); }
 
   void reset();
 
-  bool waitForPacket();
-  PacketFuture wantPacket();
-
 private:
-  inline auto lockQueue() { return unique_lock(qmtx); }
-
   // misc helpers
-  ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
+  static ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   PacketQueue packet_q; // queue of received packets
   packet::Basic packet; // packet received by Session
-
-  std::optional<PacketPromise> promise;
-
+  PromisePacket next_packet;
   uint16_t packet_len; // populated by async_*
 
-  mutex qmtx; // protect the queued data
-  mutex pmtx; // protect the next packet promise
-
-  bool packet_ready = false;
-  mutex mtx_cv;             // protect the data ready cv
-  cond_var cv_packet_ready; // sufficient data is available
+  semaphore q_access{0};
 };
 
 } // namespace packet

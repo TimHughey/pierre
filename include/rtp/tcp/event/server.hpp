@@ -45,7 +45,7 @@ public:
 
 public:
   EventServer(io_context &io_ctx)
-      : io_ctx(io_ctx), acceptor(io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)) {
+      : io_ctx(io_ctx), acceptor(io_ctx, tcp_endpoint(ip_tcp::v6(), ANY_PORT)) {
     // 1. store a reference to the io_ctx
     // 2. create the acceptor
   }

@@ -58,7 +58,7 @@ public:
 
 public:
   AudioServer(const Opts &opts)
-      : io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)},
+      : io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v6(), ANY_PORT)},
         audio_raw(opts.audio_raw) {
     // 1. store a reference to the io_ctx
     // 2. create the acceptor

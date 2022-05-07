@@ -18,15 +18,15 @@
 
 #pragma once
 
+#include <array>
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/udp.hpp>
-#include <future>
+#include <cstdint>
 #include <memory>
 #include <source_location>
 #include <string>
-#include <thread>
 
 #include "rtp/udp/control/packet.hpp"
 
@@ -47,14 +47,18 @@ public:
 public:
   // create the ControlServer
   ControlServer(io_context &io_ctx)
-      : io_ctx(io_ctx), socket(io_ctx, udp_endpoint(ip_udp::v4(), ANY_PORT)) {
-    _wire.resize(4096);
+      : io_ctx(io_ctx), socket(io_ctx, udp_endpoint(ip_udp::v6(), ANY_PORT)) {
+        _wire.clear();
   }
+
+  control::hdr &hdr() { return _hdr; }
+  uint8_t *hdrData() { return _hdr.data(); }
+  size_t hdrSize() const { return _hdr.size(); }
 
   // ensure the server is started and return the local endpoint port
   uint16_t localPort() {
     if (live == false) {
-      asyncControlLoop();
+      asyncHeader();
       live = true;
     }
 
@@ -70,12 +74,13 @@ public:
   }
 
 private:
-  void asyncControlLoop();
+  void asyncHeader();
+  void asyncRestOfPacket();
+
   bool isReady() const { return socket.is_open(); };
   bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
 
-  void handleControlBlock(size_t bytes);
-  void nextControlBlock();
+  void nextBlock();
 
   control::Packet &wire() { return _wire; }
 
@@ -89,9 +94,10 @@ private:
   bool live = false;
 
   // latest sender endpoint
-  udp_endpoint endpoint;
+  udp_endpoint remote_endpoint;
 
   control::Packet _wire;
+  control::hdr _hdr;
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;
 

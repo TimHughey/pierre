@@ -36,7 +36,7 @@ using error_code = boost::system::error_code;
 using src_loc = std::source_location;
 
 Server::Server(const Server::Opts &opts)
-    : opts(opts), io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), _port)} {
+    : opts(opts), io_ctx(opts.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v6(), _port)} {
   // store a reference to the io_ctx and create the acceptor
   // see start()
 }

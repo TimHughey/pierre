@@ -40,7 +40,7 @@ using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 using ip_udp = boost::asio::ip::udp;
 
-void ControlServer::asyncControlLoop() {
+void ControlServer::asyncHeader() {
   // notes:
   //  1. for this datagram server we don't use a shared_ptr so we
   //     we can capture this
@@ -51,36 +51,45 @@ void ControlServer::asyncControlLoop() {
   //  3. key difference between TCP and UDP server is there are no
   //     asio free functions for UDP
 
-  socket.async_receive_from(asio::buffer(wire()), endpoint, [&](error_code ec, size_t rx_bytes) {
-    // essential activies:
-    //
-    // 1. check the error code
+  if (true) { // debug
+    constexpr auto f = FMT_STRING("{} socket is_open={} port={}\n");
+    fmt::print(f, fnName(), socket.is_open(), socket.local_endpoint().port());
+  }
+
+  auto buff_hdr = asio::buffer(hdrData(), hdrSize());
+
+  socket.async_receive_from(buff_hdr, remote_endpoint, [&](error_code ec, size_t rx_bytes) {
     if (isReady(ec)) {
-      // 2. handle the request (remember the data received is in the wire buffer)
-      //    handleRequest will perform the request/reply transaction (serially)
-      //    and returns when the transaction completes or errors
-      handleControlBlock(rx_bytes);
+      _hdr.loaded(rx_bytes);
+      _hdr.dump();
 
-      if (isReady()) {
-        // 3. call nextRequest() to reset buffers and state
-        nextControlBlock();
-
-        // 4. the socket is still ready, call asyncRequest to await next request
-        // 5. reminder... call returns when async_read registers the work with io_ctx
-        asyncControlLoop();
-        // 7. falls through
+      if (_hdr.moreBytes()) {
+        asyncRestOfPacket();
+      } else {
+        nextBlock();
+        asyncHeader();
       }
     }
   });
-
-  // final notes:
-  // 1. the first return of this function traverses back to the Server that created the
-  //    Session (in the same io_ctx)
-  // 2. subsequent returns are to the io_ctx and match the required void return signature
 }
 
-void ControlServer::handleControlBlock(size_t bytes) {
-  fmt::print("{} received control block bytes={}\n", fnName(), bytes);
+void ControlServer::asyncRestOfPacket() {
+  // the length specified in the header denotes the entire packet size
+
+  auto buff_rest = asio::buffer(_wire.data(), _hdr.moreBytes());
+  socket.async_receive_from(buff_rest, remote_endpoint, [&](error_code ec, size_t rx_bytes) {
+    if (isReady(ec)) {
+      if (isReady(ec)) { // debug
+        if (true) {
+          constexpr auto f = FMT_STRING("{} rx_bytes={}\n");
+          fmt::print(f, fnName(), rx_bytes);
+        }
+
+        nextBlock();
+        asyncHeader(); // schedule more work
+      }
+    }
+  });
 }
 
 bool ControlServer::isReady(const error_code &ec, const src_loc loc) {
@@ -104,11 +113,12 @@ bool ControlServer::isReady(const error_code &ec, const src_loc loc) {
   return rc;
 }
 
-void ControlServer::nextControlBlock() {
+void ControlServer::nextBlock() {
   fmt::print("{} wire_bytes={}\n", fnName(), _wire.size());
 
   // reset all buffers and state
-  _wire.reset();
+  _hdr.clear();
+  _wire.clear();
 }
 
 } // namespace udp

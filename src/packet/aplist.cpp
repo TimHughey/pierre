@@ -358,7 +358,6 @@ uint64_t Aplist::dictGetUint(Level level, ...) {
 
 void Aplist::dictSetArray(ccs root_key, ArrayDicts &dicts) {
   auto array = plist_new_array();
-  track(array);
 
   // add each dict to the newly created array
   for_each(dicts.begin(), dicts.end(),
@@ -373,11 +372,17 @@ void Aplist::dictSetData(ccs key, const fmt::memory_buffer &buf) {
   plist_dict_set_item(_plist, key, data);
 }
 
+void Aplist::dictSetReal(ccs key, double val) {
+  auto data = plist_new_real(val);
+  plist_dict_set_item(_plist, key, data);
+}
+
 // add am array of strings with key node_name to the dict at key path
 bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up
   // first create the array since it's the deepest node
   auto array = plist_new_array();
+  track(array);
 
   // populate the array with copies of the strings passed
   for (const auto &item : array_strings) {
@@ -451,10 +456,11 @@ bool Aplist::checkType(plist_t node, plist_type type) const {
   return (node && (type == plist_get_node_type(node)));
 }
 
-void Aplist::track(plist_t item) {
+plist_t Aplist::track(plist_t item) {
   if (item) {
-    _keeper.emplace_back(item);
+    return _keeper.emplace_front(item);
   }
+  return item;
 }
 
 } // namespace packet

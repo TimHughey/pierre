@@ -20,11 +20,14 @@
 #include <fmt/format.h>
 #include <string_view>
 
+#include "packet/aplist.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/reply/feedback.hpp"
 
 namespace pierre {
 namespace rtsp {
+
+using namespace packet;
 
 Feedback::Feedback(const Reply::Opts &opts) : Reply(opts) {
   debugFlag(false);
@@ -32,6 +35,23 @@ Feedback::Feedback(const Reply::Opts &opts) : Reply(opts) {
 }
 
 bool Feedback::populate() {
+  // build the reply (includes portS for started services)
+  Aplist::ArrayDicts array_dicts;
+  auto &stream0_dict = array_dicts.emplace_back(packet::Aplist());
+
+  stream0_dict.dictSetUint(nullptr, "type", 103);
+  stream0_dict.dictSetReal("sr", 44100.0);
+
+  Aplist reply_dict;
+
+  reply_dict.dictSetArray("streams", array_dicts);
+
+  size_t bytes = 0;
+  auto binary = reply_dict.dictBinary(bytes);
+  copyToContent(binary, bytes);
+
+  headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
+
   //
   // NOT FINISHED YET
   // plist_t payload_plist = plist_new_dict();
@@ -52,7 +72,7 @@ bool Feedback::populate() {
   // msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
   // debug_log_rtsp_message(2, "FEEDBACK response:", resp);
 
-  responseCode(OK);
+  responseCode(RespCode::OK);
   return true;
 }
 

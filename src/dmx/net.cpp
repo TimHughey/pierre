@@ -36,14 +36,13 @@ namespace pierre {
 namespace dmx {
 Net::Net(io_context &io_ctx, const string &host, const string &port)
     : _host(host), _port(port), _socket(io_ctx) {
-
   resolver resolver(io_ctx);
 
-  _endpoints = resolver.resolve(udp::v4(), _host, _port);
+  _endpoints = resolver.resolve(udp::v6(), _host, _port);
 
   _dest = *_endpoints.begin();
 
-  _socket.open(udp::v4());
+  _socket.open(udp::v6());
 }
 
 void Net::shutdown() { _socket.close(); }

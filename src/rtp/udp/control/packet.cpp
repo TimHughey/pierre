@@ -26,15 +26,38 @@ namespace rtp {
 namespace udp {
 namespace control {
 
-void Packet::loaded([[maybe_unused]] size_t rx_bytes) {
-  // fmt::print(FMT_STRING("{} rx_bytes={:>6}\n"), fnName(), rx_bytes);
-
-  _valid = true;
+void hdr::clear() {
+  full.vpm = 0x00;
+  full.type = 0x00;
+  full.length = 0x00000; // 16 bits
 }
 
-void Packet::reset() {
-  clear();
-  resize(STD_PACKET_SIZE);
+void hdr::loaded(size_t rx_bytes) {
+  if (rx_bytes == sizeof(full)) {
+    // clean up possible strict aliasing issues
+    full.vpm = data()[0];
+    full.type = data()[1];
+
+    full.length = ntohs(full.length);
+
+    if (true) { // debug
+      constexpr auto f = FMT_STRING("{} length={}\n");
+      fmt::print(f, fnName(), length());
+    } else {
+      constexpr auto f = FMT_STRING("{} bad length={}\n");
+      fmt::print(f, fnName(), length());
+    }
+  }
+}
+
+void hdr::dump(csrc_loc loc) const {
+  constexpr auto f = FMT_STRING("{} vsn={:#04x} padding={:5} marker={:5}");
+  fmt::print(f, fnName(loc), version(), marker(), padding());
+}
+
+void Packet::loaded([[maybe_unused]] size_t rx_bytes) {
+  _size = rx_bytes;
+  _valid = true;
 }
 
 } // namespace control

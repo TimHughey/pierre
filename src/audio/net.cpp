@@ -29,7 +29,7 @@ using namespace boost::asio::ip;
 namespace pierre {
 namespace audio {
 
-RawOut::Client::Client(io_context &io_ctx) : _socket(io_ctx) { _socket.open(udp::v4()); }
+RawOut::Client::Client(io_context &io_ctx) : _socket(io_ctx) { _socket.open(udp::v6()); }
 
 void RawOut::Client::send(const RawPacket &data, endpoint &end_pt) {
   error_code ec;
@@ -45,7 +45,7 @@ void RawOut::Client::send(const RawPacket &data, endpoint &end_pt) {
 RawOut::RawOut(const string &dest, const string &port) {
   udp::resolver resolver(_io_ctx);
 
-  auto result = *resolver.resolve(udp::v4(), dest, port, _ec).begin();
+  auto result = *resolver.resolve(udp::v6(), dest, port, _ec).begin();
   if (!_ec) {
     _dest_endpoint = result;
 

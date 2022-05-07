@@ -122,15 +122,16 @@ void Session::handleRequest(size_t rx_bytes) {
   try {
     createAndSendReply();
   } catch (const std::exception &e) {
-    auto fmt_str = FMT_STRING("{} CREATE REPLY FAILURE\n\t\tmwthod={} path={} reason={}"
-                              "(headers and content dump follow\n");
+    constexpr auto f = FMT_STRING("{} CREATE REPLY FAILURE \n\t\t" // failure
+                                  "method={} path={} reason={} "   // debug info
+                                  "(dumping headers and content)\n");
 
-    fmt::print(fmt_str, fnName(), _headers.method(), _headers.path(), e.what());
+    fmt::print(f, fnName(), _headers.method(), _headers.path(), e.what());
 
     _headers.dump();
     _content.dump();
 
-    fmt::print("{} END OF FAILED REPLY DUMP", fnName());
+    fmt::print("{} END OF FAILED REPLY DUMP\n", fnName());
   }
 }
 

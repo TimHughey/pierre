@@ -22,7 +22,6 @@
 #include <fmt/format.h>
 #include <pthread.h>
 
-#include "anchor/anchor.hpp"
 #include "core/service.hpp"
 #include "rtp/rtp.hpp"
 #include "rtsp/aes_ctx.hpp"
@@ -36,9 +35,7 @@ Rtsp::Rtsp(sHost _host)
     : host(_host),                    // local copy of Host shared ptr
       service(Service::create(host)), // create Service
       mdns(mDNS::create(service))     // create mDNS
-{
-  Anchor::use(host); // create Anchor
-}
+{}
 
 Rtsp::~Rtsp() {
   fmt::print("Rtsp destructor called\n");

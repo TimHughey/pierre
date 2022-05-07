@@ -129,7 +129,7 @@ bool Setup::handleStreams() {
 
   conn_info->saveSessionKey(rstream0.dictGetData(Root, dictKey(shk)));
 
-  // build the reply (includes portS for started services)
+  // build the reply (includes ports for started services)
   ArrayDicts array_dicts;
   auto &stream0_dict = array_dicts.emplace_back(Aplist());
 

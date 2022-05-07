@@ -67,43 +67,41 @@ struct AnchorData {
   }
 };
 
-class Anchor;
+struct AnchorInfo {
+  int64_t rtptime = 0;
+  int64_t networktime = 0;
+  anchor::ClockId clock_id = 0x00;
+  bool last_info_is_valid = false;
+  bool remote_info_is_valid = false;
+};
 
+class Anchor;
 typedef std::shared_ptr<Anchor> shAnchor;
 
 class Anchor : public std::enable_shared_from_this<Anchor> {
 public:
-  static shAnchor use(shHost host);                       // initial creation
-  static shAnchor use(csrc_loc loc = src_loc::current()); // API for Anchor
+  ~Anchor();
+  static shAnchor use(); // API for Anchor
 
 public:
   // primary public API
 
+  const anchor::ClockInfo clockInfo();
+  const AnchorInfo info();
+  uint64_t frameTimeToLocalTime(uint32_t timestamp);
   void peers(const anchor::Peers &new_peers) { clock.peers(new_peers); }
-  void save(AnchorData &ad) { std::swap(data.calcNetTime(), ad); }
-  void teardown() { clock.teardown(); }
+  bool playEnabled() const { return data.rate & 0x01; }
+  void save(AnchorData &ad);
+  void teardown();
 
   // misc debug
   void dump(csrc_loc loc = src_loc::current()) const;
   ccs fnName(csrc_loc loc = src_loc::current()) const { return loc.function_name(); }
 
-public:
-  Anchor(const Anchor &) = delete;            // no copyπho
-  Anchor(Anchor &&) = delete;                 // no move
-  Anchor &operator=(const Anchor &) = delete; // no copy assignment
-  Anchor &operator=(Anchor &&) = delete;      // no move assignment
-
 private:
   Anchor(shHost host);
 
-  bool _play_enabled = false;
-
-private:
-  void __init();
-
-  // void calcNetTime();
   void chooseAnchorClock();
-
   void infoNewClock(const anchor::ClockInfo &info);
   void warnFrequentChanges(const anchor::ClockInfo &info);
 
@@ -111,17 +109,23 @@ private:
   anchor::Clock clock; // placeholder, must be initialized before use
 
   AnchorData data;
-  AnchorData actual;
 
   uint64_t anchor_clock = 0;
   uint64_t anchor_rptime = 0;
   uint64_t anchor_time = 0;
-
   uint64_t anchor_clock_new_ns = 0;
+  bool last_info_is_valid = false;
+  bool remote_info_is_valid = false;
 
   mutex mtx_ready;
 
-  bool _debug_ = false;
+  bool _debug_ = true;
+
+public:
+  Anchor(const Anchor &) = delete;            // no copyπho
+  Anchor(Anchor &&) = delete;                 // no move
+  Anchor &operator=(const Anchor &) = delete; // no copy assignment
+  Anchor &operator=(Anchor &&) = delete;      // no move assignment
 };
 
 } // namespace pierre

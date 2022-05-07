@@ -109,8 +109,9 @@ void AudioSession::asyncAudioBufferLoop() {
   nextAudioBuffer(); // prepare for next audio buffer
 
   // start by reading the packet length
-  auto len_buff = wire.lengthBuffer();
-  socket.async_read_some(len_buff, [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+  auto buff = wire.lenBuffer();
+
+  socket.async_read_some(buff, [self = shared_from_this()](error_code ec, size_t rx_bytes) {
     // check for error and ensure receipt of the packet length
     if (self->isReady(ec)) {
       if (rx_bytes == Queued::PACKET_LEN_BYTES) {
@@ -129,7 +130,7 @@ void AudioSession::asyncAudioBufferLoop() {
 }
 
 void AudioSession::asyncReportRxBytes(int64_t rx_bytes) {
-  timer->expires_after(30s);
+  timer->expires_after(10s);
 
   // inject the current _rx_bytes (as rx_last) for compare when the timer expires
   timer->async_wait([self = shared_from_this(), rx_last = rx_bytes](error_code ec) {

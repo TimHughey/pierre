@@ -32,63 +32,41 @@ using namespace std::chrono_literals;
 namespace pierre {
 namespace packet {
 
-packet::Basic Queued::nextPacket() {
-  unique_lock q_lck(qmtx);
+PromiseFuture Queued::nextPacket(packet::Basic &next, nanos try_duration) {
+  PromisePacket _new_promise;
 
-  auto next_packet = packet::Basic(packet_q.front()); // get the next available packet
-  packet_q.pop();                                     // pop the swapped packet from the queue
+  std::swap(next_packet, _new_promise);
 
-  unique_lock cv_lck(mtx_cv);
-  packet_ready = !packet_q.empty();
-
-  return next_packet;
+  return next_packet.get_future();
 }
 
 void Queued::storePacket([[maybe_unused]] const size_t rx_bytes) {
-  if (false) {
-    [[maybe_unused]] auto hdr = rfc3550::hdr(packet);
+  static std::once_flag __once_flag;
+
+  auto hdr = rfc3550::hdr(packet);
+
+  if (false) { // debug
     [[maybe_unused]] auto trl = rfc3550::trl(packet);
     hdr.dump();
   }
 
-  // create the locks but don't lock them, yet
-  unique_lock q_lck(qmtx, std::defer_lock);
+  if (rfc3550::hdr(packet).isValid()) {                       // store packet if valid
+    std::call_once(__once_flag, [&] { q_access.release(); }); //
+    auto granted = q_access.try_acquire_for(10ms);
 
-  if (rfc3550::hdr(packet).isValid()) { // if the packet is valid
-    q_lck.lock();
+    if (!granted) { // drop packet
+      constexpr auto f = FMT_STRING("{} semaphore aquisition failed, dropping packet size={}\n");
+      fmt::print(f, fnName(), packet.size());
+      return;
+    }
 
-    packet_q.emplace(packet); // stuff it in the queue
-
-    packet.clear();
-
-    q_lck.unlock(); // done with queue
-
-    unique_lock cv_lck(mtx_cv);
-    packet_ready = true;
-    cv_lck.unlock();
-
-    cv_packet_ready.notify_all();
+    packet_q.emplace(packet); // store the packet
+    q_access.release();       // release the queue
   }
 }
 
 void Queued::reset() {
   // maybe something later
-}
-
-bool Queued::waitForPacket() {
-  if (!packet_ready) {
-    unique_lock cv_lck(mtx_cv);
-
-    cv_packet_ready.wait_for(cv_lck, 15s, [&] { return packet_ready; });
-  }
-
-  return packet_ready;
-}
-
-Queued::PacketFuture Queued::wantPacket() {
-  unique_lock p_lck(pmtx);
-
-  return promise.emplace(PacketPromise()).get_future();
 }
 
 // misc helpers, debug, etc.

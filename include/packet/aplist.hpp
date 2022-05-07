@@ -21,6 +21,7 @@
 #include <array>
 #include <cstdarg>
 #include <fmt/format.h>
+#include <list>
 #include <memory>
 #include <plist/plist++.h>
 #include <string>
@@ -97,22 +98,23 @@ public:
   const Aplist &dictSelf() const { return (const Aplist &)*this; };
   void dictSetArray(ccs root_key, ArrayDicts &dicts);
   void dictSetData(ccs key, const fmt::memory_buffer &buf);
-
+  void dictSetReal(ccs key, double val);
   bool dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
   bool dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val);
+  bool dictSetUint(ccs key, uint64_t val) { return dictSetUint(nullptr, key, val); }
   bool dictSetUint(ccs sub_dict, ccs key, uint64_t val);
 
 private:
   plist_t baseNode() { return (_base) ? _base : _plist; }
   bool checkType(plist_t node, plist_type type) const;
   plist_t dict() { return _plist; }
-  void track(plist_t pl);
+  plist_t track(plist_t pl);
 
 private:
   plist_t _plist = nullptr;
   plist_t _base = nullptr;
 
-  std::vector<plist_t> _keeper;
+  std::list<plist_t> _keeper;
 };
 
 } // namespace packet

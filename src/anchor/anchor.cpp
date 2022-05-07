@@ -27,7 +27,8 @@
 
 #include "anchor/anchor.hpp"
 #include "anchor/clock.hpp"
-#include <core/host.hpp>
+#include "core/host.hpp"
+#include "core/input_info.hpp"
 
 namespace pierre {
 
@@ -37,31 +38,18 @@ using Nanos = std::chrono::nanoseconds;
 shAnchor __instance__; // definition of shared_ptr for Clock
 
 Anchor::Anchor(shHost host) : clock(anchor::Clock(host)) {}
-
-shAnchor Anchor::use(csrc_loc loc) {
-  if (__instance__.use_count() < 1) {
-    constexpr auto f = FMT_STRING("FAILURE {} attempt to use Anchor before creation\n");
-    fmt::print(f, loc.function_name());
-
-    throw(runtime_error("Anchor use() before creation"));
-  }
-
-  return __instance__->shared_from_this();
+Anchor::~Anchor() {
+  constexpr auto f = FMT_STRING("{} destructed\n");
+  fmt::format(f, fnName());
 }
 
-shAnchor Anchor::use(shHost host) {
+shAnchor Anchor::use() {
   if (__instance__.use_count() < 1) {
     // Clock hasn't been constructed yet
-    __instance__ = shAnchor(new Anchor(host));
+    __instance__ = shAnchor(new Anchor(Host::use()));
   }
 
   return __instance__->shared_from_this();
-}
-
-void Anchor::__init() {
-  _play_enabled = data.rate & 1;
-
-  chooseAnchorClock();
 }
 
 void Anchor::chooseAnchorClock() {
@@ -77,8 +65,48 @@ void Anchor::chooseAnchorClock() {
   anchor_time = data.networkTime;
   anchor_clock_new_ns = clock.now();
 
-  actual = data;
+  // dump();
 }
+
+const anchor::ClockInfo Anchor::clockInfo() { return clock.info(); }
+
+uint64_t Anchor::frameTimeToLocalTime(uint32_t timestamp) {
+  chooseAnchorClock();
+
+  int32_t frame_diff = timestamp - anchor_rptime;
+  int64_t time_diff = frame_diff;
+  time_diff *= InputInfo::rate;
+  time_diff /= 1000000000;
+
+  uint64_t ltime = anchor_time + time_diff;
+
+  return ltime;
+}
+
+const AnchorInfo Anchor::info() {
+  chooseAnchorClock();
+
+  return AnchorInfo{.rtptime = (int64_t)anchor_rptime,
+                    .networktime = (int64_t)data.networkTime,
+                    .clock_id = anchor_clock,
+                    .last_info_is_valid = last_info_is_valid,
+                    .remote_info_is_valid = remote_info_is_valid};
+}
+
+void Anchor::save(AnchorData &ad) { std::swap(ad.calcNetTime(), data); }
+
+void Anchor::teardown() {
+  clock.teardown();
+  data = AnchorData();
+
+  // clear the local view of anchor clock
+  anchor_clock = 0;
+  anchor_rptime = 0;
+  anchor_time = 0;
+  anchor_clock_new_ns = 0;
+}
+
+// misc debug, logging
 
 void Anchor::infoNewClock(const anchor::ClockInfo &info) {
   auto rc = false;
@@ -135,7 +163,6 @@ void Anchor::dump(csrc_loc loc) const {
   fmt::print(dec_fmt_str, "networkTime", data.networkTime);
   fmt::print(dec_fmt_str, "anchorTime", data.anchorTime);
   fmt::print(dec_fmt_str, "anchorRtpTime", data.anchorRtpTime);
-  fmt::print(dec_fmt_str, "play_enabled", _play_enabled);
 
   fmt::print("\n");
 }

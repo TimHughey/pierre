@@ -46,6 +46,7 @@ private:
   using string = std::string;
   typedef const char *ccs;
   typedef unsigned long long int ullong_t;
+  typedef const src_loc csrc_loc;
 
 public:
   struct Opts {
@@ -77,7 +78,7 @@ private:
   void runLoop();
 
   // misc helpers
-  ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
+  static ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   // order dependent
