@@ -47,5 +47,31 @@ typedef uint32_t SeqNum;
 
 typedef std::unordered_map<ServerType, Port> PortMap;
 
+enum airplay_t : uint8_t { ap_1, ap_2 };
+
+enum airplay_stream_c : uint8_t { // "c" for category
+  unspecified_stream_category = 0,
+  ptp_stream,
+  ntp_stream,
+  remote_control_stream
+};
+
+enum airplay_stream_t : uint8_t { realtime_stream, buffered_stream };
+
+enum clock_status_t : uint8_t {
+  clock_no_anchor_info = 0,
+  clock_ok,
+  clock_service_unavailable,
+  clock_access_error,
+  clock_data_unavailable,
+  clock_no_master,
+  clock_version_mismatch,
+  clock_not_synchronised,
+  clock_not_valid,
+  clock_not_ready,
+};
+
+enum timing_t : uint8_t { ts_ntp = 0, ts_ptp };
+
 } // namespace airplay
 } // namespace pierre

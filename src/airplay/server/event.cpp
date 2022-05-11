@@ -27,24 +27,39 @@ namespace server {
 
 using namespace boost::system;
 
-void Event::asyncLoop() {
-  // capture the io_ctx in this optional for use when a request is accepted
-  // call it socket since it will become one once accepted
-  socket.emplace(io_ctx);
+void Event::asyncLoop(const error_code ec_last) {
+  // first things first, check ec_last passed in, bail out if needed
+  if ((ec_last != errc::success) || !acceptor.is_open()) { // problem
 
-  // since the io_ctx is wrapped in the optional and async_accept wants the actual
+    // don't highlight "normal" shutdown
+    if ((ec_last.value() != errc::operation_canceled) &&
+        (ec_last.value() != errc::resource_unavailable_try_again)) {
+      constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
+      fmt::print(f, runTicks(), serverId(), ec_last.message());
+    }
+    // some kind of error occurred, simply close the socket
+    [[maybe_unused]] error_code __ec;
+    acceptor.close(__ec); // used error code overload to prevent throws
+
+    return; // bail out
+  }
+
+  // this is the socket for the next accepted connection, store it in an
+  // optional for the lamba
+  socket.emplace(di.io_ctx);
+
+  // since the io_ctx is wrapped in the optional and asyncLoop wants the actual
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      // auto handle = (*socket).native_handle();
-      // fmt::print("{} accepted connection, handle={}\n", fnName(), handle);
+      __infoAccept(socket->native_handle(), LOG_TRUE);
 
       // create the session passing all the options
       // notes
       //  1: we move the socket (value of the optional) to session
       //  2. we then start the session using the shared_ptr returned by Session::create()
-      //  3. Session::start() must ensure it captures the shared_ptr
-      //     to ensure the Session stays in scope
+      //  3. Session::start() must ensure the shared_ptr pointer is captured in the
+      //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
       auto inject = session::Inject{.socket = std::move(socket.value()),
@@ -60,22 +75,13 @@ void Event::asyncLoop() {
   });
 }
 
-void Event::asyncLoop(const error_code &ec) {
-  if (ec == errc::success) {
-    // no error condition, schedule more io_ctx work if the socket is open
-    if (acceptor.is_open()) {
-      asyncLoop();
-    }
-    return;
-  }
+void Event::teardown() {
+  // here we only issue the cancel to the acceptor.
+  // the closing of the acceptor will be handled when
+  // the error is caught by asyncLoop
 
-  if ((ec.value() != errc::operation_canceled) &&
-      (ec.value() != errc::resource_unavailable_try_again)) {
-    auto fmt_str = FMT_STRING("{} accept connection failed, error={}\n");
-    fmt::print(fmt_str, fnName(), ec.message());
-  }
-
-  acceptor.close();
+  [[maybe_unused]] error_code __ec;
+  acceptor.cancel(__ec);
 }
 
 } // namespace server

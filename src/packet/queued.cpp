@@ -45,7 +45,7 @@ void Queued::storePacket([[maybe_unused]] const size_t rx_bytes) {
 
   auto hdr = rfc3550::hdr(packet);
 
-  if (false) { // debug
+  if (true) { // debug
     [[maybe_unused]] auto trl = rfc3550::trl(packet);
     hdr.dump();
   }

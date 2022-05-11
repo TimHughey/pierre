@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "core/typedefs.hpp"
+
 #include <arpa/inet.h>
 #include <cstdint>
 #include <source_location>
@@ -57,11 +59,6 @@ struct hdr {
     uint64_t full;      // a single uint64 of aad
   } aad;                // as defined by Apple
 
-private:
-  using src_loc = std::source_location;
-  using string = std::string;
-  typedef const char *ccs;
-
 public:
   hdr() { clear(); } // empty, allow for placeholders
   hdr(const std::vector<uint8_t> &src) { build(src.data(), src.size()); }
@@ -87,7 +84,6 @@ public:
 
 private:
   void build(const uint8_t *src, size_t len);
-  ccs fnName(const src_loc loc = src_loc::current()) const { return loc.function_name(); }
 };
 
 } // namespace rfc3550

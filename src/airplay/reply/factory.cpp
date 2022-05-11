@@ -30,13 +30,15 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
+namespace header = pierre::packet::header;
+
 shReply Factory::create(const reply::Inject &di) {
   const std::string_view method = di.method;
   const std::string_view path = di.path;
 
   if (false) { // debug
     constexpr auto f = FMT_STRING("{} FACTORY cseq={} method={} path={}\n");
-    fmt::print(f, runTicks(), di.headers.getVal(packet::Headers::Type2::CSeq), method, path);
+    fmt::print(f, runTicks(), di.headers.getVal(header::type::CSeq), method, path);
   }
 
   if (method.starts_with("CONTINUE")) {

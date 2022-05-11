@@ -33,30 +33,35 @@ namespace server {
 
 class Rtsp : public Base {
 public:
-  Rtsp(const Inject &di)
-      : io_ctx(di.io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v6(), _port)}, di(di) {
-    // store a reference to the io_ctx and create the acceptor
-    // see start()
-  }
+  Rtsp(const Inject &inject)
+      : Base(SERVER_ID),           // set the name of the server
+        di(inject),                // safe to save injected deps here
+        acceptor{di.io_ctx,        // accept connections as work for io_ctx
+                 tcp_endpoint(     // create the acceptor
+                     ip_tcp::v6(), // allow ipv4 and ipv6
+                     LOCAL_PORT)}  // listen on a specific port
 
-  void asyncLoop() override;
-  void asyncLoop(const error_code &ec) override;
+  {}
+
+  // asyncLoop is invoked to:
+  //  1. schedule the initial async accept
+  //  2. after accepting a connection to schedule the next async connect
+  //
+  // with this in mind we accept an error code that is checked before
+  // starting the next async_accept.  when the error code is not specified
+  // assume this is startup and all is well.
+  void asyncLoop(const error_code ec_last = Base::DEF_ERROR_CODE) override;
 
   Port localPort() override { return acceptor.local_endpoint().port(); }
-
-  void teardown() override {
-    acceptor.cancel();
-    acceptor.close();
-  }
+  void teardown() override;
 
 private:
-  io_context &io_ctx;
-  tcp_acceptor acceptor;
   const Inject &di;
+  tcp_acceptor acceptor;
 
   std::optional<tcp_socket> socket;
 
-  static constexpr uint16_t _port = 7000;
+  static constexpr uint16_t LOCAL_PORT = 7000;
   static constexpr auto SERVER_ID = "RTSP";
 };
 

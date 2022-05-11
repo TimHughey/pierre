@@ -37,8 +37,7 @@ namespace airplay {
 namespace reply {
 
 using enum packet::RespCode;
-using enum packet::Headers::Type2;
-using enum packet::Headers::Val2;
+namespace header = pierre::packet::header;
 
 // this static member function is in the .cpp due to the call to Factory to
 // create the approprite Reply subclass
@@ -62,7 +61,7 @@ using enum packet::Headers::Val2;
   fmt::format_to(where, "RTSP/1.0 {:d} {}{}", _rcode, resp_text, seperator);
 
   if (_content.empty() == false) {
-    headers.add(ContentLength, _content.size());
+    headers.add(header::type::ContentLength, _content.size());
   }
 
   const auto hdr_list = headers.list();
@@ -80,8 +79,8 @@ using enum packet::Headers::Val2;
   if (true) { // debug
     constexpr auto f =
         FMT_STRING("{} REPLY FINAL cseq={:<04} size={:<05} rc={:<15} method={:<19} path={}\n");
-    fmt::print(f, runTicks(), headers.getValInt(packet::Headers::Type2::CSeq), _packet.size(),
-               resp_text, di->method, di->path);
+    fmt::print(f, runTicks(), headers.getValInt(header::type::CSeq), _packet.size(), resp_text,
+               di->method, di->path);
   }
 
   return _packet;
@@ -114,8 +113,8 @@ void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
 
 Reply &Reply::inject(const reply::Inject &injected) {
   // copy the sequence header, must be part of the reply headers
-  headers.copy(injected.headers, CSeq);
-  headers.add(Server, AirPierre);
+  headers.copy(injected.headers, header::type::CSeq);
+  headers.add(header::type::Server, header::val::AirPierre);
 
   di.emplace(injected); // use an optional because it contains references
 

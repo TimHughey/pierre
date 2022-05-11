@@ -40,7 +40,6 @@ typedef struct pair_result *PairResult;
 
 struct AesResult {
   bool ok = true;
-  packet::Headers::Val2 content_val = packet::Headers::Val2::OctetStream;
   packet::RespCode resp_code = packet::RespCode::OK;
 };
 

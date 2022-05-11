@@ -28,17 +28,17 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
+namespace packet = pierre::packet;
 
 bool Feedback::populate() {
   // build the reply (includes portS for started services)
-  Aplist::ArrayDicts array_dicts;
+  packet::Aplist::ArrayDicts array_dicts;
   auto &stream0_dict = array_dicts.emplace_back(packet::Aplist());
 
   stream0_dict.dictSetUint(nullptr, "type", 103);
   stream0_dict.dictSetReal("sr", 44100.0);
 
-  Aplist reply_dict;
+  packet::Aplist reply_dict;
 
   reply_dict.dictSetArray("streams", array_dicts);
 
@@ -46,7 +46,7 @@ bool Feedback::populate() {
   auto binary = reply_dict.dictBinary(bytes);
   copyToContent(binary, bytes);
 
-  headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
+  headers.add(header::type::ContentType, header::val::AppleBinPlist);
 
   //
   // NOT FINISHED YET
@@ -68,7 +68,7 @@ bool Feedback::populate() {
   // msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
   // debug_log_rtsp_message(2, "FEEDBACK response:", resp);
 
-  responseCode(RespCode::OK);
+  responseCode(packet::RespCode::OK);
   return true;
 }
 

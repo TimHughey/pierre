@@ -29,8 +29,8 @@ namespace reply {
 using namespace std::literals;
 using namespace packet;
 
-static const uint8_t header[] = {0x46, 0x50, 0x4c, 0x59, 0x03, 0x01,
-                                 0x04, 0x00, 0x00, 0x00, 0x00, 0x14};
+static const uint8_t __header[] = {0x46, 0x50, 0x4c, 0x59, 0x03, 0x01,
+                                   0x04, 0x00, 0x00, 0x00, 0x00, 0x14};
 
 static const uint8_t reply1[] = {
     0x46, 0x50, 0x4c, 0x59, 0x03, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x82, 0x02, 0x00, 0x0f, 0x9f,
@@ -103,7 +103,7 @@ bool FairPlay::populate() {
   }
 
   if (_content.size() > 0) {
-    headers.add(Headers::Type2::ContentType, Headers::Val2::OctetStream);
+    headers.add(header::type::ContentType, header::val::OctetStream);
     responseCode(OK);
 
     return true;
@@ -153,8 +153,8 @@ void FairPlay::payload2() {
   // fmt::print("{:>20}", "creating payload2\n");
 
   // add the server header for FairPlay
-  auto header_bytes = std::size(header);
-  copyToContent(header, header_bytes);
+  auto header_bytes = std::size(__header);
+  copyToContent(__header, header_bytes);
 
   uint8_t *request_data = (uint8_t *)rContent().data();
   size_t request_len = rContent().size();

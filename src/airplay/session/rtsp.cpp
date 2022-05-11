@@ -32,8 +32,6 @@ using namespace reply;
 using namespace boost::asio;
 using namespace boost::system;
 
-using enum packet::Headers::Type2;
-
 constexpr auto re_syntax = std::regex_constants::ECMAScript;
 
 // notes:

@@ -67,7 +67,7 @@ void Packet::loaded([[maybe_unused]] size_t rx_bytes) {
 using namespace boost;
 using namespace boost::system;
 
-void Control::asyncLoop() {
+void Control::asyncLoop(const error_code ec_last) {
   // notes:
   //  1. for this datagram server we don't use a shared_ptr so we
   //     we can capture this
@@ -78,9 +78,20 @@ void Control::asyncLoop() {
   //  3. key difference between TCP and UDP server is there are no
   //     asio free functions for UDP
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} socket is_open={} port={}\n");
-    fmt::print(f, fnName(), socket.is_open(), socket.local_endpoint().port());
+  // first things first, check ec_last passed in, bail out if needed
+  if ((ec_last != errc::success) || !socket.is_open()) { // problem
+
+    // don't highlight "normal" shutdown
+    if ((ec_last.value() != errc::operation_canceled) &&
+        (ec_last.value() != errc::resource_unavailable_try_again)) {
+      constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
+      fmt::print(f, runTicks(), serverId(), ec_last.message());
+    }
+    // some kind of error occurred, simply close the socket
+    [[maybe_unused]] error_code __ec;
+    socket.close(__ec); // used error code overload to prevent throws
+
+    return; // bail out
   }
 
   auto buff_hdr = asio::buffer(hdrData(), hdrSize());
@@ -94,7 +105,7 @@ void Control::asyncLoop() {
         asyncRestOfPacket();
       } else {
         nextBlock();
-        asyncLoop();
+        asyncLoop(ec);
       }
     }
   });
@@ -105,21 +116,20 @@ void Control::asyncRestOfPacket() {
 
   auto buff_rest = asio::buffer(_wire.data(), _hdr.moreBytes());
   socket.async_receive_from(buff_rest, remote_endpoint, [&](error_code ec, size_t rx_bytes) {
-    if (isReady(ec)) {
-      if (isReady(ec)) { // debug
-        if (true) {
-          constexpr auto f = FMT_STRING("{} rx_bytes={}\n");
-          fmt::print(f, fnName(), rx_bytes);
-        }
+    if (isReady(ec)) { // debug
 
-        nextBlock();
-        asyncLoop(); // schedule more work
+      if (true) {
+        constexpr auto f = FMT_STRING("{} rx_bytes={}\n");
+        fmt::print(f, fnName(), rx_bytes);
       }
+
+      nextBlock();
+      asyncLoop(ec); // schedule more work
     }
   });
 }
 
-bool Control::isReady(const error_code &ec, const src_loc loc) {
+bool Control::isReady(const error_code &ec, csrc_loc loc) {
   [[maybe_unused]] error_code __ec;
   auto rc = isReady();
 
@@ -146,6 +156,15 @@ void Control::nextBlock() {
   // reset all buffers and state
   _hdr.clear();
   _wire.clear();
+}
+
+void Control::teardown() {
+  // here we only issue the cancel to the acceptor.
+  // the closing of the acceptor will be handled when
+  // the error is caught by asyncLoop
+
+  [[maybe_unused]] error_code __ec;
+  socket.cancel(__ec);
 }
 
 } // namespace server

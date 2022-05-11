@@ -58,6 +58,7 @@ void SetAnchor::saveAnchorInfo() {
                                   .rtpTime = rdict.dictGetUint(RtpTime)};
 
     anchor().save(anchor_data);
+    anchor().dump();
   } else {
     auto anchor_data = AnchorData{.rate = rdict.dictGetUint(Rate)};
     anchor().save(anchor_data);

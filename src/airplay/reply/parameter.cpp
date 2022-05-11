@@ -55,7 +55,7 @@ bool Parameter::handleGet() {
     fmt::format_to(buff, "\r\nvolume: {:.6}\r\n", -24.09);
 
     copyToContent(buff);
-    headers.add(Headers::Type2::ContentType, Headers::Val2::TextParameters);
+    headers.add(header::type::ContentType, header::val::TextParameters);
     responseCode(OK);
 
     rc = true;

@@ -25,12 +25,12 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
+namespace header = pierre::packet::header;
 
 bool Teardown::populate() {
   rdict = plist();
 
-  headers.add(Headers::Type2::ContentSimple, Headers::Val2::ConnectionClosed);
+  headers.add(header::type::ContentSimple, header::val::ConnectionClosed);
   responseCode(packet::RespCode::OK); // always OK
 
   has_streams = rdict.dictItemExists(STREAMS);

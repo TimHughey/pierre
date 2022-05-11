@@ -18,89 +18,90 @@
 
 #pragma once
 
+#include "packet/content.hpp"
+
 #include <array>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <limits>
 #include <list>
+#include <map>
 #include <regex>
+#include <set>
 #include <source_location>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "packet/content.hpp"
-
 namespace pierre {
 namespace packet {
+
+namespace header {
+
+using csv = std::string_view;
+
+struct type {
+  static constexpr csv CSeq = "CSeq";
+  static constexpr csv Server = "Server";
+  static constexpr csv ContentSimple = "Content";
+  static constexpr csv ContentType = "Content-Type";
+  static constexpr csv ContentLength = "Content-Length";
+  static constexpr csv Public = "Public";
+  static constexpr csv DacpActiveRemote = "Active-Remote";
+  static constexpr csv DacpID = "DACP-ID";
+  static constexpr csv AppleProtocolVersion = "Apple-ProtocolVersion";
+  static constexpr csv UserAgent = "User-Agent";
+  static constexpr csv AppleHKP = "Apple-HKP";
+  static constexpr csv XAppleClientName = "X-Apple-Client-Name";
+  static constexpr csv XApplePD = "X-Apple-PD";
+  static constexpr csv XAppleProtocolVersion = "X-Apple-ProtocolVersion";
+  static constexpr csv XAppleHKP = "X-Apple-HKP";
+  static constexpr csv XAppleET = "X-Apple-ET";
+  static constexpr csv RtpInfo = "RTP-Info";
+  static constexpr csv XAppleAbsoulteTime = "X-Apple-AbsoluteTime";
+};
+
+struct val {
+  static constexpr auto OctetStream = "application/octet-stream";
+  static constexpr auto AirPierre = "AirPierre/366.0";
+  static constexpr auto AppleBinPlist = "application/x-apple-binary-plist";
+  static constexpr auto TextParameters = "text/parameters";
+  static constexpr auto ImagePng = "image/png";
+  static constexpr auto ConnectionClosed = "close";
+};
+
+} // namespace header
 
 typedef fmt::basic_memory_buffer<char, 256> HeaderList;
 
 class Headers {
 public:
-  enum Type2 : uint8_t {
-    Unknown = 1,
-    None,
-    CSeq,
-    Server,
-    ContentSimple,
-    ContentType,
-    ContentLength,
-    Public,
-    DacpActiveRemote,
-    DacpID,
-    AppleProtocolVersion,
-    UserAgent,
-    AppleHKP,
-    XAppleClientName,
-    XApplePD,
-    XAppleProtocolVersion,
-    XAppleHKP,
-    XAppleET,
-    RtpInfo,
-    XAppleAbsoulteTime
-  };
-
-  enum Val2 : uint8_t {
-    ConnectionClosed = 1,
-    OctetStream,
-    AirPierre,
-    AppleBinPlist,
-    TextParameters,
-    ImagePng
-  };
-
-public:
   using string = std::string;
   using string_view = std::string_view;
 
 public:
-  typedef std::unordered_map<Type2, string> HeaderMap;
-  typedef std::list<Type2> HeaderOrder;
   typedef const char *ccs;
   typedef const std::string_view csv;
-  typedef const std::string_view &csvr;
+  typedef std::map<csv, string> HeaderMap;
+  typedef std::set<string> UnknownHeaders;
 
 public:
   Headers() = default;
 
-  // void add(const string_view &type, const string_view &val);
-  void add(Type2 type, const string &val);
-  void add(const string_view type, const string_view val);
-  void add(ccs type, ccs val);
-  void add(Type2 type, Val2 val);
-  void add(Type2 type, size_t val);
+  void add(csv type, const string_view val);
+  void add(csv type, size_t);
 
-  size_t contentLength() const { return getValInt(ContentLength); }
-  void copy(const Headers &from, Type2 type);
-  bool exists(Type2 type) const;
-  bool isContentType(Val2 val) const;
-  const string &getVal(Type2 want_type, Type2 default_type = Unknown) const;
-  size_t getValInt(Type2 want_type, size_t def_val = THROW) const;
+  size_t contentLength() const { return getValInt(header::type::ContentLength); }
+  csv contentType() const { return getVal(header::type::ContentType); }
+  void copy(const Headers &from, csv type);
+  bool exists(csv type) const;
+  bool isContentType(csv val) const;
+  const string &getVal(csv want_type) const;
+  size_t getValInt(csv want_type) const;
 
   // member functions that act on the entire container
   void clear();
-  inline auto count() const { return _map.size(); }
+  inline auto count() const { return _omap.size(); }
   void dump() const;
 
   const HeaderList list() const;
@@ -108,19 +109,14 @@ public:
   size_t moreBytes() const { return _more_bytes; }
 
   // preamble info
-  const string_view method() const { return string_view(_method); }
-  const string_view path() const { return string_view(_path); }
-  const string_view protocol() const { return string_view(_protocol); }
+  csv method() const { return csv(_method); }
+  csv path() const { return csv(_path); }
+  csv protocol() const { return csv(_protocol); }
 
 private:
   bool haveSeparators(const string_view &view);
   void parseHeaderBlock(const string_view &view);
   void parseMethod(const string_view &view);
-
-  const string stringFrom(Type2 type) const;
-  const string stringFrom(Val2 val) const;
-  Type2 toType(string_view type_sv) const;
-  const string_view toString(Type2 type) const;
 
   // misc
   const std::source_location
@@ -133,8 +129,8 @@ private:
   }
 
 private:
-  HeaderMap _map;
-  HeaderOrder _order;
+  HeaderMap _omap;
+  UnknownHeaders _unknown;
 
   string _method;
   string _path;

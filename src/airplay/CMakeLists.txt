@@ -18,9 +18,10 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/session/*.h*"
 )
 
-set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
-set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
-set(Boost_USE_MULTITHREADED      ON)
+set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
+set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
+set(Boost_USE_MULTITHREADED          ON)
+set(Boost_THREADAPI             pthread)
 
 find_package(Boost 1.78 COMPONENTS system REQUIRED)
 find_package(fmt                          REQUIRED)

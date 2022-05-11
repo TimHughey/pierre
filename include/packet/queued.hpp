@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include "packet/basic.hpp"
+
 #include <arpa/inet.h>
 #include <array>
 #include <atomic>
@@ -35,8 +37,6 @@
 #include <semaphore>
 #include <source_location>
 #include <vector>
-
-#include "packet/basic.hpp"
 
 namespace pierre {
 namespace packet {
@@ -76,10 +76,6 @@ public:
   auto length() { return ntohs(packet_len); }
 
   void reset();
-
-private:
-  // misc helpers
-  static ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   PacketQueue packet_q; // queue of received packets

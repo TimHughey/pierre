@@ -27,8 +27,7 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using enum packet::Headers::Type2;
-using enum packet::Headers::Val2;
+namespace header = pierre::packet::header;
 
 bool Pairing::populate() {
   AesResult aes_result;
@@ -42,10 +41,6 @@ bool Pairing::populate() {
   }
 
   responseCode(aes_result.resp_code);
-
-  if (_content.empty() == false) {
-    headers.add(ContentType, OctetStream);
-  }
 
   return aes_result.ok;
 }

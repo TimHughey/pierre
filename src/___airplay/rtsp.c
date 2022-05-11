@@ -2295,9 +2295,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           "an event thread "
           "and open a TCP port.",
           conn->connection_number);
+
     conn->airplay_stream_category = unspecified_stream_category;
     // figure out what category of stream it is, by looking at the plist
     plist_t timingProtocol = plist_dict_get_item(messagePlist, "timingProtocol");
+
     if (timingProtocol != NULL) {
       char *timingProtocolString = NULL;
       plist_get_string_val(timingProtocol, &timingProtocolString);
@@ -2564,6 +2566,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   } else {
     debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
           conn->connection_number, get_category_string(conn->airplay_stream_category));
+
     if (conn->airplay_stream_category == ptp_stream) {
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);

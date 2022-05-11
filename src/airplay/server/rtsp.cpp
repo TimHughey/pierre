@@ -29,16 +29,32 @@ using namespace boost::asio;
 using namespace boost::system;
 using error_code = boost::system::error_code;
 
-void Rtsp::asyncLoop() {
-  // capture the io_ctx in this optional for use when a request is accepted
-  // call it socket since it will become one once accepted
-  socket.emplace(io_ctx);
+void Rtsp::asyncLoop(const error_code ec_last) {
+  // first things first, check ec_last passed in, bail out if needed
+  if ((ec_last != errc::success) || !acceptor.is_open()) { // problem
+
+    // don't highlight "normal" shutdown
+    if ((ec_last.value() != errc::operation_canceled) &&
+        (ec_last.value() != errc::resource_unavailable_try_again)) {
+      constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
+      fmt::print(f, runTicks(), serverId(), ec_last.message());
+    }
+    // some kind of error occurred, simply close the socket
+    [[maybe_unused]] error_code __ec;
+    acceptor.close(__ec); // used error code overload to prevent throws
+
+    return; // bail out
+  }
+
+  // this is the socket for the next accepted connection, store it in an
+  // optional for the lamba
+  socket.emplace(di.io_ctx);
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      __infoAccept(SERVER_ID, socket->native_handle(), LOG_TRUE);
+      __infoAccept(socket->native_handle(), LOG_TRUE);
 
       // create the session passing all the options
       // notes
@@ -61,20 +77,13 @@ void Rtsp::asyncLoop() {
   });
 }
 
-void Rtsp::asyncLoop(const error_code &ec) {
-  if ((ec == errc::success) && acceptor.is_open()) { // all good
-    asyncLoop();                                     // schedule more work
-    return;
-  }
+void Rtsp::teardown() {
+  // here we only issue the cancel to the acceptor.
+  // the closing of the acceptor will be handled when
+  // the error is caught by asyncLoop
 
-  if ((ec.value() != errc::operation_canceled) &&
-      (ec.value() != errc::resource_unavailable_try_again)) {
-    constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
-    fmt::print(f, runTicks(), SERVER_ID, ec.message());
-  }
-
-  acceptor.cancel();
-  acceptor.close();
+  [[maybe_unused]] error_code __ec;
+  acceptor.cancel(__ec);
 }
 
 } // namespace server

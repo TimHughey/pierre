@@ -68,6 +68,10 @@ namespace reply {
 class Reply; // forward decl for shared_ptr typedef
 typedef std::shared_ptr<Reply> shReply;
 
+namespace { // unnamed namespace visible only in this file
+namespace header = pierre::packet::header;
+}
+
 class Reply {
 public:
   using enum packet::RespCode;
@@ -110,7 +114,7 @@ public:
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
 
   // sequence number of this request/reply exchange
-  size_t sequence() { return headers.getValInt(packet::Headers::Type2::CSeq); };
+  size_t sequence() { return headers.getValInt(header::type::CSeq); };
 
   // misc debug
   bool debugFlag(bool debug_flag);

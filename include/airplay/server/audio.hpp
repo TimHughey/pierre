@@ -31,46 +31,34 @@ namespace server {
 class Audio : public Base {
 public:
   Audio(const Inject &inject)
-      : di(inject),                                            // safe to save injected deps here
-        io_ctx(inject.io_ctx),                                 // local listen port
-        acceptor{io_ctx, tcp_endpoint(ip_tcp::v6(), ANY_PORT)} // create acceptor
-
+      : Base(SERVER_ID),           // set the name of the server
+        di(inject),                // safe to save injected deps here
+        acceptor{di.io_ctx,        // use the injected io_ctx
+                 tcp_endpoint(     // create the acceptor
+                     ip_tcp::v6(), // allow ipv4 and ipv6
+                     ANY_PORT)}    // select any port for endpoiint
   {}
 
-  void asyncLoop() override;
-  void asyncLoop(const error_code &ec) override;
+  // asyncLoop is invoked to:
+  //  1. schedule the initial async accept
+  //  2. after accepting a connection to schedule the next async connect
+  //
+  // with this in mind we accept an error code that is checked before
+  // starting the next async_accept.  when the error code is not specified
+  // assume this is startup and all is well.
+  void asyncLoop(const error_code ec_last = Base::DEF_ERROR_CODE) override;
 
-  // ensure server is started and return the local endpoint port
   Port localPort() override { return acceptor.local_endpoint().port(); }
-
-  void teardown() override {
-    [[maybe_unused]] error_code ec;
-    acceptor.cancel();
-    acceptor.close(ec);
-  }
-
-private:
-  void announceAccept(const auto handle) {
-    if (false) { // log accepted connection
-      auto fmt_str = FMT_STRING("{} accepted connection, handle={}\n");
-      fmt::print(fmt_str, fnName(), handle);
-    }
-  }
+  void teardown() override; // issue cancel to acceptor
 
 private:
   // order dependent
   const Inject di; // make a copy
-  io_context &io_ctx;
   tcp_acceptor acceptor;
 
-  uint16_t port = 0;
-  bool live = false;
-
-  // temporary holder of socket (io_ctx) while waiting for
-  // a connection
   std::optional<tcp_socket> socket;
 
-  static constexpr uint16_t ANY_PORT = 0;
+  static constexpr auto SERVER_ID = "AUDIO SERVER";
 };
 
 } // namespace server

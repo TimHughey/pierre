@@ -30,7 +30,7 @@ static const string _opts{"ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED,
                           "TEARDOWN, OPTIONS, POST, GET, PUT"};
 
 bool Options::populate() {
-  headers.add(Headers::Type2::Public, _opts);
+  headers.add(header::type::Public, _opts);
   responseCode(RespCode::OK);
 
   return true;

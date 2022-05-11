@@ -16,13 +16,14 @@
 //
 //  https://www.wisslanding.com
 
+#include "packet/rfc3550/hdr.hpp"
+#include "core/typedefs.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <fmt/format.h>
 #include <memory>
 #include <source_location>
-
-#include "packet/rfc3550/hdr.hpp"
 
 namespace pierre {
 namespace packet {
@@ -45,9 +46,11 @@ void hdr::build(const uint8_t *src, size_t len) {
   seqnum = src[1] * (1 << 16) + src[2] * (1 << 8) + src[3];
 
   src += 4;
-  for (int byte = sizeof(aad.full) - 1; byte >= 0; byte--) {
-    aad.full += (*src++) << (byte * 8);
-  }
+  // for (int byte = sizeof(aad.full) - 1; byte >= 0; byte--) {
+  //   aad.full += (*src++) << (byte * 8);
+  // }
+
+  std::memcpy(&(aad.full), src, sizeof(aad.full));
 }
 
 void hdr::clear() {
@@ -59,13 +62,13 @@ void hdr::clear() {
 
 // misc debug
 
-void hdr::dump(const src_loc loc) const {
-  fmt::print(FMT_STRING("{}  {}\n"), fnName(loc), dumpString());
+void hdr::dump([[maybe_unused]] csrc_loc loc) const {
+  fmt::print(FMT_STRING("{}  RFC3550 HDR {}"), runTicks(), dumpString());
 }
 
-const hdr::string hdr::dumpString() const {
-  auto constexpr f =
-      FMT_STRING("sizeof={:2}  valid={:<5}  seqnum={:>05}  seqnum32= {:>06}  tsmp={:>012}");
+const string hdr::dumpString() const {
+  auto constexpr f = FMT_STRING("sizeof={:2}  valid={:<5}  seqnum={:>05}  "
+                                "seqnum32= {:>06}  tsmp={:>012}\n");
 
   return fmt::format(f, size(), isValid(), seqNum(), seqNum32(), timestamp());
 }

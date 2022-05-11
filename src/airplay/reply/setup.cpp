@@ -40,7 +40,7 @@ namespace reply {
 
 using namespace packet;
 using enum ServerType;
-using enum Headers::Type2;
+namespace header = pierre::packet::header;
 
 bool Setup::checksOK() const {
   auto rc_true = [](const auto &rc) { return rc == true; };
@@ -81,7 +81,7 @@ bool Setup::handleNoStreams() {
     auto binary = reply_dict.dictBinary(bytes);
     copyToContent(binary, bytes);
 
-    headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
+    headers.add(header::type::ContentType, header::val::AppleBinPlist);
     responseCode(RespCode::OK);
 
     rc = true;
@@ -109,11 +109,11 @@ bool Setup::handleStreams() {
        .audio_format = (uint32_t)rstream0.dictGetUint(Root, dictKey(audioFormat)),
        .client_id = rstream0.dictGetStringConst(Root, dictKey(clientID)),
        .type = (uint8_t)rstream0.dictGetUint(Root, dictKey(type)),
-       .active_remote = rHeaders().getVal(DacpActiveRemote),
-       .dacp_id = rHeaders().getVal(DacpID)});
+       .active_remote = rHeaders().getVal(header::type::DacpActiveRemote),
+       .dacp_id = rHeaders().getVal(header::type::DacpID)});
 
   conn().saveSessionKey(rstream0.dictGetData(Root, dictKey(shk)));
-  conn().saveActiveRemote(rHeaders().getVal(DacpActiveRemote));
+  conn().saveActiveRemote(rHeaders().getVal(header::type::DacpActiveRemote));
 
   // build the reply (includes ports for started services)
   ArrayDicts array_dicts;
@@ -133,7 +133,7 @@ bool Setup::handleStreams() {
   auto binary = reply_dict.dictBinary(bytes);
   copyToContent(binary, bytes);
 
-  headers.add(Headers::Type2::ContentType, Headers::Val2::AppleBinPlist);
+  headers.add(header::type::ContentType, header::val::AppleBinPlist);
   responseCode(RespCode::OK);
 
   return rc;

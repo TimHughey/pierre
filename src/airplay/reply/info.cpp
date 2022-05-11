@@ -28,8 +28,7 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using enum packet::Headers::Type2;
-using enum packet::Headers::Val2;
+namespace heaeder = pierre::packet::header;
 
 bool Info::populate() {
   rdict = plist();
@@ -102,7 +101,7 @@ bool Info::stage1() {
   copyToContent(binary, bytes);
 
   responseCode(OK);
-  headers.add(ContentType, AppleBinPlist);
+  headers.add(header::type::ContentType, header::val::AppleBinPlist);
 
   return true;
 }
@@ -142,7 +141,7 @@ bool Info::stage2() {
   copyToContent(binary, bytes);
 
   responseCode(OK);
-  headers.add(ContentType, AppleBinPlist);
+  headers.add(header::type::ContentType, header::val::AppleBinPlist);
 
   return true;
 }

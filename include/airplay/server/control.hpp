@@ -100,7 +100,7 @@ public:
     _wire.clear();
   }
 
-  void asyncLoop() override;
+  void asyncLoop(const error_code ec_last = DEF_ERROR_CODE) override;
 
   control::hdr &hdr() { return _hdr; }
   uint8_t *hdrData() { return _hdr.data(); }
@@ -109,19 +109,13 @@ public:
   // ensure the server is started and return the local endpoint port
   uint16_t localPort() override { return socket.local_endpoint().port(); }
 
-  void teardown() override {
-    [[maybe_unused]] error_code ec;
-
-    socket.cancel(ec);
-    socket.shutdown(udp_socket::shutdown_both, ec);
-    socket.close(ec);
-  }
+  void teardown() override;
 
 private:
   void asyncRestOfPacket();
 
   bool isReady() const { return socket.is_open(); };
-  bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
+  bool isReady(const error_code &ec, src_loc loc = src_loc::current());
 
   void nextBlock();
 
@@ -133,8 +127,6 @@ private:
   ConnInfo &conn;
   udp_socket socket;
 
-  bool live = false;
-
   // latest sender endpoint
   udp_endpoint remote_endpoint;
 
@@ -142,8 +134,6 @@ private:
   control::hdr _hdr;
   uint64_t _rx_bytes = 0;
   uint64_t _tx_bytes = 0;
-
-  static constexpr uint16_t ANY_PORT = 0;
 };
 
 } // namespace server
