@@ -27,7 +27,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <vector>
 
 namespace pierre {
-namespace core {
 namespace service {
 
 enum Type : int8_t { AirPlayTCP = 0, RaopTCP };
@@ -92,5 +91,4 @@ typedef std::list<KeyVal> KeyValList;
 typedef std::shared_ptr<KeyValList> sKeyValList;
 
 } // namespace service
-} // namespace core
 } // namespace pierre

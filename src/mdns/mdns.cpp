@@ -16,32 +16,26 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include "mdns.hpp"
+#include "core/service.hpp"
+#include "mdns/callbacks.hpp"
+
 #include <array>
 #include <avahi-client/publish.h>
 #include <fmt/format.h>
-
-#include <iostream>
 #include <list>
 #include <memory>
 #include <pthread.h>
-
 #include <stdlib.h>
 
-#include "core/service.hpp"
-#include "mdns.hpp"
-#include "mdns/callbacks.hpp"
-
 namespace pierre {
-
-using namespace std;
-using namespace fmt;
 
 using enum service::Key;
 using enum service::Type;
 
 typedef std::vector<string> PreppedEntries;
 
-mDNS::mDNS(sService service) : _service(service) {}
+mDNS::mDNS(const Inject &di) : _service(di.service) {}
 
 void mDNS::advertise(AvahiClient *client) {
   _client = client;
@@ -65,7 +59,7 @@ void mDNS::advertise(AvahiClient *client) {
 
   for (const auto stype : std::array{AirPlayTCP, RaopTCP}) {
     PreppedEntries entries;
-    auto kvmap = _service->keyValList(stype);
+    auto kvmap = _service.keyValList(stype);
 
     for (const auto &[key, val] : *kvmap) {
       fmt::basic_memory_buffer<char, 128> sl_entry;
@@ -85,7 +79,7 @@ void mDNS::advertise(AvahiClient *client) {
 }
 
 const string mDNS::deviceID() {
-  const auto &[__unused_key, val_str] = _service->fetch(apDeviceID);
+  const auto &[__unused_key, val_str] = _service.fetch(apDeviceID);
 
   return string(val_str);
 }
@@ -95,7 +89,7 @@ bool mDNS::groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepp
   constexpr auto proto = AVAHI_PROTO_UNSPEC;
   constexpr auto pub_flags = (AvahiPublishFlags)0;
 
-  const auto [reg_type, name] = _service->nameAndReg(stype);
+  const auto [reg_type, name] = _service.nameAndReg(stype);
 
   std::vector<const char *> string_pointers;
   for (auto &entry : prepped_entries) {
@@ -149,7 +143,8 @@ bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtoco
                                          userdata);
 
   if (_resolver == nullptr) {
-    error = format("BROWSER RESOLVE failed, service[{}] {} ", name, mdns::error_string(client));
+    constexpr auto f = FMT_STRING("{} BROWSER RESOLVE failed, service[{}] {} ");
+    error = format(f, fnName(), name, mdns::error_string(client));
     return false;
   }
 
@@ -196,7 +191,7 @@ void mDNS::update() {
 
   AvahiStringList *sl = avahi_string_list_new("autoUpdate=true", nullptr);
 
-  const auto kvmap = _service->keyValList(AirPlayTCP);
+  const auto kvmap = _service.keyValList(AirPlayTCP);
   for (const auto &[key, val] : *kvmap) {
     sl = avahi_string_list_add_pair(sl, key, val);
   }
@@ -205,7 +200,7 @@ void mDNS::update() {
   constexpr auto proto = AVAHI_PROTO_UNSPEC;
   constexpr auto pub_flags = (AvahiPublishFlags)0;
 
-  const auto [reg_type, name] = _service->nameAndReg(AirPlayTCP);
+  const auto [reg_type, name] = _service.nameAndReg(AirPlayTCP);
 
   auto group = _groups.front(); // we're going to update the first (and only group)
 

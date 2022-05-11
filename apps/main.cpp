@@ -41,18 +41,18 @@ void handleSignal(int signal) {
   using namespace std;
 
   switch (signal) {
-  case SIGINT:
-    cerr << endl << "caught SIGINT" << endl;
-    exit(EXIT_SUCCESS);
-    break;
+    case SIGINT:
+      cerr << endl << "caught SIGINT" << endl;
+      exit(EXIT_SUCCESS);
+      break;
 
-  case SIGTERM:
-    cerr << endl << "caught SIGINT" << endl;
-    exit(EXIT_SUCCESS);
-    break;
+    case SIGTERM:
+      cerr << endl << "caught SIGINT" << endl;
+      exit(EXIT_SUCCESS);
+      break;
 
-  default:
-    cerr << endl << "caught signal: " << signal << " (ignored" << endl;
+    default:
+      cerr << endl << "caught signal: " << signal << " (ignored" << endl;
   }
 }
 
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
     fmt::print("main{}: daemon requested\n");
   }
 
-  pierre_instance = Pierre::create(app_name, args_map);
+  pierre_instance = Pierre::create({.app_name = app_name, .args_map = args_map});
   pierre_instance->run();
 
   exit(0);

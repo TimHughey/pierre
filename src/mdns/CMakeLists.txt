@@ -19,7 +19,7 @@ find_package(fmt      REQUIRED)
 
 
 
-add_library(mdns 
+add_library(mdns SHARED
   mdns.cpp callbacks.cpp
   ${HEADER_LIST}
 )

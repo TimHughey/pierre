@@ -15,26 +15,20 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
-#include <boost/format.hpp>
-#include <boost/program_options.hpp>
+#include "args.hpp"
 
+#include <boost/program_options.hpp>
 #include <filesystem>
-#include <iostream>
+#include <fmt/format.h>
 #include <memory>
-#include <string>
-#include <string_view>
+#include <sstream>
 #include <sys/resource.h>
 #include <time.h>
 #include <unistd.h>
 #include <vector>
 
-#include "args.hpp"
-
-using namespace std;
-using namespace pierre;
 using namespace boost::program_options;
 namespace fs = std::filesystem;
-using string = std::string;
 
 namespace pierre {
 
@@ -42,7 +36,6 @@ ArgsMap Args::parse(int argc, char *argv[]) {
   using namespace boost::program_options;
 
   variables_map args;
-
   ArgsMap args_map;
 
   try {
@@ -69,14 +62,19 @@ ArgsMap Args::parse(int argc, char *argv[]) {
     if (args.count(help) == 0) {
       args_map.parse_ok = true;
     } else {
-      cout << desc << "\n";
+      constexpr auto f = FMT_STRING("\n{}\n");
+      std::stringstream sstream;
+      desc.print(sstream, 120); // format the description to a sstream
+
+      fmt::print(f, sstream.view());
     }
 
   } catch (const error &ex) {
-    cerr << ex.what() << endl;
+    constexpr auto f = FMT_STRING("{} command line args error: {}\n");
+    fmt::print(f, fnName(), ex.what());
   }
 
-  return forward<ArgsMap>(args_map);
+  return std::forward<ArgsMap>(args_map);
 }
 
 } // namespace pierre

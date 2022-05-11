@@ -16,16 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <vector>
-
 #include "core/service.hpp"
 #include "core/service/types.hpp"
 
+#include <vector>
+
 namespace pierre {
 
-using namespace core;
-using namespace core::service;
-using enum Key;
+using namespace service;
+using enum service::Key;
 
 static const char *__calc = "*";
 

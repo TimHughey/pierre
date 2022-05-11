@@ -1,44 +1,66 @@
 #
-# Airplay
+# airplay
 #
 
-include(${pierre_SOURCE_DIR}/cmake/FileEmbed.cmake)
-FileEmbedSetup()
+add_subdirectory(aes)
 
-set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH}/airplay/*.h*")
-list(APPEND HEADER_LIST "${CMAKE_BINARY_DIR}/file_embed")
+set(THREADS_PREFER_PTHREAD_FLAG true)
 
-set(THREADS_PREFER_PTHREAD_FLAG  true)
-find_package(Threads             REQUIRED)
-find_package(GCRYPT              REQUIRED)
-find_package(OpenSSL             REQUIRED)
-find_package(Sodium              REQUIRED)
-find_package(libconfig           REQUIRED)
-pkg_check_modules(libdaemon      REQUIRED libdaemon>=0.14)
+set(__target  airplay)
 
-add_compile_definitions(CONFIG_GCRYPT SYSCONFDIR="${pierre_SOURCE_DIR}/config")
+set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
+set(HEADER_PATH_LOCAL "${HEADER_PATH}/${__target}")
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS 
+  "${HEADER_PATH_LOCAL}/*.h*"
+  "${HEADER_PATH_LOCAL}/common/*.h*"
+  "${HEADER_PATH_LOCAL}/reply/*.h*"
+  "${HEADER_PATH_LOCAL}/server/*.h*"
+  "${HEADER_PATH_LOCAL}/session/*.h*"
+)
 
-file(GLOB C_FILES *.c)
-add_library(Airplay ${C_FILES} ${HEADER_LIST})
+set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
+set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
+set(Boost_USE_MULTITHREADED      ON)
 
-FileEmbedAdd(${CMAKE_CURRENT_LIST_DIR}/plist_get_info_response.xml)
+find_package(Boost 1.78 COMPONENTS system REQUIRED)
+find_package(fmt                          REQUIRED)
+find_library(rt         NAMES rt          REQUIRED)
 
-# source files compiled for the library can include headers
-# without usinf the full path
-target_include_directories(Airplay PRIVATE 
-  ${HEADER_PATH}/airplay
-  ${CMAKE_BINARY_DIR}/file_embed)
+add_library(${__target}
+  # public API and overall controller
+  airplay.cpp
 
-# external users of this library include headers relative to
-# the based include directory
-target_include_directories(Airplay PUBLIC ${HEADER_PATH})
+  # clock
+  clock/info.cpp clock/clock.cpp 
 
-# This depends on (header only) boost
-target_link_libraries(Airplay PRIVATE Sodium GCRYPT OpenSSL file_embed)
+  # common
+  common/anchor.cpp common/conn_info.cpp common/net_time.cpp 
+  common/stream_info.cpp
 
-# IDEs should put the headers in a nice place
-# source_group(
-#   TREE "${PROJECT_SOURCE_DIR}/include/airplay"
-#   PREFIX "Header Files"
-#   FILES ${HEADER_LIST})
+  # reply
+  reply/cmd.cpp reply/factory.cpp reply/fairplay.cpp reply/feedback.cpp
+  reply/flush.cpp reply/info.cpp reply/options.cpp reply/pairing.cpp
+  reply/parameter.cpp reply/record.cpp reply/reply.cpp reply/set_anchor.cpp
+  reply/set_peers.cpp reply/setup.cpp reply/teardown.cpp reply/unhandled.cpp
+
+  # servers
+  server/map.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp
+
+  # sessions
+  session/audio.cpp session/event.cpp session/rtsp.cpp
+  
+  ${HEADER_LIST}
+)
+
+# all includes are relative to base includes
+target_include_directories(${__target} PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
+
+# all includes are relative to base includes
+target_include_directories(${__target} PUBLIC ${HEADER_PATH})
+
+target_link_libraries(${__target} PUBLIC
+  ${Boost_LIBRARIES}
+  fmt::fmt
+  rt
+  core mdns packet ap_aes
+)

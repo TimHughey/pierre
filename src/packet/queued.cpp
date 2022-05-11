@@ -32,7 +32,7 @@ using namespace std::chrono_literals;
 namespace pierre {
 namespace packet {
 
-PromiseFuture Queued::nextPacket(packet::Basic &next, nanos try_duration) {
+Queued::FuturePacket Queued::nextPacket() {
   PromisePacket _new_promise;
 
   std::swap(next_packet, _new_promise);

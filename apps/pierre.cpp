@@ -18,29 +18,23 @@
     https://www.wisslanding.com
 */
 
-#include <exception>
-#include <fmt/format.h>
-#include <iostream>
-#include <list>
-#include <thread>
-
-#include "audio/dsp.hpp"
-#include "audio/pcm.hpp"
+#include "pierre.hpp"
+#include "airplay/airplay.hpp"
 #include "core/args.hpp"
 #include "core/config.hpp"
 #include "core/host.hpp"
-#include "dmx/render.hpp"
+#include "core/service.hpp"
+#include "mdns/mdns.hpp"
 
-#include "core/args.hpp"
-#include "lightdesk/lightdesk.hpp"
-#include "pierre.hpp"
-#include "rtsp/rtsp.hpp"
+#include <exception>
+#include <fmt/format.h>
+#include <list>
+#include <thread>
 
 namespace pierre {
-using namespace std;
 
-Pierre::Pierre(const string &_app_name, const ArgsMap &args_map)
-    : cfg(_app_name, args_map.cfg_file) {
+Pierre::Pierre(const Inject &di)
+    : cfg({.app_name = di.app_name, .cli_cfg_file = di.args_map.cfg_file}) {
   // maybe more later?
 }
 
@@ -49,48 +43,48 @@ Pierre::~Pierre() {}
 // create and run all threads
 void Pierre::run() {
   if (!cfg.findFile() || !cfg.load()) {
-    throw(runtime_error("bad configuration file"));
+    throw(std::runtime_error("bad configuration file"));
   }
 
-  // create shared ptrs to top level config providers and worker threads
-  auto host = Host::create(cfg);
-  auto rtsp = Rtsp::create(host);
+  // create core dependencies for injection
+  auto host = Host({.cfg = cfg});
 
-  // start broadcast of AirPlay2 and handle audio streams
-  rtsp->start();
+  constexpr auto f = FMT_STRING("{} {} {} {}\n");
+  fmt::print(f, runTicks(), fnName(), host.serviceName(), host.firmwareVerson());
 
-  // wait for Rtsp to complete
-  rtsp->join();
+  auto service = Service({.host = host});
 
-  fmt::print("Pierre: joined rtsp={}\n", fmt::ptr(rtsp.get()));
+  auto mdns = mDNS({.service = service});
+  mdns.start();
 
-  // std::list<shared_ptr<thread>> threads;
+  // create and start Airplay
+  auto &airplay = Airplay().start({.host = host, .service = service, .mdns = mdns});
 
-  //   auto dsp = make_shared<audio::Dsp>();
-  //   auto dmx = make_shared<dmx::Render>();
-  //   auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
+  airplay.join();
 
-  //   threads.emplace_front(dsp->run());
-  //   threads.emplace_front(dmx->run());
+  /* legacy
+  std::list<shared_ptr<thread>> threads;
 
-  //   lightdesk->saveInstance(lightdesk);
-  //   threads.emplace_front(lightdesk->run());
+    auto dsp = make_shared<audio::Dsp>();
+    auto dmx = make_shared<dmx::Render>();
+    auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
 
-  //   dmx->addProducer(lightdesk);
+    threads.emplace_front(dsp->run());
+    threads.emplace_front(dmx->run());
 
-  //   sleep(10);
+    lightdesk->saveInstance(lightdesk);
+    threads.emplace_front(lightdesk->run());
 
-  //   if (State::leaving()) {
-  //     lightdesk->leave();
-  //   }
+    dmx->addProducer(lightdesk);
 
-  //   State::shutdown();
+    sleep(10);
 
-  //   for (auto t : threads) {
-  //     t->join();
-  //   }
+    if (State::leaving()) {
+      lightdesk->leave();
+    }
 
-  //   cout << endl;
-  // }
+    State::shutdown();
+    cout << endl;
+    */
 }
 } // namespace pierre

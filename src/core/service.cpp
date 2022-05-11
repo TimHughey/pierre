@@ -16,31 +16,32 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include "core/service.hpp"
+
 #include <exception>
-#include <fmt/core.h>
 #include <fmt/format.h>
 #include <memory>
 #include <plist/plist++.h>
 
-#include "core/service.hpp"
 namespace pierre {
 
-using namespace std;
-using namespace core::service;
-using enum Key;
+using namespace service;
+using enum service::Key;
 
-Service::Service(sHost host) {
+Service::Service(const Inject &di) {
+  auto &host = di.host;
+
   // stora calculated key/vals available from Host
-  saveCalcVal(apAirPlayPairingIdentity, host->hwAddr());
-  saveCalcVal(apDeviceID, host->hwAddr());
+  saveCalcVal(apAirPlayPairingIdentity, host.hwAddr());
+  saveCalcVal(apDeviceID, host.hwAddr());
 
-  saveCalcVal(apGroupUUID, host->uuid());
-  saveCalcVal(apSerialNumber, host->serialNum());
+  saveCalcVal(apGroupUUID, host.uuid());
+  saveCalcVal(apSerialNumber, host.serialNum());
 
-  saveCalcVal(ServiceName, host->cfg.serviceName());
-  saveCalcVal(FirmwareVsn, host->firmwareVerson());
+  saveCalcVal(ServiceName, host.cfg.serviceName());
+  saveCalcVal(FirmwareVsn, host.firmwareVerson());
 
-  saveCalcVal(PublicKey, host->pk());
+  saveCalcVal(PublicKey, host.pk());
 
   addRegAndName();
   addSystemFlags();
@@ -97,7 +98,7 @@ void Service::addRegAndName() {
 }
 
 void Service::addSystemFlags() {
-  for (auto key : array{apSystemFlags, apStatusFlags, mdSystemFlags}) {
+  for (auto key : std::array{apSystemFlags, apStatusFlags, mdSystemFlags}) {
     auto str = fmt::format("{:#x}", _system_flags);
 
     saveCalcVal(key, str);
@@ -119,7 +120,7 @@ void Service::deviceSupportsRelay(bool on_off) {
   addSystemFlags(); // update the calculated key/val map
 }
 
-const KeyVal Service::fetch(const Key key) const {
+const service::KeyVal Service::fetch(const Key key) const {
   const auto &kv = _kvm.at(key);
 
   const auto &[__unused_key_str, val_str] = kv;
@@ -151,7 +152,7 @@ const char *Service::fetchVal(const Key key) const {
   return val_str;
 }
 
-sKeyValList Service::keyValList(Type service_type) const {
+service::sKeyValList Service::keyValList(Type service_type) const {
   // get the list of keys
   const auto &seq_list = _key_sequences.at(service_type);
 
@@ -168,7 +169,7 @@ sKeyValList Service::keyValList(Type service_type) const {
 }
 
 // return a key/val list for an adhoc list of keys
-sKeyValList Service::keyValList(const KeySeq &want_keys) const {
+service::sKeyValList Service::keyValList(const KeySeq &want_keys) const {
   sKeyValList kv_list = std::make_shared<KeyValList>();
 
   for (const auto key : want_keys) {
@@ -181,14 +182,14 @@ sKeyValList Service::keyValList(const KeySeq &want_keys) const {
 
 const KeyVal Service::nameAndReg(Type type) const {
   switch (type) {
-    case AirPlayTCP:
+    case service::AirPlayTCP:
       return fetch(AirPlayRegNameType);
 
-    case RaopTCP:
+    case service::RaopTCP:
       return fetch(RaopRegNameType);
   }
 
-  throw(runtime_error("bad service type"));
+  throw(std::runtime_error("bad service type"));
 }
 
 void Service::saveCalcVal(Key key, const string &val) {
@@ -197,12 +198,12 @@ void Service::saveCalcVal(Key key, const string &val) {
 
   // create the new val str
   auto len = val.size() + 1; // plus null terminator
-  ValStrCalc val_str(new char[len]{0});
+  service::ValStrCalc val_str(new char[len]{0});
 
   memcpy(val_str.get(), val.c_str(), len);
 
   // put the key/val tuple into the calc map
-  _kvm_calc.insert_or_assign(key, KeyValCalc{key_str, val_str});
+  _kvm_calc.insert_or_assign(key, service::KeyValCalc{key_str, val_str});
 }
 
 void Service::saveCalcVal(Key key, ccs val_ptr) {

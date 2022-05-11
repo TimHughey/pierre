@@ -18,6 +18,10 @@
     https://www.wisslanding.com
 */
 
+#include "host.hpp"
+#include "config.hpp"
+#include "pair/pair.h"
+
 #include <algorithm>
 #include <arpa/inet.h>
 #include <array>
@@ -35,7 +39,6 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <sodium.h>
-#include <string_view>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -43,15 +46,9 @@
 #include <uuid/uuid.h>
 #include <vector>
 
-#include "config.hpp"
-#include "host.hpp"
-#include "pair/pair.h"
 namespace pierre {
-using std::array, std::string, std::string_view;
 
-shHost Host::__instance__;
-
-Host::Host(const Config &_cfg) : cfg(_cfg) {
+Host::Host(const Inject &di) : cfg(di.cfg) {
   initCrypto();
 
   // find the mac addr, store a binary and text representation
@@ -90,7 +87,7 @@ void Host::createUUID() {
   uuid_t binuuid;
   uuid_generate_random(binuuid);
 
-  array<char, 37> tu = {0};
+  std::array<char, 37> tu = {0};
   uuid_unparse_lower(binuuid, tu.data());
 
   _uuid = string(tu.data(), tu.size());
@@ -112,11 +109,9 @@ void Host::discoverIPs() {
       std::array<char, INET6_ADDRSTRLEN + 1> buf{0};
 
       if (iap->ifa_addr->sa_family == AF_INET6) {
-        // exclude Ipv6 for the moment
+        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
 
-        // struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
-
-        // inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
+        inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
       } else {
         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
 

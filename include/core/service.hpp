@@ -18,45 +18,37 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "core/host.hpp"
+#include "service/types.hpp"
+#include "typedefs.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <plist/plist++.h>
-#include <string>
 #include <tuple>
 #include <unordered_map>
 
-#include "core/host.hpp"
-#include "service/types.hpp"
-
 namespace pierre {
 
-// forward decl for shared_ptr typedef
-class Service;
-typedef std::shared_ptr<Service> sService;
-
-class Service : public std::enable_shared_from_this<Service> {
+class Service {
 public:
   enum Flags : uint8_t { DeviceSupportsRelay = 11 };
 
 public:
-  using KeyVal = core::service::KeyVal;
-  using sKeyValList = core::service::sKeyValList;
-  using Type = core::service::Type;
-  using Key = core::service::Key;
-  using KeySeq = core::service::KeySeq;
-  using enum core::service::Key;
+  using KeyVal = service::KeyVal;
+  using sKeyValList = service::sKeyValList;
+  using Type = service::Type;
+  using Key = service::Key;
+  using KeySeq = service::KeySeq;
+  using enum service::Key;
 
-  typedef const char *ccs;
-  typedef const std::string &csr;
+private:
+  struct Inject {
+    Host &host;
+  };
 
 public:
-  // shared_ptr API
-  [[nodiscard]] static sService create(sHost host) {
-    // must call constructor directly since it's private
-    return sService(new Service(host));
-  }
-
-  sService getSelf() { return shared_from_this(); }
+  Service(const Inject &di);
 
   // general API
   // void adjustSystemFlags(Flags flag);
@@ -80,8 +72,6 @@ public:
   uint64_t systemFlags() const { return _system_flags; }
 
 private:
-  Service(sHost host);
-
   void addFeatures();
   void addRegAndName();
   void addSystemFlags();
@@ -117,8 +107,8 @@ private:
   std::string _features_mdns;
   std::string _features_plist;
 
-  static core::service::KeyValMap _kvm;
-  static core::service::KeyValMapCalc _kvm_calc;
-  static core::service::KeySequences _key_sequences;
+  static service::KeyValMap _kvm;
+  static service::KeyValMapCalc _kvm_calc;
+  static service::KeySequences _key_sequences;
 };
 } // namespace pierre

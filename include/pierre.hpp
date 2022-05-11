@@ -20,12 +20,12 @@
 
 #pragma once
 
+#include "core/args.hpp"
+#include "core/config.hpp"
+
 #include <memory>
 #include <string>
 #include <tuple>
-
-#include "core/args.hpp"
-#include "core/config.hpp"
 
 namespace pierre {
 
@@ -36,20 +36,26 @@ class Pierre : public std::enable_shared_from_this<Pierre> {
 public:
   typedef const std::string &csr;
 
+private:
+  struct Inject {
+    csr app_name;
+    const ArgsMap &args_map;
+  };
+
 public:
   ~Pierre();
 
-  [[nodiscard]] static sPierre create(csr app_name, const ArgsMap &args_map) {
+  [[nodiscard]] static sPierre create(const Inject &di) {
     // Not using std::make_shared<Best> because the c'tor is private.
 
-    return sPierre(new Pierre(app_name, args_map));
+    return sPierre(new Pierre(di));
   }
 
   // main entry point
   void run();
 
 private:
-  Pierre(csr app_name, const ArgsMap &args_map);
+  Pierre(const Inject &di);
 
 private:
   Config cfg;

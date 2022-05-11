@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "typedefs.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>

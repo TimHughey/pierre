@@ -39,19 +39,15 @@ namespace packet {
 
 using namespace std;
 
-Aplist::Aplist() { _plist = plist_new_dict(); }
-
-Aplist::Aplist(const Content &content) {
-  constexpr auto header = "bplist00";
-  constexpr auto header_len = strlen(header);
-
-  if (content.size() > header_len) {
-    const char *data = (const char *)content.data();
-
-    // create the plist and wrap the pointer
-    plist_from_memory(data, content.size(), &_plist);
-    track(_plist);
+Aplist::Aplist(bool allocate) {
+  if (allocate != DEFER_DICT) {
+    _plist = plist_new_dict();
   }
+}
+
+Aplist::Aplist(Aplist &&ap) {
+  _plist = ap._plist;
+  ap._plist = nullptr;
 }
 
 Aplist::Aplist(const Dictionaries &dictionaries) {
@@ -80,13 +76,6 @@ Aplist::Aplist(Embedded embedded) {
   }
 }
 
-Aplist::~Aplist() {
-  std::for_each(_keeper.begin(), _keeper.end(), [](auto pl) {
-    if (pl)
-      plist_free(pl);
-  });
-}
-
 Aplist::Aplist(const Aplist &src, Level level, ...) {
   va_list args;
 
@@ -99,8 +88,24 @@ Aplist::Aplist(const Aplist &src, Level level, ...) {
   } else {
     _plist = plist_new_dict();
   }
+}
 
-  track(_plist);
+Aplist::~Aplist() {
+  if (_plist) {
+    plist_free(_plist);
+    _plist = nullptr;
+  }
+}
+
+Aplist &Aplist::operator=(const Content &content) { return fromContent(content); }
+
+Aplist &Aplist::clear() {
+  if (_plist) {
+    plist_free(_plist);
+    _plist = nullptr;
+  }
+
+  return *this;
 }
 
 Aplist::Binary Aplist::dictBinary(size_t &bytes) const {
@@ -360,8 +365,10 @@ void Aplist::dictSetArray(ccs root_key, ArrayDicts &dicts) {
   auto array = plist_new_array();
 
   // add each dict to the newly created array
-  for_each(dicts.begin(), dicts.end(),
-           [array](auto &item) { plist_array_append_item(array, item.dict()); });
+  for_each(dicts.begin(), dicts.end(), [array](auto &item) {
+    auto append = plist_copy(item.dict());  // need our own copy to avoid double mem dealloc
+    plist_array_append_item(array, append); // append the sub dict
+  });
 
   // place the array at the specified key
   plist_dict_set_item(_plist, root_key, array);
@@ -382,7 +389,6 @@ bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &a
   // create and save nodes from the bottom up
   // first create the array since it's the deepest node
   auto array = plist_new_array();
-  track(array);
 
   // populate the array with copies of the strings passed
   for (const auto &item : array_strings) {
@@ -456,11 +462,20 @@ bool Aplist::checkType(plist_t node, plist_type type) const {
   return (node && (type == plist_get_node_type(node)));
 }
 
-plist_t Aplist::track(plist_t item) {
-  if (item) {
-    return _keeper.emplace_front(item);
+Aplist &Aplist::fromContent(const Content &content) {
+  clear(); // ensure there isn't an existing dict
+
+  constexpr auto header = "bplist00";
+  constexpr auto header_len = strlen(header);
+
+  if (content.size() > header_len) {
+    const char *data = (const char *)content.data();
+
+    // create the plist and wrap the pointer
+    plist_from_memory(data, content.size(), &_plist);
   }
-  return item;
+
+  return *this;
 }
 
 } // namespace packet

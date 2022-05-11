@@ -42,7 +42,7 @@ namespace pierre {
 namespace packet {
 
 class Queued {
-private:
+public:
   using src_loc = std::source_location;
   using semaphore = std::counting_semaphore<1>;
   using nanos = std::chrono::nanoseconds;
@@ -50,7 +50,7 @@ private:
   typedef std::queue<packet::Basic> PacketQueue;
   typedef std::binary_semaphore QueueAccess;
   typedef std::promise<packet::Basic> PromisePacket;
-  typedef std::future<PromisePacket> FuturePacket;
+  typedef std::future<packet::Basic> FuturePacket;
   typedef const char *ccs;
   typedef const src_loc csrc_loc;
 

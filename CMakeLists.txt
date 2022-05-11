@@ -79,7 +79,8 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  Misc core Audio DMX Lightdesk mdns rtsp rtp pcm anchor
+  core airplay
+#  Misc core Audio DMX Lightdesk mdns rtsp rtp pcm anchor
   ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs

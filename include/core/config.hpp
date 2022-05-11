@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "typedefs.hpp"
+
 #include <array>
 #include <libconfig.h++>
 #include <memory>
@@ -28,11 +30,14 @@
 namespace pierre {
 
 class Config : public libconfig::Config {
-public:
-  typedef const std::string &csr;
+private:
+  struct Inject {
+    csr app_name;
+    csr cli_cfg_file;
+  };
 
 public:
-  Config(csr &app_name, csr cli_cfg_file);
+  Config(const Inject &di);
 
   csr appName() const { return _app_name; }
   bool findFile();
@@ -166,12 +171,9 @@ public:
 
   double airplay_volume = -24.0;
   // used by airplay
-  const uint32_t fixedLatencyOffset =
-      11025; // this sounds like it works properly.
+  const uint32_t fixedLatencyOffset = 11025; // this sounds like it works properly.
 
 private:
-  using string = std::string;
-
   csr _app_name;
   string _cfg_file;
   string _cli_cfg_file;
@@ -182,7 +184,5 @@ private:
   // NOTE: hardcoded!!!
   string _service_name{"Jophiel"};
 };
-
-typedef std::shared_ptr<Config> ConfigPtr;
 
 } // namespace pierre

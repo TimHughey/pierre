@@ -17,13 +17,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 #pragma once
 
-#include <string>
+#include "typedefs.hpp"
 
 namespace pierre {
 
 struct ArgsMap {
-  using string = std::string;
-
   bool parse_ok = false;
   bool daemon = false;
   string cfg_file{};
@@ -37,33 +35,27 @@ struct ArgsMap {
 
 class Args {
 public:
-  using string = std::string;
-
-public:
-  typedef const char *cchar;
-
-public:
   Args() = default;
 
   ArgsMap parse(int argc, char *argv[]);
 
 private:
-  cchar help_description = "Pierre is your light guy for any dance party.\n\n"
-                           "Options";
+  ccs help_description = "Pierre is your light guy for any dance party.\n\n"
+                         "Options";
 
-  cchar daemon_arg = "daemon,b";
-  cchar daemon_help = "daemon mode\nrun in background";
-  cchar colorbars = "colorbars";
-  cchar colorbars_help = "perform pinspot colorbar test at startup";
-  cchar cfg_file_arg = "config,C";
-  cchar cfg_file_default = "pierre.conf";
-  cchar cfg_file_help = "config file";
-  cchar dmx_host_arg = "dmx-host";
-  cchar dmx_host_help = "stream dmx frames to host";
-  cchar help = "help";
-  cchar help_help = "help";
-  cchar pid_file = "pid-file";
-  cchar pid_file_help = R"(path
+  ccs daemon_arg = "daemon,b";
+  ccs daemon_help = "daemon mode\nrun in background";
+  ccs colorbars = "colorbars";
+  ccs colorbars_help = "perform pinspot colorbar test at startup";
+  ccs cfg_file_arg = "config,C";
+  ccs cfg_file_default = "pierre.conf";
+  ccs cfg_file_help = "config file";
+  ccs dmx_host_arg = "dmx-host";
+  ccs dmx_host_help = "stream dmx frames to host";
+  ccs help = "help";
+  ccs help_help = "help";
+  ccs pid_file = "pid-file";
+  ccs pid_file_help = R"(path
 full path to write pid file when running as daemon
 )";
 };

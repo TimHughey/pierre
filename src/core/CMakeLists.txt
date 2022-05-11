@@ -22,8 +22,9 @@ set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
 find_package(Boost 1.78.0 COMPONENTS program_options)
 
-add_library(core 
-  args.cpp config.cpp state.cpp host.cpp
+add_library(core SHARED
+  common.cpp
+  args.cpp config.cpp host.cpp
   service.cpp static.cpp
   pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
   ${HEADER_LIST}

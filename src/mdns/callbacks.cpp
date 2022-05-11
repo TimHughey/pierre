@@ -16,17 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <fmt/format.h>
-#include <string>
-
-#include "mdns.hpp"
 #include "mdns/callbacks.hpp"
+#include "mdns.hpp"
+
+#include <fmt/format.h>
+#include <mutex>
+#include <pthread.h>
 
 namespace pierre {
 namespace mdns {
-
-using namespace std;
-using namespace fmt;
 
 using mDNS = pierre::mDNS;
 
@@ -35,6 +33,14 @@ using mDNS = pierre::mDNS;
 //
 
 void cbClient(AvahiClient *client, AvahiClientState state, void *userdata) {
+  static std::once_flag __once_flag;
+
+  std::call_once(__once_flag, [] {
+    constexpr auto name = "mDNS";
+
+    pthread_setname_np(pthread_self(), name);
+  });
+
   mDNS *mdns = static_cast<mDNS *>(userdata);
 
   if (mdns == nullptr) {
@@ -76,11 +82,12 @@ void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol prot
   auto mdns = (mDNS *)userdata;
 
   switch (event) {
-    case AVAHI_BROWSER_FAILURE:
-      mdns->error = format("browser failure: {}", error_string(b));
+    case AVAHI_BROWSER_FAILURE: {
+      constexpr auto f = FMT_STRING("browser failure: {}\n");
+      mdns->error = fmt::format(f, error_string(b));
 
       avahi_threaded_poll_quit(mdns->_tpoll);
-      break;
+    } break;
 
     case AVAHI_BROWSER_NEW:
       // debug(1, "browse_callback: avahi_service_resolver_new for service '%s' of
@@ -93,8 +100,8 @@ void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol prot
       if (!(avahi_service_resolver_new(mdns->_client, interface, protocol, name, type, domain,
                                        AVAHI_PROTO_UNSPEC, (AvahiLookupFlags)9, cbResolve,
                                        userdata))) {
-        mdns->error =
-            format("BROWSER RESOLVE failed, service[{}] {} ", name, error_string(mdns->_client));
+        constexpr auto f = FMT_STRING("{} BROWSER RESOLVE failed, service[{}] {} ");
+        mdns->error = fmt::format(f, fnName(), name, error_string(mdns->_client));
       }
 
       break;

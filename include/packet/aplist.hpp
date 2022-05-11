@@ -35,6 +35,9 @@ namespace packet {
 
 class Aplist {
 public:
+  static constexpr bool DEFER_DICT = false;
+
+public:
   enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
   enum Level : uint32_t { Root = 1, Second, Third, Fourth };
 
@@ -49,15 +52,25 @@ public:
   typedef std::shared_ptr<uint8_t[]> Binary;
 
 public:
-  Aplist();
-  Aplist(const Content &content);
+  Aplist(bool allocate = true);
+  Aplist(Aplist &&ap); // allow move construction
+
+  Aplist(const Content &content) { fromContent(content); }
   Aplist(const Dictionaries &dicts);
   Aplist(Embedded embedded);
 
   // create a new Aplist using the dict at the specified path
   Aplist(const Aplist &src, Level level, ...);
 
+  Aplist(const Aplist &ap) = delete; // no copies
+
   ~Aplist();
+
+  Aplist &operator=(const Aplist &ap) = delete; // no copy assignment
+  Aplist &operator=(Aplist &&ap);               // allow move assignment
+  Aplist &operator=(const Content &content);    // allow assignment from Content
+
+  Aplist &clear();
 
   // general API
   // NOTE: api naming convention is dict* to support subclassing
@@ -105,16 +118,14 @@ public:
   bool dictSetUint(ccs sub_dict, ccs key, uint64_t val);
 
 private:
-  plist_t baseNode() { return (_base) ? _base : _plist; }
+  // plist_t baseNode() { return (_base) ? _base : _plist; }
   bool checkType(plist_t node, plist_type type) const;
   plist_t dict() { return _plist; }
-  plist_t track(plist_t pl);
+
+  Aplist &fromContent(const Content &content);
 
 private:
   plist_t _plist = nullptr;
-  plist_t _base = nullptr;
-
-  std::list<plist_t> _keeper;
 };
 
 } // namespace packet
