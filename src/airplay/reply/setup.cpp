@@ -66,7 +66,7 @@ bool Setup::handleNoStreams() {
     Aplist reply_dict(Dictionaries{key_timing_peer});
     const auto &ip_addrs = host().ipAddrs();
 
-    reply_dict.setStringArray(key_timing_peer, key_addresses, ip_addrs);
+    reply_dict.setArray(key_timing_peer, key_addresses, ip_addrs);
     reply_dict.setStringVal(key_timing_peer, key_ID, ip_addrs[0]);
 
     // rtp-localPort() returns the local port (and starts the service if needed)

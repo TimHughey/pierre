@@ -110,9 +110,9 @@ public:
 
   const Aplist &self() const { return (const Aplist &)*this; };
   void setArray(ccs root_key, ArrayDicts &dicts);
+  bool setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
   void setData(ccs key, const fmt::memory_buffer &buf);
   void setBool(ccs key, double val);
-  bool setStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
   bool setStringVal(ccs sub_dict_key, ccs key, csr str_val);
   bool setUint(ccs key, uint64_t val) { return setUint(nullptr, key, val); }
   bool setUint(ccs sub_dict, ccs key, uint64_t val);

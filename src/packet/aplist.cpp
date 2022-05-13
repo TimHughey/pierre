@@ -374,18 +374,8 @@ void Aplist::setArray(ccs root_key, ArrayDicts &dicts) {
   plist_dict_set_item(_plist, root_key, array);
 }
 
-void Aplist::setData(ccs key, const fmt::memory_buffer &buf) {
-  auto data = plist_new_data(buf.data(), buf.size());
-  plist_dict_set_item(_plist, key, data);
-}
-
-void Aplist::setBool(ccs key, double val) {
-  auto data = plist_new_real(val);
-  plist_dict_set_item(_plist, key, data);
-}
-
 // add am array of strings with key node_name to the dict at key path
-bool Aplist::setStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
+bool Aplist::setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up
   // first create the array since it's the deepest node
   auto array = plist_new_array();
@@ -411,6 +401,16 @@ bool Aplist::setStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array
   constexpr auto msg = "unable to add array to missing or non-dict node";
   fmt::print("{}\n", msg);
   throw(runtime_error(msg));
+}
+
+void Aplist::setData(ccs key, const fmt::memory_buffer &buf) {
+  auto data = plist_new_data(buf.data(), buf.size());
+  plist_dict_set_item(_plist, key, data);
+}
+
+void Aplist::setBool(ccs key, double val) {
+  auto data = plist_new_real(val);
+  plist_dict_set_item(_plist, key, data);
 }
 
 // set a string at a sub_dict_key and ket
