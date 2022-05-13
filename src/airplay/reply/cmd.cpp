@@ -31,13 +31,13 @@ bool Command::populate() {
   rdict = plist();
 
   if (false) { // debug
-    rdict.dictDump(fnName());
+    rdict.dump(fnName());
   }
 
   // default to OK
   responseCode(packet::RespCode::OK);
 
-  if (!rdict.dictEmpty() && checkUpdateSupportedCommands()) {
+  if (!rdict.empty() && checkUpdateSupportedCommands()) {
     rc = true;
   }
 
@@ -47,7 +47,7 @@ bool Command::populate() {
 bool Command::checkUpdateSupportedCommands() {
   auto rc = true;
 
-  if (rdict.dictCompareString("type", "updateMRSupportedCommands")) {
+  if (rdict.compareString("type", "updateMRSupportedCommands")) {
     // anytime type=updateMRSupportedCommands say this is a bad request
     responseCode(RespCode::BadRequest);
   }

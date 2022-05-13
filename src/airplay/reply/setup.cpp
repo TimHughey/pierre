@@ -66,19 +66,19 @@ bool Setup::handleNoStreams() {
     Aplist reply_dict(Dictionaries{key_timing_peer});
     const auto &ip_addrs = host().ipAddrs();
 
-    reply_dict.dictSetStringArray(key_timing_peer, key_addresses, ip_addrs);
-    reply_dict.dictSetStringVal(key_timing_peer, key_ID, ip_addrs[0]);
+    reply_dict.setStringArray(key_timing_peer, key_addresses, ip_addrs);
+    reply_dict.setStringVal(key_timing_peer, key_ID, ip_addrs[0]);
 
     // rtp-localPort() returns the local port (and starts the service if needed)
-    reply_dict.dictSetUint(nullptr, key_event_port, conn().localPort(Event));
-    reply_dict.dictSetUint(nullptr, key_timing_port, 0); // dummy
+    reply_dict.setUint(nullptr, key_event_port, conn().localPort(Event));
+    reply_dict.setUint(nullptr, key_timing_port, 0); // dummy
 
     // adjust Service system flags and request mDNS update
     service().deviceSupportsRelay();
     mdns().update();
 
     size_t bytes = 0;
-    auto binary = reply_dict.dictBinary(bytes);
+    auto binary = reply_dict.toBinary(bytes);
     copyToContent(binary, bytes);
 
     headers.add(header::type::ContentType, header::val::AppleBinPlist);
@@ -100,19 +100,19 @@ bool Setup::handleStreams() {
   auto rstream0 = Aplist(rdict, Level::Second, dictKey(streams), 0);
 
   conn().saveStreamData(
-      {.audio_mode = rstream0.dictGetStringConst(Root, dictKey(audioMode)),
-       .ct = (uint8_t)rstream0.dictGetUint(Root, dictKey(ct)),
-       .conn_id = rstream0.dictGetUint(Root, dictKey(streamConnectionID)),
-       .spf = (uint32_t)rstream0.dictGetUint(Root, dictKey(spf)),
-       .key = rstream0.dictGetData(Root, dictKey(shk)),
-       .supports_dynamic_stream_id = rstream0.dictGetBool(Root, dictKey(supportsDyanamicStreamID)),
-       .audio_format = (uint32_t)rstream0.dictGetUint(Root, dictKey(audioFormat)),
-       .client_id = rstream0.dictGetStringConst(Root, dictKey(clientID)),
-       .type = (uint8_t)rstream0.dictGetUint(Root, dictKey(type)),
+      {.audio_mode = rstream0.getStringConst(Root, dictKey(audioMode)),
+       .ct = (uint8_t)rstream0.getUint(Root, dictKey(ct)),
+       .conn_id = rstream0.getUint(Root, dictKey(streamConnectionID)),
+       .spf = (uint32_t)rstream0.getUint(Root, dictKey(spf)),
+       .key = rstream0.getData(Root, dictKey(shk)),
+       .supports_dynamic_stream_id = rstream0.getBool(Root, dictKey(supportsDyanamicStreamID)),
+       .audio_format = (uint32_t)rstream0.getUint(Root, dictKey(audioFormat)),
+       .client_id = rstream0.getStringConst(Root, dictKey(clientID)),
+       .type = (uint8_t)rstream0.getUint(Root, dictKey(type)),
        .active_remote = rHeaders().getVal(header::type::DacpActiveRemote),
        .dacp_id = rHeaders().getVal(header::type::DacpID)});
 
-  conn().saveSessionKey(rstream0.dictGetData(Root, dictKey(shk)));
+  conn().saveSessionKey(rstream0.getData(Root, dictKey(shk)));
   conn().saveActiveRemote(rHeaders().getVal(header::type::DacpActiveRemote));
 
   // build the reply (includes ports for started services)
@@ -120,17 +120,17 @@ bool Setup::handleStreams() {
   auto &stream0_dict = array_dicts.emplace_back(Aplist());
 
   // rtp->localPort() returns the local port (and starts the service if needed)
-  stream0_dict.dictSetUint(nullptr, dictKey(controlPort), conn().localPort(Control));
-  stream0_dict.dictSetUint(nullptr, dictKey(type), PTP);
-  stream0_dict.dictSetUint(nullptr, dictKey(dataPort), conn().localPort(Audio));
-  stream0_dict.dictSetUint(nullptr, dictKey(audioBufferSize), conn().bufferSize());
+  stream0_dict.setUint(nullptr, dictKey(controlPort), conn().localPort(Control));
+  stream0_dict.setUint(nullptr, dictKey(type), PTP);
+  stream0_dict.setUint(nullptr, dictKey(dataPort), conn().localPort(Audio));
+  stream0_dict.setUint(nullptr, dictKey(audioBufferSize), conn().bufferSize());
 
   Aplist reply_dict;
 
-  reply_dict.dictSetArray(dictKey(streams), array_dicts);
+  reply_dict.setArray(dictKey(streams), array_dicts);
 
   size_t bytes = 0;
-  auto binary = reply_dict.dictBinary(bytes);
+  auto binary = reply_dict.toBinary(bytes);
   copyToContent(binary, bytes);
 
   headers.add(header::type::ContentType, header::val::AppleBinPlist);
@@ -143,16 +143,16 @@ void Setup::getGroupInfo() {
   constexpr auto group_uuid_path = "groupUUID";
   constexpr auto gcl_path = "groupContainsGroupLeader";
 
-  // add the result of dictGetString to the checks vector
-  saveCheck(rdict.dictGetString(group_uuid_path, _group_uuid));
-  saveCheck(rdict.dictGetBool(gcl_path, _group_contains_leader));
+  // add the result of getString to the checks vector
+  saveCheck(rdict.getString(group_uuid_path, _group_uuid));
+  saveCheck(rdict.getBool(gcl_path, _group_contains_leader));
 }
 
 void Setup::getTimingList() {
   constexpr auto timing_peer_info_path = "timingPeerInfo";
   constexpr auto addresses_node = "Addresses";
 
-  auto rc = rdict.dictGetStringArray(timing_peer_info_path, addresses_node, _timing_peer_info);
+  auto rc = rdict.getStringArray(timing_peer_info_path, addresses_node, _timing_peer_info);
 
   if (rc) {
     auto &anchor = injected().anchor;
@@ -170,12 +170,12 @@ bool Setup::populate() {
   constexpr auto streams = "streams";
   constexpr auto remote_control = "isRemoteControlOnly";
 
-  if (rdict.dictReady() == false) {
+  if (rdict.ready() == false) {
     return false;
   }
 
   // handle RemoteControlOnly (not supported, but still RespCode=OK)
-  if (rdict.dictItemExists(remote_control)) {
+  if (rdict.exists(remote_control)) {
     auto fmt_str = FMT_STRING("{} isRemoteControlOnly=true\n");
     fmt::print(fmt_str, fnName());
     responseCode(RespCode::OK);
@@ -183,11 +183,11 @@ bool Setup::populate() {
   }
 
   // initial setup, no streams active
-  if (rdict.dictItemExists(streams) == false) {
+  if (rdict.exists(streams) == false) {
     return handleNoStreams();
   }
 
-  if (rdict.dictItemExists(streams)) {
+  if (rdict.exists(streams)) {
     return handleStreams();
   }
 
@@ -195,12 +195,12 @@ bool Setup::populate() {
 }
 
 void Setup::validateTimingProtocol() {
-  auto match = rdict.dictCompareString(dictKey(timingProtocol), timingProtocolVal(PreciseTiming));
+  auto match = rdict.compareString(dictKey(timingProtocol), timingProtocolVal(PreciseTiming));
 
   if (!match) {
     const auto prefix = fmt::format("{} unhandled timing protocol={}", fnName(),
-                                    rdict.dictGetStringConst(Root, dictKey(timingProtocol)));
-    rdict.dictDump(prefix.c_str());
+                                    rdict.getStringConst(Root, dictKey(timingProtocol)));
+    rdict.dump(prefix.c_str());
     saveCheck(false);
     return;
   }

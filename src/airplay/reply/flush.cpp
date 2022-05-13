@@ -28,7 +28,7 @@ bool FlushBuffered::populate() {
 
   rdict = plist();
 
-  rdict.dictDump(fnName());
+  rdict.dump(fnName());
 
   responseCode(RespCode::OK);
   return true;

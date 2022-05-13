@@ -33,13 +33,13 @@ bool Teardown::populate() {
   headers.add(header::type::ContentSimple, header::val::ConnectionClosed);
   responseCode(packet::RespCode::OK); // always OK
 
-  has_streams = rdict.dictItemExists(STREAMS);
+  has_streams = rdict.exists(STREAMS);
 
   if (false) {
     constexpr auto f = FMT_STRING("{} {}\n");
     fmt::print(f, runTicks(), fnName());
 
-    rdict.dictDump();
+    rdict.dump();
   }
 
   if (has_streams == true) {

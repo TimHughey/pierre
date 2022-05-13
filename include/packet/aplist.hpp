@@ -77,45 +77,45 @@ public:
 
   // sets the base node for all dict* get/set to something other
   // than the root
-  Aplist dictBaseNode(Level level, plist_type type, ...);
+  Aplist baseNode(Level level, plist_type type, ...);
 
-  Binary dictBinary(size_t &bytes) const;
+  Binary toBinary(size_t &bytes) const;
 
-  bool dictCompareString(ccs path, ccs compare);
-  bool dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) const;
+  bool compareString(ccs path, ccs compare);
+  bool compareStringViaPath(ccs compare, uint32_t path_count, ...) const;
 
-  void dictDump(csv prefix) const;
-  void dictDump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
-  bool dictEmpty() const;
-  bool dictItemExists(ccs path);
-  bool dictItemsExist(const std::vector<ccs> &items);
+  void dump(csv prefix) const;
+  void dump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
+  bool empty() const;
+  bool exists(ccs path);
+  bool exists(const std::vector<ccs> &items);
 
-  bool dictGetBool(ccs path, bool &dest);
-  bool dictGetBool(Level level, ...);
-  const string dictGetData(Level level, ...);
-  plist_t dictGetItem(ccs path);
+  bool getBool(ccs path, bool &dest);
+  bool getBool(Level level, ...);
+  const string getData(Level level, ...);
+  plist_t getItem(ccs path);
 
-  bool dictGetString(ccs path, string &dest);
-  std::string dictGetStringConst(Level level, ...);
+  bool getString(ccs path, string &dest);
+  std::string getStringConst(Level level, ...);
 
-  bool dictGetStringArray(ccs path, ccs node, ArrayStrings &array_strings);
+  bool getStringArray(ccs path, ccs node, ArrayStrings &array_strings);
 
   // retrive the uint64_t at the named node (at the root)
-  uint64_t dictGetUint(ccs root_key) { return dictGetUint(Level::Root, root_key); }
+  uint64_t getUint(ccs root_key) { return getUint(Level::Root, root_key); }
 
   // retrieve the uint64_t using path specified
-  uint64_t dictGetUint(Level level, ...);
+  uint64_t getUint(Level level, ...);
 
-  bool dictReady() const { return _plist != nullptr; }
+  bool ready() const { return _plist != nullptr; }
 
-  const Aplist &dictSelf() const { return (const Aplist &)*this; };
-  void dictSetArray(ccs root_key, ArrayDicts &dicts);
-  void dictSetData(ccs key, const fmt::memory_buffer &buf);
-  void dictSetReal(ccs key, double val);
-  bool dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
-  bool dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val);
-  bool dictSetUint(ccs key, uint64_t val) { return dictSetUint(nullptr, key, val); }
-  bool dictSetUint(ccs sub_dict, ccs key, uint64_t val);
+  const Aplist &self() const { return (const Aplist &)*this; };
+  void setArray(ccs root_key, ArrayDicts &dicts);
+  void setData(ccs key, const fmt::memory_buffer &buf);
+  void setBool(ccs key, double val);
+  bool setStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
+  bool setStringVal(ccs sub_dict_key, ccs key, csr str_val);
+  bool setUint(ccs key, uint64_t val) { return setUint(nullptr, key, val); }
+  bool setUint(ccs sub_dict, ccs key, uint64_t val);
 
 private:
   // plist_t baseNode() { return (_base) ? _base : _plist; }

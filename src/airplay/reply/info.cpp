@@ -34,7 +34,7 @@ bool Info::populate() {
   rdict = plist();
 
   // if dictionary is empty this is a stage 2 packet
-  if (rdict.dictEmpty()) {
+  if (rdict.empty()) {
     _stage = Stage2;
     return stage2();
   }
@@ -44,7 +44,7 @@ bool Info::populate() {
   constexpr auto qual_val = "txtAirPlay";
 
   // confirm dict contains: qualifier -> array[0] == txtAirPlay
-  if (rdict.dictCompareStringViaPath(qual_val, 2, qual_key, 0)) {
+  if (rdict.compareStringViaPath(qual_val, 2, qual_key, 0)) {
     _stage = Stage1;
     return stage1();
   }
@@ -74,29 +74,29 @@ bool Info::stage1() {
   }
 
   constexpr auto qual_key = "qualifier";
-  reply_dict.dictSetData(qual_key, qual_data);
+  reply_dict.setData(qual_key, qual_data);
 
   // add specific dictionary entries
   // features
   const auto features_key = service().fetchKey(apFeatures);
   const auto features_val = service().features();
-  reply_dict.dictSetUint(nullptr, features_key, features_val);
+  reply_dict.setUint(nullptr, features_key, features_val);
 
   // system flags
   const auto system_flags_key = service().fetchKey(apSystemFlags);
   const auto system_flags_val = service().systemFlags();
-  reply_dict.dictSetUint(nullptr, system_flags_key, system_flags_val);
+  reply_dict.setUint(nullptr, system_flags_key, system_flags_val);
 
   // string vals
   auto want_keys = std::array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
 
   for (const auto key : want_keys) {
     const auto [key_str, val_str] = service().fetch(key);
-    reply_dict.dictSetStringVal(nullptr, key_str, val_str);
+    reply_dict.setStringVal(nullptr, key_str, val_str);
   }
 
   size_t bytes = 0;
-  auto binary = reply_dict.dictBinary(bytes);
+  auto binary = reply_dict.toBinary(bytes);
 
   copyToContent(binary, bytes);
 
@@ -116,11 +116,11 @@ bool Info::stage2() {
   // handle the uints first
   const auto features_key = service().fetchKey(apFeatures);
   const auto features_val = service().features();
-  reply_dict.dictSetUint(nullptr, features_key, features_val);
+  reply_dict.setUint(nullptr, features_key, features_val);
 
   const auto status_flags_key = service().fetchKey(apStatusFlags);
   const auto status_flags_val = service().systemFlags();
-  reply_dict.dictSetUint(nullptr, status_flags_key, status_flags_val);
+  reply_dict.setUint(nullptr, status_flags_key, status_flags_val);
 
   // get the key/vals of interest
   const auto want_kv =
@@ -132,11 +132,11 @@ bool Info::stage2() {
   for (const auto &entry : *kv_list) {
     const auto &[key_str, val_str] = entry;
 
-    reply_dict.dictSetStringVal(nullptr, key_str, val_str);
+    reply_dict.setStringVal(nullptr, key_str, val_str);
   }
 
   size_t bytes = 0;
-  auto binary = reply_dict.dictBinary(bytes);
+  auto binary = reply_dict.toBinary(bytes);
 
   copyToContent(binary, bytes);
 

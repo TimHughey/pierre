@@ -108,7 +108,7 @@ Aplist &Aplist::clear() {
   return *this;
 }
 
-Aplist::Binary Aplist::dictBinary(size_t &bytes) const {
+Aplist::Binary Aplist::toBinary(size_t &bytes) const {
   char *data = nullptr;
   uint32_t len = 0;
 
@@ -121,7 +121,7 @@ Aplist::Binary Aplist::dictBinary(size_t &bytes) const {
   return ptr;
 }
 
-bool Aplist::dictCompareString(ccs path, ccs compare) {
+bool Aplist::compareString(ccs path, ccs compare) {
   auto rc = false;
 
   auto item = plist_dict_get_item(_plist, path);
@@ -139,7 +139,7 @@ bool Aplist::dictCompareString(ccs path, ccs compare) {
   return rc;
 }
 
-bool Aplist::dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) const {
+bool Aplist::compareStringViaPath(ccs compare, uint32_t path_count, ...) const {
   auto rc = false;
   va_list args;
 
@@ -161,9 +161,9 @@ bool Aplist::dictCompareStringViaPath(ccs compare, uint32_t path_count, ...) con
   return rc;
 }
 
-void Aplist::dictDump(csv prefix) const { dictDump(nullptr, prefix); }
+void Aplist::dump(csv prefix) const { dump(nullptr, prefix); }
 
-void Aplist::dictDump(plist_t sub_dict, csv prefix) const {
+void Aplist::dump(plist_t sub_dict, csv prefix) const {
   auto dump_dict = (sub_dict) ? sub_dict : _plist;
 
   if (prefix.size()) {
@@ -192,23 +192,23 @@ void Aplist::dictDump(plist_t sub_dict, csv prefix) const {
   }
 }
 
-bool Aplist::dictEmpty() const { return _plist == nullptr; }
+bool Aplist::empty() const { return _plist == nullptr; }
 
-bool Aplist::dictItemExists(ccs path) { return dictGetItem(path) != nullptr ? true : false; }
+bool Aplist::exists(ccs path) { return getItem(path) != nullptr ? true : false; }
 
-bool Aplist::dictItemsExist(const std::vector<ccs> &items) {
+bool Aplist::exists(const std::vector<ccs> &items) {
   auto rc = true;
 
   for (const auto &item : items) {
-    rc &= dictItemExists(item);
+    rc &= exists(item);
   }
 
   return rc;
 }
 
-plist_t Aplist::dictGetItem(ccs path) { return plist_dict_get_item(_plist, path); }
+plist_t Aplist::getItem(ccs path) { return plist_dict_get_item(_plist, path); }
 
-bool Aplist::dictGetBool(ccs path, bool &dest) {
+bool Aplist::getBool(ccs path, bool &dest) {
   auto rc = false;
   auto node = plist_dict_get_item(_plist, path);
 
@@ -229,7 +229,7 @@ bool Aplist::dictGetBool(ccs path, bool &dest) {
   return rc;
 }
 
-bool Aplist::dictGetBool(Level level, ...) {
+bool Aplist::getBool(Level level, ...) {
   va_list args;
   auto bool_val = false;
 
@@ -248,7 +248,7 @@ bool Aplist::dictGetBool(Level level, ...) {
   return bool_val;
 }
 
-const std::string Aplist::dictGetData(Level level, ...) {
+const std::string Aplist::getData(Level level, ...) {
   va_list args;
 
   va_start(args, level); // initialize args before passing through
@@ -265,7 +265,7 @@ const std::string Aplist::dictGetData(Level level, ...) {
   return std::string();
 }
 
-bool Aplist::dictGetString(ccs path, string &dest) {
+bool Aplist::getString(ccs path, string &dest) {
   auto rc = false;
   auto node = plist_dict_get_item(_plist, path);
 
@@ -281,7 +281,7 @@ bool Aplist::dictGetString(ccs path, string &dest) {
   return rc;
 }
 
-std::string Aplist::dictGetStringConst(Level level, ...) {
+std::string Aplist::getStringConst(Level level, ...) {
   va_list args;
 
   va_start(args, level); // initialize args before passing through
@@ -298,7 +298,7 @@ std::string Aplist::dictGetStringConst(Level level, ...) {
   return std::string("not found");
 }
 
-bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings) {
+bool Aplist::getStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings) {
   auto rc = false;
 
   // start at the root
@@ -344,7 +344,7 @@ bool Aplist::dictGetStringArray(ccs level1_key, ccs key, ArrayStrings &array_str
   return rc;
 }
 
-uint64_t Aplist::dictGetUint(Level level, ...) {
+uint64_t Aplist::getUint(Level level, ...) {
   va_list args;
 
   va_start(args, level); // initialize args before passing through
@@ -361,7 +361,7 @@ uint64_t Aplist::dictGetUint(Level level, ...) {
   throw(std::out_of_range("unknown dict key"));
 }
 
-void Aplist::dictSetArray(ccs root_key, ArrayDicts &dicts) {
+void Aplist::setArray(ccs root_key, ArrayDicts &dicts) {
   auto array = plist_new_array();
 
   // add each dict to the newly created array
@@ -374,18 +374,18 @@ void Aplist::dictSetArray(ccs root_key, ArrayDicts &dicts) {
   plist_dict_set_item(_plist, root_key, array);
 }
 
-void Aplist::dictSetData(ccs key, const fmt::memory_buffer &buf) {
+void Aplist::setData(ccs key, const fmt::memory_buffer &buf) {
   auto data = plist_new_data(buf.data(), buf.size());
   plist_dict_set_item(_plist, key, data);
 }
 
-void Aplist::dictSetReal(ccs key, double val) {
+void Aplist::setBool(ccs key, double val) {
   auto data = plist_new_real(val);
   plist_dict_set_item(_plist, key, data);
 }
 
 // add am array of strings with key node_name to the dict at key path
-bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
+bool Aplist::setStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up
   // first create the array since it's the deepest node
   auto array = plist_new_array();
@@ -399,7 +399,7 @@ bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &a
   }
 
   // get the EXISTING sub dictionary
-  auto sub_dict = dictGetItem(sub_dict_key);
+  auto sub_dict = getItem(sub_dict_key);
 
   // just for giggles let's confirm the sub_dict is actually a dictionary
   if (sub_dict && (PLIST_DICT == plist_get_node_type(sub_dict))) {
@@ -414,12 +414,12 @@ bool Aplist::dictSetStringArray(ccs sub_dict_key, ccs key, const ArrayStrings &a
 }
 
 // set a string at a sub_dict_key and ket
-bool Aplist::dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val) {
+bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
   auto sub_dict = _plist;
 
   if (sub_dict_key) {
     // get the EXISTING sub dictionary
-    sub_dict = dictGetItem(sub_dict_key);
+    sub_dict = getItem(sub_dict_key);
   }
 
   // just for giggles let's confirm the sub_dict is actually a dictionary
@@ -437,12 +437,12 @@ bool Aplist::dictSetStringVal(ccs sub_dict_key, ccs key, csr str_val) {
 }
 
 // set a string at a sub_dict_key and ket
-bool Aplist::dictSetUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
+bool Aplist::setUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
   auto sub_dict = _plist;
 
   // get the EXISTING sub dictionary, if requested
   if (sub_dict_key) {
-    sub_dict = dictGetItem(sub_dict_key);
+    sub_dict = getItem(sub_dict_key);
   }
 
   // just for giggles let's confirm the sub_dict is actually a dictionary

@@ -35,15 +35,15 @@ bool Feedback::populate() {
   packet::Aplist::ArrayDicts array_dicts;
   auto &stream0_dict = array_dicts.emplace_back(packet::Aplist());
 
-  stream0_dict.dictSetUint(nullptr, "type", 103);
-  stream0_dict.dictSetReal("sr", 44100.0);
+  stream0_dict.setUint(nullptr, "type", 103);
+  stream0_dict.setBool("sr", 44100.0);
 
   packet::Aplist reply_dict;
 
-  reply_dict.dictSetArray("streams", array_dicts);
+  reply_dict.setArray("streams", array_dicts);
 
   size_t bytes = 0;
-  auto binary = reply_dict.dictBinary(bytes);
+  auto binary = reply_dict.toBinary(bytes);
   copyToContent(binary, bytes);
 
   headers.add(header::type::ContentType, header::val::AppleBinPlist);

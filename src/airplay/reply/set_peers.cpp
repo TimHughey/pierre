@@ -33,7 +33,7 @@ bool SetPeers::populate() {
 
   Peers timing_peers;
 
-  auto rc = rdict.dictGetStringArray(nullptr, nullptr, timing_peers);
+  auto rc = rdict.getStringArray(nullptr, nullptr, timing_peers);
 
   if (rc) {
     anchor().peers(timing_peers);

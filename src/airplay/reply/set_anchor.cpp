@@ -48,19 +48,19 @@ void SetAnchor::saveAnchorInfo() {
   // a complete anchor message contains these keys
   const std::vector all_keys = {Rate, TimelineID, Secs, Frac, Flags, RtpTime};
 
-  if (rdict.dictItemsExist(all_keys)) {
+  if (rdict.exists(all_keys)) {
     // this is a complete anchor set
-    auto anchor_data = AnchorData{.rate = rdict.dictGetUint(Rate),
-                                  .timelineID = rdict.dictGetUint(TimelineID),
-                                  .secs = rdict.dictGetUint(Secs),
-                                  .frac = rdict.dictGetUint(Frac),
-                                  .flags = rdict.dictGetUint(Flags),
-                                  .rtpTime = rdict.dictGetUint(RtpTime)};
+    auto anchor_data = AnchorData{.rate = rdict.getUint(Rate),
+                                  .timelineID = rdict.getUint(TimelineID),
+                                  .secs = rdict.getUint(Secs),
+                                  .frac = rdict.getUint(Frac),
+                                  .flags = rdict.getUint(Flags),
+                                  .rtpTime = rdict.getUint(RtpTime)};
 
     anchor().save(anchor_data);
     anchor().dump();
   } else {
-    auto anchor_data = AnchorData{.rate = rdict.dictGetUint(Rate)};
+    auto anchor_data = AnchorData{.rate = rdict.getUint(Rate)};
     anchor().save(anchor_data);
   }
 }
