@@ -176,8 +176,8 @@ bool Rtsp::ensureAllContent() {
 
   if (false) { // debug
     if (rc) {
-      constexpr auto f = FMT_STRING("{} RTSP SESSION RX total_bytes={}\n", _wire.size());
-      fmt::print(f, runTicks());
+      constexpr auto f = FMT_STRING("{} RTSP SESSION RX total_bytes={}\n");
+      fmt::print(f, runTicks(), _wire.size());
     }
   }
 
