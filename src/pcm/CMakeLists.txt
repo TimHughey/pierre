@@ -35,8 +35,6 @@ target_include_directories(pcm PUBLIC ${HEADER_PATH})
 target_link_libraries(pcm PUBLIC
   ${Boost_LIBRARIES}
   core
-  anchor
-  decouple
   sodium
   ssl
   fmt::fmt

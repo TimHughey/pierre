@@ -100,7 +100,7 @@ size_t AesCtx::encrypt(packet::Out &packet) {
   return bytes_ciphered;
 }
 
-size_t AesCtx::decrypt(packet::In &packet, const packet::In &ciphered) {
+size_t AesCtx::decrypt(packet::In &packet, packet::In &ciphered) {
   // even is cipher isn't available we will still copy to packet
   auto to = std::back_inserter(packet);
 
@@ -117,6 +117,11 @@ size_t AesCtx::decrypt(packet::In &packet, const packet::In &ciphered) {
 
     if (consumed > 0) {
       std::copy(data, data + len, to);
+
+      // create a new cipher packet of the unconsumed bytes
+      packet::In cipher_rest;
+      cipher_rest.assign(ciphered.begin() + consumed, ciphered.end());
+      std::swap(ciphered, cipher_rest);
     }
 
     return consumed;

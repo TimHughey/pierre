@@ -34,6 +34,10 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
+namespace {
+namespace errc = boost::system::errc;
+}
+
 // forward decl for shared_ptr def
 class Rtsp;
 
@@ -44,6 +48,7 @@ public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
 
 public:
+  ~Rtsp() { teardown(); }
   static void start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
@@ -64,9 +69,8 @@ private:
 public:
   // initiates async request run loop
   void asyncLoop(); // see .cpp file for critical function details
-
-  void dump(DumpKind dump_type = RawOnly);
-  void dump(const auto *data, size_t len) const;
+  void teardown(const error_code ec);
+  void teardown();
 
   // Getters
   const packet::Content &content() const { return _content; }
@@ -78,21 +82,20 @@ public:
 private:
   void accumulateRx(size_t bytes) { _rx_bytes += bytes; }
   void accumulateTx(size_t bytes) { _tx_bytes += bytes; }
-  void createAndSendReply();
-  size_t decrypt(packet::In &packet);
-  void ensureAllContent(); // uses Headers functionality to ensure all content loaded
+  bool createAndSendReply();
+  bool ensureAllContent(); // uses Headers functionality to ensure all content loaded
   bool isReady() const { return socket.is_open(); };
-  void nextRequest();
-  bool isReady(const error_code &ec, const src_loc loc = src_loc::current());
+  bool isReady(const error_code &ec);
 
   // receives the rx_bytes from async_read
   void handleRequest(size_t bytes);
-  bool rxAtLeast(size_t bytes = 1);
   bool rxAvailable(); // load bytes immediately available
+  bool txContinue();  // send Continue reply
   packet::In &wire() { return _wire; }
-  void wireToPacket();
 
   // misc debug / logging
+  void dump(DumpKind dump_type = RawOnly);
+  void dump(const auto *data, size_t len) const;
   void infoNewSession() const;
 
 private:
@@ -102,7 +105,8 @@ private:
   ConnInfo &conn;
   Anchor &anchor;
 
-  packet::In _wire;
+  packet::In _wire;   // plain text or ciphered
+  packet::In _packet; // deciphered
   packet::Headers _headers;
   packet::Content _content;
 

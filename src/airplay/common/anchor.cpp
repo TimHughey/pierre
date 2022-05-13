@@ -82,7 +82,11 @@ const AnchorInfo Anchor::info() {
                     .remote_info_is_valid = remote_info_is_valid};
 }
 
-void Anchor::save(AnchorData &ad) { std::swap(ad.calcNetTime(), data); }
+void Anchor::save(AnchorData &ad) {
+  std::swap(ad, data);
+
+  data.calcNetTime();
+}
 
 void Anchor::teardown() {
   clock.teardown();

@@ -146,18 +146,6 @@ bool Headers::haveSeparators(const string_view &view) {
   return _separators.size() == 2;
 }
 
-const HeaderList Headers::list() const {
-  HeaderList list_text;
-
-  auto where = back_inserter(list_text);
-
-  ranges::for_each(_omap, [&](const auto &entry) {
-    fmt::format_to(where, "{}: {}\r\n", entry.first, entry.second);
-  });
-
-  return list_text;
-}
-
 size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
   // keep loading if we haven't found the separators
   if (haveSeparators(view) == false) {
@@ -294,8 +282,11 @@ void Headers::dump() const {
 
   fmt::print("HEADER DUMP method={} path={}\n", _method, _path);
 
-  const auto list_text = fmt::to_string(list());
-  fmt::print("{}", list_text);
+  string header_list;
+  auto where = std::back_inserter(header_list);
+
+  list(where);
+  fmt::print("{}\n", header_list);
 }
 
 } // namespace packet

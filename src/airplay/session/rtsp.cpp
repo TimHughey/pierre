@@ -47,10 +47,6 @@ constexpr auto re_syntax = std::regex_constants::ECMAScript;
 // }
 
 void Rtsp::asyncLoop() {
-  if (isReady() == false) {
-    return;
-  }
-
   // notes:
   //  1. nothing within this function can be captured by the lamba
   //     because the scope of this function ends before
@@ -72,7 +68,9 @@ void Rtsp::asyncLoop() {
   //     of the session above zero until the session ends
   //     (e.g. due to error, natural completion, io_ctx is stopped)
 
-  async_read(socket, dynamic_buffer(wire()), boost::asio::transfer_at_least(16),
+  async_read(socket,                 // rx from this socket
+             dynamic_buffer(wire()), // put rx'ed data here
+             transfer_at_least(24),  // start by rx'ed this many bytes
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // general notes:
                //
@@ -84,21 +82,12 @@ void Rtsp::asyncLoop() {
                //
                // 1. check the error code
                if (self->isReady(ec)) {
-                 // 2. handle the request (remember the data received is in the wire buffer)
-                 //    handleRequest will perform the request/reply transaction (serially)
-                 //    and returns when the transaction completes or errors
+                 // 2. handle the request
+                 //    a. remember... the data received is in wire buffer
+                 //    b. performs request if bytes rx'ed != content length header
+                 //    c. schedules more io_ctx work or allows shared_ptr to fall out of
+                 //    scope
                  self->handleRequest(rx_bytes);
-
-                 if (self->isReady()) {
-                   // 3. call nextRequest() to reset buffers and state
-                   self->nextRequest();
-
-                   // 4. the socket is still ready, call asyncRequest to await next request
-                   // 5. async_read captures a fresh shared_ptr
-                   // 6. reminder... call returns when async_read registers the work with io_ctx
-                   self->asyncLoop();
-                   // 7. falls through
-                 }
                } // self is about to go out of scope...
              }); // self is out of scope and the shared_ptr use count is reduced by one
 
@@ -109,105 +98,95 @@ void Rtsp::asyncLoop() {
 }
 
 void Rtsp::handleRequest(size_t rx_bytes) {
-  // the following function calls do not contain async_* calls
   accumulateRx(rx_bytes);
 
-  rxAvailable();      // drain the socket
-  ensureAllContent(); // load additional content
-
   try {
-    createAndSendReply();
-  } catch (const std::exception &e) {
-    constexpr auto f = FMT_STRING("{} CREATE REPLY FAILURE \n\t\t" // failure
-                                  "method={} path={} reason={} "   // debug info
-                                  "(dumping headers and content)\n");
+    if (rxAvailable()            // drained the socket successfully
+        && ensureAllContent()    // loaded bytes == Content-Length
+        && createAndSendReply()) // sent the reply OK
+    {                            // all is well, prepare for next request
+      _wire.clear();
+      _packet.clear();
+      _headers.clear();
+      _content.clear();
 
-    fmt::print(f, fnName(), _headers.method(), _headers.path(), e.what());
+      asyncLoop(); // schedule rx of next packet
+    }
+  } catch (const std::exception &e) {
+    constexpr auto f = FMT_STRING("{} RTSP REPLY FAILURE "       // failure
+                                  "method={} path={} reason={} " // debug info
+                                  "(header and content dump follow)\n\n");
+
+    fmt::print(f, runTicks(), _headers.method(), _headers.path(), e.what());
 
     _headers.dump();
     _content.dump();
 
-    fmt::print("{} END OF FAILED REPLY DUMP\n", fnName());
+    fmt::print("\n{} RTSP REPLY FAILURE END\n\n", runTicks());
   }
-}
-
-size_t Rtsp::decrypt(packet::In &packet) {
-  auto consumed = aes_ctx.decrypt(packet, _wire);
-
-  _wire.clear(); // wire bytes have been deciphered, clear them
-
-  return consumed;
 }
 
 bool Rtsp::rxAvailable() {
-  if (isReady()) {
-    error_code ec;
-    size_t avail_bytes = socket.available(ec);
+  error_code ec;
+  size_t avail_bytes = socket.available(ec);
 
-    auto buff = dynamic_buffer(_wire);
+  auto buff = dynamic_buffer(_wire);
 
-    while (isReady(ec) && (avail_bytes > 0)) {
-      auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
-      accumulateTx(tx_bytes);
-
-      avail_bytes = socket.available(ec);
-    }
-  }
-
-  return isReady();
-}
-
-void Rtsp::ensureAllContent() {
-  // bail out if the socket isn't ready
-  if (isReady() == false) {
-    return;
-  }
-
-  // if subsequent data is loaded it will all need up in this packet
-  auto packet = packet::In();
-
-  // decrypt the wire bytes resceived thus far
-  [[maybe_unused]] auto consumed = decrypt(packet);
-
-  // need more content? send Continue reply
-  auto more_bytes = _headers.loadMore(packet.view(), _content);
-
-  // if more bytes are needed, reply Continue
-  if (more_bytes) {
-    constexpr auto CONTINUE = csv("CONTINUE");
-
-    auto inject = reply::Inject{.method = CONTINUE,
-                                .path = path(),
-                                .content = content(),
-                                .headers = headers(),
-                                .conn = conn,
-                                .aes_ctx = aes_ctx,
-                                .anchor = anchor};
-
-    auto reply = Reply::create(inject);
-
-    auto &reply_packet = reply->build();
-
-    aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-    auto buff = const_buffer(reply_packet.data(), reply_packet.size());
-
-    error_code ec;
-    auto tx_bytes = write(socket, buff, ec);
+  while (isReady(ec) && (avail_bytes > 0)) {
+    auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
     accumulateTx(tx_bytes);
+
+    avail_bytes = socket.available(ec);
   }
 
-  // if wire bytes are loaded remember this is an entirely new packet
-  while (more_bytes && isReady()) {
-    if (rxAtLeast(more_bytes)) {
-      [[maybe_unused]] auto consumed = decrypt(packet);
-      more_bytes = _headers.loadMore(packet.view(), _content);
-    }
-  }
+  // decipher what we have into the packet
+  [[maybe_unused]] auto consumed = aes_ctx.decrypt(_packet, _wire);
+
+  // note: don't clear _wire since it may contained unciphered bytes
+  return isReady(ec);
 }
 
-void Rtsp::createAndSendReply() {
+bool Rtsp::ensureAllContent() {
+  auto rc = true;
+
+  // parse packet and return if more bytes are needed (e.g. Content-Length)
+  auto more_bytes = _headers.loadMore(_packet.view(), _content);
+
+  if (false) { // debug
+    if (more_bytes) {
+      constexpr auto f = FMT_STRING("{} RTSP SESSION NEED MORE bytes={} method={} path={}\n");
+      fmt::print(f, runTicks(), more_bytes, _headers.method(), _headers.path());
+    }
+  }
+
+  // loop until we have all the data or an error occurs
+
+  while (more_bytes && rc) {
+    // send Continue reply indicating packet good so far then
+    // read waiting bytes
+    if (!rxAvailable()) { // error, bail out
+      rc = false;
+      continue;
+    }
+
+    // additional bytes deciphered and appended to packet
+    // check if packet is complete
+    more_bytes = _headers.loadMore(_packet.view(), _content);
+  }
+
+  if (false) { // debug
+    if (rc) {
+      constexpr auto f = FMT_STRING("{} RTSP SESSION RX total_bytes={}\n", _wire.size());
+      fmt::print(f, runTicks());
+    }
+  }
+
+  return rc;
+}
+
+bool Rtsp::createAndSendReply() {
   if (isReady() == false) {
-    return;
+    return false;
   }
 
   // create the reply to the request
@@ -221,88 +200,93 @@ void Rtsp::createAndSendReply() {
 
   auto reply = Reply::create(inject);
 
-  // auto fmt_str = FMT_STRING("{} creating reply method={} path={}\n");
-  // fmt::print(fmt_str, fnName(), method(), path());
-
   auto &reply_packet = reply->build();
 
-  if (reply->debug()) {
-    constexpr auto f = FMT_STRING("{} SESSION reply seq={:03} method={} path={} resp_code={}\n");
-    fmt::print(f, runTicks(), reply->sequence(), method(), path(), reply->responseCodeView());
+  if (reply_packet.size() == 0) { // warn of empty packet, still return true
+    constexpr auto f = FMT_STRING("{} RTSP SESSION EMPTY REPLY method={} path={}\n");
+    fmt::print(f, runTicks(), inject.method, inject.path);
+
+    return true;
   }
 
-  // only send the reply packet if there's data
-  if (reply_packet.size() > 0) {
-    aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-    auto buff = const_buffer(reply_packet.data(), reply_packet.size());
+  // reply has content to send
+  aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
+  auto buff = const_buffer(reply_packet.data(), reply_packet.size());
 
-    error_code ec;
-    auto tx_bytes = write(socket, buff, ec);
-    accumulateTx(tx_bytes);
+  error_code ec;
+  auto tx_bytes = write(socket, buff, ec);
+  accumulateTx(tx_bytes);
 
-    // check the most recent ec
-    isReady(ec);
-  }
+  // check the most recent ec
+  return isReady(ec);
 }
 
-bool Rtsp::isReady(const error_code &ec, const src_loc loc) {
-  auto rc = isReady();
+bool Rtsp::isReady(const error_code &ec) {
+  auto rc = true;
 
-  if (rc) {
-    switch (ec.value()) {
-      case errc::success:
-        break;
+  switch (ec.value()) {
+    case errc::success:
+      break;
 
-      case errc::operation_canceled:
-      case errc::resource_unavailable_try_again:
-      case errc::no_such_file_or_directory:
-        rc = false;
-        break;
-
-      default:
-        fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
-                   socket.native_handle(), ec.value(), ec.message());
-
-        rc = false;
-    }
+    case errc::operation_canceled:
+    case errc::resource_unavailable_try_again:
+    case errc::no_such_file_or_directory:
+    default:
+      teardown(ec); // problem... teardown
+      rc = false;
   }
 
   return rc;
 }
 
-void Rtsp::nextRequest() {
-  _wire.clear();
-  _headers.clear();
-  _content.clear();
-}
+void Rtsp::teardown() {
+  if (socket.is_open()) {
+    [[maybe_unused]] error_code ec;
 
-bool Rtsp::rxAtLeast(size_t bytes) {
-  if (isReady()) {
-    auto buff = dynamic_buffer(_wire);
+    socket.shutdown(tcp_socket::shutdown_both, ec);
+    socket.close(ec);
 
-    // fmt::print("{} want bytes={}\n", fnName(), bytes);
-
-    error_code ec;
-    auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
-
-    // fmt::print("\n");
-    // const size_t max_len = 100;
-    // const size_t len = _wire.size();
-    // const auto dump_bytes = std::min(max_len, len);
-    // for (size_t idx = 0; idx < dump_bytes; idx++) {
-    //   fmt::print("{:02x} ", _wire.at(idx));
-
-    //   if (((idx + 1) % 30) == 0) {
-    //     fmt::print("\n");
-    //   }
-    // }
-
-    // fmt::print("\n{} END DUMP\n", fnName());
-
-    accumulateRx(rx_bytes);
+    constexpr auto f = FMT_STRING("{} RTSP SESSION SHUTDOWN socket={} err_value={} msg={}\n");
+    fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());
+  } else {
+    constexpr auto f = FMT_STRING("{} RTSP SESSION PREVIOUS TEARDOWN socket={}\n");
+    fmt::print(f, runTicks(), socket.native_handle());
   }
-  return isReady();
 }
+
+void Rtsp::teardown(const error_code ec) {
+  constexpr auto f = FMT_STRING("{} RTSP SESSION TEARDOWN socket={} err_value={} msg={}\n");
+  fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());
+
+  teardown();
+}
+
+bool Rtsp::txContinue() {
+  // send a CONTINUE reply then read the pending data
+  constexpr auto CONTINUE = csv("CONTINUE");
+
+  auto inject = reply::Inject{.method = CONTINUE,
+                              .path = path(),
+                              .content = content(),
+                              .headers = headers(),
+                              .conn = conn,
+                              .aes_ctx = aes_ctx,
+                              .anchor = anchor};
+
+  auto reply = Reply::create(inject);
+  auto &reply_packet = reply->build();
+
+  aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
+  auto buff = const_buffer(reply_packet.data(), reply_packet.size());
+
+  error_code ec;
+  auto tx_bytes = write(socket, buff, ec);
+  accumulateTx(tx_bytes);
+
+  return isReady(ec);
+}
+
+// misc debug, loggind
 
 void Rtsp::dump(DumpKind dump_type) {
   std::time_t now = std::time(nullptr);

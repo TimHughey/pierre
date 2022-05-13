@@ -48,7 +48,7 @@ class AesCtx {
 public:
   AesCtx(const char *device_str);
 
-  size_t decrypt(packet::In &packet, const packet::In &ciphered);
+  size_t decrypt(packet::In &packet, packet::In &ciphered);
   size_t encrypt(packet::Out &packet);
 
   // size_t decrypt()

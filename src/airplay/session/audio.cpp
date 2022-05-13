@@ -34,9 +34,23 @@ using namespace boost::asio;
 using namespace boost::system;
 using namespace pierre::packet;
 
+namespace errc = boost::system::errc;
+
+Audio::~Audio() {
+  constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
+  fmt::print(f, runTicks(), "AUDIO SESSION", socket.native_handle());
+
+  [[maybe_unused]] error_code ec;
+
+  // must use error_code overload to prevent throws
+  socket.shutdown(socket_base::shutdown_both, ec);
+  socket.close(ec);
+}
+
 /*
 constructor notes:
-  1. socket is passed as a reference to a reference so we must move to our local socket reference
+  1. socket is passed as a reference to a reference so we must move to our local socket
+reference
 
 asyncAudioBufferLoop notes:
   1. nothing within this function can be captured by the lamba
@@ -87,9 +101,6 @@ misc notes:
 */
 
 void Audio::asyncLoop() {
-  if (isReady() == false) // bail out if the socket isn't ready
-    return;
-
   prepNextPacket();
 
   // start by reading the packet length
@@ -111,7 +122,7 @@ void Audio::asyncLoop() {
       }
     } // self is about to go out of scope...
   }); // shared_ptr.use_count--
-}
+} // namespace boost::asio::error::voidAudio::asyncLoop()
 
 void Audio::asyncReportRxBytes(int64_t rx_bytes) {
   timer->expires_after(10s);
@@ -123,7 +134,7 @@ void Audio::asyncReportRxBytes(int64_t rx_bytes) {
       const auto rx_total = self->_rx_bytes;
 
       if (rx_total != rx_last) {
-        constexpr auto f = FMT_STRING("{} AUDIO TX total={:<15} 30s={}\n");
+        constexpr auto f = FMT_STRING("{} AUDIO RX total={:<15} 30s={}\n");
         const auto in_30secs = rx_total - rx_last;
         fmt::print(f, runTicks(), rx_total, in_30secs);
       }
@@ -136,25 +147,22 @@ void Audio::asyncReportRxBytes(int64_t rx_bytes) {
 }
 
 void Audio::asyncRxPacket(size_t packet_len) {
-  [[maybe_unused]] const auto avail = socket.available();
-
   async_read(socket, dynamic_buffer(wire.buffer()), transfer_exactly(packet_len - 2),
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // bail out when not reqdy
-               if (self->isReady(ec) == false)
+               if (self->isReady(ec) == false) // self-destruct
                  return;
 
                self->accumulate(RX, rx_bytes);   // track stats
                self->wire.storePacket(rx_bytes); // notify bytes received
                self->asyncLoop();                // async read next packet
              });
-  // will auto destruct if more work hasn't been scheduled
 }
 
 bool Audio::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
-  auto rc = isReady();
+  auto rc = true;
 
-  if (rc) {
+  if (ec) {
     switch (ec.value()) {
       case errc::success:
         break;
@@ -162,19 +170,11 @@ bool Audio::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
       case errc::operation_canceled:
       case errc::resource_unavailable_try_again:
       case errc::no_such_file_or_directory:
-        rc = false;
-        break;
-
       default: {
         constexpr auto f = FMT_STRING("{} AUDIO SESSION SHUTDOWN socket={} err_value={} msg={}\n");
         fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());
 
-        [[maybe_unused]] error_code __ec;
-
-        socket.cancel(__ec);
-        socket.shutdown(tcp_socket::shutdown_both, __ec);
-        socket.close(__ec);
-        rc = false;
+        rc = false; // return false, object will auto destruct
       }
     }
   }
@@ -184,20 +184,6 @@ bool Audio::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
 
 void Audio::prepNextPacket() noexcept { wire.reset(); }
 
-/*
-bool Audio::rxAtLeast(size_t bytes) {
-  if (isReady()) {
-    auto buff = dynamic_buffer(wire);
-
-    error_code ec;
-    auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
-
-    accumulate(Accumulate::RX, rx_bytes);
-  }
-  return isReady();
-}
-
-*/
 void Audio::accumulate(Accumulate type, size_t bytes) {
   switch (type) {
     case RX:

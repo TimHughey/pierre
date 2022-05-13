@@ -20,6 +20,7 @@
 
 #include "packet/content.hpp"
 
+#include <algorithm>
 #include <array>
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -72,6 +73,10 @@ struct val {
 
 } // namespace header
 
+namespace {
+namespace ranges = std::ranges;
+}
+
 typedef fmt::basic_memory_buffer<char, 256> HeaderList;
 
 class Headers {
@@ -104,7 +109,14 @@ public:
   inline auto count() const { return _omap.size(); }
   void dump() const;
 
-  const HeaderList list() const;
+  void list(auto &where) const {
+    ranges::for_each(_omap, [&](const auto &entry) {
+      const auto &[type, val] = entry;
+
+      fmt::format_to(where, "{}: {}\r\n", type, val);
+    });
+  }
+
   size_t loadMore(csv view, Content &content, bool debug = false);
   size_t moreBytes() const { return _more_bytes; }
 

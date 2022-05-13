@@ -60,20 +60,17 @@ namespace header = pierre::packet::header;
 
   fmt::format_to(where, "RTSP/1.0 {:d} {}{}", _rcode, resp_text, seperator);
 
-  if (_content.empty() == false) {
+  if (!_content.empty()) { // add the content length before adding the header list
     headers.add(header::type::ContentLength, _content.size());
   }
 
-  const auto hdr_list = headers.list();
-
-  std::copy(hdr_list.begin(), hdr_list.end(), where);
+  headers.list(where);
 
   // always write the separator between heqders and content
   fmt::format_to(where, "{}", seperator);
 
   if (_content.empty() == false) {
-    // we have content for the reply, add it now
-    std::copy(_content.begin(), _content.end(), where);
+    std::copy(_content.begin(), _content.end(), where); // we have content, add it now
   }
 
   if (true) { // debug

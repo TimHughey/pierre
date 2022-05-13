@@ -40,6 +40,10 @@ bool Pairing::populate() {
     aes_result = aesCtx().verify(rContent(), _content);
   }
 
+  if (_content.empty() == false) {
+    headers.add(header::type::ContentType, header::val::OctetStream);
+  }
+
   responseCode(aes_result.resp_code);
 
   return aes_result.ok;

@@ -36,7 +36,7 @@ public:
   enum Accumulate { RX, TX };
 
 public:
-  ~Audio() { teardown(); }
+  ~Audio();
 
 public:
   static void start(const Inject &di) {
