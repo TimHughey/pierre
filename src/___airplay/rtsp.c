@@ -2071,10 +2071,6 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 }
 
 void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(2, "Connection %d: SETPEERS %s Content-Length %d", conn->connection_number, req->path,
-        req->contentlength);
-  debug_log_rtsp_message(2, "SETPEERS request", req);
-
   char timing_list_message[4096];
   timing_list_message[0] = 'T';
   timing_list_message[1] = 0;
@@ -2279,8 +2275,6 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
-  debug(2, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
-  // debug_log_rtsp_message(1, "SETUP (AirPlay 2) SETUP incoming message", req);
 
   plist_t messagePlist = plist_from_rtsp_content(req);
   plist_t setupResponsePlist = plist_new_dict();
@@ -2290,11 +2284,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   plist_t streams = plist_dict_get_item(messagePlist, "streams");
   if (streams == NULL) {
     // no "streams" plist, so it must (?) be an initial setup
-    debug(2,
-          "Connection %d SETUP: No \"streams\" array has been found -- create "
-          "an event thread "
-          "and open a TCP port.",
-          conn->connection_number);
 
     conn->airplay_stream_category = unspecified_stream_category;
     // figure out what category of stream it is, by looking at the plist
@@ -2305,18 +2294,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(1, "Connection %d: AP2 PTP connection from %s:%u to self at %s:%u.",
-                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
-                conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
           get_play_lock(conn);
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
-          debug(1, "Connection %d: SETUP: NTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ntp_stream;
           conn->timing_type = ts_ntp;
         } else if (strcmp(timingProtocolString, "None") == 0) {
-          debug(2, "Connection %d: SETUP: a \"None\" setup detected.", conn->connection_number);
           // now check to see if it's got the "isRemoteControlOnly" item and
           // check it's true
           plist_t isRemoteControlOnly = plist_dict_get_item(messagePlist, "isRemoteControlOnly");
@@ -2324,23 +2308,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1,
-                    "Connection %d: Remote Control connection from %s:%u to "
-                    "self at %s:%u.",
-                    conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
-                    conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
-            } else {
-              debug(1,
-                    "Connection %d: SETUP: a \"None\" setup detected, with "
-                    "\"isRemoteControlOnly\" item set to \"false\".",
-                    conn->connection_number);
             }
-          } else {
-            debug(1,
-                  "Connection %d: SETUP: a \"None\" setup detected, but no "
-                  "\"isRemoteControlOnly\" item detected.",
-                  conn->connection_number);
           }
         }
 
@@ -2348,25 +2317,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // being requested if it's a full service PTP stream, we get groupUUID,
         // groupContainsGroupLeader and timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
-          if (ptp_shm_interface_open() !=
-              0) // it should be open already, but just in case it isn't...
-            die("Can not access the NQPTP service. Has it stopped running?");
           ptp_send_control_message_string("T"); // remove all previous history
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
-          if (groupUUID) {
-            char *gid = NULL;
-            plist_get_string_val(groupUUID, &gid);
-            if (gid) {
-              if (conn->airplay_gid)
-                free(conn->airplay_gid);
-              conn->airplay_gid = gid; // it'll be free'd later on...
-            } else {
-              debug(1, "Invalid groupUUID");
-            }
-          } else {
-            debug(1, "No groupUUID in SETUP");
-          }
+
+          plist_get_string_val(groupUUID, &gid);
+
+          conn->airplay_gid = gid; // it'll be free'd later on...
 
           // now see if the group contains a group leader
           plist_t groupContainsGroupLeader =
@@ -2375,9 +2332,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t value = 0;
             plist_get_bool_val(groupContainsGroupLeader, &value);
             conn->groupContainsGroupLeader = value;
-            debug(2, "Updated groupContainsGroupLeader to %u", conn->groupContainsGroupLeader);
-          } else {
-            debug(1, "No groupContainsGroupLeader in SETUP");
           }
 
           char timing_list_message[4096];
@@ -2404,15 +2358,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                           sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                   free(ip_address);
                 }
-              } else {
-                debug(1,
-                      "SETUP on Connection %d: No timingPeerInfo addresses in "
-                      "the array.",
-                      conn->connection_number);
               }
-            } else {
-              debug(1, "SETUP on Connection %d: Can't find timingPeerInfo addresses",
-                    conn->connection_number);
             }
             // make up the timing peer info list part of the response...
             // debug(1,"Create timingPeerInfoPlist");
@@ -2469,21 +2415,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             int err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family,
                                            conn->self_ip_string, conn->self_scope_id,
                                            &conn->local_event_port, &conn->event_socket);
-            if (err) {
-              die("SETUP on Connection %d: Error %d: could not find a TCP port "
-                  "to use as an event "
-                  "port",
-                  conn->connection_number, err);
-            }
-
-            debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number,
-                  conn->local_event_port);
-
-            if (conn->rtp_event_thread != NULL)
-              debug(1, "previous rtp_event_thread allocation not freed, it seems.");
-            conn->rtp_event_thread = malloc(sizeof(pthread_t));
-            if (conn->rtp_event_thread == NULL)
-              die("Couldn't allocate space for pthread_t");
 
             pthread_create(conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
 
@@ -2496,42 +2427,20 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
             config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
             build_bonjour_strings(conn);
-            debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
-                  get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
 
             resp->respcode = 200;
-          } else {
-            debug(1, "SETUP on Connection %d: PTP setup -- no timingPeerInfo plist.",
-                  conn->connection_number);
           }
         } else if (conn->airplay_stream_category == ntp_stream) {
-          debug(1, "SETUP on Connection %d: ntp stream handling is not implemented!",
-                conn->connection_number, req);
           warn("Shairport Sync can not handle NTP streams.");
         } else if (conn->airplay_stream_category == remote_control_stream) {
-          debug_log_rtsp_message(2, "SETUP \"isRemoteControlOnly\" message", req);
-
           // get a port to use as an event port
           // bind a new TCP port and get a socket
           conn->local_event_port = 0; // any port
           int err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family,
                                          conn->self_ip_string, conn->self_scope_id,
                                          &conn->local_event_port, &conn->event_socket);
-          if (err) {
-            die("SETUP on Connection %d: Error %d: could not find a TCP port "
-                "to use as an event "
-                "port",
-                conn->connection_number, err);
-          }
 
-          debug(2, "Connection %d: TCP Remote Control event port opened: %u.",
-                conn->connection_number, conn->local_event_port);
-          if (conn->rtp_event_thread != NULL)
-            debug(1, "previous rtp_event_thread allocation not freed, it seems.");
-          conn->rtp_event_thread = malloc(sizeof(pthread_t));
-          if (conn->rtp_event_thread == NULL)
-            die("Couldn't allocate space for pthread_t");
           pthread_create(conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
 
           plist_dict_set_item(setupResponsePlist, "eventPort",
@@ -2541,32 +2450,10 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                                   conn->connection_number); // kill all the other remote control
                                                             // listeners
           resp->respcode = 200;
-        } else {
-          debug(1, "SETUP on Connection %d: an unrecognised \"%s\" setup detected.",
-                conn->connection_number, timingProtocolString);
-          warn("Shairport Sync can not handle streams of this type: \"%s\".",
-               timingProtocolString);
         }
-        free(timingProtocolString);
-      } else {
-        debug(1,
-              "SETUP on Connection %d: Can't retrieve timingProtocol string in "
-              "initial SETUP.",
-              conn->connection_number);
       }
-    } else {
-      debug(1,
-            "SETUP on Connection %d: Unrecognised SETUP incoming message from "
-            "\"%s\": no "
-            "timingProtocol or streams plist found.",
-            conn->connection_number, (const char *)conn->client_ip_string);
-      debug_log_rtsp_message(2, "Unrecognised SETUP incoming message.", req);
-      warn("Unrecognised SETUP incoming message -- ignored.");
     }
   } else {
-    debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
-          conn->connection_number, get_category_string(conn->airplay_stream_category));
-
     if (conn->airplay_stream_category == ptp_stream) {
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
@@ -2582,11 +2469,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
                                  conn->self_scope_id, &conn->local_ap2_control_port,
                                  &conn->ap2_control_socket);
-      if (err) {
-        die("Error %d: could not find a UDP port to use as an ap2_control port", err);
-      }
-      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number,
-            conn->local_ap2_control_port);
 
       pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
 
@@ -2600,41 +2482,17 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       char *ar = msg_get_header(req, "Active-Remote");
       if (ar) {
-        debug(3, "Connection %d: SETUP AP2 -- Active-Remote string seen: \"%s\".",
-              conn->connection_number, ar);
         // get the active remote
-        if (conn->dacp_active_remote) // this is in case SETUP was previously
-                                      // called
-          free(conn->dacp_active_remote);
         conn->dacp_active_remote = strdup(ar);
       } else {
-        debug(1,
-              "Connection %d: SETUP AP2 no Active-Remote information  the "
-              "SETUP Record.",
-              conn->connection_number);
-        if (conn->dacp_active_remote) { // this is in case SETUP was previously
-                                        // called
-          free(conn->dacp_active_remote);
-          conn->dacp_active_remote = NULL;
-        }
+        conn->dacp_active_remote = NULL;
       }
 
       ar = msg_get_header(req, "DACP-ID");
       if (ar) {
-        debug(3, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".",
-              conn->connection_number, ar);
-        if (conn->dacp_id) // this is in case SETUP was previously called
-          free(conn->dacp_id);
         conn->dacp_id = strdup(ar);
       } else {
-        debug(1,
-              "Connection %d: SETUP AP2 doesn't include DACP-ID string "
-              "information.",
-              conn->connection_number);
-        if (conn->dacp_id) { // this is in case SETUP was previously called
-          free(conn->dacp_id);
-          conn->dacp_id = NULL;
-        }
+        conn->dacp_id = NULL;
       }
 
       // now, get the type of the stream.
@@ -2644,22 +2502,12 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       switch (item_value) {
         case 96: {
-          debug(1, "Connection %d. AP2 Realtime Audio Stream.", conn->connection_number);
-          debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
-          // get_play_lock(conn);
           conn->airplay_stream_type = realtime_stream;
           // bind a new UDP port and get a socket
           conn->local_realtime_audio_port = 0; // any port
           err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
                                      conn->self_scope_id, &conn->local_realtime_audio_port,
                                      &conn->realtime_audio_socket);
-          if (err) {
-            die("Error %d: could not find a UDP port to use as a realtime_audio "
-                "port",
-                err);
-          }
-          debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number,
-                conn->local_realtime_audio_port);
 
           pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
                          (void *)conn);
@@ -2669,7 +2517,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                               plist_new_uint(conn->local_realtime_audio_port));
 
           conn->stream.type = ast_apple_lossless;
-          debug(3, "An ALAC stream has been detected.");
 
           // Set reasonable connection defaults
           conn->stream.fmtp[0] = 96;
@@ -2693,17 +2540,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           conn->input_bit_depth = conn->stream.fmtp[3];
           conn->input_bytes_per_frame =
               conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-          debug(2, "Realtime Stream Play");
-          activity_monitor_signify_activity(1);
+
           player_prepare_to_play(conn);
           player_play(conn);
 
           conn->rtp_running = 1; // hack!
         } break;
         case 103: {
-          debug(1, "Connection %d. AP2 Buffered Audio Stream.", conn->connection_number);
-          debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
-          // get_play_lock(conn);
           conn->airplay_stream_type = buffered_stream;
           // get needed stuff
 
@@ -2712,15 +2555,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
                                      conn->self_scope_id, &conn->local_buffered_audio_port,
                                      &conn->buffered_audio_socket);
-          if (err) {
-            die("SETUP on Connection %d: Error %d: could not find a TCP port to "
-                "use as a "
-                "buffered_audio port",
-                conn->connection_number, err);
-          }
-
-          debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
-                conn->local_buffered_audio_port);
 
           // hack.
           conn->max_frames_per_packet = 352; // number of audio frames per packet.
@@ -2729,7 +2563,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           conn->input_bit_depth = 16;
           conn->input_bytes_per_frame =
               conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-          activity_monitor_signify_activity(1);
+
           player_prepare_to_play(conn); // get capabilities of DAC before creating
                                         // the buffered audio thread
 
@@ -2744,14 +2578,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
           // this should be cancelled by an activity_monitor_signify_activity(1)
           // call in the SETRATEANCHORI handler, which should come up right away
-          activity_monitor_signify_activity(0);
           player_play(conn);
 
           conn->rtp_running = 1; // hack!
         } break;
         default:
-          debug(1, "SETUP on Connection %d: Unhandled stream type %" PRIu64 ".",
-                conn->connection_number, item_value);
           debug_log_rtsp_message(1, "Unhandled stream type incoming message", req);
       }
 
@@ -2771,11 +2602,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_array_append_item(coreResponseArray, coreResponseDict);
       plist_dict_set_item(setupResponsePlist, "streams", coreResponseArray);
       resp->respcode = 200;
-    } else {
-      debug(1,
-            "Connection %d: SETUP: Stream received but no airplay category "
-            "set. Nothing done.",
-            conn->connection_number);
     }
   }
 
@@ -2784,8 +2610,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_free(setupResponsePlist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
   }
-  plist_free(messagePlist);
-  debug_log_rtsp_message(2, " SETUP response", resp);
 }
 
 void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,

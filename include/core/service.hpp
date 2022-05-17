@@ -18,19 +18,26 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "core/host.hpp"
 #include "service/types.hpp"
 #include "typedefs.hpp"
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <plist/plist++.h>
 #include <tuple>
 #include <unordered_map>
 
 namespace pierre {
 
-class Service {
+class Service;
+typedef std::shared_ptr<Service> shService;
+
+namespace shared {
+std::optional<shService> &service();
+} // namespace shared
+
+class Service : public std::enable_shared_from_this<Service> {
 public:
   enum Flags : uint8_t { DeviceSupportsRelay = 11 };
 
@@ -42,13 +49,13 @@ public:
   using KeySeq = service::KeySeq;
   using enum service::Key;
 
-private:
-  struct Inject {
-    Host &host;
-  };
+public:
+  static shService init() { return shared::service().emplace(new Service()); }
+  static shService ptr() { return shared::service().value()->shared_from_this(); }
+  static void reset() { shared::service().reset(); }
 
 public:
-  Service(const Inject &di);
+  Service();
 
   // general API
   // void adjustSystemFlags(Flags flag);

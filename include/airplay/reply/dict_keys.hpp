@@ -18,29 +18,34 @@
     https://www.wisslanding.com
 */
 
-#include "reply/set_peers.hpp"
-#include "clock/info.hpp"
-#include "common/anchor.hpp"
-#include "reply/dict_keys.hpp"
+#pragma once
 
 namespace pierre {
 namespace airplay {
 namespace reply {
+namespace dk {
 
-using namespace packet;
+constexpr auto ADDRESSES = csv("Addresses");
+constexpr auto BUFF_SIZE = csv("audioBufferSize");
+constexpr auto CONTROL_PORT = csv("controlPort");
+constexpr auto DATA_PORT = csv("dataPort");
+constexpr auto EMPTY = csv();
+constexpr auto EVENT_PORT = csv("eventPort");
+constexpr auto GROUP_LEADER = csv("groupContainsGroupLeader");
+constexpr auto GROUP_UUID = csv("groupUUID");
+constexpr auto ID = csv("ID");
+constexpr auto IDX0 = csv("0");
+constexpr auto ROOT = csv();
+constexpr auto SHK = csv("shk");
+constexpr auto SR = csv("sr");
+constexpr auto STREAM_ID = csv("streamID");
+constexpr auto STREAMS = csv("streams");
+constexpr auto TIMING_PEER_INFO = csv("timingPeerInfo");
+constexpr auto TIMING_PORT = csv("timingPort");
+constexpr auto TIMING_PROTOCOL = csv("timingProtocol");
+constexpr auto TYPE = csv("type");
 
-bool SetPeers::populate() {
-  rdict = plist();
-
-  auto peers = rdict.stringArray({dk::ROOT});
-  if (peers.empty()) {
-    return false;
-  }
-
-  anchor().peers(peers);      // set the peer lists
-  responseCode(RespCode::OK); // indicate success
-  return true;
-}
+} // namespace dk
 
 } // namespace reply
 } // namespace airplay

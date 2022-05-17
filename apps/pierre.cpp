@@ -47,44 +47,43 @@ void Pierre::run() {
   }
 
   // create core dependencies for injection
-  auto host = Host({.cfg = cfg});
+  auto host = Host::init({.cfg = cfg});
 
   constexpr auto f = FMT_STRING("{} {} {} {}\n");
-  fmt::print(f, runTicks(), fnName(), host.serviceName(), host.firmwareVerson());
+  fmt::print(f, runTicks(), fnName(), host->serviceName(), host->firmwareVerson());
 
-  auto service = Service({.host = host});
+  Service::init();
 
-  auto mdns = mDNS({.service = service});
-  mdns.start();
+  mDNS::init()->start();
 
   // create and start Airplay
-  auto &airplay = Airplay().start({.host = host, .service = service, .mdns = mdns});
+  auto &airplay_thread = Airplay::init()->run();
 
-  airplay.join();
+  airplay_thread.join();
 
   /* legacy
-  std::list<shared_ptr<thread>> threads;
+std::list<shared_ptr<thread>> threads;
 
-    auto dsp = make_shared<audio::Dsp>();
-    auto dmx = make_shared<dmx::Render>();
-    auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
+  auto dsp = make_shared<audio::Dsp>();
+  auto dmx = make_shared<dmx::Render>();
+  auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
 
-    threads.emplace_front(dsp->run());
-    threads.emplace_front(dmx->run());
+  threads.emplace_front(dsp->run());
+  threads.emplace_front(dmx->run());
 
-    lightdesk->saveInstance(lightdesk);
-    threads.emplace_front(lightdesk->run());
+  lightdesk->saveInstance(lightdesk);
+  threads.emplace_front(lightdesk->run());
 
-    dmx->addProducer(lightdesk);
+  dmx->addProducer(lightdesk);
 
-    sleep(10);
+  sleep(10);
 
-    if (State::leaving()) {
-      lightdesk->leave();
-    }
+  if (State::leaving()) {
+    lightdesk->leave();
+  }
 
-    State::shutdown();
-    cout << endl;
-    */
+  State::shutdown();
+  cout << endl;
+  */
 }
 } // namespace pierre

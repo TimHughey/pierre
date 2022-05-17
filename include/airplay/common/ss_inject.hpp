@@ -21,9 +21,6 @@
 #include "common/anchor.hpp"
 #include "common/conn_info.hpp"
 #include "common/typedefs.hpp"
-#include "core/host.hpp"
-#include "core/service.hpp"
-#include "mdns/mdns.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -35,9 +32,6 @@ struct Inject {
   io_context &io_ctx;
   ConnInfo &conn;
   Anchor &anchor;
-  Host &host;
-  Service &service;
-  mDNS &mdns;
 };
 
 } // namespace server
@@ -49,9 +43,6 @@ struct Inject {
   tcp_socket &&socket;
   ConnInfo &conn;
   Anchor &anchor;
-  Host &host;
-  Service &service;
-  mDNS &mdns;
 };
 } // namespace session
 

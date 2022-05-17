@@ -21,6 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <array>
 #include <cstdint>
 #include <list>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <unordered_map>

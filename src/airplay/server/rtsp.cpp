@@ -63,12 +63,8 @@ void Rtsp::asyncLoop(const error_code ec_last) {
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
 
-      auto inject = session::Inject{.socket = std::move(socket.value()),
-                                    .conn = di.conn,
-                                    .anchor = di.anchor,
-                                    .host = di.host,
-                                    .service = di.service,
-                                    .mdns = di.mdns};
+      auto inject = session::Inject{
+          .socket = std::move(socket.value()), .conn = di.conn, .anchor = di.anchor};
 
       session::Rtsp::start(inject);
     }

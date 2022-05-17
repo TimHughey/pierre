@@ -30,12 +30,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace pierre {
 
+namespace shared {
+std::optional<shmDNS> __mdns;
+std::optional<shmDNS> &mdns() { return shared::__mdns; }
+} // namespace shared
+
 using enum service::Key;
 using enum service::Type;
 
 typedef std::vector<string> PreppedEntries;
-
-mDNS::mDNS(const Inject &di) : _service(di.service) {}
 
 void mDNS::advertise(AvahiClient *client) {
   _client = client;
@@ -59,7 +62,8 @@ void mDNS::advertise(AvahiClient *client) {
 
   for (const auto stype : std::array{AirPlayTCP, RaopTCP}) {
     PreppedEntries entries;
-    auto kvmap = _service.keyValList(stype);
+
+    auto kvmap = Service::ptr()->keyValList(stype);
 
     for (const auto &[key, val] : *kvmap) {
       fmt::basic_memory_buffer<char, 128> sl_entry;
@@ -79,7 +83,7 @@ void mDNS::advertise(AvahiClient *client) {
 }
 
 const string mDNS::deviceID() {
-  const auto &[__unused_key, val_str] = _service.fetch(apDeviceID);
+  const auto &[__unused_key, val_str] = Service::ptr()->fetch(apDeviceID);
 
   return string(val_str);
 }
@@ -89,7 +93,7 @@ bool mDNS::groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepp
   constexpr auto proto = AVAHI_PROTO_UNSPEC;
   constexpr auto pub_flags = (AvahiPublishFlags)0;
 
-  const auto [reg_type, name] = _service.nameAndReg(stype);
+  const auto [reg_type, name] = Service::ptr()->nameAndReg(stype);
 
   std::vector<const char *> string_pointers;
   for (auto &entry : prepped_entries) {
@@ -191,7 +195,7 @@ void mDNS::update() {
 
   AvahiStringList *sl = avahi_string_list_new("autoUpdate=true", nullptr);
 
-  const auto kvmap = _service.keyValList(AirPlayTCP);
+  const auto kvmap = Service::ptr()->keyValList(AirPlayTCP);
   for (const auto &[key, val] : *kvmap) {
     sl = avahi_string_list_add_pair(sl, key, val);
   }
@@ -200,7 +204,7 @@ void mDNS::update() {
   constexpr auto proto = AVAHI_PROTO_UNSPEC;
   constexpr auto pub_flags = (AvahiPublishFlags)0;
 
-  const auto [reg_type, name] = _service.nameAndReg(AirPlayTCP);
+  const auto [reg_type, name] = Service::ptr()->nameAndReg(AirPlayTCP);
 
   auto group = _groups.front(); // we're going to update the first (and only group)
 

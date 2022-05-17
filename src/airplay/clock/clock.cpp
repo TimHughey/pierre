@@ -41,6 +41,32 @@ Clock::Clock(const clock::Inject &di)
   shm_name = fmt::format("/{}-{}", di.service_name, di.device_id); // make shm_name
 
   openAndMap();
+
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} dest={}\n");
+    fmt::print(f, runTicks(), fnName(), endpoint.port());
+  }
+
+  ensureConnection();
+}
+
+bool Clock::ensureConnection() {
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} open={}\n");
+    fmt::print(f, runTicks(), fnName(), socket.is_open());
+  }
+
+  if (socket.is_open() == false) {
+    error_code ec;
+    socket.connect(endpoint, ec);
+
+    if (ec != errc::success) {
+      constexpr auto f = FMT_STRING("{} {} connect failed what={}\n");
+      fmt::print(f, runTicks(), fnName(), ec.what());
+    }
+  }
+
+  return socket.is_open();
 }
 
 bool Clock::isMapped(csrc_loc loc) const {
@@ -69,6 +95,11 @@ void Clock::openAndMap() {
       mapped = mmap(NULL, bytes, flags, MAP_SHARED, shm_fd, 0);
 
       close(shm_fd); // done with the shm memory fd
+
+      if (false) { // debug
+        constexpr auto f = FMT_STRING("{} {} clock mapping complete\n");
+        fmt::print(f, runTicks(), fnName());
+      }
     }
   }
 }
@@ -115,8 +146,8 @@ const clock::Info Clock::info() {
 
 void Clock::peersUpdate(const Peers &new_peers) {
   if (false) { // debug
-    constexpr auto f = FMT_STRING("{} new peers count={}\n");
-    fmt::print(f, fnName(), new_peers.size());
+    constexpr auto f = FMT_STRING("{} {} new peers count={}\n");
+    fmt::print(f, runTicks(), fnName(), new_peers.size());
   }
 
   if (new_peers.empty()) {
@@ -124,19 +155,13 @@ void Clock::peersUpdate(const Peers &new_peers) {
   } else {
     peer_list = fmt::format("T {}", fmt::join(new_peers, " ")); // create peers list
   }
+
+  sendCtrlMsg(peer_list);
 }
 
 void Clock::sendCtrlMsg(const string &msg) {
-  if (socket.is_open() == false) {
-    socket.async_connect(endpoint, [pending_msg = msg, this](error_code ec) {
-      if (ec == errc::success) {
-        sendCtrlMsg(pending_msg); // recurse
-
-      } else {
-        fmt::print("{} connect failed what={}\n", fnName(), ec.what());
-        return;
-      }
-    });
+  if (ensureConnection() == false) {
+    return;
   }
 
   _wire.clear();                              // clear buffer
@@ -145,12 +170,13 @@ void Clock::sendCtrlMsg(const string &msg) {
   _wire.emplace_back(0x00);                   // nqptp wants a null terminated string
   auto buff = buffer(_wire);                  // lightweight buffer wrapper for async_*
 
-  socket.async_send_to(buff, endpoint, [&](error_code ec, size_t tx_bytes) {
-    if (false) {
-      constexpr auto f = FMT_STRING("{} wrote ctrl msg bytes={:>03} ec={}\n");
-      fmt::print(f, fnName(), tx_bytes, ec.what());
-    }
-  });
+  error_code ec;
+  auto tx_bytes = socket.send_to(buff, endpoint, 0, ec);
+
+  if (false) {
+    constexpr auto f = FMT_STRING("{} {} wrote ctrl msg bytes={:>03} ec={}\n");
+    fmt::print(f, runTicks(), fnName(), tx_bytes, ec.what());
+  }
 }
 
 void Clock::unMap() {

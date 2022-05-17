@@ -18,26 +18,31 @@
     https://www.wisslanding.com
 */
 
+#include "packet/aplist.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstdarg>
 #include <exception>
-#include <fmt/core.h>
 #include <fmt/format.h>
 #include <iterator>
 #include <memory>
+#include <sstream>
 #include <string>
-
-#include "packet/aplist.hpp"
 
 // embedded binary data via ld (see CMakeLists.txt)
 extern uint8_t _binary_get_info_resp_plist_start[];
 extern uint8_t _binary_get_info_resp_plist_end;
 extern uint8_t _binary_get_info_resp_plist_size;
+
 namespace pierre {
 namespace packet {
 
 using namespace std;
+
+using namespace PList;
+
+template <typename T> using Func = std::function<T()>;
 
 Aplist::Aplist(bool allocate) {
   if (allocate != DEFER_DICT) {
@@ -90,6 +95,36 @@ Aplist::Aplist(const Aplist &src, Level level, ...) {
   }
 }
 
+Aplist::Aplist(const Aplist &src, const Steps &steps) {
+  // empty first and only node, copy the entire plist
+  if (steps.front().empty() && (steps.size() == 1)) {
+    _plist = plist_copy(src._plist);
+    return;
+  }
+
+  plist_t node;
+  plist_t src_plist = src._plist;
+
+  switch (steps.size()) {
+    case 1:
+      node = plist_access_path(src_plist, 1, steps[0]);
+      break;
+
+    case 2:
+      node = plist_access_path(src_plist, 2, steps[0], steps[1]);
+      break;
+
+    case 3:
+      node = plist_access_path(src_plist, 3, steps[0], steps[1], steps[3]);
+      break;
+
+    default:
+      node = nullptr;
+  }
+
+  _plist = (node) ? plist_copy(node) : plist_new_dict();
+}
+
 Aplist::~Aplist() {
   if (_plist) {
     plist_free(_plist);
@@ -98,6 +133,24 @@ Aplist::~Aplist() {
 }
 
 Aplist &Aplist::operator=(const Content &content) { return fromContent(content); }
+
+Aplist &Aplist::operator=(Aplist &&ap) {
+  _plist = ap._plist;
+  return *this;
+}
+
+bool Aplist::boolVal(csv key) const {
+  auto node = getNode(key, PLIST_BOOLEAN);
+
+  if (node) {
+    uint8_t val = 0;
+    plist_get_bool_val(node, &val);
+
+    return (bool)val;
+  }
+
+  return false;
+}
 
 Aplist &Aplist::clear() {
   if (_plist) {
@@ -121,25 +174,24 @@ Aplist::Binary Aplist::toBinary(size_t &bytes) const {
   return ptr;
 }
 
-bool Aplist::compareString(ccs path, ccs compare) {
-  auto rc = false;
+// bool Aplist::compareString(csv key, csv val) const {
+//   return compareString(key.data(), val.data());
+// }
 
-  auto item = plist_dict_get_item(_plist, path);
+bool Aplist::compareString(csv key, csv val) const {
+  auto found = plist_dict_get_item(_plist, key.data());
 
-  if (item == nullptr)
-    return rc;
-
-  uint64_t len = 0;
-  ccs val = plist_get_string_ptr(item, &len);
-
-  if (len && (strncmp(val, compare, len) == 0)) {
-    rc = true;
+  if ((found == nullptr) || (PLIST_STRING != plist_get_node_type(found))) {
+    return false;
   }
 
-  return rc;
+  uint64_t len = 0;
+  auto ptr = plist_get_string_ptr(found, &len);
+
+  return csv(ptr, len) == val;
 }
 
-bool Aplist::compareStringViaPath(ccs compare, uint32_t path_count, ...) const {
+bool Aplist::compareStringViaPath(csv val, uint32_t path_count, ...) const {
   auto rc = false;
   va_list args;
 
@@ -151,9 +203,9 @@ bool Aplist::compareStringViaPath(ccs compare, uint32_t path_count, ...) const {
     // we found a node and it's a string, good.
 
     uint64_t len = 0;
-    ccs val = plist_get_string_ptr(node, &len);
+    auto ptr = plist_get_string_ptr(node, &len);
 
-    if (len && (strncmp(val, compare, len) == 0)) {
+    if (csv(ptr, len) == val) {
       rc = true;
     }
   }
@@ -161,40 +213,11 @@ bool Aplist::compareStringViaPath(ccs compare, uint32_t path_count, ...) const {
   return rc;
 }
 
-void Aplist::dump(csv prefix) const { dump(nullptr, prefix); }
-
-void Aplist::dump(plist_t sub_dict, csv prefix) const {
-  auto dump_dict = (sub_dict) ? sub_dict : _plist;
-
-  if (prefix.size()) {
-    fmt::print("{}\n", prefix);
-  } else {
-    fmt::print("\n");
-  }
-
-  if (dump_dict == nullptr) {
-    fmt::print("DICT DUMP dict={} is empty\n", fmt::ptr(dump_dict));
-    return;
-  }
-
-  fmt::print("DICT DUMP dict={} ", fmt::ptr(dump_dict));
-
-  char *buf = nullptr;
-  uint32_t bytes = 0;
-
-  plist_to_xml(dump_dict, &buf, &bytes);
-
-  if (bytes > 0) {
-    fmt::print("buf={} bytes={}\n", fmt::ptr(buf), bytes);
-    fmt::print("{}\n", buf);
-  } else {
-    fmt::print("DUMP FAILED\n");
-  }
+bool Aplist::empty() const {
+  return ((_plist == nullptr) || (plist_dict_get_size(_plist) == 0)) ? true : false;
 }
 
-bool Aplist::empty() const { return _plist == nullptr; }
-
-bool Aplist::exists(ccs path) { return getItem(path) != nullptr ? true : false; }
+bool Aplist::exists(csv path) { return getItem(path) != nullptr ? true : false; }
 
 bool Aplist::exists(const std::vector<ccs> &items) {
   auto rc = true;
@@ -206,7 +229,50 @@ bool Aplist::exists(const std::vector<ccs> &items) {
   return rc;
 }
 
-plist_t Aplist::getItem(ccs path) { return plist_dict_get_item(_plist, path); }
+plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
+  // empty first and only node, copy the entire plist
+  if (steps.front().empty() && (steps.size() == 1)) {
+    return _plist;
+  }
+
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} want_type={} keys={}\n");
+    fmt::print(f, runTicks(), fnName(), type, fmt::join(steps, ", "));
+  }
+
+  plist_t node;
+
+  switch (steps.size()) {
+    case 1:
+      node = plist_access_path(_plist, 1, steps[0].data());
+      break;
+
+    case 2:
+      node = plist_access_path(_plist, 2, steps[0].data(), steps[1].data());
+      break;
+
+    case 3: {
+      if (isArrayIndex(steps[1])) {
+        uint32_t idx = std::atoi(steps[1].data());
+        node = plist_access_path(_plist, 3, steps[0].data(), idx, steps[2].data());
+      } else {
+        node = plist_access_path(_plist, 3, steps[0].data(), steps[1].data(), steps[2].data());
+      }
+
+    } break;
+
+    default:
+      node = nullptr;
+  }
+
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} node={} type={}\n");
+    plist_type type = (node) ? plist_get_node_type(node) : PLIST_NONE;
+    fmt::print(f, runTicks(), fnName(), fmt::ptr(node), type);
+  }
+
+  return (node && (type == plist_get_node_type(node))) ? node : nullptr;
+}
 
 bool Aplist::getBool(ccs path, bool &dest) {
   auto rc = false;
@@ -248,6 +314,24 @@ bool Aplist::getBool(Level level, ...) {
   return bool_val;
 }
 
+// const string Aplist::getData(const Steps &steps) const {
+//   auto dict_key = steps.front().data;
+//   auto array_idx = std::atoi(steps[1]);
+//   auto array_key = steps.back().data();
+
+//   auto found = plist_access_path(_plist, 3, dict_key, array_idx, array_key);
+
+//   if (found && (PLIST_DATA == plist_get_node_type(found))) {
+//     uint64_t len;
+//     ccs ptr = plist_get_data_ptr(found, &len); // avoid copy, get ptr and len
+
+//     // wrap the ptr and len in a view for string creation
+//     return string(csv(ptr, len)); // return actual string}
+//   }
+
+//   return csv("");
+// }
+
 const std::string Aplist::getData(Level level, ...) {
   va_list args;
 
@@ -269,11 +353,11 @@ bool Aplist::getString(ccs path, string &dest) {
   auto rc = false;
   auto node = plist_dict_get_item(_plist, path);
 
-  dest.clear();
-
   if (node && (PLIST_STRING == plist_get_node_type(node))) {
     uint64_t len = 0;
-    dest = plist_get_string_ptr(node, &len);
+    auto ptr = plist_get_string_ptr(node, &len);
+
+    dest = csv(ptr, len);
 
     rc = true;
   }
@@ -281,24 +365,7 @@ bool Aplist::getString(ccs path, string &dest) {
   return rc;
 }
 
-std::string Aplist::getStringConst(Level level, ...) {
-  va_list args;
-
-  va_start(args, level); // initialize args before passing through
-  auto node = plist_access_pathv(_plist, level, args);
-  va_end(args); // all done with arg, clean up
-
-  if (checkType(node, PLIST_STRING)) {
-    uint64_t len;
-    ccs ptr = plist_get_string_ptr(node, &len);
-
-    return std::string(csv(ptr, len));
-  }
-
-  return std::string("not found");
-}
-
-bool Aplist::getStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings) {
+bool Aplist::getStringArray(csv key, csv sub_key, ArrayStrings &array_strings) {
   auto rc = false;
 
   // start at the root
@@ -307,11 +374,11 @@ bool Aplist::getStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings
   // do the level1_key and key point to an array?
   if (checkType(node, PLIST_DICT)) {
     // ok, the root is a dict so let's look for the level1_key
-    auto level1_dict = plist_dict_get_item(node, level1_key);
+    auto level1_dict = plist_dict_get_item(node, key.data());
 
     if (checkType(level1_dict, PLIST_DICT)) {
       // fine, the level one key is also a dict, now look for key
-      auto key_dict = plist_dict_get_item(level1_dict, key);
+      auto key_dict = plist_dict_get_item(level1_dict, sub_key.data());
 
       if (checkType(key_dict, PLIST_ARRAY)) {
         // great, key is an array, set node to key_dict
@@ -344,6 +411,48 @@ bool Aplist::getStringArray(ccs level1_key, ccs key, ArrayStrings &array_strings
   return rc;
 }
 
+std::string Aplist::getStringConst(Level level, ...) {
+  va_list args;
+
+  va_start(args, level); // initialize args before passing through
+  auto node = plist_access_pathv(_plist, level, args);
+  va_end(args); // all done with arg, clean up
+
+  if (checkType(node, PLIST_STRING)) {
+    uint64_t len;
+    ccs ptr = plist_get_string_ptr(node, &len);
+
+    return std::string(csv(ptr, len));
+  }
+
+  return std::string("not found");
+}
+
+csv Aplist::getView(csv key) const {
+  auto node = getNode(key, PLIST_STRING);
+
+  if (node == nullptr) {
+    return csv();
+  }
+
+  uint64_t len = 0;
+  auto ptr = plist_get_string_ptr(node, &len);
+
+  return csv(ptr, len);
+}
+
+csv Aplist::getView(const Steps &steps) const {
+  auto node = fetchNode(steps, PLIST_STRING);
+
+  if (node) {
+    uint64_t len = 0;
+    auto ptr = plist_get_string_ptr(node, &len);
+
+    return csv(ptr, len);
+  }
+
+  return csv();
+}
 uint64_t Aplist::getUint(Level level, ...) {
   va_list args;
 
@@ -361,20 +470,48 @@ uint64_t Aplist::getUint(Level level, ...) {
   throw(std::out_of_range("unknown dict key"));
 }
 
-void Aplist::setArray(ccs root_key, ArrayDicts &dicts) {
-  auto array = plist_new_array();
+Aplist &Aplist::insert(csv key, uint64_t val) {
+  auto item = plist_new_uint(val);
 
-  // add each dict to the newly created array
-  for_each(dicts.begin(), dicts.end(), [array](auto &item) {
-    auto append = plist_copy(item.dict());  // need our own copy to avoid double mem dealloc
-    plist_array_append_item(array, append); // append the sub dict
-  });
+  plist_dict_set_item(_plist, key.data(), item);
 
-  // place the array at the specified key
-  plist_dict_set_item(_plist, root_key, array);
+  return *this;
 }
 
-// add am array of strings with key node_name to the dict at key path
+bool Aplist::isArrayIndex(csv key) const { return (key[0] == '0') ? true : false; }
+
+void Aplist::setArray(csv key, const ArrayStrings &array_strings) {
+  // create and save nodes from the bottom up
+  // first create the array since it's the deepest node
+  auto array = plist_new_array();
+
+  // populate the array with copies of the strings passed
+  for (const auto &item : array_strings) {
+    const auto str = item.c_str();
+
+    auto save_str = plist_new_string(str);
+    plist_array_append_item(array, save_str);
+  }
+
+  plist_dict_set_item(_plist, key.data(), array);
+}
+
+void Aplist::setArray(csv key, const Aplist &dict) {
+  auto node = fetchNode({key}, PLIST_ARRAY);
+
+  auto array_dict = plist_copy(dict._plist);
+
+  if (node == nullptr) {
+    auto array = plist_new_array();
+
+    plist_array_append_item(array, array_dict);
+    plist_dict_set_item(_plist, key.data(), array);
+  } else {
+    plist_array_append_item(node, array_dict);
+  }
+}
+
+// add array of strings with key node_name to the dict at key path
 bool Aplist::setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up
   // first create the array since it's the deepest node
@@ -408,9 +545,8 @@ void Aplist::setData(ccs key, const fmt::memory_buffer &buf) {
   plist_dict_set_item(_plist, key, data);
 }
 
-void Aplist::setBool(ccs key, double val) {
-  auto data = plist_new_real(val);
-  plist_dict_set_item(_plist, key, data);
+void Aplist::setReal(csv key, double val) {
+  plist_dict_set_item(_plist, key.data(), plist_new_real(val));
 }
 
 // set a string at a sub_dict_key and ket
@@ -436,6 +572,12 @@ bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
   throw(runtime_error(msg));
 }
 
+void Aplist::setString(csv key, csr str_val) {
+  auto cstr = str_val.c_str();
+
+  plist_dict_set_item(_plist, key.data(), plist_new_string(cstr));
+}
+
 // set a string at a sub_dict_key and ket
 bool Aplist::setUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
   auto sub_dict = _plist;
@@ -458,6 +600,48 @@ bool Aplist::setUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
   throw(runtime_error(msg));
 }
 
+void Aplist::setUints(const UintList &key_uints) {
+  for (const auto &kv : key_uints) {
+    auto new_val = plist_new_uint(kv.val);
+    plist_dict_set_item(_plist, kv.key.data(), new_val);
+  }
+}
+
+const Aplist::ArrayStrings Aplist::stringArray(const Steps &steps) const {
+  auto node = fetchNode(steps, PLIST_ARRAY);
+
+  ArrayStrings array;
+
+  if (node) {
+    // get the number of items in the array
+    auto items = plist_array_get_size(node);
+
+    for (uint32_t idx = 0; idx < items; idx++) {
+      auto item = plist_array_get_item(node, idx);
+
+      if (item && (PLIST_STRING == plist_get_node_type(item))) {
+        uint64_t len = 0;
+        auto str_ptr = plist_get_string_ptr(item, &len);
+
+        array.emplace_back(string(str_ptr));
+      }
+    }
+  }
+
+  return array;
+}
+
+uint64_t Aplist::uint(const Steps &steps) const {
+  uint64_t val = 0;
+  auto node = fetchNode(steps, PLIST_UINT);
+
+  if (node) {
+    plist_get_uint_val(node, &val);
+  }
+
+  return val;
+}
+
 bool Aplist::checkType(plist_t node, plist_type type) const {
   return (node && (type == plist_get_node_type(node)));
 }
@@ -476,6 +660,39 @@ Aplist &Aplist::fromContent(const Content &content) {
   }
 
   return *this;
+}
+
+// misc debug
+
+void Aplist::dump(csv prefix) const { dump(nullptr, prefix); }
+
+void Aplist::dump(plist_t sub_dict, csv prefix) const {
+  auto dump_dict = (sub_dict) ? sub_dict : _plist;
+
+  if (prefix.size()) {
+    fmt::print("{}\n", prefix);
+  } else {
+    fmt::print("\n");
+  }
+
+  if (dump_dict == nullptr) {
+    fmt::print("DICT DUMP dict={} is empty\n", fmt::ptr(dump_dict));
+    return;
+  }
+
+  fmt::print("DICT DUMP dict={} ", fmt::ptr(dump_dict));
+
+  char *buf = nullptr;
+  uint32_t bytes = 0;
+
+  plist_to_xml(dump_dict, &buf, &bytes);
+
+  if (bytes > 0) {
+    fmt::print("buf={} bytes={}\n", fmt::ptr(buf), bytes);
+    fmt::print("{}\n", buf);
+  } else {
+    fmt::print("DUMP FAILED\n");
+  }
 }
 
 } // namespace packet

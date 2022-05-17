@@ -63,12 +63,8 @@ void Audio::asyncLoop(const error_code ec_last) {
       //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
-      auto inject = session::Inject{.socket = std::move(socket.value()),
-                                    .conn = di.conn,
-                                    .anchor = di.anchor,
-                                    .host = di.host,
-                                    .service = di.service,
-                                    .mdns = di.mdns};
+      auto inject = session::Inject{
+          .socket = std::move(socket.value()), .conn = di.conn, .anchor = di.anchor};
       session::Audio::start(inject);
     }
 

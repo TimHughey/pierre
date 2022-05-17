@@ -30,21 +30,13 @@ namespace session {
 
 using namespace reply;
 using namespace boost::asio;
+namespace asio_error = boost::asio::error;
 using namespace boost::system;
 
 constexpr auto re_syntax = std::regex_constants::ECMAScript;
 
 // notes:
 //  1. socket is passed as a reference to a reference so we must move to our local socket reference
-// Rtsp::Rtsp(tcp_socket &&new_socket, const Rtsp::Opts &opts)
-//     : socket(std::move(new_socket)),            // io_context / socket for this session
-//       host(opts.host),                          // the Host (config, platform info)
-//       service(opts.service),                    // service definition for mDNS (used by Reply)
-//       mdns(opts.mdns),                          // mDNS (used by Reply)
-//       aes_ctx(AesCtx::create(host->deviceID())) // cipher
-// {
-//   fmt::print("{} socket={}\n", fnName(), socket.native_handle());
-// }
 
 void Rtsp::asyncLoop() {
   // notes:
@@ -70,7 +62,7 @@ void Rtsp::asyncLoop() {
 
   async_read(socket,                 // rx from this socket
              dynamic_buffer(wire()), // put rx'ed data here
-             transfer_at_least(24),  // start by rx'ed this many bytes
+             transfer_at_least(12),  // start by rx'ed this many bytes
              [self = shared_from_this()](error_code ec, size_t rx_bytes) {
                // general notes:
                //
@@ -100,30 +92,30 @@ void Rtsp::asyncLoop() {
 void Rtsp::handleRequest(size_t rx_bytes) {
   accumulateRx(rx_bytes);
 
-  try {
-    if (rxAvailable()            // drained the socket successfully
-        && ensureAllContent()    // loaded bytes == Content-Length
-        && createAndSendReply()) // sent the reply OK
-    {                            // all is well, prepare for next request
-      _wire.clear();
-      _packet.clear();
-      _headers.clear();
-      _content.clear();
+  // try {
+  if (rxAvailable()            // drained the socket successfully
+      && ensureAllContent()    // loaded bytes == Content-Length
+      && createAndSendReply()) // sent the reply OK
+  {                            // all is well, prepare for next request
+    _wire.clear();
+    _packet.clear();
+    _headers.clear();
+    _content.clear();
 
-      asyncLoop(); // schedule rx of next packet
-    }
-  } catch (const std::exception &e) {
-    constexpr auto f = FMT_STRING("{} RTSP REPLY FAILURE "       // failure
-                                  "method={} path={} reason={} " // debug info
-                                  "(header and content dump follow)\n\n");
-
-    fmt::print(f, runTicks(), _headers.method(), _headers.path(), e.what());
-
-    _headers.dump();
-    _content.dump();
-
-    fmt::print("\n{} RTSP REPLY FAILURE END\n\n", runTicks());
+    asyncLoop(); // schedule rx of next packet
   }
+  // } catch (const std::exception &e) {
+  //   constexpr auto f = FMT_STRING("{} RTSP REPLY FAILURE "       // failure
+  //                                 "method={} path={} reason={} " // debug info
+  //                                 "(header and content dump follow)\n\n");
+
+  //   fmt::print(f, runTicks(), _headers.method(), _headers.path(), e.what());
+
+  //   _headers.dump();
+  //   _content.dump();
+
+  //   fmt::print("\n{} RTSP REPLY FAILURE END\n\n", runTicks());
+  // }
 }
 
 bool Rtsp::rxAvailable() {
@@ -185,10 +177,6 @@ bool Rtsp::ensureAllContent() {
 }
 
 bool Rtsp::createAndSendReply() {
-  if (isReady() == false) {
-    return false;
-  }
-
   // create the reply to the request
   auto inject = reply::Inject{.method = method(),
                               .path = path(),
@@ -217,6 +205,11 @@ bool Rtsp::createAndSendReply() {
   auto tx_bytes = write(socket, buff, ec);
   accumulateTx(tx_bytes);
 
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} REPLY SENT tx_bytes={:<4} what={} method={} path={}\n");
+    fmt::print(f, runTicks(), tx_bytes, ec.what(), inject.method, inject.path);
+  }
+
   // check the most recent ec
   return isReady(ec);
 }
@@ -230,7 +223,6 @@ bool Rtsp::isReady(const error_code &ec) {
 
     case errc::operation_canceled:
     case errc::resource_unavailable_try_again:
-    case errc::no_such_file_or_directory:
     default:
       teardown(ec); // problem... teardown
       rc = false;

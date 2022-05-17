@@ -24,9 +24,6 @@
 #include "common/anchor.hpp"
 #include "common/conn_info.hpp"
 #include "common/stream_info.hpp"
-#include "core/host.hpp"
-#include "core/service.hpp"
-#include "mdns/mdns.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "packet/out.hpp"
@@ -97,15 +94,11 @@ public:
   auto &aesCtx() { return di->aes_ctx; }
   auto &anchor() { return di->anchor; }
   auto &conn() { return di->conn; }
-  auto &host() { return di->conn.host; }
-  auto &mdns() { return di->conn.mdns; }
   auto &method() const { return di->method; }
   auto &path() const { return di->path; }
   const packet::Content &plist() const { return di->content; }
   const packet::Content &rContent() const { return di->content; }
   const packet::Headers &rHeaders() const { return di->headers; };
-
-  Service &service() { return di->conn.service; }
 
   // direct access to injected dependencies
   const Inject &injected() { return *di; }

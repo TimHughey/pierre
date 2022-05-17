@@ -19,7 +19,6 @@
 #include "common/anchor.hpp"
 #include "clock/clock.hpp"
 #include "common/typedefs.hpp"
-#include "core/host.hpp"
 #include "core/input_info.hpp"
 
 #include <atomic>

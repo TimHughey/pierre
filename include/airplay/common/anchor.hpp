@@ -105,7 +105,7 @@ private:
   bool _debug_ = true;
 
 public:
-  Anchor(const Anchor &) = delete;            // no copyπho
+  Anchor(const Anchor &) = delete;            // no copy
   Anchor(Anchor &&) = delete;                 // no move
   Anchor &operator=(const Anchor &) = delete; // no copy assignment
   Anchor &operator=(Anchor &&) = delete;      // no move assignment

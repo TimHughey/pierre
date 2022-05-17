@@ -56,8 +56,8 @@ bool Teardown::populate() {
     auto teardown2 = conn().teardown(TeardownPhase::Two);
     teardown2.get();
 
-    service().deviceSupportsRelay(false);
-    mdns().update();
+    Service::ptr()->deviceSupportsRelay(false);
+    mDNS::ptr()->update();
 
     // include connection was closed
   }

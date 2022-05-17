@@ -10,8 +10,9 @@ file(GLOB_RECURSE
   "${HEADER_PATH}/packet/*.h*"
 )
 
-find_package(fmt               REQUIRED)
-find_library(plist NAMES plist REQUIRED)
+find_package(fmt                     REQUIRED)
+find_library(plist     NAMES plist   REQUIRED)
+find_library(plist_cpp NAMES plist++ REQUIRED)
 
 add_library(packet
   rfc3550/hdr.cpp rfc3550/trl.cpp
@@ -45,6 +46,8 @@ target_include_directories(packet PUBLIC ${HEADER_PATH})
 target_link_libraries(packet PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${plist}
+  ${plist_cpp}
+  core
   fmt::fmt
 )
 

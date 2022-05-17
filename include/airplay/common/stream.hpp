@@ -22,30 +22,54 @@
 
 #pragma once
 
-#include <array>
-#include <cstdint>
+#include "core/typedefs.hpp"
 
 namespace pierre {
-namespace rtp {
+namespace airplay {
+
+namespace stream {
+
+enum class cat : uint8_t { unspecified = 10, ptp_stream, ntp_stream, remote_control };
+enum class type : uint8_t { none = 20, realtime, buffered };
+enum class timing : uint8_t { none = 30, ntp, ptp };
+
+constexpr csv keyREMOTE{"isRemoteControlOnly"};
+constexpr csv keyPROTOCOL{"timingProtocol"};
+
+constexpr csv valPTP{"PTP"};
+constexpr csv valNTP("NTP");
+constexpr csv valNONE("None");
+constexpr uint64_t typeBuffered() { return 103; }
+constexpr uint64_t typeRealTime() { return 96; }
+
+} // namespace stream
 
 class Stream {
 public:
-  enum Type : uint8_t {
-    Unknown = 0,
-    Uncompressed, // L16/44100/2
-    Lossless
-  };
+  Stream() = default;                     // allow default placeholder
+  Stream(csv timing_protocol);            // create using timing_protocol
+  Stream(const Stream &stream) = default; // copy construct (simple memeber data)
+  Stream(Stream &&stream) = default;      // move construct
 
-  typedef std::array<uint8_t, 16> Aes;
-  typedef std::array<int32_t, 12> Fmtp;
+  Stream &operator=(const Stream &rhs) = default; // copy assignment
+  Stream &operator=(Stream &&rhs) = default;      // move assignment
+
+  Stream &buffered();
+  Stream &realtime();
+
+  auto category() const { return _cat; }
+
+  bool isNtpStream() const { return _cat == stream::cat::ntp_stream; }
+  bool isPtpStream() const { return _cat == stream::cat::ptp_stream; }
+  bool isRemote() const { return _cat == stream::cat::remote_control; }
+
+  uint64_t typeVal() const;
 
 private:
-  bool encrypted = false;
-  Aes iv{0};
-  Aes key{0};
-  Fmtp fmtp{0};
-  Type type = Unknown;
+  stream::cat _cat = stream::cat::unspecified;
+  stream::type _type = stream::type::none;
+  stream::timing _timing = stream::timing::none;
 };
 
-} // namespace rtp
+} // namespace airplay
 } // namespace pierre

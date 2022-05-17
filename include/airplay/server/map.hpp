@@ -21,35 +21,56 @@
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
-#include <unordered_map>
-#include <variant>
+#include <map>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <vector>
 
 namespace pierre {
 namespace airplay {
 
-namespace server {
+typedef std::vector<ServerType> TeardownList;
 
-class Map {
+class Servers;
+typedef std::shared_ptr<Servers> shServers;
+
+namespace shared {
+std::optional<shServers> &servers();
+} // namespace shared
+
+class Servers : public std::enable_shared_from_this<Servers> {
 private:
-  typedef std::shared_ptr<Base> server_ptr;
-  typedef std::unordered_map<ServerType, server_ptr> ServerMap;
+  typedef std::shared_ptr<server::Base> ServerPtr;
+  typedef std::map<ServerType, ServerPtr> ServerMap;
 
 public:
-  Map(const Inject &di);
-  ~Map() { teardown(); }
+  static shServers init(server::Inject di) {
+    // must forward di since we want the actual object
+    return shared::servers().emplace(new Servers(di));
+  }
 
-  Port localPort(ServerType type) const;
-  const PortMap portList() const;
+  static shServers ptr() { return shared::servers().value()->shared_from_this(); }
+  static void reset() { shared::servers().reset(); }
+
+  ~Servers() { teardown(); }
+
+  Port localPort(ServerType type);
   void teardown();
+  void teardown(ServerType type);
+
+private:
+  Servers(server::Inject di) : di(di) {}
+
+  ServerPtr fetch(ServerType type);
 
 private:
   // order dependent based on constructor
-  const Inject &di;
+  server::Inject di;
 
   // order independent
   ServerMap map;
 };
 
-} // namespace server
 } // namespace airplay
 } // namespace pierre

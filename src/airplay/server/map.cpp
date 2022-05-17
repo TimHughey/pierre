@@ -22,9 +22,15 @@
 #include "server/event.hpp"
 #include "server/rtsp.hpp"
 
+#include <array>
+
 namespace pierre {
 namespace airplay {
-namespace server {
+
+namespace shared {
+std::optional<shServers> __servers;
+std::optional<shServers> &servers() { return __servers; }
+} // namespace shared
 
 /*
 Audio &Map::audio() {
@@ -53,17 +59,42 @@ Rtsp &Map::rtsp() {
 
 */
 
-Map::Map(const Inject &di) : di(di) {
-  map.emplace(ServerType::Audio, std::make_shared<Audio>(di));
-  map.emplace(ServerType::Control, std::make_shared<Control>(di));
-  map.emplace(ServerType::Event, std::make_shared<Event>(di));
-  map.emplace(ServerType::Rtsp, std::make_shared<Rtsp>(di));
+Servers::ServerPtr Servers::fetch(ServerType type) {
+  if (map.contains(type) == false) {
+    return ServerPtr(nullptr);
+  }
+
+  return map.at(type);
 }
 
-Port Map::localPort(ServerType type) const {
-  map.at(type)->asyncLoop();
+Port Servers::localPort(ServerType type) {
+  auto svr = fetch(type);
 
-  return map.at(type)->localPort();
+  if (svr.get() == nullptr) {
+    switch (type) {
+      case ServerType::Audio:
+        map.emplace(type, new server::Audio(di));
+        break;
+
+      case ServerType::Event:
+        map.emplace(type, new server::Event(di));
+        break;
+
+      case ServerType::Control:
+        map.emplace(type, new server::Control(di));
+        break;
+
+      case ServerType::Rtsp:
+        map.emplace(type, new server::Rtsp(di));
+        break;
+    }
+
+    svr = map.at(type);
+
+    svr->asyncLoop(); // start the server
+  }
+
+  return svr->localPort();
 }
 
 /*
@@ -118,34 +149,22 @@ Map::Variant &Map::getOrCreate(ServerType type) {
 }
 */
 
-const PortMap Map::portList() const {
-  PortMap port_map;
+void Servers::teardown() {
+  using enum ServerType;
 
-  for (auto &[type, server] : map) {
-    port_map.emplace(type, localPort(type));
+  for (const auto type : std::array{Audio, Event, Control, Rtsp}) {
+    teardown(type);
   }
-
-  return port_map;
 }
 
-void Map::teardown() {
-  for (auto &entry : map) {
-    auto &[type, server] = entry;
+void Servers::teardown(ServerType type) {
+  auto svr = fetch(type);
 
-    server->teardown();
+  if (svr.get() != nullptr) {
+    svr->teardown();
+    map.erase(type);
   }
-
-  map.clear();
 }
 
-// void Map::teardown() {
-//   for (auto &[key, variant] : map) {
-//     std::visit([](auto &&server) { server.teardown(); }, variant);
-//   }
-
-//   map.clear();
-// }
-
-} // namespace server
 } // namespace airplay
 } // namespace pierre

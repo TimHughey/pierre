@@ -59,7 +59,7 @@ public:
 private:
   Rtsp(const Inject &di)
       : socket(std::move(di.socket)),             // newly opened socket for session
-        aes_ctx(AesCtx(di.conn.host.deviceID())), // create aes ctx
+        aes_ctx(AesCtx(Host::ptr()->deviceID())), // create aes ctx
         conn(di.conn),    // connection info (includes host, service and mDNS
         anchor(di.anchor) // anchor info (not included in ConnInfo)
   {

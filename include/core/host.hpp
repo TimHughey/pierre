@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <uuid/uuid.h>
 #include <vector>
 
@@ -33,23 +34,32 @@ typedef std::string IpAddr;
 typedef std::vector<IpAddr> IpAddrs;
 typedef std::array<uint8_t, 32> PkBytes;
 
+class Host;
+typedef std::shared_ptr<Host> shHost;
+
+namespace shared {
+std::optional<shHost> &host();
+} // namespace shared
+
 // Host Command Information
-class Host {
+class Host : public std::enable_shared_from_this<Host> {
 public:
   struct Inject {
     const Config &cfg;
   };
 
 public:
+  static shHost init(const Inject &di) { return shared::host().emplace(new Host(di)); }
+  static shHost ptr() { return shared::host().value()->shared_from_this(); }
+  static void reset() { shared::host().reset(); }
+
+public:
   Host(const Inject &di);
 
   // general API
   csv appName() const { return serviceName(); }
-
   ccs deviceID() const { return _device_id.c_str(); }
-
   ccs firmwareVerson() const { return cfg.firmwareVersion().c_str(); };
-
   ccs hwAddr() const { return _hw_addr.c_str(); }
 
   // IP address(es) of this host

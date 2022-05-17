@@ -64,6 +64,7 @@ public:
   void dump() const;
 
 private:
+  bool ensureConnection();
   void sendCtrlMsg(csr msg); // queues async
   void openAndMap();
   void unMap();

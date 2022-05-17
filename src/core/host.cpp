@@ -48,6 +48,11 @@
 
 namespace pierre {
 
+namespace shared {
+std::optional<shHost> __host;
+std::optional<shHost> &host() { return shared::__host; }
+} // namespace shared
+
 Host::Host(const Inject &di) : cfg(di.cfg) {
   initCrypto();
 

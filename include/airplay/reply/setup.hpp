@@ -23,6 +23,7 @@
 #include "common/typedefs.hpp"
 #include "core/typedefs.hpp"
 #include "packet/aplist.hpp"
+#include "reply/dict_keys.hpp"
 #include "reply/reply.hpp"
 
 #include <unordered_map>
@@ -32,70 +33,25 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-class Setup : public Reply, public packet::Aplist {
-public:
-  enum StreamType : uint8_t { Unknown = 0, Buffered, RealTime, NTP };
-  enum TimingProtocol : uint8_t { None = 0, PreciseTiming, NetworkTime };
-  enum DictKey : uint8_t {
-    audioMode = 0,
-    ct,
-    streamConnectionID,
-    spf,
-    shk,
-    supportsDyanamicStreamID,
-    audioFormat,
-    clientID,
-    type,
-    controlPort,
-    dataPort,
-    audioBufferSize,
-    streams,
-    timingProtocol
-  };
+namespace { // anoanymous namespace limits scope to this file
+using Aplist = packet::Aplist;
+}
 
-  typedef std::vector<bool> Checks;
-  typedef std::unordered_map<DictKey, ccs> DictKeyMap;
-  typedef std::unordered_map<StreamType, uint8_t> StreamTypeMap;
-  typedef std::unordered_map<TimingProtocol, ccs> TimingProtocolMap;
-
+class Setup : public Reply {
 public:
-  Setup() : rdict(packet::Aplist::DEFER_DICT) {}
+  Setup() : rdict(Aplist::DEFER_DICT), reply_dict() {}
 
   bool populate() override;
 
 private:
-  bool checksOK() const;
-  void checksReset() { _checks.clear(); }
-
-  ccs dictKey(DictKey key) const { return _key_map[key]; }
-
-  void getGroupInfo();
-  void getTimingList();
-
   bool handleNoStreams();
   bool handleStreams();
 
-  ccs timingProtocolVal(TimingProtocol protocol) const { return _timing_protocol_map[protocol]; }
-
-  void validateTimingProtocol();
-
-  // capture the bool result of a get or set
-  inline bool saveCheck(bool rc) { return _checks.emplace_back(rc); }
-
 private:
-  packet::Aplist rdict;
+  Aplist rdict;      // the request dict
+  Aplist reply_dict; // entire reply dict
 
-  // results of get/set operations
-  Checks _checks;
-
-  pierre::string _group_uuid;
-  bool _group_contains_leader = false;
-  packet::Aplist::ArrayStrings _timing_peer_info;
-  pierre::string_view _session_key;
-
-  static DictKeyMap _key_map;
-  static StreamTypeMap _stream_type_map;
-  static TimingProtocolMap _timing_protocol_map;
+  StreamData stream_data;
 };
 
 } // namespace reply

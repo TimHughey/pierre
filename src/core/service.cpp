@@ -17,31 +17,37 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "core/service.hpp"
+#include "core/host.hpp"
 
 #include <exception>
 #include <fmt/format.h>
-#include <memory>
+
 #include <plist/plist++.h>
 
 namespace pierre {
 
+namespace shared {
+std::optional<shService> __service;
+std::optional<shService> &service() { return shared::__service; }
+} // namespace shared
+
 using namespace service;
 using enum service::Key;
 
-Service::Service(const Inject &di) {
-  auto &host = di.host;
+Service::Service() {
+  auto host = Host::ptr();
 
   // stora calculated key/vals available from Host
-  saveCalcVal(apAirPlayPairingIdentity, host.hwAddr());
-  saveCalcVal(apDeviceID, host.hwAddr());
+  saveCalcVal(apAirPlayPairingIdentity, host->hwAddr());
+  saveCalcVal(apDeviceID, host->hwAddr());
 
-  saveCalcVal(apGroupUUID, host.uuid());
-  saveCalcVal(apSerialNumber, host.serialNum());
+  saveCalcVal(apGroupUUID, host->uuid());
+  saveCalcVal(apSerialNumber, host->serialNum());
 
-  saveCalcVal(ServiceName, host.cfg.serviceName());
-  saveCalcVal(FirmwareVsn, host.firmwareVerson());
+  saveCalcVal(ServiceName, host->cfg.serviceName());
+  saveCalcVal(FirmwareVsn, host->firmwareVerson());
 
-  saveCalcVal(PublicKey, host.pk());
+  saveCalcVal(PublicKey, host->pk());
 
   addRegAndName();
   addSystemFlags();

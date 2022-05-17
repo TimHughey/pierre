@@ -29,14 +29,14 @@ find_library(rt         NAMES rt          REQUIRED)
 
 add_library(${__target}
   # public API and overall controller
-  airplay.cpp
+  airplay.cpp controller.cpp
 
   # clock
   clock/info.cpp clock/clock.cpp 
 
   # common
   common/anchor.cpp common/conn_info.cpp common/net_time.cpp 
-  common/stream_info.cpp
+  common/stream_info.cpp common/stream.cpp
 
   # reply
   reply/cmd.cpp reply/factory.cpp reply/fairplay.cpp reply/feedback.cpp

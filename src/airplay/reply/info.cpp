@@ -19,6 +19,7 @@
 */
 
 #include "reply/info.hpp"
+#include "core/service.hpp"
 
 #include <fmt/format.h>
 #include <iterator>
@@ -58,13 +59,15 @@ bool Info::stage1() {
   using enum service::Type;
   using enum service::Key;
 
+  auto serv = Service::ptr();
+
   // create the reply dict from an embedded plist
   packet::Aplist reply_dict(packet::Aplist::GetInfoRespStage1);
 
   // create the qualifier data value
   auto qual_data = fmt::memory_buffer();
   auto here = back_inserter(qual_data);
-  auto digest = service().keyValList(AirPlayTCP);
+  auto digest = serv->keyValList(AirPlayTCP);
 
   // an entry in the plist is an concatenated list of txt values
   // published via mDNS
@@ -78,20 +81,20 @@ bool Info::stage1() {
 
   // add specific dictionary entries
   // features
-  const auto features_key = service().fetchKey(apFeatures);
-  const auto features_val = service().features();
+  const auto features_key = serv->fetchKey(apFeatures);
+  const auto features_val = serv->features();
   reply_dict.setUint(nullptr, features_key, features_val);
 
   // system flags
-  const auto system_flags_key = service().fetchKey(apSystemFlags);
-  const auto system_flags_val = service().systemFlags();
+  const auto system_flags_key = serv->fetchKey(apSystemFlags);
+  const auto system_flags_val = serv->systemFlags();
   reply_dict.setUint(nullptr, system_flags_key, system_flags_val);
 
   // string vals
   auto want_keys = std::array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
 
   for (const auto key : want_keys) {
-    const auto [key_str, val_str] = service().fetch(key);
+    const auto [key_str, val_str] = serv->fetch(key);
     reply_dict.setStringVal(nullptr, key_str, val_str);
   }
 
@@ -110,23 +113,25 @@ bool Info::stage2() {
   using KeySeq = service::KeySeq;
   using enum service::Key;
 
+  auto serv = Service::ptr();
+
   // the response dict is based on the request
   packet::Aplist reply_dict(packet::Aplist::GetInfoRespStage1);
 
   // handle the uints first
-  const auto features_key = service().fetchKey(apFeatures);
-  const auto features_val = service().features();
+  const auto features_key = serv->fetchKey(apFeatures);
+  const auto features_val = serv->features();
   reply_dict.setUint(nullptr, features_key, features_val);
 
-  const auto status_flags_key = service().fetchKey(apStatusFlags);
-  const auto status_flags_val = service().systemFlags();
+  const auto status_flags_key = serv->fetchKey(apStatusFlags);
+  const auto status_flags_val = serv->systemFlags();
   reply_dict.setUint(nullptr, status_flags_key, status_flags_val);
 
   // get the key/vals of interest
   const auto want_kv =
       KeySeq{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel, PublicKey};
 
-  auto kv_list = service().keyValList(want_kv); // returns shared_ptr
+  auto kv_list = serv->keyValList(want_kv); // returns shared_ptr
 
   // must deference kv_list (shared_ptr) to get to the actual kv_list
   for (const auto &entry : *kv_list) {

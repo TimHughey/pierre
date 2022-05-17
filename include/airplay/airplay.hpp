@@ -18,36 +18,34 @@
 
 #pragma once
 
-#include "airplay/common/ap_inject.hpp"
-#include "core/typedefs.hpp"
+#include "airplay/common/typedefs.hpp"
 
-#include <list>
 #include <memory>
 #include <optional>
-#include <stop_token>
-#include <thread>
-#include <unordered_map>
 
 namespace pierre {
 
-class Airplay {
-private:
-  typedef std::list<Thread> Threads;
-  static constexpr auto MAX_THREADS() { return 5; };
+class Airplay;
+typedef std::shared_ptr<Airplay> shAirplay;
 
+namespace shared {
+std::optional<shAirplay> &airplay();
+} // namespace shared
+
+class Airplay : public std::enable_shared_from_this<Airplay> {
 public:
-  Airplay() = default;
+  // shared instance management
+  static shAirplay init() { return shared::airplay().emplace(new Airplay()); }
+  static shAirplay ptr() { return shared::airplay().value()->shared_from_this(); }
+  static void reset() { shared::airplay().reset(); }
 
-  Thread &start(const airplay::Inject &di);
-  void teardown(Thread &thread) { thread.request_stop(); }
+  // thread maintenance
+  Thread &run();
+
+  void teardown(){};
 
 private:
-  void run();
-
-private:
-  std::optional<const airplay::Inject> di_storage;
-  Threads threads;
-  bool running = false;
+  Airplay(){};
 };
 
 } // namespace pierre

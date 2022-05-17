@@ -18,9 +18,14 @@
 
 #pragma once
 
+#include "core/typedefs.hpp"
+#include "packet/content.hpp"
+
 #include <array>
 #include <cstdarg>
+#include <exception>
 #include <fmt/format.h>
+#include <functional>
 #include <list>
 #include <memory>
 #include <plist/plist++.h>
@@ -28,41 +33,40 @@
 #include <string_view>
 #include <vector>
 
-#include "packet/content.hpp"
-
 namespace pierre {
 namespace packet {
 
 class Aplist {
 public:
-  static constexpr bool DEFER_DICT = false;
-
-public:
   enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
   enum Level : uint32_t { Root = 1, Second, Third, Fourth };
 
-  typedef const char *ccs;
-  typedef std::string string;
-  typedef const std::string &csr;
-  typedef const std::string_view csv;
+  struct KeyUint {
+    const string_view key;
+    uint64_t val;
+  };
 
   typedef std::vector<string> ArrayStrings;
   typedef std::vector<Aplist> ArrayDicts;
+  typedef std::vector<const Aplist &> ConstArrayDicts;
   typedef std::vector<ccs> Dictionaries;
   typedef std::shared_ptr<uint8_t[]> Binary;
+  typedef std::vector<string_view> Steps;
+  typedef std::vector<KeyUint> UintList;
+
+public:
+  static constexpr bool DEFER_DICT = false;
+  static constexpr csv ROOT{""};
 
 public:
   Aplist(bool allocate = true);
   Aplist(Aplist &&ap); // allow move construction
-
   Aplist(const Content &content) { fromContent(content); }
   Aplist(const Dictionaries &dicts);
   Aplist(Embedded embedded);
-
-  // create a new Aplist using the dict at the specified path
-  Aplist(const Aplist &src, Level level, ...);
-
-  Aplist(const Aplist &ap) = delete; // no copies
+  Aplist(const Aplist &src, Level level, ...);   // dict at path
+  Aplist(const Aplist &src, const Steps &steps); //
+  Aplist(const Aplist &ap) = delete;             // no copies
 
   ~Aplist();
 
@@ -78,27 +82,50 @@ public:
   // sets the base node for all dict* get/set to something other
   // than the root
   Aplist baseNode(Level level, plist_type type, ...);
-
+  bool boolVal(csv key) const;
   Binary toBinary(size_t &bytes) const;
 
-  bool compareString(ccs path, ccs compare);
-  bool compareStringViaPath(ccs compare, uint32_t path_count, ...) const;
+  // bool compareString(csv key, csv val) const;
+  bool compareString(csv key, csv val) const;
+  //  bool compareStringViaPath(ccs compare, uint32_t path_count, ...) const;
+  bool compareStringViaPath(csv val, uint32_t path_count, ...) const;
 
-  void dump(csv prefix) const;
-  void dump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
   bool empty() const;
-  bool exists(ccs path);
+  // bool exists(ccs path);
+  bool exists(csv key);
   bool exists(const std::vector<ccs> &items);
+
+  plist_t fetchNode(const Steps &steps, plist_type type = PLIST_DICT) const;
 
   bool getBool(ccs path, bool &dest);
   bool getBool(Level level, ...);
   const string getData(Level level, ...);
-  plist_t getItem(ccs path);
+
+  // plist_t getItem(csv path) const { return getItem(path.data()); }
+  plist_t getItem(csv key) const {
+    const auto plist = _plist; // need const for function to be const
+    return plist_dict_get_item(plist, key.data());
+  }
+
+  plist_t getNode(csv key, plist_type type = PLIST_DICT) const {
+    const auto plist = _plist; // need const for function to be const
+
+    auto node = plist_dict_get_item(plist, key.data());
+
+    if (checkType(node, type)) {
+      return node;
+    }
+
+    return nullptr;
+  }
+
+  plist_t getNode(const Steps &steps, plist_type type = PLIST_DICT) const;
 
   bool getString(ccs path, string &dest);
+  bool getStringArray(csv key, csv sub_key, ArrayStrings &array_strings);
   std::string getStringConst(Level level, ...);
-
-  bool getStringArray(ccs path, ccs node, ArrayStrings &array_strings);
+  csv getView(csv key) const;
+  csv getView(const Steps &steps) const;
 
   // retrive the uint64_t at the named node (at the root)
   uint64_t getUint(ccs root_key) { return getUint(Level::Root, root_key); }
@@ -106,16 +133,34 @@ public:
   // retrieve the uint64_t using path specified
   uint64_t getUint(Level level, ...);
 
+  Aplist &insert(csv key, uint64_t val);
+
+  bool isArrayIndex(csv key) const;
+
   bool ready() const { return _plist != nullptr; }
 
   const Aplist &self() const { return (const Aplist &)*this; };
-  void setArray(ccs root_key, ArrayDicts &dicts);
+
+  void setArray(csv key, const ArrayStrings &array);
+  void setArray(csv key, const Aplist &dict);
   bool setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
+
   void setData(ccs key, const fmt::memory_buffer &buf);
-  void setBool(ccs key, double val);
+
+  void setReal(csv key, double val);
+  void setString(csv key, csr str_val);
   bool setStringVal(ccs sub_dict_key, ccs key, csr str_val);
-  bool setUint(ccs key, uint64_t val) { return setUint(nullptr, key, val); }
+  bool setUint(csv key, uint64_t val) { return setUint(nullptr, key.data(), val); }
   bool setUint(ccs sub_dict, ccs key, uint64_t val);
+  void setUints(const UintList &uints);
+
+  const ArrayStrings stringArray(const Steps &steps) const;
+
+  uint64_t uint(const Steps &steps) const;
+
+  // misc debug
+  void dump(csv prefix) const;
+  void dump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
 
 private:
   // plist_t baseNode() { return (_base) ? _base : _plist; }

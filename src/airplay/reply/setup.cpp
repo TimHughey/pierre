@@ -22,9 +22,11 @@
 #include "common/conn_info.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
+#include "reply/dict_keys.hpp"
 #include "server/map.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <iterator>
@@ -33,21 +35,176 @@
 
 using namespace std;
 using namespace pierre;
+using namespace chrono_literals;
 
 namespace pierre {
 namespace airplay {
 namespace reply {
 
 using namespace packet;
+using Aplist = packet::Aplist;
 using enum ServerType;
 namespace header = pierre::packet::header;
 
-bool Setup::checksOK() const {
-  auto rc_true = [](const auto &rc) { return rc == true; };
+bool Setup::populate() {
+  responseCode(RespCode::BadRequest); // default response is BadRequest
 
-  return std::all_of(_checks.begin(), _checks.end(), rc_true);
+  rdict = plist();
+  auto rc = rdict.ready();
+
+  const auto has_streams = (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
+
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} has_streams={}\n");
+    fmt::print(f, runTicks(), fnName(), has_streams);
+  }
+
+  if (rc && has_streams) { // followup SETUP (contains streams data)
+    rc = handleStreams();
+  } else {
+    rc = handleNoStreams(); // initial SETUP (streams not present)
+  }
+
+  if (rc) { // all is well, finalize the reply
+    size_t bytes = 0;
+    auto binary = reply_dict.toBinary(bytes);
+    copyToContent(binary, bytes);
+
+    headers.add(header::type::ContentType, header::val::AppleBinPlist);
+    responseCode(RespCode::OK);
+  }
+
+  return rc;
 }
 
+bool Setup::handleNoStreams() {
+  // deduces cat, type and timing
+  auto stream = Stream(rdict.getView(dk::TIMING_PROTOCOL));
+
+  // now we create a replu plist based on the type of stream
+  if (stream.isPtpStream()) {
+    ConnInfo &ci = conn();
+
+    ci.airplay_gid = rdict.getView(dk::GROUP_UUID);
+    ci.groupContainsGroupLeader = rdict.boolVal(dk::GROUP_LEADER);
+
+    auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
+    anchor().peers(peers);
+
+    Aplist peer_info;
+
+    auto ip_addrs = Host::ptr()->ipAddrs();
+    peer_info.setArray(dk::ADDRESSES, ip_addrs);
+    peer_info.setString(dk::ID, ip_addrs[0]);
+
+    reply_dict.setArray(dk::TIMING_PEER_INFO, {peer_info});
+
+    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(Event)},
+                         {dk::TIMING_PORT, 0}}); // unused by AP2
+
+    // adjust Service system flags and request mDNS update
+    Service::ptr()->deviceSupportsRelay();
+    mDNS::ptr()->update();
+
+    std::this_thread::sleep_for(100ms);
+
+    ci.save(stream);
+    return true;
+  }
+
+  if (stream.isNtpStream()) {
+    constexpr auto f = FMT_STRING("{} {} WARNING NTP timing requested!");
+    fmt::print(f, runTicks(), fnName());
+    return false;
+  }
+
+  if (stream.isRemote()) { // remote control only; open event port, send timing dummy port
+    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(Event)},
+                         {dk::TIMING_PORT, 0}}); // unused by AP2
+
+    return true;
+  }
+
+  // something is wrong if we reach this point
+  return false;
+}
+
+// SETUP followup message containing type of stream to start
+bool Setup::handleStreams() {
+  // rdict.dump();
+
+  using enum ServerType;
+
+  auto servers = Servers::ptr();
+
+  auto rc = false;
+
+  auto &conn = di->conn;      // conn info for the established session
+  auto &stream = conn.stream; // populated based on request dictionary
+
+  Aplist reply_stream0; // build the streams sub dict
+
+  if (stream.isPtpStream()) { // initial setup PTP, this setup finalizes details
+    // capture stream info common for buffered or real-time
+    stream_data.key = rdict.getView({dk::STREAMS, dk::IDX0, dk::SHK});
+    stream_data.active_remote = rHeaders().getVal(header::type::DacpActiveRemote);
+    stream_data.dacp_id = rHeaders().getVal(header::type::DacpID);
+
+    // get the stream type that is starting
+    auto stream_type = rdict.uint({dk::STREAMS, dk::IDX0, dk::TYPE});
+
+    if (false) { // debug
+      constexpr auto f = FMT_STRING("{} {} stream_type={}\n");
+      fmt::print(f, runTicks(), fnName(), stream_type);
+    }
+
+    // now handle the specific stream type
+    switch (stream_type) {
+      case stream::typeBuffered():
+        stream.buffered(); // this is a buffered audio stream
+
+        // reply requires the type, audio data port and our buffer size
+        reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()},         // stream type
+                                {dk::DATA_PORT, servers->localPort(Audio)}, // audio port
+                                {dk::BUFF_SIZE, conn.bufferSize()}});       // our buffer size
+
+        rc = true;
+        break;
+
+      case stream::typeRealTime():
+        stream.realtime();
+        rc = true;
+        break;
+
+      default:
+        rc = false;
+        break;
+    }
+
+  } else if (conn.stream.isRemote()) {
+    reply_stream0.setUints({{
+        {dk::STREAM_ID, 1},
+        {dk::TYPE, conn.stream.typeVal()},
+    }});
+    rc = true;
+  }
+
+  if (rc) {
+    // regardless of stream type start the control server and add it's port to the reply
+    reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(Control));
+
+    // put the sub dict into the reply
+    reply_dict.setArray(dk::STREAMS, reply_stream0);
+  }
+
+  return rc;
+}
+
+} // namespace reply
+} // namespace airplay
+} // namespace pierre
+
+/*
 bool Setup::handleNoStreams() {
   auto rc = false;
   std::vector<bool> checks;
@@ -90,7 +247,10 @@ bool Setup::handleNoStreams() {
   return rc;
 }
 
-bool Setup::handleStreams() {
+*/
+
+/*
+bool Setup::__handleStreams() {
   constexpr auto PTP = 103;
 
   auto rc = true;
@@ -116,7 +276,7 @@ bool Setup::handleStreams() {
   conn().saveActiveRemote(rHeaders().getVal(header::type::DacpActiveRemote));
 
   // build the reply (includes ports for started services)
-  ArrayDicts array_dicts;
+  Aplist::ArrayDicts array_dicts;
   auto &stream0_dict = array_dicts.emplace_back(Aplist());
 
   // rtp->localPort() returns the local port (and starts the service if needed)
@@ -138,6 +298,9 @@ bool Setup::handleStreams() {
 
   return rc;
 }
+*/
+
+/*
 
 void Setup::getGroupInfo() {
   constexpr auto group_uuid_path = "groupUUID";
@@ -163,37 +326,6 @@ void Setup::getTimingList() {
   saveCheck(rc);
 }
 
-bool Setup::populate() {
-  rdict = plist();
-
-  auto rc = false;
-  constexpr auto streams = "streams";
-  constexpr auto remote_control = "isRemoteControlOnly";
-
-  if (rdict.ready() == false) {
-    return false;
-  }
-
-  // handle RemoteControlOnly (not supported, but still RespCode=OK)
-  if (rdict.exists(remote_control)) {
-    auto fmt_str = FMT_STRING("{} isRemoteControlOnly=true\n");
-    fmt::print(fmt_str, fnName());
-    responseCode(RespCode::OK);
-    return true;
-  }
-
-  // initial setup, no streams active
-  if (rdict.exists(streams) == false) {
-    return handleNoStreams();
-  }
-
-  if (rdict.exists(streams)) {
-    return handleStreams();
-  }
-
-  return rc;
-}
-
 void Setup::validateTimingProtocol() {
   auto match = rdict.compareString(dictKey(timingProtocol), timingProtocolVal(PreciseTiming));
 
@@ -210,8 +342,10 @@ void Setup::validateTimingProtocol() {
   saveCheck(true);
 }
 
-// static maps
+*/
 
+// static maps
+/*
 using enum Setup::DictKey;
 Setup::DictKeyMap Setup::_key_map{{audioMode, "audioMode"},
                                   {ct, "ct"},
@@ -232,10 +366,5 @@ Setup::StreamTypeMap Setup::_stream_type_map{
     {StreamType::Unknown, 0}, {StreamType::Buffered, 103}, {StreamType::RealTime, 96}};
 
 Setup::TimingProtocolMap Setup::_timing_protocol_map{{TimingProtocol::None, "None"},
-                                                     {PreciseTiming, "PTP"}
-
-};
-
-} // namespace reply
-} // namespace airplay
-} // namespace pierre
+                                                     {PreciseTiming, "PTP"}};
+*/

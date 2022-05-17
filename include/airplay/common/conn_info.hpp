@@ -18,14 +18,11 @@
 
 #pragma once
 
-#include "common/ap_inject.hpp"
 #include "common/flush_request.hpp"
+#include "common/stream.hpp"
 #include "common/stream_info.hpp"
 #include "common/typedefs.hpp"
-#include "core/host.hpp"
-#include "core/service.hpp"
 #include "core/typedefs.hpp"
-#include "mdns/mdns.hpp"
 #include "packet/queued.hpp"
 
 #include <arpa/inet.h>
@@ -58,7 +55,7 @@ private:
   typedef std::unordered_map<ServerType, Port> LocalPortMap;
 
 public:
-  ConnInfo(const Inject &di) : host(di.host), service(di.service), mdns(di.mdns) {}
+  ConnInfo() {}
 
   static constexpr size_t bufferSize() { return 1024 * 1024 * 8; };
 
@@ -71,6 +68,9 @@ public:
   const SessionKey &sessionKey() const { return session_key; }
 
   // setters
+  void save(const Stream &new_stream) { stream = new_stream; }
+  void save(const StreamData &data);
+
   void saveActiveRemote(csv active_rmeote);
   void saveLocalPort(ServerType type, Port port);
   void saveSessionKey(csr key);
@@ -88,12 +88,23 @@ public:
   TeardownPhase teardown_phase = TeardownPhase::None;
   Teardown teardown_request;
   StreamInfo stream_info;
-
-  Host &host;
-  Service &service;
-  mDNS &mdns;
+  Stream stream;
 
   PortMap local_port_map;
+
+  // stream category, stream type and timing type
+  // is it a remote control stream or a normal "full service" stream?
+  airplay_stream_c airplay_stream_category = airplay_stream_c::unspecified_stream_category;
+  // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
+  airplay_t airplay_type = airplay_t::ap_2; // Always AirPlay2
+  // is it realtime audio or buffered audio?
+  airplay_stream_t airplay_stream_type;
+
+  // captured from RTSP SETUP initial message (no stream data)
+  string airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group
+                      // UUID is the same as the pi UUID
+
+  bool groupContainsGroupLeader = false; // captured from RTSP SETUP (no stream data)
 
 private:
   void teardownFinished();
@@ -222,18 +233,6 @@ private:
 
   clock_status_t clock_status;
 
-  // is it a remote control stream or a normal "full service" stream?
-  airplay_stream_c airplay_stream_category = airplay_stream_c::unspecified_stream_category;
-
-  string airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group
-                      // UUID is the same as the pi UUID
-
-  // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
-  airplay_t airplay_type = airplay_t::ap_2;
-
-  // is it realtime audio or buffered audio...
-  airplay_stream_t airplay_stream_type;
-
   // are we using NTP or PTP on this connection?
   timing_t timing_type;
 
@@ -264,8 +263,7 @@ private:
   SessionKey session_key; // needs to be free'd at the end
   uint64_t frames_packet;
   uint64_t type;
-  uint64_t networkTimeTimelineID;   // the clock ID used by the player
-  uint8_t groupContainsGroupLeader; // information coming from the SETUP
+  uint64_t networkTimeTimelineID; // the clock ID used by the player
 
   // used as the initials values for calculating the rate at which the source
   // thinks it's sending frames

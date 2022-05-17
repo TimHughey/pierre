@@ -19,6 +19,7 @@
 
 #include "reply/feedback.hpp"
 #include "packet/aplist.hpp"
+#include "reply/dict_keys.hpp"
 #include "reply/reply.hpp"
 
 #include <fmt/format.h>
@@ -28,19 +29,19 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-namespace packet = pierre::packet;
+using namespace packet;
 
 bool Feedback::populate() {
   // build the reply (includes portS for started services)
-  packet::Aplist::ArrayDicts array_dicts;
-  auto &stream0_dict = array_dicts.emplace_back(packet::Aplist());
 
-  stream0_dict.setUint(nullptr, "type", 103);
-  stream0_dict.setBool("sr", 44100.0);
+  packet::Aplist stream0_dict;
+
+  stream0_dict.setUint(dk::TYPE, 103);
+  stream0_dict.setReal(dk::SR, 44100.0);
 
   packet::Aplist reply_dict;
 
-  reply_dict.setArray("streams", array_dicts);
+  reply_dict.setArray(dk::STREAMS, stream0_dict);
 
   size_t bytes = 0;
   auto binary = reply_dict.toBinary(bytes);

@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "core/config.hpp"
 #include "core/host.hpp"
 #include "core/service.hpp"
 
@@ -26,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <fmt/format.h>
 #include <list>
 #include <memory>
+#include <optional>
 #include <source_location>
 #include <string>
 #include <vector>
@@ -42,20 +42,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace pierre {
 
-class mDNS {
+class mDNS;
+typedef std::shared_ptr<mDNS> shmDNS;
+
+namespace shared {
+std::optional<shmDNS> &mdns();
+} // namespace shared
+
+class mDNS : public std::enable_shared_from_this<mDNS> {
 public:
   typedef std::list<AvahiEntryGroup *> Groups;
 
 public:
   using sstream = std::stringstream;
 
-private:
-  struct Inject {
-    Service &service;
-  };
+public:
+  static shmDNS init() { return shared::mdns().emplace(new mDNS()); }
+  static shmDNS ptr() { return shared::mdns().value()->shared_from_this(); }
+  static void reset() { shared::mdns().reset(); }
 
 public:
-  mDNS(const Inject &di);
+  mDNS(){};
   void advertise(AvahiClient *client);
 
   const string deviceID();
@@ -90,8 +97,6 @@ private:
                    AvahiLookupFlags flags, AvahiServiceResolverCallback callback, void *userdata);
 
 private:
-  Service &_service;
-
   Groups _groups;
   string _service_base;
 
