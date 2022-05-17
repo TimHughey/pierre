@@ -21,6 +21,7 @@
 //  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
 #include "common/stream.hpp"
+#include "reply/dict_keys.hpp"
 
 #include <fmt/format.h>
 #include <utility>
@@ -29,14 +30,6 @@ namespace pierre {
 namespace airplay {
 
 using namespace stream;
-
-// Stream::Stream(Stream &&src) :  { this = std::move<Stream>(src); }
-
-// Stream &Stream::operator=(Stream &&src) {
-//   _cat = std::move(src._cat);
-//   _type = std::move(src._type);
-//   _timing = std::move(src_.timing);
-// }
 
 Stream &Stream::buffered() {
   _type = type::buffered;
@@ -75,19 +68,19 @@ Stream::Stream(csv timing_protocol) {
     fmt::print(f, runTicks(), fnName(), timing_protocol);
   }
 
-  if (timing_protocol == valPTP) {
+  if (timing_protocol == reply::dv::PTP) {
     _cat = cat::ptp_stream;
     _timing = timing::ptp;
     return;
   }
 
-  if (timing_protocol == valNTP) {
+  if (timing_protocol == reply::dv::NTP) {
     _cat = cat::ptp_stream;
     _timing = timing::ptp;
     return;
   }
 
-  if (timing_protocol == valNONE) {
+  if (timing_protocol == reply::dv::NONE) {
     _cat = cat::remote_control;
   }
 }

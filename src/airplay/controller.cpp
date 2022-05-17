@@ -39,19 +39,6 @@ std::optional<shController> __controller;
 std::optional<shController> &controller() { return shared::__controller; }
 } // namespace shared
 
-/*
-  Controller Design Notes
-
-    1,  use a single io_ctx run my multiple threads
-
-
-  Controller Startup
-
-    1.
-
-
-*/
-
 namespace errc = boost::system::errc;
 
 // executed once at startup (by one of the threads) to create necessary

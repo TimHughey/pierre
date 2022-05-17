@@ -26,19 +26,12 @@
 
 namespace pierre {
 namespace airplay {
-
 namespace stream {
 
 enum class cat : uint8_t { unspecified = 10, ptp_stream, ntp_stream, remote_control };
 enum class type : uint8_t { none = 20, realtime, buffered };
 enum class timing : uint8_t { none = 30, ntp, ptp };
 
-constexpr csv keyREMOTE{"isRemoteControlOnly"};
-constexpr csv keyPROTOCOL{"timingProtocol"};
-
-constexpr csv valPTP{"PTP"};
-constexpr csv valNTP("NTP");
-constexpr csv valNONE("None");
 constexpr uint64_t typeBuffered() { return 103; }
 constexpr uint64_t typeRealTime() { return 96; }
 

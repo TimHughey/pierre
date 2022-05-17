@@ -582,29 +582,6 @@ void debug_print_msg_headers(int level, rtsp_message *msg) {
   }
 }
 
-/*
-static void debug_print_msg_content(int level, rtsp_message *msg) {
-  if (msg->contentlength) {
-    char *obf = malloc(msg->contentlength * 2 + 1);
-    if (obf) {
-      char *obfp = obf;
-      int obfc;
-      for (obfc = 0; obfc < msg->contentlength; obfc++) {
-        snprintf(obfp, 3, "%02X", msg->content[obfc]);
-        obfp += 2;
-      };
-      *obfp = 0;
-      debug(level, "Content (hex): \"%s\"", obf);
-      free(obf);
-    } else {
-      debug(level, "Can't allocate space for debug buffer");
-    }
-  } else {
-    debug(level, "No content");
-  }
-}
-*/
-
 void msg_free(rtsp_message **msgh) {
   debug_mutex_lock(&reference_counter_lock, 1000, 0);
   if (*msgh > (rtsp_message *)0x00010000) {
@@ -1203,9 +1180,6 @@ char *get_category_string(airplay_stream_c cat) {
 
 void handle_record_2(rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
                      rtsp_message *resp) {
-  debug(2, "Connection %d: RECORD on %s", conn->connection_number,
-        get_category_string(conn->airplay_stream_category));
-  // debug_log_rtsp_message(1, "RECORD incoming message", req);
   resp->respcode = 200;
 }
 
@@ -2675,12 +2649,6 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 }
 
 static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(3, "Connection %d: SET_PARAMETER", conn->connection_number);
-  // if (!req->contentlength)
-  //    debug(1, "received empty SET_PARAMETER request.");
-
-  // debug_print_msg_headers(1,req);
-
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
@@ -2690,16 +2658,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
       // debug(2, "received parameters in SET_PARAMETER request.");
       handle_set_parameter_parameter(conn, req,
                                      resp); // this could be volume or progress
-    } else {
-      debug(1,
-            "Connection %d: received unknown Content-Type \"%s\" in "
-            "SET_PARAMETER request.",
-            conn->connection_number, ct);
-      debug_print_msg_headers(1, req);
     }
-  } else {
-    debug(1, "Connection %d: missing Content-Type header in SET_PARAMETER request.",
-          conn->connection_number);
   }
   resp->respcode = 200;
 }
