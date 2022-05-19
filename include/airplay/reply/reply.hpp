@@ -21,9 +21,6 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
-#include "common/anchor.hpp"
-#include "common/conn_info.hpp"
-#include "common/stream_info.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "packet/out.hpp"
@@ -92,8 +89,6 @@ public:
 
   // access injected dependencies
   auto &aesCtx() { return di->aes_ctx; }
-  auto &anchor() { return di->anchor; }
-  auto &conn() { return di->conn; }
   auto &method() const { return di->method; }
   auto &path() const { return di->path; }
   const packet::Content &plist() const { return di->content; }

@@ -15,27 +15,30 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+//
+//  This work based on and inspired by
+//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#pragma once
+#include "conn_info/conn_info.hpp"
 
-#include "aes/aes_ctx.hpp"
-#include "common/ss_inject.hpp"
-#include "common/typedefs.hpp"
-#include "packet/basic.hpp"
-#include "packet/headers.hpp"
+#include <chrono>
+#include <fmt/format.h>
+#include <memory>
+#include <string_view>
 
 namespace pierre {
 namespace airplay {
-namespace reply {
 
-struct Inject {
-  csv method;
-  csv path;
-  const packet::Content &content;
-  const packet::Headers &headers;
-  AesCtx &aes_ctx;
-};
+namespace shared {
+std::optional<shConnInfo> __conn_info;
+std::optional<shConnInfo> &connInfo() { return __conn_info; }
+} // namespace shared
 
-} // namespace reply
+void ConnInfo::saveActiveRemote(csv active_remote) { dacp_active_remote = active_remote; }
+
+void ConnInfo::saveSessionKey(csr key) { session_key.assign(key.begin(), key.end()); }
+
+void ConnInfo::saveStreamData(const StreamData &data) { stream_info = data; }
+
 } // namespace airplay
 } // namespace pierre

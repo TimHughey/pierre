@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "core/service.hpp"
+#include "core/features.hpp"
 #include "core/host.hpp"
 
 #include <exception>
@@ -55,10 +56,13 @@ Service::Service() {
 }
 
 void Service::addFeatures() {
-  constexpr uint64_t bit = 1;
-  uint64_t mask64 = (bit << 17) | (bit << 16) | (bit << 15) | (bit << 50);
+  // constexpr uint64_t bit = 1;
+  // uint64_t mask64 = (bit << 17) | (bit << 16) | (bit << 15) | (bit << 50);
   // APX + Authentication4 (b14) with no metadata
-  _features_val = 0x1C340405D4A00 & (~mask64);
+  // _features_val = 0x1C340405D4A00 & (~mask64);
+
+  Features features;
+  _features_val = features.ap2_default();
 
   constexpr auto mask32 = 0xffffffff;
   const uint64_t hi = (_features_val >> 32) & mask32;
@@ -110,11 +114,6 @@ void Service::addSystemFlags() {
     saveCalcVal(key, str);
   }
 }
-
-// void Service::adjustSystemFlags(Flags flag) {
-//   _system_flags |= 1 << flag; // apply the adjustment
-//   addSystemFlags();           // update the calculated key/val map
-// }
 
 void Service::deviceSupportsRelay(bool on_off) {
   if (on_off == true) {

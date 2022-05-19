@@ -19,8 +19,8 @@
 */
 
 #include "reply/set_peers.hpp"
+#include "anchor/anchor.hpp"
 #include "clock/info.hpp"
-#include "common/anchor.hpp"
 #include "reply/dict_keys.hpp"
 
 namespace pierre {
@@ -37,8 +37,8 @@ bool SetPeers::populate() {
     return false;
   }
 
-  anchor().peers(peers);      // set the peer lists
-  responseCode(RespCode::OK); // indicate success
+  Anchor::ptr()->peers(peers); // set the peer lists
+  responseCode(RespCode::OK);  // indicate success
   return true;
 }
 

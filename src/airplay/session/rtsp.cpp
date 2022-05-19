@@ -96,7 +96,7 @@ void Rtsp::handleRequest(size_t rx_bytes) {
   if (rxAvailable()            // drained the socket successfully
       && ensureAllContent()    // loaded bytes == Content-Length
       && createAndSendReply()) // sent the reply OK
-  {                            // all is well, prepare for next request
+  {                            // all is well... prepare for next request
     _wire.clear();
     _packet.clear();
     _headers.clear();
@@ -178,13 +178,12 @@ bool Rtsp::ensureAllContent() {
 
 bool Rtsp::createAndSendReply() {
   // create the reply to the request
-  auto inject = reply::Inject{.method = method(),
-                              .path = path(),
-                              .content = content(),
-                              .headers = headers(),
-                              .conn = conn,
-                              .aes_ctx = aes_ctx,
-                              .anchor = anchor};
+
+  reply::Inject inject{.method = method(),
+                       .path = path(),
+                       .content = content(),
+                       .headers = headers(),
+                       .aes_ctx = aes_ctx};
 
   auto reply = Reply::create(inject);
 
@@ -261,9 +260,7 @@ bool Rtsp::txContinue() {
                               .path = path(),
                               .content = content(),
                               .headers = headers(),
-                              .conn = conn,
-                              .aes_ctx = aes_ctx,
-                              .anchor = anchor};
+                              .aes_ctx = aes_ctx};
 
   auto reply = Reply::create(inject);
   auto &reply_packet = reply->build();

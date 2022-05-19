@@ -17,9 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "reply/set_anchor.hpp"
-#include "common/anchor.hpp"
-
-#include <array>
+#include "anchor/anchor.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -38,6 +36,8 @@ bool SetAnchor::populate() {
 }
 
 void SetAnchor::saveAnchorInfo() {
+  auto anchor = Anchor::ptr();
+
   constexpr auto Rate = "rate";
   constexpr auto TimelineID = "networkTimeTimelineID";
   constexpr auto Secs = "networkTimeSecs";
@@ -57,11 +57,11 @@ void SetAnchor::saveAnchorInfo() {
                                   .flags = rdict.getUint(Flags),
                                   .rtpTime = rdict.getUint(RtpTime)};
 
-    anchor().save(anchor_data);
-    anchor().dump();
+    anchor->save(anchor_data);
+    anchor->dump();
   } else {
     auto anchor_data = AnchorData{.rate = rdict.getUint(Rate)};
-    anchor().save(anchor_data);
+    Anchor::ptr()->save(anchor_data);
   }
 }
 

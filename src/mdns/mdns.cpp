@@ -124,6 +124,12 @@ bool mDNS::resetGroupIfNeeded() {
   if (_groups.size()) {
     auto group = _groups.front();
 
+    if (true) { // debug
+      const auto state = avahi_entry_group_get_state(group);
+      constexpr auto f = FMT_STRING("{} {} reset group count={} front={} state={}\n");
+      fmt::print(f, runTicks(), fnName(), _groups.size(), fmt::ptr(group), state);
+    }
+
     auto ac = avahi_entry_group_reset(group);
 
     if (ac != 0) {
@@ -157,14 +163,14 @@ bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtoco
 
 void mDNS::saveGroup(AvahiEntryGroup *group) {
   if (_groups.size() > 0) {
-    fmt::print("mDNS::saveGroup(): purging previous groups: ");
+    if (true) { // debug
+      auto state = avahi_entry_group_get_state(group);
 
-    for (const auto &old : _groups) {
-      fmt::print("{} ", fmt::ptr(old));
+      constexpr auto f = FMT_STRING("{} {} group eixsts state={} same={}\n");
+      fmt::print(f, runTicks(), fnName(), state, (_groups.front() == group));
     }
 
-    fmt::print("\n");
-    _groups.clear();
+    return;
   }
 
   _groups.emplace_back(group);
@@ -191,12 +197,22 @@ bool mDNS::start() {
 }
 
 void mDNS::update() {
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} groups size={}\n");
+    fmt::print(f, runTicks(), fnName(), _groups.size());
+  }
+
   avahi_threaded_poll_lock(_tpoll); // lock the thread poll
 
   AvahiStringList *sl = avahi_string_list_new("autoUpdate=true", nullptr);
 
   const auto kvmap = Service::ptr()->keyValList(AirPlayTCP);
   for (const auto &[key, val] : *kvmap) {
+    if (false) { // debug
+      constexpr auto f = FMT_STRING("{} {} {:>18}={}\n");
+      fmt::print(f, runTicks(), fnName(), key, val);
+    }
+
     sl = avahi_string_list_add_pair(sl, key, val);
   }
 
@@ -212,7 +228,8 @@ void mDNS::update() {
                                                         reg_type, NULL, sl);
 
   if (rc != 0) {
-    fmt::print("mDNS::update(): failed rc={}\n", rc);
+    constexpr auto f = FMT_STRING("{} {} failed rc={}\n");
+    fmt::print(f, runTicks(), fnName(), rc);
   }
 
   avahi_threaded_poll_unlock(_tpoll); // resume thread poll

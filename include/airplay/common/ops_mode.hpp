@@ -16,32 +16,17 @@
 //
 //  https://www.wisslanding.com
 
-#include "common/net_time.hpp"
+#pragma once
+
+#include "common/typedefs.hpp"
 
 namespace pierre {
 namespace airplay {
-
-NetTime::NetTime(uint64_t secs, uint64_t nano_fracs) {
-  // it looks like the nano_fracs is a fraction where the msb is work 1/2
-  // the next 1/4 and so on now, convert the network time and fraction into nanoseconds
-  constexpr uint64_t ns_factor = 1 ^ 9;
-
-  // begin tallying up the nanoseconds starting with the seconds
-  nanos = Secs(secs);
-
-  // convert the nano_fracs into actual nanoseconds
-  nano_fracs >>= 32; // reduce precision to about 1/4 of a ns
-  nano_fracs *= ns_factor;
-  nano_fracs >>= 32; // shift again to get ns
-
-  // add the fractional nanoseconds to the tally
-  nanos += Nanos(nano_fracs);
-}
-
-void NetTime::dump(csrc_loc loc) const {
-  auto constexpr f = FMT_STRING("{} ticks={:#x}\n");
-  fmt::print(f, fnName(loc), ticks());
-}
-
+namespace ops_mode {
+constexpr auto INITIALIZE = csv("initialize");
+constexpr auto NOMINAL = csv("nominal");
+constexpr auto TEARDOWN = csv("teardown");
+constexpr auto END_SESSION = csv("end session");
+} // namespace ops_mode
 } // namespace airplay
 } // namespace pierre

@@ -20,10 +20,6 @@
 
 #include "airplay/common/typedefs.hpp"
 #include "clock/clock.hpp"
-#include "common/anchor.hpp"
-#include "common/conn_info.hpp"
-#include "common/ss_inject.hpp"
-#include "server/map.hpp"
 
 #include <boost/asio.hpp>
 #include <list>
@@ -89,8 +85,6 @@ private:
 
   // resources created by kickstart()
   std::optional<Clock> opt_clock;
-  std::optional<Anchor> opt_anchor;
-  std::optional<ConnInfo> opt_conn;
 
   Thread airplay_thread;
 

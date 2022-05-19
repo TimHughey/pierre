@@ -19,32 +19,25 @@
 */
 
 #include "reply/setup.hpp"
-#include "common/conn_info.hpp"
+#include "anchor/anchor.hpp"
+#include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
-#include "server/map.hpp"
+#include "server/servers.hpp"
 
 #include <algorithm>
 #include <chrono>
-#include <fmt/core.h>
 #include <fmt/format.h>
 #include <iterator>
-#include <memory>
-#include <string>
-
-using namespace std;
-using namespace pierre;
-using namespace chrono_literals;
 
 namespace pierre {
 namespace airplay {
 namespace reply {
 
+using namespace std::chrono_literals;
 using namespace packet;
-using Aplist = packet::Aplist;
 using enum ServerType;
-namespace header = pierre::packet::header;
 
 bool Setup::populate() {
   responseCode(RespCode::BadRequest); // default response is BadRequest
@@ -78,18 +71,19 @@ bool Setup::populate() {
 }
 
 bool Setup::handleNoStreams() {
+  auto anchor = Anchor::ptr();
+  auto conn = ConnInfo::ptr();
+
   // deduces cat, type and timing
   auto stream = Stream(rdict.getView(dk::TIMING_PROTOCOL));
 
   // now we create a replu plist based on the type of stream
   if (stream.isPtpStream()) {
-    ConnInfo &ci = conn();
-
-    ci.airplay_gid = rdict.getView(dk::GROUP_UUID);
-    ci.groupContainsGroupLeader = rdict.boolVal(dk::GROUP_LEADER);
+    conn->airplay_gid = rdict.getView(dk::GROUP_UUID);
+    conn->groupContainsGroupLeader = rdict.boolVal(dk::GROUP_LEADER);
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
-    anchor().peers(peers);
+    anchor->peers(peers);
 
     Aplist peer_info;
 
@@ -108,7 +102,7 @@ bool Setup::handleNoStreams() {
 
     std::this_thread::sleep_for(100ms);
 
-    ci.save(stream);
+    conn->save(stream);
     return true;
   }
 
@@ -131,20 +125,14 @@ bool Setup::handleNoStreams() {
 
 // SETUP followup message containing type of stream to start
 bool Setup::handleStreams() {
-  // rdict.dump();
-
-  using enum ServerType;
-
   auto servers = Servers::ptr();
+  auto conn = ConnInfo::ptr();
 
   auto rc = false;
-
-  auto &conn = di->conn;      // conn info for the established session
-  auto &stream = conn.stream; // populated based on request dictionary
-
+  StreamData stream_data;
   Aplist reply_stream0; // build the streams sub dict
 
-  if (stream.isPtpStream()) { // initial setup PTP, this setup finalizes details
+  if (conn->stream.isPtpStream()) { // initial setup PTP, this setup finalizes details
     // capture stream info common for buffered or real-time
     stream_data.key = rdict.getView({dk::STREAMS, dk::IDX0, dk::SHK});
     stream_data.active_remote = rHeaders().getVal(header::type::DacpActiveRemote);
@@ -161,18 +149,18 @@ bool Setup::handleStreams() {
     // now handle the specific stream type
     switch (stream_type) {
       case stream::typeBuffered():
-        stream.buffered(); // this is a buffered audio stream
+        conn->stream.buffered(); // this is a buffered audio stream
 
         // reply requires the type, audio data port and our buffer size
         reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()},         // stream type
                                 {dk::DATA_PORT, servers->localPort(Audio)}, // audio port
-                                {dk::BUFF_SIZE, conn.bufferSize()}});       // our buffer size
+                                {dk::BUFF_SIZE, conn->bufferSize()}});      // our buffer size
 
         rc = true;
         break;
 
       case stream::typeRealTime():
-        stream.realtime();
+        conn->stream.realtime();
         rc = true;
         break;
 
@@ -181,10 +169,10 @@ bool Setup::handleStreams() {
         break;
     }
 
-  } else if (conn.stream.isRemote()) {
+  } else if (conn->stream.isRemote()) {
     reply_stream0.setUints({{
         {dk::STREAM_ID, 1},
-        {dk::TYPE, conn.stream.typeVal()},
+        {dk::TYPE, conn->stream.typeVal()},
     }});
     rc = true;
   }

@@ -2100,22 +2100,9 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   // we are being asked to disconnect
   // this can be called more than once on the same connection --
   // by the player itself but also by the play seesion being killed
-  debug(2, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
-        get_category_string(conn->airplay_stream_category));
-  if (conn->rtp_event_thread) {
-    debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
-    pthread_cancel(*conn->rtp_event_thread);
-    pthread_join(*conn->rtp_event_thread, NULL);
-    free(conn->rtp_event_thread);
-    conn->rtp_event_thread = NULL;
-  }
-  debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
-  if (conn->event_socket) {
-    close(conn->event_socket);
-    conn->event_socket = 0;
-    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number,
-          conn->local_event_port);
-  }
+
+  pthread_cancel(*conn->rtp_event_thread);
+  close(conn->event_socket);
 
   // if we are closing a PTP stream only, do this
   if (conn->airplay_stream_category == ptp_stream) {
@@ -2123,11 +2110,11 @@ void teardown_phase_two(rtsp_conn_info *conn) {
       free(conn->airplay_gid);
       conn->airplay_gid = NULL;
     }
+
     conn->groupContainsGroupLeader = 0;
     config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
     build_bonjour_strings(conn);
-    debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
-          get_category_string(conn->airplay_stream_category));
+
     mdns_update(NULL, secondary_txt_records);
     if (conn->dacp_active_remote != NULL) {
       free(conn->dacp_active_remote);

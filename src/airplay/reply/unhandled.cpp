@@ -24,10 +24,10 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using enum packet::RespCode;
+using namespace packet;
 
 bool Unhandled::populate() {
-  responseCode(BadRequest);
+  responseCode(RespCode::BadRequest);
 
   return true;
 }

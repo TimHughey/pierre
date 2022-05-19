@@ -21,6 +21,7 @@
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
+#include <future>
 #include <map>
 #include <memory>
 #include <optional>
@@ -30,6 +31,9 @@
 namespace pierre {
 namespace airplay {
 
+enum TeardownPhase : uint8_t { None = 0, One, Two };
+typedef std::future<TeardownPhase> TeardownBarrier;
+typedef std::promise<TeardownPhase> Teardown;
 typedef std::vector<ServerType> TeardownList;
 
 class Servers;
@@ -45,11 +49,7 @@ private:
   typedef std::map<ServerType, ServerPtr> ServerMap;
 
 public:
-  static shServers init(server::Inject di) {
-    // must forward di since we want the actual object
-    return shared::servers().emplace(new Servers(di));
-  }
-
+  static shServers init(server::Inject di) { return shared::servers().emplace(new Servers(di)); }
   static shServers ptr() { return shared::servers().value()->shared_from_this(); }
   static void reset() { shared::servers().reset(); }
 
@@ -57,6 +57,7 @@ public:
 
   Port localPort(ServerType type);
   void teardown();
+  // TeardownBarrier teardown(TeardownPhase phase);
   void teardown(ServerType type);
 
 private:
@@ -64,12 +65,17 @@ private:
 
   ServerPtr fetch(ServerType type);
 
+  // void teardownFinished();
+
 private:
   // order dependent based on constructor
   server::Inject di;
 
   // order independent
   ServerMap map;
+
+  TeardownPhase teardown_phase = TeardownPhase::None;
+  Teardown teardown_request;
 };
 
 } // namespace airplay

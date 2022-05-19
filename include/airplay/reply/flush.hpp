@@ -25,7 +25,6 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
 class FlushBuffered : public Reply {
 public:
   FlushBuffered() = default;

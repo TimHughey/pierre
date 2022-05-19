@@ -17,12 +17,13 @@
 //  https://www.wisslanding.com
 
 #include "controller.hpp"
+#include "anchor/anchor.hpp"
 #include "clock/clock.hpp"
-#include "common/anchor.hpp"
-#include "common/conn_info.hpp"
 #include "common/ss_inject.hpp"
 #include "common/typedefs.hpp"
-#include "server/map.hpp"
+#include "conn_info/conn_info.hpp"
+#include "core/features.hpp"
+#include "server/servers.hpp"
 
 #include <chrono>
 #include <list>
@@ -44,9 +45,10 @@ namespace errc = boost::system::errc;
 // executed once at startup (by one of the threads) to create necessary
 // resources (e.g. Clock, Anchor, Servers
 void Controller::kickstart() {
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} kickstart\n");
-    fmt::print(f, runTicks(), fnName());
+  if (true) { // debug
+    Features features;
+    constexpr auto f = FMT_STRING("{} {} kickstart features={:x}\n");
+    fmt::print(f, runTicks(), fnName(), features.ap2_default());
   }
 
   auto clock_inject = clock::Inject{.io_ctx = io_ctx,
@@ -56,10 +58,10 @@ void Controller::kickstart() {
   auto &clock = opt_clock.emplace(clock_inject);
   clock.peersReset();
 
-  auto &anchor = opt_anchor.emplace(clock);
-  auto &conn = opt_conn.emplace();
+  Anchor::init(clock);
+  ConnInfo::init();
 
-  Servers::init({.io_ctx = io_ctx, .conn = conn, .anchor = anchor});
+  Servers::init({.io_ctx = io_ctx});
 
   // finally, start listening for Rtsp messages
   Servers::ptr()->localPort(ServerType::Rtsp);
@@ -113,8 +115,6 @@ void Controller::watchDog() {
       constexpr auto f = FMT_STRING("{} {}\n");
       fmt::print(f, runTicks(), fnName());
     }
-
-    self->opt_conn->teardownIfNeeded();
 
     auto stop_token = self->airplay_thread.get_stop_token();
 

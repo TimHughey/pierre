@@ -78,7 +78,8 @@
         "variant": "cpp",
         "regex": "cpp",
         "valarray": "cpp",
-        "*.ipp": "c"
+        "*.ipp": "c",
+        "cerrno": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",

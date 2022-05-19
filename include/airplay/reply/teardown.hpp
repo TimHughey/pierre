@@ -32,9 +32,11 @@ public:
   bool populate() override;
 
 private:
+  void phase1();
+  void phase2();
+
+private:
   packet::Aplist rdict;
-  bool has_streams = false;
-  static constexpr auto STREAMS = "streams";
 };
 
 } // namespace reply

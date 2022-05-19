@@ -28,9 +28,7 @@
 #include <algorithm>
 #include <fmt/format.h>
 #include <iterator>
-#include <string_view>
 #include <typeinfo>
-#include <unordered_map>
 
 namespace pierre {
 namespace airplay {
@@ -42,6 +40,11 @@ namespace header = pierre::packet::header;
 // this static member function is in the .cpp due to the call to Factory to
 // create the approprite Reply subclass
 [[nodiscard]] shReply Reply::create(const reply::Inject &di) {
+  if (false) { // false
+    if (di.path != csv("/feedback")) {
+      di.headers.dump();
+    }
+  }
   auto reply = Factory::create(di);
 
   // inject dependencies after initial creation
@@ -74,10 +77,21 @@ namespace header = pierre::packet::header;
   }
 
   if (true) { // debug
-    constexpr auto f =
-        FMT_STRING("{} REPLY FINAL cseq={:<04} size={:<05} rc={:<15} method={:<19} path={}\n");
-    fmt::print(f, runTicks(), headers.getValInt(header::type::CSeq), _packet.size(), resp_text,
-               di->method, di->path);
+    constexpr auto feedback = csv("/feedback");
+    static uint64_t feedbacks = 0;
+
+    constexpr auto f = FMT_STRING("{} REPLY FINAL cseq={:<04} fb={:<04} "
+                                  "size={:<05} rc={:<15} method={:<19} "
+                                  "path={}\n");
+
+    if (di->path == feedback) {
+      ++feedbacks;
+    }
+
+    if (di->path != csv("/feedback")) {
+      fmt::print(f, runTicks(), headers.getValInt(header::type::CSeq), feedbacks, _packet.size(),
+                 resp_text, di->method, di->path);
+    }
   }
 
   return _packet;
@@ -100,12 +114,7 @@ void Reply::copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {
 
 void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
   auto where = std::back_inserter(_content);
-  auto end = begin + bytes;
-
-  // fmt::print("copying from={},{} to={}\n", fmt::ptr(begin), fmt::ptr(end),
-  //           fmt::ptr(&(*where)));
-
-  std::copy(begin, end, where);
+  std::copy(begin, begin + bytes, where);
 }
 
 Reply &Reply::inject(const reply::Inject &injected) {

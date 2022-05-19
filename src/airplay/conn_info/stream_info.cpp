@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "common/stream_info.hpp"
+#include "conn_info/stream_info.hpp"
 
 #include <cstdint>
 #include <fmt/format.h>

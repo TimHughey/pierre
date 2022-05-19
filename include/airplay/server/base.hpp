@@ -45,6 +45,7 @@ public:
   virtual void asyncLoop(const error_code ec_last = DEF_ERROR_CODE) = 0;
   virtual Port localPort() = 0;
   csv serverId() const { return server_id; }
+  virtual void shutdown() { teardown(); }
   virtual void teardown() = 0;
 
 protected:

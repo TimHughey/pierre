@@ -20,7 +20,7 @@
 //  This work based on and inspired by
 //  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#include "common/stream.hpp"
+#include "conn_info/stream.hpp"
 #include "reply/dict_keys.hpp"
 
 #include <fmt/format.h>

@@ -19,9 +19,8 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
-#include "common/anchor.hpp"
-#include "common/conn_info.hpp"
 #include "common/ss_inject.hpp"
+#include "core/host.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "packet/in.hpp"
@@ -58,10 +57,8 @@ public:
 
 private:
   Rtsp(const Inject &di)
-      : socket(std::move(di.socket)),             // newly opened socket for session
-        aes_ctx(AesCtx(Host::ptr()->deviceID())), // create aes ctx
-        conn(di.conn),    // connection info (includes host, service and mDNS
-        anchor(di.anchor) // anchor info (not included in ConnInfo)
+      : socket(std::move(di.socket)),            // newly opened socket for session
+        aes_ctx(AesCtx(Host::ptr()->deviceID())) // create aes ctx
   {
     infoNewSession();
   }
@@ -102,8 +99,6 @@ private:
   // order dependent - initialized by constructor
   tcp_socket socket;
   AesCtx aes_ctx;
-  ConnInfo &conn;
-  Anchor &anchor;
 
   packet::In _wire;   // plain text or ciphered
   packet::In _packet; // deciphered

@@ -35,6 +35,7 @@ constexpr auto GROUP_LEADER = csv("groupContainsGroupLeader");
 constexpr auto GROUP_UUID = csv("groupUUID");
 constexpr auto ID = csv("ID");
 constexpr auto IDX0 = csv("0");
+constexpr auto QUALIFIER = csv("qualifier");
 constexpr auto REMOTE_CONTROL = csv("isRemoteControlOnly");
 constexpr auto ROOT = csv();
 constexpr auto SHK = csv("shk");
@@ -52,6 +53,7 @@ namespace dv {
 constexpr auto PTP = csv("PTP");
 constexpr auto NTP = csv("NTP");
 constexpr auto NONE = csv("None");
+constexpr auto TXT_AIRPLAY = csv("txtAirPlay");
 } // namespace dv
 
 } // namespace reply

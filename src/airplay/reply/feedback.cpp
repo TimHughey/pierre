@@ -22,9 +22,6 @@
 #include "reply/dict_keys.hpp"
 #include "reply/reply.hpp"
 
-#include <fmt/format.h>
-#include <string_view>
-
 namespace pierre {
 namespace airplay {
 namespace reply {

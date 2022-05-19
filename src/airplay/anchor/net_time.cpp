@@ -16,26 +16,32 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "aes/aes_ctx.hpp"
-#include "common/ss_inject.hpp"
-#include "common/typedefs.hpp"
-#include "packet/basic.hpp"
-#include "packet/headers.hpp"
+#include "anchor/net_time.hpp"
 
 namespace pierre {
 namespace airplay {
-namespace reply {
 
-struct Inject {
-  csv method;
-  csv path;
-  const packet::Content &content;
-  const packet::Headers &headers;
-  AesCtx &aes_ctx;
-};
+NetTime::NetTime(uint64_t secs, uint64_t nano_fracs) {
+  // it looks like the nano_fracs is a fraction where the msb is work 1/2
+  // the next 1/4 and so on now, convert the network time and fraction into nanoseconds
+  constexpr uint64_t ns_factor = 1 ^ 9;
 
-} // namespace reply
+  // begin tallying up the nanoseconds starting with the seconds
+  nanos = Secs(secs);
+
+  // convert the nano_fracs into actual nanoseconds
+  nano_fracs >>= 32; // reduce precision to about 1/4 of a ns
+  nano_fracs *= ns_factor;
+  nano_fracs >>= 32; // shift again to get ns
+
+  // add the fractional nanoseconds to the tally
+  nanos += Nanos(nano_fracs);
+}
+
+void NetTime::dump(csrc_loc loc) const {
+  auto constexpr f = FMT_STRING("{} ticks={:#x}\n");
+  fmt::print(f, fnName(loc), ticks());
+}
+
 } // namespace airplay
 } // namespace pierre

@@ -122,7 +122,7 @@ void Audio::asyncLoop() {
       }
     } // self is about to go out of scope...
   }); // shared_ptr.use_count--
-} // namespace boost::asio::error::voidAudio::asyncLoop()
+}
 
 void Audio::asyncReportRxBytes(int64_t rx_bytes) {
   timer->expires_after(10s);
@@ -133,15 +133,13 @@ void Audio::asyncReportRxBytes(int64_t rx_bytes) {
     if (ec == errc::success) {
       const auto rx_total = self->_rx_bytes;
 
-      if (rx_total != rx_last) {
-        constexpr auto f = FMT_STRING("{} AUDIO RX total={:<15} 30s={}\n");
-        const auto in_30secs = rx_total - rx_last;
-        fmt::print(f, runTicks(), rx_total, in_30secs);
-      }
+      // if (rx_total != rx_last) {
+      constexpr auto f = FMT_STRING("{} AUDIO RX total={:<15} 30s={}\n");
+      const auto in_30secs = rx_total - rx_last;
+      fmt::print(f, runTicks(), rx_total, in_30secs);
+      // }
 
       self->asyncReportRxBytes(rx_total);
-    } else {
-      self->timer.reset();
     }
   });
 }
@@ -167,9 +165,9 @@ bool Audio::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
       case errc::success:
         break;
 
-      case errc::operation_canceled:
-      case errc::resource_unavailable_try_again:
-      case errc::no_such_file_or_directory:
+      // case errc::operation_canceled:
+      // case errc::resource_unavailable_try_again:
+      // case errc::no_such_file_or_directory:
       default: {
         constexpr auto f = FMT_STRING("{} AUDIO SESSION SHUTDOWN socket={} err_value={} msg={}\n");
         fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());

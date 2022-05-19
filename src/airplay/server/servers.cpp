@@ -15,34 +15,82 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
-//
-//  This work based on and inspired by
-//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#include "common/conn_info.hpp"
-#include "server/map.hpp"
+#include "server/servers.hpp"
+#include "conn_info/conn_info.hpp"
+#include "server/audio.hpp"
+#include "server/control.hpp"
+#include "server/event.hpp"
+#include "server/rtsp.hpp"
 
-#include <chrono>
-#include <fmt/format.h>
-#include <future>
-#include <memory>
-#include <string_view>
+#include <array>
 
 namespace pierre {
 namespace airplay {
 
-Port ConnInfo::localPort([[maybe_unused]] ServerType type) {
-  // return the stored port
-  return local_port_map.at(type);
+namespace shared {
+std::optional<shServers> __servers;
+std::optional<shServers> &servers() { return __servers; }
+} // namespace shared
+
+Servers::ServerPtr Servers::fetch(ServerType type) {
+  if (map.contains(type) == false) {
+    return ServerPtr(nullptr);
+  }
+
+  return map.at(type);
 }
 
-void ConnInfo::saveActiveRemote(csv active_remote) { dacp_active_remote = active_remote; }
+Port Servers::localPort(ServerType type) {
+  auto svr = fetch(type);
 
-void ConnInfo::saveSessionKey(csr key) { session_key.assign(key.begin(), key.end()); }
+  if (svr.get() == nullptr) {
+    switch (type) {
+      case ServerType::Audio:
+        map.emplace(type, new server::Audio(di));
+        break;
 
-void ConnInfo::saveStreamData(const StreamData &data) { stream_info = data; }
+      case ServerType::Event:
+        map.emplace(type, new server::Event(di));
+        break;
 
-TeardownBarrier ConnInfo::teardown(TeardownPhase phase) {
+      case ServerType::Control:
+        map.emplace(type, new server::Control(di));
+        break;
+
+      case ServerType::Rtsp:
+        map.emplace(type, new server::Rtsp(di));
+        break;
+    }
+
+    svr = map.at(type);
+
+    svr->asyncLoop(); // start the server
+  }
+
+  return svr->localPort();
+}
+
+void Servers::teardown() {
+  using enum ServerType;
+
+  for (const auto type : std::array{Audio, Event, Control, Rtsp}) {
+    teardown(type);
+  }
+}
+
+void Servers::teardown(ServerType type) {
+  auto svr = fetch(type);
+
+  if (svr.get() != nullptr) {
+    svr->teardown();
+    map.erase(type);
+  }
+}
+
+/*
+
+TeardownBarrier Servers::teardown(TeardownPhase phase) {
   teardown_phase = phase; // save phase for when teardown is executed
 
   // be certain the previous teardown is answered (if there was one)
@@ -55,13 +103,13 @@ TeardownBarrier ConnInfo::teardown(TeardownPhase phase) {
     fmt::print(f, runTicks(), fnName(), phase);
   }
 
-  airplay_gid.clear();
-  dacp_active_remote.clear();
+  ConnInfo::ptr()->airplay_gid.clear();
+  ConnInfo::ptr()->dacp_active_remote.clear();
 
   return teardown_request.get_future();
 }
 
-void ConnInfo::teardownFinished() {
+void Servers::teardownFinished() {
   if (true) { // log before removing the barrier
     fmt::print(FMT_STRING("{} {}\n"), runTicks(), fnName());
   }
@@ -105,5 +153,6 @@ bool ConnInfo::teardownIfNeeded() {
   return full_teardown;
 }
 
+*/
 } // namespace airplay
 } // namespace pierre

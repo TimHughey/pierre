@@ -20,7 +20,9 @@
 
 #include "reply/info.hpp"
 #include "core/service.hpp"
+#include "reply/dict_keys.hpp"
 
+#include <array>
 #include <fmt/format.h>
 #include <iterator>
 #include <memory>
@@ -29,11 +31,10 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-namespace heaeder = pierre::packet::header;
+using namespace packet;
+using namespace pierre::service;
 
 bool Info::populate() {
-  rdict = plist();
-
   // if dictionary is empty this is a stage 2 packet
   if (rdict.empty()) {
     _stage = Stage2;
@@ -41,17 +42,15 @@ bool Info::populate() {
   }
 
   // not stage 2, is this a stage 1 requset?
-  constexpr auto qual_key = "qualifier";
-  constexpr auto qual_val = "txtAirPlay";
 
   // confirm dict contains: qualifier -> array[0] == txtAirPlay
-  if (rdict.compareStringViaPath(qual_val, 2, qual_key, 0)) {
+  if (rdict.compareStringViaPath(dv::TXT_AIRPLAY.data(), 2, dk::QUALIFIER.data(), 0)) {
     _stage = Stage1;
     return stage1();
   }
 
   // if we've reached this point this is an app error
-  responseCode(packet::RespCode::BadRequest);
+  responseCode(RespCode::BadRequest);
   return false;
 }
 
@@ -62,12 +61,12 @@ bool Info::stage1() {
   auto serv = Service::ptr();
 
   // create the reply dict from an embedded plist
-  packet::Aplist reply_dict(packet::Aplist::GetInfoRespStage1);
+  packet::Aplist reply_dict(Aplist::Embedded::GetInfoRespStage1);
 
   // create the qualifier data value
   auto qual_data = fmt::memory_buffer();
   auto here = back_inserter(qual_data);
-  auto digest = serv->keyValList(AirPlayTCP);
+  auto digest = serv->keyValList(Type::AirPlayTCP);
 
   // an entry in the plist is an concatenated list of txt values
   // published via mDNS
@@ -91,7 +90,8 @@ bool Info::stage1() {
   reply_dict.setUint(nullptr, system_flags_key, system_flags_val);
 
   // string vals
-  auto want_keys = std::array{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel};
+  auto want_keys =
+      std::array{Key::apDeviceID, Key::apAirPlayPairingIdentity, Key::ServiceName, Key::apModel};
 
   for (const auto key : want_keys) {
     const auto [key_str, val_str] = serv->fetch(key);
@@ -116,7 +116,7 @@ bool Info::stage2() {
   auto serv = Service::ptr();
 
   // the response dict is based on the request
-  packet::Aplist reply_dict(packet::Aplist::GetInfoRespStage1);
+  packet::Aplist reply_dict(Aplist::GetInfoRespStage1);
 
   // handle the uints first
   const auto features_key = serv->fetchKey(apFeatures);

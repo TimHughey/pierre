@@ -31,12 +31,11 @@ add_library(${__target}
   # public API and overall controller
   airplay.cpp controller.cpp
 
-  # clock
-  clock/info.cpp clock/clock.cpp 
-
-  # common
-  common/anchor.cpp common/conn_info.cpp common/net_time.cpp 
-  common/stream_info.cpp common/stream.cpp
+  # clock and anhcor
+  clock/info.cpp clock/clock.cpp anchor/anchor.cpp anchor/net_time.cpp
+  
+  # connection info
+  conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp
 
   # reply
   reply/cmd.cpp reply/factory.cpp reply/fairplay.cpp reply/feedback.cpp
@@ -45,7 +44,7 @@ add_library(${__target}
   reply/set_peers.cpp reply/setup.cpp reply/teardown.cpp reply/unhandled.cpp
 
   # servers
-  server/map.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp
+  server/servers.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp
 
   # sessions
   session/audio.cpp session/event.cpp session/rtsp.cpp

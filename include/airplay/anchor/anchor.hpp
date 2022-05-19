@@ -69,9 +69,18 @@ struct AnchorInfo {
   bool remote_info_is_valid = false;
 };
 
-class Anchor {
+class Anchor;
+typedef std::shared_ptr<Anchor> shAnchor;
+
+namespace shared {
+std::optional<shAnchor> &anchor();
+} // namespace shared
+
+class Anchor : public std::enable_shared_from_this<Anchor> {
 public:
-  Anchor(Clock &clock); // must create Anchor with an existing Clock
+  static shAnchor init(Clock &clock) { return shared::anchor().emplace(new Anchor(clock)); }
+  static shAnchor ptr() { return shared::anchor().value()->shared_from_this(); }
+  static void reset() { shared::anchor().reset(); }
   ~Anchor();
 
   const AnchorInfo info();
@@ -85,6 +94,7 @@ public:
   void dump(csrc_loc loc = src_loc::current()) const;
 
 private:
+  Anchor(Clock &clock) : clock(clock) {}
   void chooseAnchorClock();
   void infoNewClock(const clock::Info &info);
   void warnFrequentChanges(const clock::Info &info);

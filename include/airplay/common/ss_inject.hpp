@@ -18,8 +18,6 @@
 
 #pragma once
 
-#include "common/anchor.hpp"
-#include "common/conn_info.hpp"
 #include "common/typedefs.hpp"
 
 namespace pierre {
@@ -30,8 +28,6 @@ namespace server {
 // server dependency injection
 struct Inject {
   io_context &io_ctx;
-  ConnInfo &conn;
-  Anchor &anchor;
 };
 
 } // namespace server
@@ -41,8 +37,6 @@ namespace session {
 // session dependency injection
 struct Inject {
   tcp_socket &&socket;
-  ConnInfo &conn;
-  Anchor &anchor;
 };
 } // namespace session
 

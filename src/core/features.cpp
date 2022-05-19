@@ -15,26 +15,30 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+//
+//  This work based on and inspired by
+//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#pragma once
+#include "features.hpp"
 
-#include "reply/reply.hpp"
+#include <array>
 
 namespace pierre {
-namespace airplay {
-namespace reply {
 
-class LoadMore : public Reply {
-public:
-  LoadMore() = default;
+using namespace ft;
 
-  bool populate() override {
-    responseCode(packet::RespCode::Continue);
+Features::Features() {
+  auto set_bits = std::array{b48TransientPairing, b47PeerManagement,     b46HomeKitPairing,
+                             b41_PTPClock,        b40BufferedAudio,      b30UnifiedAdvertisingInfo,
+                             b22AudioUnencrypted, b20ReceiveAudioAAC_LC, b19ReceiveAudioALAC,
+                             b18ReceiveAudioPCM,  b17AudioMetaTxtDAAP,   b16AudioMetaProgress,
+                             b15AudioMetaCovers,  b14MFiSoft_FairPlay,   b09AirPlayAudio};
 
-    return true;
-  };
-};
+  for (const auto bit : set_bits) {
+    _ap2_default.set(bit);
+  }
+}
 
-} // namespace reply
-} // namespace airplay
+uint64_t Features::ap2_default() const { return _ap2_default.to_ullong(); }
+
 } // namespace pierre

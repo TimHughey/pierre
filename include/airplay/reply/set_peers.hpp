@@ -23,8 +23,6 @@
 #include "packet/aplist.hpp"
 #include "reply/reply.hpp"
 
-#include <vector>
-
 namespace pierre {
 namespace airplay {
 namespace reply {

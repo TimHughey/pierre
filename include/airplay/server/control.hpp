@@ -96,7 +96,9 @@ class Control : public Base {
 public:
   // create the Control
   Control(const Inject &di)
-      : io_ctx(di.io_ctx), conn(di.conn), socket(io_ctx, udp_endpoint(ip_udp::v6(), ANY_PORT)) {
+      : io_ctx(di.io_ctx),                                   // io_ctx
+        socket(io_ctx, udp_endpoint(ip_udp::v6(), ANY_PORT)) // create socket and endpoint
+  {
     _wire.clear();
   }
 
@@ -124,7 +126,6 @@ private:
 private:
   // order dependent
   io_context &io_ctx;
-  ConnInfo &conn;
   udp_socket socket;
 
   // latest sender endpoint

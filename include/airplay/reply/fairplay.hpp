@@ -23,12 +23,7 @@
 #include "reply/reply.hpp"
 
 #include <array>
-#include <cctype>
 #include <memory>
-#include <regex>
-#include <string>
-#include <string_view>
-#include <vector>
 
 namespace pierre {
 namespace airplay {

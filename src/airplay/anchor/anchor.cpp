@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "common/anchor.hpp"
+#include "anchor/anchor.hpp"
 #include "clock/clock.hpp"
 #include "common/typedefs.hpp"
 #include "core/input_info.hpp"
@@ -33,10 +33,14 @@
 namespace pierre {
 namespace airplay {
 
+namespace shared {
+std::optional<shAnchor> __anchor;
+std::optional<shAnchor> &anchor() { return __anchor; }
+} // namespace shared
+
 using namespace std::chrono_literals;
 using Nanos = std::chrono::nanoseconds;
 
-Anchor::Anchor(Clock &clock) : clock(clock) {}
 Anchor::~Anchor() {
   constexpr auto f = FMT_STRING("{} destructed\n");
   fmt::format(f, fnName());

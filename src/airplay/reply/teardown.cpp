@@ -17,9 +17,12 @@
 //  https://www.wisslanding.com
 
 #include "reply/teardown.hpp"
+#include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "packet/headers.hpp"
+#include "reply/dict_keys.hpp"
+#include "server/servers.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -28,41 +31,47 @@ namespace reply {
 namespace header = pierre::packet::header;
 
 bool Teardown::populate() {
+  auto servers = Servers::ptr();
   rdict = plist();
 
   headers.add(header::type::ContentSimple, header::val::ConnectionClosed);
   responseCode(packet::RespCode::OK); // always OK
 
-  has_streams = rdict.exists(STREAMS);
+  auto has_streams = rdict.exists(dk::STREAMS);
 
-  if (false) {
+  if (true) {
     constexpr auto f = FMT_STRING("{} {}\n");
     fmt::print(f, runTicks(), fnName());
 
     rdict.dump();
   }
 
-  if (has_streams == true) {
-    // when the plist contains streams we only want Teardown phase 1
+  if (has_streams == true) { // stop processing audio data
+    phase1();
 
-    auto teardown = conn().teardown(TeardownPhase::One);
-    teardown.get();
-  } else {
-    // otherwise we want both phases
-
-    auto teardown1 = conn().teardown(TeardownPhase::One);
-    teardown1.get();
-
-    auto teardown2 = conn().teardown(TeardownPhase::Two);
-    teardown2.get();
-
-    Service::ptr()->deviceSupportsRelay(false);
-    mDNS::ptr()->update();
-
-    // include connection was closed
+  } else { // we've been asked to disconnect
+    phase1();
+    phase2();
   }
 
   return true;
+}
+
+void Teardown::phase1() { ConnInfo::ptr()->sessionKeyClear(); }
+
+void Teardown::phase2() {
+  Service::ptr()->deviceSupportsRelay(false);
+  mDNS::ptr()->update();
+
+  Servers::ptr()->teardown(ServerType::Event);
+  Servers::ptr()->teardown(ServerType::Control);
+  Servers::ptr()->teardown(ServerType::Audio);
+
+  if (ConnInfo::ptr()->stream.isNtpStream()) {
+    ConnInfo::ptr()->airplay_gid.clear();
+  }
+  ConnInfo::ptr()->groupContainsGroupLeader = false;
+  ConnInfo::ptr()->dacp_active_remote.clear();
 }
 
 } // namespace reply

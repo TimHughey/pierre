@@ -24,7 +24,7 @@ find_package(Boost 1.78.0 COMPONENTS program_options)
 
 add_library(core SHARED
   common.cpp
-  args.cpp config.cpp host.cpp
+  args.cpp config.cpp host.cpp features.cpp
   service.cpp static.cpp
   pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
   ${HEADER_LIST}

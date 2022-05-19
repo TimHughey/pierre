@@ -19,16 +19,16 @@
 #pragma once
 
 #include "common/flush_request.hpp"
-#include "common/stream.hpp"
-#include "common/stream_info.hpp"
+#include "common/ops_mode.hpp"
 #include "common/typedefs.hpp"
+#include "conn_info/stream.hpp"
+#include "conn_info/stream_info.hpp"
 #include "core/typedefs.hpp"
 #include "packet/queued.hpp"
 
 #include <arpa/inet.h>
 #include <condition_variable>
 #include <cstdint>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -43,26 +43,28 @@ namespace airplay {
 
 typedef std::vector<unsigned char> SessionKey;
 
-enum TeardownPhase : uint8_t { None = 0, One, Two };
-typedef std::future<TeardownPhase> TeardownBarrier;
-typedef std::promise<TeardownPhase> Teardown;
+class ConnInfo;
+typedef std::shared_ptr<ConnInfo> shConnInfo;
 
-class ConnInfo {
+namespace shared {
+std::optional<shConnInfo> &connInfo();
+} // namespace shared
+
+class ConnInfo : public std::enable_shared_from_this<ConnInfo> {
 private:
   using Mutex = std::mutex;
   using CondV = std::condition_variable;
 
-  typedef std::unordered_map<ServerType, Port> LocalPortMap;
+public:
+  static shConnInfo init() { return shared::connInfo().emplace(new ConnInfo()); }
+  static shConnInfo ptr() { return shared::connInfo().value()->shared_from_this(); }
+  static void reset() { shared::connInfo().reset(); }
+
+private:
+  ConnInfo() {} // all access through shared ptr
 
 public:
-  ConnInfo() {}
-
   static constexpr size_t bufferSize() { return 1024 * 1024 * 8; };
-
-  // server info and control
-  Port localPort(ServerType type);
-  TeardownBarrier teardown(TeardownPhase phase);
-  bool teardownIfNeeded();
 
   // getters
   const SessionKey &sessionKey() const { return session_key; }
@@ -75,9 +77,9 @@ public:
   void saveLocalPort(ServerType type, Port port);
   void saveSessionKey(csr key);
 
-  void saveStreamData(const StreamData &data);
+  void sessionKeyClear() { session_key.clear(); }
 
-  void storeLocalPortMap(const PortMap &port_map) { local_port_map = port_map; }
+  void saveStreamData(const StreamData &data);
 
   static constexpr auto BUFFER_FRAMES = 1024;
   //  2^7 is 128. At 1 per three seconds; approximately six minutes of records
@@ -85,12 +87,8 @@ public:
 
   packet::Queued raw_queued;
 
-  TeardownPhase teardown_phase = TeardownPhase::None;
-  Teardown teardown_request;
   StreamInfo stream_info;
   Stream stream;
-
-  PortMap local_port_map;
 
   // stream category, stream type and timing type
   // is it a remote control stream or a normal "full service" stream?
@@ -104,11 +102,13 @@ public:
   string airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group
                       // UUID is the same as the pi UUID
 
-  bool groupContainsGroupLeader = false; // captured from RTSP SETUP (no stream data)
+  // captured from RTSP SETUP (no stream data)
+  bool groupContainsGroupLeader = false;
+  csv ops_mode = ops_mode::INITIALIZE;
+
+  string dacp_active_remote; // key to send to the remote controller
 
 private:
-  void teardownFinished();
-
   string UserAgent;   // free this on teardown
   int AirPlayVersion; // zero if not an AirPlay session. Used to help calculate
                       // latency
@@ -320,7 +320,7 @@ private:
   string dacp_id; // id of the client -- used to find the port to be used
   //  uint16_t dacp_port;          // port on the client to send remote control
   //  messages to, else zero
-  string dacp_active_remote;   // key to send to the remote controller
+
   string dapo_private_storage; // this is used for compatibility, if dacp stuff
                                // isn't enabled.
 

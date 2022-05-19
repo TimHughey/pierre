@@ -130,16 +130,6 @@ private:
   void parseHeaderBlock(const string_view &view);
   void parseMethod(const string_view &view);
 
-  // misc
-  const std::source_location
-  here(std::source_location loc = std::source_location::current()) const {
-    return loc;
-  };
-
-  const char *fnName(std::source_location loc = std::source_location::current()) const {
-    return here(loc).function_name();
-  }
-
 private:
   HeaderMap _omap;
   UnknownHeaders _unknown;

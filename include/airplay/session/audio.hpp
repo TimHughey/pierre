@@ -19,6 +19,8 @@
 #pragma once
 
 #include "common/ss_inject.hpp"
+#include "conn_info/conn_info.hpp"
+#include "packet/queued.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -48,9 +50,8 @@ public:
 
 private:
   Audio(const Inject &di)
-      : socket(std::move(di.socket)), // newly opened socket for session
-        conn(di.conn),                // connection info
-        wire(conn.raw_queued)         // where to put packets
+      : socket(std::move(di.socket)),     // newly opened socket for session
+        wire(ConnInfo::ptr()->raw_queued) // where to put packets
   {}
 
 public:
@@ -73,7 +74,6 @@ private:
 private:
   // order dependent - initialized by constructor
   tcp_socket socket;
-  ConnInfo &conn;
   packet::Queued &wire; // this is a reference into conn
 
   int64_t _rx_bytes = 0; // we do signed calculations

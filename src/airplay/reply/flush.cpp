@@ -30,7 +30,7 @@ bool FlushBuffered::populate() {
 
   rdict.dump(fnName());
 
-  responseCode(RespCode::OK);
+  responseCode(packet::RespCode::OK);
   return true;
 }
 

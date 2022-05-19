@@ -119,6 +119,7 @@ void cbBrowse(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol prot
 }
 
 void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void *userdata) {
+  constexpr auto f = FMT_STRING("{} {} {} group={}\n");
   mDNS *mdns = static_cast<mDNS *>(userdata);
 
   if (mdns == nullptr) {
@@ -130,25 +131,30 @@ void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void *user
 
   switch (state) {
     case AVAHI_ENTRY_GROUP_ESTABLISHED:
-      // fmt::print("mDNS::cbEntryGroup(): committed group={}\n", fmt::ptr(group));
-
+      if (false) { // debug
+        // fmt::print(f, runTicks(), fnName(), "established", fmt::ptr(group));
+      }
       mdns->saveGroup(group);
       break;
 
     case AVAHI_ENTRY_GROUP_COLLISION:
-      fmt::print("mDNS::cbEntryGroup(): collision group={}\n", fmt::ptr(group));
+      if (false) { // debug
+        fmt::print("mDNS::cbEntryGroup(): collision group={}\n", fmt::ptr(group));
+      }
       break;
 
     case AVAHI_ENTRY_GROUP_FAILURE:
-      fmt::print("mDNS::cbEntryGroup(): failure group={}\n", fmt::ptr(group));
+      if (false) { // debug
+        fmt::print("mDNS::cbEntryGroup(): failure group={}\n", fmt::ptr(group));
+      }
       break;
 
     case AVAHI_ENTRY_GROUP_UNCOMMITED:
-      // fmt::print("mDNS::cbEntryGroup(): uncommitted group={}\n", fmt::ptr(group));
+      fmt::print(f, runTicks(), fnName(), "uncommitted", fmt::ptr(group));
       break;
 
     case AVAHI_ENTRY_GROUP_REGISTERING:
-      // fmt::print("mDNS::cbEntryGroup(): registering group={}\n", fmt::ptr(group));
+      fmt::print(f, runTicks(), fnName(), "registering", fmt::ptr(group));
       break;
 
     default:

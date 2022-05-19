@@ -18,6 +18,11 @@
     https://www.wisslanding.com
 */
 
+#include "packet/headers.hpp"
+#include "core/typedefs.hpp"
+#include "packet/content.hpp"
+#include "packet/resp_code.hpp"
+
 #include <algorithm>
 #include <array>
 #include <exception>
@@ -27,10 +32,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-
-#include "packet/content.hpp"
-#include "packet/headers.hpp"
-#include "packet/resp_code.hpp"
 
 namespace pierre {
 namespace packet {
@@ -60,6 +61,8 @@ static std::array __known_types{header::type::CSeq,
                                 header::type::XAppleET,
                                 header::type::RtpInfo,
                                 header::type::XAppleAbsoulteTime};
+
+static string __EMPTY;
 
 void Headers::add(csv type, csv val) {
   auto known_header = ranges::find(__known_types, type);
@@ -108,9 +111,11 @@ const string &Headers::getVal(csv want_type) const {
   const auto &search = _omap.find(want_type);
 
   if (search == _omap.end()) {
-    constexpr auto f = FMT_STRING("{} not in map type={}\n");
-    fmt::print(f, fnName(), want_type);
-    throw(std::runtime_error("header type not found"));
+    constexpr auto f = FMT_STRING("{} {} type={} not found (returning empty string)\n");
+    fmt::print(f, runTicks(), fnName(), want_type);
+
+    return __EMPTY;
+    // throw(std::runtime_error("header type not found"));
   }
 
   return search->second;
@@ -120,9 +125,12 @@ size_t Headers::getValInt(csv want_type) const {
   const auto &search = _omap.find(want_type);
 
   if (search == _omap.end()) {
-    constexpr auto f = FMT_STRING("{} not in map type={}\n");
-    fmt::print(f, fnName(), want_type);
-    throw(std::runtime_error("header type not found"));
+    constexpr auto f = FMT_STRING("{} {} type={} not found (returning 0)\n");
+    fmt::print(f, runTicks(), fnName(), want_type);
+
+    return 0;
+
+    //  throw(std::runtime_error("header type not found"));
   }
 
   return static_cast<size_t>(std::atoi(search->second.data()));

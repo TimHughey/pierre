@@ -21,13 +21,8 @@
 #pragma once
 
 #include "common/typedefs.hpp"
-#include "core/typedefs.hpp"
 #include "packet/aplist.hpp"
-#include "reply/dict_keys.hpp"
 #include "reply/reply.hpp"
-
-#include <unordered_map>
-#include <vector>
 
 namespace pierre {
 namespace airplay {
@@ -50,8 +45,6 @@ private:
 private:
   Aplist rdict;      // the request dict
   Aplist reply_dict; // entire reply dict
-
-  StreamData stream_data;
 };
 
 } // namespace reply
