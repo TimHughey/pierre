@@ -16,7 +16,6 @@ find_library(plist_cpp NAMES plist++ REQUIRED)
 find_package(Sodium                  REQUIRED) 
 
 add_library(packet
-  rfc3550/hdr.cpp rfc3550/trl.cpp
   headers.cpp content.cpp queued.cpp rtp.cpp
   aplist.cpp resp_code.cpp
   ${HEADER_LIST}

@@ -24,6 +24,52 @@
 namespace pierre {
 namespace packet {
 
+/*
+credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
+
+RFC3550 header (as tweaked by Apple)
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     ---------------------------------------------------------------
+0x0  | V |P|X|  CC   |M|     PT      |       Sequence Number         |
+    |---------------------------------------------------------------|
+0x4  |                        Timestamp (AAD[0])                     |
+    |---------------------------------------------------------------|
+0x8  |                          SSRC (AAD[1])                        |
+    |---------------------------------------------------------------|
+0xc  :                                                               :
+
+RFC 3550 Trailer
+        0                   1                   2                   3
+        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+       :                                                               :
+       |---------------------------------------------------------------|
+N-0x18 |                                                               |
+       |--                          Nonce                            --|
+N-0x14 |                                                               |
+       |---------------------------------------------------------------|
+N-0x10 |                                                               |
+       |--                                                           --|
+N-0xc  |                                                               |
+       |--                           Tag                             --|
+N-0x8  |                                                               |
+       |--                                                           --|
+N-0x4  |                                                               |
+        ---------------------------------------------------------------
+N
+
+  notes:
+
+   1.  Apple only provides eight (8) bytes of nonce (defined as a NonceMini
+       in this file).
+
+   2.  ChaCha requires a twelve (12) bytes of nonce.
+
+   3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
+       are zeroed
+
+*/
+
 class RTP {
 public:
   RTP(Basic &packet);
