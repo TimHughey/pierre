@@ -47,7 +47,7 @@ add_library(${__target}
   server/servers.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp
 
   # sessions
-  session/audio.cpp session/event.cpp session/rtsp.cpp
+  session/base.cpp session/audio.cpp session/event.cpp session/rtsp.cpp
   
   ${HEADER_LIST}
 )

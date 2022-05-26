@@ -17,13 +17,19 @@
 //  https://www.wisslanding.com
 
 #include "session/audio.hpp"
+#include "anchor/anchor.hpp"
+#include "clock/info.hpp"
+#include "conn_info/conn_info.hpp"
 #include "packet/basic.hpp"
+#include "packet/queued.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <chrono>
+#include <cmath>
 #include <fmt/format.h>
+#include <mutex>
 
 namespace pierre {
 namespace airplay {
@@ -36,16 +42,10 @@ using namespace pierre::packet;
 
 namespace errc = boost::system::errc;
 
-Audio::~Audio() {
-  constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
-  fmt::print(f, runTicks(), "AUDIO SESSION", socket.native_handle());
-
-  [[maybe_unused]] error_code ec;
-
-  // must use error_code overload to prevent throws
-  socket.shutdown(socket_base::shutdown_both, ec);
-  socket.close(ec);
-}
+Audio::Audio(const Inject &di)
+    : Base(di, csv("AUDIO SESSION")), // Base holds the newly connected socket
+      timer(di.io_ctx)                // rx bytes reporting
+{}
 
 /*
 constructor notes:
@@ -101,110 +101,118 @@ misc notes:
 */
 
 void Audio::asyncLoop() {
-  prepNextPacket();
-
   // start by reading the packet length
-  auto buff = wire.lenBuffer();
+  async_read(socket,                             // read from socket
+             Queued::ptr()->lenBuffer(),         // into this buffer
+             transfer_exactly(Queued::lenBytes), // the size of the pending packet
+             bind_executor(                      // via a bound executor
+                 local_strand,                   // of the local stand
+                 [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+                   // check for error and ensure receipt of the packet length
+                   if (self->isReady(ec)) {
+                     if (rx_bytes == Queued::PACKET_LEN_BYTES) {
+                       const auto len = Queued::ptr()->length();
 
-  socket.async_read_some(buff, [self = shared_from_this()](error_code ec, size_t rx_bytes) {
-    // check for error and ensure receipt of the packet length
-    if (self->isReady(ec)) {
-      if (rx_bytes == Queued::PACKET_LEN_BYTES) {
-        const auto len = self->wire.length();
+                       if (false) { // debug
+                         auto f = FMT_STRING("{} packet_len={}\n");
+                         fmt::print(f, fnName(), len);
+                       }
 
-        if (false) { // debug
-          auto f = FMT_STRING("{} packet_len={}\n");
-          fmt::print(f, fnName(), len);
-        }
-
-        // async load the packet
-        self->asyncRxPacket(len); // schedules more work as needed
-      }
-    } // self is about to go out of scope...
-  }); // shared_ptr.use_count--
-}
-
-void Audio::asyncReportRxBytes(int64_t rx_bytes) {
-  timer->expires_after(10s);
-
-  // inject the current _rx_bytes (as rx_last) for compare when the timer expires
-  timer->async_wait([self = shared_from_this(), rx_last = rx_bytes](error_code ec) {
-    // only check for success here, check for actual packet length bytes later
-    if (ec == errc::success) {
-      const auto rx_total = self->_rx_bytes;
-
-      // if (rx_total != rx_last) {
-      constexpr auto f = FMT_STRING("{} AUDIO RX total={:<15} 30s={}\n");
-      const auto in_30secs = rx_total - rx_last;
-      fmt::print(f, runTicks(), rx_total, in_30secs);
-      // }
-
-      self->asyncReportRxBytes(rx_total);
-    }
-  });
+                       // async load the packet
+                       self->asyncRxPacket(len); // schedules more work as needed
+                       self->ensureRxBytesReport();
+                     }
+                   }  // self is about to go out of scope...
+                 })); // shared_ptr.use_count--
 }
 
 void Audio::asyncRxPacket(size_t packet_len) {
-  async_read(socket, dynamic_buffer(wire.buffer()), transfer_exactly(packet_len - 2),
-             [self = shared_from_this()](error_code ec, size_t rx_bytes) {
-               // bail out when not reqdy
-               if (self->isReady(ec) == false) // self-destruct
-                 return;
+  async_read(socket,                                  // the socket of interest
+             dynamic_buffer(Queued::ptr()->buffer()), // where to put the data
+             transfer_exactly(packet_len - 2),        // how much to rx
+             bind_executor(local_strand,              // run on this strand
+                           [self = shared_from_this()](error_code ec,
+                                                       size_t rx_bytes) { // completion handler
+                             // bail out when not reqdy
+                             if (self->isReady(ec) == false) // self-destruct
+                               return;
 
-               self->accumulate(RX, rx_bytes);   // track stats
-               self->wire.storePacket(rx_bytes); // notify bytes received
-               self->asyncLoop();                // async read next packet
-             });
+                             if (true) { // debug
+                               constexpr auto f = FMT_STRING("{} AUDIO RX "
+                                                             "sampletime={} "
+                                                             "raw={} ns_since_sample={} now={}\n");
+
+                               auto clock_info = Clock::ptr()->info();
+                               const int64_t now = Clock::now();
+
+                               const int64_t time_since_sample = now - clock_info.sampleTime;
+
+                               if (false) {
+                                 fmt::print(f, runTicks(), clock_info.sampleTime,
+                                            clock_info.rawOffset, time_since_sample, now);
+                               }
+                             }
+
+                             self->accumulate(RX, rx_bytes);       // track stats
+                             Queued::ptr()->storePacket(rx_bytes); // notify bytes received
+                             self->asyncLoop();                    // async read next packet
+                           }));
 }
 
-bool Audio::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
-  auto rc = true;
+void Audio::ensureRxBytesReport() {
+  static std::once_flag flag;
 
-  if (ec) {
-    switch (ec.value()) {
-      case errc::success:
-        break;
-
-      // case errc::operation_canceled:
-      // case errc::resource_unavailable_try_again:
-      // case errc::no_such_file_or_directory:
-      default: {
-        constexpr auto f = FMT_STRING("{} AUDIO SESSION SHUTDOWN socket={} err_value={} msg={}\n");
-        fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());
-
-        rc = false; // return false, object will auto destruct
-      }
-    }
-  }
-
-  return rc;
-}
-
-void Audio::prepNextPacket() noexcept { wire.reset(); }
-
-void Audio::accumulate(Accumulate type, size_t bytes) {
-  switch (type) {
-    case RX:
-      _rx_bytes += bytes;
-      break;
-
-    case TX:
-      _tx_bytes += bytes;
-      break;
-  }
-
-  if (timer.has_value() == false) {
-    timer.emplace(high_resolution_timer(socket.get_executor()));
-
-    // pass the accumulated rx bytes for comparison at timer expire
-    asyncReportRxBytes(_rx_bytes);
-  }
+  std::call_once(flag, [&]() { timedRxBytesReport(); });
 }
 
 void Audio::teardown() {
   [[maybe_unused]] error_code ec;
+  timer.cancel(ec);
 
-  socket.cancel(ec);
+  Base::teardown();
+}
+
+void Audio::timedRxBytesReport() {
+  timer.expires_after(10s);
+
+  timer.                                                   // this timer
+      async_wait(                                          // waits via
+          bind_executor(                                   // a specific executor that
+              local_strand,                                // uses this strand
+              [self = shared_from_this()](error_code ec) { // for this completion handler
+                static int64_t rx_last = 0;
+                // only check for success here, check for actual packet length bytes later
+                if (ec == errc::success) {
+                  const auto rx_total = self->accumulated(RX);
+
+                  if (rx_total == 0) {
+                    self->timedRxBytesReport();
+                  }
+
+                  // if (rx_total != rx_last) {
+                  constexpr auto f = FMT_STRING("{} {} RX total={:<10} 10s={:<10} "
+                                                "seq_num={:<11} {:>11} count={:>6} "
+                                                "timest={:<12} {:>12} "
+                                                "as_secs={:>6.4}\n");
+                  const auto in_10secs = rx_total - rx_last;
+                  rx_last = rx_total;
+
+                  // const auto &stream_data = ConnInfo::ptr()->streamData();
+                  const auto clock_info = Clock::ptr()->info();
+
+                  const int64_t time_since_sample = clock_info.sampleTime - clock_info.now();
+                  const double as_secs = (double)time_since_sample * std::pow(10, -9);
+
+                  auto queued = Queued::ptr();
+
+                  fmt::print(f, runTicks(), self->sessionId(), rx_total, in_10secs,
+                             queued->seqFirst(), queued->seqLast(), queued->seqCount(),
+                             queued->timestFirst(), queued->timestLast(), as_secs);
+                  // }
+
+                  self->timedRxBytesReport();
+                }
+              }));
 }
 
 } // namespace session

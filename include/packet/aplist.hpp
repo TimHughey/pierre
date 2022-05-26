@@ -19,6 +19,7 @@
 #pragma once
 
 #include "core/typedefs.hpp"
+#include "packet/basic.hpp"
 #include "packet/content.hpp"
 
 #include <array>
@@ -48,9 +49,10 @@ public:
 
   typedef std::vector<string> ArrayStrings;
   typedef std::vector<Aplist> ArrayDicts;
+  typedef std::shared_ptr<uint8_t[]> Binary;
   typedef std::vector<const Aplist &> ConstArrayDicts;
   typedef std::vector<ccs> Dictionaries;
-  typedef std::shared_ptr<uint8_t[]> Binary;
+  typedef std::vector<string_view> KeyList;
   typedef std::vector<string_view> Steps;
   typedef std::vector<KeyUint> UintList;
 
@@ -79,63 +81,20 @@ public:
   // general API
   // NOTE: api naming convention is dict* to support subclassing
 
-  // sets the base node for all dict* get/set to something other
-  // than the root
-  Aplist baseNode(Level level, plist_type type, ...);
-  bool boolVal(csv key) const;
+  bool boolVal(const Steps &steps) const;
   Binary toBinary(size_t &bytes) const;
 
-  // bool compareString(csv key, csv val) const;
   bool compareString(csv key, csv val) const;
-  //  bool compareStringViaPath(ccs compare, uint32_t path_count, ...) const;
   bool compareStringViaPath(csv val, uint32_t path_count, ...) const;
+
+  const Basic dataArray(const Steps &steps) const;
 
   bool empty() const;
   // bool exists(ccs path);
   bool exists(csv key);
-  bool exists(const std::vector<ccs> &items);
+  bool existsAll(const KeyList &key_list);
 
   plist_t fetchNode(const Steps &steps, plist_type type = PLIST_DICT) const;
-
-  bool getBool(ccs path, bool &dest);
-  bool getBool(Level level, ...);
-  const string getData(Level level, ...);
-
-  // plist_t getItem(csv path) const { return getItem(path.data()); }
-  plist_t getItem(csv key) const {
-    const auto plist = _plist; // need const for function to be const
-    return plist_dict_get_item(plist, key.data());
-  }
-
-  plist_t getNode(csv key, plist_type type = PLIST_DICT) const {
-    const auto plist = _plist; // need const for function to be const
-
-    auto node = plist_dict_get_item(plist, key.data());
-
-    if (checkType(node, type)) {
-      return node;
-    }
-
-    return nullptr;
-  }
-
-  plist_t getNode(const Steps &steps, plist_type type = PLIST_DICT) const;
-
-  bool getString(ccs path, string &dest);
-  bool getStringArray(csv key, csv sub_key, ArrayStrings &array_strings);
-  std::string getStringConst(Level level, ...);
-  csv getView(csv key) const;
-  csv getView(const Steps &steps) const;
-
-  // retrive the uint64_t at the named node (at the root)
-  uint64_t getUint(ccs root_key) { return getUint(Level::Root, root_key); }
-
-  // retrieve the uint64_t using path specified
-  uint64_t getUint(Level level, ...);
-
-  Aplist &insert(csv key, uint64_t val);
-
-  bool isArrayIndex(csv key) const;
 
   bool ready() const { return _plist != nullptr; }
 
@@ -155,6 +114,7 @@ public:
   void setUints(const UintList &uints);
 
   const ArrayStrings stringArray(const Steps &steps) const;
+  csv stringView(const Steps &steps) const;
 
   uint64_t uint(const Steps &steps) const;
 
@@ -168,6 +128,8 @@ private:
   plist_t dict() { return _plist; }
 
   Aplist &fromContent(const Content &content);
+  plist_t getItem(csv key) const;
+  bool isArrayIndex(csv key) const;
 
 private:
   plist_t _plist = nullptr;

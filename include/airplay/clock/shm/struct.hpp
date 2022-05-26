@@ -54,6 +54,18 @@ constexpr auto VERSION = 7;
 
 constexpr size_t size() { return sizeof(structure); }
 
+constexpr void copy(void *src, struct structure *dst, csrc_loc loc = src_loc::current()) {
+  memcpy(dst, (char *)src, size());
+
+  if ((dst->version != VERSION)) {
+    constexpr auto msg = "nqptp version mismatch";
+    constexpr auto f = FMT_STRING("FAILURE {} {} vsn={}\n");
+
+    fmt::print(f, loc.function_name(), msg, dst->version);
+    throw(runtime_error(msg));
+  }
+}
+
 constexpr structure *ptr(void *data, csrc_loc loc = src_loc::current()) {
   auto *_ptr_ = (structure *)data;
 

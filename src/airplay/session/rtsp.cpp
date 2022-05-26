@@ -90,7 +90,7 @@ void Rtsp::asyncLoop() {
 }
 
 void Rtsp::handleRequest(size_t rx_bytes) {
-  accumulateRx(rx_bytes);
+  accumulate(RX, rx_bytes);
 
   // try {
   if (rxAvailable()            // drained the socket successfully
@@ -125,8 +125,8 @@ bool Rtsp::rxAvailable() {
   auto buff = dynamic_buffer(_wire);
 
   while (isReady(ec) && (avail_bytes > 0)) {
-    auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
-    accumulateTx(tx_bytes);
+    auto rx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
+    accumulate(RX, rx_bytes);
 
     avail_bytes = socket.available(ec);
   }
@@ -202,7 +202,7 @@ bool Rtsp::createAndSendReply() {
 
   error_code ec;
   auto tx_bytes = write(socket, buff, ec);
-  accumulateTx(tx_bytes);
+  accumulate(TX, tx_bytes);
 
   if (false) { // debug
     constexpr auto f = FMT_STRING("{} REPLY SENT tx_bytes={:<4} what={} method={} path={}\n");
@@ -213,45 +213,7 @@ bool Rtsp::createAndSendReply() {
   return isReady(ec);
 }
 
-bool Rtsp::isReady(const error_code &ec) {
-  auto rc = true;
-
-  switch (ec.value()) {
-    case errc::success:
-      break;
-
-    case errc::operation_canceled:
-    case errc::resource_unavailable_try_again:
-    default:
-      teardown(ec); // problem... teardown
-      rc = false;
-  }
-
-  return rc;
-}
-
-void Rtsp::teardown() {
-  if (socket.is_open()) {
-    [[maybe_unused]] error_code ec;
-
-    socket.shutdown(tcp_socket::shutdown_both, ec);
-    socket.close(ec);
-
-    constexpr auto f = FMT_STRING("{} RTSP SESSION SHUTDOWN socket={} err_value={} msg={}\n");
-    fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());
-  } else {
-    constexpr auto f = FMT_STRING("{} RTSP SESSION PREVIOUS TEARDOWN socket={}\n");
-    fmt::print(f, runTicks(), socket.native_handle());
-  }
-}
-
-void Rtsp::teardown(const error_code ec) {
-  constexpr auto f = FMT_STRING("{} RTSP SESSION TEARDOWN socket={} err_value={} msg={}\n");
-  fmt::print(f, runTicks(), socket.native_handle(), ec.value(), ec.message());
-
-  teardown();
-}
-
+/*
 bool Rtsp::txContinue() {
   // send a CONTINUE reply then read the pending data
   constexpr auto CONTINUE = csv("CONTINUE");
@@ -270,10 +232,12 @@ bool Rtsp::txContinue() {
 
   error_code ec;
   auto tx_bytes = write(socket, buff, ec);
-  accumulateTx(tx_bytes);
+  accumulate(TX, tx_bytes);
 
   return isReady(ec);
 }
+
+*/
 
 // misc debug, loggind
 

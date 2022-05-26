@@ -19,52 +19,53 @@
 #pragma once
 
 #include "common/ss_inject.hpp"
-#include "conn_info/conn_info.hpp"
-#include "session/base.hpp"
+#include "common/typedefs.hpp"
 
 #include <fmt/format.h>
 #include <memory>
-#include <optional>
+#include <unordered_map>
+#include <utility>
 
 namespace pierre {
 namespace airplay {
 namespace session {
 
-class Audio; // forward decl for shared_ptr def
-typedef std::shared_ptr<Audio> shAudio;
+class Base;
+typedef std::shared_ptr<Base> shBase;
 
-class Audio : public Base, public std::enable_shared_from_this<Audio> {
-public:
-  static shAudio start(const Inject &di) {
-    // creates the shared_ptr and starts the async loop
-    // the asyncLoop holds onto the shared_ptr until an error on the
-    // socket is detected
-    auto session = shAudio(new Audio(di));
-
-    session->asyncLoop();
-
-    return session;
-  }
+class Base {
+protected:
+  enum ACCUMULATE : uint8_t { RX = 31, TX };
 
 private:
-  Audio(const Inject &di);
+  static constexpr csv DEF_SESSION_ID{"unknown session"};
 
 public:
-  // initiates async audio buffer loop
-  void asyncLoop() override; // see .cpp file for critical function details
+  Base(const Inject &di, csv session_id = DEF_SESSION_ID);
 
-  void teardown() override;
+  virtual ~Base();
+
+  virtual void asyncLoop() = 0;
+
+  bool isReady() const { return socket.is_open(); };
+  bool isReady(const error_code &ec);
+
+  csv sessionId() const { return session_id; }
+  virtual void shutdown() { teardown(); }
+  virtual void teardown();
+
+  void accumulate(ACCUMULATE type, size_t bytes) { _acc[type] += bytes; }
+  const auto accumulated(ACCUMULATE type) { return _acc[type]; }
+
+protected:
+  // order dependent - initialized by constructor
+  tcp_socket socket;
+  io_strand local_strand;
 
 private:
-  void ensureRxBytesReport();
-  void timedRxBytesReport();
-  void asyncRxPacket(size_t packet_len);
+  string session_id; // used for logging
 
-private:
-  // order dependent
-  high_res_timer timer;
-
-  static constexpr size_t STD_PACKET_SIZE = 2048;
+  std::unordered_map<ACCUMULATE, uint64_t> _acc;
 };
 
 } // namespace session

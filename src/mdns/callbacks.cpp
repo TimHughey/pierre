@@ -150,11 +150,15 @@ void cbEntryGroup(AvahiEntryGroup *group, AvahiEntryGroupState state, void *user
       break;
 
     case AVAHI_ENTRY_GROUP_UNCOMMITED:
-      fmt::print(f, runTicks(), fnName(), "uncommitted", fmt::ptr(group));
+      if (false) { // debug
+        fmt::print(f, runTicks(), fnName(), "uncommitted", fmt::ptr(group));
+      }
       break;
 
     case AVAHI_ENTRY_GROUP_REGISTERING:
-      fmt::print(f, runTicks(), fnName(), "registering", fmt::ptr(group));
+      if (false) { // debug
+        fmt::print(f, runTicks(), fnName(), "registering", fmt::ptr(group));
+      }
       break;
 
     default:

@@ -38,7 +38,7 @@ public:
         di(inject),                // safe to save injected deps here
         acceptor{di.io_ctx,        // accept connections as work for io_ctx
                  tcp_endpoint(     // create the acceptor
-                     ip_tcp::v6(), // allow ipv4 and ipv6
+                     ip_tcp::v4(), // ip version
                      LOCAL_PORT)}  // listen on a specific port
 
   {}

@@ -18,40 +18,42 @@
 
 #pragma once
 
-#include "common/typedefs.hpp"
-
-#include <algorithm>
-#include <chrono>
-#include <cstdint>
-#include <fmt/format.h>
-#include <source_location>
-#include <vector>
+#include "core/typedefs.hpp"
+#include "packet/basic.hpp"
 
 namespace pierre {
-namespace airplay {
+namespace packet {
 
-using namespace std::chrono_literals;
-using Nanos = std::chrono::nanoseconds;
-using SteadyClock = std::chrono::steady_clock;
-using src_loc = std::source_location;
-
-typedef const char *ccs;
-typedef const src_loc csrc_loc;
-
-class NetTime {
+class RTP {
 public:
-  NetTime() = default;
-  NetTime(int64_t ticks) : nanos(ticks) {}
-  NetTime(uint64_t secs, uint64_t nano_fracs);
+  RTP(Basic &packet);
 
-  const Nanos &ns() const { return nanos; }
+  bool decipher();
+  bool isValid() const { return version == 0x02; }
+  size_t payloadSize() const { return _payload.size(); }
 
-  uint64_t ticks() const { return nanos.count(); }
-
-  bool tooOld(const auto &duration) const { return (nanos < (nanos - duration)); }
+  static void shk(const Basic &key);
 
 private:
-  Nanos nanos;
+  void adtsHeaderAdd();
+
+public:
+  // order dependent
+  uint8_t version;
+  bool padding;
+  bool extension;
+  uint8_t ssrc_count;
+  uint32_t seq_num;
+  uint32_t timestamp;
+  uint32_t ssrc;
+
+private:
+  // order independent
+  packet::Basic _nonce;
+  packet::Basic _tag;
+  packet::Basic _aad;
+  packet::Basic _payload;
 };
-} // namespace airplay
+
+} // namespace packet
 } // namespace pierre

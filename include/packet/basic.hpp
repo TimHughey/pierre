@@ -28,7 +28,7 @@ namespace pierre {
 namespace packet {
 
 class Basic : public std::vector<uint8_t> {
-public:
+private:
   typedef const std::string_view csv;
   typedef const char *ccs;
 

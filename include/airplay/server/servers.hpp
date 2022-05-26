@@ -21,6 +21,7 @@
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
+#include <boost/asio.hpp>
 #include <future>
 #include <map>
 #include <memory>
@@ -30,6 +31,17 @@
 
 namespace pierre {
 namespace airplay {
+
+namespace strands {
+constexpr csv RTSP("rtsp");
+constexpr csv CLOCK("clock");
+constexpr csv RTP("rtp");
+constexpr csv PCM("pcm");
+} // namespace strands
+
+namespace {
+using strand = boost::asio::io_context::strand;
+}
 
 enum TeardownPhase : uint8_t { None = 0, One, Two };
 typedef std::future<TeardownPhase> TeardownBarrier;
@@ -61,7 +73,9 @@ public:
   void teardown(ServerType type);
 
 private:
-  Servers(server::Inject di) : di(di) {}
+  Servers(server::Inject di)
+      : di(di) // save inject
+  {}
 
   ServerPtr fetch(ServerType type);
 

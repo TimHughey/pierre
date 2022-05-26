@@ -24,14 +24,21 @@
 
 #include <array>
 #include <chrono>
-#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <optional>
 
 namespace pierre {
 namespace airplay {
+
+class Clock;
+typedef std::shared_ptr<Clock> shClock;
+
+namespace shared {
+std::optional<shClock> &clock();
+} // namespace shared
 
 namespace clock {
 struct Inject {
@@ -41,49 +48,52 @@ struct Inject {
 };
 } // namespace clock
 
-class Clock {
+class Clock : public std::enable_shared_from_this<Clock> {
 private:
   static constexpr uint16_t CTRL_PORT = 9000; // see note
   static constexpr auto LOCALHOST = "127.0.0.1";
 
 public:
-  Clock(const clock::Inject &di);
+  static shClock init(const clock::Inject &inject) {
+    return shared::clock().emplace(new Clock(inject));
+  }
+  static shClock ptr() { return shared::clock().value()->shared_from_this(); }
+  static void reset() { shared::clock().reset(); }
+  ~Clock() { unMap(); }
 
   const clock::Info info();
-  bool isMapped(csrc_loc loc = src_loc::current()) const;
+
+  // void openAndMap();
 
   static uint64_t now() { return SteadyClock::now().time_since_epoch().count(); }
 
   void peersReset() { peersUpdate(Peers()); }
   void peers(const Peers &peer_list) { peersUpdate(peer_list); }
 
-  [[nodiscard]] bool refresh(); // refresh cached values
   void teardown() { peersReset(); }
 
   // misc debug
   void dump() const;
 
 private:
-  bool ensureConnection();
-  void sendCtrlMsg(csr msg); // queues async
-  void openAndMap();
-  void unMap();
+  Clock(const clock::Inject &di);
 
+  bool isMapped(csrc_loc loc = src_loc::current()) const;
+  bool mapSharedMem();
+
+  // void sendCtrlMsg(csr msg); // queues async
+  void unMap();
   void peersUpdate(const Peers &peers);
 
 private:
   // order dependent
-  io_context &io_ctx;
+  io_strand strand;
   udp_socket socket;
   ip_address address;
   udp_endpoint endpoint; // local endpoint (c)
 
-  string shm_name; // shared memmory segment name (built by constructor)
-
+  string shm_name;        // shared memmory segment name (built by constructor)
   void *mapped = nullptr; // mmapped region of nqptp data struct
-  string peer_list;       // timing peers (update when not empty)
-
-  packet::Basic _wire;
 
 public:
   // prevent copies, moves and assignments

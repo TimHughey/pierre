@@ -18,6 +18,7 @@
 
 #include "reply/set_anchor.hpp"
 #include "anchor/anchor.hpp"
+#include "reply/dict_keys.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -27,6 +28,8 @@ using namespace packet;
 
 bool SetAnchor::populate() {
   rdict = plist();
+
+  rdict.dump();
 
   saveAnchorInfo();
 
@@ -38,29 +41,23 @@ bool SetAnchor::populate() {
 void SetAnchor::saveAnchorInfo() {
   auto anchor = Anchor::ptr();
 
-  constexpr auto Rate = "rate";
-  constexpr auto TimelineID = "networkTimeTimelineID";
-  constexpr auto Secs = "networkTimeSecs";
-  constexpr auto Frac = "networkTimeFrac";
-  constexpr auto Flags = "networkTimeFlags";
-  constexpr auto RtpTime = "rtpTime";
-
   // a complete anchor message contains these keys
-  const std::vector all_keys = {Rate, TimelineID, Secs, Frac, Flags, RtpTime};
+  const Aplist::KeyList keys{dk::RATE,          dk::NET_TIMELINE_ID, dk::NET_TIME_SECS,
+                             dk::NET_TIME_FRAC, dk::NET_TIME_FLAGS,  dk::RTP_TIME};
 
-  if (rdict.exists(all_keys)) {
+  if (rdict.existsAll(keys)) {
     // this is a complete anchor set
-    auto anchor_data = AnchorData{.rate = rdict.getUint(Rate),
-                                  .timelineID = rdict.getUint(TimelineID),
-                                  .secs = rdict.getUint(Secs),
-                                  .frac = rdict.getUint(Frac),
-                                  .flags = rdict.getUint(Flags),
-                                  .rtpTime = rdict.getUint(RtpTime)};
+    auto anchor_data = AnchorData{.rate = rdict.uint({dk::RATE}),
+                                  .timelineID = rdict.uint({dk::NET_TIMELINE_ID}),
+                                  .secs = rdict.uint({dk::NET_TIME_SECS}),
+                                  .frac = rdict.uint({dk::NET_TIME_FRAC}),
+                                  .flags = rdict.uint({dk::NET_TIME_FLAGS}),
+                                  .rtpTime = rdict.uint({dk::RTP_TIME})};
 
     anchor->save(anchor_data);
     anchor->dump();
   } else {
-    auto anchor_data = AnchorData{.rate = rdict.getUint(Rate)};
+    auto anchor_data = AnchorData{.rate = rdict.uint({dk::RATE})};
     Anchor::ptr()->save(anchor_data);
   }
 }

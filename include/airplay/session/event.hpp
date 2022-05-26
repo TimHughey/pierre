@@ -20,6 +20,7 @@
 
 #include "common/ss_inject.hpp"
 #include "packet/in.hpp"
+#include "session/base.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -31,35 +32,29 @@ namespace session {
 class Event; // forward decl for shared_ptr def
 typedef std::shared_ptr<Event> shEvent;
 
-class Event : public std::enable_shared_from_this<Event> {
+class Event : public Base, public std::enable_shared_from_this<Event> {
 public:
-  enum Accumulate { RX, TX };
-
-public:
-  static void start(const Inject &di) {
+  static shEvent start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
     // socket is detected
-    shEvent(new Event(di))->asyncLoop();
+    auto session = shEvent(new Event(di));
+
+    session->asyncLoop();
+
+    return session;
   }
 
 private:
   Event(const Inject &di)
-      : socket(std::move(di.socket)) // newly opened socket for session
+      : Base(di, csv("EVENT SESSION")) // Base holds the newly connected socket
   {}
 
 public:
   // initiates async event run loop
-  void asyncLoop(); // see .cpp file for critical function details
-  void teardown();
+  void asyncLoop() override; // see .cpp file for critical function details
 
 private:
-  void accumulate(Accumulate type, size_t bytes);
-  // void createAndSendReply();
-  // size_t decrypt(packet::In &packet);
-  // void ensureAllContent(); // uses Headers functionality to ensure all content loaded
-  bool isReady() const { return socket.is_open(); };
-  bool isReady(const error_code &ec, csrc_loc loc = src_loc::current());
   void handleEvent(size_t bytes);
   void nextEvent();
 
@@ -69,15 +64,7 @@ private:
   void wireToPacket();
 
 private:
-  // order dependent - initialized by constructor
-  tcp_socket socket;
-
   packet::In _wire;
-
-  uint64_t _rx_bytes = 0;
-  uint64_t _tx_bytes = 0;
-
-  bool _shutdown = false;
 };
 
 } // namespace session

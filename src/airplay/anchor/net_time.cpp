@@ -18,29 +18,45 @@
 
 #include "anchor/net_time.hpp"
 
+#include <cmath>
+#include <limits>
+
 namespace pierre {
 namespace airplay {
 
+using namespace std::chrono;
+
 NetTime::NetTime(uint64_t secs, uint64_t nano_fracs) {
-  // it looks like the nano_fracs is a fraction where the msb is work 1/2
-  // the next 1/4 and so on now, convert the network time and fraction into nanoseconds
-  constexpr uint64_t ns_factor = 1 ^ 9;
+  /*
 
-  // begin tallying up the nanoseconds starting with the seconds
-  nanos = Secs(secs);
+  Using PTP, here is what is necessary
+    * The local (monotonic system up)time in nanos (arbitrary reference)
+    * The remote (monotonic system up)time in nanos (arbitrary reference)
+    * (symmetric) link delay
+      1. calculate link delay (PTP)
+      2. get local time (PTP)
+      3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
+         we know how remote timestamps align to local ones. Now these
+         network times are meaningful.
+      4. determine how many nanos elapsed since anchorTime msg egress.
+         Note: remote monotonic nanos for iPhones stops when they sleep, though
+         not when casting media.
+  */
 
-  // convert the nano_fracs into actual nanoseconds
-  nano_fracs >>= 32; // reduce precision to about 1/4 of a ns
-  nano_fracs *= ns_factor;
-  nano_fracs >>= 32; // shift again to get ns
+  constexpr int64_t ns_factor = std::pow(10, 9);
+  // constexpr double frac_factor = std::pow(2.0, -64.0);
+  // constexpr uint64_t frac_mask = std::numeric_limits<uint64_t>::max();
 
-  // add the fractional nanoseconds to the tally
-  nanos += Nanos(nano_fracs);
-}
+  int64_t net_time_fracs;
+  net_time_fracs = nano_fracs >> 32;
+  net_time_fracs = net_time_fracs * ns_factor;
+  net_time_fracs = net_time_fracs >> 32;
 
-void NetTime::dump(csrc_loc loc) const {
-  auto constexpr f = FMT_STRING("{} ticks={:#x}\n");
-  fmt::print(f, fnName(loc), ticks());
+  nanos = Nanos(secs * ns_factor + net_time_fracs);
+
+  // nanos = Secs(secs);
+  // nanos += Secs((nano_fracs & frac_mask) * frac_factor);
+  //  nanos += Nanos((nano_fracs & frac_mask) >> 32);
 }
 
 } // namespace airplay

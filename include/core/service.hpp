@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "service/types.hpp"
+#include "status_flags.hpp"
 #include "typedefs.hpp"
 
 #include <cstdint>
@@ -59,7 +60,7 @@ public:
 
   // general API
   // void adjustSystemFlags(Flags flag);
-  void deviceSupportsRelay(bool on_off = true);
+  void receiverActive(bool on_off = true);
   auto features() const { return _features_val; }
   const KeyVal fetch(const Key key) const;
   ccs fetchKey(const Key key) const;
@@ -76,7 +77,7 @@ public:
   ccs name() const { return fetchVal(ServiceName); }
 
   // system flags (these change based on AirPlay)
-  uint64_t systemFlags() const { return _system_flags; }
+  uint32_t statusFlags() const { return _status_flags.val(); }
 
 private:
   void addFeatures();
@@ -89,14 +90,7 @@ private:
 private:
   static constexpr uint16_t _base_port = 7000;
 
-  // Advertised with mDNS and returned with GET /info, see
-  // https://openairplay.github.io/airplay-spec/status_flags.html
-  // 0x4: Audio cable attached, no PIN required (transient pairing)
-  // 0x204: Audio cable attached, OneTimePairingRequired
-  // 0x604: Audio cable attached, OneTimePairingRequired, device setup for
-  // Homekit access control
-  const uint32_t _system_flags_initial = 0x04;
-  uint32_t _system_flags = 0x04;
+  StatusFlags _status_flags; // see status_flags.hpp
 
   // features code is 64-bits and is used for both mDNS and plist
   // for mDNS advertisement

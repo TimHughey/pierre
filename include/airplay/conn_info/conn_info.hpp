@@ -24,7 +24,6 @@
 #include "conn_info/stream.hpp"
 #include "conn_info/stream_info.hpp"
 #include "core/typedefs.hpp"
-#include "packet/queued.hpp"
 
 #include <arpa/inet.h>
 #include <condition_variable>
@@ -65,27 +64,20 @@ private:
 
 public:
   static constexpr size_t bufferSize() { return 1024 * 1024 * 8; };
+  const StreamData &streamData() const { return stream_info.data(); }
 
   // getters
-  const SessionKey &sessionKey() const { return session_key; }
+  csv sessionKey() const { return stream_info.key(); }
 
   // setters
   void save(const Stream &new_stream) { stream = new_stream; }
   void save(const StreamData &data);
 
-  void saveActiveRemote(csv active_rmeote);
-  void saveLocalPort(ServerType type, Port port);
-  void saveSessionKey(csr key);
-
-  void sessionKeyClear() { session_key.clear(); }
-
-  void saveStreamData(const StreamData &data);
+  void sessionKeyClear() { stream_info.keyClear(); }
 
   static constexpr auto BUFFER_FRAMES = 1024;
   //  2^7 is 128. At 1 per three seconds; approximately six minutes of records
   static constexpr auto ping_history = (1 << 7);
-
-  packet::Queued raw_queued;
 
   StreamInfo stream_info;
   Stream stream;
@@ -258,11 +250,11 @@ private:
 
   // ap2_pairing ap2_control_pairing;
 
-  uint64_t audio_format;
-  uint64_t compression;
-  SessionKey session_key; // needs to be free'd at the end
-  uint64_t frames_packet;
-  uint64_t type;
+  // uint64_t audio_format;
+  // uint64_t compression;
+  // SessionKey session_key; // needs to be free'd at the end
+  // uint64_t frames_packet;
+  // uint64_t type;
   uint64_t networkTimeTimelineID; // the clock ID used by the player
 
   // used as the initials values for calculating the rate at which the source

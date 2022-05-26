@@ -27,6 +27,7 @@
 #include <fmt/format.h>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <sstream>
 #include <string>
 
@@ -39,6 +40,7 @@ namespace pierre {
 namespace packet {
 
 using namespace std;
+namespace ranges = std::ranges;
 
 using namespace PList;
 
@@ -96,31 +98,7 @@ Aplist::Aplist(const Aplist &src, Level level, ...) {
 }
 
 Aplist::Aplist(const Aplist &src, const Steps &steps) {
-  // empty first and only node, copy the entire plist
-  if (steps.front().empty() && (steps.size() == 1)) {
-    _plist = plist_copy(src._plist);
-    return;
-  }
-
-  plist_t node;
-  plist_t src_plist = src._plist;
-
-  switch (steps.size()) {
-    case 1:
-      node = plist_access_path(src_plist, 1, steps[0]);
-      break;
-
-    case 2:
-      node = plist_access_path(src_plist, 2, steps[0], steps[1]);
-      break;
-
-    case 3:
-      node = plist_access_path(src_plist, 3, steps[0], steps[1], steps[3]);
-      break;
-
-    default:
-      node = nullptr;
-  }
+  auto node = src.fetchNode(steps, PLIST_DICT);
 
   _plist = (node) ? plist_copy(node) : plist_new_dict();
 }
@@ -139,14 +117,14 @@ Aplist &Aplist::operator=(Aplist &&ap) {
   return *this;
 }
 
-bool Aplist::boolVal(csv key) const {
-  auto node = getNode(key, PLIST_BOOLEAN);
+bool Aplist::boolVal(const Steps &steps) const {
+  auto node = fetchNode(steps, PLIST_BOOLEAN);
 
   if (node) {
     uint8_t val = 0;
     plist_get_bool_val(node, &val);
 
-    return (bool)val;
+    return bool(val);
   }
 
   return false;
@@ -213,17 +191,38 @@ bool Aplist::compareStringViaPath(csv val, uint32_t path_count, ...) const {
   return rc;
 }
 
+const Basic Aplist::dataArray(const Steps &steps) const {
+  Basic data;
+
+  auto node = fetchNode(steps, PLIST_DATA);
+
+  if (node == nullptr) {
+    return data;
+  }
+
+  uint64_t len = 0;
+  auto ptr = (uint8_t *)plist_get_data_ptr(node, &len);
+
+  if (ptr && len) {
+    for (uint64_t i = 0; i < len; i++) {
+      data.emplace_back(ptr[i]);
+    }
+  }
+
+  return data;
+}
+
 bool Aplist::empty() const {
   return ((_plist == nullptr) || (plist_dict_get_size(_plist) == 0)) ? true : false;
 }
 
-bool Aplist::exists(csv path) { return getItem(path) != nullptr ? true : false; }
+bool Aplist::exists(csv key) { return getItem(key) != nullptr ? true : false; }
 
-bool Aplist::exists(const std::vector<ccs> &items) {
+bool Aplist::existsAll(const KeyList &key_list) {
   auto rc = true;
 
-  for (const auto &item : items) {
-    rc &= exists(item);
+  for (const auto &key : key_list) {
+    rc &= exists(key);
   }
 
   return rc;
@@ -247,9 +246,14 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
       node = plist_access_path(_plist, 1, steps[0].data());
       break;
 
-    case 2:
-      node = plist_access_path(_plist, 2, steps[0].data(), steps[1].data());
-      break;
+    case 2: {
+      if (isArrayIndex(steps[1])) {
+        uint32_t idx = std::atoi(steps[1].data());
+        node = plist_access_path(_plist, 2, steps[0].data(), idx);
+      } else {
+        node = plist_access_path(_plist, 2, steps[0].data(), steps[1].data());
+      }
+    } break;
 
     case 3: {
       if (isArrayIndex(steps[1])) {
@@ -274,208 +278,9 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
   return (node && (type == plist_get_node_type(node))) ? node : nullptr;
 }
 
-bool Aplist::getBool(ccs path, bool &dest) {
-  auto rc = false;
-  auto node = plist_dict_get_item(_plist, path);
-
-  dest = false;
-
-  if (node && (PLIST_BOOLEAN == plist_get_node_type(node))) {
-    uint8_t pseudo_bool = 255;
-    plist_get_bool_val(node, &pseudo_bool);
-
-    // pseudo bool unchanged, failed
-    rc = (pseudo_bool == 255) ? false : true;
-
-    if (rc) {
-      dest = (pseudo_bool == 0) ? false : true;
-    }
-  }
-
-  return rc;
-}
-
-bool Aplist::getBool(Level level, ...) {
-  va_list args;
-  auto bool_val = false;
-
-  va_start(args, level);
-  auto node = plist_access_pathv(_plist, level, args);
-  va_end(args);
-
-  if (checkType(node, PLIST_BOOLEAN)) {
-    uint8_t pseudo_bool = 255;
-    plist_get_bool_val(node, &pseudo_bool);
-
-    // pseudo bool unchanged, failed
-    bool_val = (pseudo_bool == 255) ? false : true;
-  }
-
-  return bool_val;
-}
-
-// const string Aplist::getData(const Steps &steps) const {
-//   auto dict_key = steps.front().data;
-//   auto array_idx = std::atoi(steps[1]);
-//   auto array_key = steps.back().data();
-
-//   auto found = plist_access_path(_plist, 3, dict_key, array_idx, array_key);
-
-//   if (found && (PLIST_DATA == plist_get_node_type(found))) {
-//     uint64_t len;
-//     ccs ptr = plist_get_data_ptr(found, &len); // avoid copy, get ptr and len
-
-//     // wrap the ptr and len in a view for string creation
-//     return string(csv(ptr, len)); // return actual string}
-//   }
-
-//   return csv("");
-// }
-
-const std::string Aplist::getData(Level level, ...) {
-  va_list args;
-
-  va_start(args, level); // initialize args before passing through
-  auto node = plist_access_pathv(_plist, level, args);
-  va_end(args); // all done with arg, clean up
-
-  if (checkType(node, PLIST_DATA)) {
-    uint64_t len;
-    ccs ptr = plist_get_data_ptr(node, &len);
-
-    return std::string(csv(ptr, len));
-  }
-
-  return std::string();
-}
-
-bool Aplist::getString(ccs path, string &dest) {
-  auto rc = false;
-  auto node = plist_dict_get_item(_plist, path);
-
-  if (node && (PLIST_STRING == plist_get_node_type(node))) {
-    uint64_t len = 0;
-    auto ptr = plist_get_string_ptr(node, &len);
-
-    dest = csv(ptr, len);
-
-    rc = true;
-  }
-
-  return rc;
-}
-
-bool Aplist::getStringArray(csv key, csv sub_key, ArrayStrings &array_strings) {
-  auto rc = false;
-
-  // start at the root
-  auto node = _plist;
-
-  // do the level1_key and key point to an array?
-  if (checkType(node, PLIST_DICT)) {
-    // ok, the root is a dict so let's look for the level1_key
-    auto level1_dict = plist_dict_get_item(node, key.data());
-
-    if (checkType(level1_dict, PLIST_DICT)) {
-      // fine, the level one key is also a dict, now look for key
-      auto key_dict = plist_dict_get_item(level1_dict, sub_key.data());
-
-      if (checkType(key_dict, PLIST_ARRAY)) {
-        // great, key is an array, set node to key_dict
-        node = key_dict;
-        // yes, there will be a second check of the type below, so what
-      }
-    }
-  }
-
-  if (checkType(node, PLIST_ARRAY)) {
-    // good we have an array
-
-    // get the number of items in the array
-    auto items = plist_array_get_size(node);
-
-    for (uint32_t idx = 0; idx < items; idx++) {
-      auto array_item = plist_array_get_item(node, idx);
-
-      if (array_item && (PLIST_STRING == plist_get_node_type(array_item))) {
-        uint64_t len = 0;
-        auto str_ptr = plist_get_string_ptr(array_item, &len);
-
-        array_strings.emplace_back(string(str_ptr));
-      }
-      // we found an array of strings and have copied them
-      rc = true;
-    }
-  }
-
-  return rc;
-}
-
-std::string Aplist::getStringConst(Level level, ...) {
-  va_list args;
-
-  va_start(args, level); // initialize args before passing through
-  auto node = plist_access_pathv(_plist, level, args);
-  va_end(args); // all done with arg, clean up
-
-  if (checkType(node, PLIST_STRING)) {
-    uint64_t len;
-    ccs ptr = plist_get_string_ptr(node, &len);
-
-    return std::string(csv(ptr, len));
-  }
-
-  return std::string("not found");
-}
-
-csv Aplist::getView(csv key) const {
-  auto node = getNode(key, PLIST_STRING);
-
-  if (node == nullptr) {
-    return csv();
-  }
-
-  uint64_t len = 0;
-  auto ptr = plist_get_string_ptr(node, &len);
-
-  return csv(ptr, len);
-}
-
-csv Aplist::getView(const Steps &steps) const {
-  auto node = fetchNode(steps, PLIST_STRING);
-
-  if (node) {
-    uint64_t len = 0;
-    auto ptr = plist_get_string_ptr(node, &len);
-
-    return csv(ptr, len);
-  }
-
-  return csv();
-}
-uint64_t Aplist::getUint(Level level, ...) {
-  va_list args;
-
-  va_start(args, level); // initialize args before passing through
-  auto node = plist_access_pathv(_plist, level, args);
-  va_end(args); // all done with arg, clean up
-
-  if (checkType(node, PLIST_UINT)) {
-    uint64_t val = 0;
-    plist_get_uint_val(node, &val);
-
-    return val;
-  }
-
-  throw(std::out_of_range("unknown dict key"));
-}
-
-Aplist &Aplist::insert(csv key, uint64_t val) {
-  auto item = plist_new_uint(val);
-
-  plist_dict_set_item(_plist, key.data(), item);
-
-  return *this;
+plist_t Aplist::getItem(csv key) const {
+  const auto plist = _plist; // need const for function to be const
+  return plist_dict_get_item(plist, key.data());
 }
 
 bool Aplist::isArrayIndex(csv key) const { return (key[0] == '0') ? true : false; }
@@ -629,6 +434,19 @@ const Aplist::ArrayStrings Aplist::stringArray(const Steps &steps) const {
   }
 
   return array;
+}
+
+csv Aplist::stringView(const Steps &steps) const {
+  auto node = fetchNode(steps, PLIST_STRING);
+
+  if (node) {
+    uint64_t len = 0;
+    auto ptr = plist_get_string_ptr(node, &len);
+
+    return csv(ptr, len);
+  }
+
+  return csv();
 }
 
 uint64_t Aplist::uint(const Steps &steps) const {

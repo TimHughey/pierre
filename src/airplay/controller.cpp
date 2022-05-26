@@ -23,6 +23,7 @@
 #include "common/typedefs.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
+#include "packet/queued.hpp"
 #include "server/servers.hpp"
 
 #include <chrono>
@@ -51,44 +52,38 @@ void Controller::kickstart() {
     fmt::print(f, runTicks(), fnName(), features.ap2_default());
   }
 
-  auto clock_inject = clock::Inject{.io_ctx = io_ctx,
-                                    .service_name = Host::ptr()->serviceName(),
-                                    .device_id = Host::ptr()->deviceID()};
-
-  auto &clock = opt_clock.emplace(clock_inject);
-  clock.peersReset();
-
-  Anchor::init(clock);
-  ConnInfo::init();
-
-  Servers::init({.io_ctx = io_ctx});
+  watchDog();                 // watchDog() ensures io_ctx has work
+  Clock::ptr()->peersReset(); // reset timing peers
 
   // finally, start listening for Rtsp messages
   Servers::ptr()->localPort(ServerType::Rtsp);
 }
 
 void Controller::run() {
+  static std::once_flag once;
   nameThread(0); // controller thread is Airplay 00
+
+  Clock::init({.io_ctx = io_ctx,
+               .service_name = Host::ptr()->serviceName(),
+               .device_id = Host::ptr()->deviceID()});
+
+  Anchor::init();
+  ConnInfo::init();
+  Servers::init({.io_ctx = io_ctx});
+  packet::Queued::init(io_ctx);
 
   for (auto n = 1; n < MAX_THREADS(); n++) {
     // notes:
     //  1. all threads run the same io_ctx
+    //  2. objects are free to create their own strands, as needed
+    //  3. use std::call_once to kickstart and sync thread start
 
-    if (n == 1) { // thread 1 handles start-up (then general purpose)
-      threads.emplace_back([n = n, self = shared_from_this()] {
-        self->watchDog(); // watchDog() ensures io_ctx has work
-        self->nameThread(n);
-        self->io_ctx.run(); // run io_ctx for startup activities
-      });
-    }
+    threads.emplace_back([&once = once, n = n, self = shared_from_this()] {
+      std::call_once(once, [self] { self->kickstart(); }); // sync thread start
 
-    if (n > 1) { // start rest of threads
-      threads.emplace_back([n = n, self = shared_from_this()] {
-        std::call_once(self->_kickstart_, [self] { self->kickstart(); }); // sync on call_once
-        self->nameThread(n);
-        self->io_ctx.run(); // one of these threads
-      });
-    }
+      self->nameThread(n); // give the thread a name
+      self->io_ctx.run();  // run the io_ctx (returns when io_ctx canceled)
+    });
   }
 
   io_ctx.run(); // run io_ctx on controller thread

@@ -86,7 +86,7 @@ bool Info::stage1() {
 
   // system flags
   const auto system_flags_key = serv->fetchKey(apSystemFlags);
-  const auto system_flags_val = serv->systemFlags();
+  const auto system_flags_val = serv->statusFlags();
   reply_dict.setUint(nullptr, system_flags_key, system_flags_val);
 
   // string vals
@@ -124,7 +124,7 @@ bool Info::stage2() {
   reply_dict.setUint(nullptr, features_key, features_val);
 
   const auto status_flags_key = serv->fetchKey(apStatusFlags);
-  const auto status_flags_val = serv->systemFlags();
+  const auto status_flags_val = serv->statusFlags();
   reply_dict.setUint(nullptr, status_flags_key, status_flags_val);
 
   // get the key/vals of interest

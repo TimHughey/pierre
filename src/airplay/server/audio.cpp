@@ -21,12 +21,29 @@
 #include "session/audio.hpp"
 
 #include <fmt/format.h>
+#include <ranges>
 
 namespace pierre {
 namespace airplay {
 namespace server {
 
+namespace ranges = std::ranges;
+namespace session = pierre::airplay::session;
+
+static std::list<session::shAudio> _sessions;
+
 using namespace boost::system;
+
+Audio::~Audio() {
+  [[maybe_unused]] auto handle = acceptor.native_handle();
+  [[maybe_unused]] error_code ec;
+  acceptor.close(ec); // use error_code overload to prevent throws
+
+  if (true) { // debug
+    constexpr auto f = FMT_STRING("{} {} closed socket={} msg={}\n");
+    fmt::print(f, runTicks(), serverId(), acceptor.native_handle(), ec.message());
+  }
+}
 
 void Audio::asyncLoop(const error_code ec_last) {
   // first things first, check ec_last passed in, bail out if needed
@@ -63,7 +80,11 @@ void Audio::asyncLoop(const error_code ec_last) {
       //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
-      session::Audio::start({.socket = std::move(socket.value())});
+      const session::Inject inject{.io_ctx = di.io_ctx, // io_cty (used to create a local strand)
+                                   .socket = std::move(socket.value())};
+
+      auto new_session = session::Audio::start(inject);
+      _sessions.emplace_back(new_session);
 
       asyncLoop(ec); // schedule more work or gracefully exit
     }
@@ -74,6 +95,10 @@ void Audio::teardown() {
   // here we only issue the cancel to the acceptor.
   // the closing of the acceptor will be handled when
   // the error is caught by asyncLoop
+
+  ranges::for_each(_sessions, [](auto audio_session) { audio_session->teardown(); });
+
+  _sessions.clear();
 
   [[maybe_unused]] error_code __ec;
   acceptor.cancel(__ec);

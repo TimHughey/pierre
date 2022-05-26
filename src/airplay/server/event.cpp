@@ -62,7 +62,8 @@ void Event::asyncLoop(const error_code ec_last) {
       //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
-      session::Event::start({.socket = std::move(socket.value())});
+      session::Inject inject{.io_ctx = di.io_ctx, .socket = std::move(socket.value())};
+      session::Event::start(inject);
 
       asyncLoop(ec); // schedule more work or gracefully exit
     }

@@ -31,6 +31,7 @@ using namespace packet;
 
 bool SetPeers::populate() {
   rdict = plist();
+  rdict.dump();
 
   auto peers = rdict.stringArray({dk::ROOT});
   if (peers.empty()) {

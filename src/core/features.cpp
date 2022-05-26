@@ -15,9 +15,6 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
-//
-//  This work based on and inspired by
-//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
 #include "features.hpp"
 

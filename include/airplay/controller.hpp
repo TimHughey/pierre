@@ -19,13 +19,14 @@
 #pragma once
 
 #include "airplay/common/typedefs.hpp"
-#include "clock/clock.hpp"
 
 #include <boost/asio.hpp>
+#include <fmt/format.h>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <pthread.h>
 #include <thread>
 
 namespace pierre {
@@ -60,9 +61,7 @@ public:
   Thread &start();
 
 private:
-  Controller()
-      : watchdog_timer(io_ctx) // watches for teardown
-  {}
+  Controller() : watchdog_timer(io_ctx) {}
 
   void kickstart();
 
@@ -81,10 +80,7 @@ private:
   io_context io_ctx; // run by multiple threads
   asio::high_resolution_timer watchdog_timer;
 
-  std::once_flag _kickstart_;
-
-  // resources created by kickstart()
-  std::optional<Clock> opt_clock;
+  // std::once_flag _kickstart_;
 
   Thread airplay_thread;
 

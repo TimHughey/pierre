@@ -92,7 +92,7 @@ void Event::handleEvent(size_t rx_bytes) {
   fmt::print("{} bytes={}\n", fnName(), rx_bytes);
 
   // the following function calls do not contain async_* calls
-  accumulate(Accumulate::RX, rx_bytes);
+  accumulate(RX, rx_bytes);
 
   rxAvailable(); // drain the socket
 }
@@ -106,40 +106,13 @@ bool Event::rxAvailable() {
 
     while (isReady(ec) && (avail_bytes > 0)) {
       auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
-      accumulate(Accumulate::TX, tx_bytes);
+      accumulate(RX, tx_bytes);
 
       avail_bytes = socket.available(ec);
     }
   }
 
   return isReady();
-}
-
-bool Event::isReady(const error_code &ec, const src_loc loc) {
-  auto rc = isReady();
-
-  if (rc) {
-    switch (ec.value()) {
-      case errc::success:
-        break;
-
-      case errc::operation_canceled:
-      case errc::resource_unavailable_try_again:
-      case errc::no_such_file_or_directory:
-        rc = false;
-        break;
-
-      default:
-        fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
-                   socket.native_handle(), ec.value(), ec.message());
-
-        socket.shutdown(tcp_socket::shutdown_both);
-        socket.close();
-        rc = false;
-    }
-  }
-
-  return rc;
 }
 
 void Event::nextEvent() { _wire.clear(); }
@@ -151,21 +124,9 @@ bool Event::rxAtLeast(size_t bytes) {
     error_code ec;
     auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
 
-    accumulate(Accumulate::TX, rx_bytes);
+    accumulate(RX, rx_bytes);
   }
   return isReady();
-}
-
-void Event::accumulate(Accumulate type, size_t bytes) {
-  switch (type) {
-    case RX:
-      _rx_bytes += bytes;
-      break;
-
-    case TX:
-      _tx_bytes += bytes;
-      break;
-  }
 }
 
 } // namespace session

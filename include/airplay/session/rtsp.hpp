@@ -25,6 +25,7 @@
 #include "packet/headers.hpp"
 #include "packet/in.hpp"
 #include "reply/inject.hpp"
+#include "session/base.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -42,22 +43,26 @@ class Rtsp;
 
 typedef std::shared_ptr<Rtsp> shRtsp;
 
-class Rtsp : public std::enable_shared_from_this<Rtsp> {
+class Rtsp : public Base, public std::enable_shared_from_this<Rtsp> {
 public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
 
 public:
   ~Rtsp() { teardown(); }
-  static void start(const Inject &di) {
+  static shRtsp start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
     // socket is detected
-    shRtsp(new Rtsp(di))->asyncLoop();
+    auto session = shRtsp(new Rtsp(di));
+
+    session->asyncLoop();
+
+    return session;
   }
 
 private:
   Rtsp(const Inject &di)
-      : socket(std::move(di.socket)),            // newly opened socket for session
+      : Base(di, csv("RTSP SESSION")),           // Base holds the newly connected socket
         aes_ctx(AesCtx(Host::ptr()->deviceID())) // create aes ctx
   {
     infoNewSession();
@@ -65,9 +70,7 @@ private:
 
 public:
   // initiates async request run loop
-  void asyncLoop(); // see .cpp file for critical function details
-  void teardown(const error_code ec);
-  void teardown();
+  void asyncLoop() override; // see .cpp file for critical function details
 
   // Getters
   const packet::Content &content() const { return _content; }
@@ -77,17 +80,13 @@ public:
   csv protocol() const { return _headers.protocol(); }
 
 private:
-  void accumulateRx(size_t bytes) { _rx_bytes += bytes; }
-  void accumulateTx(size_t bytes) { _tx_bytes += bytes; }
   bool createAndSendReply();
   bool ensureAllContent(); // uses Headers functionality to ensure all content loaded
-  bool isReady() const { return socket.is_open(); };
-  bool isReady(const error_code &ec);
 
   // receives the rx_bytes from async_read
   void handleRequest(size_t bytes);
   bool rxAvailable(); // load bytes immediately available
-  bool txContinue();  // send Continue reply
+  // bool txContinue();  // send Continue reply
   packet::In &wire() { return _wire; }
 
   // misc debug / logging
@@ -97,18 +96,12 @@ private:
 
 private:
   // order dependent - initialized by constructor
-  tcp_socket socket;
   AesCtx aes_ctx;
 
   packet::In _wire;   // plain text or ciphered
   packet::In _packet; // deciphered
   packet::Headers _headers;
   packet::Content _content;
-
-  uint64_t _rx_bytes = 0;
-  uint64_t _tx_bytes = 0;
-
-  bool _shutdown = false;
 };
 
 } // namespace session

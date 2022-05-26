@@ -19,6 +19,7 @@
 #pragma once
 
 #include "common/typedefs.hpp"
+#include "packet/basic.hpp"
 
 #include <cstdint>
 #include <fmt/format.h>
@@ -30,17 +31,17 @@ namespace pierre {
 namespace airplay {
 
 struct StreamData {
-  std::string audio_mode;
-  uint8_t ct = 0;
-  uint64_t conn_id = 0;
-  uint32_t spf = 0;
-  std::string key;
+  string audio_mode;
+  uint8_t ct = 0;  // compression type
+  uint64_t conn_id = 0; // stream connection id
+  uint64_t spf = 0; // sample frames per packet
+  packet::Basic key; // shared key (for decipher)
   bool supports_dynamic_stream_id;
-  uint32_t audio_format = 0;
-  std::string client_id;
+  uint64_t audio_format = 0;
+  string client_id;
   uint8_t type = 0;
-  std::string active_remote;
-  std::string dacp_id;
+  string active_remote;
+  string dacp_id;
 };
 
 class StreamInfo {
@@ -63,16 +64,19 @@ public:
   StreamInfo &operator=(const StreamInfo &ai);
   StreamInfo &operator=(StreamInfo &&ai);
 
+  const StreamData &data() const { return _data; }
+
   // access the SessionData
-  const std::string_view key() const { return std::string_view(data.key); }
+  const csv key() const { return _data.key.view(); }
+  void keyClear() { _data.key.clear(); }
 
   void teardown();
 
   // utility
-  void dump(const std::source_location loc = std::source_location::current());
+  void dump(csrc_loc loc = src_loc::current());
 
 private:
-  StreamData data;
+  StreamData _data;
 
 private:
   void __init();

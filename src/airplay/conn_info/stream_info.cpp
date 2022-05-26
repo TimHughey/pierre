@@ -29,20 +29,20 @@ namespace airplay {
 // goal is to have at least well-formed user object copy/assignment example
 
 // construct with StreamData (copy)
-StreamInfo::StreamInfo(const StreamData &sd) : data(sd) { __init(); }
+StreamInfo::StreamInfo(const StreamData &sd) : _data(sd) { __init(); }
 
 // construct with StreamData (move)
-StreamInfo::StreamInfo(const StreamData &&sd) : data(std::move(sd)) { __init(); }
+StreamInfo::StreamInfo(const StreamData &&sd) : _data(std::move(sd)) { __init(); }
 
 // construct from StreamInfo (copy)
-StreamInfo::StreamInfo(const StreamInfo &si) : data(si.data) { __init(); }
+StreamInfo::StreamInfo(const StreamInfo &si) : _data(si._data) { __init(); }
 
 // construct from StreamInfo (move)
-StreamInfo::StreamInfo(StreamInfo &&si) : data(std::move(si.data)) { __init(); }
+StreamInfo::StreamInfo(StreamInfo &&si) : _data(std::move(si._data)) { __init(); }
 
 // assignment (copy)
 StreamInfo &StreamInfo::operator=(const StreamData &sd) {
-  data = sd;
+  _data = sd;
 
   __init();
 
@@ -51,7 +51,7 @@ StreamInfo &StreamInfo::operator=(const StreamData &sd) {
 
 // assignment (move)
 StreamInfo &StreamInfo::operator=(StreamData &&sd) {
-  data = std::move(sd);
+  _data = std::move(sd);
 
   __init();
 
@@ -60,7 +60,7 @@ StreamInfo &StreamInfo::operator=(StreamData &&sd) {
 
 // assignment (copy)
 StreamInfo &StreamInfo::operator=(const StreamInfo &si) {
-  data = si.data;
+  _data = si._data;
 
   __init();
 
@@ -69,7 +69,7 @@ StreamInfo &StreamInfo::operator=(const StreamInfo &si) {
 
 // assignment (move)
 StreamInfo &StreamInfo::operator=(StreamInfo &&si) {
-  data = std::move(si.data);
+  _data = std::move(si._data);
 
   __init();
 
@@ -82,9 +82,9 @@ void StreamInfo::__init() {
 
 void StreamInfo::teardown() {
   // this is a "partial" teardown, just clear some items
-  data.key.clear();
-  data.active_remote.clear();
-  data.dacp_id.clear();
+  _data.key.clear();
+  _data.active_remote.clear();
+  _data.dacp_id.clear();
 }
 
 void StreamInfo::dump(csrc_loc loc) {
@@ -92,9 +92,9 @@ void StreamInfo::dump(csrc_loc loc) {
   const auto fmt_str = FMT_STRING("{:>15}={}\n");
 
   fmt::print("{}\n", prefix);
-  fmt::print(fmt_str, "shk", (data.key.size() > 0));
-  fmt::print(fmt_str, "Active-Remote", data.active_remote);
-  fmt::print(fmt_str, "DACP-ID", data.dacp_id);
+  fmt::print(fmt_str, "shk", (_data.key.size() > 0));
+  fmt::print(fmt_str, "Active-Remote", _data.active_remote);
+  fmt::print(fmt_str, "DACP-ID", _data.dacp_id);
 }
 
 } // namespace airplay

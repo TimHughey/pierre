@@ -67,6 +67,10 @@ bool Setup::populate() {
     responseCode(RespCode::OK);
   }
 
+  if (rc == false) {
+    rdict.dump();
+  }
+
   return rc;
 }
 
@@ -75,12 +79,12 @@ bool Setup::handleNoStreams() {
   auto conn = ConnInfo::ptr();
 
   // deduces cat, type and timing
-  auto stream = Stream(rdict.getView(dk::TIMING_PROTOCOL));
+  auto stream = Stream(rdict.stringView({dk::TIMING_PROTOCOL}));
 
   // now we create a replu plist based on the type of stream
   if (stream.isPtpStream()) {
-    conn->airplay_gid = rdict.getView(dk::GROUP_UUID);
-    conn->groupContainsGroupLeader = rdict.boolVal(dk::GROUP_LEADER);
+    conn->airplay_gid = rdict.stringView({dk::GROUP_UUID});
+    conn->groupContainsGroupLeader = rdict.boolVal({dk::GROUP_LEADER});
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
     anchor->peers(peers);
@@ -92,12 +96,11 @@ bool Setup::handleNoStreams() {
     peer_info.setString(dk::ID, ip_addrs[0]);
 
     reply_dict.setArray(dk::TIMING_PEER_INFO, {peer_info});
-
     reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(Event)},
                          {dk::TIMING_PORT, 0}}); // unused by AP2
 
     // adjust Service system flags and request mDNS update
-    Service::ptr()->deviceSupportsRelay();
+    Service::ptr()->receiverActive();
     mDNS::ptr()->update();
 
     std::this_thread::sleep_for(100ms);
@@ -132,11 +135,24 @@ bool Setup::handleStreams() {
   StreamData stream_data;
   Aplist reply_stream0; // build the streams sub dict
 
-  if (conn->stream.isPtpStream()) { // initial setup PTP, this setup finalizes details
+  if (conn->stream.isPtpStream()) { // initial setup is PTP, this setup finalizes details
+    const auto s0 = Aplist(rdict, {dk::STREAMS, dk::IDX0});
+
     // capture stream info common for buffered or real-time
-    stream_data.key = rdict.getView({dk::STREAMS, dk::IDX0, dk::SHK});
+    stream_data.audio_format = s0.uint({dk::AUDIO_MODE});
+    stream_data.ct = (uint8_t)s0.uint({dk::COMPRESSION_TYPE});
+    stream_data.conn_id = s0.uint({dk::STREAM_CONN_ID});
+    stream_data.spf = s0.uint({dk::SAMPLE_FRAMES_PER_PACKET});
+    stream_data.key = s0.dataArray({dk::SHK});
+    stream_data.supports_dynamic_stream_id = s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
+    stream_data.audio_format = s0.uint({dk::AUDIO_FORMAT});
+    stream_data.client_id = s0.stringView({dk::CLIENT_ID});
+    stream_data.type = s0.uint({dk::TYPE});
+
     stream_data.active_remote = rHeaders().getVal(header::type::DacpActiveRemote);
     stream_data.dacp_id = rHeaders().getVal(header::type::DacpID);
+
+    ConnInfo::ptr()->save(stream_data);
 
     // get the stream type that is starting
     auto stream_type = rdict.uint({dk::STREAMS, dk::IDX0, dk::TYPE});
@@ -191,168 +207,3 @@ bool Setup::handleStreams() {
 } // namespace reply
 } // namespace airplay
 } // namespace pierre
-
-/*
-bool Setup::handleNoStreams() {
-  auto rc = false;
-  std::vector<bool> checks;
-
-  validateTimingProtocol();
-  getGroupInfo();
-  getTimingList();
-
-  if (checksOK()) {
-    constexpr auto key_timing_peer = "timingPeerInfo";
-    constexpr auto key_addresses = "Addresses";
-    constexpr auto key_ID = "ID";
-    constexpr auto key_event_port = "eventPort";
-    constexpr auto key_timing_port = "timingPort";
-
-    Aplist reply_dict(Dictionaries{key_timing_peer});
-    const auto &ip_addrs = host().ipAddrs();
-
-    reply_dict.setArray(key_timing_peer, key_addresses, ip_addrs);
-    reply_dict.setStringVal(key_timing_peer, key_ID, ip_addrs[0]);
-
-    // rtp-localPort() returns the local port (and starts the service if needed)
-    reply_dict.setUint(nullptr, key_event_port, conn().localPort(Event));
-    reply_dict.setUint(nullptr, key_timing_port, 0); // dummy
-
-    // adjust Service system flags and request mDNS update
-    service().deviceSupportsRelay();
-    mdns().update();
-
-    size_t bytes = 0;
-    auto binary = reply_dict.toBinary(bytes);
-    copyToContent(binary, bytes);
-
-    headers.add(header::type::ContentType, header::val::AppleBinPlist);
-    responseCode(RespCode::OK);
-
-    rc = true;
-  }
-
-  return rc;
-}
-
-*/
-
-/*
-bool Setup::__handleStreams() {
-  constexpr auto PTP = 103;
-
-  auto rc = true;
-
-  // save session info
-  // path is streams -> array[0]
-  auto rstream0 = Aplist(rdict, Level::Second, dictKey(streams), 0);
-
-  conn().saveStreamData(
-      {.audio_mode = rstream0.getStringConst(Root, dictKey(audioMode)),
-       .ct = (uint8_t)rstream0.getUint(Root, dictKey(ct)),
-       .conn_id = rstream0.getUint(Root, dictKey(streamConnectionID)),
-       .spf = (uint32_t)rstream0.getUint(Root, dictKey(spf)),
-       .key = rstream0.getData(Root, dictKey(shk)),
-       .supports_dynamic_stream_id = rstream0.getBool(Root, dictKey(supportsDyanamicStreamID)),
-       .audio_format = (uint32_t)rstream0.getUint(Root, dictKey(audioFormat)),
-       .client_id = rstream0.getStringConst(Root, dictKey(clientID)),
-       .type = (uint8_t)rstream0.getUint(Root, dictKey(type)),
-       .active_remote = rHeaders().getVal(header::type::DacpActiveRemote),
-       .dacp_id = rHeaders().getVal(header::type::DacpID)});
-
-  conn().saveSessionKey(rstream0.getData(Root, dictKey(shk)));
-  conn().saveActiveRemote(rHeaders().getVal(header::type::DacpActiveRemote));
-
-  // build the reply (includes ports for started services)
-  Aplist::ArrayDicts array_dicts;
-  auto &stream0_dict = array_dicts.emplace_back(Aplist());
-
-  // rtp->localPort() returns the local port (and starts the service if needed)
-  stream0_dict.setUint(nullptr, dictKey(controlPort), conn().localPort(Control));
-  stream0_dict.setUint(nullptr, dictKey(type), PTP);
-  stream0_dict.setUint(nullptr, dictKey(dataPort), conn().localPort(Audio));
-  stream0_dict.setUint(nullptr, dictKey(audioBufferSize), conn().bufferSize());
-
-  Aplist reply_dict;
-
-  reply_dict.setArray(dictKey(streams), array_dicts);
-
-  size_t bytes = 0;
-  auto binary = reply_dict.toBinary(bytes);
-  copyToContent(binary, bytes);
-
-  headers.add(header::type::ContentType, header::val::AppleBinPlist);
-  responseCode(RespCode::OK);
-
-  return rc;
-}
-*/
-
-/*
-
-void Setup::getGroupInfo() {
-  constexpr auto group_uuid_path = "groupUUID";
-  constexpr auto gcl_path = "groupContainsGroupLeader";
-
-  // add the result of getString to the checks vector
-  saveCheck(rdict.getString(group_uuid_path, _group_uuid));
-  saveCheck(rdict.getBool(gcl_path, _group_contains_leader));
-}
-
-void Setup::getTimingList() {
-  constexpr auto timing_peer_info_path = "timingPeerInfo";
-  constexpr auto addresses_node = "Addresses";
-
-  auto rc = rdict.getStringArray(timing_peer_info_path, addresses_node, _timing_peer_info);
-
-  if (rc) {
-    auto &anchor = injected().anchor;
-
-    anchor.peers(_timing_peer_info);
-  }
-
-  saveCheck(rc);
-}
-
-void Setup::validateTimingProtocol() {
-  auto match = rdict.compareString(dictKey(timingProtocol), timingProtocolVal(PreciseTiming));
-
-  if (!match) {
-    const auto prefix = fmt::format("{} unhandled timing protocol={}", fnName(),
-                                    rdict.getStringConst(Root, dictKey(timingProtocol)));
-    rdict.dump(prefix.c_str());
-    saveCheck(false);
-    return;
-  }
-
-  // get play lock??
-
-  saveCheck(true);
-}
-
-*/
-
-// static maps
-/*
-using enum Setup::DictKey;
-Setup::DictKeyMap Setup::_key_map{{audioMode, "audioMode"},
-                                  {ct, "ct"},
-                                  {streamConnectionID, "streamConnectionID"},
-                                  {spf, "spf"},
-                                  {shk, "shk"},
-                                  {supportsDyanamicStreamID, "supportsDynamicStreamID"},
-                                  {audioFormat, "audioFormat"},
-                                  {clientID, "clientID"},
-                                  {type, "type"},
-                                  {controlPort, "controlPort"},
-                                  {dataPort, "dataPort"},
-                                  {audioBufferSize, "audioBufferSize"},
-                                  {streams, "streams"},
-                                  {timingProtocol, "timingProtocol"}};
-
-Setup::StreamTypeMap Setup::_stream_type_map{
-    {StreamType::Unknown, 0}, {StreamType::Buffered, 103}, {StreamType::RealTime, 96}};
-
-Setup::TimingProtocolMap Setup::_timing_protocol_map{{TimingProtocol::None, "None"},
-                                                     {PreciseTiming, "PTP"}};
-*/

@@ -33,6 +33,7 @@ using high_res_timer = boost::asio::high_resolution_timer;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using ip_udp = boost::asio::ip::udp;
+using io_strand = boost::asio::io_context::strand;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;

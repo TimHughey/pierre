@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "anchor/anchor.hpp"
+#include "anchor/net_time.hpp"
 #include "clock/clock.hpp"
 #include "common/typedefs.hpp"
 #include "core/input_info.hpp"
@@ -39,7 +40,12 @@ std::optional<shAnchor> &anchor() { return __anchor; }
 } // namespace shared
 
 using namespace std::chrono_literals;
-using Nanos = std::chrono::nanoseconds;
+
+AnchorData &AnchorData::calcNetTime() {
+  networkTime = NetTime(secs, frac).ticks();
+
+  return *this;
+}
 
 Anchor::~Anchor() {
   constexpr auto f = FMT_STRING("{} destructed\n");
@@ -47,17 +53,17 @@ Anchor::~Anchor() {
 }
 
 void Anchor::chooseAnchorClock() {
-  auto info = clock.info();
+  auto info = Clock::ptr()->info();
 
   warnFrequentChanges(info);
   infoNewClock(info);
 
   // NOTE: should confirm this is a buffered stream and AirPlay 2
 
-  anchor_clock = data.timelineID;
-  anchor_rptime = data.anchorRtpTime;
+  anchor_clock = info.clockID;
+  anchor_rptime = info.sampleTime;
   anchor_time = data.networkTime;
-  anchor_clock_new_ns = clock.now();
+  anchor_clock_new_ns = Clock::now();
 
   // dump();
 }
@@ -92,7 +98,6 @@ void Anchor::save(AnchorData &ad) {
 }
 
 void Anchor::teardown() {
-  clock.teardown();
   data = AnchorData();
 
   // clear the local view of anchor clock

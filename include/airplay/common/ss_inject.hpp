@@ -36,6 +36,7 @@ namespace session {
 
 // session dependency injection
 struct Inject {
+  io_context &io_ctx;
   tcp_socket &&socket;
 };
 } // namespace session

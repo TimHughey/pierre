@@ -39,17 +39,21 @@ bool Teardown::populate() {
 
   auto has_streams = rdict.exists(dk::STREAMS);
 
-  if (true) {
-    constexpr auto f = FMT_STRING("{} {}\n");
-    fmt::print(f, runTicks(), fnName());
-
-    rdict.dump();
-  }
-
   if (has_streams == true) { // stop processing audio data
+    if (true) {
+      constexpr auto f = FMT_STRING("{} {} phase 1 has_streams={}\n");
+      fmt::print(f, runTicks(), fnName(), has_streams);
+    }
+
     phase1();
 
   } else { // we've been asked to disconnect
+
+    if (true) {
+      constexpr auto f = FMT_STRING("{} {} phase 2 has_streams={}\n");
+      fmt::print(f, runTicks(), fnName(), has_streams);
+    }
+
     phase1();
     phase2();
   }
@@ -60,7 +64,7 @@ bool Teardown::populate() {
 void Teardown::phase1() { ConnInfo::ptr()->sessionKeyClear(); }
 
 void Teardown::phase2() {
-  Service::ptr()->deviceSupportsRelay(false);
+  Service::ptr()->receiverActive(false);
   mDNS::ptr()->update();
 
   Servers::ptr()->teardown(ServerType::Event);

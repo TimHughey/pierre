@@ -42,23 +42,7 @@ struct AnchorData {
   uint64_t anchorTime = 0;
   uint64_t anchorRtpTime = 0;
 
-  AnchorData &calcNetTime() {
-    constexpr uint64_t ns_factor = std::pow(10, 9);
-
-    // it looks like the networkTimeFrac is a fraction where the msb is work
-    // 1/2, the next 1/4 and so on now, convert the network time and fraction
-    // into nanoseconds
-
-    frac >>= 32; // reduce precision to about 1/4 nanosecond
-    frac *= ns_factor;
-    frac >>= 32; // now we should have nanoseconds
-
-    // // this may become the anchor time
-    networkTime = networkTime + frac;
-    anchorRtpTime = rtpTime; // no backend latency, directly use rtpTime
-
-    return *this;
-  }
+  AnchorData &calcNetTime();
 };
 
 struct AnchorInfo {
@@ -78,14 +62,14 @@ std::optional<shAnchor> &anchor();
 
 class Anchor : public std::enable_shared_from_this<Anchor> {
 public:
-  static shAnchor init(Clock &clock) { return shared::anchor().emplace(new Anchor(clock)); }
+  static shAnchor init() { return shared::anchor().emplace(new Anchor()); }
   static shAnchor ptr() { return shared::anchor().value()->shared_from_this(); }
   static void reset() { shared::anchor().reset(); }
   ~Anchor();
 
   const AnchorInfo info();
   uint64_t frameTimeToLocalTime(uint32_t timestamp);
-  void peers(const Peers &new_peers) { clock.peers(new_peers); }
+  void peers(const Peers &new_peers) { Clock::ptr()->peers(new_peers); }
   bool playEnabled() const { return data.rate & 0x01; }
   void save(AnchorData &ad);
   void teardown();
@@ -94,13 +78,12 @@ public:
   void dump(csrc_loc loc = src_loc::current()) const;
 
 private:
-  Anchor(Clock &clock) : clock(clock) {}
+  Anchor() = default;
   void chooseAnchorClock();
   void infoNewClock(const clock::Info &info);
   void warnFrequentChanges(const clock::Info &info);
 
 private:
-  Clock &clock;
   AnchorData data;
 
   uint64_t anchor_clock = 0;

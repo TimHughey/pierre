@@ -13,10 +13,11 @@ file(GLOB_RECURSE
 find_package(fmt                     REQUIRED)
 find_library(plist     NAMES plist   REQUIRED)
 find_library(plist_cpp NAMES plist++ REQUIRED)
+find_package(Sodium                  REQUIRED) 
 
 add_library(packet
   rfc3550/hdr.cpp rfc3550/trl.cpp
-  headers.cpp content.cpp queued.cpp
+  headers.cpp content.cpp queued.cpp rtp.cpp
   aplist.cpp resp_code.cpp
   ${HEADER_LIST}
 )
@@ -47,6 +48,7 @@ target_link_libraries(packet PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${plist}
   ${plist_cpp}
+  ${sodium_LIBRARY_RELEASE}
   core
   fmt::fmt
 )

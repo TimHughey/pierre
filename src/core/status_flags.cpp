@@ -16,42 +16,33 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
+#include "status_flags.hpp"
 
 #include <array>
-#include <boost/asio/buffer.hpp>
-#include <cstdint>
-#include <source_location>
-#include <vector>
 
 namespace pierre {
-namespace packet {
 
-class BufferedTCP {
-public:
-  enum BufferType : uint8_t { All = 0, Static, Dynamic };
+using namespace sf;
 
-public:
-  BufferedTCP() {
-    _buffer_.fill(0x00);
-    _toq_ = _buffer_.data();
-    _eoq_ = _buffer_.data();
-  }
+StatusFlags::StatusFlags() {
+  // default is always audio cable attached
+  _flags.set(AudioLink);
+}
 
-  auto dynamicBuffer() { return boost::asio::dynamic_buffer(_dyn_buffer_;) }
-  auto staticBuffer() { return boost::asio::buffer(_buffer_, MAX_SIZE); }
+StatusFlags &StatusFlags::ready() {
+  _flags.set(AudioLink);
+  _flags.reset(RemoteControlRelay);
+  _flags.reset(ReceiverSessionIsActive);
 
-  size_t maxSize() { return MAX_SIZE; }
+  return *this;
+}
 
-public:
-  static constexpr size_t MAX_SIZE = 0x800000; // ap2 buffer max size
+StatusFlags &StatusFlags::playing() {
+  _flags.set(AudioLink);
+  _flags.set(RemoteControlRelay);
+  _flags.set(ReceiverSessionIsActive);
 
-private:
-  std::array<uint8_t, MAX_SIZE> _buffer_;
-  std::vector<uint8_t> _dyn_buffer_;
-  uint8_t *_toq_ = nullptr;
-  uint8_t *_eoq_ = nullptr;
-};
+  return *this;
+}
 
-} // namespace packet
 } // namespace pierre

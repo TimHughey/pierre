@@ -108,18 +108,22 @@ void Host::discoverIPs() {
   for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
     // debug(1, "Interface index %d, name:
     // \"%s\"",if_nametoindex(iap->ifa_name), iap->ifa_name);
-    if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
-        ((iap->ifa_flags & IFF_LOOPBACK) == 0)) {
-      // use IPv5 length
-      std::array<char, INET6_ADDRSTRLEN + 1> buf{0};
+    if (iap->ifa_addr                              // an actual address
+        && iap->ifa_netmask                        // non-zero netmask
+        && (iap->ifa_flags & IFF_UP)               // iterface is up
+        && ((iap->ifa_flags & IFF_LOOPBACK) == 0)) // not loopback
+    {                                              // consider this address
 
+      // use IPv6 length (for possible support of ipv6)
+      std::array<char, INET6_ADDRSTRLEN + 1> buf{0}; // zero the buffer
+
+      // for troubleshooting, ignore ipv6 - 2022-05-24
       if (iap->ifa_addr->sa_family == AF_INET6) {
-        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
-
-        inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
+        continue;
+        // struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+        // inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
       } else {
         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
-
         inet_ntop(AF_INET, (void *)&addr->sin_addr, buf.data(), buf.size());
       }
 

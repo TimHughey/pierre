@@ -109,17 +109,18 @@ void Service::addRegAndName() {
 
 void Service::addSystemFlags() {
   for (auto key : std::array{apSystemFlags, apStatusFlags, mdSystemFlags}) {
-    auto str = fmt::format("{:#x}", _system_flags);
+    auto str = fmt::format("{:#x}", _status_flags.val());
 
     saveCalcVal(key, str);
   }
 }
 
-void Service::deviceSupportsRelay(bool on_off) {
+void Service::receiverActive(bool on_off) {
   if (on_off == true) {
-    _system_flags |= 1 << DeviceSupportsRelay; // apply the adjustment
+    _status_flags.playing();
+
   } else {
-    _system_flags &= (0xffffffff - (1 << DeviceSupportsRelay));
+    _status_flags.ready();
   }
 
   addSystemFlags(); // update the calculated key/val map

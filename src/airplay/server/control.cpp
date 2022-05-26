@@ -66,6 +66,7 @@ void Packet::loaded([[maybe_unused]] size_t rx_bytes) {
 
 using namespace boost;
 using namespace boost::system;
+using namespace asio;
 
 void Control::asyncLoop(const error_code ec_last) {
   // notes:
@@ -82,11 +83,11 @@ void Control::asyncLoop(const error_code ec_last) {
   if ((ec_last != errc::success) || !socket.is_open()) { // problem
 
     // don't highlight "normal" shutdown
-    if ((ec_last.value() != errc::operation_canceled) &&
-        (ec_last.value() != errc::resource_unavailable_try_again)) {
-      constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
-      fmt::print(f, runTicks(), serverId(), ec_last.message());
-    }
+    // if ((ec_last.value() != errc::operation_canceled) &&
+    //     (ec_last.value() != errc::resource_unavailable_try_again)) {
+    constexpr auto f = FMT_STRING("{} {} asyncLoop failed, error={}\n");
+    fmt::print(f, runTicks(), serverId(), ec_last.message());
+    // }
     // some kind of error occurred, simply close the socket
     [[maybe_unused]] error_code __ec;
     socket.close(__ec); // used error code overload to prevent throws
@@ -95,6 +96,11 @@ void Control::asyncLoop(const error_code ec_last) {
   }
 
   auto buff_hdr = asio::buffer(hdrData(), hdrSize());
+
+  if (true) { // debug
+    constexpr auto f = FMT_STRING("{} {} socket open handle={}\n");
+    fmt::print(f, runTicks(), serverId(), socket.native_handle());
+  }
 
   socket.async_receive_from(buff_hdr, remote_endpoint, [&](error_code ec, size_t rx_bytes) {
     if (isReady(ec)) {
@@ -129,7 +135,7 @@ void Control::asyncRestOfPacket() {
   });
 }
 
-bool Control::isReady(const error_code &ec, csrc_loc loc) {
+bool Control::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
   [[maybe_unused]] error_code __ec;
   auto rc = isReady();
 
@@ -139,8 +145,10 @@ bool Control::isReady(const error_code &ec, csrc_loc loc) {
         break;
 
       default:
-        fmt::print("{} SHUTDOWN socket={} err_value={} msg={}\n", loc.function_name(),
-                   socket.native_handle(), ec.value(), ec.message());
+        if (true) { // debug
+          constexpr auto f = FMT_STRING("{} {} SHUTDOWN socket={} msg={}\n");
+          fmt::print(f, runTicks(), serverId(), socket.native_handle(), ec.message());
+        }
 
         socket.shutdown(udp_socket::shutdown_both, __ec);
         rc = false;
@@ -151,7 +159,10 @@ bool Control::isReady(const error_code &ec, csrc_loc loc) {
 }
 
 void Control::nextBlock() {
-  fmt::print("{} wire_bytes={}\n", fnName(), _wire.size());
+  if (true) { // debug
+    constexpr auto f = FMT_STRING("{} {} wire_bytes={}\n");
+    fmt::print(f, runTicks(), serverId(), _wire.size());
+  }
 
   // reset all buffers and state
   _hdr.clear();
@@ -163,8 +174,15 @@ void Control::teardown() {
   // the closing of the acceptor will be handled when
   // the error is caught by asyncLoop
 
-  [[maybe_unused]] error_code __ec;
-  socket.cancel(__ec);
+  auto handle = socket.native_handle();
+
+  error_code ec;
+  socket.cancel(ec);
+
+  if (true) { // debug
+    constexpr auto f = FMT_STRING("{} {} socket={} error={}\n");
+    fmt::print(f, runTicks(), serverId(), handle, ec.message());
+  }
 }
 
 } // namespace server

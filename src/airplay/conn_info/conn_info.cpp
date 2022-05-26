@@ -20,6 +20,7 @@
 //  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
 #include "conn_info/conn_info.hpp"
+#include "packet/rtp.hpp"
 
 #include <chrono>
 #include <fmt/format.h>
@@ -34,11 +35,10 @@ std::optional<shConnInfo> __conn_info;
 std::optional<shConnInfo> &connInfo() { return __conn_info; }
 } // namespace shared
 
-void ConnInfo::saveActiveRemote(csv active_remote) { dacp_active_remote = active_remote; }
-
-void ConnInfo::saveSessionKey(csr key) { session_key.assign(key.begin(), key.end()); }
-
-void ConnInfo::saveStreamData(const StreamData &data) { stream_info = data; }
+void ConnInfo::save(const StreamData &data) {
+  stream_info = data;
+  packet::RTP::shk(data.key);
+}
 
 } // namespace airplay
 } // namespace pierre
