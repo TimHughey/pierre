@@ -10,10 +10,11 @@ file(GLOB_RECURSE
   "${HEADER_PATH}/packet/*.h*"
 )
 
-find_package(fmt                     REQUIRED)
-find_library(plist     NAMES plist   REQUIRED)
-find_library(plist_cpp NAMES plist++ REQUIRED)
-find_package(Sodium                  REQUIRED) 
+find_package(fmt                              REQUIRED)
+find_library(plist        NAMES plist         REQUIRED)
+find_library(m            NAMES m             REQUIRED)
+find_package(Sodium                           REQUIRED)
+find_package(ZLIB                             REQUIRED)
 
 add_library(packet
   headers.cpp content.cpp queued.cpp rtp.cpp
@@ -46,7 +47,7 @@ target_include_directories(packet PUBLIC ${HEADER_PATH})
 target_link_libraries(packet PUBLIC
   ${PLIST_GET_INFO_BIN}
   ${plist}
-  ${plist_cpp}
+  PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   core
   fmt::fmt

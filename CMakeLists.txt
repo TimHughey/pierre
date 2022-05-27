@@ -65,6 +65,17 @@ endif()
 
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+    libavdevice
+    libavfilter
+    libavformat
+    libavcodec
+    libswresample
+    libswscale
+    libavutil
+)
+
 add_subdirectory(src libs)
 
 add_executable(${_target}
@@ -79,7 +90,7 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  core airplay
+  core airplay packet
 #  Misc core Audio DMX Lightdesk mdns rtsp rtp pcm anchor
   ${Boost_LIBRARIES}
   Threads::Threads

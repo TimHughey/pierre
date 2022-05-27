@@ -17,17 +17,30 @@
 //  https://www.wisslanding.com
 
 #include "packet/rtp.hpp"
+#include "core/input_info.hpp"
 #include "packet/basic.hpp"
 
-#include "fmt/format.h"
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <exception>
+#include <fmt/format.h>
 #include <iterator>
 #include <mutex>
 #include <ranges>
 #include <sodium.h>
 #include <utility>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/opt.h>
+#include <libswresample/swresample.h>
+#ifdef __cplusplus
+}
+#endif
 
 namespace pierre {
 namespace packet {
@@ -50,7 +63,174 @@ uint32_t to_uint32(Basic::iterator begin, long int count) {
 packet::Basic shk; // class level shared key
 } // namespace rtp
 
-namespace ranges = std::ranges;
+namespace av { // encapsulation of libav*
+
+// forward decls
+void check_nullptr(void *ptr);
+void debugDump();
+void init(); // throws on alloc failures
+void parse(CipherBuff &m, size_t decipher_len, Basic &payload);
+
+AVCodec *codec = nullptr;
+AVCodecContext *codec_ctx = nullptr;
+int codec_open_rc = -1;
+AVCodecParserContext *parser_ctx = nullptr;
+AVPacket *pkt = nullptr;
+SwrContext *swr = nullptr;
+
+uint8_t *pcm_audio;
+int dst_linesize = 0;
+
+constexpr auto AV_FORMAT = AV_SAMPLE_FMT_S16;
+
+void check_nullptr(void *ptr) {
+  if (ptr == nullptr) {
+    debugDump();
+    throw std::runtime_error("allocate failed");
+  }
+}
+
+void debugDump() {
+  constexpr auto f1 = FMT_STRING("{} {}\n");
+  fmt::print(f1, runTicks(), fnName());
+
+  constexpr auto f2 = FMT_STRING("{:>25}={:}\n");
+  fmt::print(f2, "AVCodec", fmt::ptr(codec));
+  fmt::print(f2, "AVCodecContext", fmt::ptr(codec_ctx));
+  fmt::print(f2, "codec_open_rc", codec_open_rc);
+  fmt::print(f2, "AVCodecParserContext", fmt::ptr(parser_ctx));
+  fmt::print(f2, "AVPacket", fmt::ptr(pkt));
+  fmt::print(f2, "SwrContext", fmt::ptr(swr));
+}
+
+void init() {
+  static std::once_flag __flag;
+
+  std::call_once(__flag, [&]() {
+    codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
+    check_nullptr(codec);
+
+    codec_ctx = avcodec_alloc_context3(codec);
+    check_nullptr(codec_ctx);
+
+    codec_open_rc = avcodec_open2(codec_ctx, codec, nullptr);
+    if (codec_open_rc < 0) {
+      debugDump();
+      throw std::runtime_error("avcodec_open2");
+    }
+
+    parser_ctx = av_parser_init(codec->id);
+    check_nullptr(parser_ctx);
+
+    pkt = av_packet_alloc();
+    check_nullptr(pkt);
+
+    swr = swr_alloc();
+    check_nullptr(swr);
+
+    av_opt_set_int(swr, "in_channel_layout", AV_CH_LAYOUT_STEREO, 0);
+    av_opt_set_int(swr, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
+    av_opt_set_int(swr, "in_sample_rate", InputInfo::rate, 0);
+    av_opt_set_int(swr, "out_sample_rate", InputInfo::rate, 0); // must match for timing
+    av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_SAMPLE_FMT_FLTP, 0);
+    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_FORMAT, 0);
+    swr_init(swr);
+  });
+}
+
+void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
+  init();          // guarded by call_once
+  payload.clear(); // one error packet will be empty
+
+  auto bytes = av_parser_parse2(parser_ctx,     // parser ctx
+                                codec_ctx,      // codex ctx
+                                &pkt->data,     // ptr to the pkt (parsed data)
+                                &pkt->size,     // ptr size of the pkt (parsed data)
+                                m.data(),       // payload data (unchanged by parsing)
+                                decipher_len,   // payload size
+                                AV_NOPTS_VALUE, // pts
+                                AV_NOPTS_VALUE, // dts
+                                0);             // pos
+
+  if (bytes && (pkt->size <= 7)) {
+    constexpr auto f = FMT_STRING("{} {} malformed AAC packet bytes={} size={}\n");
+    fmt::print(f, runTicks(), fnName(), bytes, pkt->size);
+
+    fmt::print("{} malformed AAC packet bytes: ", runTicks());
+    for (auto idx = 0; idx < pkt->size; idx++) {
+      fmt::print("[{:<02}]0x{:<02x} ", idx, pkt->data[idx]);
+    }
+
+    fmt::print("\n");
+
+    return;
+  }
+
+  int ret = 0; // re-used for av* calls
+  ret = avcodec_send_packet(codec_ctx, pkt);
+
+  if (ret < 0) {
+    constexpr auto f = FMT_STRING("{} {} avcodec_send_packet={}\n");
+    fmt::print(f, runTicks(), fnName(), ret);
+    return;
+  }
+
+  auto decoded_frame = av_frame_alloc();
+  ret = avcodec_receive_frame(codec_ctx, decoded_frame);
+
+  if (ret < 0) {
+    constexpr auto f = FMT_STRING("{} {} avcodec_receive_frame={}\n");
+    fmt::print(f, runTicks(), fnName(), ret);
+    return;
+  }
+
+  av_samples_alloc(&pcm_audio,                // pointer to PCM samples
+                   &dst_linesize,             // pointer to calculated linesize ?
+                   codec_ctx->channels,       // num of channels
+                   decoded_frame->nb_samples, // num of samples
+                   AV_FORMAT,                 // desired format S16/BE
+                   1);                        // no alignment required
+
+  auto samples_per_channel = swr_convert(             // perform the software resample
+      swr,                                            // software resample ctx
+      &pcm_audio,                                     // put processed samples here
+      decoded_frame->nb_samples,                      // output this many samples
+      (const uint8_t **)decoded_frame->extended_data, // process data at this ptr
+      decoded_frame->nb_samples);                     // process this many samples
+
+  auto dst_bufsize = av_samples_get_buffer_size // determine required buffer
+      (&dst_linesize,                           // calc'ed linesize
+       codec_ctx->channels,                     // num of channels
+       samples_per_channel,                     // num of samples/channel (from swr_convert)
+       AV_FORMAT,                               // S16/BE
+       1);                                      // no alignment required
+
+  { // debug
+    constexpr uint8_t MAX_REPORT = 3;
+    static uint8_t count = 0;
+    if (count < MAX_REPORT) {
+      constexpr auto f = FMT_STRING("{} {} ret={} samples/channel={:<5} dst_buffsize={:<5}\n");
+      fmt::print(f, runTicks(), fnName(), ret, samples_per_channel, dst_bufsize);
+
+      ++count;
+    }
+  }
+
+  if (dst_bufsize > 0) { // put PCM data into payload
+    auto to = std::back_inserter(payload);
+    ranges::copy_n(pcm_audio, dst_bufsize, to);
+  }
+
+  if (decoded_frame) {
+    av_frame_free(&decoded_frame);
+  }
+
+  if (pcm_audio) {
+    av_freep(&pcm_audio);
+  }
+}
+
+} // namespace av
 
 RTP::RTP(Basic &packet) {
   Basic _packet;              // packet to pick apart
@@ -103,22 +283,6 @@ RTP::RTP(Basic &packet) {
  * NOTE: the payload size must count in the ADTS header itself.
  */
 
-void RTP::adtsHeaderAdd() {
-  int profile = 2; // AAC LC
-                   // 39=MediaCodecInfo.CodecProfileLevel.AACObjectELD;
-  int freqIdx = 4; // 44.1KHz
-  int chanCfg = 2; // CPE
-
-  // fill in ADTS data
-  _payload[0] = 0xFF;
-  _payload[1] = 0xF9;
-  _payload[2] = ((profile - 1) << 6) + (freqIdx << 2) + (chanCfg >> 2);
-  _payload[3] = ((chanCfg & 3) << 6) + (_payload.size() >> 11);
-  _payload[4] = (_payload.size() & 0x7FF) >> 3;
-  _payload[5] = ((_payload.size() & 7) << 5) + 0x1F;
-  _payload[6] = 0xFC;
-}
-
 bool RTP::decipher() {
   if (rtp::shk.empty()) {
     if (true) { // debug
@@ -129,12 +293,12 @@ bool RTP::decipher() {
     return false;
   }
 
-  std::array<uint8_t, 16 * 1024> m; // deciphered data destination
-  unsigned long long decip_len = 0; // deciphered length
-  auto cipher_rc =                  // returns -1 == failure
+  CipherBuff m;                        // deciphered data destination
+  unsigned long long decipher_len = 0; // deciphered length
+  auto cipher_rc =                     // returns -1 == failure
       crypto_aead_chacha20poly1305_ietf_decrypt(
-          m.data(),                          // m (decipered data)
-          &decip_len,                        // bytes deciphered
+          m.data() + ADTS_HEADER_SIZE,       // m (leave room for ADTS header)
+          &decipher_len,                     // bytes deciphered
           nullptr,                           // nanoseconds (unused, must be nullptr)
           _payload.data(),                   // ciphered data
           _payload.size(),                   // ciphered length
@@ -143,46 +307,37 @@ bool RTP::decipher() {
           _nonce.data(),                     // the nonce
           (const uint8_t *)rtp::shk.data()); // shared key (from SETUP message)
 
-  if (cipher_rc < 0) { // crypto returns -1 on failure
+  if (cipher_rc < 0) { // only report cipher error once
     static std::once_flag __flag;
 
     std::call_once(__flag, [&] {
       constexpr auto f = FMT_STRING("{} {} failed rc={} len={}\n");
-      fmt::print(f, runTicks(), fnName(), cipher_rc, decip_len);
+      fmt::print(f, runTicks(), fnName(), cipher_rc, decipher_len);
     });
+
+    return false;
   }
 
   if (false) { // debug
     constexpr auto f = FMT_STRING("{} {} OK rc={} decipher/cipher{:>6}/{:>6}\n");
-    fmt::print(f, runTicks(), fnName(), cipher_rc, decip_len, _payload.size());
+    fmt::print(f, runTicks(), fnName(), cipher_rc, decipher_len, _payload.size());
   }
 
-  // replace payload with deciphered data
-  // _payload.assign(7, 0x00); // reserve space for adts header
-  // auto to = std::back_inserter(_payload);
-  // ranges::copy_n(m.begin(), decip_len, to);
+  // NOTE: the size of the packet is the deciphered len AND the ADTS header
+  const size_t packet_size = decipher_len + ADTS_HEADER_SIZE;
 
-  if (_payload.size() < 64) {
-    constexpr auto f = FMT_STRING("{} {} small payload size={}\n");
-    fmt::print(f, runTicks(), fnName(), _payload.size());
+  // make ADTS header
+  m[0] = 0xFF;
+  m[1] = 0xF9;
+  m[2] = ((ADTS_PROFILE - 1) << 6) + (ADTS_FREQ_IDX << 2) + (ADTS_CHANNEL_CFG >> 2);
+  m[3] = ((ADTS_CHANNEL_CFG & 3) << 6) + (packet_size >> 11);
+  m[4] = (packet_size & 0x7FF) >> 3;
+  m[5] = ((packet_size & 7) << 5) + 0x1F;
+  m[6] = 0xFC;
 
-    fmt::print("{} ", runTicks());
-    size_t count = 0;
-    ranges::for_each(_payload.begin(), _payload.end(), [&](const auto &byte) {
-      fmt::print("[{:<02}]0x{:<02x}  ", count, byte);
-      ++count;
+  av::parse(m, packet_size, _payload);
 
-      if ((count % 10) == 0) {
-        fmt::print("\n{} ", runTicks());
-      }
-    });
-
-    if ((count % 10) != 0) {
-      fmt::print("\n");
-    }
-  }
-
-  return true;
+  return _payload.empty() == false;
 }
 
 void RTP::shk(const Basic &key) {

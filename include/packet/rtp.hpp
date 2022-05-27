@@ -21,8 +21,11 @@
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
 
+#include <array>
+
 namespace pierre {
 namespace packet {
+typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 
 /*
 credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
@@ -74,14 +77,12 @@ class RTP {
 public:
   RTP(Basic &packet);
 
-  bool decipher();
+  bool decipher(); // deciphers and processes frame
   bool isValid() const { return version == 0x02; }
   size_t payloadSize() const { return _payload.size(); }
+  const Basic &pcmSamples() const { return _payload; }
 
-  static void shk(const Basic &key);
-
-private:
-  void adtsHeaderAdd();
+  static void shk(const Basic &key); // set class level shared key
 
 public:
   // order dependent
@@ -99,6 +100,11 @@ private:
   packet::Basic _tag;
   packet::Basic _aad;
   packet::Basic _payload;
+
+  static constexpr size_t ADTS_HEADER_SIZE = 7;
+  static constexpr int ADTS_PROFILE = 2;     // AAC LC
+  static constexpr int ADTS_FREQ_IDX = 4;    // 44.1 KHz
+  static constexpr int ADTS_CHANNEL_CFG = 2; // CPE
 };
 
 } // namespace packet
