@@ -40,7 +40,7 @@ bool Teardown::populate() {
   auto has_streams = rdict.exists(dk::STREAMS);
 
   if (has_streams == true) { // stop processing audio data
-    if (true) {
+    if (false) {             // debug
       constexpr auto f = FMT_STRING("{} {} phase 1 has_streams={}\n");
       fmt::print(f, runTicks(), fnName(), has_streams);
     }
@@ -49,7 +49,7 @@ bool Teardown::populate() {
 
   } else { // we've been asked to disconnect
 
-    if (true) {
+    if (false) { // debug
       constexpr auto f = FMT_STRING("{} {} phase 2 has_streams={}\n");
       fmt::print(f, runTicks(), fnName(), has_streams);
     }

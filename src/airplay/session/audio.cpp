@@ -153,9 +153,9 @@ void Audio::asyncRxPacket(size_t packet_len) {
                                }
                              }
 
-                             self->accumulate(RX, rx_bytes);       // track stats
-                             Queued::ptr()->storePacket(rx_bytes); // notify bytes received
-                             self->asyncLoop();                    // async read next packet
+                             self->accumulate(RX, rx_bytes);   // track stats
+                             Queued::ptr()->handoff(rx_bytes); // notify bytes received
+                             self->asyncLoop();                // async read next packet
                            }));
 }
 

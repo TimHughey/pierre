@@ -111,11 +111,12 @@ const string &Headers::getVal(csv want_type) const {
   const auto &search = _omap.find(want_type);
 
   if (search == _omap.end()) {
-    constexpr auto f = FMT_STRING("{} {} type={} not found (returning empty string)\n");
-    fmt::print(f, runTicks(), fnName(), want_type);
+    if (false) { // debug
+      constexpr auto f = FMT_STRING("{} {} type={} not found (returning empty string)\n");
+      fmt::print(f, runTicks(), fnName(), want_type);
+    }
 
     return __EMPTY;
-    // throw(std::runtime_error("header type not found"));
   }
 
   return search->second;

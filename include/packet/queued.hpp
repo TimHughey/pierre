@@ -71,13 +71,13 @@ public:
   static void reset() { shared::queued().reset(); }
 
 private: // constructor private, all access through shared_ptr
-  Queued(asio::io_context &io_ctx) : io_ctx(io_ctx) {}
+  Queued(asio::io_context &io_ctx) : io_ctx(io_ctx), local_strand(io_ctx) {}
 
 public:
+  void accept(Basic packet, const size_t rx_bytes);
   inline Basic &buffer() { return _packet; }
 
-  // notify that data has been queued
-  void storePacket(const size_t rx_bytes);
+  void handoff(const size_t rx_bytes);
 
   // buffer to receive the packet length
   auto lenBuffer() {
@@ -99,13 +99,14 @@ public:
 private:
   // order dependent (constructor initialized)
   asio::io_context &io_ctx;
+  asio::io_context::strand local_strand;
 
   // order independent
   PacketMap _packet_map;      // queued packets mapped by seq num
   PacketMap _packet_map_busy; // holds queued packets when _packet_map is busy
   Basic _packet;              // packet received by Session
   Basic packet_len;           // buffer for packet len
-  semaphore q_access{0};      // keep this, may need it
+  // semaphore q_access{0};      // keep this, may need it
 
   static constexpr csv moduleId{"QUEUED"};
 };

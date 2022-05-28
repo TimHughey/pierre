@@ -29,8 +29,6 @@ using namespace packet;
 bool SetAnchor::populate() {
   rdict = plist();
 
-  rdict.dump();
-
   saveAnchorInfo();
 
   responseCode(RespCode::OK);

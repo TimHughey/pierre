@@ -95,13 +95,8 @@ private:
 class Control : public Base {
 public:
   // create the Control
-  Control(const Inject &di)
-      : Base("CONTROL SERVER"),                              // server name
-        io_ctx(di.io_ctx),                                   // io_ctx
-        socket(io_ctx, udp_endpoint(ip_udp::v4(), ANY_PORT)) // create socket and endpoint
-  {
-    _wire.clear();
-  }
+  Control(const Inject &di);
+  ~Control();
 
   void asyncLoop(const error_code ec_last = DEF_ERROR_CODE) override;
 

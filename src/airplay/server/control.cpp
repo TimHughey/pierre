@@ -68,6 +68,26 @@ using namespace boost;
 using namespace boost::system;
 using namespace asio;
 
+Control::Control(const Inject &di)
+    : Base("CONTROL SERVER"),                              // server name
+      io_ctx(di.io_ctx),                                   // io_ctx
+      socket(io_ctx, udp_endpoint(ip_udp::v4(), ANY_PORT)) // create socket and endpoint
+{
+  _wire.clear();
+}
+
+Control::~Control() {
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
+    fmt::print(f, runTicks(), serverId(), socket.native_handle());
+  }
+
+  [[maybe_unused]] error_code ec; // must use error_code overload to prevent throws
+
+  socket.shutdown(udp_socket::shutdown_both, ec);
+  socket.close(ec);
+}
+
 void Control::asyncLoop(const error_code ec_last) {
   // notes:
   //  1. for this datagram server we don't use a shared_ptr so we

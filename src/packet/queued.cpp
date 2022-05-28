@@ -37,6 +37,58 @@ std::optional<packet::shQueued> &queued() { return __queued; }
 
 namespace packet {
 
+namespace asio = boost::asio;
+
+void Queued::accept(Basic packet, const size_t rx_bytes) {
+  auto rtp_packet = RTP(packet);
+  uint32_t seq_num = rtp_packet.seq_num;
+
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} QUEUED vsn={} pad={} ext={} ssrc_count={} "
+                                  "payload_size={:>4} seq_num={:>8} ts={:>12} bytes={} \n");
+    fmt::print(f, runTicks(), rtp_packet.version, rtp_packet.padding, rtp_packet.extension,
+               rtp_packet.ssrc_count, rtp_packet.payloadSize(), rtp_packet.seq_num,
+               rtp_packet.timestamp, rx_bytes);
+  }
+
+  if (rtp_packet.isValid() == false) { // discard invalid RTP packets
+    if (true) {
+      constexpr auto f = FMT_STRING("{} {} dropping invalid RTP packet\n");
+      fmt::print(f, runTicks(), moduleId);
+    }
+
+    return;
+  }
+
+  if (rtp_packet.decipher() == false) { // discard decipher failures
+    return;
+  }
+
+  if (_packet_map.contains(seq_num)) {
+    if (true) { // debug
+      constexpr auto f = FMT_STRING("{} PACKET MAP seq={:>10} exists\n");
+      fmt::print(f, runTicks(), seq_num);
+    }
+  }
+
+  // store the received rtp_packet
+  _packet_map.insert_or_assign(seq_num, rtp_packet);
+}
+
+void Queued::handoff(const size_t rx_bytes) {
+  if (_packet.empty()) { // stop empty packets
+    return;
+  }
+
+  Basic packet;               // create a new packet
+  std::swap(packet, _packet); // swap new with ready packet
+
+  asio::post(local_strand, // local strand guards container
+             [self = shared_from_this(), packet = std::move(packet), bytes = rx_bytes]() {
+               self->accept(packet, bytes);
+             });
+}
+
 uint16_t Queued::length() {
   uint16_t len = 0;
 
@@ -83,7 +135,8 @@ uint32_t Queued::timestLast() const {
   return 0;
 }
 
-void Queued::storePacket([[maybe_unused]] const size_t rx_bytes) {
+/*
+void Queued::accept(Basic Packet, const size_t rx_bytes) {
   static std::once_flag __once_flag;
   std::call_once(__once_flag, [&] { q_access.release(); }); // semaphore release to get started
 
@@ -92,10 +145,10 @@ void Queued::storePacket([[maybe_unused]] const size_t rx_bytes) {
 
   if (false) { // debug
     constexpr auto f = FMT_STRING("{} QUEUED vsn={} pad={} ext={} ssrc_count={} "
-                                  "payload_size={:>4} seq_num={:>8} ts={:>12} \n");
+                                  "payload_size={:>4} seq_num={:>8} ts={:>12} bytes={} \n");
     fmt::print(f, runTicks(), rtp_packet.version, rtp_packet.padding, rtp_packet.extension,
                rtp_packet.ssrc_count, rtp_packet.payloadSize(), rtp_packet.seq_num,
-               rtp_packet.timestamp);
+               rtp_packet.timestamp, rx_bytes);
   }
 
   if (rtp_packet.isValid() == false) { // discard invalid RTP packets
@@ -143,7 +196,20 @@ void Queued::storePacket([[maybe_unused]] const size_t rx_bytes) {
   q_access.release(); // release the queue
 }
 
-// misc helpers, debug, etc.
+void Queued::handoff(const size_t rx_bytes) {
+  if (_packet.empty) { // stop empty packets
+    return;
+  }
+
+  Basic packet;               // create a new packet
+  std::swap(packet, _packet); // swap new with ready packet
+
+  asio::post(local_strand, // local strand guards container
+             [self = shared_from_this(), packet = packet, bytes = rx_bytes]() {
+               self->accept(packet, bytes);
+             });
+}
+*/
 
 } // namespace packet
 } // namespace pierre

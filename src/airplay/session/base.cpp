@@ -36,13 +36,15 @@ Base::Base(const Inject &di, csv session_id)
 }
 
 Base::~Base() {
-  constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
-  fmt::print(f, runTicks(), session_id, socket.native_handle());
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
+    fmt::print(f, runTicks(), session_id, socket.native_handle());
+  }
 
   [[maybe_unused]] error_code ec; // must use error_code overload to prevent throws
   socket.shutdown(tcp_socket::shutdown_both, ec);
   socket.close(ec);
-};
+}
 
 bool Base::isReady(const error_code &ec) {
   auto rc = isReady();
