@@ -24,15 +24,16 @@
 
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
+#include "packet/flush_request.hpp"
 #include "packet/rtp.hpp"
 
 #include <boost/asio.hpp>
 #include <chrono>
+#include <deque>
 #include <map>
 #include <memory>
 #include <optional>
 #include <semaphore>
-#include <vector>
 
 namespace pierre {
 
@@ -52,61 +53,66 @@ namespace asio = boost::asio;
 }
 
 class Queued : public std::enable_shared_from_this<Queued> {
-public:
-  using semaphore = std::counting_semaphore<1>;
-  using nanos = std::chrono::nanoseconds;
+private:
+  // a spool represets RTP packets, in ascending order by sequence
+  // a spool is guaranteed gapless and all sequence numbers are ascending
+  typedef std::deque<shRTP> Spool;
 
-  typedef std::map<uint32_t, RTP> PacketMap;
-  typedef std::binary_semaphore QueueAccess;
+  // when a sequence number is received that is less than the previous
+  // sequence number a new spool is created and added to spools. spools
+  // will contain at least one spool at all times during playback.
+  // spools contains more than one spool when sequence number rollover
+  // occurs
+  typedef std::deque<Spool> Spools;
 
 public:
   static constexpr size_t PACKET_LEN_BYTES = sizeof(uint16_t);
-  static constexpr size_t STD_PACKET_SIZE = 2048;
 
 public:
-  static shQueued init(asio::io_context &io_ctx) {
-    return shared::queued().emplace(new Queued(io_ctx));
-  }
-  static shQueued ptr() { return shared::queued().value()->shared_from_this(); }
-  static void reset() { shared::queued().reset(); }
+  static shQueued init(asio::io_context &io_ctx);
+  static shQueued ptr();
+  static void reset(); //
 
 private: // constructor private, all access through shared_ptr
-  Queued(asio::io_context &io_ctx) : io_ctx(io_ctx), local_strand(io_ctx) {}
+  Queued(asio::io_context &io_ctx);
 
 public:
-  void accept(Basic packet, const size_t rx_bytes);
+  void accept(Basic &&packet);
   inline Basic &buffer() { return _packet; }
 
+  void flush(const FlushRequest &flush);
   void handoff(const size_t rx_bytes);
 
   // buffer to receive the packet length
   auto lenBuffer() {
-    packet_len.clear();
+    _packet_len.clear();
 
-    return asio::dynamic_buffer(packet_len);
+    return asio::dynamic_buffer(_packet_len);
   }
 
   static constexpr uint16_t lenBytes = sizeof(uint16_t);
   uint16_t length();
 
-  uint32_t seqFirst() const;
-  uint32_t seqLast() const;
-  size_t seqCount() const { return _packet_map.size(); }
+  int64_t packetCount() const;
 
-  uint32_t timestFirst() const;
-  uint32_t timestLast() const;
+  void teardown();
+
+private:
+  void stats();
 
 private:
   // order dependent (constructor initialized)
   asio::io_context &io_ctx;
   asio::io_context::strand local_strand;
+  asio::high_resolution_timer stats_timer;
 
   // order independent
-  PacketMap _packet_map;      // queued packets mapped by seq num
-  PacketMap _packet_map_busy; // holds queued packets when _packet_map is busy
-  Basic _packet;              // packet received by Session
-  Basic packet_len;           // buffer for packet len
-  // semaphore q_access{0};      // keep this, may need it
+  Basic _packet;     // packet received by Session
+  Basic _packet_len; // buffer for packet len
+
+  // one or more spools where front = earliest, back = latest
+  Spools _spools;
+  FlushRequest _flush;
 
   static constexpr csv moduleId{"QUEUED"};
 };

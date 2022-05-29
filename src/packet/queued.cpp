@@ -20,13 +20,15 @@
 #include "packet/rtp.hpp"
 
 #include <algorithm>
-#include <boost/asio/buffer.hpp>
+#include <boost/asio.hpp>
 #include <chrono>
 #include <fmt/format.h>
 #include <iterator>
 #include <mutex>
+#include <ranges>
 
 using namespace std::chrono_literals;
+using steady_clock = std::chrono::steady_clock;
 
 namespace pierre {
 
@@ -37,63 +39,183 @@ std::optional<packet::shQueued> &queued() { return __queued; }
 
 namespace packet {
 
+using error_code = boost::system::error_code;
 namespace asio = boost::asio;
+namespace errc = boost::system::errc;
+namespace ranges = std::ranges;
 
-void Queued::accept(Basic packet, const size_t rx_bytes) {
-  auto rtp_packet = RTP(packet);
-  uint32_t seq_num = rtp_packet.seq_num;
+Queued::Queued(asio::io_context &io_ctx)
+    : io_ctx(io_ctx),       // keep a reference to the general io_ctx
+      local_strand(io_ctx), // use this strand for all container actions
+      stats_timer(io_ctx) {
+  // can not call member functions that use shared_from_this() in constructor
+}
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} QUEUED vsn={} pad={} ext={} ssrc_count={} "
-                                  "payload_size={:>4} seq_num={:>8} ts={:>12} bytes={} \n");
-    fmt::print(f, runTicks(), rtp_packet.version, rtp_packet.padding, rtp_packet.extension,
-               rtp_packet.ssrc_count, rtp_packet.payloadSize(), rtp_packet.seq_num,
-               rtp_packet.timestamp, rx_bytes);
-  }
+// static methods for creating, getting and resetting the shared instance
+shQueued Queued::init(asio::io_context &io_ctx) {
+  return shared::queued().emplace(new Queued(io_ctx));
+}
 
-  if (rtp_packet.isValid() == false) { // discard invalid RTP packets
-    if (true) {
-      constexpr auto f = FMT_STRING("{} {} dropping invalid RTP packet\n");
-      fmt::print(f, runTicks(), moduleId);
+shQueued Queued::ptr() { return shared::queued().value()->shared_from_this(); }
+void Queued::reset() { shared::queued().reset(); }
+
+// general member functions
+
+void Queued::accept(Basic &&packet) {
+  shRTP rtp_packet = std::make_shared<RTP>(packet);
+  uint32_t seq_num = rtp_packet->seq_num;
+
+  rtp_packet->dump(false);
+
+  if (rtp_packet->keep(_flush)) {
+    // 1. NOT flushed
+    // 2. deciphe OK
+    // 3. uncompressed OK
+    // 4. resampled OK
+
+    // ensure there's a spool available
+    if (_spools.empty()) {
+      _spools.emplace_back(Spool());
     }
 
-    return;
-  }
+    // back always contains the latest spool
+    auto &spool = _spools.back();
 
-  if (rtp_packet.decipher() == false) { // discard decipher failures
-    return;
-  }
-
-  if (_packet_map.contains(seq_num)) {
-    if (true) { // debug
-      constexpr auto f = FMT_STRING("{} PACKET MAP seq={:>10} exists\n");
-      fmt::print(f, runTicks(), seq_num);
+    // is there a gap in seq_num?
+    if (!spool.empty() && ((spool.back()->seq_num + 1) != seq_num)) {
+      // either a gap or rollover, create a new spool
+      spool = _spools.emplace_back(Spool());
     }
-  }
 
-  // store the received rtp_packet
-  _packet_map.insert_or_assign(seq_num, rtp_packet);
+    // store the rtp_packet in the appropriate spool
+    spool.emplace_back(rtp_packet);
+  }
+}
+
+void Queued::flush(const FlushRequest &flush) {
+  auto work = [self = shared_from_this(), flush = flush]() mutable {
+    bool flush_stats = true;      // debug, output flush stats
+    auto &spools = self->_spools; // save typing below
+
+    if (spools.empty()) { // nothing to flush
+      return;
+    }
+
+    // grab how many packets we currently have for debug stats (below)
+    int64_t count_before = 0;
+    if (flush_stats) {
+      count_before = self->packetCount();
+    }
+
+    // create new spools containing the desired seq_nums
+    Spools new_spools;
+    bool flush_found = false;
+
+    // transfer un-flushed rtp_packets to new spools
+    ranges::for_each(spools, [&](Spool &spool) {
+      auto fseq_num = flush.until_seq;
+      auto fts = flush.until_ts;
+
+      // spool contains flush request
+      if ((fseq_num > spool.front()->seq_num) && (fseq_num <= spool.back()->seq_num)) {
+        if (true) { // debug
+          constexpr auto f = FMT_STRING("{} {} FOUND FLUSH seq={:<7} front={:<7} back={}\n");
+          fmt::print(f, runTicks(), moduleId, fseq_num, spool.front()->seq_num,
+                     spool.back()->seq_num);
+        }
+
+        flush_found = true;
+        // the flush seq_num is in this spool. iterate the rtp packets
+        // swapping over the packets to retain
+        Spool new_spool;
+        ranges::for_each(spool, [&](shRTP &rtp) mutable {
+          // this is a rtp to keep, swap it into the new spool
+          if (rtp->seq_num >= flush.until_seq) {
+            new_spool.emplace_back(rtp->shared_from_this());
+          }
+        }); // end of rtp_packet swapping
+
+        // if anything ended up in this new spool then store it
+        if (!new_spool.empty()) {
+          new_spools.emplace_back(new_spool);
+        }
+      } else if (fts < spool.front()->timestamp) {
+        // spool is newer than flush, keep it
+        auto &new_spool = new_spools.emplace_back(Spool());
+        std::swap(new_spool, spool);
+      } else if (true) { // debug
+        constexpr auto f = FMT_STRING("{} {} discarding spool seq_a/b={}/{} count={}\n");
+        fmt::print(f, runTicks(), moduleId, spool.front()->seq_num, spool.back()->seq_num,
+                   spool.size());
+      }
+    }); // end of spools processing
+
+    if (!flush_found) {
+      // we're dealing with a flush request for a seq_num we haven't seen yet
+      // save the flush request
+      if (self->_flush.active) { // debug
+        if (true) {              // debug
+          constexpr auto f = FMT_STRING("{} {} replaced active flush request\n");
+          fmt::print(f, runTicks(), moduleId);
+        }
+      }
+
+      self->_flush = flush; // save the flush request
+    }
+
+    // swap new_spools with spools to effectuate the flush
+    // note: new spools could be empty if the flush request was for a
+    // sequence we've not seen yet
+    std::swap(new_spools, spools);
+
+    if (flush_stats) { // debug
+      if (self->_flush.active) {
+        constexpr auto f = FMT_STRING("{} {} FLUSH active=TRUE until={:<7}\n");
+        fmt::print(f, runTicks(), moduleId, flush.until_seq);
+      } else {
+        auto flushed_count = count_before - self->packetCount();
+        constexpr auto f = FMT_STRING("{} {} FLUSH active=FALSE until={:<7} count={}\n");
+        fmt::print(f, runTicks(), moduleId, flush.until_seq, flushed_count);
+      }
+    }
+  };
+
+  asio::post(local_strand, work); // schedule the flush
 }
 
 void Queued::handoff(const size_t rx_bytes) {
-  if (_packet.empty()) { // stop empty packets
+  static bool __stats_active_flag = false;
+  if (_packet.empty() || (rx_bytes == 0)) { // no empty packets
     return;
   }
 
-  Basic packet;               // create a new packet
-  std::swap(packet, _packet); // swap new with ready packet
+  // ensure stats reporting is active
+  if (!__stats_active_flag) {
+    if (true) {
+      constexpr auto f = FMT_STRING("{} {} scheduled stats reporting\n");
+      fmt::print(f, runTicks(), moduleId);
+    }
 
-  asio::post(local_strand, // local strand guards container
-             [self = shared_from_this(), packet = std::move(packet), bytes = rx_bytes]() {
-               self->accept(packet, bytes);
-             });
+    stats();
+    __stats_active_flag = true;
+  }
+
+  Basic packet;
+  std::swap(packet, _packet); // grab latest packet and reset for the next
+
+  asio::post(       // async process the rtp packet
+      local_strand, // local strand guards container
+      [self = shared_from_this(), packet = std::move(packet)]() mutable {
+        // call accept so we're back within the class scope (avoid lots of self)
+        self->accept(std::forward<Basic>(packet));
+      });
 }
 
 uint16_t Queued::length() {
   uint16_t len = 0;
 
-  len += packet_len[0] << 8;
-  len += packet_len[1];
+  len += _packet_len[0] << 8;
+  len += _packet_len[1];
 
   if (false) { // debug
     auto constexpr f = FMT_STRING("{} {} len={}\n");
@@ -103,113 +225,75 @@ uint16_t Queued::length() {
   return len;
 }
 
-uint32_t Queued::seqFirst() const {
-  if (_packet_map.size() > 0) {
-    return _packet_map.begin()->first;
+int64_t Queued::packetCount() const {
+  int64_t count = 0;
+
+  for (const Spool &spool : _spools) {
+    count += spool.size();
   }
 
-  return 0;
+  return count;
 }
 
-uint32_t Queued::seqLast() const {
-  if (_packet_map.size() > 0) {
-    return _packet_map.rbegin()->first;
-  }
+void Queued::stats() {
+  stats_timer.expires_after(10s);
 
-  return 0;
+  stats_timer.async_wait(  // wait on the timer
+      asio::bind_executor( // will use an alternate executor
+          local_strand,    // our local strand
+          [self = shared_from_this()](error_code ec) {
+            if (ec != errc::success) { // bail out on error (or cancel)
+              return;
+            }
+
+            const auto &spools = self->_spools;
+
+            static int64_t size_last = 0;
+            const int64_t size_now = self->packetCount();
+
+            const int64_t diff = size_now - size_last;
+
+            constexpr auto f = FMT_STRING("{} {} spools={:02} "
+                                          "rtp_count={:<5} diff={:>+7} "
+                                          "seq_a/b={:>11} / {:<11} "
+                                          "ts_a/b={:>12} / {:<12}\n");
+            uint32_t seq_a = 0;
+            uint32_t seq_b = 0;
+            uint32_t ts_a = 0;
+            uint32_t ts_b = 0;
+
+            if (size_now > 0) { // spools could be empty
+              auto &rtp_a = spools.front().front();
+              auto &rtp_b = spools.back().back();
+
+              seq_a = rtp_a->seq_num;
+              seq_b = rtp_b->seq_num;
+
+              ts_a = rtp_a->timestamp;
+              ts_b = rtp_b->timestamp;
+            }
+
+            fmt::print(f, runTicks(), moduleId,                   // standard logging prefix
+                       spools.size(),                             // overall spool count
+                       size_now, diff, seq_a, seq_b, ts_a, ts_b); // metrics since last stats
+
+            size_last = size_now; // save last size
+
+            self->stats(); // schedule next stats report
+          }));
 }
 
-uint32_t Queued::timestFirst() const {
-  if (_packet_map.size() > 0) {
-    return _packet_map.begin()->second.timestamp;
-  }
+void Queued::teardown() {
+  asio::post(local_strand, [self = shared_from_this()]() mutable {
+    [[maybe_unused]] error_code ec;
+    self->stats_timer.cancel(ec);
 
-  return 0;
+    self->_spools.clear();
+    self->_packet.clear();
+
+    RTP::shkClear();
+  });
 }
-
-uint32_t Queued::timestLast() const {
-  if (_packet_map.size() > 0) {
-    return _packet_map.rbegin()->second.timestamp;
-  }
-
-  return 0;
-}
-
-/*
-void Queued::accept(Basic Packet, const size_t rx_bytes) {
-  static std::once_flag __once_flag;
-  std::call_once(__once_flag, [&] { q_access.release(); }); // semaphore release to get started
-
-  auto rtp_packet = RTP(_packet);
-  uint32_t seq_num = rtp_packet.seq_num;
-
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} QUEUED vsn={} pad={} ext={} ssrc_count={} "
-                                  "payload_size={:>4} seq_num={:>8} ts={:>12} bytes={} \n");
-    fmt::print(f, runTicks(), rtp_packet.version, rtp_packet.padding, rtp_packet.extension,
-               rtp_packet.ssrc_count, rtp_packet.payloadSize(), rtp_packet.seq_num,
-               rtp_packet.timestamp, rx_bytes);
-  }
-
-  if (rtp_packet.isValid() == false) { // discard invalid RTP packets
-    if (true) {
-      constexpr auto f = FMT_STRING("{} {} dropping invalid RTP packet\n");
-      fmt::print(f, runTicks(), moduleId);
-    }
-
-    return;
-  }
-
-  if (rtp_packet.decipher() == false) { // discard decipher failures
-    return;
-  }
-
-  // we have a valid RTP packet, store it somewhere
-
-  if (q_access.try_acquire_for(10ms) == false) { // primary packet map busy, store in busy map
-    if (true) {                                  // debug
-      constexpr auto f = FMT_STRING("{} {} semaphore aquisition failed, "
-                                    "saving in busy map size={}\n");
-      fmt::print(f, runTicks(), moduleId, _packet_map_busy.size());
-    }
-
-    _packet_map_busy.insert_or_assign(seq_num, rtp_packet);
-    return;
-  }
-
-  if (_packet_map_busy.size() > 0) { // move any busy packets to primary map
-    for (auto &[seq_num, __rtp_packet_busy] : _packet_map_busy) {
-      _packet_map.insert(_packet_map_busy.extract(seq_num));
-    }
-  }
-
-  if (_packet_map.contains(seq_num)) {
-    if (true) { // debug
-      constexpr auto f = FMT_STRING("{} PACKET MAP seq={:>10} exists\n");
-      fmt::print(f, runTicks(), seq_num);
-    }
-  }
-
-  // store the received rtp_packet
-  _packet_map.insert_or_assign(seq_num, rtp_packet);
-
-  q_access.release(); // release the queue
-}
-
-void Queued::handoff(const size_t rx_bytes) {
-  if (_packet.empty) { // stop empty packets
-    return;
-  }
-
-  Basic packet;               // create a new packet
-  std::swap(packet, _packet); // swap new with ready packet
-
-  asio::post(local_strand, // local strand guards container
-             [self = shared_from_this(), packet = packet, bytes = rx_bytes]() {
-               self->accept(packet, bytes);
-             });
-}
-*/
 
 } // namespace packet
 } // namespace pierre

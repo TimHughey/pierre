@@ -39,7 +39,7 @@ Audio::~Audio() {
   [[maybe_unused]] error_code ec;
   acceptor.close(ec); // use error_code overload to prevent throws
 
-  if (true) { // debug
+  if (false) { // debug
     constexpr auto f = FMT_STRING("{} {} closed socket={} msg={}\n");
     fmt::print(f, runTicks(), serverId(), acceptor.native_handle(), ec.message());
   }

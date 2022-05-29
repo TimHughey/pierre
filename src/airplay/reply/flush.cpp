@@ -18,17 +18,35 @@
 
 #include "reply/flush.hpp"
 #include "packet/aplist.hpp"
+#include "packet/flush_request.hpp"
+#include "packet/queued.hpp"
+#include "reply/dict_keys.hpp"
 
 namespace pierre {
 namespace airplay {
 namespace reply {
 
-bool FlushBuffered::populate() {
-  rHeaders().dump();
+namespace packet = pierre::packet;
 
+bool FlushBuffered::populate() {
   rdict = plist();
 
-  rdict.dump(fnName());
+  if (false) { // debug
+    rHeaders().dump();
+    rdict.dump(fnName());
+  }
+
+  // from_seq and from_ts may not be present
+  // until_seq and until_ts should always be present
+  FlushRequest flush_req{
+      .active = true,
+      .from_seq = (uint32_t)rdict.uint({dk::FLUSH_FROM_SEQ}),
+      .from_ts = (uint32_t)rdict.uint({dk::FLUSH_FROM_TS}),
+      .until_seq = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_SEQ}), // until seq
+      .until_ts = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_TS})    // until timestamp
+  };
+
+  packet::Queued::ptr()->flush(flush_req);
 
   responseCode(packet::RespCode::OK);
   return true;

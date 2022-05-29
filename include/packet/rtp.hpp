@@ -20,10 +20,14 @@
 
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
+#include "packet/flush_request.hpp"
 
 #include <array>
+#include <memory>
+#include <utility>
 
 namespace pierre {
+
 namespace packet {
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 
@@ -73,16 +77,34 @@ N
 
 */
 
-class RTP {
+class RTP : public std::enable_shared_from_this<RTP> {
 public:
-  RTP(Basic &packet);
+  RTP() = default;
+  RTP(Basic &packet); // must construct from a packet
+                      //   RTP(const RTP &) = default;
+                      //   RTP(RTP &&) = default;
+                      //   RTP &operator=(const RTP &) = default;
+                      //   RTP &operator=(RTP &&rtp) = default;
+
+  //   RTP(const RTP &) = delete;
+  //   RTP(RTP &&rtp) noexcept;
+  //   RTP &operator=(const RTP &) = delete;
+  //   RTP &operator=(RTP &&rhs) noexcept;
+
+  friend void swap(RTP &a, RTP &b); // swap specialization
 
   bool decipher(); // deciphers and processes frame
   bool isValid() const { return version == 0x02; }
+  bool keep(FlushRequest &flush);
   size_t payloadSize() const { return _payload.size(); }
   const Basic &pcmSamples() const { return _payload; }
 
+  // class member functions
   static void shk(const Basic &key); // set class level shared key
+  static void shkClear();
+
+  // misc debug
+  void dump(bool debug = true) const;
 
 public:
   // order dependent
@@ -96,16 +118,20 @@ public:
 
 private:
   // order independent
-  packet::Basic _nonce;
-  packet::Basic _tag;
-  packet::Basic _aad;
-  packet::Basic _payload;
+  Basic _nonce;
+  Basic _tag;
+  Basic _aad;
+  Basic _payload;
 
   static constexpr size_t ADTS_HEADER_SIZE = 7;
   static constexpr int ADTS_PROFILE = 2;     // AAC LC
   static constexpr int ADTS_FREQ_IDX = 4;    // 44.1 KHz
   static constexpr int ADTS_CHANNEL_CFG = 2; // CPE
+
+  static constexpr auto moduleId = csv("RTP");
 };
+
+typedef std::shared_ptr<RTP> shRTP;
 
 } // namespace packet
 } // namespace pierre

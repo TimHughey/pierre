@@ -265,7 +265,7 @@ void Rtsp::dump(DumpKind dump_type) {
 
 void Rtsp::infoNewSession() const {
   constexpr auto f = "{} {} new session\n";
-  fmt::print(f, runTicks(), fnName());
+  fmt::print(f, runTicks(), sessionId());
 }
 
 } // namespace session

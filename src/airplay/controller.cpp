@@ -48,7 +48,7 @@ namespace errc = boost::system::errc;
 void Controller::kickstart() {
   if (true) { // debug
     Features features;
-    constexpr auto f = FMT_STRING("{} {} kickstart features=0x{:x}\n");
+    constexpr auto f = FMT_STRING("{} {} features=0x{:x}\n");
     fmt::print(f, runTicks(), fnName(), features.ap2_default());
   }
 

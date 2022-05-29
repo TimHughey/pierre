@@ -84,11 +84,13 @@ bool Clock::mapSharedMem() {
 }
 
 bool Clock::isMapped(csrc_loc loc) const {
+  static uint32_t attempts = 0;
   auto ok = (mapped && (mapped != MAP_FAILED));
 
-  if (!ok && true) { // debug
-    constexpr auto f = FMT_STRING("{} {} nqptp data not mapped\n");
-    fmt::print(f, runTicks(), loc.function_name());
+  if (!ok && attempts && true) { // debug
+    constexpr auto f = FMT_STRING("{} {} nqptp data not mapped attempts={}\n");
+    fmt::print(f, runTicks(), loc.function_name(), attempts);
+    ++attempts;
   }
 
   return ok;

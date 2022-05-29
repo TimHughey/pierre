@@ -61,8 +61,10 @@ bool Base::isReady(const error_code &ec) {
         break;
 
       default: {
-        constexpr auto f = FMT_STRING("{} {} socket={} msg={}\n");
-        fmt::print(f, runTicks(), sessionId(), socket.native_handle(), ec.message());
+        if (false) { // debug
+          constexpr auto f = FMT_STRING("{} {} socket={} msg={}\n");
+          fmt::print(f, runTicks(), sessionId(), socket.native_handle(), ec.message());
+        }
 
         socket.shutdown(tcp_socket::shutdown_both);
         socket.close();

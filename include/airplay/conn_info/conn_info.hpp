@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "common/flush_request.hpp"
 #include "common/ops_mode.hpp"
 #include "common/typedefs.hpp"
 #include "conn_info/stream.hpp"
@@ -141,22 +140,16 @@ private:
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;
   int64_t previous_random_number;
-  // alac_file *decoder_info;
   uint64_t packet_count;
-  uint64_t packet_count_since_flush;
   int connection_state_to_output;
   uint64_t first_packet_time_to_play;
   int64_t time_since_play_started; // nanoseconds
                                    // stats
   uint64_t missing_packets, late_packets, too_late_packets, resend_requests;
-  int decoder_in_use;
   // debug variables
   int32_t last_seqno_read;
   // mutexes and condition variables
-  pthread_cond_t flowcontrol;
-  pthread_mutex_t ab_mutex, flush_mutex, volume_control_mutex;
 
-  int fix_volume;
   double initial_airplay_volume;
   int initial_airplay_volume_set;
 
@@ -165,9 +158,6 @@ private:
                                   // initialised, could start at 2 or 1.
   int ab_buffering, ab_synced;
   int64_t first_packet_timestamp;
-  int flush_requested;
-  int flush_output_flushed; // true if the output device has been flushed.
-  uint32_t flush_rtp_timestamp;
   uint64_t time_of_last_audio_packet;
   SeqNum ab_read, ab_write;
   //  AES_KEY aes;
@@ -237,16 +227,8 @@ private:
   ssize_t ap2_audio_buffer_size;
   ssize_t ap2_audio_buffer_minimum_size;
 
-  // flush requests (when not null), mutex protected
-  FlushList flush_requests;
-  int ap2_flush_requested;
-  int ap2_flush_from_valid;
-  uint32_t ap2_flush_from_rtp_timestamp;
-  uint32_t ap2_flush_from_sequence_number;
-  uint32_t ap2_flush_until_rtp_timestamp;
-  uint32_t ap2_flush_until_sequence_number;
-  int ap2_rate;         // protect with flush mutex, 0 means don't play, 1 means play
-  int ap2_play_enabled; // protect with flush mutex
+  int ap2_rate;
+  int ap2_play_enabled;
 
   // ap2_pairing ap2_control_pairing;
 
@@ -303,8 +285,6 @@ private:
   // allow it to be negative because seq_diff may be negative
   int32_t buffer_occupancy;
   int64_t session_corrections;
-
-  int play_number_after_flush;
 
   // remote control stuff. The port to which to send commands is not specified,
   // so you have to use mdns to find it. at present, only avahi can do this

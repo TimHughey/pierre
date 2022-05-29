@@ -18,26 +18,18 @@
 
 #pragma once
 
-#include "common/typedefs.hpp"
-
-#include <cstdint>
-#include <list>
+#include "core/typedefs.hpp"
 
 namespace pierre {
-namespace airplay {
-
-// forward decl for typedef
-struct FlushRequest;
-
-typedef std::list<FlushRequest> FlushList;
 
 struct FlushRequest {
-  bool flushNow = false; // if true, the flushFrom stuff is invalid
-  uint32_t flushFromSeq;
-  uint32_t flushFromTS;
-  uint32_t flushUntilSeq;
-  uint32_t flushUntilTS;
+  bool active = false;
+  uint32_t from_seq;
+  uint32_t from_ts;
+  uint32_t until_seq;
+  uint32_t until_ts;
+
+  void complete() { *this = FlushRequest(); }
 };
 
-} // namespace airplay
 } // namespace pierre

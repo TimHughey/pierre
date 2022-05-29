@@ -71,6 +71,7 @@ void debugDump();
 void init(); // throws on alloc failures
 void parse(CipherBuff &m, size_t decipher_len, Basic &payload);
 
+// namespace globals
 AVCodec *codec = nullptr;
 AVCodecContext *codec_ctx = nullptr;
 int codec_open_rc = -1;
@@ -140,7 +141,7 @@ void init() {
 
 void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
   init();          // guarded by call_once
-  payload.clear(); // one error packet will be empty
+  payload.clear(); // on error packet will be empty
 
   auto bytes = av_parser_parse2(parser_ctx,     // parser ctx
                                 codec_ctx,      // codex ctx
@@ -170,7 +171,7 @@ void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
   ret = avcodec_send_packet(codec_ctx, pkt);
 
   if (ret < 0) {
-    constexpr auto f = FMT_STRING("{} {} avcodec_send_packet={}\n");
+    constexpr auto f = FMT_STRING("{} {} avcodec_sendpacket={}\n");
     fmt::print(f, runTicks(), fnName(), ret);
     return;
   }
@@ -206,9 +207,9 @@ void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
        1);                                      // no alignment required
 
   { // debug
-    constexpr uint8_t MAX_REPORT = 3;
+    constexpr uint8_t MAX_REPORT = 1;
     static uint8_t count = 0;
-    if (count < MAX_REPORT) {
+    if (count < MAX_REPORT) { // debug
       constexpr auto f = FMT_STRING("{} {} ret={} samples/channel={:<5} dst_buffsize={:<5}\n");
       fmt::print(f, runTicks(), fnName(), ret, samples_per_channel, dst_bufsize);
 
@@ -233,22 +234,19 @@ void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
 } // namespace av
 
 RTP::RTP(Basic &packet) {
-  Basic _packet;              // packet to pick apart
-  std::swap(_packet, packet); // swap empty packet with packet passed
-
-  uint8_t byte0 = _packet[0]; // first byte to pick bits from
+  uint8_t byte0 = packet[0]; // first byte to pick bits from
 
   version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
   padding = ((byte0 & 0b00100000) >> 5);   // has padding
   extension = ((byte0 & 0b00010000) >> 4); // has extension
   ssrc_count = ((byte0 & 0b00001111));     // source system record count
 
-  seq_num = rtp::to_uint32(_packet.begin() + 1, 3);   // note: onlythree bytes
-  timestamp = rtp::to_uint32(_packet.begin() + 4, 4); // four bytes
-  ssrc = rtp::to_uint32(_packet.begin() + 8, 4);      // four bytes
+  seq_num = rtp::to_uint32(packet.begin() + 1, 3);   // note: onlythree bytes
+  timestamp = rtp::to_uint32(packet.begin() + 4, 4); // four bytes
+  ssrc = rtp::to_uint32(packet.begin() + 8, 4);      // four bytes
 
   // grab the end of the packet, we need it for several parts
-  Basic::iterator packet_end = _packet.begin() + _packet.size();
+  Basic::iterator packet_end = packet.begin() + packet.size();
 
   // nonce is the last eight (8) bytes
   // a complete nonce is 12 bytes so zero pad then append the mini nonce
@@ -261,16 +259,32 @@ RTP::RTP(Basic &packet) {
   Basic::iterator tag_end = tag_begin + 16;
   _tag.assign(tag_begin, tag_end);
 
-  Basic::iterator aad_begin = _packet.begin() + 4;
+  Basic::iterator aad_begin = packet.begin() + 4;
   Basic::iterator aad_end = aad_begin + 8;
   _aad.assign(aad_begin, aad_end);
 
   // finally the actual payload, starts at byte 12, ends
-  Basic::iterator payload_begin = _packet.begin() + 12;
+  Basic::iterator payload_begin = packet.begin() + 12;
   Basic::iterator payload_end = packet_end - 8;
   _payload.assign(payload_begin, payload_end);
 
   // NOTE: raw packet falls out of scope
+}
+
+// std::swap specialization (friend)
+void swap(RTP &a, RTP &b) {
+  using std::swap;
+
+  swap(a._nonce, b._nonce);
+  swap(a._tag, b._tag);
+  swap(a._aad, b._aad);
+  swap(a._payload, b._payload);
+  swap(a.version, b.version);
+  swap(a.padding, b.padding);
+  swap(a.ssrc_count, b.ssrc_count);
+  swap(a.seq_num, b.seq_num);
+  swap(a.timestamp, b.timestamp);
+  swap(a.ssrc, b.ssrc);
 }
 
 /*
@@ -295,7 +309,7 @@ bool RTP::decipher() {
 
   CipherBuff m;                        // deciphered data destination
   unsigned long long decipher_len = 0; // deciphered length
-  auto cipher_rc =                     // returns -1 == failure
+  auto cipher_rc =                     // -1 == failure
       crypto_aead_chacha20poly1305_ietf_decrypt(
           m.data() + ADTS_HEADER_SIZE,       // m (leave room for ADTS header)
           &decipher_len,                     // bytes deciphered
@@ -340,6 +354,45 @@ bool RTP::decipher() {
   return _payload.empty() == false;
 }
 
+void RTP::dump(bool debug) const {
+  if (!debug) {
+    return;
+  }
+
+  constexpr auto f = FMT_STRING("{} {} vsn={} pad={} ext={} ssrc_count={} "
+                                "payload_size={:>4} seq_num={:>8} ts={:>12}\n");
+  fmt::print(f, runTicks(), moduleId, version, padding, extension, ssrc_count, payloadSize(),
+             seq_num, timestamp);
+}
+
+bool RTP::keep(FlushRequest &flush) {
+  if (isValid() == false) {
+    if (true) { // debug
+      constexpr auto f = FMT_STRING("{} {} invalid version=0x{:02x}\n");
+      fmt::print(f, runTicks(), moduleId, version);
+    }
+
+    return false;
+  }
+
+  if (flush.active) {
+    if (seq_num < flush.until_seq) { // continue flushing
+      return false;                  // don't decipher or keep
+    }
+
+    if (seq_num >= flush.until_seq) { // flush complete
+      flush.complete();
+
+      if (true) { // debug
+        constexpr auto f = FMT_STRING("{} {} FLUSH CONPLETE until_seq={}\n");
+        fmt::print(f, runTicks(), moduleId, seq_num);
+      }
+    }
+  }
+
+  return decipher();
+}
+
 void RTP::shk(const Basic &key) {
   rtp::shk = key;
 
@@ -348,6 +401,8 @@ void RTP::shk(const Basic &key) {
     fmt::print(f, runTicks(), fnName(), rtp::shk.size());
   }
 }
+
+void RTP::shkClear() { rtp::shk.clear(); }
 
 } // namespace packet
 } // namespace pierre

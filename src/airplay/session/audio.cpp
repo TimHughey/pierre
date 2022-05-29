@@ -120,7 +120,7 @@ void Audio::asyncLoop() {
 
                        // async load the packet
                        self->asyncRxPacket(len); // schedules more work as needed
-                       self->ensureRxBytesReport();
+                       // self->ensureRxBytesReport();
                      }
                    }  // self is about to go out of scope...
                  })); // shared_ptr.use_count--
@@ -190,10 +190,7 @@ void Audio::timedRxBytesReport() {
                   }
 
                   // if (rx_total != rx_last) {
-                  constexpr auto f = FMT_STRING("{} {} RX total={:<10} 10s={:<10} "
-                                                "seq_num={:<11} {:>11} count={:>6} "
-                                                "timest={:<12} {:>12} "
-                                                "as_secs={:>6.4}\n");
+                  constexpr auto f = FMT_STRING("{} {} RX total={:<10} 10s={:<10} {:2.3}\n");
                   const auto in_10secs = rx_total - rx_last;
                   rx_last = rx_total;
 
@@ -203,11 +200,7 @@ void Audio::timedRxBytesReport() {
                   const int64_t time_since_sample = clock_info.sampleTime - clock_info.now();
                   const double as_secs = (double)time_since_sample * std::pow(10, -9);
 
-                  auto queued = Queued::ptr();
-
-                  fmt::print(f, runTicks(), self->sessionId(), rx_total, in_10secs,
-                             queued->seqFirst(), queued->seqLast(), queued->seqCount(),
-                             queued->timestFirst(), queued->timestLast(), as_secs);
+                  fmt::print(f, runTicks(), self->sessionId(), rx_total, in_10secs, as_secs);
                   // }
 
                   self->timedRxBytesReport();

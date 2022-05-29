@@ -21,6 +21,7 @@
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "packet/headers.hpp"
+#include "packet/queued.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
 
@@ -61,7 +62,11 @@ bool Teardown::populate() {
   return true;
 }
 
-void Teardown::phase1() { ConnInfo::ptr()->sessionKeyClear(); }
+void Teardown::phase1() {
+  ConnInfo::ptr()->sessionKeyClear();
+
+  packet::Queued::ptr()->teardown(); // clear queued frames
+}
 
 void Teardown::phase2() {
   Service::ptr()->receiverActive(false);
@@ -76,6 +81,8 @@ void Teardown::phase2() {
   }
   ConnInfo::ptr()->groupContainsGroupLeader = false;
   ConnInfo::ptr()->dacp_active_remote.clear();
+
+  packet::Queued::ptr()->teardown();
 }
 
 } // namespace reply

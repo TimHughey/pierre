@@ -165,7 +165,7 @@ bool Control::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
         break;
 
       default:
-        if (true) { // debug
+        if (false) { // debug
           constexpr auto f = FMT_STRING("{} {} SHUTDOWN socket={} msg={}\n");
           fmt::print(f, runTicks(), serverId(), socket.native_handle(), ec.message());
         }
