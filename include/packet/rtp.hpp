@@ -79,16 +79,20 @@ N
 */
 
 class RTP : public std::enable_shared_from_this<RTP> {
-public:
-  RTP() = default;
-  RTP(Basic &packet); // must construct from a packet
+private:
+  RTP(Basic &packet);
 
-  friend void swap(RTP &a, RTP &b); // swap specialization
+public:
+  RTP() = delete;
+
+  static std::shared_ptr<RTP> create(Basic &packet) {
+    return std::shared_ptr<RTP>(new RTP(packet));
+  }
 
   void cleanup() { _m.reset(); }
 
-  bool decipher(); // deciphers packet
-  void decode();
+  bool decipher();                                     // deciphers packet
+  static void decode(std::shared_ptr<RTP> rtp_packet); // definition must be in cpp
   bool isValid() const { return version == 0x02; }
   bool keep(FlushRequest &flush);
   Basic &payload() { return _payload; }
@@ -98,6 +102,7 @@ public:
   // class member functions
   static void shk(const Basic &key); // set class level shared key
   static void shkClear();
+  friend void swap(RTP &a, RTP &b); // swap specialization
 
   // misc debug
   void dump(bool debug = true) const;

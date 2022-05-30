@@ -185,13 +185,6 @@ bool keep(shRTP rtp, int used) {
     return false;
   }
 
-  if (true) { // debug
-    if (pkt->flags != 0) {
-      constexpr auto f = FMT_STRING("{} {} AAC packet flags={:#b}\n");
-      fmt::print(f, runTicks(), fnName(), pkt->flags);
-    }
-  }
-
   return true;
 }
 
@@ -202,7 +195,11 @@ uint8_t *mBuffer(shCipherBuff m) {
 
 void parse(shRTP rtp) {
   if (rtp.use_count() == 1) { // packet is no longer in queue
-    return;                   // shared_ptr will be released
+    if (true) {               // debug
+      constexpr auto f = FMT_STRING("{} {} rtp_packet not queued, skipping decode\n");
+      fmt::print(f, runTicks(), fnName());
+    }
+    return;
   }
 
   init(); // guarded by call_once
@@ -242,8 +239,9 @@ void parse(shRTP rtp) {
   ret = avcodec_send_packet(codec_ctx, pkt);
 
   if (ret < 0) {
-    constexpr auto f = FMT_STRING("{} {} avcodec_sendpacket={}\n");
-    fmt::print(f, runTicks(), fnName(), ret);
+    constexpr auto f = FMT_STRING("{} {} AV send packet failed "
+                                  "decipher_len={} size={} flags={:#b} rc=0x{:x}\n");
+    fmt::print(f, runTicks(), fnName(), decipher_len, pkt->size, pkt->flags, ret);
     return;
   }
 
@@ -419,9 +417,11 @@ bool RTP::decipher() {
   if (cipher_rc < 0) {
     static bool __reported = false; // only report cipher error once
 
+    const auto reason = (decipher_len == 0) ? csv("EMPTY") : csv("ERROR");
+
     if (!__reported) {
-      constexpr auto f = FMT_STRING("{} {} failed size={} rc={} decipher_len={} \n");
-      fmt::print(f, runTicks(), fnName(), _payload.size(), cipher_rc, decipher_len);
+      constexpr auto f = FMT_STRING("{} {} {} size={} rc={} decipher_len={} \n");
+      fmt::print(f, runTicks(), fnName(), reason, _payload.size(), cipher_rc, decipher_len);
       __reported = true;
     }
 
@@ -436,10 +436,10 @@ bool RTP::decipher() {
   return true;
 }
 
-void RTP::decode() {
-  auto self = shared_from_this();
-
-  av::parse(self);
+void RTP::decode(shRTP rtp_packet) {
+  // function definition must be in this file due to deliberate limited visibility of
+  // av namespace
+  av::parse(rtp_packet);
 }
 
 bool RTP::keep(FlushRequest &flush) {
@@ -467,7 +467,7 @@ bool RTP::keep(FlushRequest &flush) {
     }
   }
 
-  return decipher();
+  return (decipher() && (decipher_len > 0));
 }
 
 // misc debug

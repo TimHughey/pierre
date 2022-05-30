@@ -63,7 +63,7 @@ void Queued::reset() { shared::queued().reset(); }
 // general member functions
 
 void Queued::accept(Basic &&packet) {
-  shRTP rtp_packet = std::make_shared<RTP>(packet);
+  shRTP rtp_packet = RTP::create(packet);
   uint32_t seq_num = rtp_packet->seq_num;
 
   rtp_packet->dump(false);
@@ -92,7 +92,7 @@ void Queued::accept(Basic &&packet) {
     // async decode
     asio::post(decode_strand, // serialize decodes due to single av ctx
                [rtp_packet = rtp_packet]() mutable {
-                 rtp_packet->decode(); // OK to run on separate thread, shared_ptr
+                 RTP::decode(rtp_packet); // OK to run on separate thread, shared_ptr
                  rtp_packet->cleanup();
                });
   }
