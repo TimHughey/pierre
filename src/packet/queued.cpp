@@ -45,8 +45,9 @@ namespace errc = boost::system::errc;
 namespace ranges = std::ranges;
 
 Queued::Queued(asio::io_context &io_ctx)
-    : io_ctx(io_ctx),       // keep a reference to the general io_ctx
-      local_strand(io_ctx), // use this strand for all container actions
+    : io_ctx(io_ctx),        // keep a reference to the general io_ctx
+      local_strand(io_ctx),  // use this strand for all container actions
+      decode_strand(io_ctx), // use this strand for all RTP decoding
       stats_timer(io_ctx) {
   // can not call member functions that use shared_from_this() in constructor
 }
@@ -69,9 +70,7 @@ void Queued::accept(Basic &&packet) {
 
   if (rtp_packet->keep(_flush)) {
     // 1. NOT flushed
-    // 2. deciphe OK
-    // 3. uncompressed OK
-    // 4. resampled OK
+    // 2. decipher OK
 
     // ensure there's a spool available
     if (_spools.empty()) {
@@ -89,6 +88,13 @@ void Queued::accept(Basic &&packet) {
 
     // store the rtp_packet in the appropriate spool
     spool.emplace_back(rtp_packet);
+
+    // async decode
+    asio::post(decode_strand, // serialize decodes due to single av ctx
+               [rtp_packet = rtp_packet]() mutable {
+                 rtp_packet->decode(); // OK to run on separate thread, shared_ptr
+                 rtp_packet->cleanup();
+               });
   }
 }
 
@@ -191,8 +197,8 @@ void Queued::handoff(const size_t rx_bytes) {
 
   // ensure stats reporting is active
   if (!__stats_active_flag) {
-    if (true) {
-      constexpr auto f = FMT_STRING("{} {} scheduled stats reporting\n");
+    if (false) {
+      constexpr auto f = FMT_STRING("{} {} stats reporting scheduled\n");
       fmt::print(f, runTicks(), moduleId);
     }
 

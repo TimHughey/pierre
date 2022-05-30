@@ -104,6 +104,7 @@ private:
   // order dependent (constructor initialized)
   asio::io_context &io_ctx;
   asio::io_context::strand local_strand;
+  asio::io_context::strand decode_strand;
   asio::high_resolution_timer stats_timer;
 
   // order independent

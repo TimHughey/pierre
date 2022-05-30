@@ -69,7 +69,9 @@ namespace av { // encapsulation of libav*
 void check_nullptr(void *ptr);
 void debugDump();
 void init(); // throws on alloc failures
-void parse(CipherBuff &m, size_t decipher_len, Basic &payload);
+uint8_t *mBuffer();
+void parse(shRTP rtp);
+bool keep(const CipherBuff &m, size_t decipher_len, int used, AVPacket *pkt);
 
 // namespace globals
 AVCodec *codec = nullptr;
@@ -78,6 +80,11 @@ int codec_open_rc = -1;
 AVCodecParserContext *parser_ctx = nullptr;
 AVPacket *pkt = nullptr;
 SwrContext *swr = nullptr;
+
+constexpr size_t ADTS_HEADER_SIZE = 7;
+constexpr int ADTS_PROFILE = 2;     // AAC LC
+constexpr int ADTS_FREQ_IDX = 4;    // 44.1 KHz
+constexpr int ADTS_CHANNEL_CFG = 2; // CPE
 
 uint8_t *pcm_audio;
 int dst_linesize = 0;
@@ -139,31 +146,95 @@ void init() {
   });
 }
 
-void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
-  init();          // guarded by call_once
-  payload.clear(); // on error packet will be empty
+bool keep(shRTP rtp, int used) {
+  auto m = rtp->_m->data();
+  size_t packet_size = rtp->decipher_len + ADTS_HEADER_SIZE;
 
-  auto bytes = av_parser_parse2(parser_ctx,     // parser ctx
-                                codec_ctx,      // codex ctx
-                                &pkt->data,     // ptr to the pkt (parsed data)
-                                &pkt->size,     // ptr size of the pkt (parsed data)
-                                m.data(),       // payload data (unchanged by parsing)
-                                decipher_len,   // payload size
-                                AV_NOPTS_VALUE, // pts
-                                AV_NOPTS_VALUE, // dts
-                                0);             // pos
+  if (used < 0) {
+    constexpr auto f = FMT_STRING("{} {} failed used={:<6} size={:<6}\n");
+    fmt::print(f, runTicks(), fnName(), used, packet_size);
+    return false;
+  }
 
-  if (bytes && (pkt->size <= 7)) {
-    constexpr auto f = FMT_STRING("{} {} malformed AAC packet bytes={} size={}\n");
-    fmt::print(f, runTicks(), fnName(), bytes, pkt->size);
+  if (used != (int32_t)packet_size) {
+    if (true) { // debug
+      constexpr auto f = FMT_STRING("{} {} incomplete "
+                                    "used={:<6} size={:<6} diff={:+6}\n");
+      const int32_t diff = packet_size - used;
+      fmt::print(f, runTicks(), fnName(), used, packet_size, diff);
+      return false;
+    }
+  }
 
-    fmt::print("{} malformed AAC packet bytes: ", runTicks());
-    for (auto idx = 0; idx < pkt->size; idx++) {
-      fmt::print("[{:<02}]0x{:<02x} ", idx, pkt->data[idx]);
+  if (pkt->size == 0) {
+    constexpr auto f = FMT_STRING("{} {} AAC malformed packet "
+                                  "used={} size={}\n");
+    fmt::print(f, runTicks(), fnName(), used, packet_size);
+
+    fmt::print("{} decipered: ", runTicks());
+    for (size_t idx = 0; idx < packet_size; idx++) {
+      if (idx % 5) {
+        fmt::print("\n{} decipered: ", runTicks());
+      }
+
+      fmt::print("[{:<02}]0x{:<02x} ", idx, m[idx]);
     }
 
     fmt::print("\n");
 
+    return false;
+  }
+
+  if (true) { // debug
+    if (pkt->flags != 0) {
+      constexpr auto f = FMT_STRING("{} {} AAC packet flags={:#b}\n");
+      fmt::print(f, runTicks(), fnName(), pkt->flags);
+    }
+  }
+
+  return true;
+}
+
+uint8_t *mBuffer(shCipherBuff m) {
+  // leave space for ADTS header
+  return m->data() + ADTS_HEADER_SIZE;
+}
+
+void parse(shRTP rtp) {
+  if (rtp.use_count() == 1) { // packet is no longer in queue
+    return;                   // shared_ptr will be released
+  }
+
+  init(); // guarded by call_once
+  auto &payload = rtp->payload();
+  payload.clear(); // payload will be empty on error
+
+  auto m = rtp->_m.get()->data();
+  auto decipher_len = rtp->decipher_len;
+
+  // NOTE: the size of the packet is the deciphered len AND the ADTS header
+  const size_t packet_size = decipher_len + ADTS_HEADER_SIZE;
+
+  // make ADTS header
+  m[0] = 0xFF;
+  m[1] = 0xF9;
+  m[2] = ((ADTS_PROFILE - 1) << 6) + (ADTS_FREQ_IDX << 2) + (ADTS_CHANNEL_CFG >> 2);
+  m[3] = ((ADTS_CHANNEL_CFG & 3) << 6) + (packet_size >> 11);
+  m[4] = (packet_size & 0x7FF) >> 3;
+  m[5] = ((packet_size & 7) << 5) + 0x1F;
+  m[6] = 0xFC;
+
+  auto used = av_parser_parse2(parser_ctx,     // parser ctx
+                               codec_ctx,      // codex ctx
+                               &pkt->data,     // ptr to the pkt (parsed data)
+                               &pkt->size,     // ptr size of the pkt (parsed data)
+                               m,              // payload data (unchanged by parsing)
+                               packet_size,    // payload size
+                               AV_NOPTS_VALUE, // pts
+                               AV_NOPTS_VALUE, // dts
+                               0);             // pos
+
+  if (keep(rtp, used) == false) {
     return;
   }
 
@@ -220,6 +291,21 @@ void parse(CipherBuff &m, size_t decipher_len, Basic &payload) {
   if (dst_bufsize > 0) { // put PCM data into payload
     auto to = std::back_inserter(payload);
     ranges::copy_n(pcm_audio, dst_bufsize, to);
+
+    if (true) { // debug
+      constexpr int MAX_REPORTS = 5;
+      static int count = 0;
+
+      if (count < MAX_REPORTS) {
+        constexpr auto f = FMT_STRING("{} {} pcm data={} "
+                                      "buf_size={:<5} payload_size={}\n");
+        fmt::print(f, runTicks(), fnName(), fmt::ptr(pcm_audio), dst_bufsize, payload.size());
+
+        ++count;
+      }
+    }
+
+    rtp->decode_ok = true;
   }
 
   if (decoded_frame) {
@@ -275,16 +361,22 @@ RTP::RTP(Basic &packet) {
 void swap(RTP &a, RTP &b) {
   using std::swap;
 
-  swap(a._nonce, b._nonce);
-  swap(a._tag, b._tag);
-  swap(a._aad, b._aad);
-  swap(a._payload, b._payload);
+  // trivial values
   swap(a.version, b.version);
   swap(a.padding, b.padding);
   swap(a.ssrc_count, b.ssrc_count);
   swap(a.seq_num, b.seq_num);
   swap(a.timestamp, b.timestamp);
   swap(a.ssrc, b.ssrc);
+  swap(a.decipher_len, b.decipher_len);
+  swap(a.decode_ok, b.decode_ok);
+
+  // containers
+  swap(a._m, b._m);
+  swap(a._nonce, b._nonce);
+  swap(a._tag, b._tag);
+  swap(a._aad, b._aad);
+  swap(a._payload, b._payload);
 }
 
 /*
@@ -307,12 +399,13 @@ bool RTP::decipher() {
     return false;
   }
 
-  CipherBuff m;                        // deciphered data destination
-  unsigned long long decipher_len = 0; // deciphered length
-  auto cipher_rc =                     // -1 == failure
+  _m = std::make_shared<CipherBuff>();
+
+  unsigned long long len = 0; // deciphered length
+  auto cipher_rc =            // -1 == failure
       crypto_aead_chacha20poly1305_ietf_decrypt(
-          m.data() + ADTS_HEADER_SIZE,       // m (leave room for ADTS header)
-          &decipher_len,                     // bytes deciphered
+          av::mBuffer(_m),                   // m (av leaves room for ADTS)
+          &len,                              // bytes deciphered
           nullptr,                           // nanoseconds (unused, must be nullptr)
           _payload.data(),                   // ciphered data
           _payload.size(),                   // ciphered length
@@ -321,13 +414,16 @@ bool RTP::decipher() {
           _nonce.data(),                     // the nonce
           (const uint8_t *)rtp::shk.data()); // shared key (from SETUP message)
 
-  if (cipher_rc < 0) { // only report cipher error once
-    static std::once_flag __flag;
+  decipher_len = (size_t)len; // convert chacha len to something more reasonable
 
-    std::call_once(__flag, [&] {
-      constexpr auto f = FMT_STRING("{} {} failed rc={} len={}\n");
-      fmt::print(f, runTicks(), fnName(), cipher_rc, decipher_len);
-    });
+  if (cipher_rc < 0) {
+    static bool __reported = false; // only report cipher error once
+
+    if (!__reported) {
+      constexpr auto f = FMT_STRING("{} {} failed size={} rc={} decipher_len={} \n");
+      fmt::print(f, runTicks(), fnName(), _payload.size(), cipher_rc, decipher_len);
+      __reported = true;
+    }
 
     return false;
   }
@@ -337,32 +433,13 @@ bool RTP::decipher() {
     fmt::print(f, runTicks(), fnName(), cipher_rc, decipher_len, _payload.size());
   }
 
-  // NOTE: the size of the packet is the deciphered len AND the ADTS header
-  const size_t packet_size = decipher_len + ADTS_HEADER_SIZE;
-
-  // make ADTS header
-  m[0] = 0xFF;
-  m[1] = 0xF9;
-  m[2] = ((ADTS_PROFILE - 1) << 6) + (ADTS_FREQ_IDX << 2) + (ADTS_CHANNEL_CFG >> 2);
-  m[3] = ((ADTS_CHANNEL_CFG & 3) << 6) + (packet_size >> 11);
-  m[4] = (packet_size & 0x7FF) >> 3;
-  m[5] = ((packet_size & 7) << 5) + 0x1F;
-  m[6] = 0xFC;
-
-  av::parse(m, packet_size, _payload);
-
-  return _payload.empty() == false;
+  return true;
 }
 
-void RTP::dump(bool debug) const {
-  if (!debug) {
-    return;
-  }
+void RTP::decode() {
+  auto self = shared_from_this();
 
-  constexpr auto f = FMT_STRING("{} {} vsn={} pad={} ext={} ssrc_count={} "
-                                "payload_size={:>4} seq_num={:>8} ts={:>12}\n");
-  fmt::print(f, runTicks(), moduleId, version, padding, extension, ssrc_count, payloadSize(),
-             seq_num, timestamp);
+  av::parse(self);
 }
 
 bool RTP::keep(FlushRequest &flush) {
@@ -384,7 +461,7 @@ bool RTP::keep(FlushRequest &flush) {
       flush.complete();
 
       if (true) { // debug
-        constexpr auto f = FMT_STRING("{} {} FLUSH CONPLETE until_seq={}\n");
+        constexpr auto f = FMT_STRING("{} {} FLUSH COMPLETE until_seq={}\n");
         fmt::print(f, runTicks(), moduleId, seq_num);
       }
     }
@@ -392,6 +469,21 @@ bool RTP::keep(FlushRequest &flush) {
 
   return decipher();
 }
+
+// misc debug
+
+void RTP::dump(bool debug) const {
+  if (!debug) {
+    return;
+  }
+
+  constexpr auto f = FMT_STRING("{} {} vsn={} pad={} ext={} ssrc_count={} "
+                                "payload_size={:>4} seq_num={:>8} ts={:>12}\n");
+  fmt::print(f, runTicks(), moduleId, version, padding, extension, ssrc_count, payloadSize(),
+             seq_num, timestamp);
+}
+
+// class static data
 
 void RTP::shk(const Basic &key) {
   rtp::shk = key;

@@ -30,6 +30,7 @@ namespace pierre {
 
 namespace packet {
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
+typedef std::shared_ptr<CipherBuff> shCipherBuff;
 
 /*
 credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
@@ -81,21 +82,16 @@ class RTP : public std::enable_shared_from_this<RTP> {
 public:
   RTP() = default;
   RTP(Basic &packet); // must construct from a packet
-                      //   RTP(const RTP &) = default;
-                      //   RTP(RTP &&) = default;
-                      //   RTP &operator=(const RTP &) = default;
-                      //   RTP &operator=(RTP &&rtp) = default;
-
-  //   RTP(const RTP &) = delete;
-  //   RTP(RTP &&rtp) noexcept;
-  //   RTP &operator=(const RTP &) = delete;
-  //   RTP &operator=(RTP &&rhs) noexcept;
 
   friend void swap(RTP &a, RTP &b); // swap specialization
 
-  bool decipher(); // deciphers and processes frame
+  void cleanup() { _m.reset(); }
+
+  bool decipher(); // deciphers packet
+  void decode();
   bool isValid() const { return version == 0x02; }
   bool keep(FlushRequest &flush);
+  Basic &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
   const Basic &pcmSamples() const { return _payload; }
 
@@ -116,17 +112,17 @@ public:
   uint32_t timestamp;
   uint32_t ssrc;
 
+  // order independent
+  size_t decipher_len = 0;
+  bool decode_ok = false;
+  shCipherBuff _m;
+
 private:
   // order independent
   Basic _nonce;
   Basic _tag;
   Basic _aad;
   Basic _payload;
-
-  static constexpr size_t ADTS_HEADER_SIZE = 7;
-  static constexpr int ADTS_PROFILE = 2;     // AAC LC
-  static constexpr int ADTS_FREQ_IDX = 4;    // 44.1 KHz
-  static constexpr int ADTS_CHANNEL_CFG = 2; // CPE
 
   static constexpr auto moduleId = csv("RTP");
 };

@@ -117,7 +117,7 @@ void Control::asyncLoop(const error_code ec_last) {
 
   auto buff_hdr = asio::buffer(hdrData(), hdrSize());
 
-  if (true) { // debug
+  if (false) { // debug
     constexpr auto f = FMT_STRING("{} {} socket open handle={}\n");
     fmt::print(f, runTicks(), serverId(), socket.native_handle());
   }
