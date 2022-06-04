@@ -158,7 +158,13 @@ bool Headers::haveSeparators(const string_view &view) {
 size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
   // keep loading if we haven't found the separators
   if (haveSeparators(view) == false) {
-    fmt::print("{} separators not found separators={}\n", fnName(), _separators.size());
+    static size_t count = 0;
+
+    ++count;
+    if ((count == 0) || (count % 20)) {
+      fmt::print("{} separators not found count={}\n", fnName(), count);
+    }
+
     return 1;
   }
 

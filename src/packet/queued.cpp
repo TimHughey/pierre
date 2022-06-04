@@ -18,6 +18,8 @@
 
 #include "packet/queued.hpp"
 #include "packet/rtp.hpp"
+#include "rtp_time/anchor.hpp"
+#include "rtp_time/clock.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
@@ -68,9 +70,23 @@ void Queued::accept(Basic &&packet) {
 
   rtp_packet->dump(false);
 
+  if (false) { // debug
+    constexpr auto f = FMT_STRING("{} {} "
+                                  "now={} sampletime={} ns_since_sample={}\n");
+
+    auto clock_info = MasterClock::ptr()->getInfo();
+    const auto now = MasterClock::now();
+    const auto time_since_sample = now - clock_info.sampleTime;
+
+    fmt::print(f, runTicks(), fnName(), now.count(), clock_info.sampleTime.count(),
+               time_since_sample.count());
+  }
+
   if (rtp_packet->keep(_flush)) {
     // 1. NOT flushed
     // 2. decipher OK
+
+    MasterClock::ptr()->getInfo(); // testing purposes
 
     // ensure there's a spool available
     if (_spools.empty()) {
@@ -262,11 +278,11 @@ void Queued::stats() {
             constexpr auto f = FMT_STRING("{} {} spools={:02} "
                                           "rtp_count={:<5} diff={:>+7} "
                                           "seq_a/b={:>11} / {:<11} "
-                                          "ts_a/b={:>12} / {:<12}\n");
-            uint32_t seq_a = 0;
-            uint32_t seq_b = 0;
-            uint32_t ts_a = 0;
-            uint32_t ts_b = 0;
+                                          "ts_a/b={:>12} / {:<12} "
+                                          "network_time={}\n");
+
+            uint32_t seq_a, seq_b = 0;
+            uint64_t network_time, ts_a, ts_b;
 
             if (size_now > 0) { // spools could be empty
               auto &rtp_a = spools.front().front();
@@ -277,15 +293,21 @@ void Queued::stats() {
 
               ts_a = rtp_a->timestamp;
               ts_b = rtp_b->timestamp;
+
+              const auto &anchor_data = Anchor::ptr()->getData();
+              if (anchor_data.valid) {
+                network_time = anchor_data.networkTime;
+              }
             }
 
-            fmt::print(f, runTicks(), moduleId,                   // standard logging prefix
-                       spools.size(),                             // overall spool count
-                       size_now, diff, seq_a, seq_b, ts_a, ts_b); // metrics since last stats
+            fmt::print(f, runTicks(), moduleId,      // standard logging prefix
+                       spools.size(),                // overall spool count
+                       size_now, diff, seq_a, seq_b, // general stats and seq_nums
+                       ts_a, ts_b,                   // timestamps
+                       network_time);                // network and master times
 
             size_last = size_now; // save last size
-
-            self->stats(); // schedule next stats report
+            self->stats();        // schedule next stats report
           }));
 }
 
@@ -295,7 +317,10 @@ void Queued::teardown() {
     self->stats_timer.cancel(ec);
 
     self->_spools.clear();
+    self->_spools.shrink_to_fit();
+
     self->_packet.clear();
+    self->_packet.shrink_to_fit();
 
     RTP::shkClear();
   });

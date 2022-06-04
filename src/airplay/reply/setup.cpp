@@ -19,11 +19,12 @@
 */
 
 #include "reply/setup.hpp"
-#include "anchor/anchor.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
+#include "rtp_time/anchor.hpp"
+#include "rtp_time/clock.hpp"
 #include "server/servers.hpp"
 
 #include <algorithm>
@@ -87,7 +88,7 @@ bool Setup::handleNoStreams() {
     conn->groupContainsGroupLeader = rdict.boolVal({dk::GROUP_LEADER});
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
-    anchor->peers(peers);
+    MasterClock::ptr()->peers(peers);
 
     Aplist peer_info;
 
@@ -102,8 +103,6 @@ bool Setup::handleNoStreams() {
     // adjust Service system flags and request mDNS update
     Service::ptr()->receiverActive();
     mDNS::ptr()->update();
-
-    std::this_thread::sleep_for(100ms);
 
     conn->save(stream);
     return true;

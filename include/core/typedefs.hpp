@@ -44,4 +44,19 @@ typedef std::jthread Thread;
 ccs fnName(csrc_loc loc = src_loc::current()); // func name of the caller or a src_loc
 const string runTicks();                       // a timestamp
 
+constexpr uint64_t upow(uint64_t base, uint64_t exp) {
+  uint64_t result = 1;
+
+  for (;;) {
+    if (exp & 1)
+      result *= base;
+    exp >>= 1;
+    if (!exp)
+      break;
+    base *= base;
+  }
+
+  return result;
+}
+
 } // namespace pierre

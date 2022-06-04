@@ -11,10 +11,11 @@ add_subdirectory(airplay)
 # generalized types to represent packets
 add_subdirectory(packet)
 
+# rtp time (PTP master clock and RTP anchor)
+add_subdirectory(rtp_time)
 
-
-# add_subdirectory(anchor)
-
+# misc classes to support audio, dsp, lightdesk, etc.
+add_subdirectory(misc)
 
 # add_subdirectory(misc)
 # add_subdirectory(audio)

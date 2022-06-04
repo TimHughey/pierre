@@ -17,13 +17,14 @@
 //  https://www.wisslanding.com
 
 #include "controller.hpp"
-#include "anchor/anchor.hpp"
-#include "clock/clock.hpp"
 #include "common/ss_inject.hpp"
 #include "common/typedefs.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
+#include "core/host.hpp"
 #include "packet/queued.hpp"
+#include "rtp_time/anchor.hpp"
+#include "rtp_time/clock.hpp"
 #include "server/servers.hpp"
 
 #include <chrono>
@@ -52,8 +53,8 @@ void Controller::kickstart() {
     fmt::print(f, runTicks(), fnName(), features.ap2_default());
   }
 
-  watchDog();                 // watchDog() ensures io_ctx has work
-  Clock::ptr()->peersReset(); // reset timing peers
+  watchDog();                       // watchDog() ensures io_ctx has work
+  MasterClock::ptr()->peersReset(); // reset timing peers
 
   // finally, start listening for Rtsp messages
   Servers::ptr()->localPort(ServerType::Rtsp);
@@ -63,9 +64,9 @@ void Controller::run() {
   static std::once_flag once;
   nameThread(0); // controller thread is Airplay 00
 
-  Clock::init({.io_ctx = io_ctx,
-               .service_name = Host::ptr()->serviceName(),
-               .device_id = Host::ptr()->deviceID()});
+  MasterClock::init({.io_ctx = io_ctx,
+                     .service_name = Host::ptr()->serviceName(),
+                     .device_id = Host::ptr()->deviceID()});
 
   Anchor::init();
   ConnInfo::init();

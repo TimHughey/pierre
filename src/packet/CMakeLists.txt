@@ -50,6 +50,7 @@ target_link_libraries(packet PUBLIC
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   core
+  rtp_time
   fmt::fmt
 )
 

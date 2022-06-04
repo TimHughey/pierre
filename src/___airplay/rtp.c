@@ -1188,7 +1188,7 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
       ((conn->anchor_rtptime != rtptime) || (conn->anchor_time != networktime))) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t last_anchor_validity_duration = time_now - conn->last_anchor_validity_start_time;
-    if (last_anchor_validity_duration < 5000000000) {
+    if (last_anchor_validity_duration < 5 000 000 000) {
       if (conn->airplay_stream_type == buffered_stream)
         debug(1,
               "Connection %d: Note: anchor parameters have changed before "
@@ -1229,7 +1229,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if (response == clock_ok) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t time_since_sample = time_now - actual_time_of_sample;
-    if (time_since_sample > 300000000000) {
+    if (time_since_sample > 300 000 000 000) {
       if (long_time_notifcation_done == 0) {
         debug(1, "The last PTP timing sample is pretty old: %f seconds.",
               0.000000001 * time_since_sample);
@@ -1254,10 +1254,10 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // if the master clock and the anchor clock are the same
         // wait at least this time before using the new master clock
         // note that mastership may be backdated
-        if (duration_of_mastership < 1500000000) {
+        if (duration_of_mastership < 1 500 000 000) {
           debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
-        } else if ((duration_of_mastership > 5000000000) ||
+        } else if ((duration_of_mastership > 5 000 000 000) ||
                    (conn->last_anchor_info_is_valid == 0)) {
           // use the master clock if it's at least this old or if we have no
           // alternative and it at least is the minimum age.
@@ -1293,7 +1293,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
-          if (time_since_last_update > 5000000000) {
+          if (time_since_last_update > 5 000 000 000) {
             debug(1,
                   "Connection %d: Master clock has changed to %" PRIx64
                   ". History: %f milliseconds.",

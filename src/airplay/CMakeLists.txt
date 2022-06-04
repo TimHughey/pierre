@@ -32,7 +32,7 @@ add_library(${__target}
   airplay.cpp controller.cpp
 
   # clock and anhcor
-  clock/info.cpp clock/clock.cpp anchor/anchor.cpp anchor/net_time.cpp
+  # clock/info.cpp clock/clock.cpp anchor/anchor.cpp anchor/net_time.cpp
   
   # connection info
   conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp

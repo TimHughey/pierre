@@ -18,6 +18,8 @@
 //  https://www.wisslanding.com
 
 #include "reply/parameter.hpp"
+#include "packet/content.hpp"
+#include "packet/headers.hpp"
 #include "reply/reply.hpp"
 
 #include <fmt/format.h>
@@ -27,7 +29,7 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
+using namespace pierre::packet;
 
 bool Parameter::populate() {
   auto rc = false;
@@ -65,6 +67,11 @@ bool Parameter::handleGet() {
 }
 
 bool Parameter::handleSet() {
+  // if (rHeaders().contentType() == csv(header::val::TextParameters)) {
+  //   constexpr auto f = FMT_STRING("{} SET_PARAMETER content={}\n");
+  //   fmt::print(f, runTicks(), rContent().toStringView());
+  // }
+
   responseCode(RespCode::OK);
 
   return true;

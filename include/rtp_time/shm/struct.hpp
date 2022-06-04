@@ -29,11 +29,7 @@
 #include <source_location>
 
 namespace pierre {
-namespace airplay {
-
-typedef std::array<char, 64> MasterClockIp; // array based master clock ip
-
-namespace clock {
+namespace rtp_time {
 namespace shm {
 
 using runtime_error = std::runtime_error;
@@ -53,6 +49,7 @@ struct structure {
 constexpr auto VERSION = 7;
 
 constexpr size_t size() { return sizeof(structure); }
+constexpr size_t sizeClockIp() { return sizeof(structure::master_clock_ip); }
 
 constexpr void copy(void *src, struct structure *dst, csrc_loc loc = src_loc::current()) {
   memcpy(dst, (char *)src, size());
@@ -66,25 +63,10 @@ constexpr void copy(void *src, struct structure *dst, csrc_loc loc = src_loc::cu
   }
 }
 
-constexpr structure *ptr(void *data, csrc_loc loc = src_loc::current()) {
-  auto *_ptr_ = (structure *)data;
-
-  if (((_ptr_->version != VERSION) || (_ptr_->master_clock_id == 0))) {
-    constexpr auto msg = "nqptp version mismatch";
-    constexpr auto f = FMT_STRING("FAILURE {} {}\n");
-
-    fmt::print(f, loc.function_name(), msg);
-    throw(runtime_error(msg));
-  }
-
-  return _ptr_;
-}
-
 } // namespace shm
-} // namespace clock
+} // namespace rtp_time
 
 // create typedef in anchor namespace
-typedef clock::shm::structure nqptp_t;
+typedef rtp_time::shm::structure nqptp_t;
 
-} // namespace airplay
 } // namespace pierre

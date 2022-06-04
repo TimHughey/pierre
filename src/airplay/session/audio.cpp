@@ -17,8 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "session/audio.hpp"
-#include "anchor/anchor.hpp"
-#include "clock/info.hpp"
 #include "conn_info/conn_info.hpp"
 #include "packet/basic.hpp"
 #include "packet/queued.hpp"
@@ -101,6 +99,8 @@ misc notes:
 */
 
 void Audio::asyncLoop() {
+  static std::once_flag __stats_started;
+
   // start by reading the packet length
   async_read(socket,                             // read from socket
              Queued::ptr()->lenBuffer(),         // into this buffer
@@ -120,8 +120,12 @@ void Audio::asyncLoop() {
 
                        // async load the packet
                        self->asyncRxPacket(len); // schedules more work as needed
-                       // self->ensureRxBytesReport();
+
+                       if (false) { // debug
+                         std::call_once(__stats_started, [self = self] { self->stats(); });
+                       }
                      }
+
                    }  // self is about to go out of scope...
                  })); // shared_ptr.use_count--
 }
@@ -137,32 +141,10 @@ void Audio::asyncRxPacket(size_t packet_len) {
                              if (self->isReady(ec) == false) // self-destruct
                                return;
 
-                             if (true) { // debug
-                               constexpr auto f = FMT_STRING("{} AUDIO RX "
-                                                             "sampletime={} "
-                                                             "raw={} ns_since_sample={} now={}\n");
-
-                               auto clock_info = Clock::ptr()->info();
-                               const int64_t now = Clock::now();
-
-                               const int64_t time_since_sample = now - clock_info.sampleTime;
-
-                               if (false) {
-                                 fmt::print(f, runTicks(), clock_info.sampleTime,
-                                            clock_info.rawOffset, time_since_sample, now);
-                               }
-                             }
-
                              self->accumulate(RX, rx_bytes);   // track stats
                              Queued::ptr()->handoff(rx_bytes); // notify bytes received
                              self->asyncLoop();                // async read next packet
                            }));
-}
-
-void Audio::ensureRxBytesReport() {
-  static std::once_flag flag;
-
-  std::call_once(flag, [&]() { timedRxBytesReport(); });
 }
 
 void Audio::teardown() {
@@ -172,7 +154,7 @@ void Audio::teardown() {
   Base::teardown();
 }
 
-void Audio::timedRxBytesReport() {
+void Audio::stats() {
   timer.expires_after(10s);
 
   timer.                                                   // this timer
@@ -180,30 +162,24 @@ void Audio::timedRxBytesReport() {
           bind_executor(                                   // a specific executor that
               local_strand,                                // uses this strand
               [self = shared_from_this()](error_code ec) { // for this completion handler
-                static int64_t rx_last = 0;
+                static uint64_t rx_last = 0;
                 // only check for success here, check for actual packet length bytes later
                 if (ec == errc::success) {
                   const auto rx_total = self->accumulated(RX);
 
                   if (rx_total == 0) {
-                    self->timedRxBytesReport();
+                    self->stats();
                   }
 
-                  // if (rx_total != rx_last) {
-                  constexpr auto f = FMT_STRING("{} {} RX total={:<10} 10s={:<10} {:2.3}\n");
-                  const auto in_10secs = rx_total - rx_last;
-                  rx_last = rx_total;
+                  if (rx_total != rx_last) {
+                    constexpr auto f = FMT_STRING("{} {} RX total={:<10} 10s={:<10}\n");
+                    const int32_t in_10secs = rx_total - (int64_t)rx_last;
 
-                  // const auto &stream_data = ConnInfo::ptr()->streamData();
-                  const auto clock_info = Clock::ptr()->info();
+                    fmt::print(f, runTicks(), self->sessionId(), rx_total, in_10secs);
+                    rx_last = rx_total;
+                  }
 
-                  const int64_t time_since_sample = clock_info.sampleTime - clock_info.now();
-                  const double as_secs = (double)time_since_sample * std::pow(10, -9);
-
-                  fmt::print(f, runTicks(), self->sessionId(), rx_total, in_10secs, as_secs);
-                  // }
-
-                  self->timedRxBytesReport();
+                  self->stats();
                 }
               }));
 }

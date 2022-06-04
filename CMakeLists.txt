@@ -90,9 +90,11 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  core airplay packet
+  core airplay packet rtp_time
 #  Misc core Audio DMX Lightdesk mdns rtsp rtp pcm anchor
   ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs
 )
+
+

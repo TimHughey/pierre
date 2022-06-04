@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "reply/set_anchor.hpp"
-#include "anchor/anchor.hpp"
 #include "reply/dict_keys.hpp"
+#include "rtp_time/anchor.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -45,17 +45,17 @@ void SetAnchor::saveAnchorInfo() {
 
   if (rdict.existsAll(keys)) {
     // this is a complete anchor set
-    auto anchor_data = AnchorData{.rate = rdict.uint({dk::RATE}),
-                                  .timelineID = rdict.uint({dk::NET_TIMELINE_ID}),
-                                  .secs = rdict.uint({dk::NET_TIME_SECS}),
-                                  .frac = rdict.uint({dk::NET_TIME_FRAC}),
-                                  .flags = rdict.uint({dk::NET_TIME_FLAGS}),
-                                  .rtpTime = rdict.uint({dk::RTP_TIME})};
+    auto anchor_data = anchor::Data{.rate = rdict.uint({dk::RATE}),
+                                    .clockID = rdict.uint({dk::NET_TIMELINE_ID}),
+                                    .secs = rdict.uint({dk::NET_TIME_SECS}),
+                                    .frac = rdict.uint({dk::NET_TIME_FRAC}),
+                                    .flags = rdict.uint({dk::NET_TIME_FLAGS}),
+                                    .rtpTime = rdict.uint({dk::RTP_TIME})};
 
     anchor->save(anchor_data);
-    anchor->dump();
+    anchor->dump(anchor::Entry::RECENT);
   } else {
-    auto anchor_data = AnchorData{.rate = rdict.uint({dk::RATE})};
+    auto anchor_data = anchor::Data{.rate = rdict.uint({dk::RATE})};
     Anchor::ptr()->save(anchor_data);
   }
 }

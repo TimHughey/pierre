@@ -89,7 +89,8 @@ constexpr int ADTS_CHANNEL_CFG = 2; // CPE
 uint8_t *pcm_audio;
 int dst_linesize = 0;
 
-constexpr auto AV_FORMAT = AV_SAMPLE_FMT_S16;
+constexpr auto AV_FORMAT_OUT = AV_SAMPLE_FMT_FLT;
+constexpr auto AV_CH_LAYOUT = AV_CH_LAYOUT_STEREO;
 
 void check_nullptr(void *ptr) {
   if (ptr == nullptr) {
@@ -136,12 +137,12 @@ void init() {
     swr = swr_alloc();
     check_nullptr(swr);
 
-    av_opt_set_int(swr, "in_channel_layout", AV_CH_LAYOUT_STEREO, 0);
-    av_opt_set_int(swr, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
+    av_opt_set_channel_layout(swr, "in_channel_layout", AV_CH_LAYOUT, 0);
+    av_opt_set_channel_layout(swr, "out_channel_layout", AV_CH_LAYOUT, 0);
     av_opt_set_int(swr, "in_sample_rate", InputInfo::rate, 0);
     av_opt_set_int(swr, "out_sample_rate", InputInfo::rate, 0); // must match for timing
     av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_SAMPLE_FMT_FLTP, 0);
-    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_FORMAT, 0);
+    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_FORMAT_OUT, 0);
     swr_init(swr);
   });
 }
@@ -258,8 +259,8 @@ void parse(shRTP rtp) {
                    &dst_linesize,             // pointer to calculated linesize ?
                    codec_ctx->channels,       // num of channels
                    decoded_frame->nb_samples, // num of samples
-                   AV_FORMAT,                 // desired format S16/BE
-                   1);                        // no alignment required
+                   AV_FORMAT_OUT,             // desired format (see const above)
+                   0);                        // default alignment
 
   auto samples_per_channel = swr_convert(             // perform the software resample
       swr,                                            // software resample ctx
@@ -272,8 +273,8 @@ void parse(shRTP rtp) {
       (&dst_linesize,                           // calc'ed linesize
        codec_ctx->channels,                     // num of channels
        samples_per_channel,                     // num of samples/channel (from swr_convert)
-       AV_FORMAT,                               // S16/BE
-       1);                                      // no alignment required
+       AV_FORMAT_OUT,                           // desired format (see const above)
+       1);                                      // default alignment
 
   { // debug
     constexpr uint8_t MAX_REPORT = 1;
@@ -291,7 +292,7 @@ void parse(shRTP rtp) {
     ranges::copy_n(pcm_audio, dst_bufsize, to);
 
     if (true) { // debug
-      constexpr int MAX_REPORTS = 5;
+      constexpr int MAX_REPORTS = 1;
       static int count = 0;
 
       if (count < MAX_REPORTS) {

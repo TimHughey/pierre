@@ -56,9 +56,8 @@ public:
   void teardown() override;
 
 private:
-  void ensureRxBytesReport();
-  void timedRxBytesReport();
   void asyncRxPacket(size_t packet_len);
+  void stats();
 
 private:
   // order dependent
