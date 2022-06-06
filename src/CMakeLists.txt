@@ -14,11 +14,12 @@ add_subdirectory(packet)
 # rtp time (PTP master clock and RTP anchor)
 add_subdirectory(rtp_time)
 
+# pkayer (aka queued)
+add_subdirectory(player)
+
 # misc classes to support audio, dsp, lightdesk, etc.
 add_subdirectory(misc)
 
-# add_subdirectory(misc)
-# add_subdirectory(audio)
 # add_subdirectory(dmx)
 # add_subdirectory(lightdesk)
 # add_subdirectory(mdns)

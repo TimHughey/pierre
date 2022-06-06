@@ -19,7 +19,7 @@
 #include "session/audio.hpp"
 #include "conn_info/conn_info.hpp"
 #include "packet/basic.hpp"
-#include "packet/queued.hpp"
+#include "player/queued.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
@@ -37,6 +37,7 @@ using namespace std::chrono_literals;
 using namespace boost::asio;
 using namespace boost::system;
 using namespace pierre::packet;
+using namespace pierre::player;
 
 namespace errc = boost::system::errc;
 

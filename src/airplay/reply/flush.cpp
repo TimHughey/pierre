@@ -18,8 +18,8 @@
 
 #include "reply/flush.hpp"
 #include "packet/aplist.hpp"
-#include "packet/flush_request.hpp"
-#include "packet/queued.hpp"
+#include "player/flush_request.hpp"
+#include "player/queued.hpp"
 #include "reply/dict_keys.hpp"
 
 namespace pierre {
@@ -46,7 +46,7 @@ bool FlushBuffered::populate() {
       .until_ts = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_TS})    // until timestamp
   };
 
-  packet::Queued::ptr()->flush(flush_req);
+  player::Queued::ptr()->flush(flush_req);
 
   responseCode(packet::RespCode::OK);
   return true;

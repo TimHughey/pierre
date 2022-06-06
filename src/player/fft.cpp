@@ -18,16 +18,21 @@
     https://www.wisslanding.com
 */
 
-#include <limits>
+#include "player/fft.hpp"
 
-#include "fft.hpp"
+#include <limits>
+#include <numbers>
 
 namespace pierre {
-namespace audio {
+namespace player {
 
-using std::swap;
+namespace fft {
+constexpr float PI2 = std::numbers::pi * 2;
+constexpr float PI4 = std::numbers::pi * 4;
+constexpr float PI6 = std::numbers::pi * 6;
+} // namespace fft
 
-const float FFT::_winCompensationFactors[10] = {
+constexpr float FFT::_winCompensationFactors[10] = {
     1.0000000000 * 2.0, // rectangle (Box car)
     1.8549343278 * 2.0, // hamming
     1.8554726898 * 2.0, // hann
@@ -43,7 +48,8 @@ const float FFT::_winCompensationFactors[10] = {
 WindowWeighingFactors_t FFT::_wwf;
 bool FFT::_weighingFactorsComputed = false;
 
-FFT::FFT(size_t samples, float samplingFrequency) : _samples(samples), _samplingFrequency(samplingFrequency) {
+FFT::FFT(size_t samples, float samplingFrequency)
+    : _samples(samples), _samplingFrequency(samplingFrequency) {
   // Calculates the base 2 logarithm of sample count
   _power = 0;
   while (((samples >> _power) & 1) != 1) {
@@ -51,7 +57,7 @@ FFT::FFT(size_t samples, float samplingFrequency) : _samples(samples), _sampling
   }
 
   _real.reserve(samples);
-  _real.assign(samples, 0);
+  // do not assign zeros so std::back_inserter can be used
 
   _imaginary.reserve(samples);
   _imaginary.assign(samples, 0);
@@ -74,9 +80,9 @@ void FFT::compute(FFTDirection dir) {
   size_t j = 0;
   for (size_t i = 0; i < (_samples - 1); i++) {
     if (i < j) {
-      swap(_real[i], _real[j]);
+      std::swap(_real[i], _real[j]);
       if (dir == FFTDirection::Reverse) {
-        swap(_imaginary[i], _imaginary[j]);
+        std::swap(_imaginary[i], _imaginary[j]);
       }
     }
     size_t k = (_samples >> 1);
@@ -112,8 +118,8 @@ void FFT::compute(FFTDirection dir) {
     }
 
     float cTemp = 0.5 * c1;
-    c2 = sqrt(0.5 - cTemp);
-    c1 = sqrt(0.5 + cTemp);
+    c2 = std::sqrt(0.5 - cTemp);
+    c1 = std::sqrt(0.5 + cTemp);
 
     c2 = dir == FFTDirection::Forward ? -c2 : c2;
   }
@@ -132,7 +138,9 @@ void FFT::dcRemoval(const float mean) {
   }
 }
 
-void FFT::findPeaks(spPeaks peaks) {
+shPeaks FFT::findPeaks() {
+  auto peaks = Peaks::create();
+
   Mag mag_min = std::numeric_limits<float>::max();
   Mag mag_max = 0;
 
@@ -159,7 +167,15 @@ void FFT::findPeaks(spPeaks peaks) {
     }
   }
 
-  peaks->sort();
+  return peaks->sort();
+}
+
+void FFT::init() {
+  FFT precompute_windowing{1024, 44100};
+
+  precompute_windowing.real().assign(1024, 0);
+
+  precompute_windowing.compute(FFTDirection::Forward);
 }
 
 Mag FFT::magAtIndex(const size_t i) const {
@@ -202,8 +218,6 @@ void FFT::process() {
   complexToMagnitude();
 }
 
-Real_t &FFT::real() { return _real; }
-
 void FFT::windowing(FFTWindow windowType, FFTDirection dir, bool withCompensation) {
   // check if values are already pre-computed for the correct window type and
   // compensation
@@ -231,39 +245,46 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir, bool withCompensatio
       float weighingFactor = 1.0;
       // Compute and record weighting factor
       switch (windowType) {
-      case FFTWindow::Rectangle: // rectangle (box car)
-        weighingFactor = 1.0;
-        break;
-      case FFTWindow::Hamming: // hamming
-        weighingFactor = 0.54 - (0.46 * cos(TWO_PI * ratio));
-        break;
-      case FFTWindow::Hann: // hann
-        weighingFactor = 0.54 * (1.0 - cos(TWO_PI * ratio));
-        break;
-      case FFTWindow::Triangle: // triangle (Bartlett)
-        weighingFactor = 1.0 - ((2.0 * abs(indexMinusOne - (samplesMinusOne / 2.0))) / samplesMinusOne);
-        break;
-      case FFTWindow::Nuttall: // nuttall
-        weighingFactor = 0.355768 - (0.487396 * (cos(TWO_PI * ratio))) + (0.144232 * (cos(FOUR_PI * ratio))) -
-                         (0.012604 * (cos(SIX_PI * ratio)));
-        break;
-      case FFTWindow::Blackman: // blackman
-        weighingFactor = 0.42323 - (0.49755 * (cos(TWO_PI * ratio))) + (0.07922 * (cos(FOUR_PI * ratio)));
-        break;
-      case FFTWindow::Blackman_Nuttall: // blackman nuttall
-        weighingFactor = 0.3635819 - (0.4891775 * (cos(TWO_PI * ratio))) +
-                         (0.1365995 * (cos(FOUR_PI * ratio))) - (0.0106411 * (cos(SIX_PI * ratio)));
-        break;
-      case FFTWindow::Blackman_Harris: // blackman harris
-        weighingFactor = 0.35875 - (0.48829 * (cos(TWO_PI * ratio))) + (0.14128 * (cos(FOUR_PI * ratio))) -
-                         (0.01168 * (cos(SIX_PI * ratio)));
-        break;
-      case FFTWindow::Flat_top: // flat top
-        weighingFactor = 0.2810639 - (0.5208972 * cos(TWO_PI * ratio)) + (0.1980399 * cos(FOUR_PI * ratio));
-        break;
-      case FFTWindow::Welch: // welch
-        weighingFactor = 1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) / (samplesMinusOne / 2.0));
-        break;
+        case FFTWindow::Rectangle: // rectangle (box car)
+          weighingFactor = 1.0;
+          break;
+        case FFTWindow::Hamming: // hamming
+          weighingFactor = 0.54 - (0.46 * cos(fft::PI2 * ratio));
+          break;
+        case FFTWindow::Hann: // hann
+          weighingFactor = 0.54 * (1.0 - cos(fft::PI2 * ratio));
+          break;
+        case FFTWindow::Triangle: // triangle (Bartlett)
+          weighingFactor =
+              1.0 - ((2.0 * abs(indexMinusOne - (samplesMinusOne / 2.0))) / samplesMinusOne);
+          break;
+        case FFTWindow::Nuttall: // nuttall
+          weighingFactor = 0.355768 - (0.487396 * (cos(fft::PI2 * ratio))) +
+                           (0.144232 * (cos(fft::PI4 * ratio))) -
+                           (0.012604 * (cos(fft::PI6 * ratio)));
+          break;
+        case FFTWindow::Blackman: // blackman
+          weighingFactor =
+              0.42323 - (0.49755 * (cos(fft::PI2 * ratio))) + (0.07922 * (cos(fft::PI4 * ratio)));
+          break;
+        case FFTWindow::Blackman_Nuttall: // blackman nuttall
+          weighingFactor = 0.3635819 - (0.4891775 * (cos(fft::PI2 * ratio))) +
+                           (0.1365995 * (cos(fft::PI4 * ratio))) -
+                           (0.0106411 * (cos(fft::PI6 * ratio)));
+          break;
+        case FFTWindow::Blackman_Harris: // blackman harris
+          weighingFactor = 0.35875 - (0.48829 * (cos(fft::PI2 * ratio))) +
+                           (0.14128 * (cos(fft::PI4 * ratio))) -
+                           (0.01168 * (cos(fft::PI6 * ratio)));
+          break;
+        case FFTWindow::Flat_top: // flat top
+          weighingFactor = 0.2810639 - (0.5208972 * cos(fft::PI2 * ratio)) +
+                           (0.1980399 * cos(fft::PI4 * ratio));
+          break;
+        case FFTWindow::Welch: // welch
+          weighingFactor =
+              1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) / (samplesMinusOne / 2.0));
+          break;
       }
       if (withCompensation) {
         weighingFactor *= compensationFactor;
@@ -286,5 +307,5 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir, bool withCompensatio
   }
 }
 
-} // namespace audio
+} // namespace player
 } // namespace pierre

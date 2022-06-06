@@ -16,9 +16,11 @@
 //
 //  https://www.wisslanding.com
 
-#include "packet/rtp.hpp"
+#include "player/rtp.hpp"
 #include "core/input_info.hpp"
 #include "packet/basic.hpp"
+#include "player/fft.hpp"
+#include "player/peaks.hpp"
 
 #include <array>
 #include <cstdint>
@@ -43,7 +45,7 @@ extern "C" {
 #endif
 
 namespace pierre {
-namespace packet {
+namespace player {
 
 namespace ranges = std::ranges;
 
@@ -89,7 +91,8 @@ constexpr int ADTS_CHANNEL_CFG = 2; // CPE
 uint8_t *pcm_audio;
 int dst_linesize = 0;
 
-constexpr auto AV_FORMAT_OUT = AV_SAMPLE_FMT_FLT;
+constexpr auto AV_FORMAT_IN = AV_SAMPLE_FMT_FLTP;
+constexpr auto AV_FORMAT_OUT = AV_SAMPLE_FMT_S16;
 constexpr auto AV_CH_LAYOUT = AV_CH_LAYOUT_STEREO;
 
 void check_nullptr(void *ptr) {
@@ -141,7 +144,7 @@ void init() {
     av_opt_set_channel_layout(swr, "out_channel_layout", AV_CH_LAYOUT, 0);
     av_opt_set_int(swr, "in_sample_rate", InputInfo::rate, 0);
     av_opt_set_int(swr, "out_sample_rate", InputInfo::rate, 0); // must match for timing
-    av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_SAMPLE_FMT_FLTP, 0);
+    av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_FORMAT_IN, 0);
     av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_FORMAT_OUT, 0);
     swr_init(swr);
   });
@@ -255,14 +258,16 @@ void parse(shRTP rtp) {
     return;
   }
 
+  rtp->channels = codec_ctx->channels;
+
   av_samples_alloc(&pcm_audio,                // pointer to PCM samples
                    &dst_linesize,             // pointer to calculated linesize ?
-                   codec_ctx->channels,       // num of channels
+                   rtp->channels,             // num of channels
                    decoded_frame->nb_samples, // num of samples
                    AV_FORMAT_OUT,             // desired format (see const above)
                    0);                        // default alignment
 
-  auto samples_per_channel = swr_convert(             // perform the software resample
+  rtp->samples_per_channel = swr_convert(             // perform the software resample
       swr,                                            // software resample ctx
       &pcm_audio,                                     // put processed samples here
       decoded_frame->nb_samples,                      // output this many samples
@@ -271,8 +276,8 @@ void parse(shRTP rtp) {
 
   auto dst_bufsize = av_samples_get_buffer_size // determine required buffer
       (&dst_linesize,                           // calc'ed linesize
-       codec_ctx->channels,                     // num of channels
-       samples_per_channel,                     // num of samples/channel (from swr_convert)
+       rtp->channels,                           // num of channels
+       rtp->samples_per_channel,                // num of samples/channel (from swr_convert)
        AV_FORMAT_OUT,                           // desired format (see const above)
        1);                                      // default alignment
 
@@ -280,8 +285,10 @@ void parse(shRTP rtp) {
     constexpr uint8_t MAX_REPORT = 1;
     static uint8_t count = 0;
     if (count < MAX_REPORT) { // debug
-      constexpr auto f = FMT_STRING("{} {} ret={} samples/channel={:<5} dst_buffsize={:<5}\n");
-      fmt::print(f, runTicks(), fnName(), ret, samples_per_channel, dst_bufsize);
+      constexpr auto f = FMT_STRING("{} {} ret={} channels={} "
+                                    "samples/channel={:<5} dst_buffsize={:<5}\n");
+      fmt::print(f, runTicks(), fnName(), ret, rtp->channels, rtp->samples_per_channel,
+                 dst_bufsize);
 
       ++count;
     }
@@ -318,7 +325,7 @@ void parse(shRTP rtp) {
 
 } // namespace av
 
-RTP::RTP(Basic &packet) {
+RTP::RTP(packet::Basic &packet) {
   uint8_t byte0 = packet[0]; // first byte to pick bits from
 
   version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
@@ -331,7 +338,7 @@ RTP::RTP(Basic &packet) {
   ssrc = rtp::to_uint32(packet.begin() + 8, 4);      // four bytes
 
   // grab the end of the packet, we need it for several parts
-  Basic::iterator packet_end = packet.begin() + packet.size();
+  packet::Basic::iterator packet_end = packet.begin() + packet.size();
 
   // nonce is the last eight (8) bytes
   // a complete nonce is 12 bytes so zero pad then append the mini nonce
@@ -340,17 +347,17 @@ RTP::RTP(Basic &packet) {
   ranges::copy_n(packet_end - 8, 8, nonce_inserter);
 
   // tag is 24 bytes from end and 16 bytes in length
-  Basic::iterator tag_begin = packet_end - 24;
-  Basic::iterator tag_end = tag_begin + 16;
+  packet::Basic::iterator tag_begin = packet_end - 24;
+  packet::Basic::iterator tag_end = tag_begin + 16;
   _tag.assign(tag_begin, tag_end);
 
-  Basic::iterator aad_begin = packet.begin() + 4;
-  Basic::iterator aad_end = aad_begin + 8;
+  packet::Basic::iterator aad_begin = packet.begin() + 4;
+  packet::Basic::iterator aad_end = aad_begin + 8;
   _aad.assign(aad_begin, aad_end);
 
   // finally the actual payload, starts at byte 12, ends
-  Basic::iterator payload_begin = packet.begin() + 12;
-  Basic::iterator payload_end = packet_end - 8;
+  packet::Basic::iterator payload_begin = packet.begin() + 12;
+  packet::Basic::iterator payload_end = packet_end - 8;
   _payload.assign(payload_begin, payload_end);
 
   // NOTE: raw packet falls out of scope
@@ -387,6 +394,8 @@ void swap(RTP &a, RTP &b) {
  *
  * NOTE: the payload size must count in the ADTS header itself.
  */
+
+shRTP RTP::create(packet::Basic &packet) { return std::shared_ptr<RTP>(new RTP(packet)); }
 
 bool RTP::decipher() {
   if (rtp::shk.empty()) {
@@ -443,6 +452,45 @@ void RTP::decode(shRTP rtp_packet) {
   av::parse(rtp_packet);
 }
 
+void RTP::findPeaks(shRTP rtp_packet) {
+  auto &payload = rtp_packet->_payload;
+  const auto samples_per_channel = rtp_packet->samples_per_channel;
+
+  FFT fft_left(samples_per_channel, InputInfo::rate);
+  FFT fft_right(samples_per_channel, InputInfo::rate);
+
+  // first things first, deinterlace the raw *uint8_t) payload into left/right reals (floats)
+  auto &left = fft_left.real();
+  auto &right = fft_right.real();
+
+  constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
+  uint8_t *fptr = payload.data();                   // ptr into array of uint8_t to convert
+  const auto interleaved_samples = payload.size() / SAMPLE_BYTES;
+
+  for (size_t idx = 0; idx < interleaved_samples; ++idx) {
+    uint16_t val;
+    std::memcpy(&val, fptr, SAMPLE_BYTES); // memcpy to avoid strict aliasing rules
+    fptr += SAMPLE_BYTES;                  // point to the next sample
+
+    if ((idx % 2) == 0) { // left channel
+      left.emplace_back(static_cast<float>(val));
+    } else { // right channel
+      right.emplace_back(static_cast<float>(val));
+    }
+  }
+
+  // now process each channel then save the peaks
+  fft_left.process();
+  fft_right.process();
+
+  rtp_packet->_peaks_left = fft_left.findPeaks();
+  rtp_packet->_peaks_right = fft_right.findPeaks();
+
+  // clear the payload
+  packet::Basic empty;
+  std::swap(empty, payload);
+}
+
 bool RTP::keep(FlushRequest &flush) {
   if (isValid() == false) {
     if (true) { // debug
@@ -454,11 +502,11 @@ bool RTP::keep(FlushRequest &flush) {
   }
 
   if (flush.active) {
-    if (seq_num < flush.until_seq) { // continue flushing
-      return false;                  // don't decipher or keep
+    if (seq_num <= flush.until_seq) { // continue flushing
+      return false;                   // don't decipher or keep
     }
 
-    if (seq_num >= flush.until_seq) { // flush complete
+    if (seq_num > flush.until_seq) { // flush complete
       flush.complete();
 
       if (true) { // debug
@@ -497,5 +545,5 @@ void RTP::shk(const Basic &key) {
 
 void RTP::shkClear() { rtp::shk.clear(); }
 
-} // namespace packet
+} // namespace player
 } // namespace pierre

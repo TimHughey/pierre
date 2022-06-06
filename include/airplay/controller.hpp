@@ -46,7 +46,6 @@ namespace asio = boost::asio;
 class Controller : public std::enable_shared_from_this<Controller> {
 private:
   typedef std::list<Thread> Threads;
-  static constexpr auto MAX_THREADS() { return 5; };
 
 public:
   // shared instance management

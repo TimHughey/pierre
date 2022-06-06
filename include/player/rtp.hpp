@@ -20,7 +20,8 @@
 
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
-#include "packet/flush_request.hpp"
+#include "player/flush_request.hpp"
+#include "player/peaks.hpp"
 
 #include <array>
 #include <memory>
@@ -28,9 +29,11 @@
 
 namespace pierre {
 
-namespace packet {
+namespace player {
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 typedef std::shared_ptr<CipherBuff> shCipherBuff;
+
+using Basic = packet::Basic;
 
 /*
 credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
@@ -84,20 +87,21 @@ private:
 
 public:
   RTP() = delete;
-
-  static std::shared_ptr<RTP> create(Basic &packet) {
-    return std::shared_ptr<RTP>(new RTP(packet));
-  }
+  static std::shared_ptr<RTP> create(Basic &packet);
 
   void cleanup() { _m.reset(); }
 
-  bool decipher();                                     // deciphers packet
-  static void decode(std::shared_ptr<RTP> rtp_packet); // definition must be in cpp
+  bool decipher();                                        // sodium decipher packet
+  static void decode(std::shared_ptr<RTP> rtp_packet);    // definition must be in cpp
+  static void findPeaks(std::shared_ptr<RTP> rtp_packet); // defnition must be in cpp
+
+  bool isReady() const { return _peaks_left.use_count() && _peaks_right.use_count(); }
   bool isValid() const { return version == 0x02; }
   bool keep(FlushRequest &flush);
   Basic &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
-  const Basic &pcmSamples() const { return _payload; }
+  shPeaks peaksLeft() { return _peaks_left; }
+  shPeaks peaksRight() { return _peaks_right; }
 
   // class member functions
   static void shk(const Basic &key); // set class level shared key
@@ -122,17 +126,22 @@ public:
   bool decode_ok = false;
   shCipherBuff _m;
 
+  int samples_per_channel = 0;
+  int channels = 0;
+
 private:
   // order independent
-  Basic _nonce;
-  Basic _tag;
-  Basic _aad;
-  Basic _payload;
+  packet::Basic _nonce;
+  packet::Basic _tag;
+  packet::Basic _aad;
+  packet::Basic _payload;
+  shPeaks _peaks_left;
+  shPeaks _peaks_right;
 
   static constexpr auto moduleId = csv("RTP");
 };
 
 typedef std::shared_ptr<RTP> shRTP;
 
-} // namespace packet
+} // namespace player
 } // namespace pierre

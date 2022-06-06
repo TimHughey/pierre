@@ -22,7 +22,7 @@
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"
-#include "packet/queued.hpp"
+#include "player/queued.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/clock.hpp"
 #include "server/servers.hpp"
@@ -71,9 +71,11 @@ void Controller::run() {
   Anchor::init();
   ConnInfo::init();
   Servers::init({.io_ctx = io_ctx});
-  packet::Queued::init(io_ctx);
+  player::Queued::init(io_ctx);
 
-  for (auto n = 1; n < MAX_THREADS(); n++) {
+  const auto max_threads = std::jthread::hardware_concurrency() * 2;
+
+  for (uint8_t n = 1; n < max_threads; n++) {
     // notes:
     //  1. all threads run the same io_ctx
     //  2. objects are free to create their own strands, as needed

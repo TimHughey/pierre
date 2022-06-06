@@ -15,30 +15,15 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
-//
-//  This work based on and inspired by
-//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
-#include "conn_info/conn_info.hpp"
-#include "player/rtp.hpp"
+#pragma once
 
-#include <chrono>
-#include <fmt/format.h>
-#include <memory>
-#include <string_view>
+#include <vector>
 
 namespace pierre {
-namespace airplay {
+namespace player {
 
-namespace shared {
-std::optional<shConnInfo> __conn_info;
-std::optional<shConnInfo> &connInfo() { return __conn_info; }
-} // namespace shared
+typedef std::vector<float> Reals;
 
-void ConnInfo::save(const StreamData &data) {
-  stream_info = data;
-  player::RTP::shk(data.key);
-}
-
-} // namespace airplay
+} // namespace player
 } // namespace pierre

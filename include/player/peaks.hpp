@@ -18,17 +18,17 @@
     https://www.wisslanding.com
 */
 
-#ifndef pierre_audio_peaks_hpp
-#define pierre_audio_peaks_hpp
+#pragma once
+
+#include "misc/minmax.hpp"
 
 #include <memory>
 #include <type_traits>
 #include <vector>
 
-#include "misc/minmax.hpp"
-
 namespace pierre {
-namespace audio {
+namespace player {
+
 typedef float Freq;
 typedef float Mag;
 typedef float MagScaled;
@@ -39,21 +39,24 @@ typedef size_t PeakN; // represents peak of interest 1..max_peaks
 namespace peak {
 Scaled scaleVal(Unscaled val);
 
+struct MagDetails {
+  MinMaxFloat minmax;
+  Mag strong;
+};
+
+struct ScaleDetails {
+  Mag factor;
+  MinMaxFloat minmax;
+  Mag step;
+};
+
 class Config {
 public:
   Config() = default;
   Config(const Config &);
 
-  struct {
-    MinMaxFloat minmax;
-    Mag strong;
-  } mag;
-
-  struct {
-    Mag factor;
-    MinMaxFloat minmax;
-    Mag step;
-  } scale;
+  MagDetails mag;
+  ScaleDetails scale;
 
   const auto &activeScale() const { return scale.minmax; }
   const Mag &ceiling() const { return mag.minmax.max(); }
@@ -94,9 +97,6 @@ public:
 } // namespace peak
 
 struct Peak {
-public:
-  using Config = peak::Config;
-
 public: // Peak
   Peak() = default;
   Peak(const size_t i, const Freq f, const Mag m);
@@ -104,7 +104,7 @@ public: // Peak
   static const MinMaxFloat magScaleRange();
   static const MinMaxFloat &activeScale() { return _cfg.activeScale(); }
 
-  static Config &config() { return _cfg; }
+  static peak::Config &config() { return _cfg; }
   Freq frequency() const { return _freq; }
   Freq frequencyScaled() const { return peak::scaleVal(frequency()); }
 
@@ -142,16 +142,21 @@ private:
   Freq _freq = 0;
   Mag _mag = 0;
 
-  static Config _cfg;
+  static peak::Config _cfg;
 };
 
-class Peaks {
+class Peaks : public std::enable_shared_from_this<Peaks> {
 public:
-  Peaks() = default;
+  static std::shared_ptr<Peaks> create();
+  std::shared_ptr<Peaks> ptr() { return shared_from_this(); }
   ~Peaks() = default;
 
-  Peaks(Peaks &&other) noexcept;
-  Peaks &operator=(Peaks &&rhs) noexcept;
+private:
+  Peaks() = default;
+
+public:
+  // Peaks(Peaks &&other) noexcept;
+  // Peaks &operator=(Peaks &&rhs) noexcept;
 
   bool bass() const;
   auto cbegin() const { return _peaks.cbegin(); }
@@ -190,19 +195,17 @@ public:
   }
 
   const Peak peakN(const PeakN n) const;
+  void push_back(const Peak &peak) { _peaks.push_back(peak); }
   bool silence() const { return hasPeak(1) == false; }
   auto size() const { return _peaks.size(); }
 
-  void sort();
-  void push_back(const Peak &peak) { _peaks.push_back(peak); }
+  std::shared_ptr<Peaks> sort();
 
 private:
   std::vector<Peak> _peaks;
 };
 
-typedef std::shared_ptr<Peaks> spPeaks;
+typedef std::shared_ptr<Peaks> shPeaks;
 
-} // namespace audio
+} // namespace player
 } // namespace pierre
-
-#endif

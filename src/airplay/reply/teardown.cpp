@@ -21,7 +21,7 @@
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "packet/headers.hpp"
-#include "packet/queued.hpp"
+#include "player/queued.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
 
@@ -65,7 +65,7 @@ bool Teardown::populate() {
 void Teardown::phase1() {
   ConnInfo::ptr()->sessionKeyClear();
 
-  packet::Queued::ptr()->teardown(); // clear queued frames
+  player::Queued::ptr()->teardown(); // clear queued frames
 }
 
 void Teardown::phase2() {
@@ -82,7 +82,7 @@ void Teardown::phase2() {
   ConnInfo::ptr()->groupContainsGroupLeader = false;
   ConnInfo::ptr()->dacp_active_remote.clear();
 
-  packet::Queued::ptr()->teardown();
+  player::Queued::ptr()->teardown();
 }
 
 } // namespace reply

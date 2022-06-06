@@ -22,21 +22,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 https://www.wisslanding.com
 */
 
-#ifndef _pierre_fft_h
-#define _pierre_fft_h
+#pragma once
+
+#include "player/peaks.hpp"
+#include "player/typedefs.hpp"
 
 #include <algorithm>
 #include <functional>
-#include <vector>
-
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
-
-#include "audio/peaks.hpp"
+#include <vector>
 
 namespace pierre {
-namespace audio {
+namespace player {
 
 enum class FFTDirection { Reverse, Forward };
 
@@ -53,41 +52,37 @@ enum class FFTWindow {
   Welch             // welch
 };
 
-typedef std::vector<float> Real_t;
-typedef Real_t Imaginary_t;
-typedef Real_t WindowWeighingFactors_t;
+typedef Reals Imaginary_t;
+typedef Reals WindowWeighingFactors_t;
 
 class FFT {
 public:
   FFT(size_t samples, float samplingFrequency);
   ~FFT() = default;
 
+  static void init();
+
   // Computes in-place complex-to-complex FFT
   void compute(FFTDirection dir);
   void complexToMagnitude();
 
   void dcRemoval(const float mean);
-  void findPeaks(spPeaks peaks);
+
+  shPeaks findPeaks();
   Freq freqAtIndex(size_t y);
   Mag magAtIndex(const size_t i) const;
   void process();
-  Real_t &real();
+  Reals &real() { return _real; }
 
-  void windowing(FFTWindow windowType, FFTDirection dir,
-                 bool withCompensation = false);
+  void windowing(FFTWindow windowType, FFTDirection dir, bool withCompensation = false);
 
 private:
   static const float _winCompensationFactors[10];
 
-  // Mathematial constants
-  static constexpr float TWO_PI = 6.28318531;
-  static constexpr float FOUR_PI = 12.56637061;
-  static constexpr float SIX_PI = 18.84955593;
-
   inline float sq(const float x) const { return x * x; }
 
   /* Variables */
-  Real_t _real;
+  Reals _real;
   Imaginary_t _imaginary;
   static WindowWeighingFactors_t _wwf;
   size_t _samples;
@@ -100,6 +95,5 @@ private:
   const size_t _max_num_peaks = _samples >> 1;
 };
 
-#endif
-}
-}
+} // namespace player
+} // namespace pierre

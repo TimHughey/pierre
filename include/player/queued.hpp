@@ -24,8 +24,8 @@
 
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
-#include "packet/flush_request.hpp"
-#include "packet/rtp.hpp"
+#include "player/flush_request.hpp"
+#include "player/rtp.hpp"
 
 #include <boost/asio.hpp>
 #include <chrono>
@@ -37,20 +37,14 @@
 
 namespace pierre {
 
-namespace packet {
-class Queued;
-typedef std::shared_ptr<Queued> shQueued;
-} // namespace packet
-
-namespace shared {
-std::optional<packet::shQueued> &queued();
-} // namespace shared
-
-namespace packet {
+namespace player {
 
 namespace { // anonymous namespace limits scope
 namespace asio = boost::asio;
 }
+
+class Queued;
+typedef std::shared_ptr<Queued> shQueued;
 
 class Queued : public std::enable_shared_from_this<Queued> {
 private:
@@ -77,7 +71,7 @@ private: // constructor private, all access through shared_ptr
   Queued(asio::io_context &io_ctx);
 
 public:
-  void accept(Basic &&packet);
+  void accept(packet::Basic &&packet);
   inline Basic &buffer() { return _packet; }
 
   void flush(const FlushRequest &flush);
@@ -108,8 +102,8 @@ private:
   asio::high_resolution_timer stats_timer;
 
   // order independent
-  Basic _packet;     // packet received by Session
-  Basic _packet_len; // buffer for packet len
+  packet::Basic _packet;     // packet received by Session
+  packet::Basic _packet_len; // buffer for packet len
 
   // one or more spools where front = earliest, back = latest
   Spools _spools;
@@ -118,5 +112,5 @@ private:
   static constexpr csv moduleId{"QUEUED"};
 };
 
-} // namespace packet
+} // namespace player
 } // namespace pierre

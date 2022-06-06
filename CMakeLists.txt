@@ -76,6 +76,13 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavutil
 )
 
+include(FetchContent)
+  FetchContent_Declare(ArduinoJson
+    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+    GIT_TAG        v6.19.4
+)
+FetchContent_MakeAvailable(ArduinoJson)
+
 add_subdirectory(src libs)
 
 add_executable(${_target}

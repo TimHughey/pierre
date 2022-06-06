@@ -16,8 +16,9 @@
 //
 //  https://www.wisslanding.com
 
-#include "packet/queued.hpp"
-#include "packet/rtp.hpp"
+#include "player/queued.hpp"
+#include "player/rtp.hpp"
+#include "player/typedefs.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/clock.hpp"
 
@@ -27,6 +28,7 @@
 #include <fmt/format.h>
 #include <iterator>
 #include <mutex>
+#include <optional>
 #include <ranges>
 
 using namespace std::chrono_literals;
@@ -35,11 +37,11 @@ using steady_clock = std::chrono::steady_clock;
 namespace pierre {
 
 namespace shared {
-std::optional<packet::shQueued> __queued;
-std::optional<packet::shQueued> &queued() { return __queued; }
+std::optional<player::shQueued> __queued;
+std::optional<player::shQueued> &queued() { return __queued; }
 } // namespace shared
 
-namespace packet {
+namespace player {
 
 using error_code = boost::system::error_code;
 namespace asio = boost::asio;
@@ -107,9 +109,14 @@ void Queued::accept(Basic &&packet) {
 
     // async decode
     asio::post(decode_strand, // serialize decodes due to single av ctx
-               [rtp_packet = rtp_packet]() mutable {
+               [rtp_packet = rtp_packet, &io_ctx = io_ctx]() mutable {
                  RTP::decode(rtp_packet); // OK to run on separate thread, shared_ptr
-                 rtp_packet->cleanup();
+
+                 // find peaks using any available thread
+                 asio::post(io_ctx, [rtp_packet = rtp_packet]() mutable {
+                   RTP::findPeaks(rtp_packet);
+                   rtp_packet->cleanup();
+                 });
                });
   }
 }
@@ -152,7 +159,7 @@ void Queued::flush(const FlushRequest &flush) {
         Spool new_spool;
         ranges::for_each(spool, [&](shRTP &rtp) mutable {
           // this is a rtp to keep, swap it into the new spool
-          if (rtp->seq_num >= flush.until_seq) {
+          if (rtp->seq_num > flush.until_seq) {
             new_spool.emplace_back(rtp->shared_from_this());
           }
         }); // end of rtp_packet swapping
@@ -276,13 +283,14 @@ void Queued::stats() {
             const int64_t diff = size_now - size_last;
 
             constexpr auto f = FMT_STRING("{} {} spools={:02} "
-                                          "rtp_count={:<5} diff={:>+7} "
-                                          "seq_a/b={:>11} / {:<11} "
-                                          "ts_a/b={:>12} / {:<12} "
-                                          "network_time={}\n");
+                                          "rtp_count={:<5} diff={:>+6} "
+                                          "seq_a/b={:>8}/{:<8}"
+                                          "ts_a/b={:>12}/{:<12}"
+                                          "network_time={} peaks={}/{}\n");
 
             uint32_t seq_a, seq_b = 0;
             uint64_t network_time, ts_a, ts_b;
+            Freq peak_left, peak_right = -1;
 
             if (size_now > 0) { // spools could be empty
               auto &rtp_a = spools.front().front();
@@ -298,13 +306,22 @@ void Queued::stats() {
               if (anchor_data.valid) {
                 network_time = anchor_data.networkTime;
               }
+
+              const auto &spool_last = spools.back();
+              const auto &rtp_mid = spool_last[spool_last.size() / 2];
+
+              if (rtp_mid->isReady()) {
+                peak_left = rtp_mid->peaksLeft()->majorPeak().frequency();
+                peak_right = rtp_mid->peaksRight()->majorPeak().frequency();
+              }
             }
 
             fmt::print(f, runTicks(), moduleId,      // standard logging prefix
                        spools.size(),                // overall spool count
                        size_now, diff, seq_a, seq_b, // general stats and seq_nums
                        ts_a, ts_b,                   // timestamps
-                       network_time);                // network and master times
+                       network_time,                 // network time
+                       peak_left, peak_right);       // latest peaks count
 
             size_last = size_now; // save last size
             self->stats();        // schedule next stats report
@@ -326,5 +343,5 @@ void Queued::teardown() {
   });
 }
 
-} // namespace packet
+} // namespace player
 } // namespace pierre

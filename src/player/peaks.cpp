@@ -18,17 +18,18 @@
     https://www.wisslanding.com
 */
 
+#include "player/peaks.hpp"
+#include "misc/elapsed.hpp"
+
 #include <cmath>
 
-#include "misc/elapsed.hpp"
-#include "peaks.hpp"
-
 using namespace std;
-namespace pierre {
-namespace audio {
-namespace peak {
-Scaled scaleVal(Unscaled val) {
 
+namespace pierre {
+namespace player {
+namespace peak {
+
+Scaled scaleVal(Unscaled val) {
   // log10 of 0 is undefined
   if (val <= 0.0f) {
     return 0.0f;
@@ -59,10 +60,9 @@ Config Config::defaults() {
   return cfg;
 }
 
-Config::Config(const Peak::Config &c) { *this = c; }
+Config::Config(const peak::Config &c) { *this = c; }
 
-Config &Peak::Config::operator=(const Peak::Config &rhs) {
-
+peak::Config &Config::operator=(const peak::Config &rhs) {
   mag.minmax = rhs.mag.minmax;
   scale.minmax = rhs.scale.minmax;
   scale.factor = rhs.scale.factor;
@@ -77,14 +77,12 @@ const MinMaxFloat Peak::magScaleRange() {
   return range;
 }
 
-using namespace peak;
-
-Config Peak::_cfg = Peak::Config::defaults();
+peak::Config Peak::_cfg = peak::Config::defaults();
 
 Peak::Peak(const size_t i, const Freq f, const Mag m) : _index(i), _freq(f), _mag(m) {}
 
 MagScaled Peak::magScaled() const {
-  auto scaled = scaleVal(magnitude());
+  auto scaled = peak::scaleVal(magnitude());
 
   scaled -= _cfg.scaleFloor();
   if (scaled < 0) {
@@ -104,15 +102,19 @@ Peak::operator bool() const {
   return rc;
 }
 
-Peaks::Peaks(Peaks &&rhs) noexcept { *this = move(rhs); }
+// Peaks
 
-Peaks &Peaks::operator=(Peaks &&rhs) noexcept {
-  // detect self assignment
-  if (this != &rhs) {
-    _peaks = move(rhs._peaks);
-  }
-  return *this;
-}
+// Peaks::Peaks(Peaks &&rhs) noexcept { *this = move(rhs); }
+//
+// Peaks &Peaks::operator=(Peaks &&rhs) noexcept {
+//   // detect self assignment
+//   if (this != &rhs) {
+//     _peaks = move(rhs._peaks);
+//   }
+//   return *this;
+// }
+
+shPeaks Peaks::create() { return shPeaks(new Peaks()); }
 
 bool Peaks::bass() const {
   bool bass = false;
@@ -156,10 +158,14 @@ const Peak Peaks::peakN(const PeakN n) const {
   return peak;
 }
 
-void Peaks::sort() {
+shPeaks Peaks::sort() {
   std::sort(_peaks.begin(), _peaks.end(),
-            [](const Peak &lhs, const Peak &rhs) { return lhs.magnitude() > rhs.magnitude(); });
+            [](const Peak &lhs, const Peak &rhs) { // reverse order by magnitude
+              return lhs.magnitude() > rhs.magnitude();
+            });
+
+  return shared_from_this();
 }
 
-} // namespace audio
+} // namespace player
 } // namespace pierre

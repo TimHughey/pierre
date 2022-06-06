@@ -52,22 +52,12 @@ public:
   }
 
   const T &max() const { return std::get<1>(_pair); }
-
-  // MinMaxPair<T> &operator=(std::shared_ptr<MinMaxPair<T>> rhs) {
-  //   set(rhs);
-  //   return *this;
-  // }
-
   const T &min() const { return std::get<0>(_pair); }
 
   void set(const T min_val, const T max_val) {
     _pair.first = min_val;
     _pair.second = max_val;
   }
-
-  // void set(std::shared_ptr<MinMaxPair<T>> obj) {
-  //   _pair = std::make_pair(obj->min(), obj->max());
-  // }
 
 private:
   std::pair<T, T> _pair;
