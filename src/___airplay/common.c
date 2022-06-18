@@ -69,9 +69,8 @@ static pthread_mutex_t debug_timing_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t the_conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
 const char *sps_format_description_string_array[] = {
-    "unknown", "S8",     "U8",     "S16",     "S16_LE",  "S16_BE",
-    "S24",     "S24_LE", "S24_BE", "S24_3LE", "S24_3BE", "S32",
-    "S32_LE",  "S32_BE", "auto",   "invalid"};
+    "unknown", "S8",      "U8",      "S16", "S16_LE", "S16_BE", "S24",  "S24_LE",
+    "S24_BE",  "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid"};
 
 const char *sps_format_description_string(sps_format_t format) {
   if (format <= SPS_FORMAT_AUTO)
@@ -90,8 +89,7 @@ static volatile int requested_connection_state_to_output = 1;
 
 static void (*sps_log)(int prio, const char *t, ...) = daemon_log;
 
-void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t,
-                          ...) {
+void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) {
   char s[16384];
   va_list args;
   va_start(args, t);
@@ -100,8 +98,7 @@ void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t,
   fprintf(stderr, "%s\n", s);
 }
 
-void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t,
-                          ...) {
+void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) {
   char s[16384];
   va_list args;
   va_start(args, t);
@@ -155,9 +152,8 @@ uint16_t nextFreeUDPPort() {
   if (UDPPortIndex == 0)
     UDPPortIndex = config.udp_port_base;
   else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
-    UDPPortIndex = config.udp_port_base +
-                   3; // avoid wrapping back to the first three, as they can
-                      // be assigned by resetFreeUDPPort without checking
+    UDPPortIndex = config.udp_port_base + 3; // avoid wrapping back to the first three, as they can
+                                             // be assigned by resetFreeUDPPort without checking
   else
     UDPPortIndex++;
   return UDPPortIndex;
@@ -165,8 +161,8 @@ uint16_t nextFreeUDPPort() {
 
 // if port is zero, pick any port
 // otherwise, try the given port only
-int bind_socket_and_port(int type, int ip_family, const char *self_ip_address,
-                         uint32_t scope_id, uint16_t *port, int *sock) {
+int bind_socket_and_port(int type, int ip_family, const char *self_ip_address, uint32_t scope_id,
+                         uint16_t *port, int *sock) {
   int ret = 0; // no error
   int local_socket = socket(ip_family, type, 0);
   if (local_socket == -1)
@@ -179,8 +175,7 @@ int bind_socket_and_port(int type, int ip_family, const char *self_ip_address,
       sa->sin_family = AF_INET;
       sa->sin_port = ntohs(*port);
       inet_pton(AF_INET, self_ip_address, &(sa->sin_addr));
-      ret =
-          bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
+      ret = bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
     }
 #ifdef AF_INET6
     if (ip_family == AF_INET6) {
@@ -189,8 +184,7 @@ int bind_socket_and_port(int type, int ip_family, const char *self_ip_address,
       sa6->sin6_port = ntohs(*port);
       inet_pton(AF_INET6, self_ip_address, &(sa6->sin6_addr));
       sa6->sin6_scope_id = scope_id;
-      ret = bind(local_socket, (struct sockaddr *)sa6,
-                 sizeof(struct sockaddr_in6));
+      ret = bind(local_socket, (struct sockaddr *)sa6, sizeof(struct sockaddr_in6));
     }
 #endif
     if (ret < 0) {
@@ -209,8 +203,7 @@ int bind_socket_and_port(int type, int ip_family, const char *self_ip_address,
         close(local_socket);
         char errorstring[1024];
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-        warn("error %d: \"%s\". Could not retrieve socket's port!", errno,
-             errorstring);
+        warn("error %d: \"%s\". Could not retrieve socket's port!", errno, errorstring);
       } else {
 #ifdef AF_INET6
         if (local.SAFAMILY == AF_INET6) {
@@ -230,8 +223,7 @@ int bind_socket_and_port(int type, int ip_family, const char *self_ip_address,
   return ret;
 }
 
-uint16_t bind_UDP_port(int ip_family, const char *self_ip_address,
-                       uint32_t scope_id, int *sock) {
+uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scope_id, int *sock) {
   // look for a port in the range, if any was specified.
   int ret = 0;
 
@@ -261,8 +253,7 @@ uint16_t bind_UDP_port(int ip_family, const char *self_ip_address,
       sa->sin_family = AF_INET;
       sa->sin_port = ntohs(desired_port);
       inet_pton(AF_INET, self_ip_address, &(sa->sin_addr));
-      ret =
-          bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
+      ret = bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
     }
 #ifdef AF_INET6
     if (ip_family == AF_INET6) {
@@ -271,8 +262,7 @@ uint16_t bind_UDP_port(int ip_family, const char *self_ip_address,
       sa6->sin6_port = ntohs(desired_port);
       inet_pton(AF_INET6, self_ip_address, &(sa6->sin6_addr));
       sa6->sin6_scope_id = scope_id;
-      ret = bind(local_socket, (struct sockaddr *)sa6,
-                 sizeof(struct sockaddr_in6));
+      ret = bind(local_socket, (struct sockaddr *)sa6, sizeof(struct sockaddr_in6));
     }
 #endif
 
@@ -292,8 +282,7 @@ uint16_t bind_UDP_port(int ip_family, const char *self_ip_address,
         "check for restrictive firewall settings or a bad router! UDP base is "
         "%u, range is %u and "
         "current suggestion is %u.",
-        errno, errorstring, config.udp_port_base, config.udp_port_range,
-        desired_port);
+        errno, errorstring, config.udp_port_base, config.udp_port_range, desired_port);
   }
 
   uint16_t sport;
@@ -314,17 +303,12 @@ uint16_t bind_UDP_port(int ip_family, const char *self_ip_address,
   return sport;
 }
 
-int get_requested_connection_state_to_output() {
-  return requested_connection_state_to_output;
-}
+int get_requested_connection_state_to_output() { return requested_connection_state_to_output; }
 
-void set_requested_connection_state_to_output(int v) {
-  requested_connection_state_to_output = v;
-}
+void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }
 
-char *generate_preliminary_string(char *buffer, size_t buffer_length,
-                                  double tss, double tsl, const char *filename,
-                                  const int linenumber, const char *prefix) {
+char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss, double tsl,
+                                  const char *filename, const int linenumber, const char *prefix) {
   char *insertion_point = buffer;
   if (config.debugger_show_elapsed_time) {
     snprintf(insertion_point, buffer_length, "% 20.9f", tss);
@@ -335,8 +319,7 @@ char *generate_preliminary_string(char *buffer, size_t buffer_length,
     insertion_point = insertion_point + strlen(insertion_point);
   }
   if (config.debugger_show_file_and_line) {
-    snprintf(insertion_point, buffer_length, " \"%s:%d\"", filename,
-             linenumber);
+    snprintf(insertion_point, buffer_length, " \"%s:%d\"", filename, linenumber);
     insertion_point = insertion_point + strlen(insertion_point);
   }
   if (prefix) {
@@ -356,14 +339,12 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
     pthread_mutex_lock(&debug_timing_lock);
     uint64_t time_now = get_absolute_time_in_ns();
     uint64_t time_since_start = time_now - ns_time_at_startup;
-    uint64_t time_since_last_debug_message =
-        time_now - ns_time_at_last_debug_message;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    s = generate_preliminary_string(
-        b, sizeof(b), 1.0 * time_since_start / 1000000000,
-        1.0 * time_since_last_debug_message / 1000000000, filename, linenumber,
-        " *fatal error: ");
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
+                                    linenumber, " *fatal error: ");
   } else {
     strncpy(b, "fatal error: ", sizeof(b));
     s = b + strlen(b);
@@ -378,8 +359,7 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   exit(EXIT_FAILURE);
 }
 
-void _warn(const char *filename, const int linenumber, const char *format,
-           ...) {
+void _warn(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char b[16384];
@@ -389,14 +369,12 @@ void _warn(const char *filename, const int linenumber, const char *format,
     pthread_mutex_lock(&debug_timing_lock);
     uint64_t time_now = get_absolute_time_in_ns();
     uint64_t time_since_start = time_now - ns_time_at_startup;
-    uint64_t time_since_last_debug_message =
-        time_now - ns_time_at_last_debug_message;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    s = generate_preliminary_string(
-        b, sizeof(b), 1.0 * time_since_start / 1000000000,
-        1.0 * time_since_last_debug_message / 1000000000, filename, linenumber,
-        " *warning: ");
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
+                                    linenumber, " *warning: ");
   } else {
     strncpy(b, "warning: ", sizeof(b));
     s = b + strlen(b);
@@ -409,8 +387,7 @@ void _warn(const char *filename, const int linenumber, const char *format,
   pthread_setcancelstate(oldState, NULL);
 }
 
-void _debug(const char *filename, const int linenumber, int level,
-            const char *format, ...) {
+void _debug(const char *filename, const int linenumber, int level, const char *format, ...) {
   if (level > debuglev)
     return;
   int oldState;
@@ -420,14 +397,12 @@ void _debug(const char *filename, const int linenumber, int level,
   pthread_mutex_lock(&debug_timing_lock);
   uint64_t time_now = get_absolute_time_in_ns();
   uint64_t time_since_start = time_now - ns_time_at_startup;
-  uint64_t time_since_last_debug_message =
-      time_now - ns_time_at_last_debug_message;
+  uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
   ns_time_at_last_debug_message = time_now;
   pthread_mutex_unlock(&debug_timing_lock);
-  char *s = generate_preliminary_string(
-      b, sizeof(b), 1.0 * time_since_start / 1000000000,
-      1.0 * time_since_last_debug_message / 1000000000, filename, linenumber,
-      " ");
+  char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                        1.0 * time_since_last_debug_message / 1000000000, filename,
+                                        linenumber, " ");
   va_list args;
   va_start(args, format);
   vsnprintf(s, sizeof(b) - (s - b), format, args);
@@ -436,8 +411,7 @@ void _debug(const char *filename, const int linenumber, int level,
   pthread_setcancelstate(oldState, NULL);
 }
 
-void _inform(const char *filename, const int linenumber, const char *format,
-             ...) {
+void _inform(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char b[16384];
@@ -447,14 +421,12 @@ void _inform(const char *filename, const int linenumber, const char *format,
     pthread_mutex_lock(&debug_timing_lock);
     uint64_t time_now = get_absolute_time_in_ns();
     uint64_t time_since_start = time_now - ns_time_at_startup;
-    uint64_t time_since_last_debug_message =
-        time_now - ns_time_at_last_debug_message;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    s = generate_preliminary_string(
-        b, sizeof(b), 1.0 * time_since_start / 1000000000,
-        1.0 * time_since_last_debug_message / 1000000000, filename, linenumber,
-        " ");
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
+                                    linenumber, " ");
   } else {
     s = b;
   }
@@ -628,15 +600,14 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
 
   uint8_t *out = malloc(RSA_size(rsa));
   switch (mode) {
-  case RSA_MODE_AUTH:
-    *outlen = RSA_private_encrypt(inlen, input, out, rsa, RSA_PKCS1_PADDING);
-    break;
-  case RSA_MODE_KEY:
-    *outlen =
-        RSA_private_decrypt(inlen, input, out, rsa, RSA_PKCS1_OAEP_PADDING);
-    break;
-  default:
-    die("bad rsa mode");
+    case RSA_MODE_AUTH:
+      *outlen = RSA_private_encrypt(inlen, input, out, rsa, RSA_PKCS1_PADDING);
+      break;
+    case RSA_MODE_KEY:
+      *outlen = RSA_private_decrypt(inlen, input, out, rsa, RSA_PKCS1_OAEP_PADDING);
+      break;
+    default:
+      die("bad rsa mode");
   }
   RSA_free(rsa);
   pthread_setcancelstate(oldState, NULL);
@@ -653,8 +624,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
       (*dst) = 1;
       return 1;
     } else {
-      die("Invalid %s option choice \"%s\". It should be \"yes\" or \"no\"",
-          where, str);
+      die("Invalid %s option choice \"%s\". It should be \"yes\" or \"no\"", where, str);
       return 0;
     }
   } else {
@@ -694,7 +664,6 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 // Note that the max_db and min_db are given as dB*100
 
 double vol2attn(double vol, long max_db, long min_db) {
-
   // We use a little coordinate geometry to build a transfer function from the
   // volume passed in to the device's dynamic range. (See the diagram in the
   // documents folder.) The x axis is the "volume in" which will be from -30 to
@@ -719,14 +688,12 @@ double vol2attn(double vol, long max_db, long min_db) {
     // debug(1,"Volume min %ddB, max %ddB, range %ddB.",min_db,max_db,range_db);
     // double first_slope = -3000.0; // this is the slope of the attenuation at
     // the high end -- 30dB for the full rotation.
-    double first_slope =
-        -range_db / 2; // this is the slope of the attenuation at the high end
-                       // -- 30dB for the full rotation.
+    double first_slope = -range_db / 2; // this is the slope of the attenuation at the high end
+                                        // -- 30dB for the full rotation.
     if (-range_db > first_slope)
       first_slope = range_db;
-    double lines[order][2] = {{0, first_slope},
-                              {-5, first_slope - (range_db + first_slope) / 2},
-                              {-17, -range_db}};
+    double lines[order][2] = {
+        {0, first_slope}, {-5, first_slope - (range_db + first_slope) / 2}, {-17, -range_db}};
     int i;
     for (i = 0; i < order; i++) {
       if (vol <= lines[i][0]) {
@@ -857,8 +824,7 @@ int try_to_open_pipe_for_writing(const char *pathname) {
  * http://coding.debuntu.org/c-implementing-str_replace-replace-all-occurrences-substring#comment-722
  */
 
-char *str_replace(const char *string, const char *substr,
-                  const char *replacement) {
+char *str_replace(const char *string, const char *substr, const char *replacement) {
   char *tok = NULL;
   char *newstr = NULL;
   char *oldstr = NULL;
@@ -873,8 +839,7 @@ char *str_replace(const char *string, const char *substr,
   if (head) {
     while ((tok = strstr(head, substr))) {
       oldstr = newstr;
-      newstr =
-          malloc(strlen(oldstr) - strlen(substr) + strlen(replacement) + 1);
+      newstr = malloc(strlen(oldstr) - strlen(substr) + strlen(replacement) + 1);
       /*failed to alloc mem, free old string and return NULL */
       if (newstr == NULL) {
         free(oldstr);
@@ -882,11 +847,9 @@ char *str_replace(const char *string, const char *substr,
       }
       memcpy(newstr, oldstr, tok - oldstr);
       memcpy(newstr + (tok - oldstr), replacement, strlen(replacement));
-      memcpy(newstr + (tok - oldstr) + strlen(replacement),
-             tok + strlen(substr),
+      memcpy(newstr + (tok - oldstr) + strlen(replacement), tok + strlen(substr),
              strlen(oldstr) - strlen(substr) - (tok - oldstr));
-      memset(newstr + strlen(oldstr) - strlen(substr) + strlen(replacement), 0,
-             1);
+      memset(newstr + strlen(oldstr) - strlen(substr) + strlen(replacement), 0, 1);
       /* move back head right after the last replacement */
       head = newstr + (tok - oldstr) + strlen(replacement);
       free(oldstr);
@@ -938,8 +901,7 @@ uint64_t r64u() { return (ranval(&rx)); }
 
 int64_t r64i() { return (ranval(&rx) >> 1); }
 
-uint32_t
-nctohl(const uint8_t *p) { // read 4 characters from *p and do ntohl on them
+uint32_t nctohl(const uint8_t *p) { // read 4 characters from *p and do ntohl on them
   // this is to avoid possible aliasing violations
   uint32_t holder;
   memcpy(&holder, p, sizeof(holder));
@@ -957,7 +919,7 @@ uint16_t nctohs(const uint8_t *p) {
 uint64_t nctoh64(const uint8_t *p) {
   uint32_t landing = nctohl(p); // get the high order 32 bits
   uint64_t vl = landing;
-  vl = vl << 32; // shift them into the correct location
+  vl = vl << 32;                          // shift them into the correct location
   landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
   uint64_t ul = landing;
   vl = vl + ul;
@@ -981,13 +943,11 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
     rem = req;
   } while ((result == -1) && (errno == EINTR));
   if (result == -1)
-    debug(1, "Error in sps_nanosleep of %d sec and %ld nanoseconds: %d.", sec,
-          nanosec, errno);
+    debug(1, "Error in sps_nanosleep of %d sec and %ld nanoseconds: %d.", sec, nanosec, errno);
 }
 
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
-
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
@@ -1019,9 +979,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
   return r;
 }
 
-int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time,
-                      const char *mutexname, const char *filename,
-                      const int line, int debuglevel) {
+int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname,
+                      const char *filename, const int line, int debuglevel) {
   if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_lock(mutex);
   int oldState;
@@ -1033,23 +992,21 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time,
   if (debuglevel != 0)
     debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname,
           dstring); // only if you really ask for it!
-  int result =
-      sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
+  int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
     uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
     debug(debuglevel,
           "Mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: "
           "%0.9f sec.",
-          mutexname, dstring, (1.0 * dally_time) / 1000000,
-          0.000000001 * time_delay);
+          mutexname, dstring, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
 }
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname,
-                        const char *filename, const int line, int debuglevel) {
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const char *filename,
+                        const int line, int debuglevel) {
   if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_unlock(mutex);
   int oldState;
@@ -1134,9 +1091,8 @@ char *get_version_string() {
   return version_string;
 }
 
-int64_t generate_zero_frames(char *outp, size_t number_of_frames,
-                             sps_format_t format, int with_dither,
-                             int64_t random_number_in) {
+int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format,
+                             int with_dither, int64_t random_number_in) {
   // return the last random number used
   // assuming the buffer has been assigned
 
@@ -1158,38 +1114,38 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames,
 
   int64_t dither_mask = 0;
   switch (format) {
-  case SPS_FORMAT_S32:
-  case SPS_FORMAT_S32_LE:
-  case SPS_FORMAT_S32_BE:
-    dither_mask = (int64_t)1 << (64 - 32);
-    break;
-  case SPS_FORMAT_S24:
-  case SPS_FORMAT_S24_LE:
-  case SPS_FORMAT_S24_BE:
-  case SPS_FORMAT_S24_3LE:
-  case SPS_FORMAT_S24_3BE:
-    dither_mask = (int64_t)1 << (64 - 24);
-    break;
-  case SPS_FORMAT_S16:
-  case SPS_FORMAT_S16_LE:
-  case SPS_FORMAT_S16_BE:
-    dither_mask = (int64_t)1 << (64 - 16);
-    break;
+    case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
+      dither_mask = (int64_t)1 << (64 - 32);
+      break;
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+      dither_mask = (int64_t)1 << (64 - 24);
+      break;
+    case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
+      dither_mask = (int64_t)1 << (64 - 16);
+      break;
 
-  case SPS_FORMAT_S8:
+    case SPS_FORMAT_S8:
 
-  case SPS_FORMAT_U8:
-    dither_mask = (int64_t)1 << (64 - 8);
-    break;
-  case SPS_FORMAT_UNKNOWN:
-    die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
-    break;
-  case SPS_FORMAT_AUTO:
-    die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
-    break;
-  case SPS_FORMAT_INVALID:
-    die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
-    break;
+    case SPS_FORMAT_U8:
+      dither_mask = (int64_t)1 << (64 - 8);
+      break;
+    case SPS_FORMAT_UNKNOWN:
+      die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+      break;
+    case SPS_FORMAT_AUTO:
+      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
+      break;
+    case SPS_FORMAT_INVALID:
+      die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
+      break;
   }
   dither_mask -= 1;
 
@@ -1198,9 +1154,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames,
   size_t sample_number;
   r64_lock; // the random number generator is not thread safe, so we need to
             // lock it while using it
-  for (sample_number = 0; sample_number < number_of_frames * 2;
-       sample_number++) {
-
+  for (sample_number = 0; sample_number < number_of_frames * 2; sample_number++) {
     int64_t hyper_sample = 0;
     int64_t r = r64i();
 
@@ -1217,88 +1171,81 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames,
     int sample_length; // this is the length of the sample
 
     switch (format) {
-    case SPS_FORMAT_S32:
-      hyper_sample >>= (64 - 32);
-      *(int32_t *)op = hyper_sample;
-      sample_length = 4;
-      break;
-    case SPS_FORMAT_S32_LE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 32)); // 32 bits, ls byte
-      *op++ = (uint8_t)(hyper_sample >>
-                        (64 - 32 + 8)); // 32 bits, less significant middle byte
-      *op++ =
-          (uint8_t)(hyper_sample >>
-                    (64 - 32 + 16)); // 32 bits, more significant middle byte
-      *op = (uint8_t)(hyper_sample >> (64 - 32 + 24)); // 32 bits, ms byte
-      sample_length = 4;
-      break;
-    case SPS_FORMAT_S32_BE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 24)); // 32 bits, ms byte
-      *op++ =
-          (uint8_t)(hyper_sample >>
-                    (64 - 32 + 16)); // 32 bits, more significant middle byte
-      *op++ = (uint8_t)(hyper_sample >>
-                        (64 - 32 + 8)); // 32 bits, less significant middle byte
-      *op = (uint8_t)(hyper_sample >> (64 - 32)); // 32 bits, ls byte
-      sample_length = 4;
-      break;
-    case SPS_FORMAT_S24_3LE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24));     // 24 bits, ls byte
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8)); // 24 bits, middle byte
-      *op = (uint8_t)(hyper_sample >> (64 - 24 + 16));  // 24 bits, ms byte
-      sample_length = 3;
-      break;
-    case SPS_FORMAT_S24_3BE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
-      *op = (uint8_t)(hyper_sample >> (64 - 24));        // 24 bits, ls byte
-      sample_length = 3;
-      break;
-    case SPS_FORMAT_S24:
-      hyper_sample >>= (64 - 24);
-      *(int32_t *)op = hyper_sample;
-      sample_length = 4;
-      break;
-    case SPS_FORMAT_S24_LE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24));      // 24 bits, ls byte
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
-      *op = 0;
-      sample_length = 4;
-      break;
-    case SPS_FORMAT_S24_BE:
-      *op++ = 0;
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
-      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
-      *op = (uint8_t)(hyper_sample >> (64 - 24));        // 24 bits, ls byte
-      sample_length = 4;
-      break;
-    case SPS_FORMAT_S16_LE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 16));
-      *op++ = (uint8_t)(hyper_sample >> (64 - 16 + 8)); // 16 bits, ms byte
-      sample_length = 2;
-      break;
-    case SPS_FORMAT_S16_BE:
-      *op++ = (uint8_t)(hyper_sample >> (64 - 16 + 8)); // 16 bits, ms byte
-      *op = (uint8_t)(hyper_sample >> (64 - 16));
-      sample_length = 2;
-      break;
-    case SPS_FORMAT_S16:
-      *(int16_t *)op = (int16_t)(hyper_sample >> (64 - 16));
-      sample_length = 2;
-      break;
-    case SPS_FORMAT_S8:
-      *op = (int8_t)(hyper_sample >> (64 - 8));
-      sample_length = 1;
-      break;
-    case SPS_FORMAT_U8:
-      *op = 128 + (uint8_t)(hyper_sample >> (64 - 8));
-      sample_length = 1;
-      break;
-    default:
-      sample_length = 0; // stop a compiler warning
-      die("Unexpected SPS_FORMAT_* with index %d while outputting silence",
-          format);
+      case SPS_FORMAT_S32:
+        hyper_sample >>= (64 - 32);
+        *(int32_t *)op = hyper_sample;
+        sample_length = 4;
+        break;
+      case SPS_FORMAT_S32_LE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 32));      // 32 bits, ls byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 8));  // 32 bits, less significant middle byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 16)); // 32 bits, more significant middle byte
+        *op = (uint8_t)(hyper_sample >> (64 - 32 + 24));   // 32 bits, ms byte
+        sample_length = 4;
+        break;
+      case SPS_FORMAT_S32_BE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 24)); // 32 bits, ms byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 16)); // 32 bits, more significant middle byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 8));  // 32 bits, less significant middle byte
+        *op = (uint8_t)(hyper_sample >> (64 - 32));        // 32 bits, ls byte
+        sample_length = 4;
+        break;
+      case SPS_FORMAT_S24_3LE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24));     // 24 bits, ls byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8)); // 24 bits, middle byte
+        *op = (uint8_t)(hyper_sample >> (64 - 24 + 16));  // 24 bits, ms byte
+        sample_length = 3;
+        break;
+      case SPS_FORMAT_S24_3BE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
+        *op = (uint8_t)(hyper_sample >> (64 - 24));        // 24 bits, ls byte
+        sample_length = 3;
+        break;
+      case SPS_FORMAT_S24:
+        hyper_sample >>= (64 - 24);
+        *(int32_t *)op = hyper_sample;
+        sample_length = 4;
+        break;
+      case SPS_FORMAT_S24_LE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24));      // 24 bits, ls byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
+        *op = 0;
+        sample_length = 4;
+        break;
+      case SPS_FORMAT_S24_BE:
+        *op++ = 0;
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
+        *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
+        *op = (uint8_t)(hyper_sample >> (64 - 24));        // 24 bits, ls byte
+        sample_length = 4;
+        break;
+      case SPS_FORMAT_S16_LE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 16));
+        *op++ = (uint8_t)(hyper_sample >> (64 - 16 + 8)); // 16 bits, ms byte
+        sample_length = 2;
+        break;
+      case SPS_FORMAT_S16_BE:
+        *op++ = (uint8_t)(hyper_sample >> (64 - 16 + 8)); // 16 bits, ms byte
+        *op = (uint8_t)(hyper_sample >> (64 - 16));
+        sample_length = 2;
+        break;
+      case SPS_FORMAT_S16:
+        *(int16_t *)op = (int16_t)(hyper_sample >> (64 - 16));
+        sample_length = 2;
+        break;
+      case SPS_FORMAT_S8:
+        *op = (int8_t)(hyper_sample >> (64 - 8));
+        sample_length = 1;
+        break;
+      case SPS_FORMAT_U8:
+        *op = 128 + (uint8_t)(hyper_sample >> (64 - 8));
+        sample_length = 1;
+        break;
+      default:
+        sample_length = 0; // stop a compiler warning
+        die("Unexpected SPS_FORMAT_* with index %d while outputting silence", format);
     }
     p += sample_length;
     previous_random_number = r;
@@ -1409,7 +1356,6 @@ int get_device_id(uint8_t *id, int int_length) {
     t = id;
     int found = 0;
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
         if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {

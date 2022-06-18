@@ -1,4 +1,16 @@
 
+#
+# Source Directories
+#
+
+include(FetchContent)
+FetchContent_Declare(ArduinoJson
+    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+    GIT_TAG        v6.19.3
+)
+
+FetchContent_MakeAvailable(ArduinoJson)
+
 # args, config, host, service
 add_subdirectory(core)
 
@@ -22,8 +34,3 @@ add_subdirectory(misc)
 
 # add_subdirectory(dmx)
 # add_subdirectory(lightdesk)
-# add_subdirectory(mdns)
-# add_subdirectory(rtsp)
-# add_subdirectory(rtp)
-# add_subdirectory(pcm)
-# add_subdirectory(decouple)

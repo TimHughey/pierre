@@ -19,67 +19,15 @@
 #pragma once
 
 #include "core/typedefs.hpp"
+#include "rtp_time/anchor/data.hpp"
 #include "rtp_time/clock.hpp"
+#include "rtp_time/rtp_time.hpp"
 
 #include <array>
 #include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
-
-namespace anchor {
-
-using namespace std::chrono_literals;
-
-struct Data {
-  uint64_t rate = 0;
-  rtp_time::ClockID clockID = 0; // aka clock id
-  uint64_t secs = 0;
-  uint64_t frac = 0;
-  uint64_t flags = 0;
-  uint64_t rtpTime = 0;
-  uint64_t networkTime = 0; // from set anchor packet
-  rtp_time::Nanos at_ns = rtp_time::Nanos();
-  bool valid = false;
-  rtp_time::Nanos valid_at_ns = rtp_time::Nanos();
-
-  static constexpr auto NS_FACTOR = upow(10, 9);
-
-  Data &calcNetTime();
-
-  bool ok() const { return clockID != 0; }
-  bool playing() const { return bool(rate); }
-  Data &setAt();
-  Data &setValid(bool val = true);
-
-  auto validFor() const { return rtp_time::Info::nowNanos() - at_ns; }
-
-  // return values:
-  // -1 = clock is different
-  //  0 = clock, rtpTime, networkTime are equal
-  // +1 = clock is same, rtpTime and networkTime are different
-  friend int operator<=>(const Data &lhs, const Data &rhs) {
-    if (lhs.clockID != rhs.clockID) {
-      return -1;
-    }
-
-    if ((lhs.clockID == rhs.clockID) &&       // clock ID same
-        (lhs.rtpTime == rhs.rtpTime) &&       // rtpTime same
-        (lhs.networkTime == rhs.networkTime)) // networkTime same
-    {
-      return 0;
-    }
-
-    return +1;
-  }
-};
-
-enum Entry : size_t { ACTUAL = 0, LAST, RECENT };
-
-constexpr auto VALID_MIN_DURATION = 5s;
-constexpr Data INVALID_DATA;
-
-} // namespace anchor
 
 class Anchor;
 typedef std::shared_ptr<Anchor> shAnchor;
@@ -91,21 +39,21 @@ public:
   static shAnchor ptr();
   static void reset();
 
-  const anchor::Data &cdata(anchor::Entry entry) const { return _datum[entry]; };
-  anchor::Data &data(enum anchor::Entry entry) { return _datum[entry]; };
-  // uint64_t frameTimeToLocalTime(uint32_t timestamp);
-  const anchor::Data &getData();
+  static const anchor::Data &getData();
   void invalidateLastIfQuickChange(const anchor::Data &data);
-  bool playEnabled() const;
+  static bool playEnabled();
   void save(anchor::Data &ad);
-  // anchor::Data &saveAs(const anchor::Data &ad, anchor::Entry entry);
   void teardown();
 
   // misc debug
-  void dump(anchor::Entry entry = anchor::Entry::LAST, csrc_loc loc = src_loc::current()) const;
+  static void dump(auto entry = anchor::Entry::LAST, auto loc = src_loc::current()) {
+    ptr()->cdata(entry).dump(loc);
+  }
 
 private:
   Anchor() { _datum.fill(anchor::Data()); }
+  const anchor::Data &cdata(anchor::Entry entry) const { return _datum[entry]; };
+  static anchor::Data &data(enum anchor::Entry entry) { return ptr()->_datum[entry]; };
   void infoNewClock(const rtp_time::Info &info);
   void warnFrequentChanges(const rtp_time::Info &info);
 
@@ -114,7 +62,6 @@ private:
   bool _is_new = false;
 
   // misc debug
-  bool _debug_ = true;
   static constexpr auto moduleId = csv("ANCHOR");
 
 public:

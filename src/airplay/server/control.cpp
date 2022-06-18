@@ -194,15 +194,11 @@ void Control::teardown() {
   // the closing of the acceptor will be handled when
   // the error is caught by asyncLoop
 
-  auto handle = socket.native_handle();
-
-  error_code ec;
+  [[maybe_unused]] auto handle = socket.native_handle();
+  [[maybe_unused]] error_code ec;
   socket.cancel(ec);
 
-  if (true) { // debug
-    constexpr auto f = FMT_STRING("{} {} socket={} error={}\n");
-    fmt::print(f, runTicks(), serverId(), handle, ec.message());
-  }
+  __LOGX("{} teardown socket={} error={}\n", serverId(), handle, ec.message());
 }
 
 } // namespace server

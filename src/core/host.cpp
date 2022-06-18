@@ -171,8 +171,8 @@ void Host::initCrypto() {
   }
 
   if (gcry_check_version(_gcrypt_vsn) == nullptr) {
-    static fmt::basic_memory_buffer<char, 128> buff;
-    fmt::format_to(buff, "outdate libcrypt, need {}\n", _gcrypt_vsn);
+    static string buff;
+    fmt::format_to(std::back_inserter(buff), "outdate libcrypt, need {}\n", _gcrypt_vsn);
     const char *msg = buff.data();
     throw(std::runtime_error(msg));
   }
@@ -181,8 +181,6 @@ void Host::initCrypto() {
   gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 }
 
-const string Host::pk(const char *format) const {
-  return fmt::format(format, fmt::join(_pk_bytes, ""));
-}
+const string Host::pk() const { return fmt::format("{:02x}", fmt::join(_pk_bytes, "")); }
 
 } // namespace pierre

@@ -19,7 +19,7 @@
 #include "session/audio.hpp"
 #include "conn_info/conn_info.hpp"
 #include "packet/basic.hpp"
-#include "player/queued.hpp"
+#include "player/player.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
@@ -37,7 +37,6 @@ using namespace std::chrono_literals;
 using namespace boost::asio;
 using namespace boost::system;
 using namespace pierre::packet;
-using namespace pierre::player;
 
 namespace errc = boost::system::errc;
 
@@ -101,51 +100,79 @@ misc notes:
 
 void Audio::asyncLoop() {
   static std::once_flag __stats_started;
+  packet_len_buffer.clear(); // ensure packet_len_buffer is ready
 
   // start by reading the packet length
-  async_read(socket,                             // read from socket
-             Queued::ptr()->lenBuffer(),         // into this buffer
-             transfer_exactly(Queued::lenBytes), // the size of the pending packet
-             bind_executor(                      // via a bound executor
-                 local_strand,                   // of the local stand
-                 [self = shared_from_this()](error_code ec, size_t rx_bytes) {
-                   // check for error and ensure receipt of the packet length
-                   if (self->isReady(ec)) {
-                     if (rx_bytes == Queued::PACKET_LEN_BYTES) {
-                       const auto len = Queued::ptr()->length();
+  async_read(                             // async read the length of the packet
+      socket,                             // read from socket
+      dynamic_buffer(packet_len_buffer),  // into this buffer
+      transfer_exactly(PACKET_LEN_BYTES), // the size of the pending packet
+      bind_executor(                      // via a bound executor
+          local_strand,                   // of the local stand
+          [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+            // check for error and ensure receipt of the packet length
+            if (self->isReady(ec)) {
+              if (rx_bytes == PACKET_LEN_BYTES) {
+                __LOGX("{} will read packet_len={}\n", fnName(), self->packetLength(););
 
-                       if (false) { // debug
-                         auto f = FMT_STRING("{} packet_len={}\n");
-                         fmt::print(f, fnName(), len);
-                       }
+                // async load the packet
+                self->asyncRxPacket();
 
-                       // async load the packet
-                       self->asyncRxPacket(len); // schedules more work as needed
+                std::call_once(__stats_started, [self = self] { self->stats(); });
+              }
 
-                       if (false) { // debug
-                         std::call_once(__stats_started, [self = self] { self->stats(); });
-                       }
-                     }
-
-                   }  // self is about to go out of scope...
-                 })); // shared_ptr.use_count--
+            }  // self is about to go out of scope...
+          })); // shared_ptr.use_count--
 }
 
-void Audio::asyncRxPacket(size_t packet_len) {
-  async_read(socket,                                  // the socket of interest
-             dynamic_buffer(Queued::ptr()->buffer()), // where to put the data
-             transfer_exactly(packet_len - 2),        // how much to rx
-             bind_executor(local_strand,              // run on this strand
-                           [self = shared_from_this()](error_code ec,
-                                                       size_t rx_bytes) { // completion handler
-                             // bail out when not reqdy
-                             if (self->isReady(ec) == false) // self-destruct
-                               return;
+void Audio::asyncRxPacket() {
+  const auto packet_size = packetLength();
 
-                             self->accumulate(RX, rx_bytes);   // track stats
-                             Queued::ptr()->handoff(rx_bytes); // notify bytes received
-                             self->asyncLoop();                // async read next packet
-                           }));
+  async_read(                        // async read the rest of the packet
+      socket,                        // from this socket
+      dynamic_buffer(packet_buffer), // put the bytes read here
+      transfer_exactly(packet_size), // size of the rest of the packet
+      bind_executor(                 // via
+          local_strand,              // serialize through this strand
+          [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+            // confirm the socket is ready
+            if (self->isReady(ec)) {
+              // track stats
+              self->accumulate(RX, rx_bytes);
+
+              if (rx_bytes == self->packetLength()) {
+                packet::Basic packet_handoff;                   // handoff this packet
+                std::swap(packet_handoff, self->packet_buffer); // by swapping local buffer
+
+                // inform player a complete packet is ready
+                Player::accept(packet_handoff);
+              } else {
+                const auto len = self->packetLength();
+                __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);
+              }
+
+              // wait for next packet
+              self->asyncLoop();
+            }
+
+            // not ready... fall through and self-destruct
+          }));
+}
+
+uint16_t Audio::packetLength() {
+  // prevent running afoul of strict aliasing rule
+  uint16_t len = 0;
+
+  len += packet_len_buffer[0] << 8;
+  len += packet_len_buffer[1];
+
+  if (len > 2) { // prevent overflow since we're unsigned
+    len -= PACKET_LEN_BYTES;
+  }
+
+  __LOGX("{} len={}\n", fnName(), len);
+
+  return len;
 }
 
 void Audio::teardown() {
@@ -160,9 +187,9 @@ void Audio::stats() {
 
   timer.                                                   // this timer
       async_wait(                                          // waits via
-          bind_executor(                                   // a specific executor that
-              local_strand,                                // uses this strand
-              [self = shared_from_this()](error_code ec) { // for this completion handler
+          bind_executor(                                   // a specific executor
+              local_strand,                                // running on this strand
+              [self = shared_from_this()](error_code ec) { // to execute this completion handler
                 static uint64_t rx_last = 0;
                 // only check for success here, check for actual packet length bytes later
                 if (ec == errc::success) {
@@ -173,10 +200,8 @@ void Audio::stats() {
                   }
 
                   if (rx_total != rx_last) {
-                    constexpr auto f = FMT_STRING("{} {} RX total={:<10} 10s={:<10}\n");
-                    const int32_t in_10secs = rx_total - (int64_t)rx_last;
-
-                    fmt::print(f, runTicks(), self->sessionId(), rx_total, in_10secs);
+                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n", self->sessionId(),
+                           rx_total, (rx_total - (int64_t)rx_last));
                     rx_last = rx_total;
                   }
 

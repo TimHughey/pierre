@@ -20,7 +20,8 @@
 
 #pragma once
 
-#include "ArduinoJson.h"
+#include <ArduinoJson.h>
+#include <vector>
 
 namespace pierre {
 namespace dmx {

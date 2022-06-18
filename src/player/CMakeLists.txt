@@ -16,11 +16,18 @@ find_package(Sodium                           REQUIRED)
 find_package(ZLIB                             REQUIRED)
 
 add_library(Player
+  # orchestration
+  player.cpp
+
   # AirPlay 2 packet handling and queuing
-  queued.cpp rtp.cpp 
+  rtp.cpp spooler.cpp spool.cpp frames_request.cpp
 
   # FFT and peak detection
   fft.cpp peaks.cpp
+
+  # DMX
+  dmx/render.cpp dmx/packet.cpp
+
 
   ${HEADER_LIST}
 )
@@ -35,6 +42,7 @@ target_include_directories(Player PUBLIC ${HEADER_PATH})
 
 target_link_libraries(Player PUBLIC
   PkgConfig::LIBAV
+  ArduinoJson
   ${sodium_LIBRARY_RELEASE}
   core
   packet

@@ -19,8 +19,10 @@
 #include "player/rtp.hpp"
 #include "core/input_info.hpp"
 #include "packet/basic.hpp"
+#include "player/av.hpp"
 #include "player/fft.hpp"
 #include "player/peaks.hpp"
+#include "rtp_time/anchor.hpp"
 
 #include <array>
 #include <cstdint>
@@ -32,21 +34,21 @@
 #include <ranges>
 #include <sodium.h>
 #include <utility>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/opt.h>
-#include <libswresample/swresample.h>
-#ifdef __cplusplus
-}
-#endif
+#include <vector>
 
 namespace pierre {
+
+namespace fra {
+StateKeys &stateKeys() {
+  static auto keys = StateKeys{DECODED, OUTDATED, PLAYABLE, PLAYED, FUTURE};
+
+  return keys;
+}
+} // namespace fra
+
 namespace player {
 
+namespace chrono = std::chrono;
 namespace ranges = std::ranges;
 
 namespace rtp {
@@ -155,36 +157,31 @@ bool keep(shRTP rtp, int used) {
   size_t packet_size = rtp->decipher_len + ADTS_HEADER_SIZE;
 
   if (used < 0) {
-    constexpr auto f = FMT_STRING("{} {} failed used={:<6} size={:<6}\n");
-    fmt::print(f, runTicks(), fnName(), used, packet_size);
+    __LOG0("{} failed used={:<6} size={:<6}\n", fnName(), used, packet_size);
     return false;
   }
 
   if (used != (int32_t)packet_size) {
-    if (true) { // debug
-      constexpr auto f = FMT_STRING("{} {} incomplete "
-                                    "used={:<6} size={:<6} diff={:+6}\n");
-      const int32_t diff = packet_size - used;
-      fmt::print(f, runTicks(), fnName(), used, packet_size, diff);
-      return false;
-    }
+    __LOG0("{} incomplete used={:<6} size={:<6} diff={:+6}\n", //
+           fnName(), used, packet_size, int32_t(packet_size - used));
+    return false;
   }
 
   if (pkt->size == 0) {
-    constexpr auto f = FMT_STRING("{} {} AAC malformed packet "
-                                  "used={} size={}\n");
-    fmt::print(f, runTicks(), fnName(), used, packet_size);
+    __LOG0("{} AAC malformed packet used={} size={}\n", fnName(), used, packet_size);
 
-    fmt::print("{} decipered: ", runTicks());
+    string msg;
+    auto w = std::back_inserter(msg);
+
     for (size_t idx = 0; idx < packet_size; idx++) {
       if (idx % 5) {
-        fmt::print("\n{} decipered: ", runTicks());
+        fmt::format_to(w, "\n{} ", __LOG_PREFIX);
       }
 
-      fmt::print("[{:<02}]0x{:<02x} ", idx, m[idx]);
+      fmt::format_to(w, "[{:<02}]0x{:<02x} ", idx, m[idx]);
     }
 
-    fmt::print("\n");
+    __LOG0("{}\n", msg);
 
     return false;
   }
@@ -243,18 +240,16 @@ void parse(shRTP rtp) {
   ret = avcodec_send_packet(codec_ctx, pkt);
 
   if (ret < 0) {
-    constexpr auto f = FMT_STRING("{} {} AV send packet failed "
-                                  "decipher_len={} size={} flags={:#b} rc=0x{:x}\n");
-    fmt::print(f, runTicks(), fnName(), decipher_len, pkt->size, pkt->flags, ret);
+    __LOG0("{} AV send packet failed decipher_len={} size={} flags={:#b} rc=0x{:x}\n", //
+           fnName(), decipher_len, pkt->size, pkt->flags, ret);
     return;
   }
 
   auto decoded_frame = av_frame_alloc();
   ret = avcodec_receive_frame(codec_ctx, decoded_frame);
 
-  if (ret < 0) {
-    constexpr auto f = FMT_STRING("{} {} avcodec_receive_frame={}\n");
-    fmt::print(f, runTicks(), fnName(), ret);
+  if (ret != 0) {
+    __LOG0("{} avcodec_receive_frame={}\n", fnName(), ret);
     return;
   }
 
@@ -284,11 +279,9 @@ void parse(shRTP rtp) {
   { // debug
     constexpr uint8_t MAX_REPORT = 1;
     static uint8_t count = 0;
-    if (count < MAX_REPORT) { // debug
-      constexpr auto f = FMT_STRING("{} {} ret={} channels={} "
-                                    "samples/channel={:<5} dst_buffsize={:<5}\n");
-      fmt::print(f, runTicks(), fnName(), ret, rtp->channels, rtp->samples_per_channel,
-                 dst_bufsize);
+    if (count < MAX_REPORT) {                                                    // debug
+      __LOG0("{} ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
+             fnName(), ret, rtp->channels, rtp->samples_per_channel, dst_bufsize);
 
       ++count;
     }
@@ -303,15 +296,14 @@ void parse(shRTP rtp) {
       static int count = 0;
 
       if (count < MAX_REPORTS) {
-        constexpr auto f = FMT_STRING("{} {} pcm data={} "
-                                      "buf_size={:<5} payload_size={}\n");
-        fmt::print(f, runTicks(), fnName(), fmt::ptr(pcm_audio), dst_bufsize, payload.size());
+        __LOG0("{} pcm data={} buf_size={:<5} payload_size={}\n", //
+               fnName(), fmt::ptr(pcm_audio), dst_bufsize, payload.size());
 
         ++count;
       }
     }
 
-    rtp->decode_ok = true;
+    rtp->decodeOk();
   }
 
   if (decoded_frame) {
@@ -375,7 +367,9 @@ void swap(RTP &a, RTP &b) {
   swap(a.timestamp, b.timestamp);
   swap(a.ssrc, b.ssrc);
   swap(a.decipher_len, b.decipher_len);
-  swap(a.decode_ok, b.decode_ok);
+  swap(a.samples_per_channel, b.samples_per_channel);
+  swap(a.channels, b.channels);
+  swap(a._state, b._state);
 
   // containers
   swap(a._m, b._m);
@@ -392,17 +386,52 @@ void swap(RTP &a, RTP &b) {
  * Add ADTS header at the beginning of each and every AAC packet.
  * This is needed as MediaCodec encoder generates a packet of raw AAC data.
  *
- * NOTE: the payload size must count in the ADTS header itself.
+ * NOTE: the payload size must include the ADTS header size
  */
 
-shRTP RTP::create(packet::Basic &packet) { return std::shared_ptr<RTP>(new RTP(packet)); }
+// static functions to create a new RTP
+
+shRTP RTP::create(packet::Basic &packet) { // static
+  return std::shared_ptr<RTP>(new RTP(packet));
+}
+
+shRTP RTP::create(csv type) { // static
+  packet::Basic empty;
+  empty.assign(PAYLOAD_MIN_SIZE, 0x00);
+
+  if (type == player::SILENCE) {
+    auto frame = create(empty);
+    frame->_state = fra::PLAYABLE;
+    frame->local_time_diff = Nanos(0);
+    return frame;
+  }
+
+  return shRTP();
+}
+
+// genereal API and member functions
+
+size_t RTP::available(const fra::StatsMap &stats_map) { // static
+  static const fra::StateKeys want_states{fra::DECODED, fra::PLAYABLE, fra::FUTURE};
+
+  size_t count = 0;
+  ranges::for_each(want_states, [&](const auto &state) { count += stats_map.at(state); });
+
+  return count;
+}
+
+bool RTP::empty(shRTP frame) { // static
+  auto rc = true;
+  if (frame.use_count()) {
+    rc = frame->_state == fra::EMPTY;
+  }
+
+  return rc;
+}
 
 bool RTP::decipher() {
   if (rtp::shk.empty()) {
-    if (true) { // debug
-      constexpr auto f = FMT_STRING("{} {} shk empty\n");
-      fmt::print(f, runTicks(), fnName());
-    }
+    __LOG0("{} shk empty\n", fnName());
 
     return false;
   }
@@ -430,18 +459,16 @@ bool RTP::decipher() {
     const auto reason = (decipher_len == 0) ? csv("EMPTY") : csv("ERROR");
 
     if (!__reported) {
-      constexpr auto f = FMT_STRING("{} {} {} size={} rc={} decipher_len={} \n");
-      fmt::print(f, runTicks(), fnName(), reason, _payload.size(), cipher_rc, decipher_len);
+      __LOG0("{} size={} rc={} decipher_len={} \n", //
+             fnName(), reason, _payload.size(), cipher_rc, decipher_len);
       __reported = true;
     }
 
     return false;
   }
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} OK rc={} decipher/cipher{:>6}/{:>6}\n");
-    fmt::print(f, runTicks(), fnName(), cipher_rc, decipher_len, _payload.size());
-  }
+  __LOGX("{} OK rc={} decipher/cipher{:>6}/{:>6}\n", //
+         fnName(), cipher_rc, decipher_len, _payload.size());
 
   return true;
 }
@@ -493,10 +520,7 @@ void RTP::findPeaks(shRTP rtp_packet) {
 
 bool RTP::keep(FlushRequest &flush) {
   if (isValid() == false) {
-    if (true) { // debug
-      constexpr auto f = FMT_STRING("{} {} invalid version=0x{:02x}\n");
-      fmt::print(f, runTicks(), moduleId, version);
-    }
+    __LOG0("{} invalid version=0x{:02x}\n", moduleId, version);
 
     return false;
   }
@@ -509,14 +533,81 @@ bool RTP::keep(FlushRequest &flush) {
     if (seq_num > flush.until_seq) { // flush complete
       flush.complete();
 
-      if (true) { // debug
-        constexpr auto f = FMT_STRING("{} {} FLUSH COMPLETE until_seq={}\n");
-        fmt::print(f, runTicks(), moduleId, seq_num);
-      }
+      __LOG0("{} FLUSH COMPLETE until_seq={}\n", moduleId, seq_num);
     }
   }
 
   return (decipher() && (decipher_len > 0));
+}
+
+const Nanos RTP::localTimeDiff() const {
+  const auto &anchor_data = Anchor::getData();
+  const auto net_time_ns = anchor_data.netTimeNow();
+  const auto frame_time_ns = anchor_data.frameLocalTime(timestamp);
+
+  if (anchor_data.ok()) {
+    return chrono::duration_cast<Nanos>(frame_time_ns - net_time_ns);
+  } else {
+    return Nanos::min();
+  }
+}
+
+bool RTP::playable(shRTP frame) { // static
+  return (frame.use_count() && (frame->_state == fra::PLAYABLE));
+}
+
+bool RTP::stateEqual(const fra::States &states) const {
+  return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
+}
+
+shRTP RTP::stateNow(const Nanos &lead_ns) {
+  if (timestamp && seq_num) { // frame is legit
+    const auto diff = localTimeDiff();
+
+    if (diff == Nanos::min()) { // anchor data not ready
+      return create(SILENCE);
+    }
+
+    // handle decoded, playable and future frames
+    if (stateEqual({fra::DECODED, fra::PLAYABLE, fra::FUTURE})) {
+      local_time_diff = diff;
+
+      // note: state unchanged when if statements are false
+      if (diff < Nanos::zero()) { // too old
+        _state = fra::OUTDATED;
+        __LOGX("{} state={:<10} seq_num={:<8} diff={}\n", moduleId, _state, seq_num,
+               chrono::duration_cast<MillisFP>(local_time_diff));
+
+      } else if (diff <= lead_ns) { // ready to play
+        _state = fra::PLAYABLE;
+      } else if (diff > lead_ns) { // time to play missed
+
+        _state = fra::FUTURE;
+        __LOGX("{} state={:<10} seq_num={:<8} diff={}\n", moduleId, _state, seq_num,
+               chrono::duration_cast<MillisFP>(local_time_diff));
+      }
+    }
+  }
+  return shared_from_this();
+}
+
+fra::StateConst &RTP::stateVal(shRTP frame) { // static
+
+  if (frame.use_count()) {
+    return frame->_state;
+  }
+
+  return fra::EMPTY;
+}
+
+fra::StatsMap RTP::statsMap() { // static
+  fra::StatsMap stats_map;
+
+  std::ranges::for_each(fra::stateKeys(), [&](auto state) { //
+    stats_map.try_emplace(state, 0);
+  });
+
+  return stats_map;
 }
 
 // misc debug
@@ -526,14 +617,11 @@ void RTP::dump(bool debug) const {
     return;
   }
 
-  constexpr auto f = FMT_STRING("{} {} vsn={} pad={} ext={} ssrc_count={} "
-                                "payload_size={:>4} seq_num={:>8} ts={:>12}\n");
-  fmt::print(f, runTicks(), moduleId, version, padding, extension, ssrc_count, payloadSize(),
-             seq_num, timestamp);
+  __LOG0("{} vsn={} pad={} ext={} ssrc_count={} payload_size={:>4} seq_num={:>8} ts={:>12}\n",
+         moduleId, version, padding, extension, ssrc_count, payloadSize(), seq_num, timestamp);
 }
 
 // class static data
-
 void RTP::shk(const Basic &key) {
   rtp::shk = key;
 

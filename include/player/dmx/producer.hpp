@@ -20,9 +20,9 @@
 
 #pragma once
 
-#include <vector>
-
 #include "dmx/packet.hpp"
+
+#include <vector>
 
 namespace pierre {
 namespace dmx {

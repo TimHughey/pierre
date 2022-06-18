@@ -20,6 +20,7 @@
 
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
+#include "rtp_time/rtp_time.hpp"
 
 #include <array>
 #include <boost/asio.hpp>
@@ -43,8 +44,6 @@ using udp_socket = boost::asio::ip::udp::socket;
 } // namespace
 
 namespace rtp_time {
-typedef uint64_t ClockID; // clock ID
-
 struct Inject {
   io_context &io_ctx;
   csv service_name;
@@ -52,25 +51,11 @@ struct Inject {
 };
 
 typedef string MasterIP;
-
-// using Micros = std::chrono::microseconds;
-// using Millis = std::chrono::milliseconds;
-// using Nanos = std::chrono::nanoseconds;
 typedef std::vector<string> Peers;
 
 // intentional use of namespaces in this header within the rtp_time namespace
 using namespace std::chrono;
 using namespace std::chrono_literals;
-
-using Micros = std::chrono::microseconds;
-using Millis = std::chrono::milliseconds;
-using Nanos = std::chrono::steady_clock::duration;
-using Seconds = std::chrono::duration<double>;
-using Steady = std::chrono::steady_clock;
-using TimePoint = std::chrono::time_point<Steady>;
-
-constexpr auto AGE_MAX = Steady::duration(10s);
-constexpr auto AGE_MIN = Steady::duration(1500ms);
 
 struct Info {
   rtp_time::ClockID clockID = 0;       // current master clock
@@ -80,9 +65,8 @@ struct Info {
   Nanos mastershipStartTime;           // when the master clock became master
 
   uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
+  Nanos masterFor(Nanos now = rtp_time::nowNanos()) const { return now - mastershipStartTime; }
 
-  static Nanos nowNanos() { return Steady::now().time_since_epoch(); }
-  static Millis nowMillis() { return std::chrono::duration_cast<Millis>(nowNanos()); }
   bool ok() const;
 
   bool tooOld() const;
@@ -91,9 +75,6 @@ struct Info {
   // misc debug
   void dump() const;
 };
-
-constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
-constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
 
 } // namespace rtp_time
 
@@ -112,9 +93,6 @@ public:
   static void reset();
 
   const rtp_time::Info getInfo();
-
-  static rtp_time::Nanos now() { return rtp_time::Steady::now().time_since_epoch(); }
-  static uint64_t now_abs_ns() { return rtp_time::Steady::now().time_since_epoch().count(); }
 
   bool ok();
 

@@ -66,7 +66,7 @@ public:
   const HwAddrBytes &hwAddrBytes() const { return _hw_addr_bytes; }
   const IpAddrs &ipAddrs() const { return _ip_addrs; }
 
-  const string pk(const char *format = "{:02x}") const; // without 0x prefix
+  const string pk() const; // without 0x prefix
 
   ccs serialNum() const { return _serial_num.c_str(); }
   ccs serviceName() const { return cfg.serviceName().c_str(); }

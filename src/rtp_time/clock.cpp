@@ -22,11 +22,13 @@
 
 #include <algorithm>
 #include <fcntl.h>
+#include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <iterator>
 #include <pthread.h>
 #include <ranges>
 #include <sys/mman.h>
+#include <time.h>
 #include <utility>
 
 namespace pierre {
@@ -40,8 +42,8 @@ namespace rtp_time {
 
 bool Info::ok() const {
   if (clockID == 0) { // no master clock
-    constexpr auto f = FMT_STRING("{} {} no clock id\n");
-    fmt::print(f, runTicks(), fnName());
+    __LOG0("{} no clock info\n", fnName());
+
     return false;
   }
 
@@ -56,8 +58,8 @@ bool Info::tooOld() const {
   const auto now = nowNanos();
 
   auto print_msg = [&](csv reason) {
-    constexpr auto f = FMT_STRING("{} {} {} sampleTime={} now={}\n");
-    fmt::print(f, runTicks(), fnName(), reason, sampleTime.count(), now.count());
+    __LOG0("{} {} sampleTime={} now={}\n", //
+           fnName(), reason, sampleTime.count(), now.count());
   };
 
   const auto too_old = now - AGE_MAX;
@@ -93,26 +95,40 @@ bool Info::tooYoung() const {
 // misc Info debug
 void Info::dump() const {
   const auto now = nowNanos();
+  string buff;
+  auto where = std::back_inserter(buff);
 
-  const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
-  const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
+  [[maybe_unused]] const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
+  [[maybe_unused]] const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
   [[maybe_unused]] const auto flt_fmt_str = FMT_STRING("{:>35}={:>+.3}\n");
 
-  fmt::print("{} {}\n", runTicks(), fnName());
-  fmt::print(hex_fmt_str, "clockId", clockID);
-  fmt::print(dec_fmt_str, "rawOffset", (int64_t)rawOffset);
-  fmt::print(dec_fmt_str, "now_ns", now.count());
-  fmt::print(dec_fmt_str, "mastershipStart", mastershipStartTime.count());
-  fmt::print(dec_fmt_str, "sampleTime", sampleTime.count());
+  fmt::format_to(where, "{}\n", fnName());
+  fmt::format_to(where, hex_fmt_str, "clockId", clockID);
+  fmt::format_to(where, dec_fmt_str, "rawOffset", (int64_t)rawOffset);
+  fmt::format_to(where, dec_fmt_str, "now_ns", now);
+  fmt::format_to(where, dec_fmt_str, "mastershipStart", mastershipStartTime);
+  fmt::format_to(where, dec_fmt_str, "sampleTime", sampleTime);
 
-  rtp_time::Seconds master_for_secs = now - mastershipStartTime;
-  fmt::print(flt_fmt_str, "master_for_secs", master_for_secs.count());
+  Seconds master_for_secs = now - mastershipStartTime;
+  fmt::format_to(where, flt_fmt_str, "master_for_secs", master_for_secs);
 
-  rtp_time::Seconds sample_age_secs = sampleTime - now;
-  fmt::print(flt_fmt_str, "sample_age_secs", sample_age_secs.count());
+  Seconds sample_age_secs = sampleTime - now;
+  fmt::format_to(where, flt_fmt_str, "sample_age_secs", sample_age_secs);
 
-  fmt::print("\n");
+  __LOG0("{}\n", buff);
 }
+
+Nanos nowNanos() {
+  struct timespec tn;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+
+  uint64_t secs_part = tn.tv_sec * NS_FACTOR.count();
+  uint64_t ns_part = tn.tv_nsec;
+
+  return Nanos(secs_part + ns_part);
+}
+
+Millis nowMillis() { return std::chrono::duration_cast<Millis>(nowNanos()); }
 
 } // namespace rtp_time
 
@@ -138,10 +154,7 @@ MasterClock::MasterClock(const rtp_time::Inject &di)
 {
   shm_name = fmt::format("/{}-{}", di.service_name, di.device_id); // make shm_name
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} shm_name={} dest={}\n");
-    fmt::print(f, runTicks(), fnName(), shm_name, endpoint.port());
-  }
+  __LOGX("{} shm_name={} dest={}\n", fnName(), shm_name, endpoint.port());
 }
 
 const rtp_time::Info MasterClock::getInfo() {
@@ -181,16 +194,15 @@ const rtp_time::Info MasterClock::getInfo() {
   return info;
 }
 
-bool MasterClock::isMapped(csrc_loc loc) const {
+bool MasterClock::isMapped([[maybe_unused]] csrc_loc loc) const {
   static uint32_t attempts = 0;
   auto ok = (mapped && (mapped != MAP_FAILED));
 
-  if (!ok && attempts && true) { // debug
-    constexpr auto f = FMT_STRING("{} {} nqptp data not mapped attempts={}\n");
-    fmt::print(f, runTicks(), loc.function_name(), attempts);
+  if (!ok && attempts) {
+    __LOG0("{} nqptp data not mapped attempts={}\n", fnName(), attempts);
+
     ++attempts;
   }
-
   return ok;
 }
 
@@ -203,9 +215,9 @@ bool MasterClock::mapSharedMem() {
   if (isMapped() == false) {
     auto shm_fd = shm_open(shm_name.c_str(), O_RDWR, 0);
 
-    if ((shm_fd < 0) && true) { // debug
-      constexpr auto f = FMT_STRING("{} {} clock shm_open failed\n");
-      fmt::print(f, runTicks(), fnName());
+    if (shm_fd < 0) {
+      __LOG0("{} clock shm_open failed\n", fnName());
+      return false;
     }
 
     // flags must be PROT_READ | PROT_WRITE to allow writes
@@ -217,10 +229,7 @@ bool MasterClock::mapSharedMem() {
 
     close(shm_fd); // done with the shm memory fd
 
-    if (false) { // debug
-      constexpr auto f = FMT_STRING("{} {} clock mapping complete={}\n");
-      fmt::print(f, runTicks(), fnName(), isMapped());
-    }
+    __LOGX("{} clock mapping complete={}\n", fnName(), isMapped());
   }
 
   pthread_setcancelstate(prev_state, nullptr);
@@ -231,10 +240,7 @@ bool MasterClock::mapSharedMem() {
 bool MasterClock::ok() { return getInfo().ok(); }
 
 void MasterClock::peersUpdate(const rtp_time::Peers &new_peers) {
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} new peers count={}\n");
-    fmt::print(f, runTicks(), fnName(), new_peers.size());
-  }
+  __LOGX("{} new peers count={}\n", fnName(), new_peers.size());
 
   if (socket.is_open() == false) { // connect, if needed
     socket.async_connect(          // comment for formatting
@@ -243,17 +249,11 @@ void MasterClock::peersUpdate(const rtp_time::Peers &new_peers) {
             strand,                                      // schedule on the strand
             [self = shared_from_this()](error_code ec) { // hold ptr to ourself
               if (ec == errc::success) {
-                if (false) { // debug
-                  constexpr auto f = FMT_STRING("{} CLOCK connect success\n");
-                  fmt::print(f, runTicks(), ec.message());
-                }
+                __LOGX("CLOCK connect handle={}\n", self->socket.native_handle);
                 return;
               }
 
-              if (false) { // debug
-                constexpr auto f = FMT_STRING("{} CLOCK connect failed={}\n");
-                fmt::print(f, runTicks(), ec.message());
-              }
+              __LOG0("CLOCK connect failed={}\n", ec.message());
             }));
   }
 
@@ -272,21 +272,15 @@ void MasterClock::peersUpdate(const rtp_time::Peers &new_peers) {
 
                 msg.emplace_back(0x00); // must be null terminated
 
-                if (false) { // debug
-                  csv peers_view((ccs)msg.data(), msg.size());
-                  constexpr auto f = FMT_STRING("{} CLOCK peers={}\n");
-                  fmt::print(f, runTicks(), peers_view);
-                }
+                __LOGX("CLOCK peers={}\n", csv((ccs)msg.data(), msg.size()));
 
                 error_code ec;
-                auto tx_bytes = self->socket.send_to(buffer(msg),       // need asio buffer
-                                                     self->endpoint, 0, // flags
-                                                     ec);
+                [[maybe_unused]] auto tx_bytes =
+                    self->socket.send_to(buffer(msg),       // need asio buffer
+                                         self->endpoint, 0, // flags
+                                         ec);
 
-                if (false) {
-                  constexpr auto f = FMT_STRING("{} CLOCK send_to bytes={:>03} ec={}\n");
-                  fmt::print(f, runTicks(), tx_bytes, ec.what());
-                }
+                __LOGX("CLOCK send_to bytes={:>03} ec={}\n", tx_bytes, ec.what());
               });
 }
 

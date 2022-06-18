@@ -30,7 +30,10 @@ using namespace packet;
 
 bool SetPeers::populate() {
   rdict = plist();
-  rdict.dump();
+
+  if (false) {
+    rdict.dump();
+  }
 
   auto peers = rdict.stringArray({dk::ROOT});
   if (peers.empty()) {

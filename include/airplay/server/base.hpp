@@ -51,8 +51,7 @@ public:
 protected:
   void __infoAccept(const auto handle, bool log = LOG_FALSE) {
     if (log) { // log accepted connection
-      constexpr auto f = FMT_STRING("{} {} accepted connection, handle={}\n");
-      fmt::print(f, runTicks(), server_id, handle);
+      __LOG0("{} accepted connection, handle={}\n", server_id, handle);
     }
   }
 

@@ -32,16 +32,12 @@
 namespace pierre {
 namespace airplay {
 
-class Controller;
-typedef std::shared_ptr<Controller> shController;
-
-namespace shared {
-std::optional<shController> &controller();
-} // namespace shared
-
 namespace { // anonymous constrains to this file
 namespace asio = boost::asio;
 }
+
+class Controller;
+typedef std::shared_ptr<Controller> shController;
 
 class Controller : public std::enable_shared_from_this<Controller> {
 private:
@@ -49,11 +45,9 @@ private:
 
 public:
   // shared instance management
-  static shController init() {
-    return shared::controller().emplace(new Controller())->shared_from_this();
-  }
-  static shController ptr() { return shared::controller().value()->shared_from_this(); }
-  static void reset() { shared::controller().reset(); }
+  static shController init();
+  static shController ptr();
+  static void reset();
 
   void join() { airplay_thread.join(); }
   void teardown() {}
@@ -66,7 +60,7 @@ private:
 
   void nameThread(auto num) {
     const auto handle = pthread_self();
-    const auto name = fmt::format("AirPlay {:<02}", num);
+    const auto name = fmt::format("AirPlay {}", num);
 
     pthread_setname_np(handle, name.c_str());
   }
@@ -86,6 +80,8 @@ private:
   // order independent
   Threads threads;
   bool running = false;
+
+  static constexpr auto moduleId = csv("CONTROLLER");
 };
 
 } // namespace airplay

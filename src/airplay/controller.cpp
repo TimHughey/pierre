@@ -22,7 +22,7 @@
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"
-#include "player/queued.hpp"
+#include "player/player.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/clock.hpp"
 #include "server/servers.hpp"
@@ -42,16 +42,22 @@ std::optional<shController> __controller;
 std::optional<shController> &controller() { return shared::__controller; }
 } // namespace shared
 
+shController Controller::init() { // static
+  return shared::controller().emplace(new Controller());
+}
+shController Controller::ptr() { // wtatic
+  return shared::controller().value()->shared_from_this();
+}
+void Controller::reset() { // static
+  shared::controller().reset();
+}
+
 namespace errc = boost::system::errc;
 
 // executed once at startup (by one of the threads) to create necessary
 // resources (e.g. Clock, Anchor, Servers
 void Controller::kickstart() {
-  if (true) { // debug
-    Features features;
-    constexpr auto f = FMT_STRING("{} {} features=0x{:x}\n");
-    fmt::print(f, runTicks(), fnName(), features.ap2_default());
-  }
+  __LOG0("{} features={:#x}\n", moduleId, Features().ap2_default());
 
   watchDog();                       // watchDog() ensures io_ctx has work
   MasterClock::ptr()->peersReset(); // reset timing peers
@@ -71,9 +77,10 @@ void Controller::run() {
   Anchor::init();
   ConnInfo::init();
   Servers::init({.io_ctx = io_ctx});
-  player::Queued::init(io_ctx);
 
-  const auto max_threads = std::jthread::hardware_concurrency() * 2;
+  // run the controller with standard concurrency
+  // other classes may start their own thread pools
+  const auto max_threads = std::jthread::hardware_concurrency();
 
   for (uint8_t n = 1; n < max_threads; n++) {
     // notes:
@@ -88,6 +95,8 @@ void Controller::run() {
       self->io_ctx.run();  // run the io_ctx (returns when io_ctx canceled)
     });
   }
+
+  Player::init(io_ctx);
 
   io_ctx.run(); // run io_ctx on controller thread
 }
@@ -104,15 +113,11 @@ void Controller::watchDog() {
 
   watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
     if (ec != errc::success) { // any error, fall out of scope
-      constexpr auto f = FMT_STRING("{} {} going out of scope reason={}\n");
-      fmt::print(f, runTicks(), fnName(), ec.what());
+      __LOG0("{} going out of scope reason={}\n", fnName(), ec.message());
       return;
     }
 
-    if (false) { // debug
-      constexpr auto f = FMT_STRING("{} {}\n");
-      fmt::print(f, runTicks(), fnName());
-    }
+    __LOGX("{} executing\n", fnName());
 
     auto stop_token = self->airplay_thread.get_stop_token();
 

@@ -24,7 +24,7 @@ add_library(${__target}
   clock.cpp 
 
   # rtp anchor
-  anchor.cpp
+  anchor.cpp anchor/data.cpp
   
   ${HEADER_LIST}
 )

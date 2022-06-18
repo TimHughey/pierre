@@ -30,6 +30,9 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
+constexpr size_t PACKET_LEN_BYTES = sizeof(uint16_t);
+constexpr size_t STD_PACKET_SIZE = 2048;
+
 class Audio; // forward decl for shared_ptr def
 typedef std::shared_ptr<Audio> shAudio;
 
@@ -52,18 +55,19 @@ private:
 public:
   // initiates async audio buffer loop
   void asyncLoop() override; // see .cpp file for critical function details
-
   void teardown() override;
 
 private:
-  void asyncRxPacket(size_t packet_len);
+  void asyncRxPacket();
+  uint16_t packetLength();
   void stats();
 
 private:
   // order dependent
   high_res_timer timer;
 
-  static constexpr size_t STD_PACKET_SIZE = 2048;
+  packet::Basic packet_len_buffer;
+  packet::Basic packet_buffer;
 };
 
 } // namespace session

@@ -32,6 +32,7 @@
 #include <fmt/core.h>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -64,7 +65,8 @@ typedef std::shared_ptr<Reply> shReply;
 
 namespace { // unnamed namespace visible only in this file
 namespace header = pierre::packet::header;
-}
+namespace ranges = std::ranges;
+} // namespace
 
 class Reply {
 public:
@@ -83,7 +85,8 @@ public:
   Reply &inject(const reply::Inject &di);
   virtual bool populate() = 0;
 
-  void copyToContent(const fmt::memory_buffer &buf);
+  void copyToContent(const auto &buf) { ranges::copy(buf, std::back_inserter(_content)); }
+
   void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes);
   void copyToContent(const uint8_t *begin, const size_t bytes);
 

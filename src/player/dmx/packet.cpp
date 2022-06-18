@@ -18,10 +18,11 @@
     https://www.wisslanding.com
 */
 
+#include "dmx/packet.hpp"
+
+#include <ArduinoJson.hpp>
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
-
-#include "dmx/packet.hpp"
 
 namespace asio = boost::asio;
 using asio::buffer;

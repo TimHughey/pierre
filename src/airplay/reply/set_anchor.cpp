@@ -17,8 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "reply/set_anchor.hpp"
+#include "player/player.hpp"
 #include "reply/dict_keys.hpp"
-#include "rtp_time/anchor.hpp"
+#include "rtp_time/anchor/data.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -37,8 +38,6 @@ bool SetAnchor::populate() {
 }
 
 void SetAnchor::saveAnchorInfo() {
-  auto anchor = Anchor::ptr();
-
   // a complete anchor message contains these keys
   const Aplist::KeyList keys{dk::RATE,          dk::NET_TIMELINE_ID, dk::NET_TIME_SECS,
                              dk::NET_TIME_FRAC, dk::NET_TIME_FLAGS,  dk::RTP_TIME};
@@ -52,11 +51,10 @@ void SetAnchor::saveAnchorInfo() {
                                     .flags = rdict.uint({dk::NET_TIME_FLAGS}),
                                     .rtpTime = rdict.uint({dk::RTP_TIME})};
 
-    anchor->save(anchor_data);
-    anchor->dump(anchor::Entry::RECENT);
+    Player::saveAnchor(anchor_data);
   } else {
     auto anchor_data = anchor::Data{.rate = rdict.uint({dk::RATE})};
-    Anchor::ptr()->save(anchor_data);
+    Player::saveAnchor(anchor_data);
   }
 }
 

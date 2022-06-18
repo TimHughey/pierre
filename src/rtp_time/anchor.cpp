@@ -19,9 +19,9 @@
 #include "rtp_time/anchor.hpp"
 #include "core/input_info.hpp"
 #include "core/typedefs.hpp"
+#include "rtp_time/anchor/data.hpp"
 #include "rtp_time/clock.hpp"
 
-#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -31,157 +31,103 @@
 #include <optional>
 
 namespace pierre {
-using namespace std::chrono_literals;
 
 namespace shared {
 std::optional<shAnchor> __anchor;
 std::optional<shAnchor> &anchor() { return __anchor; }
 } // namespace shared
 
-namespace anchor {
-Data &Data::calcNetTime() {
-  /*
-   Using PTP, here is what is necessary
-     * The local (monotonic system up)time in nanos (arbitrary reference)
-     * The remote (monotonic system up)time in nanos (arbitrary reference)
-     * (symmetric) link delay
-       1. calculate link delay (PTP)
-       2. get local time (PTP)
-       3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
-          we know how remote timestamps align to local ones. Now these
-          network times are meaningful.
-       4. determine how many nanos elapsed since anchorTime msg egress.
-          Note: remote monotonic nanos for iPhones stops when they sleep, though
-          not when casting media.
-   */
-  uint64_t net_time_fracs = ((frac >> 32) * NS_FACTOR) >> 32;
+using namespace std::chrono_literals;
+namespace chrono = std::chrono;
 
-  networkTime = secs * NS_FACTOR + net_time_fracs;
-
-  return *this;
-}
-
-Data &Data::setAt() {
-  at_ns = rtp_time::Info::nowNanos();
-  return *this;
-}
-
-Data &Data::setValid(bool val) {
-  valid = val;
-  valid_at_ns = rtp_time::Info::nowNanos();
-  return *this;
-}
-
-} // namespace anchor
-
-Anchor::~Anchor() {
-  constexpr auto f = FMT_STRING("{} {} destructed\n");
-  fmt::format(f, runTicks(), fnName());
-}
-
+// destructor, singleton static functions
+Anchor::~Anchor() { __LOG0("{} destructed\n", fnName()); }
 shAnchor Anchor::init() { return shared::anchor().emplace(new Anchor()); }
 shAnchor Anchor::ptr() { return shared::anchor().value()->shared_from_this(); }
 void Anchor::reset() { shared::anchor().reset(); }
 
-// uint64_t Anchor::frameTimeToLocalTime(uint32_t timestamp) {
-//   int32_t frame_diff = timestamp - _data.back().rtpTime;
-//   int64_t time_diff = frame_diff;
-//   time_diff *= InputInfo::rate;
-//   time_diff /= upow(10, 9);
-
-//   uint64_t ltime = _data.back().networkTime + time_diff;
-
-//   return ltime;
-// }
+// general API and member functions
 
 const anchor::Data &Anchor::getData() {
   auto clock_info = MasterClock::ptr()->getInfo();
+  auto &actual = data(anchor::Entry::ACTUAL);
+  auto &last = data(anchor::Entry::LAST);
+  auto &recent = data(anchor::Entry::RECENT);
+  auto &is_new = ptr()->_is_new;
 
   if (clock_info.ok() == false) { // master clock doesn't exist
     return anchor::INVALID_DATA;  // return default (invalid) info
   }
 
-  // ok, we have master clock (will check usability later)
-  // do we also have recent anchor clock details?
-  auto &recent = data(anchor::Entry::RECENT);
-
-  if (recent.valid == false) { // nope
-    return recent;             // return invalid recent
-  }
-
-  auto &last = data(anchor::Entry::LAST);
-
   // prefer the master clock when anchor clock and master clock match
+
   if (clock_info.clockID == recent.clockID) {
     if (clock_info.tooYoung()) {   // whoops, master clock isn't stable
       return anchor::INVALID_DATA; // return default (invalid) data
     }
 
-    // we know the master clock can be used (although it may not be fully stable)
-    // if we don't have a last networkTime fallback to master clock
-    last = recent;
-    last.networkTime = clock_info.masterTime(recent.networkTime);
-    last.setAt(); // note when this networkTime was calculated
+    // ok, we have master clock
 
-    // if last was previously invalid mark as valid
-    if (last.valid == false) {
-      last.setValid();
+    // if recent data (set via SET_ANCHOR message) isn't valid
+    // nothing we can do, return INVALID_DATA
+    if (recent.valid == false) {
+      __LOG0("{:<20} RECENT invalid\n", Anchor::moduleId);
+      return anchor::INVALID_DATA;
     }
 
-    if (_is_new) {
-      _is_new = false; // ensure is_new flag is cleared
+    // ok, we've confirmed the master clock and we have recent data
 
-      if (true) { // debug
-        constexpr auto f = FMT_STRING("{} {} VALID isNew={} "
-                                      "clockID={} rptTime={} networkTime={}\n");
-        fmt::print(f, runTicks(), fnName(), _is_new, last.clockID, last.rtpTime, last.networkTime);
+    auto now_nanos = rtp_time::nowNanos();
+
+    // are we already synced to this clock?
+    if (clock_info.clockID == recent.clockID) {
+      if (clock_info.masterFor() < 1.5s) {
+        __LOG0("{} master too young {}\n", fnName(),
+               chrono::duration_cast<Seconds>(clock_info.masterFor()));
+
+        return anchor::INVALID_DATA;
+      } else if ((last.valid == false) || (clock_info.masterFor() > 5s)) {
+        last = recent;
+        last.localTime = Nanos(recent.networkTime - clock_info.rawOffset);
+        last.setLocalTimeAt(now_nanos); // capture when local time calculated
+
+        if (is_new) {
+          __LOG0("{} VALID clockId={:#x} {}\n", //
+                 fnName(), clock_info.clockID,
+                 chrono::duration_cast<Seconds>(now_nanos - clock_info.mastershipStartTime));
+
+          is_new = false;
+        }
       }
+      return last; // ok, last has updated local time
     }
-
-    // ok, we have a valid anchor clock, return it
-    return last;
   }
 
   // the anchor clock and master clock are different
   // let's try everything to find a master even if that means falling back
   // to the master clock
 
-  if (_is_new) { // log the anchor clock has changed since it's odd
-    if (true) {  // debug
-      constexpr auto f = FMT_STRING("{} {} CLOCK isNew={} "
-                                    "clockID={} masterClockID={}\n");
-      fmt::print(f, runTicks(), fnName(), _is_new, recent.clockID, clock_info.clockID);
+  if (is_new) { // log the anchor clock has changed since
+    __LOG0("{} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} {}\n", //
+           fnName(), is_new, recent.clockID, clock_info.clockID,            //
+           chrono::duration_cast<Seconds>(rtp_time::nowNanos() - clock_info.mastershipStartTime));
+  }
+
+  if (last.valid && (is_new == false)) {
+    if (last.sinceUpdate() > 5s) {
+      recent.networkTime = last.localAtNanos.count() + clock_info.rawOffset;
+
+      if (clock_info.clockID == actual.clockID) { // original anchor clock is master again
+        __LOG0("{} master == anchor clockId={:#x} deviation={}\n", fnName(), clock_info.clockID,
+               chrono::duration_cast<Seconds>(Nanos(recent.networkTime - actual.networkTime)));
+      }
+
+      recent = actual; // switch back to the actual clock
+    } else {
+      recent.clockID = clock_info.clockID;
     }
 
-    if (last.valid == false) {
-      // we're in a tough spot... the new anchor isn't equal to the master and we don't
-      // have a previous networkTime as a reference.  return this is an invalid state
-      // and clear the new clock flag so we can possibly come up with a solution next
-      // time getData is invoked
-      _is_new = false;
-
-      return last;
-    }
-  }
-
-  // if last is valid let's use it for now by updating from the master clock
-  // which we hope is fairly close to "right"
-  if (last.valid && (last.validFor() == 5s)) {
-    recent.networkTime = last.networkTime + clock_info.rawOffset;
-    return last;
-  }
-
-  if ((last.valid == false) && (_is_new == true)) {
-    // interesting situation, last isn't valid we have a new clock AND it's not
-    // equal to the master clock.  something is amiss -- this isn't valid
-
-    return last; // return last (invalid)
-  }
-
-  // ok, we have a valid last that isn't new, if enough time has past since it became
-  // master then we accept the master clock as the most recent anchor
-  if (last.valid) {
-    recent.networkTime = last.networkTime + clock_info.rawOffset;
+    is_new = false;
   }
 
   // wrose comes to worse, just return last
@@ -196,9 +142,14 @@ void Anchor::invalidateLastIfQuickChange(const anchor::Data &data) {
   }
 }
 
-bool Anchor::playEnabled() const { return cdata(anchor::Entry::RECENT).playing(); }
+bool Anchor::playEnabled() { return ptr()->cdata(anchor::Entry::RECENT).playing(); }
 
 void Anchor::save(anchor::Data &ad) {
+  if ((ad.clockID == 0x00) || (ad.rate == 0)) {
+    teardown();
+    return;
+  }
+
   ad.calcNetTime(); // always ensure networkTime is populated
 
   auto &actual = _datum[anchor::Entry::ACTUAL];
@@ -208,20 +159,14 @@ void Anchor::save(anchor::Data &ad) {
   if ((ad <=> recent) < 0) { // this is a new anchor clock
     _is_new = true;
 
-    if (true) { // debug
-      constexpr auto f = FMT_STRING("{} {} NEW clock=0x{:x}\n");
-      fmt::print(f, runTicks(), moduleId, ad.clockID);
-    }
+    __LOG0("{} NEW clock=0x{:x}\n", moduleId, ad.clockID);
   }
 
   if ((ad <=> recent) > 0) { // known anchor clock details have changed
     if (last.valid && (last.validFor() < 5s)) {
       last.valid = false;
-      if (true) { // debug
-        constexpr auto f = FMT_STRING("{} {} unstablized clock details changed "
-                                      " clock=0x{:x}\n");
-        fmt::print(f, runTicks(), moduleId, ad.clockID);
-      }
+
+      __LOG0("{} change before stablized clockId={:#x}\n", moduleId, ad.clockID);
     }
   }
 
@@ -234,72 +179,12 @@ void Anchor::save(anchor::Data &ad) {
 
   invalidateLastIfQuickChange(ad); // if clock details have changed quickly, invalidate last
 
-  // we have now saved the new anchor info, noted if this is a new clockID and possibly invalidated
-  // last if the clock is changing too quickly
+  // we have now saved the new anchor info, noted if this is a new clockID and possibly
+  // invalidated last if the clock is changing too quickly
 
   // deciding which clock to use for accurate networkTime is handled by getInfo()
 }
 
 void Anchor::teardown() { _datum.fill(anchor::Data()); }
-
-// misc debug, logging
-
-// void Anchor::infoNewClock(const rtp_time::Info &info) {
-//   auto rc = false;
-
-//   auto &new_data = _data.back();
-
-//   if (rc && _debug_) {
-//     auto hex_fmt = FMT_STRING("{:>35}={:#x}\n");
-//     auto dec_fmt = FMT_STRING("{:>35}={}\n");
-
-//     fmt::print("{} {} anchor change\n", runTicks(), fnName());
-//     fmt::print(hex_fmt, "clock_old", anchor_clock);
-//     fmt::print(hex_fmt, "clock_new", _data.timelineID);
-//     fmt::print(hex_fmt, "clock_current", info.clockID);
-//     fmt::print(dec_fmt, "rptTime", _data.rtpTime);
-//     fmt::print(dec_fmt, "networkTime", _data.networkTime);
-//     fmt::print("\n");
-//   }
-// }
-
-// void Anchor::warnFrequentChanges(const rtp_time::Info &info) {
-//   if (_debug_ == true) {
-//     constexpr auto threshold = Nanos(5s);
-
-//     if (_data.timelineID != anchor_clock) {
-//       // warn if anchor clock is changing too quickly
-//       if (anchor_clock_new_ns != 0) {
-//         int64_t diff = info.now() - anchor_clock_new_ns;
-
-//         if (diff > threshold.count()) {
-//           constexpr auto fmt_str =
-//               FMT_STRING("WARN {} anchor clock changing too quickly diff={}\n");
-//           fmt::print(fmt_str, fnName(), diff);
-//         }
-//       }
-//     }
-//   }
-// }
-
-void Anchor::dump(anchor::Entry entry, csrc_loc loc) const {
-  const auto &data = cdata(entry);
-
-  const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
-  const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
-
-  fmt::print("{} {}\n", runTicks(), fnName(loc));
-  fmt::print(hex_fmt_str, "rate", data.rate);
-  fmt::print(hex_fmt_str, "clockID", data.clockID);
-  fmt::print(dec_fmt_str, "secs", data.secs);
-  fmt::print(dec_fmt_str, "frac", data.frac);
-  fmt::print(hex_fmt_str, "flags", data.flags);
-  fmt::print(dec_fmt_str, "rtpTime", data.rtpTime);
-  fmt::print(dec_fmt_str, "networkTime", data.networkTime);
-  fmt::print(dec_fmt_str, "at_ns", data.at_ns.count());
-  fmt::print(dec_fmt_str, "valid", data.valid);
-
-  fmt::print("\n");
-}
 
 } // namespace pierre

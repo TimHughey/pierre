@@ -24,10 +24,10 @@ namespace pierre {
 
 struct FlushRequest {
   bool active = false;
-  uint32_t from_seq;
-  uint32_t from_ts;
-  uint32_t until_seq;
-  uint32_t until_ts;
+  uint32_t from_seq = 0;
+  uint32_t from_ts = 0;
+  uint32_t until_seq = 0;
+  uint32_t until_ts = 0;
 
   void complete() { *this = FlushRequest(); }
 };

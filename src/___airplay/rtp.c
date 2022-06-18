@@ -972,13 +972,6 @@ void reset_ntp_anchor_info(rtsp_conn_info *conn) {
   debug_mutex_unlock(&conn->reference_time_mutex, 3);
 }
 
-int have_ntp_timestamp_timing_information(rtsp_conn_info *conn) {
-  if (conn->anchor_rtptime == 0)
-    return 0;
-  else
-    return 1;
-}
-
 // set this to zero to use the rates supplied by the sources, which might not
 // always be completely right...
 const int use_nominal_rate = 0; // specify whether to use the nominal input rate, usually 44100 fps
@@ -1019,61 +1012,6 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
       }
     }
   }
-  return result;
-}
-
-void set_ntp_anchor_info(rtsp_conn_info *conn, uint32_t rtptime, uint64_t networktime) {
-  conn->anchor_remote_info_is_valid = 1;
-  conn->anchor_rtptime = rtptime;
-  conn->anchor_time = networktime;
-}
-
-// the timestamp is a timestamp calculated at the input rate
-// the reference timestamps are denominated in terms of the input rate
-
-int frame_to_ntp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
-  int result = 0;
-  uint64_t time_difference;
-  uint32_t frame_difference;
-  result = sanitised_source_rate_information(&frame_difference, &time_difference, conn);
-
-  uint64_t remote_time_of_timestamp;
-  int32_t timestamp_interval = timestamp - conn->anchor_rtptime;
-  int64_t timestamp_interval_time = timestamp_interval;
-  timestamp_interval_time = timestamp_interval_time * time_difference;
-  timestamp_interval_time =
-      timestamp_interval_time / frame_difference; // this is the nominal time, based on the
-                                                  // fps specified between current and
-                                                  // previous sync frame.
-  remote_time_of_timestamp =
-      conn->anchor_time + timestamp_interval_time; // based on the reference timestamp time
-                                                   // plus the time interval calculated based
-                                                   // on the specified fps.
-  *time = remote_time_of_timestamp - local_to_remote_time_difference_now(conn);
-  debug_mutex_unlock(&conn->reference_time_mutex, 0);
-  return result;
-}
-
-int local_ntp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
-  int result = 0;
-  uint64_t time_difference;
-  uint32_t frame_difference;
-  result = sanitised_source_rate_information(&frame_difference, &time_difference, conn);
-  // first, get from [local] time to remote time.
-  uint64_t remote_time = time + local_to_remote_time_difference_now(conn);
-  // next, get the remote time interval from the remote_time to the reference
-  // time here, we calculate the time interval, in terms of remote time
-  int64_t offset = remote_time - conn->anchor_time;
-  // now, convert the remote time interval into frames using the frame rate we
-  // have observed or which has been nominated
-  int64_t frame_interval = 0;
-  frame_interval = (offset * frame_difference) / time_difference;
-  int32_t frame_interval_32 = frame_interval;
-  uint32_t new_frame = conn->anchor_rtptime + frame_interval_32;
-  *frame = new_frame;
-  debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
 }
 

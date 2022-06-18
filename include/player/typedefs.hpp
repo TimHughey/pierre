@@ -18,12 +18,19 @@
 
 #pragma once
 
+#include "core/typedefs.hpp"
+
+#include <string_view>
 #include <vector>
 
 namespace pierre {
 namespace player {
 
 typedef std::vector<float> Reals;
+
+constexpr auto NOT_PLAYING = false;
+constexpr auto PLAYING = true;
+constexpr auto SILENCE = csv("silence");
 
 } // namespace player
 } // namespace pierre

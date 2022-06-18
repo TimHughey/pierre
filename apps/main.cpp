@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (args_map.daemon) {
-    fmt::print("main{}: daemon requested\n");
+    fmt::print("main(): daemon requested\n");
   }
 
   pierre_instance = Pierre::create({.app_name = app_name, .args_map = args_map});

@@ -23,7 +23,9 @@
 #include "reply/reply.hpp"
 
 #include <fmt/format.h>
+#include <iterator>
 #include <string_view>
+#include <vector>
 
 namespace pierre {
 namespace airplay {
@@ -50,13 +52,9 @@ bool Parameter::handleGet() {
   const auto param = rContent().toStringView();
 
   if (param.starts_with("volume")) {
-    auto buff = fmt::memory_buffer();
+    static csv full_volume("\r\nvolume: -1.0\r\n");
 
-    // NOTE: special case -- the content must include the separators
-    // so they are including in the content length
-    fmt::format_to(buff, "\r\nvolume: {:.6}\r\n", -24.09);
-
-    copyToContent(buff);
+    copyToContent(full_volume);
     headers.add(header::type::ContentType, header::val::TextParameters);
     responseCode(OK);
 

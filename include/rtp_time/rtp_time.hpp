@@ -18,29 +18,36 @@
 
 #pragma once
 
-#include "typedefs.hpp"
+#include "core/typedefs.hpp"
 
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
 
 namespace pierre {
 
-class InputInfo {
-public:
-  static constexpr size_t frameSize() { return 352 * bytes_per_frame; }
+using namespace std::chrono_literals;
 
-  static constexpr uint32_t rate = 44100; // max available at the moment
-  static constexpr uint8_t channels = 2;
-  static constexpr uint8_t bit_depth = 16;
-  static constexpr uint8_t bytes_per_frame = 4;
+using Micros = std::chrono::microseconds;
+using MicrosFP = std::chrono::duration<double, std::chrono::microseconds::period>;
+using Millis = std::chrono::milliseconds;
+using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period>;
+using Nanos = std::chrono::nanoseconds;
+using Seconds = std::chrono::duration<long double>;
 
-  typedef std::chrono::duration<double, std::ratio<1, rate / 1024>> InputFPS;
+namespace rtp_time {
 
-  static constexpr std::chrono::nanoseconds fps_ns() {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(InputFPS(1));
-  }
-};
+typedef uint64_t ClockID; // clock ID
+
+constexpr Nanos AGE_MAX{10s};
+constexpr Nanos AGE_MIN{1500ms};
+constexpr Nanos NS_FACTOR{upow(10, 9)};
+constexpr Nanos ZERO_NANOS{0};
+
+constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
+constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
+
+Millis nowMillis();
+Nanos nowNanos();
+
+} // namespace rtp_time
 
 } // namespace pierre

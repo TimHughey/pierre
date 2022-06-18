@@ -19,6 +19,8 @@
 #pragma once
 
 #include <cstdint>
+#include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <source_location>
 #include <string>
 #include <string_view>
@@ -58,5 +60,19 @@ constexpr uint64_t upow(uint64_t base, uint64_t exp) {
 
   return result;
 }
+
+// misc debug
+const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
+void __vlog(fmt::string_view format, fmt::format_args args);
+
+template <typename S, typename... Args> // accepts the format and var args
+void __log([[maybe_unused]] int level, const S &format, Args &&...args) {
+  __vlog(format, fmt::make_args_checked<Args...>(format, args...));
+}
+
+#define __LOG(format, ...) __log(1, FMT_STRING(format), __VA_ARGS__)
+#define __LOG0(format, ...) __log(0, FMT_STRING(format), __VA_ARGS__)
+#define __LOG1(format, ...) __log(1, FMT_STRING(format), __VA_ARGS__)
+#define __LOGX(format, ...)
 
 } // namespace pierre

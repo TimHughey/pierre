@@ -66,10 +66,10 @@ void mDNS::advertise(AvahiClient *client) {
     auto kvmap = Service::ptr()->keyValList(stype);
 
     for (const auto &[key, val] : *kvmap) {
-      fmt::basic_memory_buffer<char, 128> sl_entry;
+      std::string sl_entry;
 
-      fmt::format_to(sl_entry, "{}={}", key, val);
-      entries.emplace_back(fmt::to_string(sl_entry));
+      fmt::format_to(std::back_inserter(sl_entry), "{}={}", key, val);
+      entries.emplace_back(sl_entry);
     }
 
     groupAddService(group, stype, entries);

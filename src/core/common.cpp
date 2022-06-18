@@ -19,28 +19,30 @@
 #include "typedefs.hpp"
 
 #include <chrono>
+#include <fmt/chrono.h>
+#include <fmt/compile.h>
 #include <fmt/format.h>
 
 namespace pierre {
 
 using namespace std::chrono_literals;
-using std::chrono::steady_clock;
-using fpSeconds = std::chrono::duration<double, std::chrono::milliseconds::period>;
+using namespace std::chrono;
+using MillisFP = duration<long double, milliseconds::period>;
 
-typedef std::chrono::steady_clock Clock;
-
-static auto startup = Clock::now();
+static auto startup = steady_clock::now();
 
 // Global Helpers Definitions
 
 ccs fnName(csrc_loc loc) { return loc.function_name(); }
 
 const string runTicks() {
-  constexpr auto f = FMT_STRING("{:10.2f} ");
+  return fmt::format("{:>11.1} ", duration_cast<MillisFP>(steady_clock::now() - startup));
+}
 
-  auto diff = fpSeconds(Clock::now() - startup);
-
-  return fmt::format(f, diff.count());
+// misc debug
+void __vlog(fmt::string_view format, fmt::format_args args) {
+  fmt::print("{:>11.1}  ", duration_cast<MillisFP>(steady_clock::now() - startup));
+  fmt::vprint(format, args);
 }
 
 } // namespace pierre

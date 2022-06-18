@@ -2013,7 +2013,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       if (conn->input_rate == 0)
         die("input_rate is zero -- should never happen!");
       uint64_t time_to_wait_for_wakeup_ns =
-          1000000000 / conn->input_rate;     // this is time period of one frame
+          1 000 000 000 / conn->input_rate;  // this is time period of one frame
       time_to_wait_for_wakeup_ns *= 2 * 352; // two full 352-frame packets
       time_to_wait_for_wakeup_ns /= 3;       // two thirds of a packet time
 
@@ -4333,7 +4333,7 @@ int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn
     int64_t time_difference = time - anchor_local_time;
     int64_t frame_difference = time_difference;
     frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
-    frame_difference = frame_difference / 1000000000;
+    frame_difference = frame_difference / 1 000 000 000;
     int32_t fd32 = frame_difference;
     uint32_t lframe = anchor_rtptime + fd32;
     *frame = lframe;
@@ -4392,7 +4392,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // if the master clock and the anchor clock are the same
         // wait at least this time before using the new master clock
         // note that mastership may be backdated
-        if (duration_of_mastership < 1500000000) {
+        if (duration_of_mastership < 1 500 000 000) {
           debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||

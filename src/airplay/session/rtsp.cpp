@@ -263,11 +263,6 @@ void Rtsp::dump(DumpKind dump_type) {
   fmt::print("\n");
 }
 
-void Rtsp::infoNewSession() const {
-  constexpr auto f = "{} {} new session\n";
-  fmt::print(f, runTicks(), sessionId());
-}
-
 } // namespace session
 } // namespace airplay
 } // namespace pierre

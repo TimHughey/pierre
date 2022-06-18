@@ -65,7 +65,7 @@ private:
       : Base(di, csv("RTSP SESSION")),           // Base holds the newly connected socket
         aes_ctx(AesCtx(Host::ptr()->deviceID())) // create aes ctx
   {
-    infoNewSession();
+    __LOG0("{} NEW handle={}\n", sessionId(), socket.native_handle());
   }
 
 public:

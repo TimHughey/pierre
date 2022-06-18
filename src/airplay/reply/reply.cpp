@@ -54,9 +54,11 @@ namespace header = pierre::packet::header;
 }
 
 [[nodiscard]] packet::Out &Reply::build() {
-  constexpr auto seperator = "\r\n";
+  constexpr csv seperator("\r\n");
 
   [[maybe_unused]] const auto ok = populate();
+
+  _packet.clear();
 
   auto where = back_inserter(_packet);
   auto resp_text = respCodeToView(_rcode);
@@ -77,38 +79,25 @@ namespace header = pierre::packet::header;
   }
 
   if (true) { // debug
+    constexpr auto log_module = csv("REPLY FINAL");
     constexpr auto feedback = csv("/feedback");
     static uint64_t feedbacks = 0;
-
-    constexpr auto f = FMT_STRING("{} REPLY FINAL cseq={:<04} fb={:<04} "
-                                  "size={:<05} rc={:<15} method={:<19} "
-                                  "path={}\n");
 
     if (di->path == feedback) {
       ++feedbacks;
     }
 
-    if (di->path != csv("/feedback")) {
-      fmt::print(f, runTicks(), headers.getValInt(header::type::CSeq), feedbacks, _packet.size(),
-                 resp_text, di->method, di->path);
+    if (di->path != feedback) {
+      __LOG0("{:<18} cseq={:>4} fb={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
+             log_module, headers.getValInt(header::type::CSeq), feedbacks, _packet.size(),
+             resp_text, di->method, di->path);
     }
   }
 
   return _packet;
 }
 
-void Reply::copyToContent(const fmt::memory_buffer &buffer) {
-  const auto begin = buffer.begin();
-  const auto end = buffer.end();
-
-  auto where = std::back_inserter(_content);
-
-  std::copy(begin, end, where);
-}
-
 void Reply::copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {
-  // const uint8_t *begin = data.get();
-
   copyToContent(data.get(), bytes);
 }
 
