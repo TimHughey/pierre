@@ -18,9 +18,8 @@
     https://www.wisslanding.com
 */
 
-#include "dmx/render.hpp"
+#include "player/dmx/render.hpp"
 #include "core/input_info.hpp"
-#include "player/frames_request.hpp"
 #include "player/typedefs.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/rtp_time.hpp"
@@ -47,25 +46,27 @@ using io_context = boost::asio::io_context;
 using error_code = boost::system::error_code;
 namespace chrono = std::chrono;
 
-Render::Render(io_context &io_ctx, player::shFramesRequest frames_request)
-    : local_strand(io_ctx),                               // create our local strand
-      frame_timer(io_ctx),                                // generate DMX frames
-      stats_timer(io_ctx),                                // period stats reporting
-      spooler(player::Spooler::create(io_ctx, moduleId)), // create our local spool
-      frames_request(frames_request) {
-  const auto render_fps = chrono::duration_cast<MillisFP>(fps_ns());
-  const auto input_fps = chrono::duration_cast<MillisFP>(InputInfo::fps_ns());
+Render::Render(io_context &io_ctx, player::shSpooler spooler)
+    : io_ctx(io_ctx),                        // grab the io_ctx
+      spooler(spooler),                      // use this spooler for unloading Frames
+      local_strand(spooler->unloadStrand()), // use the unload strand from spooler
+      frame_timer(io_ctx),                   // generate process frames
+      stats_timer(io_ctx),                   // period stats reporting
+      play_start(SteadyTimePoint::min()),    // play not started yet
+      play_frame_counter(0)                  // no frames played yet
+{
+  const auto render_fps = rtp_time::as_millis_fp(dmx::frame_ns());
+  const auto input_fps = rtp_time::as_millis_fp(InputInfo::fps_ns());
   const auto diff = render_fps - input_fps;
 
   __LOG0("render_fps={} input_fps={} diff={}\n", render_fps, input_fps, diff);
 
-  frames_request->dest = spooler;
   // call no functions here that use self
 }
 
 // static methods for creating, getting and resetting the shared instance
-shRender Render::init(asio::io_context &io_ctx, player::shFramesRequest frames_request) {
-  auto self = shared::render().emplace(new Render(io_ctx, frames_request));
+shRender Render::init(asio::io_context &io_ctx, player::shSpooler spooler) {
+  auto self = shared::render().emplace(new Render(io_ctx, spooler));
 
   return self;
 }
@@ -74,82 +75,76 @@ shRender Render::ptr() { return shared::render().value()->shared_from_this(); }
 void Render::reset() { shared::render().reset(); }
 
 // public API and member functions
-void Render::flush(const FlushRequest &request) { // static
-  ptr()->spooler->flush(request);
-}
 
 void Render::frameTimer() {
-  static Nanos last_timer_ns{0};
-
-  if (playing() && (spooler->frameCount() < 64)) {
-    frames_request->atLeastFrames(64);
-  }
-
-  const auto latency_ns = rtp_time::nowNanos() - last_timer_ns;
-  const auto expires_ns = (latency_ns <= fps_ns()) ? fps_ns() - latency_ns : fps_ns();
-  frame_timer.expires_after(expires_ns);
+  // create a precise frame_ns using the elapsed time of last frame
+  frame_timer.expires_at(play_start + Nanos(dmx::frame_ns() * play_frame_counter));
 
   frame_timer.async_wait(  // wait to generate next frame
       asio::bind_executor( // use a specific executor
           local_strand,    // serialize rendering
           [self = shared_from_this()](const error_code ec) {
-            last_timer_ns = rtp_time::nowNanos(); // used to calculate next timer
+            if (ec == errc::success) {
+              self->handleFrame();
 
-            if (ec != errc::success) {
+            } else {
               __LOG0("FRAME TIMER terminating reason={}\n", ec.message());
-              return;
             }
-
-            if (MasterClock::ptr()->ok()) {
-              if (self->playing()) {
-                self->handleFrame();
-              }
-            }
-
-            self->frameTimer();
           }));
 }
 
-shRender Render::handleFrame() {
-  if (_play_mode == player::PLAYING) {
-    auto frame = spooler->nextFrame(fps_ns());
+void Render::handleFrame() {
+  ++play_frame_counter;
 
-    if (player::RTP::playable(frame)) {
-      frame->markPlayed();
-      _frames_played += 1;
-    } else {
-      _frames_silence += 1;
+  if (play_mode == player::PLAYING) {
+    // Spooler::nextFrame() may return an empty frame
+
+    auto frame = spooler->nextFrame(FTD);
+
+    frame = player::Frame::markPlayed(frame, frames_played, frames_silence);
+
+    if (player::Frame::ok(frame) && frame->unplayed()) {
+      __LOG0("{:<18} FRAME {}\n", moduleId, player::Frame::inspectFrame(frame));
     }
 
-    _recent_frame = frame;
+    frameTimer();
   }
-
-  return shared_from_this();
 }
 
 void Render::playMode(bool mode) { // static
-  auto self = ptr();
+  auto self = Render::ptr();
 
   asio::post(self->local_strand, // sync to frame timer
-             [mode = mode, self = self]() mutable {
-               self->_play_mode = mode; // save the play mode
+             [self, mode = mode]() {
+               self->play_mode = mode; // save the play mode
 
-               self->frameTimer(); // frame timer handles play/not play
-               self->statsTimer();
+               if (mode == player::PLAYING) {
+                 self->play_start = steady_clock::now();
+                 self->frameTimer(); // frame timer handles play/not play
+                 self->statsTimer();
+               } else {
+                 self->frame_timer.cancel();
+                 self->stats_timer.cancel();
+                 self->play_start = SteadyTimePoint::min();
+               }
              });
 }
 
 const string Render::stats() const {
-  const float silenced = ((float)_frames_silence / float(_frames_played)) * 100.0;
+  float silence = 1;
+  if (frames_played) {
+    silence = (float)frames_silence / (frames_played + frames_silence);
+    silence = (silence > 0.0) ? silence : 1;
+  }
 
-  return fmt::format("{:18} state={:<10} played={:<8} silence={:<8} silenced={:0.3g}", //
-                     moduleId, player::RTP::stateVal(_recent_frame), _frames_played,
-                     _frames_silence, silenced);
+  return fmt::format("state={:<10} played={:<8} silent={:<8} silence={:6.2f}%", //
+                     player::Frame::stateVal(recent_frame), frames_played, frames_silence,
+                     silence * 100.0);
 }
 
 void Render::statsTimer(const Nanos report_ns) {
   // should the frame timer run?
-  if (_play_mode == player::NOT_PLAYING) {
+  if (play_mode == player::NOT_PLAYING) {
     [[maybe_unused]] error_code ec;
     stats_timer.cancel(ec);
     return;
@@ -165,7 +160,7 @@ void Render::statsTimer(const Nanos report_ns) {
               return;
             }
 
-            __LOG0("{}\n", self->stats());
+            __LOG0("{:<18} {}\n", moduleId, self->stats());
 
             self->statsTimer();
           })
@@ -176,10 +171,7 @@ void Render::statsTimer(const Nanos report_ns) {
 void Render::teardown() { //.static
   auto self = ptr();
 
-  [[maybe_unused]] error_code ec;
-  self->frame_timer.cancel(ec);
-
-  self->_play_mode = player::NOT_PLAYING;
+  self->play_mode = player::NOT_PLAYING;
 }
 
 /*
@@ -194,7 +186,7 @@ void Render::stream() {
 
   while (State::isRunning()) {
     auto loop_start = steady_clock::now();
-    for (auto p : _producers) {
+    for (auto p : producers) {
       p->prepare();
     }
 
@@ -202,7 +194,7 @@ void Render::stream() {
 
     dmx::Packet packet;
 
-    for (auto p : _producers) {
+    for (auto p : producers) {
       p->update(packet);
     }
 

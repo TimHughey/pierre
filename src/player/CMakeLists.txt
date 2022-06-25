@@ -20,7 +20,7 @@ add_library(Player
   player.cpp
 
   # AirPlay 2 packet handling and queuing
-  rtp.cpp spooler.cpp spool.cpp frames_request.cpp
+  reel.cpp spooler.cpp frame.cpp
 
   # FFT and peak detection
   fft.cpp peaks.cpp

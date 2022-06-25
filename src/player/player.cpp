@@ -18,7 +18,6 @@
 
 #include "player.hpp"
 #include "dmx/render.hpp"
-#include "frames_request.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
 
@@ -53,13 +52,11 @@ namespace errc = boost::system::errc;
 namespace ranges = std::ranges;
 
 Player::Player(asio::io_context &io_ctx)
-    : local_strand(io_ctx),                               // player serialized work
-      decode_strand(io_ctx),                              // decoder serialized work
-      spooler_strand(io_ctx),                             // spooler serialized work
-      watchdog_timer(dsp_io_ctx),                         // dsp threads shutdown
-      spooler(player::Spooler::create(io_ctx, moduleId)), // spooler
-      frames_request(player::FramesRequest::create()) {
-  frames_request->src = spooler;
+    : local_strand(io_ctx),                      // player serialized work
+      decode_strand(io_ctx),                     // decoder serialized work
+      spooler_strand(io_ctx),                    // spooler serialized work
+      watchdog_timer(dsp_io_ctx),                // dsp threads shutdown
+      spooler(player::Spooler::create(io_ctx)) { // create our spoooler
   // can not call member functions that use shared_from_this() in constructor
 }
 
@@ -67,7 +64,7 @@ Player::Player(asio::io_context &io_ctx)
 shPlayer Player::init(asio::io_context &io_ctx) {
   auto self = shared::player().emplace(new Player(io_ctx));
 
-  dmx::Render::init(io_ctx, self->frames_request);
+  dmx::Render::init(io_ctx, self->spooler);
   self->start();
 
   return self->shared_from_this();
@@ -79,9 +76,9 @@ void Player::reset() { shared::player().reset(); }
 // general API and member functions
 void Player::accept(packet::Basic &packet) { // static
   auto self = ptr();
-  shRTP frame = RTP::create(packet);
+  shFrame frame = Frame::create(packet);
 
-  frame->dump(false);
+  __LOGX("{}\n", Frame::inspect(frame));
 
   if (frame->keep(self->_flush)) {
     // 1. NOT flushed
@@ -92,11 +89,11 @@ void Player::accept(packet::Basic &packet) { // static
     // async decode
     asio::post(self->decode_strand, // serialize decodes due to single av ctx
                [frame = frame, &dsp_io_ctx = self->dsp_io_ctx]() mutable {
-                 RTP::decode(frame); // OK to run on separate thread, shared_ptr
+                 Frame::decode(frame); // OK to run on separate thread, shared_ptr
 
                  // find peaks using any available thread
                  asio::post(dsp_io_ctx, [frame = frame]() mutable {
-                   RTP::findPeaks(frame);
+                   Frame::findPeaks(frame);
                    frame->cleanup();
                  });
                });
@@ -104,7 +101,6 @@ void Player::accept(packet::Basic &packet) { // static
 }
 void Player::flush(const FlushRequest &request) { // static
   ptr()->spooler->flush(request);
-  dmx::Render::ptr()->flush(request);
 }
 
 void Player::run() {

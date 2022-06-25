@@ -21,15 +21,21 @@
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
 #include "player/flush_request.hpp"
+#include "player/frame_time.hpp"
 #include "player/peaks.hpp"
 #include "rtp_time/rtp_time.hpp"
 
+#include <future>
 #include <map>
 #include <memory>
 #include <ranges>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace pierre {
 namespace fra {
@@ -40,21 +46,26 @@ typedef std::vector<State> States;
 typedef std::vector<State> StateKeys;
 typedef std::map<State, size_t> StatsMap;
 
-constexpr auto EMPTY = csv("empty");
+constexpr auto ANCHOR_DELAY = csv("anchor_delay");
 constexpr auto DECODED = csv("decoded");
+constexpr auto EMPTY = csv("empty");
+constexpr auto ERROR = csv("error");
+constexpr auto FUTURE = csv("future");
+constexpr auto INVALID = csv("invalid");
+constexpr auto NONE = csv("none");
+constexpr auto NOT_READY = csv("not_ready");
 constexpr auto OUTDATED = csv("outdated");
 constexpr auto PLAYABLE = csv("playable");
 constexpr auto PLAYED = csv("played");
-constexpr auto FUTURE = csv("future");
-constexpr auto PURGEABLE = csv("purgeable");
 
 StateKeys &state_keys();
-
 } // namespace fra
 
 namespace player {
+
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 typedef std::shared_ptr<CipherBuff> shCipherBuff;
+typedef unsigned long long ullong_t;
 
 using Basic = packet::Basic;
 
@@ -104,82 +115,139 @@ N
 
 */
 
-class RTP;
-typedef std::shared_ptr<RTP> shRTP;
+class Frame;
+typedef std::shared_ptr<Frame> shFrame;
 
-class RTP : public std::enable_shared_from_this<RTP> {
+typedef std::promise<shFrame> FramePromise;
+typedef std::future<shFrame> FrameFuture;
+
+class Frame : public std::enable_shared_from_this<Frame> {
 private:
   static constexpr size_t PAYLOAD_MIN_SIZE = 24;
 
 private:
-  RTP(Basic &packet);
+  Frame(Basic &packet);
+  Frame(uint8_t version, fra::State state, bool silence)
+      : version(version), _state(state), _silence(silence) {}
 
 public:
-  RTP() = delete;
-  static shRTP create(Basic &packet);
-  static shRTP create(csv type);
+  // Object Creation
+  static shFrame create(Basic &packet) { //
+    return std::shared_ptr<Frame>(new Frame(packet));
+  }
+  static shFrame createSilence() { //
+    return std::shared_ptr<Frame>(new Frame(0x02, fra::PLAYABLE, true));
+  }
 
-  static size_t available(const fra::StatsMap &stats_map);
+  // Public API
   void cleanup() { _m.reset(); }
-
-  bool decipher();                      // sodium decipher packet
-  static void decode(shRTP rtp_packet); // definition must be in cpp
-  bool decoded() const { return _state == fra::DECODED; }
+  bool decipher();                   // sodium decipher packet
+  static void decode(shFrame frame); // definition must be in cpp
   void decodeOk() { _state = fra::DECODED; }
-  static bool empty(shRTP frame);
-  static void findPeaks(shRTP rtp_packet); // defnition must be in cpp
-  bool future() const { return _state == fra::FUTURE; }
-
+  static shFrame ensureFrame(shFrame frame) { return ok(frame) ? frame : createSilence(); }
+  static void findPeaks(shFrame frame); // defnition must be in cpp
   bool isReady() const { return _peaks_left.use_count() && _peaks_right.use_count(); }
-  static bool isTimeToPlay(shRTP rtp_packet);
-  static bool isTimeToPlay(shRTP rtp_packet, Nanos &diff);
   bool isValid() const { return version == 0x02; }
 
   bool keep(FlushRequest &flush);
 
   const Nanos localTimeDiff() const; // calculate diff between local and frame time
-  void markPlayed() { _state = fra::PLAYED; }
-  bool outdated() const { return _state == fra::OUTDATED; }
+  static shFrame markPlayed(shFrame frame, auto &played, auto &not_played) {
+    // note: when called on a nextFrame() it is safe to allow outdated frames
+    // because they passed FrameTimeDiff late check
+
+    if (ok(frame)) {
+      if (frame->stateEqual({fra::PLAYABLE, fra::OUTDATED})) {
+        frame->_state = fra::PLAYED;
+        ++played;
+      } else {
+        ++not_played;
+      }
+
+      return frame->shared_from_this();
+    }
+
+    ++not_played;
+    return frame;
+  }
+
+  // nextFrame() returns true when searching should stop; false to keep searching
+  bool nextFrame(const FrameTimeDiff &frame_time_diff, fra::StatsMap &stats_map);
 
   Basic &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
   shPeaks peaksLeft() { return _peaks_left; }
   shPeaks peaksRight() { return _peaks_right; }
-  static bool playable(shRTP frame);
-  bool played() const { return _state == fra::PLAYED; }
-  static fra::StateConst &stateVal(shRTP frame);
+
+  // state
+  bool decoded() const { return stateEqual(fra::DECODED); }
+  static bool empty(shFrame frame) { return ok(frame) && frame->stateEqual(fra::EMPTY); }
+  bool future() const { return stateEqual(fra::FUTURE); }
+  static bool ok(shFrame frame) { return frame.use_count(); }
+  bool outdated() const { return stateEqual(fra::OUTDATED); }
+  bool playable() const { return stateEqual(fra::PLAYABLE); }
+  bool played() const { return stateEqual(fra::PLAYED); }
+  bool purgeable() const { return stateEqual({fra::OUTDATED, fra::PLAYED}); }
+  bool silence() const { return _silence; }
+  static fra::StateConst &stateVal(shFrame frame);
   bool stateEqual(fra::StateConst &check) const { return check == _state; }
-  bool stateEqual(const fra::States &states) const;
-  shRTP stateNow(const Nanos &lead_ns);
+  bool stateEqual(const fra::States &states) const {
+    return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
+  }
+  bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
+
+  // stats
+
+  // create an empty StatsMap
   static fra::StatsMap statsMap();
-  void statsAdd(fra::StatsMap &stats_map) { ++stats_map[_state]; }
+
+  // add a state to a StatsMap
+  void statsAdd(fra::StatsMap &stats_map, fra::State override = fra::NONE) {
+    // use override, if specified
+    ++stats_map[(override == fra::NONE) ? _state : override];
+  }
+
+  // create a textual representation of the StatsMap
+  static auto &statsMsg(auto &msg, const fra::StatsMap &map) {
+    ranges::for_each(map, [w = std::back_inserter(msg)](auto &key_val) {
+      const auto &[key, val] = key_val;
+
+      if (val > 0) {
+        fmt::format_to(w, "{}={:<5} ", key, val);
+      }
+    });
+
+    return msg;
+  }
+
+  // determine if a frame is unplayed
 
   // class member functions
   static void shk(const Basic &key); // set class level shared key
   static void shkClear();
-  friend void swap(RTP &a, RTP &b); // swap specialization
+  friend void swap(Frame &a, Frame &b); // swap specialization
 
   // misc debug
-  // const string toString() const;
-  void dump(bool debug = true) const;
+  const string inspect() { return inspectFrame(shared_from_this()); }
+  static const string inspectFrame(shFrame frame, bool full = false);
 
 public:
   // order independent
-  uint8_t version;
-  bool padding;
-  bool extension;
-  uint8_t ssrc_count;
-  uint32_t seq_num;
-  uint32_t timestamp;
-  uint32_t ssrc;
+  uint8_t version = 0x00;
+  bool padding = false;
+  bool extension = false;
+  uint8_t ssrc_count = 0;
+  uint32_t seq_num = 0;
+  uint32_t timestamp = 0;
+  uint32_t ssrc = 0;
 
-  size_t decipher_len = 0;
+  ullong_t decipher_len = 0;
   shCipherBuff _m;
 
   int samples_per_channel = 0;
   int channels = 0;
 
-  Nanos local_time_diff{0};
+  Nanos local_time_diff = Nanos::zero();
 
 private:
   // order independent
@@ -190,8 +258,11 @@ private:
   packet::Basic _payload;
   shPeaks _peaks_left;
   shPeaks _peaks_right;
+  bool _silence = true;
 
-  static constexpr auto moduleId = csv("RTP");
+  static packet::Basic shared_key; // shared key
+
+  static constexpr auto moduleId = csv("FRAME");
 };
 
 } // namespace player

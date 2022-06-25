@@ -28,7 +28,7 @@ using namespace std::chrono_literals;
 
 struct Data {
   uint64_t rate = 0;
-  rtp_time::ClockID clockID = 0; // aka clock id
+  ClockID clockID = 0; // aka clock id
   uint64_t secs = 0;
   uint64_t frac = 0;
   uint64_t flags = 0;

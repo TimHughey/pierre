@@ -20,7 +20,7 @@
 //  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
 #include "conn_info/conn_info.hpp"
-#include "player/rtp.hpp"
+#include "player/frame.hpp"
 
 #include <chrono>
 #include <fmt/format.h>
@@ -37,7 +37,7 @@ std::optional<shConnInfo> &connInfo() { return __conn_info; }
 
 void ConnInfo::save(const StreamData &data) {
   stream_info = data;
-  player::RTP::shk(data.key);
+  player::Frame::shk(data.key);
 }
 
 } // namespace airplay

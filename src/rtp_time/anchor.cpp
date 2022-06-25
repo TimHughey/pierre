@@ -21,6 +21,7 @@
 #include "core/typedefs.hpp"
 #include "rtp_time/anchor/data.hpp"
 #include "rtp_time/clock.hpp"
+#include "rtp_time/rtp_time.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -41,7 +42,7 @@ using namespace std::chrono_literals;
 namespace chrono = std::chrono;
 
 // destructor, singleton static functions
-Anchor::~Anchor() { __LOG0("{} destructed\n", fnName()); }
+Anchor::~Anchor() { __LOG0("{:<18} destructed\n", Anchor::moduleId); }
 shAnchor Anchor::init() { return shared::anchor().emplace(new Anchor()); }
 shAnchor Anchor::ptr() { return shared::anchor().value()->shared_from_this(); }
 void Anchor::reset() { shared::anchor().reset(); }
@@ -49,11 +50,12 @@ void Anchor::reset() { shared::anchor().reset(); }
 // general API and member functions
 
 const anchor::Data &Anchor::getData() {
-  auto clock_info = MasterClock::ptr()->getInfo();
+  auto clock_info = MasterClock::getInfo();
   auto &actual = data(anchor::Entry::ACTUAL);
   auto &last = data(anchor::Entry::LAST);
   auto &recent = data(anchor::Entry::RECENT);
   auto &is_new = ptr()->_is_new;
+  auto now_ns = rtp_time::nowNanos();
 
   if (clock_info.ok() == false) { // master clock doesn't exist
     return anchor::INVALID_DATA;  // return default (invalid) info
@@ -71,30 +73,29 @@ const anchor::Data &Anchor::getData() {
     // if recent data (set via SET_ANCHOR message) isn't valid
     // nothing we can do, return INVALID_DATA
     if (recent.valid == false) {
-      __LOG0("{:<20} RECENT invalid\n", Anchor::moduleId);
+      __LOG0("{:<18} RECENT invalid\n", Anchor::moduleId);
       return anchor::INVALID_DATA;
     }
 
     // ok, we've confirmed the master clock and we have recent data
 
-    auto now_nanos = rtp_time::nowNanos();
-
     // are we already synced to this clock?
     if (clock_info.clockID == recent.clockID) {
-      if (clock_info.masterFor() < 1.5s) {
-        __LOG0("{} master too young {}\n", fnName(),
-               chrono::duration_cast<Seconds>(clock_info.masterFor()));
+      if (clock_info.masterFor(now_ns) < 1.5s) {
+        __LOG0("{:<18} master too young {}\n", Anchor::moduleId,
+               rtp_time::as_secs(clock_info.masterFor(now_ns)));
 
         return anchor::INVALID_DATA;
-      } else if ((last.valid == false) || (clock_info.masterFor() > 5s)) {
+
+      } else if ((last.valid == false) || (clock_info.masterFor(now_ns) > 5s)) {
         last = recent;
         last.localTime = Nanos(recent.networkTime - clock_info.rawOffset);
-        last.setLocalTimeAt(now_nanos); // capture when local time calculated
+        last.setLocalTimeAt(now_ns); // capture when local time calculated
 
         if (is_new) {
-          __LOG0("{} VALID clockId={:#x} {}\n", //
-                 fnName(), clock_info.clockID,
-                 chrono::duration_cast<Seconds>(now_nanos - clock_info.mastershipStartTime));
+          __LOG0("{:<18} VALID clockId={:#x} {}\n", //
+                 Anchor::moduleId, clock_info.clockID,
+                 rtp_time::as_secs(clock_info.masterFor(now_ns)));
 
           is_new = false;
         }
@@ -108,9 +109,9 @@ const anchor::Data &Anchor::getData() {
   // to the master clock
 
   if (is_new) { // log the anchor clock has changed since
-    __LOG0("{} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} {}\n", //
-           fnName(), is_new, recent.clockID, clock_info.clockID,            //
-           chrono::duration_cast<Seconds>(rtp_time::nowNanos() - clock_info.mastershipStartTime));
+    __LOG0("{:<18} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} {}\n", Anchor::moduleId,
+           is_new, recent.clockID, clock_info.clockID,
+           rtp_time::as_secs(clock_info.masterFor(now_ns)));
   }
 
   if (last.valid && (is_new == false)) {
@@ -118,8 +119,9 @@ const anchor::Data &Anchor::getData() {
       recent.networkTime = last.localAtNanos.count() + clock_info.rawOffset;
 
       if (clock_info.clockID == actual.clockID) { // original anchor clock is master again
-        __LOG0("{} master == anchor clockId={:#x} deviation={}\n", fnName(), clock_info.clockID,
-               chrono::duration_cast<Seconds>(Nanos(recent.networkTime - actual.networkTime)));
+        __LOG0("{:<18} master == anchor clockId={:#x} deviation={}\n", //
+               Anchor::moduleId, clock_info.clockID,
+               rtp_time::as_secs(Nanos(recent.networkTime - actual.networkTime)));
       }
 
       recent = actual; // switch back to the actual clock
@@ -159,14 +161,14 @@ void Anchor::save(anchor::Data &ad) {
   if ((ad <=> recent) < 0) { // this is a new anchor clock
     _is_new = true;
 
-    __LOG0("{} NEW clock=0x{:x}\n", moduleId, ad.clockID);
+    __LOG0("{:<18} NEW clock=0x{:x}\n", moduleId, ad.clockID);
   }
 
   if ((ad <=> recent) > 0) { // known anchor clock details have changed
     if (last.valid && (last.validFor() < 5s)) {
       last.valid = false;
 
-      __LOG0("{} change before stablized clockId={:#x}\n", moduleId, ad.clockID);
+      __LOG0("{:<18} change before stablized clockId={:#x}\n", moduleId, ad.clockID);
     }
   }
 

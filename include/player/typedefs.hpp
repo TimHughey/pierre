@@ -30,7 +30,6 @@ typedef std::vector<float> Reals;
 
 constexpr auto NOT_PLAYING = false;
 constexpr auto PLAYING = true;
-constexpr auto SILENCE = csv("silence");
 
 } // namespace player
 } // namespace pierre

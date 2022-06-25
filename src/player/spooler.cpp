@@ -18,8 +18,8 @@
 
 #include "player/spooler.hpp"
 #include "player/flush_request.hpp"
-#include "player/frames_request.hpp"
-#include "player/rtp.hpp"
+#include "player/frame.hpp"
+#include "player/reel.hpp"
 #include "player/typedefs.hpp"
 
 #include <algorithm>
@@ -42,138 +42,80 @@ namespace asio = boost::asio;
 namespace errc = boost::system::errc;
 namespace ranges = std::ranges;
 
-static std::atomic_uint64_t SERIAL = 0x1000;
-
-Spooler::Spooler(asio::io_context &io_ctx, csv id)
-    : spooler_strand(io_ctx) // serialize container actions
-{
-  fmt::format_to(std::back_inserter(_module_id), "{} SPOOLER", id);
-}
-
-shSpooler Spooler::create(asio::io_context &io_ctx, csv id) { // static
-  return shSpooler(new Spooler(io_ctx, id));
-}
-
 // general API and member functions
-shSpool Spooler::add() { return _spools.emplace_back(Spool::create(++SERIAL)); }
-
-size_t Spooler::firstSpoolAvailableFrames() const {
-  if (_spools.empty()) {
-    return 0;
-  }
-
-  return _spools.front()->framesAvailable();
-}
 
 void Spooler::flush(const FlushRequest &request) {
-  asio::post(spooler_strand, // serialize spools actions
-             [self = shared_from_this(), request = request]() mutable {
-               auto &spools = self->_spools; // save typing below
+  asio::post(load_strand, // serialize Reels r_load actions
+             [self = shared_from_this(), request = request]() {
+               self->flushReels(request, self->r_load);
+             });
 
-               if (spools.empty()) { // nothing to flush
-                 return;
-               }
-
-               // create new spools containing the desired seq_nums
-               Spools spools_keep;
-
-               // transfer un-flushed rtp_packets to new spools
-               ranges::for_each(spools, [&](shSpool spool) {
-                 auto keep = spool->flush(request); // spool has frames
-
-                 __LOG0("{}\n", spool->statsMsg());
-
-                 if (keep) {
-                   spools_keep.emplace_back(spool);
-                 }
-               });
-
-               // swap kept spools
-               std::swap(spools_keep, spools);
-
-               __LOG0("{}\n", self->statsMsg());
+  asio::post(unload_strand, // serialize Reels r_load actions
+             [self = shared_from_this(), request = request]() {
+               self->flushReels(request, self->r_unload);
              });
 }
 
-size_t Spooler::frameCount() const {
-  size_t count = 0;
+shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
+  // do we need a reel?
+  requisition.ifNeeded();
 
-  ranges::for_each(_spools, [&](shSpool spool) { //
-    count += spool->frameCount();
+  shFrame frame;
+
+  // look through all available reels for the next frame
+  // no need to capture the result, frame is set within the find
+  ranges::find_if(r_unload, [&frame = frame, &ftd = ftd](shReel reel) {
+    frame = reel->nextFrame(ftd);
+
+    // if frame is ok then stop finding, otherwise keep searching
+    return Frame::ok(frame);
   });
 
-  return count;
+  // clean up empty reels
+  auto erased = std::erase_if(r_unload, [](shReel reel) { return reel->empty(); });
+
+  if (erased) {
+    __LOG0("{:<18} reels erased={}\n", moduleId(), erased);
+  }
+
+  return Frame::ok(frame) ? frame->shared_from_this() : frame;
+
+  // return f != r_unload.end() ? frame->shared_from_this() : shFrame();
 }
 
-shRTP Spooler::nextFrame(const Nanos lead_ns) {
-  shRTP frame;
-  std::vector<shSpool> cleanup;
+shFrame Spooler::queueFrame(shFrame frame) {
+  asio::post(load_strand, // guard with reels strand
+             [&dst = r_load, frame = frame]() {
+               shReel dst_reel = dst.empty() //
+                                     ? dst.emplace_back(Reel::create())
+                                     : dst.back()->shared_from_this();
 
-  for (auto spool : _spools) {
-    if (spool->framesAvailable()) {
-      frame = spool->nextFrame(lead_ns);
-    } else {
-      cleanup.emplace_back(spool);
-    }
-  }
-
-  ranges::for_each(cleanup, [&](shSpool spool) {
-    if (auto purge = ranges::find(_spools, spool); purge != _spools.end()) {
-      shSpool spool = *purge; // reminder: purge is an iterator
-      __LOG0("{:<18} purging {}\n", moduleId(), spool->statsMsg());
-      _spools.erase(purge); // erase requires an iterator
-    }
-  });
-
-  if (RTP::empty(frame)) {
-    __LOGX("{} no playable frame located\n", moduleId());
-  }
+               dst_reel->addFrame(frame);
+             });
 
   return frame;
 }
 
-shRTP Spooler::queueFrame(shRTP frame) {
-  asio::post(spooler_strand, [self = shared_from_this(), frame = frame]() mutable {
-    auto &spools = self->_spools;
-    auto spool = spools.empty() ? self->add() : spools.back();
+// misc debug, stats
 
-    spool->addFrame(frame);
+const string Spooler::inspect() const {
+  const auto &INDENT = __LOG_MODULE_ID_INDENT;
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  fmt::format_to(w, "{:<12} load={:<3} unload={:<3}\n", csv("REEL"), r_load.size(),
+                 r_unload.size());
+
+  ranges::for_each(r_load, [w = w](shReel reel) {
+    fmt::format_to(w, "{} {:<12} {}\n", INDENT, reel->moduleId(), Reel::inspect(reel));
   });
 
-  return frame;
-}
+  ranges::for_each(r_unload, [w = w](shReel reel) {
+    fmt::format_to(w, "{} {:<12} {}\n", INDENT, reel->moduleId(), Reel::inspect(reel));
+  });
 
-const string Spooler::statsMsg() const {
-  static int64_t frames_last = 0;
-
-  uint32_t seq_a = 0, seq_b = 0;
-  uint64_t ts_a = 0, ts_b = 0;
-
-  if (_spools.empty() == false) { // spools could be empty
-    const auto &rtp_a = _spools.front()->front();
-    const auto &rtp_b = _spools.back()->back();
-
-    seq_a = rtp_a->seq_num;
-    seq_b = rtp_b->seq_num;
-
-    ts_a = rtp_a->timestamp;
-    ts_b = rtp_b->timestamp;
-  }
-
-  const int64_t frames_now = frameCount();
-  const int64_t diff = frames_now - frames_last;
-  frames_last = frames_now; // record the current size for delta calc
-
-  return fmt::format(
-      "{:<18} spools={:02} frames={:<5} diff={:>+6} seq_a/b={:>8}/{:<8} ts_a/b={:>12}/{:<12}",
-      moduleId(),                       // standard logging prefix
-      _spools.size(), frames_now, diff, // spool count, total frames and diff
-      seq_a, seq_b,                     // general stats and seq_nums
-      ts_a, ts_b);                      // timestamps
-}
-
-void Spooler::statsAsync() {
-  asio::post(spooler_strand, [self = shared_from_this()]() { __LOG0("{}\n", self->statsMsg()); });
+  return msg;
 }
 
 } // namespace player

@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "player/rtp.hpp"
+#include "player/frame.hpp"
 #include "core/input_info.hpp"
 #include "packet/basic.hpp"
 #include "player/av.hpp"
@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <iterator>
 #include <mutex>
@@ -36,36 +37,19 @@
 #include <utility>
 #include <vector>
 
-namespace pierre {
+namespace chrono = std::chrono;
+namespace ranges = std::ranges;
 
+namespace pierre {
 namespace fra {
 StateKeys &stateKeys() {
-  static auto keys = StateKeys{DECODED, OUTDATED, PLAYABLE, PLAYED, FUTURE};
+  static auto keys = StateKeys{DECODED, OUTDATED, PLAYABLE, PLAYED};
 
   return keys;
 }
 } // namespace fra
 
 namespace player {
-
-namespace chrono = std::chrono;
-namespace ranges = std::ranges;
-
-namespace rtp {
-uint32_t to_uint32(Basic::iterator begin, long int count) {
-  uint32_t val = 0;
-  size_t shift = (count - 1) * 8;
-
-  for (auto it = std::counted_iterator{begin, count}; it != std::default_sentinel;
-       ++it, shift -= 8) {
-    val += *it << shift;
-  }
-
-  return val;
-}
-
-packet::Basic shk; // class level shared key
-} // namespace rtp
 
 namespace av { // encapsulation of libav*
 
@@ -74,8 +58,9 @@ void check_nullptr(void *ptr);
 void debugDump();
 void init(); // throws on alloc failures
 uint8_t *mBuffer();
-void parse(shRTP rtp);
-bool keep(const CipherBuff &m, size_t decipher_len, int used, AVPacket *pkt);
+void parse(shFrame frame);
+bool keep(shFrame frame, int used);
+constexpr auto moduleId = csv("av::FRAME");
 
 // namespace globals
 AVCodec *codec = nullptr;
@@ -152,41 +137,43 @@ void init() {
   });
 }
 
-bool keep(shRTP rtp, int used) {
-  auto m = rtp->_m->data();
-  size_t packet_size = rtp->decipher_len + ADTS_HEADER_SIZE;
+bool keep(shFrame frame, int used) {
+  auto rc = true; // keep frame unless checks fail
+  auto m = frame->_m->data();
+  int32_t packet_size = frame->decipher_len + ADTS_HEADER_SIZE;
 
-  if (used < 0) {
-    __LOG0("{} failed used={:<6} size={:<6}\n", fnName(), used, packet_size);
-    return false;
-  }
+  if ((used < 0) || (used != packet_size) || (pkt->size == 0)) {
+    rc = false;
 
-  if (used != (int32_t)packet_size) {
-    __LOG0("{} incomplete used={:<6} size={:<6} diff={:+6}\n", //
-           fnName(), used, packet_size, int32_t(packet_size - used));
-    return false;
-  }
-
-  if (pkt->size == 0) {
-    __LOG0("{} AAC malformed packet used={} size={}\n", fnName(), used, packet_size);
+    constexpr auto decipher = csv("DECIPHER FAILED");
+    constexpr auto malformed = csv("AAC MALFORMED");
 
     string msg;
     auto w = std::back_inserter(msg);
+    fmt::format_to(w, "{:<18}", moduleId);
+    fmt::format_to(w, " {} used={:<6} size={:<6}",        // fmt
+                   pkt->size == 0 ? malformed : decipher, // log reason
+                   used, packet_size);
 
-    for (size_t idx = 0; idx < packet_size; idx++) {
-      if (idx % 5) {
-        fmt::format_to(w, "\n{} ", __LOG_PREFIX);
+    // add used vs. packet size (if needed)
+    if (int32_t diff = packet_size - used; diff && (used > 0) && pkt->size) {
+      fmt::format_to(w, " diff={:+6}", diff);
+    }
+
+    if (pkt->size == 0) { // AAC malformed, dump packet bytes
+      for (auto idx = 0; idx < packet_size; idx++) {
+        if ((idx % 5) || (idx == 0)) { // new bytes row
+          fmt::format_to(w, "\n{} ", __LOG_PREFIX);
+        }
+
+        fmt::format_to(w, "[{:<02}]0x{:<02x} ", idx, m[idx]);
       }
-
-      fmt::format_to(w, "[{:<02}]0x{:<02x} ", idx, m[idx]);
     }
 
     __LOG0("{}\n", msg);
+  } // end of debug logging
 
-    return false;
-  }
-
-  return true;
+  return rc;
 }
 
 uint8_t *mBuffer(shCipherBuff m) {
@@ -194,21 +181,18 @@ uint8_t *mBuffer(shCipherBuff m) {
   return m->data() + ADTS_HEADER_SIZE;
 }
 
-void parse(shRTP rtp) {
-  if (rtp.use_count() == 1) { // packet is no longer in queue
-    if (true) {               // debug
-      constexpr auto f = FMT_STRING("{} {} rtp_packet not queued, skipping decode\n");
-      fmt::print(f, runTicks(), fnName());
-    }
+void parse(shFrame frame) {
+  if (frame.use_count() == 1) { // packet is no longer in queue
+    __LOG0("{:<18} not queued, skipping decode\n", moduleId);
     return;
   }
 
   init(); // guarded by call_once
-  auto &payload = rtp->payload();
+  auto &payload = frame->payload();
   payload.clear(); // payload will be empty on error
 
-  auto m = rtp->_m.get()->data();
-  auto decipher_len = rtp->decipher_len;
+  auto m = frame->_m.get()->data();
+  auto decipher_len = frame->decipher_len;
 
   // NOTE: the size of the packet is the deciphered len AND the ADTS header
   const size_t packet_size = decipher_len + ADTS_HEADER_SIZE;
@@ -232,7 +216,7 @@ void parse(shRTP rtp) {
                                AV_NOPTS_VALUE, // dts
                                0);             // pos
 
-  if (keep(rtp, used) == false) {
+  if (keep(frame, used) == false) {
     return;
   }
 
@@ -240,8 +224,8 @@ void parse(shRTP rtp) {
   ret = avcodec_send_packet(codec_ctx, pkt);
 
   if (ret < 0) {
-    __LOG0("{} AV send packet failed decipher_len={} size={} flags={:#b} rc=0x{:x}\n", //
-           fnName(), decipher_len, pkt->size, pkt->flags, ret);
+    __LOG0("{:<18} AV send packet failed decipher_len={} size={} flags={:#b} rc=0x{:x}\n", //
+           moduleId, decipher_len, pkt->size, pkt->flags, ret);
     return;
   }
 
@@ -249,20 +233,20 @@ void parse(shRTP rtp) {
   ret = avcodec_receive_frame(codec_ctx, decoded_frame);
 
   if (ret != 0) {
-    __LOG0("{} avcodec_receive_frame={}\n", fnName(), ret);
+    __LOG0("{:<18} avcodec_receive_frame={}\n", moduleId, ret);
     return;
   }
 
-  rtp->channels = codec_ctx->channels;
+  frame->channels = codec_ctx->channels;
 
   av_samples_alloc(&pcm_audio,                // pointer to PCM samples
                    &dst_linesize,             // pointer to calculated linesize ?
-                   rtp->channels,             // num of channels
+                   frame->channels,           // num of channels
                    decoded_frame->nb_samples, // num of samples
                    AV_FORMAT_OUT,             // desired format (see const above)
                    0);                        // default alignment
 
-  rtp->samples_per_channel = swr_convert(             // perform the software resample
+  frame->samples_per_channel = swr_convert(           // perform the software resample
       swr,                                            // software resample ctx
       &pcm_audio,                                     // put processed samples here
       decoded_frame->nb_samples,                      // output this many samples
@@ -271,17 +255,17 @@ void parse(shRTP rtp) {
 
   auto dst_bufsize = av_samples_get_buffer_size // determine required buffer
       (&dst_linesize,                           // calc'ed linesize
-       rtp->channels,                           // num of channels
-       rtp->samples_per_channel,                // num of samples/channel (from swr_convert)
+       frame->channels,                         // num of channels
+       frame->samples_per_channel,              // num of samples/channel (from swr_convert)
        AV_FORMAT_OUT,                           // desired format (see const above)
        1);                                      // default alignment
 
   { // debug
     constexpr uint8_t MAX_REPORT = 1;
     static uint8_t count = 0;
-    if (count < MAX_REPORT) {                                                    // debug
-      __LOG0("{} ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
-             fnName(), ret, rtp->channels, rtp->samples_per_channel, dst_bufsize);
+    if (count < MAX_REPORT) {
+      __LOG0("{:<18} ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
+             moduleId, ret, frame->channels, frame->samples_per_channel, dst_bufsize);
 
       ++count;
     }
@@ -296,14 +280,14 @@ void parse(shRTP rtp) {
       static int count = 0;
 
       if (count < MAX_REPORTS) {
-        __LOG0("{} pcm data={} buf_size={:<5} payload_size={}\n", //
-               fnName(), fmt::ptr(pcm_audio), dst_bufsize, payload.size());
+        __LOG0("{:<18} pcm data={} buf_size={:<5} payload_size={}\n", //
+               moduleId, fmt::ptr(pcm_audio), dst_bufsize, payload.size());
 
         ++count;
       }
     }
 
-    rtp->decodeOk();
+    frame->decodeOk();
   }
 
   if (decoded_frame) {
@@ -317,7 +301,22 @@ void parse(shRTP rtp) {
 
 } // namespace av
 
-RTP::RTP(packet::Basic &packet) {
+// frame helpers
+uint32_t to_uint32(Basic::iterator begin, long int count) {
+  uint32_t val = 0;
+  size_t shift = (count - 1) * 8;
+
+  for (auto it = std::counted_iterator{begin, count}; it != std::default_sentinel;
+       ++it, shift -= 8) {
+    val += *it << shift;
+  }
+
+  return val;
+}
+
+packet::Basic Frame::shared_key; // class level shared key
+
+Frame::Frame(packet::Basic &packet) {
   uint8_t byte0 = packet[0]; // first byte to pick bits from
 
   version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
@@ -325,9 +324,9 @@ RTP::RTP(packet::Basic &packet) {
   extension = ((byte0 & 0b00010000) >> 4); // has extension
   ssrc_count = ((byte0 & 0b00001111));     // source system record count
 
-  seq_num = rtp::to_uint32(packet.begin() + 1, 3);   // note: onlythree bytes
-  timestamp = rtp::to_uint32(packet.begin() + 4, 4); // four bytes
-  ssrc = rtp::to_uint32(packet.begin() + 8, 4);      // four bytes
+  seq_num = to_uint32(packet.begin() + 1, 3);   // note: only three bytes
+  timestamp = to_uint32(packet.begin() + 4, 4); // four bytes
+  ssrc = to_uint32(packet.begin() + 8, 4);      // four bytes
 
   // grab the end of the packet, we need it for several parts
   packet::Basic::iterator packet_end = packet.begin() + packet.size();
@@ -335,8 +334,7 @@ RTP::RTP(packet::Basic &packet) {
   // nonce is the last eight (8) bytes
   // a complete nonce is 12 bytes so zero pad then append the mini nonce
   _nonce.assign(4, 0x00);
-  auto nonce_inserter = std::back_inserter(_nonce);
-  ranges::copy_n(packet_end - 8, 8, nonce_inserter);
+  ranges::copy_n(packet_end - 8, 8, std::back_inserter(_nonce));
 
   // tag is 24 bytes from end and 16 bytes in length
   packet::Basic::iterator tag_begin = packet_end - 24;
@@ -356,7 +354,7 @@ RTP::RTP(packet::Basic &packet) {
 }
 
 // std::swap specialization (friend)
-void swap(RTP &a, RTP &b) {
+void swap(Frame &a, Frame &b) {
   using std::swap;
 
   // trivial values
@@ -389,99 +387,56 @@ void swap(RTP &a, RTP &b) {
  * NOTE: the payload size must include the ADTS header size
  */
 
-// static functions to create a new RTP
+// general API and member functions
 
-shRTP RTP::create(packet::Basic &packet) { // static
-  return std::shared_ptr<RTP>(new RTP(packet));
-}
-
-shRTP RTP::create(csv type) { // static
-  packet::Basic empty;
-  empty.assign(PAYLOAD_MIN_SIZE, 0x00);
-
-  if (type == player::SILENCE) {
-    auto frame = create(empty);
-    frame->_state = fra::PLAYABLE;
-    frame->local_time_diff = Nanos(0);
-    return frame;
-  }
-
-  return shRTP();
-}
-
-// genereal API and member functions
-
-size_t RTP::available(const fra::StatsMap &stats_map) { // static
-  static const fra::StateKeys want_states{fra::DECODED, fra::PLAYABLE, fra::FUTURE};
-
-  size_t count = 0;
-  ranges::for_each(want_states, [&](const auto &state) { count += stats_map.at(state); });
-
-  return count;
-}
-
-bool RTP::empty(shRTP frame) { // static
-  auto rc = true;
-  if (frame.use_count()) {
-    rc = frame->_state == fra::EMPTY;
-  }
-
-  return rc;
-}
-
-bool RTP::decipher() {
-  if (rtp::shk.empty()) {
-    __LOG0("{} shk empty\n", fnName());
+bool Frame::decipher() {
+  if (shared_key.empty()) {
+    __LOG0("{:<18} shared key empty\n", moduleId);
 
     return false;
   }
 
   _m = std::make_shared<CipherBuff>();
 
-  unsigned long long len = 0; // deciphered length
-  auto cipher_rc =            // -1 == failure
+  auto cipher_rc = // -1 == failure
       crypto_aead_chacha20poly1305_ietf_decrypt(
-          av::mBuffer(_m),                   // m (av leaves room for ADTS)
-          &len,                              // bytes deciphered
-          nullptr,                           // nanoseconds (unused, must be nullptr)
-          _payload.data(),                   // ciphered data
-          _payload.size(),                   // ciphered length
-          _aad.data(),                       // authenticated additional data
-          _aad.size(),                       // authenticated additional data length
-          _nonce.data(),                     // the nonce
-          (const uint8_t *)rtp::shk.data()); // shared key (from SETUP message)
-
-  decipher_len = (size_t)len; // convert chacha len to something more reasonable
+          av::mBuffer(_m),                    // m (av leaves room for ADTS)
+          &decipher_len,                      // bytes deciphered
+          nullptr,                            // nanoseconds (unused, must be nullptr)
+          _payload.data(),                    // ciphered data
+          _payload.size(),                    // ciphered length
+          _aad.data(),                        // authenticated additional data
+          _aad.size(),                        // authenticated additional data length
+          _nonce.data(),                      // the nonce
+          (const uint8_t *)shared_key.raw()); // shared key (from SETUP message)
 
   if (cipher_rc < 0) {
     static bool __reported = false; // only report cipher error once
 
-    const auto reason = (decipher_len == 0) ? csv("EMPTY") : csv("ERROR");
-
     if (!__reported) {
-      __LOG0("{} size={} rc={} decipher_len={} \n", //
-             fnName(), reason, _payload.size(), cipher_rc, decipher_len);
+      __LOG0("{:<18} decipher size={} rc={} decipher_len={} \n", //
+             moduleId, _payload.size(), cipher_rc, decipher_len == 0 ? fra::EMPTY : fra::ERROR);
       __reported = true;
     }
 
     return false;
   }
 
-  __LOGX("{} OK rc={} decipher/cipher{:>6}/{:>6}\n", //
-         fnName(), cipher_rc, decipher_len, _payload.size());
+  __LOGX("{:<18} decipher OK rc={} decipher/cipher{:>6}/{:>6}\n", //
+         moduleId, cipher_rc, decipher_len, _payload.size());
 
   return true;
 }
 
-void RTP::decode(shRTP rtp_packet) {
+void Frame::decode(shFrame frame) {
   // function definition must be in this file due to deliberate limited visibility of
   // av namespace
-  av::parse(rtp_packet);
+  av::parse(frame);
 }
 
-void RTP::findPeaks(shRTP rtp_packet) {
-  auto &payload = rtp_packet->_payload;
-  const auto samples_per_channel = rtp_packet->samples_per_channel;
+void Frame::findPeaks(shFrame frame) {
+  auto &payload = frame->_payload;
+  const auto samples_per_channel = frame->samples_per_channel;
 
   FFT fft_left(samples_per_channel, InputInfo::rate);
   FFT fft_right(samples_per_channel, InputInfo::rate);
@@ -510,15 +465,17 @@ void RTP::findPeaks(shRTP rtp_packet) {
   fft_left.process();
   fft_right.process();
 
-  rtp_packet->_peaks_left = fft_left.findPeaks();
-  rtp_packet->_peaks_right = fft_right.findPeaks();
+  frame->_peaks_left = fft_left.findPeaks();
+  frame->_peaks_right = fft_right.findPeaks();
 
-  // clear the payload
+  frame->_silence = Peaks::silence(frame->peaksLeft()) && Peaks::silence(frame->peaksRight());
+
+  // really clear the payload (prevent lingering memory allocations)
   packet::Basic empty;
   std::swap(empty, payload);
 }
 
-bool RTP::keep(FlushRequest &flush) {
+bool Frame::keep(FlushRequest &flush) {
   if (isValid() == false) {
     __LOG0("{} invalid version=0x{:02x}\n", moduleId, version);
 
@@ -540,7 +497,7 @@ bool RTP::keep(FlushRequest &flush) {
   return (decipher() && (decipher_len > 0));
 }
 
-const Nanos RTP::localTimeDiff() const {
+const Nanos Frame::localTimeDiff() const {
   const auto &anchor_data = Anchor::getData();
   const auto net_time_ns = anchor_data.netTimeNow();
   const auto frame_time_ns = anchor_data.frameLocalTime(timestamp);
@@ -552,86 +509,117 @@ const Nanos RTP::localTimeDiff() const {
   }
 }
 
-bool RTP::playable(shRTP frame) { // static
-  return (frame.use_count() && (frame->_state == fra::PLAYABLE));
-}
+bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
+  auto rc = true;               // true: stop searching, false: keep searching
+  const bool ready = isReady(); // cache value in case it changes during this function
+  fra::State state_override = fra::NONE;
 
-bool RTP::stateEqual(const fra::States &states) const {
-  return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
-}
+  if (timestamp && seq_num && ready) {                             // frame is legit
+    if (const auto diff = localTimeDiff(); diff != Nanos::min()) { // anchor is ready
 
-shRTP RTP::stateNow(const Nanos &lead_ns) {
-  if (timestamp && seq_num) { // frame is legit
-    const auto diff = localTimeDiff();
+      // determine if the state of the frame should be changed based on local time diff
+      // we only want to look at specific frame states
+      if (rc = stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); rc == true) {
+        local_time_diff = diff; // set local_time_diff for debugging
 
-    if (diff == Nanos::min()) { // anchor data not ready
-      return create(SILENCE);
-    }
+        if (diff <= ftd.old) {    // very old, not reasonable to consider for playing
+          _state = fra::OUTDATED; // mark as outdated
+          rc = false;             // keep searching
 
-    // handle decoded, playable and future frames
-    if (stateEqual({fra::DECODED, fra::PLAYABLE, fra::FUTURE})) {
-      local_time_diff = diff;
+        } else if ((diff >= ftd.late) && (diff < Nanos::zero())) { // before lead time
+          // frame maybe playable or usable for out-of-sync correction
+          // stop searching (default rc) and allow the caller to decide what to do
+          // this frame will not be considered on subsequent calls to nextFrame()
+          // once marked as outdated
+          _state = fra::OUTDATED;
 
-      // note: state unchanged when if statements are false
-      if (diff < Nanos::zero()) { // too old
-        _state = fra::OUTDATED;
-        __LOGX("{} state={:<10} seq_num={:<8} diff={}\n", moduleId, _state, seq_num,
-               chrono::duration_cast<MillisFP>(local_time_diff));
+        } else if (diff <= ftd.lead) { // within lead time range
+          _state = fra::PLAYABLE;      // mark as playable
 
-      } else if (diff <= lead_ns) { // ready to play
-        _state = fra::PLAYABLE;
-      } else if (diff > lead_ns) { // time to play missed
+        } else if ((diff > ftd.lead) && (_state == fra::DECODED)) { // future frame
+          // don't change the frame state, set override
+          _state = fra::FUTURE;
+        }
 
-        _state = fra::FUTURE;
-        __LOGX("{} state={:<10} seq_num={:<8} diff={}\n", moduleId, _state, seq_num,
-               chrono::duration_cast<MillisFP>(local_time_diff));
-      }
-    }
+        __LOGX("{:<18} {}\n", moduleId, inspect());
+      } // end frame state update
+    } else {
+      // anchor wasn't ready, set state override
+      state_override = fra::ANCHOR_DELAY;
+    } // end frame local time diff check
+  } else {
+    // frame failed valid or ready
+    // if frame was ready then it must have been invalid, set state override
+    state_override = ready ? fra::INVALID : fra::NOT_READY;
   }
-  return shared_from_this();
+
+  // update stats based on the frame state or the state override
+  statsAdd(stats_map, state_override);
+
+  // NOTE:
+  // return value designed for use with ranges::find_if: true == found; false == not found
+  // the caller will decide how to use this frame,  for example: play if playable, if late
+  // potentially quickly call nextFrame() to determine if this frame should play or
+  // the time diff can be used to correct an out-of-sync condition
+
+  return rc;
 }
 
-fra::StateConst &RTP::stateVal(shRTP frame) { // static
-
-  if (frame.use_count()) {
-    return frame->_state;
-  }
-
-  return fra::EMPTY;
+fra::StateConst &Frame::stateVal(shFrame frame) { // static
+  return frame.use_count() ? frame->_state : fra::EMPTY;
 }
 
-fra::StatsMap RTP::statsMap() { // static
-  fra::StatsMap stats_map;
+fra::StatsMap Frame::statsMap() { // static
+  const std::vector<fra::State>   // possible states
+      keys{fra::ANCHOR_DELAY, fra::FUTURE, fra::NOT_READY, fra::OUTDATED, fra::PLAYED};
 
-  std::ranges::for_each(fra::stateKeys(), [&](auto state) { //
-    stats_map.try_emplace(state, 0);
+  fra::StatsMap map;
+
+  ranges::for_each(keys, [&](auto state) { //
+    map.try_emplace(state, 0);
   });
 
-  return stats_map;
+  return map;
 }
 
 // misc debug
+const string Frame::inspectFrame(shFrame frame, bool full) { // static
+  string msg;
+  auto w = std::back_inserter(msg);
 
-void RTP::dump(bool debug) const {
-  if (!debug) {
-    return;
+  if (frame.use_count() == 0) { // shared ptr is empty
+    fmt::format_to(w, " <empty>");
+  } else {
+    if (full == true) {
+      fmt::format_to(w, " vsn={} pad={} ext={} ssrc={} size={:>4}", //
+                     frame->version, frame->padding, frame->extension, frame->ssrc_count,
+                     frame->payloadSize());
+    }
+
+    fmt::format_to(w, " seq_num={:<8} ts={:<12} state={:<10} use_count={} ready={}", //
+                   frame->seq_num, frame->timestamp, frame->_state, frame.use_count(),
+                   frame->isReady());
+
+    if (frame->local_time_diff != Nanos::min()) {
+      fmt::format_to(w, " diff={:7.2}", rtp_time::as_millis_fp(frame->local_time_diff));
+    }
+
+    if (frame->silence()) {
+      fmt::format_to(w, " silence=true");
+    }
   }
 
-  __LOG0("{} vsn={} pad={} ext={} ssrc_count={} payload_size={:>4} seq_num={:>8} ts={:>12}\n",
-         moduleId, version, padding, extension, ssrc_count, payloadSize(), seq_num, timestamp);
+  return msg;
 }
 
 // class static data
-void RTP::shk(const Basic &key) {
-  rtp::shk = key;
+void Frame::shk(const Basic &key) {
+  shared_key = key;
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} size={}\n");
-    fmt::print(f, runTicks(), fnName(), rtp::shk.size());
-  }
+  __LOGX("{:<18} size={}\n", "SHARED KEY", shared_key.size());
 }
 
-void RTP::shkClear() { rtp::shk.clear(); }
+void Frame::shkClear() { shared_key.clear(); }
 
 } // namespace player
 } // namespace pierre

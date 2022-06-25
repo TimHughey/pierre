@@ -88,7 +88,7 @@ bool Setup::handleNoStreams() {
     conn->groupContainsGroupLeader = rdict.boolVal({dk::GROUP_LEADER});
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
-    MasterClock::ptr()->peers(peers);
+    MasterClock::peers(peers);
 
     Aplist peer_info;
 

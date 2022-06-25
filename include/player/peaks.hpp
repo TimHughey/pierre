@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "core/typedefs.hpp"
 #include "misc/minmax.hpp"
 
 #include <memory>
@@ -145,10 +146,12 @@ private:
   static peak::Config _cfg;
 };
 
+class Peaks;
+typedef std::shared_ptr<Peaks> shPeaks;
+
 class Peaks : public std::enable_shared_from_this<Peaks> {
 public:
-  static std::shared_ptr<Peaks> create();
-  std::shared_ptr<Peaks> ptr() { return shared_from_this(); }
+  static shPeaks create();
   ~Peaks() = default;
 
 private:
@@ -196,16 +199,28 @@ public:
 
   const Peak peakN(const PeakN n) const;
   void push_back(const Peak &peak) { _peaks.push_back(peak); }
-  bool silence() const { return hasPeak(1) == false; }
+  static bool silence(shPeaks peaks) {
+    auto rc = true;
+
+    if (peaks.use_count()) {
+      rc = !peaks->hasPeak(1);
+    }
+
+    __LOGX("{:<18} use_count={} hasPeak={}\n", moduleId, //
+           peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : "NA");
+
+    return rc;
+  }
+
   auto size() const { return _peaks.size(); }
 
   std::shared_ptr<Peaks> sort();
 
 private:
   std::vector<Peak> _peaks;
-};
 
-typedef std::shared_ptr<Peaks> shPeaks;
+  static constexpr csv moduleId = csv("PEAKS");
+};
 
 } // namespace player
 } // namespace pierre

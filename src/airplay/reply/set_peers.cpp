@@ -40,8 +40,8 @@ bool SetPeers::populate() {
     return false;
   }
 
-  MasterClock::ptr()->peers(peers); // set the peer lists
-  responseCode(RespCode::OK);       // indicate success
+  MasterClock::peers(peers);  // set the peer lists
+  responseCode(RespCode::OK); // indicate success
   return true;
 }
 

@@ -25,7 +25,6 @@
 #include "core/typedefs.hpp"
 #include "packet/basic.hpp"
 #include "player/flush_request.hpp"
-#include "player/frames_request.hpp"
 #include "player/spooler.hpp"
 #include "rtp_time/anchor/data.hpp"
 
@@ -76,7 +75,6 @@ private:
   asio::io_context::strand spooler_strand;    // serialize spooler activities
   asio::high_resolution_timer watchdog_timer; // watch for shutdown
   player::shSpooler spooler;
-  player::shFramesRequest frames_request;
 
   // order independent
   Thread dsp_thread;

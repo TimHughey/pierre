@@ -54,8 +54,8 @@ private:
   Anchor() { _datum.fill(anchor::Data()); }
   const anchor::Data &cdata(anchor::Entry entry) const { return _datum[entry]; };
   static anchor::Data &data(enum anchor::Entry entry) { return ptr()->_datum[entry]; };
-  void infoNewClock(const rtp_time::Info &info);
-  void warnFrequentChanges(const rtp_time::Info &info);
+  void infoNewClock(const MasterClock::Info &info);
+  void warnFrequentChanges(const MasterClock::Info &info);
 
 private:
   std::array<anchor::Data, 3> _datum;

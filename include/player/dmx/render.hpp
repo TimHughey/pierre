@@ -22,8 +22,8 @@
 
 #include "core/typedefs.hpp"
 #include "dmx/producer.hpp"
-#include "player/frames_request.hpp"
-#include "player/rtp.hpp"
+#include "player/frame.hpp"
+#include "player/frame_time.hpp"
 #include "player/spooler.hpp"
 #include "player/typedefs.hpp"
 
@@ -38,13 +38,11 @@ namespace dmx {
 
 namespace { // anonymous namespace limits scope to this file
 namespace asio = boost::asio;
-}
-
-using FPS = std::chrono::duration<double, std::ratio<1, 44>>;
-
-// duration to wait between sending DMX frames
-constexpr Nanos fps_ns() { return std::chrono::duration_cast<Nanos>(FPS(1)); }
-// constexpr Nanos fps_ns() { return std::chrono::duration_cast<Nanos>(MillisFP(43.0065)); }
+using io_context = asio::io_context;
+using strand = io_context::strand;
+using steady_timer = asio::steady_timer;
+using steady_clock = std::chrono::steady_clock;
+} // namespace
 
 class Render;
 typedef std::shared_ptr<Render> shRender;
@@ -53,45 +51,52 @@ class Render : public std::enable_shared_from_this<Render> {
 public:
   typedef std::set<std::shared_ptr<Producer>> Producers;
 
+private:
+  typedef steady_clock::time_point SteadyTimePoint;
+  static constexpr FrameTimeDiff FTD{.old = rtp_time::negative(dmx::frame_ns()),
+                                     .late = rtp_time::negative(Nanos(dmx::frame_ns() / 2)),
+                                     .lead = dmx::frame_ns()};
+
 private: // all access via shared_ptr
-  Render(asio::io_context &io_ctx, player::shFramesRequest frames_request);
+  Render(io_context &io_ctx, player::shSpooler spooler);
 
 public: // static creation, access, etc.
-  static shRender init(asio::io_context &io_ctx, player::shFramesRequest frames_request);
+  static shRender init(io_context &io_ctx, player::shSpooler spooler);
   static shRender ptr();
   static void reset();
 
 public: // public API
-  void addProducer(std::shared_ptr<Producer> producer) { _producers.insert(producer); }
-  static void flush(const FlushRequest &request);
+  void addProducer(std::shared_ptr<Producer> producer) { producers.insert(producer); }
   static void playMode(bool mode);
   static void teardown();
 
 private:
   void frameTimer();
-  shRender handleFrame();
-  static void nextPacket(player::shRTP next_packet, const Nanos start);
+  void handleFrame();
+  static void nextPacket(player::shFrame next_packet, const Nanos start);
 
-  bool playing() const { return _play_mode == player::PLAYING; }
+  bool playing() const { return play_mode == player::PLAYING; }
 
   const string stats() const;
-  void statsTimer(const Nanos report_ns = 30s);
+  void statsTimer(const Nanos report_ns = 10s);
 
 private:
   // order dependent
-  asio::io_context::strand local_strand;
-  asio::high_resolution_timer frame_timer;
-  asio::high_resolution_timer stats_timer;
+  io_context &io_ctx;
   player::shSpooler spooler;
-  player::shFramesRequest frames_request;
+  strand &local_strand;
+  steady_timer frame_timer;
+  steady_timer stats_timer;
+  SteadyTimePoint play_start;
+  uint64_t play_frame_counter;
 
   // order independent
-  bool _play_mode = player::NOT_PLAYING;
-  player::shRTP _recent_frame;
-  uint64_t _frames_played = 0;
-  uint64_t _frames_silence = 0;
+  bool play_mode = player::NOT_PLAYING;
+  player::shFrame recent_frame;
+  uint64_t frames_played = 0;
+  uint64_t frames_silence = 0;
 
-  Producers _producers;
+  Producers producers;
 
   static constexpr auto moduleId = csv("RENDER");
 };

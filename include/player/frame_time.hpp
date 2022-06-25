@@ -19,44 +19,24 @@
 #pragma once
 
 #include "core/typedefs.hpp"
-#include "packet/basic.hpp"
-#include "player/flush_request.hpp"
-#include "player/peaks.hpp"
-#include "player/rtp.hpp"
 #include "rtp_time/rtp_time.hpp"
 
-#include <array>
-#include <memory>
-#include <utility>
+#include <chrono>
 
 namespace pierre {
 
-struct NextFrame {
-  player::shRTP frame;
-  bool spool_end = false;
-
-  const string toString() const {
-    string msg;
-    auto m = std::back_inserter(msg);
-
-    fmt::format_to(m, "{} ", moduleId);
-    fmt::format_to(m, "{:^12} diff={:0.1} ", (frame.use_count() > 0) ? csv("GOOD") : csv("BAD"), //
-                   std::chrono::duration_cast<MillisFP>(diff_ns));
-
-    fmt::format_to(m, "played={:<5} skipped={:<5} total={:<5} ", played, skipped, total);
-
-    if (silence) {
-      fmt::format_to(m, "SILENCE ");
-    }
-
-    if (spool_end) {
-      fmt::format_to(m, "SPOOL END");
-    }
-
-    return msg;
-  }
-
-  static constexpr auto moduleId = csv("NEXT FRAME");
+struct FrameTimeDiff {
+  // old and late must be negative values
+  Nanos old{0};  // too old to be considered, must be less than late
+  Nanos late{0}; // maybe playable or useable to correct out-of-sync, must be greater than old
+  Nanos lead{0}; // desired lead time, positive value
 };
+
+namespace dmx {
+using FPS = std::chrono::duration<double, std::ratio<1, 44>>;
+
+// duration to wait between sending DMX frames
+constexpr Nanos frame_ns() { return std::chrono::duration_cast<Nanos>(FPS(1)); }
+} // namespace dmx
 
 } // namespace pierre

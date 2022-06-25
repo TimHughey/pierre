@@ -1,4 +1,3 @@
-
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -24,23 +23,27 @@
 
 #include "core/typedefs.hpp"
 #include "player/flush_request.hpp"
-#include "player/rtp.hpp"
-#include "player/spool.hpp"
+#include "player/frame.hpp"
+#include "player/frame_time.hpp"
+#include "player/reel.hpp"
 #include "player/typedefs.hpp"
 #include "rtp_time/rtp_time.hpp"
 
 #include <atomic>
 #include <boost/asio.hpp>
 #include <chrono>
-#include <deque>
 #include <memory>
+#include <optional>
 #include <ranges>
+#include <vector>
 
 namespace pierre {
 namespace player {
 
 namespace { // anonymous namespace limits scope
 namespace asio = boost::asio;
+using io_context = asio::io_context;
+using strand = asio::io_context::strand;
 } // namespace
 
 class Spooler;
@@ -48,49 +51,159 @@ typedef std::shared_ptr<Spooler> shSpooler;
 
 class Spooler : public std::enable_shared_from_this<Spooler> {
 private:
-  // a spool represents RTP packets, in ascending order by sequence,
+  // a reel contains frames, in ascending order by sequence,
   // possibly with gaps
-  typedef std::deque<shSpool> Spools;
+  typedef std::vector<shReel> Reels;
+
+  class Requisition {
+    static constexpr size_t FRAMES_MIN = 64;
+    static constexpr size_t FRAMES_MAX = FRAMES_MIN * 1.5;
+    static constexpr size_t FRAMES_NONE = 0;
+    static constexpr size_t REELS_WANT = 2;
+    static constexpr size_t REELS_NONE = 0;
+
+  public:
+    size_t dst_size = 0;
+    Nanos at_ns{0};
+    Nanos elapsed_ns{0};
+    size_t frames = 0;
+
+    csv moduleId = csv("REQUISITION");
+
+    Requisition(strand &src_strand, Reels &src, strand &dst_strand, Reels &dst)
+        : src_strand(src_strand), src(src), dst_strand(dst_strand), dst(dst){};
+
+    bool complete() const { return at_ns == Nanos::zero(); }
+    MillisFP elapsed() const { return rtp_time::elapsed_as<MillisFP>(at_ns); }
+    void finish(Reels &reels, shReel reel) { finish(reels.emplace_back(reel)->size()); }
+    void finish(size_t reel_frames = 0) {
+      elapsed_ns = rtp_time::elapsed_abs_ns(at_ns);
+
+      if (reel_frames) {
+        __LOG("{:<18} {:<12} frames={} elapsed={}\n", //
+              moduleId, (reel_frames) ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
+              rtp_time::as_millis_fp(elapsed_ns));
+      }
+
+      at_ns = Nanos::zero();
+      frames = 0;
+    }
+
+    void ifNeeded() {
+      if (needReel()) {
+        at_ns = rtp_time::nowNanos(); // start requisition, guard by caller strand
+
+        asio::post(src_strand, [this]() {
+          if (src.empty()) { // src is empty, mark requisition as finished
+            asio::post(dst_strand, [this]() { finish(); }); // via dst_strand
+            return;
+          }
+
+          // a src Reel exists, are there enough frames?
+          // must get a reference to the front Reel so it can be reset, if needed
+          if (shReel &reel = src.front(); reel->size() >= frames) {
+            // a shReel is present, finish via dst_strand
+            asio::post(dst_strand,
+                       [this, reel = reel->shared_from_this()]() { finish(dst, reel); });
+
+            reel.reset(); // reset the shared_ptr from the src container
+            std::erase_if(src, [](shReel reel) { return reel.use_count() == 0; });
+
+          } else {
+            asio::post(dst_strand, [this]() { finish(); }); // via dst_strand
+          }
+        });
+      }
+    }
+
+    bool inProgress() const { return at_ns > Nanos::zero(); }
+    bool needReel() {
+      size_t dst_size = dst.size();
+
+      if (inProgress() || (dst_size >= REELS_WANT)) {
+        // req not needed: in progress or have the Reels required
+        frames = FRAMES_NONE;
+      } else if (dst_size == REELS_NONE) {
+        // dst is empty: we need at least one Reel containing
+        // a minimum number of Frames to begin output.
+        // to feed caller (Render). this is common at start up or
+        // after a flush.
+        frames = FRAMES_MIN;
+      } else if (dst_size < REELS_WANT) {
+        // dst wants to cache one or more shReel to ensure a Reel is
+        // available when the current shReel is exhausted
+        frames = FRAMES_MAX;
+      }
+
+      return frames != FRAMES_NONE;
+    }
+
+  private:
+    // order dependent
+    strand &src_strand;
+    Reels &src;
+
+    strand &dst_strand;
+    Reels &dst;
+  };
 
 private:
-  Spooler(asio::io_context &io_ctx, csv id);
-  friend class FramesRequest;
+  Spooler(io_context &io_ctx)
+      : module_id(csv("SPOOLER")), // set the module id
+        load_strand(io_ctx),       // guard Reels r_load
+        unload_strand(io_ctx),     // guard Reels r_unload
+        requisition(load_strand, r_load, unload_strand, r_unload) {}
 
 public:
-  static shSpooler create(asio::io_context &io_ctx, csv id);
+  static shSpooler create(io_context &io_ctx) { return shSpooler(new Spooler(io_ctx)); }
 
 public:
-  shRTP emplace_back(shRTP frame);
-  shSpool emplace_back(shSpool spool);
-  bool empty() const { return _spools.empty(); }
-  size_t firstSpoolAvailableFrames() const;
   void flush(const FlushRequest &flush);
-  size_t frameCount() const;
 
-  shRTP nextFrame(const Nanos lead_ns);
+  void loadTimeout();
+  shFrame nextFrame(const FrameTimeDiff &ftd);
 
-  shRTP queueFrame(shRTP frame);
-  shSpool queueSpool(shSpool spool) { return _spools.emplace_back(spool); }
+  strand &unloadStrand() { return unload_strand; }
 
-  fra::StatsMap statsCalc();
-  const string statsMsg() const;
-  void statsAsync();
+  shFrame queueFrame(shFrame frame);
+
+  // misc stats and debug
+  const string inspect() const;
+  void logAsync() {
+    asio::post(load_strand, [self = shared_from_this()]() { self->logSync(); });
+  }
+  void logSync() { __LOG0("{:<18} {}\n", module_id, inspect()); }
+  const string &moduleId() const { return module_id; }
 
 private:
-  shSpool add();
-  csv moduleId() const { return csv(_module_id); }
+  void flushReels(const FlushRequest &request, Reels &reels) {
+    // create new reels containing the desired seq_nums
+    Reels reels_keep;
+
+    // transfer un-flushed rtp_packets to new reels
+    ranges::for_each(reels, [&](shReel reel) {
+      if (auto keep = reel->flush(request); keep == true) { // reel has frames
+        __LOG0("{:<18} FLUSH KEEP {}\n", reel->moduleId(), Reel::inspect(reel));
+
+        reels_keep.emplace_back(reel);
+      }
+    });
+
+    // swap kept reels
+    std::swap(reels_keep, reels);
+  }
 
 private:
   // order dependent (constructor initialized)
-  asio::io_context::strand spooler_strand;
+  string module_id;
+  strand load_strand;
+  strand unload_strand;
+  Reels r_load;
+  Reels r_unload;
+  Requisition requisition; // guard by unload_strand
 
   // order independent
-  Spools _spools; // zero or more spools where front = earliest, back = latest
-  FlushRequest _flush;
-  string _module_id;
-
-  // stats reporting
-  int64_t frames_last = 0;
+  FlushRequest _flush; // flush request (applied to _reel_load and _reels)
 };
 
 } // namespace player

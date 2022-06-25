@@ -60,7 +60,7 @@ void Controller::kickstart() {
   __LOG0("{} features={:#x}\n", moduleId, Features().ap2_default());
 
   watchDog();                       // watchDog() ensures io_ctx has work
-  MasterClock::ptr()->peersReset(); // reset timing peers
+  MasterClock::peersReset(); // reset timing peers
 
   // finally, start listening for Rtsp messages
   Servers::ptr()->localPort(ServerType::Rtsp);

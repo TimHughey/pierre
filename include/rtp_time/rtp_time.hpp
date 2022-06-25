@@ -21,6 +21,7 @@
 #include "core/typedefs.hpp"
 
 #include <chrono>
+#include <time.h>
 
 namespace pierre {
 
@@ -33,21 +34,43 @@ using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::duration<long double>;
 
-namespace rtp_time {
+typedef uint64_t ClockID; // master clock id
 
-typedef uint64_t ClockID; // clock ID
+struct rtp_time {
+  static constexpr Nanos NS_FACTOR{upow(10, 9)};
 
-constexpr Nanos AGE_MAX{10s};
-constexpr Nanos AGE_MIN{1500ms};
-constexpr Nanos NS_FACTOR{upow(10, 9)};
-constexpr Nanos ZERO_NANOS{0};
+  template <typename T> static MillisFP as_millis_fp(const T &d) {
+    return std::chrono::duration_cast<MillisFP>(d);
+  }
 
-constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
-constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
+  template <typename T> static Seconds as_secs(const T &d) {
+    return std::chrono::duration_cast<Seconds>(d);
+  }
 
-Millis nowMillis();
-Nanos nowNanos();
+  template <typename T>
+  static T elapsed_as(const Nanos &d1, const Nanos d2 = rtp_time::nowNanos()) {
+    return std::chrono::duration_cast<T>(d2 - d1);
+  }
 
-} // namespace rtp_time
+  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = rtp_time::nowNanos()) { //
+    return std::chrono::abs(d2 - d1);
+  }
+
+  static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
+  static constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
+  static constexpr Nanos negative(Nanos d) { return Nanos::zero() - d; }
+
+  static Millis nowMillis() { return std::chrono::duration_cast<Millis>(nowNanos()); }
+
+  static Nanos nowNanos() {
+    struct timespec tn;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+
+    uint64_t secs_part = tn.tv_sec * NS_FACTOR.count();
+    uint64_t ns_part = tn.tv_nsec;
+
+    return Nanos(secs_part + ns_part);
+  }
+};
 
 } // namespace pierre

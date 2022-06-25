@@ -30,6 +30,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <pthread.h>
 #include <string>
 #include <string_view>
 
@@ -43,41 +44,6 @@ using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 } // namespace
 
-namespace rtp_time {
-struct Inject {
-  io_context &io_ctx;
-  csv service_name;
-  csv device_id;
-};
-
-typedef string MasterIP;
-typedef std::vector<string> Peers;
-
-// intentional use of namespaces in this header within the rtp_time namespace
-using namespace std::chrono;
-using namespace std::chrono_literals;
-
-struct Info {
-  rtp_time::ClockID clockID = 0;       // current master clock
-  rtp_time::MasterIP masterClockIp{0}; // IP of master clock
-  Nanos sampleTime;                    // time when the offset was calculated
-  uint64_t rawOffset;                  // master clock time = sampleTime + rawOffset
-  Nanos mastershipStartTime;           // when the master clock became master
-
-  uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
-  Nanos masterFor(Nanos now = rtp_time::nowNanos()) const { return now - mastershipStartTime; }
-
-  bool ok() const;
-
-  bool tooOld() const;
-  bool tooYoung() const;
-
-  // misc debug
-  void dump() const;
-};
-
-} // namespace rtp_time
-
 class MasterClock;
 typedef std::shared_ptr<MasterClock> shMasterClock;
 
@@ -85,32 +51,120 @@ class MasterClock : public std::enable_shared_from_this<MasterClock> {
 private:
   static constexpr uint16_t CTRL_PORT = 9000; // see note
   static constexpr auto LOCALHOST = "127.0.0.1";
+  static constexpr auto moduleId = csv("MASTER CLOCK");
+  static constexpr uint16_t NQPTP_VERSION = 7;
+
+public:
+  typedef string MasterIP;
+  typedef std::vector<string> Peers;
+
+public:
+  struct Info {
+    ClockID clockID = 0;       // current master clock
+    MasterIP masterClockIp{0}; // IP of master clock
+    Nanos sampleTime;          // time when the offset was calculated
+    uint64_t rawOffset;        // master clock time = sampleTime + rawOffset
+    Nanos mastershipStartTime; // when the master clock became master
+
+    static constexpr Nanos AGE_MAX{10s};
+    static constexpr Nanos AGE_MIN{1500ms};
+
+    uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
+    Nanos masterFor(Nanos now = rtp_time::nowNanos()) const { return now - mastershipStartTime; }
+
+    bool ok() const {
+      if (clockID == 0) { // no master clock
+        __LOG0("{:<18} no clock info\n", moduleId);
+
+        return false;
+      }
+
+      return true;
+    }
+
+    Nanos sampleAge(Nanos now = rtp_time::nowNanos()) const {
+      if (ok()) {
+        return sampleTime - now;
+      }
+
+      return Nanos::zero();
+    }
+
+    bool tooOld() const {
+      if (auto age = sampleAge(); age >= AGE_MAX) {
+        return logAgeIssue("TOO OLD", age);
+      }
+
+      return false;
+    }
+
+    bool tooYoung() const {
+      if (auto age = masterFor(); age.count() && (age < AGE_MIN)) {
+        return logAgeIssue("TOO YOUNG", age);
+      }
+
+      return false;
+    }
+
+    // misc debug
+    const string inspect() const;
+
+  private:
+    bool logAgeIssue(csv msg, const Nanos &diff) const {
+      __LOG0("{:<18} {} clockID={:#x} sampleTime={} age={}\n", //
+             moduleId, msg, clockID, sampleTime, rtp_time::as_secs(diff));
+
+      return true; // return false, final rc is inverted
+    }
+  };
+
+public:
+  struct Inject {
+    io_context &io_ctx;
+    csv service_name;
+    csv device_id;
+  };
+
+public:
+  struct nqptp {
+    pthread_mutex_t copy_mutes;           // for safely accessing the structure
+    uint16_t version;                     // check version==VERSION
+    uint64_t master_clock_id;             // the current master clock
+    char master_clock_ip[64];             // where it's coming from
+    uint64_t local_time;                  // the time when the offset was calculated
+    uint64_t local_to_master_time_offset; // add this to the local time to get master clock time
+    uint64_t master_clock_start_time;     // this is when the master clock became master}
+  };
 
 public:
   ~MasterClock() { unMap(); }
-  static shMasterClock init(const rtp_time::Inject &inject);
+  static shMasterClock init(const Inject &inject);
   static shMasterClock ptr();
   static void reset();
 
-  const rtp_time::Info getInfo();
+  static const Info getInfo() { return ptr()->info(); }
+  static bool ok() { return ptr()->getInfo().ok(); };
 
-  bool ok();
+  static void peersReset() { ptr()->peersUpdate(Peers()); }
+  static void peers(const Peers &peer_list) { ptr()->peersUpdate(peer_list); }
 
-  void peersReset() { peersUpdate(rtp_time::Peers()); }
-  void peers(const rtp_time::Peers &peer_list) { peersUpdate(peer_list); }
-
-  void teardown() { peersReset(); }
+  static void teardown() { ptr()->peersReset(); }
 
   // misc debug
-  void dump() const;
+  static void dump() {
+    const auto msg = ptr()->getInfo().inspect();
+
+    __LOG0("{:<18} inspect info\n{}\n", moduleId, msg);
+  }
 
 private:
-  MasterClock(const rtp_time::Inject &di);
+  MasterClock(const Inject &di);
 
-  bool isMapped(csrc_loc loc = src_loc::current()) const;
+  const Info info();
+  bool isMapped() const;
   bool mapSharedMem();
   void unMap();
-  void peersUpdate(const rtp_time::Peers &peers);
+  void peersUpdate(const Peers &peers);
 
 private:
   // order dependent

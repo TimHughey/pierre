@@ -63,6 +63,7 @@ constexpr uint64_t upow(uint64_t base, uint64_t exp) {
 
 // misc debug
 const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
+const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");
 void __vlog(fmt::string_view format, fmt::format_args args);
 
 template <typename S, typename... Args> // accepts the format and var args
