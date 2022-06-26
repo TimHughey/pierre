@@ -150,27 +150,24 @@ private:
 private:
   Spooler(io_context &io_ctx)
       : module_id(csv("SPOOLER")), // set the module id
-        load_strand(io_ctx),       // guard Reels r_load
-        unload_strand(io_ctx),     // guard Reels r_unload
-        requisition(load_strand, r_load, unload_strand, r_unload) {}
+        strand_in(io_ctx),         // guard Reels reels_in
+        strand_out(io_ctx),        // guard Reels reels_out
+        requisition(strand_in, reels_in, strand_out, reels_out) {}
 
 public:
   static shSpooler create(io_context &io_ctx) { return shSpooler(new Spooler(io_ctx)); }
 
 public:
   void flush(const FlushRequest &flush);
-
   void loadTimeout();
   shFrame nextFrame(const FrameTimeDiff &ftd);
-
-  strand &unloadStrand() { return unload_strand; }
-
   shFrame queueFrame(shFrame frame);
+  strand &strandOut() { return strand_out; }
 
   // misc stats and debug
   const string inspect() const;
   void logAsync() {
-    asio::post(load_strand, [self = shared_from_this()]() { self->logSync(); });
+    asio::post(strand_in, [self = shared_from_this()]() { self->logSync(); });
   }
   void logSync() { __LOG0("{:<18} {}\n", module_id, inspect()); }
   const string &moduleId() const { return module_id; }
@@ -196,14 +193,14 @@ private:
 private:
   // order dependent (constructor initialized)
   string module_id;
-  strand load_strand;
-  strand unload_strand;
-  Reels r_load;
-  Reels r_unload;
-  Requisition requisition; // guard by unload_strand
+  strand strand_in;
+  strand strand_out;
+  Reels reels_in;
+  Reels reels_out;
+  Requisition requisition; // guard by strand_out
 
   // order independent
-  FlushRequest _flush; // flush request (applied to _reel_load and _reels)
+  FlushRequest flush_request; // flush request (applied to reels_in and reels_out)
 };
 
 } // namespace player

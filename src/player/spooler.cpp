@@ -45,14 +45,14 @@ namespace ranges = std::ranges;
 // general API and member functions
 
 void Spooler::flush(const FlushRequest &request) {
-  asio::post(load_strand, // serialize Reels r_load actions
+  asio::post(strand_in, // serialize Reels reels_in actions
              [self = shared_from_this(), request = request]() {
-               self->flushReels(request, self->r_load);
+               self->flushReels(request, self->reels_in);
              });
 
-  asio::post(unload_strand, // serialize Reels r_load actions
+  asio::post(strand_out, // serialize Reels reels_in actions
              [self = shared_from_this(), request = request]() {
-               self->flushReels(request, self->r_unload);
+               self->flushReels(request, self->reels_out);
              });
 }
 
@@ -64,7 +64,7 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
 
   // look through all available reels for the next frame
   // no need to capture the result, frame is set within the find
-  ranges::find_if(r_unload, [&frame = frame, &ftd = ftd](shReel reel) {
+  ranges::find_if(reels_out, [&frame = frame, &ftd = ftd](shReel reel) {
     frame = reel->nextFrame(ftd);
 
     // if frame is ok then stop finding, otherwise keep searching
@@ -72,7 +72,7 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
   });
 
   // clean up empty reels
-  auto erased = std::erase_if(r_unload, [](shReel reel) { return reel->empty(); });
+  auto erased = std::erase_if(reels_out, [](shReel reel) { return reel->empty(); });
 
   if (erased) {
     __LOG0("{:<18} reels erased={}\n", moduleId(), erased);
@@ -80,12 +80,12 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
 
   return Frame::ok(frame) ? frame->shared_from_this() : frame;
 
-  // return f != r_unload.end() ? frame->shared_from_this() : shFrame();
+  // return f != reels_out.end() ? frame->shared_from_this() : shFrame();
 }
 
 shFrame Spooler::queueFrame(shFrame frame) {
-  asio::post(load_strand, // guard with reels strand
-             [&dst = r_load, frame = frame]() {
+  asio::post(strand_in, // guard with reels strand
+             [&dst = reels_in, frame = frame]() {
                shReel dst_reel = dst.empty() //
                                      ? dst.emplace_back(Reel::create())
                                      : dst.back()->shared_from_this();
@@ -104,14 +104,14 @@ const string Spooler::inspect() const {
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "{:<12} load={:<3} unload={:<3}\n", csv("REEL"), r_load.size(),
-                 r_unload.size());
+  fmt::format_to(w, "{:<12} load={:<3} unload={:<3}\n", csv("REEL"), reels_in.size(),
+                 reels_out.size());
 
-  ranges::for_each(r_load, [w = w](shReel reel) {
+  ranges::for_each(reels_in, [w = w](shReel reel) {
     fmt::format_to(w, "{} {:<12} {}\n", INDENT, reel->moduleId(), Reel::inspect(reel));
   });
 
-  ranges::for_each(r_unload, [w = w](shReel reel) {
+  ranges::for_each(reels_out, [w = w](shReel reel) {
     fmt::format_to(w, "{} {:<12} {}\n", INDENT, reel->moduleId(), Reel::inspect(reel));
   });
 

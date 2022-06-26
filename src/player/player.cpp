@@ -48,20 +48,13 @@ std::optional<shPlayer> &player() { return __player; }
 
 using error_code = boost::system::error_code;
 namespace asio = boost::asio;
+using io_context = asio::io_context;
+using strand = io_context::strand;
 namespace errc = boost::system::errc;
 namespace ranges = std::ranges;
 
-Player::Player(asio::io_context &io_ctx)
-    : local_strand(io_ctx),                      // player serialized work
-      decode_strand(io_ctx),                     // decoder serialized work
-      spooler_strand(io_ctx),                    // spooler serialized work
-      watchdog_timer(dsp_io_ctx),                // dsp threads shutdown
-      spooler(player::Spooler::create(io_ctx)) { // create our spoooler
-  // can not call member functions that use shared_from_this() in constructor
-}
-
 // static methods for creating, getting and resetting the shared instance
-shPlayer Player::init(asio::io_context &io_ctx) {
+shPlayer Player::init(io_context &io_ctx) { // static
   auto self = shared::player().emplace(new Player(io_ctx));
 
   dmx::Render::init(io_ctx, self->spooler);
@@ -80,7 +73,7 @@ void Player::accept(packet::Basic &packet) { // static
 
   __LOGX("{}\n", Frame::inspect(frame));
 
-  if (frame->keep(self->_flush)) {
+  if (frame->keep(self->flush_request)) {
     // 1. NOT flushed
     // 2. decipher OK
 
@@ -88,7 +81,7 @@ void Player::accept(packet::Basic &packet) { // static
 
     // async decode
     asio::post(self->decode_strand, // serialize decodes due to single av ctx
-               [frame = frame, &dsp_io_ctx = self->dsp_io_ctx]() mutable {
+               [frame = frame, &dsp_io_ctx = self->io_ctx_dsp]() mutable {
                  Frame::decode(frame); // OK to run on separate thread, shared_ptr
 
                  // find peaks using any available thread
@@ -99,59 +92,49 @@ void Player::accept(packet::Basic &packet) { // static
                });
   }
 }
-void Player::flush(const FlushRequest &request) { // static
-  ptr()->spooler->flush(request);
-}
 
 void Player::run() {
   nameThread(0);
   watchDog();
 
-  // to maximizing system utilization hardware_concurrency() * 2 threads
+  // to maximizing system utilization hardware_concurrency() threads
   // are started.  however, we know other classes will also start a thread
   // pool of their own so we only use hardware_concurrency
-  const auto max_threads = std::jthread::hardware_concurrency();
-
-  for (uint8_t n = 1; n < max_threads; n++) {
+  for (uint8_t n = 1; n < std::jthread::hardware_concurrency(); n++) {
     // notes:
-    //  1. all threads run the same io_ctx
-    //  2. objects are free to create their own strands, as needed
+    //  1. skip thread 0 (n = 1) (it is already started)
+    //  2. all threads run the same io_ctx
+    //  3. objects are free to create their own strands, as needed
 
     dsp_threads.emplace_back([n = n, self = shared_from_this()] {
       nameThread(n);          // give the thread a name
-      self->dsp_io_ctx.run(); // dsp processing thread
+      self->io_ctx_dsp.run(); // dsp processing thread
     });
   }
 
-  dsp_io_ctx.run(); // include the Player thread in the dsp pool
+  io_ctx_dsp.run(); // include the Player thread in the dsp pool
   // returns when io_ctx does not have scheduled work
 }
 
-void Player::saveAnchor(anchor::Data &data) { // static
+void Player::saveAnchor(anchor::Data &data) { // static, must be in .cpp
   Anchor::ptr()->save(data);
 
-  ptr()->_is_playing = data.playing();
-  dmx::Render::playMode(data.playing());
+  auto self = ptr();
+  self->play_mode = data.playing() ? player::PLAYING : player::NOT_PLAYING;
+  dmx::Render::playMode(self->play_mode);
 }
 
 void Player::shutdown() { // static
   auto self = ptr();
+  auto &thread = self->dsp_thread;
+  auto &threads = self->dsp_threads;
 
-  self->dsp_thread.request_stop();
-
-  ranges::for_each(self->dsp_threads, [](Thread &thread) mutable {
-    // wait for each thread to complete
-    thread.join();
-  });
-
-  self->dsp_thread.join(); // wait for dsp thread to complete
+  thread.request_stop();                                  // stop caught by watchDog()
+  ranges::for_each(threads, [](Thread &t) { t.join(); }); // wait for threads
+  thread.join();                                          // wait for dsp thread to complete
 }
 
-void Player::start() { // simply start the dsp main thread and return
-  dsp_thread = Thread(&Player::run, this);
-}
-
-void Player::teardown() { // static
+void Player::teardown() { // static, must be in .cpp
   ptr()->packet_count = 0;
   dmx::Render::teardown();
 }
@@ -160,22 +143,18 @@ void Player::watchDog() {
   // cancels any running timers
   [[maybe_unused]] auto timers_cancelled = watchdog_timer.expires_after(250ms);
 
-  watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
-    if (ec != errc::success) { // any error, fall out of scope
-      __LOG0("{} going out of scope reason={}\n", fnName(), ec.message());
-      return;
+  watchdog_timer.async_wait([moduleId = moduleId, self = shared_from_this()](const error_code ec) {
+    if (ec == errc::success) { // unless success, fall out of scape
+
+      if (self->dsp_thread.get_stop_token().stop_requested()) { // thread wants to stop
+        self->io_ctx_dsp.stop();                                // stops io_ctx and threads
+
+      } else {
+        self->watchDog(); // restart the timer (keeps us in scope)
+      }
+    } else {
+      __LOG0("{:<18} going out of scope reason={}\n", moduleId, ec.message());
     }
-
-    __LOGX("{} executing\n", fnName());
-
-    auto stop_token = self->dsp_thread.get_stop_token();
-
-    if (stop_token.stop_requested()) { // thread wants to stop
-      self->dsp_io_ctx.stop();         // stop the io_ctx (stops other threads)
-      return;                          // fall out of scope
-    }
-
-    self->watchDog(); // restart the timer (keeps us in scope)
   });
 }
 

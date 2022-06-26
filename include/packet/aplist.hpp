@@ -121,6 +121,7 @@ public:
   // misc debug
   void dump(csv prefix) const;
   void dump(plist_t sub_dict = nullptr, csv prefix = csv()) const;
+  const string inspect(plist_t what_dict = nullptr) const;
 
 private:
   // plist_t baseNode() { return (_base) ? _base : _plist; }

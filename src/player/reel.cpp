@@ -74,7 +74,7 @@ bool Reel::flush(const FlushRequest &flush) {
     }
   } else {
     frames.clear();
-    __LOG0("{} DISCARDED frames={} seq_a/b={}/{}\n", //
+    __LOG0("{:<18} DISCARDED frames={} seq={}/{}\n", //
            moduleId(), frames_before, a->seq_num, b->seq_num);
   }
 

@@ -26,6 +26,7 @@
 #include "packet/basic.hpp"
 #include "player/flush_request.hpp"
 #include "player/spooler.hpp"
+#include "player/typedefs.hpp"
 #include "rtp_time/anchor/data.hpp"
 
 #include <boost/asio.hpp>
@@ -38,7 +39,10 @@ namespace pierre {
 
 namespace { // anonymous namespace limits scope
 namespace asio = boost::asio;
-}
+using io_context = asio::io_context;
+using strand = io_context::strand;
+using steady_timer = asio::steady_timer;
+} // namespace
 
 class Player;
 typedef std::shared_ptr<Player> shPlayer;
@@ -48,41 +52,45 @@ private:
   typedef std::vector<Thread> Threads;
 
 private: // constructor private, all access through shared_ptr
-  Player(asio::io_context &io_ctx);
+  Player(io_context &io_ctx)
+      : local_strand(io_ctx),                     // player serialized work
+        decode_strand(io_ctx),                    // decoder serialized work
+        spooler(player::Spooler::create(io_ctx)), // in/out spooler
+        watchdog_timer(io_ctx_dsp) {              // dsp threads shutdown
+    // call no member functions that use shared_from_this() in constructor
+  }
 
 public:
-  static shPlayer init(asio::io_context &io_ctx);
+  static shPlayer init(io_context &io_ctx);
   static shPlayer ptr();
   static void reset();
 
   static void accept(packet::Basic &packet_accept);
-  static void flush(const FlushRequest &request);
-
-  static void saveAnchor(anchor::Data &data);
+  static void flush(const FlushRequest &request) { ptr()->spooler->flush(request); }
+  static void saveAnchor(anchor::Data &data); // must be declared in .cpp
   static void shutdown();
-  static void teardown();
+  static void teardown(); // must be declared in .cpp
 
 private:
   void run();
-  void start();
+  void start() { dsp_thread = Thread(&Player::run, this); }
   void watchDog();
 
 private:
   // order dependent
-  asio::io_context dsp_io_ctx;                // dsp work
-  asio::io_context::strand local_strand;      // serialize player activites
-  asio::io_context::strand decode_strand;     // serialize packet decoding
-  asio::io_context::strand spooler_strand;    // serialize spooler activities
-  asio::high_resolution_timer watchdog_timer; // watch for shutdown
-  player::shSpooler spooler;
+  io_context io_ctx_dsp;       // dsp work
+  strand local_strand;         // serialize player activites
+  strand decode_strand;        // serialize packet decoding
+  player::shSpooler spooler;   // in/out spooler
+  steady_timer watchdog_timer; // watch for shutdown
 
   // order independent
   Thread dsp_thread;
   Threads dsp_threads;
 
+  string_view play_mode = player::NOT_PLAYING;
+  FlushRequest flush_request;
   uint64_t packet_count = 0;
-  bool _is_playing = false;
-  FlushRequest _flush;
 
   static constexpr csv moduleId{"PLAYER"};
 };

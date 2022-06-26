@@ -116,6 +116,8 @@ public:
 protected:
   std::optional<reply::Inject> di; // copy, ok because it's only references
 
+  string_view moduleId = csv("REPLY BASE");
+
   string _err_msg;
 
   packet::RespCode _rcode = packet::RespCode::NotImplemented;

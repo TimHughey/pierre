@@ -67,15 +67,35 @@ public: // static creation, access, etc.
 
 public: // public API
   void addProducer(std::shared_ptr<Producer> producer) { producers.insert(producer); }
-  static void playMode(bool mode);
-  static void teardown();
+  static void playMode(csv mode) {
+    asio::post(ptr()->local_strand, [self = ptr(), mode = mode]() { self->playStart(mode); });
+  }
+
+  static void teardown() { ptr()->playMode(player::NOT_PLAYING); }
 
 private:
   void frameTimer();
   void handleFrame();
   static void nextPacket(player::shFrame next_packet, const Nanos start);
 
-  bool playing() const { return play_mode == player::PLAYING; }
+  bool playing() const { return play_mode.front() == player::PLAYING.front(); }
+
+  void playStart(csv mode) {
+    play_mode = mode;
+
+    if (play_mode.front() == player::PLAYING.front()) {
+      play_start = steady_clock::now();
+      play_frame_counter = 1;
+      frameTimer(); // frame timer handles play/not play
+      statsTimer();
+    } else {
+      frame_timer.cancel();
+      stats_timer.cancel();
+      play_start = SteadyTimePoint::min();
+    }
+  }
+
+  // misc debug, stats
 
   const string stats() const;
   void statsTimer(const Nanos report_ns = 10s);
@@ -91,7 +111,7 @@ private:
   uint64_t play_frame_counter;
 
   // order independent
-  bool play_mode = player::NOT_PLAYING;
+  string_view play_mode = player::NOT_PLAYING;
   player::shFrame recent_frame;
   uint64_t frames_played = 0;
   uint64_t frames_silence = 0;

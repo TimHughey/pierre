@@ -28,6 +28,8 @@
 
 namespace pierre {
 
+using namespace std::literals;
+
 using src_loc = std::source_location;
 typedef const src_loc csrc_loc;
 

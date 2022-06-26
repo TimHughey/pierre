@@ -30,6 +30,8 @@ using namespace packet;
 bool SetAnchor::populate() {
   rdict = plist();
 
+  __LOGX("{:<18} DICT DUMP {}\n", moduleId, rdict.inspect());
+
   saveAnchorInfo();
 
   responseCode(RespCode::OK);

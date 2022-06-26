@@ -511,6 +511,27 @@ void Aplist::dump(plist_t sub_dict, csv prefix) const {
   } else {
     fmt::print("DUMP FAILED\n");
   }
+
+  plist_to_xml_free(buf);
+}
+
+const string Aplist::inspect(plist_t what_dict) const {
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  auto dict = what_dict ? what_dict : _plist;
+
+  char *buf = nullptr;
+  uint32_t bytes = 0;
+
+  plist_to_xml(dict, &buf, &bytes);
+
+  fmt::format_to(w, "dict={} bytes={}\n", fmt::ptr(dict), bytes);
+  fmt::format_to(w, "{}", csv(buf, bytes));
+
+  plist_to_xml_free(buf);
+
+  return msg;
 }
 
 } // namespace packet

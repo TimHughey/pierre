@@ -47,13 +47,13 @@ using error_code = boost::system::error_code;
 namespace chrono = std::chrono;
 
 Render::Render(io_context &io_ctx, player::shSpooler spooler)
-    : io_ctx(io_ctx),                        // grab the io_ctx
-      spooler(spooler),                      // use this spooler for unloading Frames
-      local_strand(spooler->unloadStrand()), // use the unload strand from spooler
-      frame_timer(io_ctx),                   // generate process frames
-      stats_timer(io_ctx),                   // period stats reporting
-      play_start(SteadyTimePoint::min()),    // play not started yet
-      play_frame_counter(0)                  // no frames played yet
+    : io_ctx(io_ctx),                     // grab the io_ctx
+      spooler(spooler),                   // use this spooler for unloading Frames
+      local_strand(spooler->strandOut()), // use the unload strand from spooler
+      frame_timer(io_ctx),                // generate process frames
+      stats_timer(io_ctx),                // period stats reporting
+      play_start(SteadyTimePoint::min()), // play not started yet
+      play_frame_counter(0)               // no frames played yet
 {
   const auto render_fps = rtp_time::as_millis_fp(dmx::frame_ns());
   const auto input_fps = rtp_time::as_millis_fp(InputInfo::fps_ns());
@@ -88,7 +88,7 @@ void Render::frameTimer() {
               self->handleFrame();
 
             } else {
-              __LOG0("FRAME TIMER terminating reason={}\n", ec.message());
+              __LOG0("{:<18} terminating reason={}\n", csv("FRAME TIMER"), ec.message());
             }
           }));
 }
@@ -101,33 +101,14 @@ void Render::handleFrame() {
 
     auto frame = spooler->nextFrame(FTD);
 
-    frame = player::Frame::markPlayed(frame, frames_played, frames_silence);
+    recent_frame = player::Frame::markPlayed(frame, frames_played, frames_silence);
 
     if (player::Frame::ok(frame) && frame->unplayed()) {
-      __LOG0("{:<18} FRAME {}\n", moduleId, player::Frame::inspectFrame(frame));
+      __LOGX("{:<18} FRAME {}\n", moduleId, player::Frame::inspectFrame(frame));
     }
 
     frameTimer();
   }
-}
-
-void Render::playMode(bool mode) { // static
-  auto self = Render::ptr();
-
-  asio::post(self->local_strand, // sync to frame timer
-             [self, mode = mode]() {
-               self->play_mode = mode; // save the play mode
-
-               if (mode == player::PLAYING) {
-                 self->play_start = steady_clock::now();
-                 self->frameTimer(); // frame timer handles play/not play
-                 self->statsTimer();
-               } else {
-                 self->frame_timer.cancel();
-                 self->stats_timer.cancel();
-                 self->play_start = SteadyTimePoint::min();
-               }
-             });
 }
 
 const string Render::stats() const {
@@ -166,12 +147,6 @@ void Render::statsTimer(const Nanos report_ns) {
           })
 
   );
-}
-
-void Render::teardown() { //.static
-  auto self = ptr();
-
-  self->play_mode = player::NOT_PLAYING;
 }
 
 /*
