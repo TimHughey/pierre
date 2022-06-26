@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "typedefs.hpp"
+#include "log.hpp"
 
 #include <chrono>
 #include <fmt/chrono.h>
@@ -24,24 +24,16 @@
 #include <fmt/format.h>
 
 namespace pierre {
-
-using namespace std::chrono_literals;
-using namespace std::chrono;
-using MillisFP = duration<long double, milliseconds::period>;
-
-static auto startup = steady_clock::now();
+static auto startup = pe_time::nowNanos();
 
 // Global Helpers Definitions
 
-ccs fnName(csrc_loc loc) { return loc.function_name(); }
-
-const string runTicks() {
-  return fmt::format("{:>11.1} ", duration_cast<MillisFP>(steady_clock::now() - startup));
+const string runTicks() { //
+  return fmt::format("{:>11.1} ", pe_time::elapsed_as<MillisFP>(startup));
 }
 
-// misc debug
 void __vlog(fmt::string_view format, fmt::format_args args) {
-  fmt::print("{:>11.1}  ", duration_cast<MillisFP>(steady_clock::now() - startup));
+  fmt::print("{:>11.1}  ", pe_time::elapsed_as<MillisFP>(startup));
   fmt::vprint(format, args);
 }
 

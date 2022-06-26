@@ -22,12 +22,12 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame.hpp"
 #include "player/frame_time.hpp"
 #include "player/typedefs.hpp"
-#include "rtp_time/rtp_time.hpp"
 
 #include <chrono>
 #include <iterator>

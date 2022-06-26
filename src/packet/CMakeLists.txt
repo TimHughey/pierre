@@ -37,7 +37,7 @@ add_custom_command(TARGET
 )
 
 # source files compiled for the library can include headers
-# without usinf the full path
+# without using the full path
 target_include_directories(packet PRIVATE ${HEADER_PATH}/packet)
 
 # external users of this library include headers relative to
@@ -49,7 +49,7 @@ target_link_libraries(packet PUBLIC
   ${plist}
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
-  core
+  base
   rtp_time
   fmt::fmt
 )

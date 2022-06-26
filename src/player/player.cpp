@@ -67,7 +67,7 @@ shPlayer Player::ptr() { return shared::player().value()->shared_from_this(); }
 void Player::reset() { shared::player().reset(); }
 
 // general API and member functions
-void Player::accept(packet::Basic &packet) { // static
+void Player::accept(uint8v &packet) { // static
   auto self = ptr();
   shFrame frame = Frame::create(packet);
 

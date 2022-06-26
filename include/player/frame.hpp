@@ -18,12 +18,12 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
-#include "packet/basic.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame_time.hpp"
 #include "player/peaks.hpp"
-#include "rtp_time/rtp_time.hpp"
 
 #include <future>
 #include <map>
@@ -66,8 +66,6 @@ namespace player {
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 typedef std::shared_ptr<CipherBuff> shCipherBuff;
 typedef unsigned long long ullong_t;
-
-using Basic = packet::Basic;
 
 /*
 credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
@@ -126,13 +124,13 @@ private:
   static constexpr size_t PAYLOAD_MIN_SIZE = 24;
 
 private:
-  Frame(Basic &packet);
+  Frame(uint8v &packet);
   Frame(uint8_t version, fra::State state, bool silence)
       : version(version), _state(state), _silence(silence) {}
 
 public:
   // Object Creation
-  static shFrame create(Basic &packet) { //
+  static shFrame create(uint8v &packet) { //
     return std::shared_ptr<Frame>(new Frame(packet));
   }
   static shFrame createSilence() { //
@@ -174,7 +172,7 @@ public:
   // nextFrame() returns true when searching should stop; false to keep searching
   bool nextFrame(const FrameTimeDiff &frame_time_diff, fra::StatsMap &stats_map);
 
-  Basic &payload() { return _payload; }
+  uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
   shPeaks peaksLeft() { return _peaks_left; }
   shPeaks peaksRight() { return _peaks_right; }
@@ -220,11 +218,7 @@ public:
     return msg;
   }
 
-  // determine if a frame is unplayed
-
   // class member functions
-  static void shk(const Basic &key); // set class level shared key
-  static void shkClear();
   friend void swap(Frame &a, Frame &b); // swap specialization
 
   // misc debug
@@ -252,15 +246,13 @@ public:
 private:
   // order independent
   fra::State _state = fra::EMPTY;
-  packet::Basic _nonce;
-  packet::Basic _tag;
-  packet::Basic _aad;
-  packet::Basic _payload;
+  uint8v _nonce;
+  uint8v _tag;
+  uint8v _aad;
+  uint8v _payload;
   shPeaks _peaks_left;
   shPeaks _peaks_right;
   bool _silence = true;
-
-  static packet::Basic shared_key; // shared key
 
   static constexpr auto moduleId = csv("FRAME");
 };

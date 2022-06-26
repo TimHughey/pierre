@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "rtp_time/clock.hpp"
-#include "packet/basic.hpp"
+#include "base/uint8v.hpp"
 
 #include <algorithm>
 #include <fcntl.h>
@@ -39,7 +39,6 @@ std::optional<shMasterClock> &master_clock() { return __master_clock; }
 
 using namespace boost::asio;
 using namespace boost::system;
-using namespace pierre::packet;
 namespace ranges = std::ranges;
 
 shMasterClock MasterClock::init(const Inject &inject) {
@@ -59,7 +58,7 @@ MasterClock::MasterClock(const Inject &di)
 {
   shm_name = fmt::format("/{}-{}", di.service_name, di.device_id); // make shm_name
 
-  __LOGX("{} shm_name={} dest={}\n", fnName(), shm_name, endpoint.port());
+  __LOGX("{:<18} shm_name={} dest={}\n", moduleId, shm_name, endpoint.port());
 }
 
 const MasterClock::Info MasterClock::info() {
@@ -99,9 +98,9 @@ const MasterClock::Info MasterClock::info() {
   return Info // calculate a local view of the nqptp data
       {.clockID = data.master_clock_id,
        .masterClockIp = string(clock_ip_sv),
-       .sampleTime = rtp_time::from_ns(data.local_time),
+       .sampleTime = pe_time::from_ns(data.local_time),
        .rawOffset = data.local_to_master_time_offset,
-       .mastershipStartTime = rtp_time::from_ns(data.master_clock_start_time)};
+       .mastershipStartTime = pe_time::from_ns(data.master_clock_start_time)};
 }
 
 bool MasterClock::isMapped() const {
@@ -170,7 +169,7 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
                self = shared_from_this()]    // hold a ptr to ourself
               {
                 // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
-                packet::Basic msg;
+                uint8v msg;
                 auto w = std::back_inserter(msg);
                 fmt::format_to(w, "{} T", self->shm_name);
 
@@ -205,7 +204,7 @@ void MasterClock::unMap() {
 }
 
 const string MasterClock::Info::inspect() const {
-  Nanos now = rtp_time::nowNanos();
+  Nanos now = pe_time::nowNanos();
   string msg;
   auto w = std::back_inserter(msg);
 
@@ -215,11 +214,11 @@ const string MasterClock::Info::inspect() const {
 
   fmt::format_to(w, hex_fmt_str, "clockId", clockID);
   fmt::format_to(w, dec_fmt_str, "rawOffset", (int64_t)rawOffset);
-  fmt::format_to(w, dec_fmt_str, "now_ns", rtp_time::nowNanos());
+  fmt::format_to(w, dec_fmt_str, "now_ns", pe_time::nowNanos());
   fmt::format_to(w, dec_fmt_str, "mastershipStart", mastershipStartTime);
   fmt::format_to(w, dec_fmt_str, "sampleTime", sampleTime);
-  fmt::format_to(w, flt_fmt_str, "master_for_secs", rtp_time::as_secs(masterFor(now)));
-  fmt::format_to(w, flt_fmt_str, "sample_age_secs", rtp_time::as_secs(sampleAge(now)));
+  fmt::format_to(w, flt_fmt_str, "master_for_secs", pe_time::as_secs(masterFor(now)));
+  fmt::format_to(w, flt_fmt_str, "sample_age_secs", pe_time::as_secs(sampleAge(now)));
 
   return msg;
 }

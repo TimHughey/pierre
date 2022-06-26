@@ -20,7 +20,8 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
 #include "dmx/producer.hpp"
 #include "player/frame.hpp"
 #include "player/frame_time.hpp"
@@ -53,8 +54,8 @@ public:
 
 private:
   typedef steady_clock::time_point SteadyTimePoint;
-  static constexpr FrameTimeDiff FTD{.old = rtp_time::negative(dmx::frame_ns()),
-                                     .late = rtp_time::negative(Nanos(dmx::frame_ns() / 2)),
+  static constexpr FrameTimeDiff FTD{.old = pe_time::negative(dmx::frame_ns()),
+                                     .late = pe_time::negative(Nanos(dmx::frame_ns() / 2)),
                                      .lead = dmx::frame_ns()};
 
 private: // all access via shared_ptr

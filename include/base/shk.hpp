@@ -18,18 +18,22 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
+#include "base/uint8v.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <string_view>
 #include <vector>
 
 namespace pierre {
-namespace player {
 
-typedef std::vector<float> Reals;
+struct SharedKey {
+  static void clear();
+  static bool empty();
+  static const uint8_t *key();
+  static const uint8v &save(const uint8v &key);
+};
 
-constexpr auto NOT_PLAYING = csv("NOT PLAYING");
-constexpr auto PLAYING = csv("PLAYING");
-
-} // namespace player
 } // namespace pierre

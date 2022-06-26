@@ -16,20 +16,30 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/typical.hpp"
-
-#include <string_view>
-#include <vector>
+#include "shk.hpp"
 
 namespace pierre {
-namespace player {
+namespace shared {
+uint8v __shk;
 
-typedef std::vector<float> Reals;
+} // namespace shared
 
-constexpr auto NOT_PLAYING = csv("NOT PLAYING");
-constexpr auto PLAYING = csv("PLAYING");
+void SharedKey::clear() { // static
+  shared::__shk.clear();
+}
 
-} // namespace player
+bool SharedKey::empty() { // static
+  return shared::__shk.empty();
+}
+
+const uint8_t *SharedKey::key() { // static
+  return shared::__shk.raw<uint8_t>();
+}
+
+const uint8v &SharedKey::save(const uint8v &key) { // static
+  shared::__shk = key;
+
+  return shared::__shk;
+}
+
 } // namespace pierre

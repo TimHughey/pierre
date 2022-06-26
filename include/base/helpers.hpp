@@ -18,18 +18,28 @@
 
 #pragma once
 
-#include "base/typical.hpp"
-
-#include <string_view>
-#include <vector>
+#include <cstdint>
 
 namespace pierre {
-namespace player {
 
-typedef std::vector<float> Reals;
+constexpr uint64_t upow(uint64_t base, uint64_t exp) {
+  uint64_t result = 1;
 
-constexpr auto NOT_PLAYING = csv("NOT PLAYING");
-constexpr auto PLAYING = csv("PLAYING");
+  for (;;) {
+    if (exp & 1) {
+      result *= base;
+    }
 
-} // namespace player
+    exp >>= 1;
+
+    if (!exp) {
+      break;
+    }
+
+    base *= base;
+  }
+
+  return result;
+}
+
 } // namespace pierre

@@ -17,8 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "player/frame.hpp"
+#include "base/shk.hpp"
+#include "base/uint8v.hpp"
 #include "core/input_info.hpp"
-#include "packet/basic.hpp"
 #include "player/av.hpp"
 #include "player/fft.hpp"
 #include "player/peaks.hpp"
@@ -302,7 +303,7 @@ void parse(shFrame frame) {
 } // namespace av
 
 // frame helpers
-uint32_t to_uint32(Basic::iterator begin, long int count) {
+uint32_t to_uint32(uint8v::iterator begin, long int count) {
   uint32_t val = 0;
   size_t shift = (count - 1) * 8;
 
@@ -314,9 +315,7 @@ uint32_t to_uint32(Basic::iterator begin, long int count) {
   return val;
 }
 
-packet::Basic Frame::shared_key; // class level shared key
-
-Frame::Frame(packet::Basic &packet) {
+Frame::Frame(uint8v &packet) {
   uint8_t byte0 = packet[0]; // first byte to pick bits from
 
   version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
@@ -329,7 +328,7 @@ Frame::Frame(packet::Basic &packet) {
   ssrc = to_uint32(packet.begin() + 8, 4);      // four bytes
 
   // grab the end of the packet, we need it for several parts
-  packet::Basic::iterator packet_end = packet.begin() + packet.size();
+  uint8v::iterator packet_end = packet.begin() + packet.size();
 
   // nonce is the last eight (8) bytes
   // a complete nonce is 12 bytes so zero pad then append the mini nonce
@@ -337,17 +336,17 @@ Frame::Frame(packet::Basic &packet) {
   ranges::copy_n(packet_end - 8, 8, std::back_inserter(_nonce));
 
   // tag is 24 bytes from end and 16 bytes in length
-  packet::Basic::iterator tag_begin = packet_end - 24;
-  packet::Basic::iterator tag_end = tag_begin + 16;
+  uint8v::iterator tag_begin = packet_end - 24;
+  uint8v::iterator tag_end = tag_begin + 16;
   _tag.assign(tag_begin, tag_end);
 
-  packet::Basic::iterator aad_begin = packet.begin() + 4;
-  packet::Basic::iterator aad_end = aad_begin + 8;
+  uint8v::iterator aad_begin = packet.begin() + 4;
+  uint8v::iterator aad_end = aad_begin + 8;
   _aad.assign(aad_begin, aad_end);
 
   // finally the actual payload, starts at byte 12, ends
-  packet::Basic::iterator payload_begin = packet.begin() + 12;
-  packet::Basic::iterator payload_end = packet_end - 8;
+  uint8v::iterator payload_begin = packet.begin() + 12;
+  uint8v::iterator payload_end = packet_end - 8;
   _payload.assign(payload_begin, payload_end);
 
   // NOTE: raw packet falls out of scope
@@ -390,7 +389,7 @@ void swap(Frame &a, Frame &b) {
 // general API and member functions
 
 bool Frame::decipher() {
-  if (shared_key.empty()) {
+  if (SharedKey::empty()) {
     __LOG0("{:<18} shared key empty\n", moduleId);
 
     return false;
@@ -400,15 +399,15 @@ bool Frame::decipher() {
 
   auto cipher_rc = // -1 == failure
       crypto_aead_chacha20poly1305_ietf_decrypt(
-          av::mBuffer(_m),                    // m (av leaves room for ADTS)
-          &decipher_len,                      // bytes deciphered
-          nullptr,                            // nanoseconds (unused, must be nullptr)
-          _payload.data(),                    // ciphered data
-          _payload.size(),                    // ciphered length
-          _aad.data(),                        // authenticated additional data
-          _aad.size(),                        // authenticated additional data length
-          _nonce.data(),                      // the nonce
-          (const uint8_t *)shared_key.raw()); // shared key (from SETUP message)
+          av::mBuffer(_m),   // m (av leaves room for ADTS)
+          &decipher_len,     // bytes deciphered
+          nullptr,           // nanoseconds (unused, must be nullptr)
+          _payload.data(),   // ciphered data
+          _payload.size(),   // ciphered length
+          _aad.data(),       // authenticated additional data
+          _aad.size(),       // authenticated additional data length
+          _nonce.data(),     // the nonce
+          SharedKey::key()); // shared key (from SETUP message)
 
   if (cipher_rc < 0) {
     static bool __reported = false; // only report cipher error once
@@ -471,7 +470,7 @@ void Frame::findPeaks(shFrame frame) {
   frame->_silence = Peaks::silence(frame->peaksLeft()) && Peaks::silence(frame->peaksRight());
 
   // really clear the payload (prevent lingering memory allocations)
-  packet::Basic empty;
+  uint8v empty;
   std::swap(empty, payload);
 }
 
@@ -601,7 +600,7 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
                    frame->isReady());
 
     if (frame->local_time_diff != Nanos::min()) {
-      fmt::format_to(w, " diff={:7.2}", rtp_time::as_millis_fp(frame->local_time_diff));
+      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->local_time_diff));
     }
 
     if (frame->silence()) {
@@ -611,15 +610,6 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
 
   return msg;
 }
-
-// class static data
-void Frame::shk(const Basic &key) {
-  shared_key = key;
-
-  __LOGX("{:<18} size={}\n", "SHARED KEY", shared_key.size());
-}
-
-void Frame::shkClear() { shared_key.clear(); }
 
 } // namespace player
 } // namespace pierre

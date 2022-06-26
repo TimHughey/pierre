@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "typedefs.hpp"
+#include "base/typical.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -31,7 +31,7 @@ class InputInfo {
 public:
   // static constexpr size_t frameSize() { return 352 * bytes_per_frame; }
 
-    static constexpr uint32_t rate = 44100; // max available at the moment
+  static constexpr uint32_t rate = 44100; // max available at the moment
   static constexpr uint8_t channels = 2;
   static constexpr uint8_t bit_depth = 16;
   static constexpr uint8_t bytes_per_frame = 4;

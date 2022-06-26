@@ -23,15 +23,14 @@ set(Boost_USE_MULTITHREADED      ON)
 find_package(Boost 1.78.0 COMPONENTS program_options)
 
 add_library(core SHARED
-  common.cpp
-  args.cpp config.cpp host.cpp features.cpp status_flags.cpp
-  service.cpp static.cpp
+  args.cpp config.cpp host.cpp features.cpp
+  status_flags.cpp service.cpp static.cpp
   pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
   ${HEADER_LIST}
 )
 
 # source files compiled for the library can include headers
-# without usinf the full path
+# without using the full path
 target_include_directories(core 
   PRIVATE 
   ${HEADER_PATH_LOCAL}
@@ -55,4 +54,5 @@ target_link_libraries(core PUBLIC
   ssl
   gcrypt
   fmt::fmt
+  base
 )

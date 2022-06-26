@@ -16,11 +16,11 @@
 //
 //  https://www.wisslanding.com
 
+#include "packet/content.hpp"
+
 #include <cctype>
 #include <fmt/format.h>
 #include <string_view>
-
-#include "packet/content.hpp"
 
 namespace pierre {
 namespace packet {

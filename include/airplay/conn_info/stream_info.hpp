@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include "base/shk.hpp"
 #include "common/typedefs.hpp"
-#include "packet/basic.hpp"
 
 #include <cstdint>
 #include <fmt/format.h>
@@ -32,10 +32,10 @@ namespace airplay {
 
 struct StreamData {
   string audio_mode;
-  uint8_t ct = 0;  // compression type
+  uint8_t ct = 0;       // compression type
   uint64_t conn_id = 0; // stream connection id
-  uint64_t spf = 0; // sample frames per packet
-  packet::Basic key; // shared key (for decipher)
+  uint64_t spf = 0;     // sample frames per packet
+  uint8v key;           // shared key (for decipher)
   bool supports_dynamic_stream_id;
   uint64_t audio_format = 0;
   string client_id;

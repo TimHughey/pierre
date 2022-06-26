@@ -22,8 +22,8 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
-#include "packet/basic.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "player/flush_request.hpp"
 #include "player/spooler.hpp"
 #include "player/typedefs.hpp"
@@ -65,7 +65,7 @@ public:
   static shPlayer ptr();
   static void reset();
 
-  static void accept(packet::Basic &packet_accept);
+  static void accept(uint8v &packet_accept);
   static void flush(const FlushRequest &request) { ptr()->spooler->flush(request); }
   static void saveAnchor(anchor::Data &data); // must be declared in .cpp
   static void shutdown();

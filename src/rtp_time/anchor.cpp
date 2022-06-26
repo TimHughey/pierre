@@ -17,11 +17,11 @@
 //  https://www.wisslanding.com
 
 #include "rtp_time/anchor.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
 #include "core/input_info.hpp"
-#include "core/typedefs.hpp"
 #include "rtp_time/anchor/data.hpp"
 #include "rtp_time/clock.hpp"
-#include "rtp_time/rtp_time.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -55,7 +55,7 @@ const anchor::Data &Anchor::getData() {
   auto &last = data(anchor::Entry::LAST);
   auto &recent = data(anchor::Entry::RECENT);
   auto &is_new = ptr()->_is_new;
-  auto now_ns = rtp_time::nowNanos();
+  auto now_ns = pe_time::nowNanos();
 
   if (clock_info.ok() == false) { // master clock doesn't exist
     return anchor::INVALID_DATA;  // return default (invalid) info
@@ -83,7 +83,7 @@ const anchor::Data &Anchor::getData() {
     if (clock_info.clockID == recent.clockID) {
       if (clock_info.masterFor(now_ns) < 1.5s) {
         __LOG0("{:<18} master too young {}\n", Anchor::moduleId,
-               rtp_time::as_secs(clock_info.masterFor(now_ns)));
+               pe_time::as_secs(clock_info.masterFor(now_ns)));
 
         return anchor::INVALID_DATA;
 
@@ -95,7 +95,7 @@ const anchor::Data &Anchor::getData() {
         if (is_new) {
           __LOG0("{:<18} VALID clockId={:#x} {}\n", //
                  Anchor::moduleId, clock_info.clockID,
-                 rtp_time::as_secs(clock_info.masterFor(now_ns)));
+                 pe_time::as_secs(clock_info.masterFor(now_ns)));
 
           is_new = false;
         }
@@ -111,7 +111,7 @@ const anchor::Data &Anchor::getData() {
   if (is_new) { // log the anchor clock has changed since
     __LOG0("{:<18} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} {}\n", Anchor::moduleId,
            is_new, recent.clockID, clock_info.clockID,
-           rtp_time::as_secs(clock_info.masterFor(now_ns)));
+           pe_time::as_secs(clock_info.masterFor(now_ns)));
   }
 
   if (last.valid && (is_new == false)) {
@@ -121,7 +121,7 @@ const anchor::Data &Anchor::getData() {
       if (clock_info.clockID == actual.clockID) { // original anchor clock is master again
         __LOG0("{:<18} master == anchor clockId={:#x} deviation={}\n", //
                Anchor::moduleId, clock_info.clockID,
-               rtp_time::as_secs(Nanos(recent.networkTime - actual.networkTime)));
+               pe_time::as_secs(Nanos(recent.networkTime - actual.networkTime)));
       }
 
       recent = actual; // switch back to the actual clock
@@ -161,7 +161,7 @@ void Anchor::save(anchor::Data &ad) {
   if ((ad <=> recent) < 0) { // this is a new anchor clock
     _is_new = true;
 
-    __LOG0("{:<18} NEW clock=0x{:x}\n", moduleId, ad.clockID);
+    __LOG0("{:<18} clock={:#x}\n", moduleId, ad.clockID);
   }
 
   if ((ad <=> recent) > 0) { // known anchor clock details have changed

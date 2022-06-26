@@ -18,10 +18,10 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
 #include "rtp_time/anchor/data.hpp"
 #include "rtp_time/clock.hpp"
-#include "rtp_time/rtp_time.hpp"
 
 #include <array>
 #include <fmt/format.h>

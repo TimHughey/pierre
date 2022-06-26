@@ -18,8 +18,9 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
-#include "rtp_time/rtp_time.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
+#include "core/input_info.hpp"
 
 namespace pierre {
 namespace anchor {
@@ -40,18 +41,58 @@ struct Data {
   bool valid = false;
   Nanos valid_at_ns{0};
 
-  Data &calcNetTime();
-  Nanos frameLocalTime(uint32_t frame) const;
-  Seconds netTimeElapsed() const;
-  Nanos netTimeNow() const;
+  Data &calcNetTime() {
+    uint64_t net_time_fracs = 0;
+
+    net_time_fracs >>= 32;
+    net_time_fracs *= pe_time::NS_FACTOR.count();
+    net_time_fracs >>= 32;
+
+    networkTime = secs * pe_time::NS_FACTOR.count() + net_time_fracs;
+
+    return *this;
+  }
+
+  Nanos frameLocalTime(uint32_t timestamp) const {
+    Nanos local_time{0};
+
+    if (valid) {
+      int32_t diff_frame = timestamp - rtpTime;
+      int64_t diff_ts = (diff_frame * pe_time::NS_FACTOR.count()) / InputInfo::rate;
+
+      local_time = localTime + Nanos(diff_ts);
+    }
+
+    return local_time;
+  }
+
+  Seconds netTimeElapsed() const {
+    return pe_time::elapsed_as<Seconds>(netTimeNow() - valid_at_ns);
+  }
+
+  Nanos netTimeNow() const { return valid_at_ns + pe_time::elapsed_abs_ns(valid_at_ns); }
+
   bool ok() const { return clockID != 0; }
   bool playing() const { return rate & 0x01; }
-  Data &setAt();
-  Data &setLocalTimeAt(Nanos local_at = rtp_time::nowNanos());
-  Data &setValid(bool set_valid = true);
-  Nanos sinceUpdate(const Nanos now = rtp_time::nowNanos()) const { return now - localAtNanos; }
+  Data &setAt() {
+    at_nanos = pe_time::nowNanos();
+    return *this;
+  }
 
-  auto validFor() const { return rtp_time::nowNanos() - at_nanos; }
+  Data &setLocalTimeAt(Nanos local_at = pe_time::nowNanos()) {
+    localAtNanos = local_at;
+    return *this;
+  }
+
+  Data &setValid(bool set_valid = true) {
+    valid = set_valid;
+    valid_at_ns = pe_time::nowNanos();
+    return *this;
+  }
+
+  Nanos sinceUpdate(const Nanos now = pe_time::nowNanos()) const { return now - localAtNanos; }
+
+  auto validFor() const { return pe_time::nowNanos() - at_nanos; }
 
   // return values:
   // -1 = clock is different

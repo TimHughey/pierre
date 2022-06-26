@@ -19,10 +19,10 @@
 */
 
 #include "player/dmx/render.hpp"
+#include "base/time.hpp"
 #include "core/input_info.hpp"
 #include "player/typedefs.hpp"
 #include "rtp_time/anchor.hpp"
-#include "rtp_time/rtp_time.hpp"
 #include "spooler.hpp"
 
 #include <ArduinoJson.h>
@@ -55,8 +55,8 @@ Render::Render(io_context &io_ctx, player::shSpooler spooler)
       play_start(SteadyTimePoint::min()), // play not started yet
       play_frame_counter(0)               // no frames played yet
 {
-  const auto render_fps = rtp_time::as_millis_fp(dmx::frame_ns());
-  const auto input_fps = rtp_time::as_millis_fp(InputInfo::fps_ns());
+  const auto render_fps = pe_time::as_millis_fp(dmx::frame_ns());
+  const auto input_fps = pe_time::as_millis_fp(InputInfo::fps_ns());
   const auto diff = render_fps - input_fps;
 
   __LOG0("render_fps={} input_fps={} diff={}\n", render_fps, input_fps, diff);

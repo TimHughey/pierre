@@ -18,18 +18,24 @@
 
 #pragma once
 
-#include "base/typical.hpp"
-
+#include <cstdint>
+#include <string>
 #include <string_view>
-#include <vector>
+#include <thread>
 
 namespace pierre {
-namespace player {
 
-typedef std::vector<float> Reals;
+using namespace std::literals;
 
-constexpr auto NOT_PLAYING = csv("NOT PLAYING");
-constexpr auto PLAYING = csv("PLAYING");
+// string, string_view and const char *
+using string = std::string;
+typedef const string &csr;
 
-} // namespace player
+using string_view = std::string_view;
+typedef const string_view csv;
+typedef const char *ccs;
+
+// threads
+typedef std::jthread Thread;
+
 } // namespace pierre

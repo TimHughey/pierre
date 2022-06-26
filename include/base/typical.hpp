@@ -18,18 +18,5 @@
 
 #pragma once
 
-#include "base/typical.hpp"
-
-#include <string_view>
-#include <vector>
-
-namespace pierre {
-namespace player {
-
-typedef std::vector<float> Reals;
-
-constexpr auto NOT_PLAYING = csv("NOT PLAYING");
-constexpr auto PLAYING = csv("PLAYING");
-
-} // namespace player
-} // namespace pierre
+#include "base/log.hpp"
+#include "base/types.hpp"

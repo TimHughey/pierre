@@ -25,7 +25,7 @@ add_library(Airplay ${C_FILES} ${HEADER_LIST})
 FileEmbedAdd(${CMAKE_CURRENT_LIST_DIR}/plist_get_info_response.xml)
 
 # source files compiled for the library can include headers
-# without usinf the full path
+# without using the full path
 target_include_directories(Airplay PRIVATE 
   ${HEADER_PATH}/airplay
   ${CMAKE_BINARY_DIR}/file_embed)

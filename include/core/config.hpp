@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "typedefs.hpp"
+#include "base/typical.hpp"
 
 #include <array>
 #include <libconfig.h++>

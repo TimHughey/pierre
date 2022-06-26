@@ -16,10 +16,10 @@
 //
 //  https://www.wisslanding.com
 
+#include "rtp/udp/control/packet.hpp"
+
 #include <arpa/inet.h>
 #include <fmt/format.h>
-
-#include "rtp/udp/control/packet.hpp"
 
 namespace pierre {
 namespace rtp {

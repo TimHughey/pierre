@@ -33,7 +33,7 @@ add_library(Player
 )
 
 # source files compiled for the library can include headers
-# without usinf the full path
+# without using the full path
 target_include_directories(Player PRIVATE ${HEADER_PATH}/player)
 
 # external users of this library include headers relative to
@@ -44,6 +44,7 @@ target_link_libraries(Player PUBLIC
   PkgConfig::LIBAV
   ArduinoJson
   ${sodium_LIBRARY_RELEASE}
+  base
   core
   packet
   Misc

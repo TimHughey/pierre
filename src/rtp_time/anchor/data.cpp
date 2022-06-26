@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "rtp_time/anchor/data.hpp"
+#include "base/typical.hpp"
 #include "core/input_info.hpp"
-#include "core/typedefs.hpp"
 #include "rtp_time/clock.hpp"
 
 #include <chrono>
@@ -33,70 +33,20 @@ namespace pierre {
 using namespace std::chrono_literals;
 
 namespace anchor {
-Data &Data::calcNetTime() {
-  /*
-   Using PTP, here is what is necessary
-     * The local (monotonic system up)time in nanos (arbitrary reference)
-     * The remote (monotonic system up)time in nanos (arbitrary reference)
-     * (symmetric) link delay
-       1. calculate link delay (PTP)
-       2. get local time (PTP)
-       3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
-          we know how remote timestamps align to local ones. Now these
-          network times are meaningful.
-       4. determine how many nanos elapsed since anchorTime msg egress.
-          Note: remote monotonic nanos for iPhones stops when they sleep, though
-          not when casting media.
-   */
-  uint64_t net_time_fracs = 0;
-
-  net_time_fracs >>= 32;
-  net_time_fracs *= rtp_time::NS_FACTOR.count();
-  net_time_fracs >>= 32;
-
-  networkTime = secs * rtp_time::NS_FACTOR.count() + net_time_fracs;
-
-  return *this;
-}
-
-Nanos Data::frameLocalTime(uint32_t timestamp) const {
-  Nanos local_time{0};
-
-  if (valid) {
-    int32_t diff_frame = timestamp - rtpTime;
-    int64_t diff_ts = (diff_frame * rtp_time::NS_FACTOR.count()) / InputInfo::rate;
-
-    local_time = localTime + Nanos(diff_ts);
-  }
-
-  return local_time;
-}
-
-Seconds Data::netTimeElapsed() const {
-  return std::chrono::duration_cast<Seconds>(netTimeNow() - valid_at_ns);
-}
-
-Nanos Data::netTimeNow() const {
-  auto diff_steady = rtp_time::nowNanos() - valid_at_ns;
-
-  return valid_at_ns + diff_steady;
-}
-
-Data &Data::setAt() {
-  at_nanos = rtp_time::nowNanos();
-  return *this;
-}
-
-Data &Data::setLocalTimeAt(Nanos local_at) {
-  localAtNanos = local_at;
-  return *this;
-}
-
-Data &Data::setValid(bool set_valid) {
-  valid = set_valid;
-  valid_at_ns = rtp_time::nowNanos();
-  return *this;
-}
+/*
+ Using PTP, here is what is necessary
+   * The local (monotonic system up)time in nanos (arbitrary reference)
+   * The remote (monotonic system up)time in nanos (arbitrary reference)
+   * (symmetric) link delay
+     1. calculate link delay (PTP)
+     2. get local time (PTP)
+     3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
+        we know how remote timestamps align to local ones. Now these
+        network times are meaningful.
+     4. determine how many nanos elapsed since anchorTime msg egress.
+        Note: remote monotonic nanos for iPhones stops when they sleep, though
+        not when casting media.
+ */
 
 // misc debug
 void Data::dump(csrc_loc loc) const {

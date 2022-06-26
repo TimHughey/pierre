@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
 #include "conn_info/conn_info.hpp"
 #include "session/base.hpp"
@@ -66,8 +68,8 @@ private:
   // order dependent
   high_res_timer timer;
 
-  packet::Basic packet_len_buffer;
-  packet::Basic packet_buffer;
+  uint8v packet_len_buffer;
+  uint8v packet_buffer;
 };
 
 } // namespace session

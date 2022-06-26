@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
-#include "packet/basic.hpp"
-#include "rtp_time/rtp_time.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 
 #include <array>
 #include <boost/asio.hpp>
@@ -70,7 +70,7 @@ public:
     static constexpr Nanos AGE_MIN{1500ms};
 
     uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
-    Nanos masterFor(Nanos now = rtp_time::nowNanos()) const { return now - mastershipStartTime; }
+    Nanos masterFor(Nanos now = pe_time::nowNanos()) const { return now - mastershipStartTime; }
 
     bool ok() const {
       if (clockID == 0) { // no master clock
@@ -82,7 +82,7 @@ public:
       return true;
     }
 
-    Nanos sampleAge(Nanos now = rtp_time::nowNanos()) const {
+    Nanos sampleAge(Nanos now = pe_time::nowNanos()) const {
       if (ok()) {
         return sampleTime - now;
       }
@@ -112,7 +112,7 @@ public:
   private:
     bool logAgeIssue(csv msg, const Nanos &diff) const {
       __LOG0("{:<18} {} clockID={:#x} sampleTime={} age={}\n", //
-             moduleId, msg, clockID, sampleTime, rtp_time::as_secs(diff));
+             moduleId, msg, clockID, sampleTime, pe_time::as_secs(diff));
 
       return true; // return false, final rc is inverted
     }

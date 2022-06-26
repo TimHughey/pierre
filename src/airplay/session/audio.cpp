@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "session/audio.hpp"
+#include "base/uint8v.hpp"
 #include "conn_info/conn_info.hpp"
-#include "packet/basic.hpp"
 #include "player/player.hpp"
 
 #include <algorithm>
@@ -36,7 +36,6 @@ namespace session {
 using namespace std::chrono_literals;
 using namespace boost::asio;
 using namespace boost::system;
-using namespace pierre::packet;
 
 namespace errc = boost::system::errc;
 
@@ -141,7 +140,7 @@ void Audio::asyncRxPacket() {
               self->accumulate(RX, rx_bytes);
 
               if (rx_bytes == self->packetLength()) {
-                packet::Basic packet_handoff;                   // handoff this packet
+                uint8v packet_handoff;                          // handoff this packet
                 std::swap(packet_handoff, self->packet_buffer); // by swapping local buffer
 
                 // inform player a complete packet is ready

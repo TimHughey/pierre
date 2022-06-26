@@ -20,22 +20,20 @@
 
 #pragma once
 
+#include "base/types.hpp"
+
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string_view>
 #include <vector>
 
 namespace pierre {
-namespace packet {
 
-class Basic : public std::vector<uint8_t> {
-private:
-  typedef const std::string_view csv;
-  typedef const char *ccs;
-
+class uint8v : public std::vector<uint8_t> {
 public:
-  ccs raw() const { return (ccs)data(); }
-  const csv view() const { return csv(raw(), size()); }
+  template <typename T> const T *raw() const { return (const T *)data(); }
+  const std::string_view view() const { return std::string_view(raw<char>(), size()); }
 };
 
-} // namespace packet
 } // namespace pierre

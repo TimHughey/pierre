@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
-#include "packet/basic.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "packet/content.hpp"
 
 #include <array>
@@ -87,7 +87,7 @@ public:
   bool compareString(csv key, csv val) const;
   bool compareStringViaPath(csv val, uint32_t path_count, ...) const;
 
-  const Basic dataArray(const Steps &steps) const;
+  const uint8v dataArray(const Steps &steps) const;
 
   bool empty() const;
   // bool exists(ccs path);

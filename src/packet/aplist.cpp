@@ -191,8 +191,8 @@ bool Aplist::compareStringViaPath(csv val, uint32_t path_count, ...) const {
   return rc;
 }
 
-const Basic Aplist::dataArray(const Steps &steps) const {
-  Basic data;
+const uint8v Aplist::dataArray(const Steps &steps) const {
+  uint8v data;
 
   auto node = fetchNode(steps, PLIST_DATA);
 

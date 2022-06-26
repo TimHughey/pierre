@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
+#include "base/typical.hpp"
 #include "misc/minmax.hpp"
 
 #include <memory>

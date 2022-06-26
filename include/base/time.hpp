@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
+#include "base/helpers.hpp"
+#include "base/types.hpp"
 
 #include <chrono>
 #include <time.h>
@@ -33,10 +34,11 @@ using Millis = std::chrono::milliseconds;
 using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period>;
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::duration<long double>;
+using steady_clock = std::chrono::steady_clock;
 
 typedef uint64_t ClockID; // master clock id
 
-struct rtp_time {
+struct pe_time {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
 
   template <typename T> static MillisFP as_millis_fp(const T &d) {
@@ -48,11 +50,11 @@ struct rtp_time {
   }
 
   template <typename T>
-  static T elapsed_as(const Nanos &d1, const Nanos d2 = rtp_time::nowNanos()) {
+  static T elapsed_as(const Nanos &d1, const Nanos d2 = pe_time::nowNanos()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
-  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = rtp_time::nowNanos()) { //
+  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pe_time::nowNanos()) { //
     return std::chrono::abs(d2 - d1);
   }
 

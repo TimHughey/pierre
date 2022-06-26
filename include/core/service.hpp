@@ -18,9 +18,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "service/types.hpp"
 #include "status_flags.hpp"
-#include "typedefs.hpp"
 
 #include <cstdint>
 #include <memory>

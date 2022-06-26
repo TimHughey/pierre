@@ -18,52 +18,22 @@
 
 #pragma once
 
+#include "base/time.hpp"
+#include "base/typical.hpp"
+
 #include <cstdint>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <source_location>
-#include <string>
-#include <string_view>
-#include <thread>
 
 namespace pierre {
-
-using namespace std::literals;
 
 using src_loc = std::source_location;
 typedef const src_loc csrc_loc;
 
-// string, string_view and const char *
-using string = std::string;
-typedef const string &csr;
+constexpr ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
+const string runTicks(); // a timestamp
 
-using string_view = std::string_view;
-typedef const string_view csv;
-typedef const char *ccs;
-
-// threads
-typedef std::jthread Thread;
-
-// Global Helpers
-ccs fnName(csrc_loc loc = src_loc::current()); // func name of the caller or a src_loc
-const string runTicks();                       // a timestamp
-
-constexpr uint64_t upow(uint64_t base, uint64_t exp) {
-  uint64_t result = 1;
-
-  for (;;) {
-    if (exp & 1)
-      result *= base;
-    exp >>= 1;
-    if (!exp)
-      break;
-    base *= base;
-  }
-
-  return result;
-}
-
-// misc debug
 const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
 const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");
 void __vlog(fmt::string_view format, fmt::format_args args);

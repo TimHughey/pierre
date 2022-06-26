@@ -19,7 +19,7 @@
 */
 
 #include "packet/headers.hpp"
-#include "core/typedefs.hpp"
+#include "base/typical.hpp"
 #include "packet/content.hpp"
 #include "packet/resp_code.hpp"
 

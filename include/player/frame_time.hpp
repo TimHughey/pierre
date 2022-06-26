@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "core/typedefs.hpp"
-#include "rtp_time/rtp_time.hpp"
+#include "base/time.hpp"
+#include "base/typical.hpp"
 
 #include <chrono>
 

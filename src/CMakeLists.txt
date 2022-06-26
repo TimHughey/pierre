@@ -11,6 +11,9 @@ FetchContent_Declare(ArduinoJson
 
 FetchContent_MakeAvailable(ArduinoJson)
 
+# common types, logging, helpers and shared session key
+add_subdirectory(base)
+
 # args, config, host, service
 add_subdirectory(core)
 

@@ -18,8 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "core/config.hpp"
-#include "core/typedefs.hpp"
 
 #include <cstdint>
 #include <memory>

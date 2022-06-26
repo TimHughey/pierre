@@ -18,11 +18,11 @@
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "common/ops_mode.hpp"
 #include "common/typedefs.hpp"
 #include "conn_info/stream.hpp"
 #include "conn_info/stream_info.hpp"
-#include "core/typedefs.hpp"
 
 #include <arpa/inet.h>
 #include <condition_variable>
