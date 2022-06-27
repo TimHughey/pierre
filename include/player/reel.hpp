@@ -52,10 +52,12 @@ private:
 
 private: // constructor private, all access through shared_ptr
   Reel()
-      : module_id(fmt::format("REEL {:#05x}", ++SERIAL_NUM)), // note 1
-        stats_map(Frame::statsMap()) {                        // note 2
+      : serial(fmt::format("{:#05x}", ++SERIAL_NUM)), // note 1
+        module_id(fmt::format("REEL {}", serial)),    // note 2
+        stats_map(Frame::statsMap()) {                // note 3
     // notes:
-    //  1. sets Reel unique identifier (for logging / debugging)
+    //  1. Reel unique serial num (for debugging)
+    //  1. Reel loggind prefix
     //  2. initialize stats map to capture the status of the frames
     //     returned by nextFrame()
 
@@ -91,12 +93,18 @@ public:
     return f != frames.end() ? (*f)->shared_from_this() : shFrame();
   }
 
+  const string &serialNum() const { return serial; }
   size_t size() const { return frames.size(); }
 
   bool unplayedAtLeastOne() const { return unplayedCount() > 0; }
 
   size_t unplayedCount() const {
     return ranges::count_if(frames, [](auto frame) { return frame->unplayed(); });
+  }
+
+  shReel updateReserve() {
+    frames_reserve = std::max(frames_reserve, size());
+    return shared_from_this();
   }
 
   // misc stats, debug
@@ -106,12 +114,16 @@ public:
 
 private:
   // order dependent
+  const string serial;
   const string module_id;
   fra::StatsMap stats_map;
 
   // order independent
-  static uint64_t SERIAL_NUM;
   Frames frames;
+  size_t frames_reserve = 1024;
+
+  // class static
+  static uint64_t SERIAL_NUM;
 };
 } // namespace player
 } // namespace pierre

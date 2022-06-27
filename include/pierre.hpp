@@ -43,7 +43,7 @@ private:
   };
 
 public:
-  ~Pierre();
+  ~Pierre() = default;
 
   [[nodiscard]] static sPierre create(const Inject &di) {
     // Not using std::make_shared<Best> because the c'tor is private.
@@ -55,10 +55,13 @@ public:
   void run();
 
 private:
-  Pierre(const Inject &di);
+  Pierre(const Inject &di)
+      : cfg({.app_name = di.app_name, .cli_cfg_file = di.args_map.cfg_file}), //
+        moduleId("Pierre") {}
 
 private:
   Config cfg;
+  csv moduleId;
 };
 
 } // namespace pierre

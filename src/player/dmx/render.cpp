@@ -59,7 +59,7 @@ Render::Render(io_context &io_ctx, player::shSpooler spooler)
   const auto input_fps = pe_time::as_millis_fp(InputInfo::fps_ns());
   const auto diff = render_fps - input_fps;
 
-  __LOG0("render_fps={} input_fps={} diff={}\n", render_fps, input_fps, diff);
+  __LOG0("{:<18} render_fps={} input_fps={} diff={}\n", moduleId, render_fps, input_fps, diff);
 
   // call no functions here that use self
 }

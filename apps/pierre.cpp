@@ -20,6 +20,7 @@
 
 #include "pierre.hpp"
 #include "airplay/airplay.hpp"
+#include "base/typical.hpp"
 #include "core/args.hpp"
 #include "core/config.hpp"
 #include "core/host.hpp"
@@ -33,13 +34,6 @@
 
 namespace pierre {
 
-Pierre::Pierre(const Inject &di)
-    : cfg({.app_name = di.app_name, .cli_cfg_file = di.args_map.cfg_file}) {
-  // maybe more later?
-}
-
-Pierre::~Pierre() {}
-
 // create and run all threads
 void Pierre::run() {
   if (!cfg.findFile() || !cfg.load()) {
@@ -48,9 +42,7 @@ void Pierre::run() {
 
   // create core dependencies for injection
   auto host = Host::init({.cfg = cfg});
-
-  constexpr auto f = FMT_STRING("{} {} {} {}\n");
-  fmt::print(f, runTicks(), fnName(), host->serviceName(), host->firmwareVerson());
+  __LOG0("{:<18} {} {}\n", moduleId, host->serviceName(), host->firmwareVerson());
 
   Service::init();
 
@@ -60,30 +52,5 @@ void Pierre::run() {
   auto &airplay_thread = Airplay::init()->run();
 
   airplay_thread.join();
-
-  /* legacy
-std::list<shared_ptr<thread>> threads;
-
-  auto dsp = make_shared<audio::Dsp>();
-  auto dmx = make_shared<dmx::Render>();
-  auto lightdesk = make_shared<lightdesk::LightDesk>(dsp);
-
-  threads.emplace_front(dsp->run());
-  threads.emplace_front(dmx->run());
-
-  lightdesk->saveInstance(lightdesk);
-  threads.emplace_front(lightdesk->run());
-
-  dmx->addProducer(lightdesk);
-
-  sleep(10);
-
-  if (State::leaving()) {
-    lightdesk->leave();
-  }
-
-  State::shutdown();
-  cout << endl;
-  */
 }
 } // namespace pierre

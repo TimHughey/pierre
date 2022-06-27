@@ -93,7 +93,7 @@ const anchor::Data &Anchor::getData() {
         last.setLocalTimeAt(now_ns); // capture when local time calculated
 
         if (is_new) {
-          __LOG0("{:<18} VALID clockId={:#x} {}\n", //
+          __LOG0("{:<18} VALID clockId={:#x} master_for={:0.2}\n", //
                  Anchor::moduleId, clock_info.clockID,
                  pe_time::as_secs(clock_info.masterFor(now_ns)));
 
@@ -161,7 +161,8 @@ void Anchor::save(anchor::Data &ad) {
   if ((ad <=> recent) < 0) { // this is a new anchor clock
     _is_new = true;
 
-    __LOG0("{:<18} clock={:#x}\n", moduleId, ad.clockID);
+    __LOG0("{:<18} clock={:#x} {}\n", moduleId, //
+           ad.clockID, ad.clockID == last.clockID ? csv("SAME") : csv("NEW"));
   }
 
   if ((ad <=> recent) > 0) { // known anchor clock details have changed

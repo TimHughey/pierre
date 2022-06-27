@@ -57,9 +57,9 @@ namespace errc = boost::system::errc;
 // executed once at startup (by one of the threads) to create necessary
 // resources (e.g. Clock, Anchor, Servers
 void Controller::kickstart() {
-  __LOG0("{} features={:#x}\n", moduleId, Features().ap2_default());
+  __LOG0("{:<18} features={:#x}\n", moduleId, Features().ap2_default());
 
-  watchDog();                       // watchDog() ensures io_ctx has work
+  watchDog();                // watchDog() ensures io_ctx has work
   MasterClock::peersReset(); // reset timing peers
 
   // finally, start listening for Rtsp messages
