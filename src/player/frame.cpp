@@ -502,7 +502,8 @@ const Nanos Frame::localTimeDiff() const {
   const auto frame_time_ns = anchor_data.frameLocalTime(timestamp);
 
   if (anchor_data.ok()) {
-    return chrono::duration_cast<Nanos>(frame_time_ns - net_time_ns);
+    // note: frame_time_ns - net_time_ns
+    return pe_time::elapsed_as<Nanos>(net_time_ns, frame_time_ns);
   } else {
     return Nanos::min();
   }

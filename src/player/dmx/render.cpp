@@ -19,7 +19,7 @@
 */
 
 #include "player/dmx/render.hpp"
-#include "base/time.hpp"
+#include "base/pe_time.hpp"
 #include "core/input_info.hpp"
 #include "player/typedefs.hpp"
 #include "rtp_time/anchor.hpp"

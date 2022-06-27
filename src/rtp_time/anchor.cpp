@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "rtp_time/anchor.hpp"
-#include "base/time.hpp"
+#include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "core/input_info.hpp"
 #include "rtp_time/anchor/data.hpp"
@@ -64,7 +64,8 @@ const anchor::Data &Anchor::getData() {
   // prefer the master clock when anchor clock and master clock match
 
   if (clock_info.clockID == recent.clockID) {
-    if (clock_info.tooYoung()) {   // whoops, master clock isn't stable
+    // master clock is stabilizing
+    if (clock_info.masterFor() < MasterClock::Info::AGE_MIN) {
       return anchor::INVALID_DATA; // return default (invalid) data
     }
 
@@ -82,7 +83,7 @@ const anchor::Data &Anchor::getData() {
     // are we already synced to this clock?
     if (clock_info.clockID == recent.clockID) {
       if (clock_info.masterFor(now_ns) < 1.5s) {
-        __LOG0("{:<18} master too young {}\n", Anchor::moduleId,
+        __LOG0("{:<18} master too young {:<0.3}\n", Anchor::moduleId,
                pe_time::as_secs(clock_info.masterFor(now_ns)));
 
         return anchor::INVALID_DATA;
@@ -93,7 +94,7 @@ const anchor::Data &Anchor::getData() {
         last.setLocalTimeAt(now_ns); // capture when local time calculated
 
         if (is_new) {
-          __LOG0("{:<18} VALID clockId={:#x} master_for={:0.2}\n", //
+          __LOG0("{:<18} VALID clockId={:#x} master_for={:<0.3}\n", //
                  Anchor::moduleId, clock_info.clockID,
                  pe_time::as_secs(clock_info.masterFor(now_ns)));
 

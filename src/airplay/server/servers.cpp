@@ -17,7 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "server/servers.hpp"
-#include "conn_info/conn_info.hpp"
 #include "server/audio.hpp"
 #include "server/control.hpp"
 #include "server/event.hpp"

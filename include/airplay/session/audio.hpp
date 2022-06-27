@@ -21,7 +21,6 @@
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
-#include "conn_info/conn_info.hpp"
 #include "session/base.hpp"
 
 #include <fmt/format.h>

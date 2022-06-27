@@ -20,13 +20,14 @@
 
 #pragma once
 
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
+
 #include <ArduinoJson.h>
 #include <vector>
 
 namespace pierre {
 namespace dmx {
-
-typedef std::vector<uint8_t> Frame;
 
 class Packet {
 public:
@@ -43,7 +44,7 @@ public:
   size_t txDataLength() const { return p.len.packet; }
 
 public:
-  Frame frame;
+  uint8v frame;
 
 private:
   typedef StaticJsonDocument<384> MsgPackDoc;

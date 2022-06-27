@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/time.hpp"
+#include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 
@@ -83,24 +83,12 @@ public:
     }
 
     Nanos sampleAge(Nanos now = pe_time::nowNanos()) const {
-      if (ok()) {
-        return sampleTime - now;
-      }
-
-      return Nanos::zero();
+      return ok() ? pe_time::elapsed_abs_ns(sampleTime, now) : Nanos::zero();
     }
 
     bool tooOld() const {
       if (auto age = sampleAge(); age >= AGE_MAX) {
         return logAgeIssue("TOO OLD", age);
-      }
-
-      return false;
-    }
-
-    bool tooYoung() const {
-      if (auto age = masterFor(); age.count() && (age < AGE_MIN)) {
-        return logAgeIssue("TOO YOUNG", age);
       }
 
       return false;
