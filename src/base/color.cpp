@@ -18,20 +18,15 @@
     https://www.wisslanding.com
 */
 
+#include "base/color.hpp"
+#include "base/minmax.hpp"
+#include "base/typical.hpp"
+
 #include <algorithm>
-#include <boost/format.hpp>
 #include <cmath>
 #include <ctgmath>
-#include <fstream>
-#include <iostream>
-
-#include "lightdesk/color.hpp"
-
-using boost::format;
-using namespace std;
 
 namespace pierre {
-namespace lightdesk {
 bool Hsb::operator==(const Hsb &rhs) const {
   // test brightness first since it is most often adjusted
   return (bri == rhs.bri) && (hue == rhs.hue) && (sat == rhs.sat);
@@ -44,14 +39,12 @@ Hsb Hsb::fromRgb(uint32_t rgb_val) {
 }
 
 Hsb Hsb::fromRgb(uint8_t red_val, uint8_t grn_val, uint8_t blu_val) {
-  using namespace std;
-
   const auto red = static_cast<float>(red_val) / 255.0f;
   const auto grn = static_cast<float>(grn_val) / 255.0f;
   const auto blu = static_cast<float>(blu_val) / 255.0f;
 
-  float chroma_max = max(max(red, grn), blu);
-  float chroma_min = min(min(red, grn), blu);
+  float chroma_max = std::max(std::max(red, grn), blu);
+  float chroma_min = std::min(std::min(red, grn), blu);
   float chroma_delta = chroma_max - chroma_min;
 
   float hue = 0, sat = 0, bri = 0;
@@ -79,8 +72,8 @@ Hsb Hsb::fromRgb(uint8_t red_val, uint8_t grn_val, uint8_t blu_val) {
 
 void Hsb::toRgb(uint8_t &red_val, uint8_t &grn_val, uint8_t &blu_val) const {
   float chroma = bri * sat;
-  float hue_prime = fmod((360.0f * hue) / 60.0f, 6.0f);
-  float x = chroma * (1.0f - fabs(fmod(hue_prime, 2.0f) - 1.0f));
+  float hue_prime = std::fmod((360.0f * hue) / 60.0f, 6.0f);
+  float x = chroma * (1.0f - std::fabs(std::fmod(hue_prime, 2.0f) - 1.0f));
   float m = bri - chroma;
 
   float red, grn, blu;
@@ -115,9 +108,9 @@ void Hsb::toRgb(uint8_t &red_val, uint8_t &grn_val, uint8_t &blu_val) const {
     blu = 0;
   }
 
-  red_val = static_cast<uint8_t>(round((red + m) * 255.0f));
-  grn_val = static_cast<uint8_t>(round((grn + m) * 255.0f));
-  blu_val = static_cast<uint8_t>(round((blu + m) * 255.0f));
+  red_val = static_cast<uint8_t>(std::round((red + m) * 255.0f));
+  grn_val = static_cast<uint8_t>(std::round((grn + m) * 255.0f));
+  blu_val = static_cast<uint8_t>(std::round((blu + m) * 255.0f));
 }
 
 Color::Color(const uint rgb_val) { _hsb = std::move(Hsb::fromRgb(rgb_val)); }
@@ -164,7 +157,7 @@ Color Color::interpolate(Color a, Color b, float t) {
   float d = b_hsb.hue - a_hsb.hue;
   if (a_hsb.hue > b_hsb.hue) {
     // Swap (a.h, b.h)
-    swap(a_hsb.hue, b_hsb.hue);
+    std::swap(a_hsb.hue, b_hsb.hue);
 
     d *= -1.0;
     t = 1.0 - t;
@@ -173,8 +166,8 @@ Color Color::interpolate(Color a, Color b, float t) {
   if (d > 0.5) // 180deg
   {
     a_hsb.hue = a_hsb.hue + 1; // 360deg
-    h = fmod((a_hsb.hue + t * (b_hsb.hue - a_hsb.hue)),
-             1.0); // 360deg
+    h = std::fmod((a_hsb.hue + t * (b_hsb.hue - a_hsb.hue)),
+                  1.0); // 360deg
   }
   if (d <= 0.5) // 180deg
   {
@@ -231,18 +224,18 @@ Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
 
   const auto x = range.interpolate(brightness_range, val);
 
-  if (false) {
-    static uint seq = 0;
-    static ofstream log("/tmp/pierre/color.log", ios::trunc);
+  // if (false) {
+  //   static uint seq = 0;
+  //   static ofstream log("/tmp/pierre/color.log", ios::trunc);
 
-    if (x >= brightness()) {
-      log << boost::format("%05u range(%0.2f,%0.2f) val(%0.2f) brightness(%0.1f) "
-                           "=> %0.1f\n") %
-                 seq++ % range.min() % range.max() % val % brightness() % x;
+  //   if (x >= brightness()) {
+  //     log << fmt::format("%05u range(%0.2f,%0.2f) val(%0.2f) brightness(%0.1f) "
+  //                          "=> %0.1f\n") %
+  //                seq++ % range.min() % range.max() % val % brightness() % x;
 
-      log.flush();
-    }
-  }
+  //     log.flush();
+  //   }
+  // }
 
   setBrightness(x);
 
@@ -274,18 +267,16 @@ Color &Color::setSaturation(const MinMaxFloat &range, const float val) {
 }
 
 string Color::asString() const {
-  using namespace boost;
-
   uint8_t red, grn, blu = 0;
-
   _hsb.toRgb(red, grn, blu);
 
-  format fmt("hsb(%7.2f, %5.1f, %5.1f) rgb(%4u, %4u, %4u)");
+  string msg;
+  auto w = std::back_inserter(msg);
 
-  fmt % hue() % saturation() % brightness() % (uint)red % (uint)grn % (uint)blu;
+  fmt::format_to(w, "hsb({:7.2}, {:5.1}, {:5.1}) ", hue(), saturation(), brightness());
+  fmt::format_to(w, "rgb({:4}, {:4}, {:4})", red, grn, blu);
 
-  return std::move(fmt.str());
+  return msg;
 }
 
-} // namespace lightdesk
 } // namespace pierre

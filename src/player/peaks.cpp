@@ -19,7 +19,6 @@
 */
 
 #include "player/peaks.hpp"
-#include "misc/elapsed.hpp"
 
 #include <cmath>
 

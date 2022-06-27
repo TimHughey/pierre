@@ -20,8 +20,8 @@
 
 #pragma once
 
+#include "base/minmax.hpp"
 #include "base/typical.hpp"
-#include "misc/minmax.hpp"
 
 #include <memory>
 #include <type_traits>

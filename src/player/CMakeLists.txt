@@ -47,7 +47,6 @@ target_link_libraries(Player PUBLIC
   base
   core
   packet
-  Misc
   rtp_time
   fmt::fmt
 )

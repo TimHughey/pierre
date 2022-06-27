@@ -20,8 +20,8 @@
 
 #pragma once
 
+#include "base/minmax.hpp"
 #include "lightdesk/headunit.hpp"
-#include "misc/minmax.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -102,27 +102,27 @@ public:
     const uint32_t duty_now = duty();
 
     switch (_mode) {
-    case FIXED:
-      break;
+      case FIXED:
+        break;
 
-    case PULSE_INIT:
-      // unitNext() has already been set by the call to pulse()
-      _mode = PULSE_RUNNING;
-      break;
+      case PULSE_INIT:
+        // unitNext() has already been set by the call to pulse()
+        _mode = PULSE_RUNNING;
+        break;
 
-    case PULSE_RUNNING:
-      const DutyVal fuzzy = _dest + _velocity;
-      const DutyVal next = duty_now - _velocity;
+      case PULSE_RUNNING:
+        const DutyVal fuzzy = _dest + _velocity;
+        const DutyVal next = duty_now - _velocity;
 
-      // we've reached or are close enough to the destination
-      if ((duty_now <= fuzzy) || (next <= _dest)) {
-        unitNext(_dest);
-        _mode = FIXED;
-      } else {
-        unitNext(next);
-      }
+        // we've reached or are close enough to the destination
+        if ((duty_now <= fuzzy) || (next <= _dest)) {
+          unitNext(_dest);
+          _mode = FIXED;
+        } else {
+          unitNext(next);
+        }
 
-      break;
+        break;
     }
   }
 

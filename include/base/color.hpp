@@ -20,18 +20,18 @@
 
 #pragma once
 
+#include "base/minmax.hpp"
+#include "base/typical.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <ctgmath>
 #include <string>
 
-#include "misc/minmax.hpp"
-
 namespace pierre {
-namespace lightdesk {
 
 struct Hsb {
-  // no construvtor -- aggregate initialization
+  // no constructor -- aggregate initialization
 
   bool operator==(const Hsb &rhs) const;
 
@@ -104,5 +104,4 @@ private:
   White _white = 0;
 };
 
-} // namespace lightdesk
 } // namespace pierre

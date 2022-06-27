@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "dmx/packet.hpp"
+#include "player/dmx/packet.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -41,7 +41,7 @@ public:
 
   virtual void leave() = 0;
 
-  float fps() const { return 44.0f; }
+  static constexpr fps() { return 44.0f; }
 
 protected:
   const uint _address;

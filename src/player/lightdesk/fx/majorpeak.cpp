@@ -18,15 +18,15 @@
     https://www.wisslanding.com
 */
 
+#include "lightdesk/fx/majorpeak.hpp"
+#include "base/elapsed.hpp"
+#include "core/state.hpp"
+#include "lightdesk/faders/color/toblack.hpp"
+
 #include <boost/format.hpp>
 #include <chrono>
 #include <iostream>
 #include <random>
-
-#include "core/state.hpp"
-#include "lightdesk/faders/color/toblack.hpp"
-#include "lightdesk/fx/majorpeak.hpp"
-#include "misc/elapsed.hpp"
 
 namespace pierre {
 namespace lightdesk {
@@ -136,7 +136,6 @@ void MajorPeak::handleFillPinspot(const Peaks &peaks) {
 
     const auto greater_freq = _fill_spot_cfg.when_greater.frequency;
     if (freq >= greater_freq) {
-
       // peaks above upper bass and have a greater magnitude take priority
       // regardless of pinspot brightness
       if (peak.magnitude() > last_peak.magnitude()) {
@@ -231,7 +230,6 @@ void MajorPeak::handleMainPinspot(const Peaks peaks) {
 }
 
 const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
-
   const auto hard_floor = _freq.hard.floor;
   const auto hard_ceil = _freq.hard.ceiling;
 
@@ -239,7 +237,8 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   const auto soft_ceil = _freq.soft.ceiling;
 
   const Freq freq = peak.frequency();
-  bool reasonable = (freq >= hard_floor) && (freq <= hard_ceil) && (peak.magnitude() > Peak::magFloor());
+  bool reasonable =
+      (freq >= hard_floor) && (freq <= hard_ceil) && (peak.magnitude() > Peak::magFloor());
 
   // ensure frequency can be interpolated into a color
   if (!reasonable) {
@@ -300,13 +299,14 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
 }
 
 void MajorPeak::makeRefColors() {
-  _ref_colors.assign({Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
-                      Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
-                      Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
-                      Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
-                      Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
-                      Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
-                      Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
+  _ref_colors.assign(
+      {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
+       Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
+       Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
+       Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
+       Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
+       Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
+       Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
 }
 
 void MajorPeak::once() {

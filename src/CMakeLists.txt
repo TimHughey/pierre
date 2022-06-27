@@ -32,8 +32,5 @@ add_subdirectory(rtp_time)
 # pkayer (aka queued)
 add_subdirectory(player)
 
-# misc classes to support audio, dsp, lightdesk, etc.
-add_subdirectory(misc)
-
 # add_subdirectory(dmx)
 # add_subdirectory(lightdesk)

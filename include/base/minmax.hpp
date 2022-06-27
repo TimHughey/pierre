@@ -26,7 +26,7 @@
 
 namespace pierre {
 
-template <typename T> class MinMaxPair {
+template <typename T = float> class MinMaxPair {
 public:
   MinMaxPair() { set(0, 100); }
   MinMaxPair(const T min_val, const T max_val) { _pair = std::make_pair(min_val, max_val); }
