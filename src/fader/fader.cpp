@@ -18,57 +18,33 @@
     https://www.wisslanding.com
 */
 
-#include "lightdesk/faders/fader.hpp"
+#include "fader/fader.hpp"
 
 using namespace std::chrono;
 
 namespace pierre {
-namespace lightdesk {
 namespace fader {
 
-Base::Base(long ms) {
-  _duration = duration_cast<usec>(milliseconds(ms));
-
-  _frames.count = 0;
-}
-
-bool Base::checkProgress(double percent) const {
-  auto rc = false;
-
-  if (progress() >= percent) {
-    rc = true;
-  }
-
-  return rc;
-}
-
 bool Base::travel() {
-  bool more_travel = true;
-
-  if (_progress == 0.0) {
+  if (progress == 0.0) {
     // the first invocation (frame 0) represents the origin and start time
     // of the fader
-    _started_at = clock::now();
-    _progress = 0.0001;
+    start_at = pe_time::nowNanos();
+    progress = 0.0001;
 
   } else {
-
-    auto elapsed = duration_cast<usec>(clock::now() - _started_at);
-
-    if (elapsed >= _duration) {
-      more_travel = false;
-      handleFinish();
+    if (auto elapsed = pe_time::elapsed_abs_ns(start_at); elapsed < duration) {
+      progress = doTravel(elapsed.count(), duration.count());
     } else {
-      _progress = handleTravel(elapsed.count(), _duration.count());
+      doFinish();
+      finished = true;
     }
   }
 
-  _finished = !more_travel;
+  frames.count++;
 
-  _frames.count++;
-  return more_travel;
+  return !finished;
 }
-} // namespace fader
 
-} // namespace lightdesk
+} // namespace fader
 } // namespace pierre

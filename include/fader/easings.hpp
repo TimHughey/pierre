@@ -23,17 +23,17 @@
 
 #pragma once
 
+#include "base/typical.hpp"
+
 #include <cmath>
 
 namespace pierre {
-namespace lightdesk {
 namespace fader {
 
-class Easing {
-public:
-  Easing(const float step = 1.0f, const float start_val = 0.0f) : _step(step), _start_val(start_val) {}
+struct Easing {
+  Easing(const float step = 1.0f, const float start_val = 0.0f)
+      : _step(step), _start_val(start_val) {}
 
-public:
   const bool easing = true;
 
   static constexpr double PI = 3.14159265358979323846;
@@ -44,79 +44,71 @@ protected:
   float _start_val = 0.0;
 };
 
-class Circular : public Easing {
-public:
+struct Circular : public Easing {
   Circular(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
 
   float calc(float current, const float total) const;
 };
 
-class CircularAcceleratingFromZero : public Easing {
-public:
+struct CircularAcceleratingFromZero : public Easing {
   CircularAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f)
       : Easing(step, start_val) {}
 
   float calc(float current, const float total) const;
 };
 
-class CircularDeceleratingToZero : public Easing {
-public:
+struct CircularDeceleratingToZero : public Easing {
   CircularDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
       : Easing(step, start_val) {}
 
   float calc(float current, const float total) const;
 };
 
-class Quadratic : public Easing {
-public:
+struct Quadratic : public Easing {
   Quadratic(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
 
   float calc(float current, const float total) const;
 };
 
-class QuintAcceleratingFromZero : public Easing {
-public:
+struct QuintAcceleratingFromZero : public Easing {
   QuintAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f)
       : Easing(step, start_val) {}
 
   float calc(float current, const float total) const;
 };
 
-class QuintDeceleratingToZero : public Easing {
-public:
-  QuintDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
+struct QuintDeceleratingToZero : public Easing {
+  QuintDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
 
   float calc(float current, const float total) const;
 };
 
-class SimpleLinear : public Easing {
-public:
+struct SimpleLinear : public Easing {
   SimpleLinear(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
 
   float calc(const float current, const float total) const;
 };
 
-class Sine : public Easing {
-public:
+struct Sine : public Easing {
   Sine(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
 
   float calc(const float current, const float total) const;
 };
 
-class SineAcceleratingFromZero : public Easing {
-public:
-  SineAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
+struct SineAcceleratingFromZero : public Easing {
+  SineAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
 
   float calc(const float current, const float total) const;
 };
 
-class SineDeceleratingToZero : public Easing {
-public:
-  SineDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
+struct SineDeceleratingToZero : public Easing {
+  SineDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
+      : Easing(step, start_val) {}
 
   float calc(const float current, const float total) const;
 };
 
 } // namespace fader
-} // namespace lightdesk
 } // namespace pierre

@@ -20,19 +20,17 @@
 
 #pragma once
 
-#include "lightdesk/color.hpp"
-#include "lightdesk/faders/color.hpp"
-#include "lightdesk/faders/easings.hpp"
+#include "base/color.hpp"
+#include "fader/color_travel.hpp"
+#include "fader/easings.hpp"
 
 namespace pierre {
-namespace lightdesk {
 namespace fader {
-namespace color {
+namespace travel {
 
-template <typename E> class ToColor : public Color {
-
+template <typename E> class ToColor : public fader::ColorTravel {
 public:
-  ToColor(const Color::Opts &opts) : Color(opts) {
+  ToColor(const ColorTravel::ColorTravelOpts &opts) : ColorTravel(opts) {
     if (_origin.isBlack()) {
       _location = _dest;
       _location.setBrightness(_origin);
@@ -63,7 +61,6 @@ private:
   E _easing;
 };
 
-} // namespace color
+} // namespace travel
 } // namespace fader
-} // namespace lightdesk
 } // namespace pierre

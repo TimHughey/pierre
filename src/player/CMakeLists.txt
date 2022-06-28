@@ -10,10 +10,10 @@ file(GLOB_RECURSE
   "${HEADER_PATH}/player/*.h*"
 )
 
-find_package(fmt                              REQUIRED)
-find_library(m            NAMES m             REQUIRED)
-find_package(Sodium                           REQUIRED)
-find_package(ZLIB                             REQUIRED)
+find_package(fmt            REQUIRED)
+find_library(m      NAMES m REQUIRED)
+find_package(Sodium         REQUIRED)
+find_package(ZLIB           REQUIRED)
 
 add_library(Player
   # orchestration

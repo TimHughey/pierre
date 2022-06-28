@@ -47,8 +47,6 @@ struct Hsb {
 
 class Color {
 public:
-  using string = std::string;
-
   typedef uint8_t White;
 
 public:

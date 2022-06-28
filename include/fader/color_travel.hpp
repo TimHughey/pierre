@@ -20,39 +20,37 @@
 
 #pragma once
 
-#include "lightdesk/color.hpp"
-#include "lightdesk/faders/easings.hpp"
-#include "lightdesk/faders/fader.hpp"
+#include "base/color.hpp"
+#include "base/typical.hpp"
+#include "fader/easings.hpp"
+#include "fader/fader.hpp"
 
 namespace pierre {
-namespace lightdesk {
 namespace fader {
 
-class Color : public Base {
+class ColorTravel : public Base {
 public:
   struct Opts {
-    lightdesk::Color origin;
-    lightdesk::Color dest;
-    ulong ms;
+    Color origin;
+    Color dest;
+    Nanos duration{0};
   };
 
 public:
-  Color(const Opts &opts) : Base(opts.ms), _origin(opts.origin), _dest(opts.dest) {}
+  ColorTravel(const Opts opts) : Base(opts.duration), origin(opts.origin), dest(opts.dest) {}
 
-  const lightdesk::Color &location() const { return _location; }
-
-  virtual void handleFinish() override { _location = _dest; }
+  virtual void doFinish() override { pos = dest; }
   // virtual void handleFinish() override {}
-  virtual float handleTravel(const float current, const float total) = 0;
+  virtual float doTravel(const float current, const float total) = 0;
+
+  const Color &position() const { return pos; }
 
 protected:
-  lightdesk::Color _origin;
-  lightdesk::Color _dest;
-  lightdesk::Color _location; // current fader location
+  const Color origin;
+  const Color dest;
+
+  Color pos; // current fader position
 };
 
-typedef std::unique_ptr<Color> upColor;
-
 } // namespace fader
-} // namespace lightdesk
 } // namespace pierre

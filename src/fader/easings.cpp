@@ -21,12 +21,11 @@
     https:://www.wasings.net  (Andrey Sitnik and Ivan Solovev)
 */
 
+#include "fader/easings.hpp"
+
 #include <cmath>
 
-#include "lightdesk/faders/easings.hpp"
-
 namespace pierre {
-namespace lightdesk {
 namespace fader {
 
 float Circular::calc(float current, const float total) const {
@@ -52,7 +51,7 @@ float CircularAcceleratingFromZero::calc(float current, const float total) const
 
 float CircularDeceleratingToZero::calc(float current, const float total) const {
   current /= total;
-  current--;
+  --current;
 
   const float x = _step * (sqrt(1.0f - current * current)) + _start_val;
 
@@ -115,5 +114,4 @@ float SineDeceleratingToZero::calc(const float current, const float total) const
 }
 
 } // namespace fader
-} // namespace lightdesk
 } // namespace pierre
