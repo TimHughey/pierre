@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "player.hpp"
-#include "dmx/render.hpp"
+#include "render.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
 
@@ -57,7 +57,7 @@ namespace ranges = std::ranges;
 shPlayer Player::init(io_context &io_ctx) { // static
   auto self = shared::player().emplace(new Player(io_ctx));
 
-  dmx::Render::init(io_ctx, self->spooler);
+  player::Render::init(io_ctx, self->spooler);
   self->start();
 
   return self->shared_from_this();
@@ -121,7 +121,7 @@ void Player::saveAnchor(anchor::Data &data) { // static, must be in .cpp
 
   auto self = ptr();
   self->play_mode = data.playing() ? player::PLAYING : player::NOT_PLAYING;
-  dmx::Render::playMode(self->play_mode);
+  player::Render::playMode(self->play_mode);
 }
 
 void Player::shutdown() { // static
@@ -136,7 +136,7 @@ void Player::shutdown() { // static
 
 void Player::teardown() { // static, must be in .cpp
   ptr()->packet_count = 0;
-  dmx::Render::teardown();
+  player::Render::teardown();
 }
 
 void Player::watchDog() {

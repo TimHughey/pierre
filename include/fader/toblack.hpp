@@ -18,29 +18,26 @@
     https://www.wisslanding.com
 */
 
-#include "fader/fader.hpp"
+#pragma once
+
+#include "base/color.hpp"
+#include "base/typical.hpp"
+#include "fader/to_color.hpp"
 
 namespace pierre {
+namespace fader {
 
-bool Fader::travel() {
-  if (progress == 0.0) {
-    // the first invocation (frame 0) represents the origin and start time
-    // of the fader
-    start_at = pe_time::nowNanos();
-    progress = 0.0001;
+// E = easing
+template <typename E> class ToBlack : public ToColor<E> {
+public:
+  struct Opts {
+    Color origin;
+    Nanos duration;
+  };
 
-  } else {
-    if (auto elapsed = pe_time::elapsed_abs_ns(start_at); elapsed < duration) {
-      progress = doTravel(elapsed.count(), duration.count());
-    } else {
-      doFinish();
-      finished = true;
-    }
-  }
-
-  frames.count++;
-
-  return !finished;
-}
-
+public:
+  ToBlack(const Opts &opts)
+      : ToColor<E>({.origin = opts.origin, .dest = Color::black(), .duration = opts.duration}) {}
+};
+} // namespace fader
 } // namespace pierre

@@ -1,6 +1,6 @@
 /*
     Pierre - Custom Light Show via DMX for Wiss Landing
-    Copyright (C) 2020  Tim Hughey
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,34 +20,30 @@
 
 #pragma once
 
-#include "base/color.hpp"
-#include "base/typical.hpp"
-#include "fader/easings.hpp"
-#include "fader/fader.hpp"
+#include <any>
 
 namespace pierre {
-namespace fader {
+namespace hdu {
 
-struct Opts {
-  Color origin;
-  Color dest;
-  Nanos duration{0};
-};
+/*
+Special thanks for the instructive article on polymorphic objects:
+https://www.fluentcpp.com/2021/01/29/inheritance-without-pointers/
+*/
 
-class ColorTravel : public Fader {
+template <typename Interface> struct Implementation {
 public:
-  ColorTravel(const Opts &opts) : Fader(opts.duration), origin(opts.origin), dest(opts.dest) {}
+  template <typename ConcreteType>
+  Implementation(ConcreteType &&object)
+      : storage{std::forward<ConcreteType>(object)}, getter{[](std::any &storage) -> Interface & {
+          return std::any_cast<ConcreteType &>(storage);
+        }} {}
 
-  virtual void doFinish() override { pos = dest; }
-  virtual float doTravel(const float current, const float total) = 0;
-  const Color &position() const override { return pos; }
+  Interface *operator->() { return &getter(storage); }
 
-protected:
-  const Color origin;
-  const Color dest;
-
-  Color pos; // current fader position
+private:
+  std::any storage;
+  Interface &(*getter)(std::any &);
 };
 
-} // namespace fader
+} // namespace hdu
 } // namespace pierre

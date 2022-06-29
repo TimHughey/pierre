@@ -21,8 +21,8 @@
 #include "base/uint8v.hpp"
 #include "core/input_info.hpp"
 #include "player/av.hpp"
-#include "player/fft.hpp"
-#include "player/peaks.hpp"
+#include "dsp/fft.hpp"
+#include "dsp/peaks.hpp"
 #include "rtp_time/anchor.hpp"
 
 #include <array>

@@ -21,9 +21,9 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "dsp/peaks.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame_time.hpp"
-#include "player/peaks.hpp"
 
 #include <future>
 #include <map>

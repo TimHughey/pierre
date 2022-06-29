@@ -19,6 +19,7 @@ find_package(ZLIB                             REQUIRED)
 add_library(packet
   headers.cpp content.cpp
   aplist.cpp resp_code.cpp
+  dmx.cpp
   ${HEADER_LIST}
 )
 
@@ -49,6 +50,7 @@ target_link_libraries(packet PUBLIC
   ${plist}
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
+  ArduinoJson
   base
   rtp_time
   fmt::fmt

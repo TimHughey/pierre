@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 namespace pierre {
 
@@ -37,5 +38,8 @@ typedef const char *ccs;
 
 // threads
 typedef std::jthread Thread;
+
+// Vector of Floats
+typedef std::vector<float> Reals;
 
 } // namespace pierre

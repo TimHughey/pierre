@@ -29,11 +29,17 @@ add_subdirectory(packet)
 # rtp time (PTP master clock and RTP anchor)
 add_subdirectory(rtp_time)
 
+# Digital Signal Processing
+add_subdirectory(dsp)
+
 # player (aka queued)
 add_subdirectory(player)
 
 # faders
 add_subdirectory(fader)
+
+# headunits 
+add_subdirectory(headunit)
 
 # add_subdirectory(dmx)
 # add_subdirectory(lightdesk)

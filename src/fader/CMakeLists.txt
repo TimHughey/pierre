@@ -24,4 +24,4 @@ target_include_directories(
 # the based include directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE base)
+target_link_libraries(${__target} PUBLIC base)

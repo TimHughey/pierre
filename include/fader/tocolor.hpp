@@ -1,5 +1,5 @@
 /*
-    Pierre - Custom Light Show via DMX for Wiss Landing
+    devs/pinspot/fader.hpp - Ruth Pin Spot Fader Action
     Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -22,31 +22,45 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
+#include "fader/color_travel.hpp"
 #include "fader/easings.hpp"
 #include "fader/fader.hpp"
 
 namespace pierre {
 namespace fader {
 
-struct Opts {
-  Color origin;
-  Color dest;
-  Nanos duration{0};
-};
-
-class ColorTravel : public Fader {
+template <typename E> class ToColor : public ColorTravel {
 public:
-  ColorTravel(const Opts &opts) : Fader(opts.duration), origin(opts.origin), dest(opts.dest) {}
-
-  virtual void doFinish() override { pos = dest; }
-  virtual float doTravel(const float current, const float total) = 0;
-  const Color &position() const override { return pos; }
+  ToColor(const Opts &opts) : ColorTravel(opts) {
+    if (origin.isBlack()) {
+      pos = dest;
+      pos.setBrightness(origin);
+    } else {
+      pos = origin;
+    }
+  }
 
 protected:
-  const Color origin;
-  const Color dest;
+  virtual float doTravel(const float current, const float total) override {
+    auto fade_level = easing.calc(current, total);
 
-  Color pos; // current fader position
+    if (origin.isBlack()) {
+      auto brightness = dest.brightness();
+      pos.setBrightness(brightness * fade_level);
+
+    } else if (dest.isBlack()) {
+      auto brightness = origin.brightness();
+      pos.setBrightness(brightness - (brightness * fade_level));
+
+    } else {
+      pos = Color::interpolate(origin, dest, fade_level);
+    }
+
+    return fade_level;
+  }
+
+private:
+  E easing;
 };
 
 } // namespace fader

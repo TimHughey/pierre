@@ -24,17 +24,22 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 
-namespace pierre {
-namespace fader {
+#include <memory>
 
-class Base {
+namespace pierre {
+
+class Fader;
+typedef std::unique_ptr<Fader> uqFader;
+
+class Fader {
 public:
-  Base(const Nanos duration) : duration(duration){};
+  Fader(const Nanos duration) : duration(duration){};
 
   bool active() const { return !finished; }
   bool checkProgress(double percent) const { return progress > percent; }
   bool complete() const { return finished; }
   auto frameCount() const { return frames.count; }
+  virtual const Color &position() const { return color::NONE; }
   const Nanos &startdAt() const { return start_at; }
 
   bool travel(); // returns true to continue traveling
@@ -61,5 +66,4 @@ private:
   } frames;
 };
 
-} // namespace fader
 } // namespace pierre

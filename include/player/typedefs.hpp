@@ -26,8 +26,6 @@
 namespace pierre {
 namespace player {
 
-typedef std::vector<float> Reals;
-
 constexpr auto NOT_PLAYING = csv("NOT PLAYING");
 constexpr auto PLAYING = csv("PLAYING");
 

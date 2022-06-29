@@ -62,5 +62,5 @@ target_link_libraries(${__target} PUBLIC
   ${Boost_LIBRARIES}
   fmt::fmt
   rt
-  base core mdns packet ap_aes Player
+  base core mdns packet ap_aes player
 )

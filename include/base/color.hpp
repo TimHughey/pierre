@@ -92,8 +92,8 @@ public:
 
     return color;
   }
-  static Color black() { return std::move(Color()); }
-  static Color none() { return std::move(Color()); }
+  static constexpr Color black() { return std::move(Color()); }
+  static constexpr Color none() { return std::move(Color()); }
 
   string asString() const;
 
@@ -101,5 +101,9 @@ private:
   Hsb _hsb;
   White _white = 0;
 };
+
+namespace color {
+constexpr Color NONE = Color::none();
+}
 
 } // namespace pierre

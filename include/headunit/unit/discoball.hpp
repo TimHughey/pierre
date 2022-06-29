@@ -1,5 +1,5 @@
 /*
-    devs/pinspot/fader.hpp - Ruth Pin Spot Fader Action
+    lightdesk/headunits/discoball.hpp - Ruth LightDesk Headunit Disco Ball
     Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -18,29 +18,29 @@
     https://www.wisslanding.com
 */
 
-#include "fader/fader.hpp"
+#pragma once
+
+#include "lightdesk/headunits/pwm.hpp"
 
 namespace pierre {
+namespace lightdesk {
 
-bool Fader::travel() {
-  if (progress == 0.0) {
-    // the first invocation (frame 0) represents the origin and start time
-    // of the fader
-    start_at = pe_time::nowNanos();
-    progress = 0.0001;
+class DiscoBall : public PulseWidthHeadUnit {
+public:
+  DiscoBall(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
+    config.leave = 0;
 
-  } else {
-    if (auto elapsed = pe_time::elapsed_abs_ns(start_at); elapsed < duration) {
-      progress = doTravel(elapsed.count(), duration.count());
-    } else {
-      doFinish();
-      finished = true;
-    }
+    _id[0] = 'D';
+    _id[1] = 'S';
+    _id[2] = 'B';
   }
 
-  frames.count++;
+public: // effects
+  inline void spin() { percent(0.65); }
+  inline void still() { dark(); }
+};
 
-  return !finished;
-}
+typedef std::shared_ptr<DiscoBall> spDiscoBall;
 
+} // namespace lightdesk
 } // namespace pierre
