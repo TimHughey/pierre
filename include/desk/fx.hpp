@@ -24,9 +24,12 @@
 #include "dsp/peaks.hpp"
 #include <desk/fx/histogram.hpp>
 
-#include <mutex>
+#include <memory>
 
 namespace pierre {
+
+class FX;
+typedef std::shared_ptr<FX> shFX;
 
 class FX {
 public:

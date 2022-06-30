@@ -47,11 +47,11 @@ MajorPeak::MajorPeak() : FX(), _prev_peaks(88), _main_history(88), _fill_history
   std::random_device r;
   _random.seed(r());
 
-  main = Desk::unitDerived<PinSpot>(unit::MAIN_SPOT);
-  fill = Desk::unitDerived<PinSpot>(unit::FILL_SPOT);
-  led_forest = Desk::unitDerived<LedForest>(unit::LED_FOREST);
-  el_dance_floor = Desk::unitDerived<ElWire>(unit::EL_DANCE);
-  el_entry = Desk::unitDerived<ElWire>(unit::EL_ENTRY);
+  main = Desk::derivedUnit<PinSpot>(unit::MAIN_SPOT);
+  fill = Desk::derivedUnit<PinSpot>(unit::FILL_SPOT);
+  led_forest = Desk::derivedUnit<LedForest>(unit::LED_FOREST);
+  el_dance_floor = Desk::derivedUnit<ElWire>(unit::EL_DANCE);
+  el_entry = Desk::derivedUnit<ElWire>(unit::EL_ENTRY);
 
   // initialize static frequency to color mapping
   if (_ref_colors.size() == 0) {

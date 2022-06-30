@@ -19,12 +19,12 @@
 */
 
 #include "desk/desk.hpp"
-#include "desk/unit/all.hpp"
-#include "desk/unit/opts.hpp"
 // #include "desk/fx/colorbars.hpp"
 // #include "desk/fx/leave.hpp"
 // #include "desk/fx/majorpeak.hpp"
-// #include "desk/fx/silence.hpp"
+#include "desk/fx/silence.hpp"
+#include "desk/unit/all.hpp"
+#include "desk/unit/opts.hpp"
 
 #include <math.h>
 #include <ranges>
@@ -36,6 +36,10 @@ namespace shared {
 std::optional<shDesk> __tracker;
 std::optional<shDesk> &tracker() { return __tracker; }
 } // namespace shared
+
+Desk::Desk() : active_fx(createFX<fx::Silence>()) {
+  // active FX initializes to Silence
+}
 
 // static creation, access to instance
 shDesk Desk::create() {
@@ -50,6 +54,7 @@ shDesk Desk::create() {
 
   return desk;
 }
+
 shDesk Desk::ptr() { return shared::tracker().value()->shared_from_this(); }
 
 // Desk::Desk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {

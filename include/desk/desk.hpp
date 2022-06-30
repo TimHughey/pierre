@@ -21,6 +21,7 @@
 #pragma once
 
 #include "base/typical.hpp"
+#include "desk/fx.hpp"
 #include "desk/headunit.hpp"
 #include "packet/dmx.hpp"
 
@@ -42,14 +43,28 @@ private:
   typedef std::vector<shHeadUnit> Units;
 
 private:
-  Desk() = default;
+  Desk();
 
 public:
-  // static create, access to Desk
+  // static create, access to Desk, FX and Unit
   static shDesk create();
+
+  template <typename T> static shFX createFX() {
+    return std::static_pointer_cast<T>(std::make_shared<T>());
+  }
+
   template <typename T> static std::shared_ptr<T> createUnit(auto opts) {
     return ptr()->addUnit(opts);
   }
+
+  template <typename T> static std::shared_ptr<T> derivedFX(csv name) {
+    return std::static_pointer_cast<T>(ptr()->active_fx);
+  }
+
+  template <typename T> static std::shared_ptr<T> derivedUnit(csv name) {
+    return std::static_pointer_cast<T>(unit(name));
+  }
+
   static shDesk ptr();
 
   // std::shared_ptr<fx::FX> activeFX() const { return _active.fx; }
@@ -61,6 +76,12 @@ public:
   // }
 
 public:
+  template <typename T> static shFX activateFX() {
+    ptr()->active_fx = createFX<T>();
+
+    return ptr()->active_fx;
+  }
+
   template <typename T> std::shared_ptr<T> addUnit(const auto opts) {
     return std::static_pointer_cast<T>(units.emplace_back(std::make_shared<T>(opts)));
   }
@@ -80,7 +101,9 @@ public:
   static shHeadUnit unit(csv name) {
     const auto &units = ptr()->units;
 
-    auto unit = ranges::find_if(units, [&name](shHeadUnit u) { return name == u->unitName(); });
+    auto unit = ranges::find_if(units, [name = name](shHeadUnit u) { //
+      return name == u->unitName();
+    });
 
     if (unit != units.end()) [[likely]] {
       return *unit;
@@ -89,10 +112,6 @@ public:
       fmt::format_to(std::back_inserter(msg), "unit [{}] not found", name);
       throw(std::runtime_error(msg.c_str()));
     }
-  }
-
-  template <typename T> static std::shared_ptr<T> unitDerived(csv name) {
-    return std::static_pointer_cast<T>(unit(name));
   }
 
   static void update(packet::DMX &packet) {
@@ -104,6 +123,7 @@ private:
 
 private:
   Units units;
+  shFX active_fx;
 
   // struct {
   //   std::mutex mtx;

@@ -24,24 +24,27 @@
 #include "desk/fx.hpp"
 #include "dsp/peaks.hpp"
 
+#include <memory>
+
 namespace pierre {
 namespace fx {
 
+class Silence;
+typedef std::unique_ptr<Silence> uqSilence;
+
 class Silence : public FX {
 public:
-  static constexpr string FX_NAME{"Silence"};
+  static constexpr csv FX_NAME{"Silence"};
 
 public:
   Silence() = default;
 
-  void executeFX(shPeaks peaks) override {
+  void execute(shPeaks peaks) override {
     peaks.reset();
     // do nothing, enjoy the silence
   };
 
-  static constexpr string &name() const override { return FX_NAME; }
-
-  void once() override { allUnitsDark(); }
+  csv name() const override { return FX_NAME; }
 };
 
 } // namespace fx
