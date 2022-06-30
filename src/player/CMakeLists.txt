@@ -37,11 +37,15 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${__target})
 # the basedinclude directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PUBLIC
+target_link_libraries(${__target} PRIVATE
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   ArduinoJson
+)
+
+target_link_libraries(${__target} PUBLIC
   base
+  desk
   dsp
   packet
   rtp_time

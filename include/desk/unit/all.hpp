@@ -1,6 +1,6 @@
 /*
-    lightdesk/headunits/elwire.hpp - Ruth LightDesk Headunit EL Wire
-    Copyright (C) 2020  Tim Hughey
+    lightdesk/headunits/pwm_base.hpp - Ruth LightDesk Head Unit Pwm Base
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,29 +20,7 @@
 
 #pragma once
 
-#include "lightdesk/headunits/pwm.hpp"
-
-namespace pierre {
-namespace lightdesk {
-
-class ElWire : public PulseWidthHeadUnit {
-
-public:
-  ElWire(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
-    config.max = unitPercent(0.25);
-    config.min = unitPercent(0.01);
-    config.dim = unitPercent(0.03);
-    config.pulse_start = unitPercent(0.15);
-    config.pulse_end = config.dim;
-    config.leave = unitPercent(0.50);
-
-    snprintf(_id.data(), _id.size(), "EL%u", _address);
-
-    dim();
-  }
-};
-
-typedef std::shared_ptr<ElWire> spElWire;
-
-} // namespace lightdesk
-} // namespace pierre
+#include "desk/unit/discoball.hpp"
+#include "desk/unit/elwire.hpp"
+#include "desk/unit/ledforest.hpp"
+#include "desk/unit/pinspot.hpp"

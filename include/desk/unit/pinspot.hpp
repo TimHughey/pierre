@@ -22,14 +22,15 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
+#include "desk/headunit.hpp"
 #include "fader/color_travel.hpp"
-#include "headunit/headunit.hpp"
 #include "packet/dmx.hpp"
 
+#include <cstdint>
+#include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
-namespace hdu {
 
 class PinSpot;
 typedef std::shared_ptr<PinSpot> shPinSpot;
@@ -56,7 +57,7 @@ public:
   };
 
 public:
-  PinSpot(uint16_t address = 1) : HeadUnit(fmt::format("pinspot {}", address), address, 6) {}
+  PinSpot(const unit::Opts opts) : HeadUnit(opts, FRAME_LEN) {}
   ~PinSpot() = default;
 
   template <typename T> void activate(const typename T::Opts &opts) {
@@ -93,7 +94,7 @@ private:
   Fx fx{Fx::None};
 
   uqFader fader;
+  static constexpr size_t FRAME_LEN = 6;
 };
 
-} // namespace hdu
 } // namespace pierre

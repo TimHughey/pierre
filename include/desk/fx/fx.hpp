@@ -21,13 +21,12 @@
 #pragma once
 
 #include "base/typical.hpp"
+#include "desk/tracker.hpp"
 #include "dsp/peaks.hpp"
-#include "lightdesk/headunits/tracker.hpp"
 
 #include <map>
 
 namespace pierre {
-namespace lightdesk {
 namespace fx {
 
 class Fx {

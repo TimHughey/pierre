@@ -20,14 +20,17 @@
 
 #pragma once
 
-#include "lightdesk/headunits/pwm.hpp"
+#include "desk/unit/pwm.hpp"
+#include <memory>
 
 namespace pierre {
-namespace lightdesk {
 
-class DiscoBall : public PulseWidthHeadUnit {
+class DiscoBall;
+typedef std::shared_ptr<DiscoBall> shDiscoBall;
+
+class DiscoBall : public PulseWidth {
 public:
-  DiscoBall(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
+  DiscoBall(const unit::Opts opts) : PulseWidth(opts) {
     config.leave = 0;
 
     _id[0] = 'D';
@@ -40,7 +43,4 @@ public: // effects
   inline void still() { dark(); }
 };
 
-typedef std::shared_ptr<DiscoBall> spDiscoBall;
-
-} // namespace lightdesk
 } // namespace pierre

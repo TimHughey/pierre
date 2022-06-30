@@ -23,9 +23,19 @@
 #include "base/typical.hpp"
 #include "packet/dmx.hpp"
 
+#include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
+
+namespace unit {
+struct Opts {
+  string_view name{"none"};
+  uint8_t address;
+};
+
+constexpr size_t NO_FRAME = 0;
+} // namespace unit
 
 class HeadUnit;
 typedef std::shared_ptr<HeadUnit> shHeadUnit;
@@ -35,12 +45,12 @@ public:
   static constexpr float fps() { return 44.0f; }
 
 public:
-  HeadUnit(const string unit_name) : unit_name(unit_name), address(0), frame_len(0) {
+  HeadUnit(const unit::Opts opts) : unit_name(opts.name), address(opts.address), frame_len(0) {
     // support headunits that do not use the DMX frame
   }
 
-  HeadUnit(const string unit_name, uint16_t address, size_t frame_len)
-      : unit_name(unit_name), address(address), frame_len(frame_len){};
+  HeadUnit(const unit::Opts opts, size_t frame_len)
+      : unit_name(opts.name), address(opts.address), frame_len(frame_len){};
 
   virtual ~HeadUnit() {}
 

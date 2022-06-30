@@ -21,10 +21,18 @@
 #pragma once
 
 #include "base/minmax.hpp"
-#include "lightdesk/headunit.hpp"
+#include "base/typical.hpp"
+#include "desk/headunit.hpp"
+
+#include <array>
+#include <cstdint>
+#include <fmt/format.h>
+#include <memory>
 
 namespace pierre {
-namespace lightdesk {
+
+typedef uint32_t DutyVal;
+typedef float DutyPercent;
 
 //
 // IMPORTANT!
@@ -33,16 +41,15 @@ namespace lightdesk {
 //  1. effects (e.g. dark(), pulse())
 //  2. framePrepare()
 //
-// As coded this object is safe for a second task to call frameUpate().
+// As coded this object is safe for a second task to call frameUpdate().
 //
 
-class PulseWidthHeadUnit : public HeadUnit {
-public:
-  typedef uint_fast16_t DutyVal;
-  typedef float DutyPercent;
+class PulseWidth;
+typedef std::shared_ptr<PulseWidth> shPulseWidth;
 
+class PulseWidth : public HeadUnit {
 public:
-  PulseWidthHeadUnit(uint8_t num) : HeadUnit(num, 0) {
+  PulseWidth(const unit::Opts opts) : HeadUnit(opts, unit::NO_FRAME) {
     _id.fill(0x00);
 
     config.min = 0;
@@ -56,7 +63,7 @@ public:
     fixed(config.dim);
   }
 
-  virtual ~PulseWidthHeadUnit() { stop(); }
+  virtual ~PulseWidth() { stop(); }
 
   DutyVal duty() const { return _duty; }
   DutyVal dutyPercent(DutyPercent percent) const { return config.max * percent; }
@@ -162,10 +169,10 @@ protected:
   virtual DutyPercent unitPercent(float x) { return x * config.max; }
 
 private:
-  typedef enum { FIXED = 0, PULSE_INIT, PULSE_RUNNING } PulseWidthHeadUnit_t;
+  typedef enum { FIXED = 0, PULSE_INIT, PULSE_RUNNING } PulseWidth_t;
 
 private:
-  PulseWidthHeadUnit_t _mode = FIXED;
+  PulseWidth_t _mode = FIXED;
   DutyVal _duty = 0;
   DutyVal _unit_next = 0;
 
@@ -173,7 +180,4 @@ private:
   float _velocity = 0.0; // change per frame when fx is active
 };
 
-typedef PulseWidthHeadUnit::DutyVal DutyVal;
-
-} // namespace lightdesk
 } // namespace pierre

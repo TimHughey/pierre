@@ -20,15 +20,18 @@
 
 #pragma once
 
-#include "lightdesk/headunits/pwm.hpp"
+#include "desk/unit/pwm.hpp"
+
+#include <memory>
 
 namespace pierre {
-namespace lightdesk {
 
-class LedForest : public PulseWidthHeadUnit {
+class LedForest;
+typedef std::shared_ptr<LedForest> shLedForest;
 
+class LedForest : public PulseWidth {
 public:
-  LedForest(uint8_t pwm_num) : PulseWidthHeadUnit(pwm_num) {
+  LedForest(const unit::Opts opts) : PulseWidth(opts) {
     config.dim = unitPercent(0.005);
     config.pulse_start = unitPercent(0.02);
     config.pulse_end = config.dim;
@@ -41,7 +44,4 @@ public:
   }
 };
 
-typedef std::shared_ptr<LedForest> spLedForest;
-
-} // namespace lightdesk
 } // namespace pierre

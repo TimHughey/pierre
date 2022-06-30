@@ -16,11 +16,10 @@
     https://www.wisslanding.com
 */
 
-#include "headunit/unit/pinspot.hpp"
+#include "desk/unit/pinspot.hpp"
 #include "base/typical.hpp"
 
 namespace pierre {
-namespace hdu {
 
 void PinSpot::colorNow(const Color &color_now, float strobe_val) {
   color = color_now;
@@ -58,5 +57,4 @@ void PinSpot::frameUpdate(packet::DMX &packet) {
   snippet[5] = fx;
 }
 
-} // namespace hdu
 } // namespace pierre

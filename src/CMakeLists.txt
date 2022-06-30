@@ -38,8 +38,8 @@ add_subdirectory(player)
 # faders
 add_subdirectory(fader)
 
-# headunits 
-add_subdirectory(headunit)
+# desk (head units, FX 
+add_subdirectory(desk)
 
 # add_subdirectory(dmx)
 # add_subdirectory(lightdesk)
