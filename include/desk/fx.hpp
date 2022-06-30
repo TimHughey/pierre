@@ -20,37 +20,38 @@
 
 #pragma once
 
-#include "lightdesk/fx/fx.hpp"
+#include "base/typical.hpp"
+#include "dsp/peaks.hpp"
+#include <desk/fx/histogram.hpp>
+
+#include <mutex>
 
 namespace pierre {
-namespace lightdesk {
-namespace fx {
 
-class Leave : public FX {
+class FX {
 public:
-  Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
-  ~Leave() = default;
+  FX() = default;
+  virtual ~FX() = default;
 
-  void executeFX(audio::spPeaks peaks) override;
-  const string &name() const override {
-    static const string fx_name = "Leave";
+  virtual bool completed() { return finished; }
 
-    return fx_name;
-  }
+  // signal to caller if once() was called by returning the stored valued
+  void executeLoop(shPeaks peaks);
 
-  void once() override;
+  const auto histogram() const { return histo.map; }
+  bool matchName(csv &match) const { return match == name(); }
+  virtual csv name() const = 0;
+  virtual void once() {} // subclasses should override once() to run setup code one time
+
+protected:
+  virtual void execute(shPeaks peaks) = 0;
+
+protected:
+  bool finished = false;
+  fx::Histogram histo;
 
 private:
-  float _hue_step = 0.25f;
-  float _brightness = 100.0f;
-
-  float _next_brightness = 0;
-  lightdesk::Color _next_color;
-
-  spPinSpot main;
-  spPinSpot fill;
+  bool called_once = false;
 };
 
-} // namespace fx
-} // namespace lightdesk
 } // namespace pierre

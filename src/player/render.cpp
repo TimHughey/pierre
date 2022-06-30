@@ -22,7 +22,6 @@
 #include "base/pe_time.hpp"
 #include "core/input_info.hpp"
 #include "desk/desk.hpp"
-#include "desk/unit/all.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
 #include "typedefs.hpp"
@@ -69,12 +68,6 @@ shRender Render::init(asio::io_context &io_ctx, player::shSpooler spooler) {
   auto self = shared::render().emplace(new Render(io_ctx, spooler));
 
   auto desk = Desk::create();
-  desk->addUnit<PinSpot>(unit::Opts{.name = csv("main pinspot"), .address = 0});
-  desk->addUnit<PinSpot>(unit::Opts{.name = csv("fill pinspot"), .address = 7});
-  desk->addUnit<DiscoBall>(unit::Opts{.name = csv("discoball"), .address = 1});
-  desk->addUnit<ElWire>(unit::Opts{.name = csv("el dance"), .address = 2});
-  desk->addUnit<ElWire>(unit::Opts{.name = csv("el entry"), .address = 3});
-  desk->addUnit<LedForest>(unit::Opts{.name = csv("led forest"), .address = 4});
 
   return self;
 }

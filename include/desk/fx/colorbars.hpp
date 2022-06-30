@@ -29,14 +29,14 @@ namespace fx {
 
 typedef pierre::fader::travel::ToBlack<Circular> Fader;
 
-class ColorBars : public Fx {
+class ColorBars : public FX {
 public:
-  ColorBars() : Fx() {
+  ColorBars() : FX() {
     main = unit<PinSpot>("main");
     fill = unit<PinSpot>("fill");
   }
 
-  void executeFx(audio::spPeaks peaks) override {
+  void executeFX(audio::spPeaks peaks) override {
     peaks.reset(); // this fx does not use peaks
 
     PinSpot *pinspot = nullptr;

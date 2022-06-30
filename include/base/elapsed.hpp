@@ -108,10 +108,12 @@ public:
   elapsedMicros &operator=(const elapsedMicros &rhs) {
     _frozen = rhs._frozen;
     _us = rhs._us;
+
+    return *this;
   }
 
   elapsedMicros &operator=(const uint32_t val) {
-    _us = (val >= 0) ? micros() - (uint32_t)val : micros();
+    _us = micros() - val;
     return *this;
   }
 

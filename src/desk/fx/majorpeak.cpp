@@ -18,30 +18,40 @@
     https://www.wisslanding.com
 */
 
-#include "hdu/fx/majorpeak.hpp"
+#include "desk/fx/majorpeak.hpp"
 #include "base/elapsed.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
-#include "fader/color-travel/toblack.hpp"
+#include "desk/desk.hpp"
+#include "desk/unit/all.hpp"
+#include "fader/easings.hpp"
+#include "fader/toblack.hpp"
 
 #include <random>
 
 namespace pierre {
-namespace hdu {
+
+typedef fader::ToBlack<fader::SimpleLinear> FillFader;
+typedef fader::ToBlack<fader::SineDeceleratingToZero> MainFader;
+
 namespace fx {
 
-typedef fader::color::ToBlack<fader::SimpleLinear> FillFader;
-typedef fader::color::ToBlack<fader::SineDeceleratingToZero> MainFader;
+// make these globals in this file for convenience
+static shPinSpot main;
+static shPinSpot fill;
+static shPulseWidth led_forest;
+static shPulseWidth el_dance_floor;
+static shPulseWidth el_entry;
 
-MajorPeak::MajorPeak() : Fx(), _prev_peaks(88), _main_history(88), _fill_history(88) {
+MajorPeak::MajorPeak() : FX(), _prev_peaks(88), _main_history(88), _fill_history(88) {
   std::random_device r;
   _random.seed(r());
 
-  main = unit<PinSpot>("main");
-  fill = unit<PinSpot>("fill");
-  led_forest = unit<LedForest>("led forest");
-  el_dance_floor = unit<ElWire>("el dance");
-  el_entry = unit<ElWire>("el entry");
+  main = Desk::unitDerived<PinSpot>(unit::MAIN_SPOT);
+  fill = Desk::unitDerived<PinSpot>(unit::FILL_SPOT);
+  led_forest = Desk::unitDerived<LedForest>(unit::LED_FOREST);
+  el_dance_floor = Desk::unitDerived<ElWire>(unit::EL_DANCE);
+  el_entry = Desk::unitDerived<ElWire>(unit::EL_ENTRY);
 
   // initialize static frequency to color mapping
   if (_ref_colors.size() == 0) {
@@ -63,7 +73,7 @@ MajorPeak::MajorPeak() : Fx(), _prev_peaks(88), _main_history(88), _fill_history
   }
 }
 
-void MajorPeak::executeFx(Peaks peaks) {
+void MajorPeak::execute(shPeaks peaks) {
   static elapsedMillis color_elapsed;
 
   if (_color_config.rotate.enable) {
@@ -82,10 +92,10 @@ void MajorPeak::executeFx(Peaks peaks) {
   _prev_peaks.push_back(peak);
 }
 
-void MajorPeak::handleElWire(Peaks peaks) {
+void MajorPeak::handleElWire(shPeaks peaks) {
   const auto &soft = _freq.soft;
 
-  std::array<PulseWidthHeadUnit *, 2> elwires;
+  std::array<PulseWidth *, 2> elwires;
   elwires[0] = el_dance_floor.get();
   elwires[1] = el_entry.get();
 
@@ -108,13 +118,11 @@ void MajorPeak::handleElWire(Peaks peaks) {
   }
 }
 
-void MajorPeak::handleFillPinspot(const Peaks &peaks) {
+void MajorPeak::handleFillPinspot(shPeaks peaks) {
   const auto peak = peaks->majorPeak();
   if (peak.frequency() > _fill_spot_cfg.frequency_max) {
     return;
   }
-
-  auto fade_duration = _fill_spot_cfg.fade_max_ms;
 
   Color color = makeColor(_color, peak);
 
@@ -170,13 +178,14 @@ void MajorPeak::handleFillPinspot(const Peaks &peaks) {
   }
 
   if (start_fader) {
-    fill->activate<FillFader>({.origin = color, .ms = fade_duration});
+    fill->activate<FillFader>(
+        {.origin = color,
+         .duration = pe_time::as_duration<Millis, Nanos>(_fill_spot_cfg.fade_max_ms)});
     _fill_history.push_front(peak);
   }
 }
 
-void MajorPeak::handleMainPinspot(const Peaks peaks) {
-  auto fade_duration = _main_spot_cfg.fade_max_ms;
+void MajorPeak::handleMainPinspot(shPeaks peaks) {
   auto freq_min = _main_spot_cfg.frequency_min;
   auto peak = (*peaks)[freq_min];
 
@@ -219,7 +228,9 @@ void MajorPeak::handleMainPinspot(const Peaks peaks) {
   }
 
   if (start_fader) {
-    main->activate<MainFader>({.origin = color, .ms = fade_duration});
+    main->activate<MainFader>(
+        {.origin = color,
+         .duration = pe_time::as_duration<Millis, Nanos>(_main_spot_cfg.fade_max_ms)});
     _main_history.push_front(peak);
   }
 }
@@ -304,15 +315,8 @@ void MajorPeak::makeRefColors() {
        Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
 }
 
-void MajorPeak::once() {
-  unit<LedForest>("led forest")->dark();
-  unit<ElWire>("el dance")->dark();
-  unit<ElWire>("el entry")->dark();
-  unit<DiscoBall>("discoball")->spin();
-
-  main->black();
-  fill->black();
-}
+// must be in .cpp to avoid including Desk in .hpp
+void MajorPeak::once() { Desk::dark(); }
 
 double MajorPeak::randomHue() {
   auto hue = static_cast<double>(_random() % 360) / 360.0;
@@ -341,5 +345,4 @@ bool MajorPeak::useablePeak(const Peak &peak) {
 MajorPeak::ReferenceColors MajorPeak::_ref_colors;
 
 } // namespace fx
-} // namespace hdu
 } // namespace pierre

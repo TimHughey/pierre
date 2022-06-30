@@ -37,7 +37,7 @@ typedef std::shared_ptr<PinSpot> shPinSpot;
 
 class PinSpot : public HeadUnit {
 public:
-  enum Fx {
+  enum FX {
     None = 0x00,
     PrimaryColorsCycle = 31,
     RedOnGreenBlueWhiteJumping = 63,
@@ -64,7 +64,7 @@ public:
     fader = std::make_unique<T>(opts);
   }
 
-  void autoRun(Fx spot_fx) { fx = spot_fx; }
+  void autoRun(FX spot_fx) { fx = spot_fx; }
   inline void black() { dark(); }
   float brightness() const { return color.brightness(); }
   bool checkFaderProgress(float percent) const { return fader->checkProgress(percent); }
@@ -73,7 +73,7 @@ public:
   void colorNow(const Color &color, float strobe = 0.0);
   void dark() override {
     color = Color::black();
-    fx = Fx::None;
+    fx = FX::None;
   }
 
   void framePrepare() override { faderMove(); }
@@ -91,7 +91,7 @@ private:
   Color color;
   uint8_t strobe = 0;
   uint8_t strobe_max = 104;
-  Fx fx{Fx::None};
+  FX fx{FX::None};
 
   uqFader fader;
   static constexpr size_t FRAME_LEN = 6;

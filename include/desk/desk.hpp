@@ -52,16 +52,16 @@ public:
   }
   static shDesk ptr();
 
-  // std::shared_ptr<fx::Fx> activeFx() const { return _active.fx; }
+  // std::shared_ptr<fx::FX> activeFX() const { return _active.fx; }
 
   // void update(packet::DMX &packet) override {
-  //   executeFx();
+  //   executeFX();
   //   packet.rootObj()["ACP"] = true; // AC power on
   //   _tracker->update(packet);
   // }
 
 public:
-  template <typename T> std::shared_ptr<T> addUnit(auto opts) {
+  template <typename T> std::shared_ptr<T> addUnit(const auto opts) {
     return std::static_pointer_cast<T>(units.emplace_back(std::make_shared<T>(opts)));
   }
 
@@ -77,7 +77,9 @@ public:
     forEach([](shHeadUnit unit) { unit->framePrepare(); });
   }
 
-  shHeadUnit unit(csv name) {
+  static shHeadUnit unit(csv name) {
+    const auto &units = ptr()->units;
+
     auto unit = ranges::find_if(units, [&name](shHeadUnit u) { return name == u->unitName(); });
 
     if (unit != units.end()) [[likely]] {
@@ -89,7 +91,7 @@ public:
     }
   }
 
-  template <typename T> std::shared_ptr<T> unitDerived(csv name) {
+  template <typename T> static std::shared_ptr<T> unitDerived(csv name) {
     return std::static_pointer_cast<T>(unit(name));
   }
 
@@ -105,7 +107,7 @@ private:
 
   // struct {
   //   std::mutex mtx;
-  //   std::shared_ptr<fx::Fx> fx;
+  //   std::shared_ptr<fx::FX> fx;
   // } _active;
 
   // spPinSpot main;

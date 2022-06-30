@@ -42,4 +42,7 @@ typedef std::jthread Thread;
 // Vector of Floats
 typedef std::vector<float> Reals;
 
+// Frequency
+typedef float Freq;
+
 } // namespace pierre

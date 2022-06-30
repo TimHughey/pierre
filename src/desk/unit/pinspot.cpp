@@ -28,7 +28,7 @@ void PinSpot::colorNow(const Color &color_now, float strobe_val) {
     strobe = (uint8_t)(strobe_max * strobe);
   }
 
-  fx = Fx::None;
+  fx = FX::None;
 }
 
 void PinSpot::faderMove() {

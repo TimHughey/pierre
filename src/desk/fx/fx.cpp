@@ -18,49 +18,32 @@
     https://www.wisslanding.com
 */
 
-#include "headunit/fx/fx.hpp"
+#include "desk/fx.hpp"
 
 namespace pierre {
-namespace hdu {
-namespace fx {
 
-std::shared_ptr<HeadUnitTracker> Fx::_tracker;
-
-void Fx::execute(const Peaks peaks) {
-  State::silent(peaks->silence());
-
-  // onceWrapper returns true if it called once() and consumes the first
-  // frame of the Fx
-  if (onceWrapper() == true) {
-    return;
-  }
-
-  // the second frame is the first call to executeFx()
-  executeFx(move(peaks));
-}
-
-bool Fx::matchName(const string_view &match) {
-  auto rc = false;
-  if (name().compare(match) == 0) {
-    rc = true;
-  }
-
-  return rc;
-}
-
-bool Fx::onceWrapper() {
-  auto rc = _one_time_only;
-
-  if (_one_time_only) {
+void FX::executeLoop(shPeaks peaks) {
+  if (called_once == false) {
+    // frame 0 is always consumed by the call to once()
     once();
-    _one_time_only = false;
+    called_once = true;
+  } else {
+    // frame n is passed to executeFX
+    execute(peaks);
   }
-
-  return rc;
 }
 
-void Fx::setTracker(std::shared_ptr<HeadUnitTracker> tracker) { _tracker = std::move(tracker); }
+// void FX::execute(shPeaks peaks) {
+//   State::silent(peaks->silence());
 
-} // namespace fx
-} // namespace hdu
+//   // onceWrapper returns true if it called once() and consumes the first
+//   // frame of the FX
+//   if (callOnce() == true) {
+//     return;
+//   }
+
+//   // the second frame is the first call to executeFX()
+//   executeFX(move(peaks));
+// }
+
 } // namespace pierre

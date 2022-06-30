@@ -16,6 +16,8 @@ add_library(${__target}
   # public API for (light)desk 
   desk.cpp
 
+  # FX
+  fx/fx.cpp fx/majorpeak.cpp
   # fx/fx.cpp fx/leave.cpp fx/majorpeak.cpp
   
   # (head)units

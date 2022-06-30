@@ -23,4 +23,5 @@
 #include "desk/unit/discoball.hpp"
 #include "desk/unit/elwire.hpp"
 #include "desk/unit/ledforest.hpp"
+#include "desk/unit/opts.hpp"
 #include "desk/unit/pinspot.hpp"

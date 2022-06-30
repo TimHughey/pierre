@@ -21,21 +21,13 @@
 #pragma once
 
 #include "base/typical.hpp"
+#include "desk/unit/opts.hpp"
 #include "packet/dmx.hpp"
 
 #include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
-
-namespace unit {
-struct Opts {
-  string_view name{"none"};
-  uint8_t address;
-};
-
-constexpr size_t NO_FRAME = 0;
-} // namespace unit
 
 class HeadUnit;
 typedef std::shared_ptr<HeadUnit> shHeadUnit;

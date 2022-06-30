@@ -20,37 +20,15 @@
 
 #pragma once
 
-#include "lightdesk/fx/fx.hpp"
+#include "base/typical.hpp"
+
+#include <map>
 
 namespace pierre {
-namespace lightdesk {
 namespace fx {
-
-class Leave : public FX {
-public:
-  Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
-  ~Leave() = default;
-
-  void executeFX(audio::spPeaks peaks) override;
-  const string &name() const override {
-    static const string fx_name = "Leave";
-
-    return fx_name;
-  }
-
-  void once() override;
-
-private:
-  float _hue_step = 0.25f;
-  float _brightness = 100.0f;
-
-  float _next_brightness = 0;
-  lightdesk::Color _next_color;
-
-  spPinSpot main;
-  spPinSpot fill;
+struct Histogram {
+  std::map<Freq, size_t> map;
 };
 
 } // namespace fx
-} // namespace lightdesk
 } // namespace pierre

@@ -19,6 +19,8 @@
 */
 
 #include "desk/desk.hpp"
+#include "desk/unit/all.hpp"
+#include "desk/unit/opts.hpp"
 // #include "desk/fx/colorbars.hpp"
 // #include "desk/fx/leave.hpp"
 // #include "desk/fx/majorpeak.hpp"
@@ -36,11 +38,22 @@ std::optional<shDesk> &tracker() { return __tracker; }
 } // namespace shared
 
 // static creation, access to instance
-shDesk Desk::create() { return shared::tracker().emplace(new Desk()); }
+shDesk Desk::create() {
+  auto desk = shared::tracker().emplace(new Desk());
+
+  desk->addUnit<PinSpot>(unit::MAIN_SPOT_OPTS);
+  desk->addUnit<PinSpot>(unit::FILL_SPOT_OPTS);
+  desk->addUnit<DiscoBall>(unit::DISCO_BALL_OPTS);
+  desk->addUnit<ElWire>(unit::EL_DANCE_OPTS);
+  desk->addUnit<ElWire>(unit::EL_ENTRY_OPTS);
+  desk->addUnit<LedForest>(unit::LED_FOREST_OPTS);
+
+  return desk;
+}
 shDesk Desk::ptr() { return shared::tracker().value()->shared_from_this(); }
 
 // Desk::Desk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {
-//   Fx::setTracker(_tracker);
+//   FX::setTracker(_tracker);
 
 //   _tracker->insert<PinSpot>("main", 1);
 //   _tracker->insert<PinSpot>("fill", 7);
@@ -60,15 +73,15 @@ shDesk Desk::ptr() { return shared::tracker().value()->shared_from_this(); }
 //   _active.fx = make_shared<Silence>();
 // }
 
-// Desk::~Desk() { Fx::resetTracker(); }
+// Desk::~Desk() { FX::resetTracker(); }
 
-// void Desk::executeFx() {
+// void Desk::executeFX() {
 //   audio::spPeaks peaks = _dsp->peaks();
 
 //   _active.fx->execute(peaks);
 
-//   // this is placeholder code for future Fx
-//   // at present the only Fx is MajorPeak which never ends
+//   // this is placeholder code for future FX
+//   // at present the only FX is MajorPeak which never ends
 //   if (_active.fx->finished()) {
 //     _active.fx = make_shared<MajorPeak>();
 //   }

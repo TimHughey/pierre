@@ -20,28 +20,21 @@
 
 #pragma once
 
-#include <boost/circular_buffer.hpp>
+#include "base/color.hpp"
+#include "base/typical.hpp"
+#include "desk/fx.hpp"
+#include "dsp/peaks.hpp"
 
+#include <boost/circular_buffer.hpp>
 #include <deque>
 #include <random>
-#include <string>
-
-#include "lightdesk/fx/fx.hpp"
 
 namespace pierre {
-namespace lightdesk {
 namespace fx {
 
-class MajorPeak : public Fx {
+class MajorPeak : public FX {
 public:
-  using string = std::string;
-  using ofstream = std::ofstream;
   using random_engine = std::mt19937;
-
-  using Freq = audio::Freq;
-  using Peak = audio::Peak;
-  using Peaks = audio::spPeaks;
-
   using circular_buffer = boost::circular_buffer<Peak>;
 
 public:
@@ -163,12 +156,8 @@ public:
   MajorPeak();
   ~MajorPeak() = default;
 
-  void executeFx(Peaks peaks) override;
-  const string &name() const override {
-    static const string fx_name = "MajorPeak";
-
-    return fx_name;
-  }
+  void execute(shPeaks peaks) override;
+  csv name() const override { return FX_NAME; }
 
   void once() override;
 
@@ -176,10 +165,10 @@ private:
   typedef std::deque<Color> ReferenceColors;
 
 private:
-  void handleElWire(Peaks peaks);
-  void handleLedForest(Peaks peaks);
-  void handleFillPinspot(const Peaks &peaks);
-  void handleMainPinspot(const Peaks peaks);
+  void handleElWire(shPeaks peaks);
+  void handleLedForest(shPeaks peaks);
+  void handleFillPinspot(shPeaks peaks);
+  void handleMainPinspot(shPeaks peaks);
 
   const Color makeColor(Color ref, const Peak &freq);
   void makeRefColors();
@@ -197,12 +186,6 @@ private:
   MainPinspot _main_spot_cfg;
   FillPinspot _fill_spot_cfg;
 
-  spPinSpot main;
-  spPinSpot fill;
-  spLedForest led_forest;
-  spElWire el_dance_floor;
-  spElWire el_entry;
-
   random_engine _random;
 
   Color _color;
@@ -218,8 +201,9 @@ private:
 
   circular_buffer _main_history;
   circular_buffer _fill_history;
+
+  static constexpr csv FX_NAME{"MajorPeak"};
 };
 
 } // namespace fx
-} // namespace lightdesk
 } // namespace pierre

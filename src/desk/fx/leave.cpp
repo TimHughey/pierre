@@ -31,7 +31,7 @@ Leave::Leave(const float hue_step, const float brightness)
   fill = unit<PinSpot>("fill");
 }
 
-void Leave::executeFx(audio::spPeaks peaks) {
+void Leave::executeFX(audio::spPeaks peaks) {
   peaks.reset(); // no use for peaks, release them
 
   if (_next_brightness < 50.0) {

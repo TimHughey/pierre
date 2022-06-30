@@ -22,7 +22,7 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
-#include "fader/to_color.hpp"
+#include "fader/tocolor.hpp"
 
 namespace pierre {
 namespace fader {

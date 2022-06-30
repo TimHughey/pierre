@@ -20,32 +20,29 @@
 
 #pragma once
 
-#include "lightdesk/fx/fx.hpp"
+#include "base/typical.hpp"
+#include "desk/fx.hpp"
+#include "dsp/peaks.hpp"
 
 namespace pierre {
-namespace lightdesk {
 namespace fx {
 
-class Silence : public Fx {
+class Silence : public FX {
+public:
+  static constexpr string FX_NAME{"Silence"};
 
 public:
   Silence() = default;
-  ~Silence() = default;
 
-  void executeFx(audio::spPeaks peaks) override {
+  void executeFX(shPeaks peaks) override {
     peaks.reset();
     // do nothing, enjoy the silence
   };
 
-  const string &name() const override {
-    static const string fx_name = "Silence";
-
-    return fx_name;
-  }
+  static constexpr string &name() const override { return FX_NAME; }
 
   void once() override { allUnitsDark(); }
 };
 
 } // namespace fx
-} // namespace lightdesk
 } // namespace pierre
