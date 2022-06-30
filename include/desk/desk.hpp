@@ -23,6 +23,7 @@
 #include "base/typical.hpp"
 #include "desk/fx.hpp"
 #include "desk/headunit.hpp"
+#include "io/io.hpp"
 #include "packet/dmx.hpp"
 
 #include <exception>

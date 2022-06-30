@@ -47,6 +47,7 @@ target_link_libraries(${__target} PUBLIC
   base
   desk
   dsp
+  io
   packet
   rtp_time
 )

@@ -33,7 +33,7 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PUBLIC
-  base fader packet
+  base io fader packet
 )
 
 # IDEs should put the headers in a nice place

@@ -46,11 +46,6 @@ std::optional<shPlayer> __player;
 std::optional<shPlayer> &player() { return __player; }
 } // namespace shared
 
-using error_code = boost::system::error_code;
-namespace asio = boost::asio;
-using io_context = asio::io_context;
-using strand = io_context::strand;
-namespace errc = boost::system::errc;
 namespace ranges = std::ranges;
 
 // static methods for creating, getting and resetting the shared instance

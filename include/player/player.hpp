@@ -24,6 +24,7 @@
 
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 #include "player/flush_request.hpp"
 #include "player/spooler.hpp"
 #include "player/typedefs.hpp"
@@ -36,13 +37,6 @@
 #include <vector>
 
 namespace pierre {
-
-namespace { // anonymous namespace limits scope
-namespace asio = boost::asio;
-using io_context = asio::io_context;
-using strand = io_context::strand;
-using steady_timer = asio::steady_timer;
-} // namespace
 
 class Player;
 typedef std::shared_ptr<Player> shPlayer;

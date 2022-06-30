@@ -17,6 +17,9 @@ add_subdirectory(base)
 # args, config, host, service
 add_subdirectory(core)
 
+# asio wrapper
+add_subdirectory(io)
+
 # mdns brought to you by Avahi
 add_subdirectory(mdns)
 

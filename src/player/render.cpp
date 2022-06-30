@@ -51,6 +51,9 @@ Render::Render(io_context &io_ctx, player::shSpooler spooler)
       local_strand(spooler->strandOut()), // use the unload strand from spooler
       frame_timer(io_ctx),                // generate process frames
       stats_timer(io_ctx),                // period stats reporting
+      silence_timer(io_ctx),              // track silence
+      leave_timer(io_ctx),                // track when to leave
+      standby_timer(io_ctx),              // track when to enter standby
       play_start(SteadyTimePoint::min()), // play not started yet
       play_frame_counter(0)               // no frames played yet
 {
@@ -103,6 +106,13 @@ void Render::handleFrame() {
     auto frame = spooler->nextFrame(FTD);
 
     recent_frame = player::Frame::markPlayed(frame, frames_played, frames_silence);
+
+    if (player::Frame::ok(frame)) {
+      auto peaks = frame->peaksLeft();
+
+      if (Peaks::silence(peaks)) {
+      }
+    }
 
     if (player::Frame::ok(frame) && frame->unplayed()) {
       __LOGX("{:<18} FRAME {}\n", moduleId, player::Frame::inspectFrame(frame));

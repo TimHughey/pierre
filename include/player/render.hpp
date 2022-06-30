@@ -91,6 +91,8 @@ private:
     }
   }
 
+  shRender silenceMonitor(player::shFrame frame);
+
   // misc debug, stats
 
   const string stats() const;
@@ -103,6 +105,9 @@ private:
   strand &local_strand;
   steady_timer frame_timer;
   steady_timer stats_timer;
+  steady_timer silence_timer;
+  steady_timer leave_timer;
+  steady_timer standby_timer;
   SteadyTimePoint play_start;
   uint64_t play_frame_counter;
 
