@@ -17,8 +17,7 @@ add_library(${__target}
   desk.cpp
 
   # FX
-  fx/fx.cpp fx/majorpeak.cpp
-  # fx/fx.cpp fx/leave.cpp fx/majorpeak.cpp
+  fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp
   
   # (head)units
   unit/pinspot.cpp

@@ -1,6 +1,6 @@
 /*
-    Pierre - Custom Light Show via DMX for Wiss Landing
-    Copyright (C) 2021  Tim Hughey
+    lightdesk/headunits/discoball.hpp - Ruth LightDesk Headunit Disco Ball
+    Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,28 +20,17 @@
 
 #pragma once
 
-#include "base/color.hpp"
 #include "base/typical.hpp"
-#include "desk/fx.hpp"
-#include "desk/fx/names.hpp"
-#include "dsp/peaks.hpp"
-
-#include <memory>
 
 namespace pierre {
 namespace fx {
 
-class Silence : public FX {
-public:
-  Silence() = default;
+using namespace std::literals::string_view_literals;
 
-  void execute(shPeaks peaks) override {
-    peaks.reset();
-    // do nothing, enjoy the silence
-  };
-
-  csv name() const override { return fx::SILENCE; }
-};
+constexpr auto COLOR_BARS = "Color Bars"sv;
+constexpr auto LEAVING = "Leaving"sv;
+constexpr auto MAJOR_PEAK = "Major Peak"sv;
+constexpr auto SILENCE = "Silence"sv;
 
 } // namespace fx
 } // namespace pierre

@@ -68,8 +68,6 @@ public:
 
   static shDesk ptr();
 
-  // std::shared_ptr<fx::FX> activeFX() const { return _active.fx; }
-
   // void update(packet::DMX &packet) override {
   //   executeFX();
   //   packet.rootObj()["ACP"] = true; // AC power on
@@ -77,6 +75,8 @@ public:
   // }
 
 public:
+  static shFX activeFX() { return ptr()->active_fx; }
+
   template <typename T> static shFX activateFX() {
     ptr()->active_fx = createFX<T>();
 

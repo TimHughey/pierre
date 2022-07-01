@@ -22,6 +22,7 @@
 
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
+#include "io/io.hpp"
 #include "player/frame.hpp"
 #include "player/frame_time.hpp"
 #include "player/spooler.hpp"
@@ -37,10 +38,6 @@ namespace pierre {
 namespace player {
 
 namespace { // anonymous namespace limits scope to this file
-namespace asio = boost::asio;
-using io_context = asio::io_context;
-using strand = io_context::strand;
-using steady_timer = asio::steady_timer;
 using steady_clock = std::chrono::steady_clock;
 } // namespace
 
@@ -55,10 +52,10 @@ private:
                                      .lead = dmx::frame_ns()};
 
 private: // all access via shared_ptr
-  Render(io_context &io_ctx, player::shSpooler spooler);
+  Render(io_context &io_ctx, shSpooler spooler);
 
 public: // static creation, access, etc.
-  static shRender init(io_context &io_ctx, player::shSpooler spooler);
+  static shRender init(io_context &io_ctx, shSpooler spooler);
   static shRender ptr();
   static void reset();
 
@@ -67,31 +64,29 @@ public: // public API
     asio::post(ptr()->local_strand, [self = ptr(), mode = mode]() { self->playStart(mode); });
   }
 
-  static void teardown() { ptr()->playMode(player::NOT_PLAYING); }
+  static void teardown() { ptr()->playMode(NOT_PLAYING); }
 
 private:
   void frameTimer();
   void handleFrame();
-  static void nextPacket(player::shFrame next_packet, const Nanos start);
+  static void nextPacket(shFrame next_packet, const Nanos start);
 
-  bool playing() const { return play_mode.front() == player::PLAYING.front(); }
+  bool playing() const { return play_mode.front() == PLAYING.front(); }
 
   void playStart(csv mode) {
     play_mode = mode;
 
-    if (play_mode.front() == player::PLAYING.front()) {
-      play_start = steady_clock::now();
-      play_frame_counter = 1;
+    if (play_mode.front() == PLAYING.front()) {
+      render_start = steady_clock::now();
+      rendered_frames = 0;
       frameTimer(); // frame timer handles play/not play
       statsTimer();
     } else {
       frame_timer.cancel();
       stats_timer.cancel();
-      play_start = SteadyTimePoint::min();
+      render_start = SteadyTimePoint();
     }
   }
-
-  shRender silenceMonitor(player::shFrame frame);
 
   // misc debug, stats
 
@@ -101,19 +96,21 @@ private:
 private:
   // order dependent
   io_context &io_ctx;
-  player::shSpooler spooler;
+  shSpooler spooler;
   strand &local_strand;
   steady_timer frame_timer;
   steady_timer stats_timer;
   steady_timer silence_timer;
   steady_timer leave_timer;
   steady_timer standby_timer;
-  SteadyTimePoint play_start;
-  uint64_t play_frame_counter;
+
+  SteadyTimePoint render_start;
+  uint64_t rendered_frames = 0;
 
   // order independent
-  string_view play_mode = player::NOT_PLAYING;
-  player::shFrame recent_frame;
+  string_view play_mode = NOT_PLAYING;
+  string_view fx_name;
+  shFrame recent_frame;
   uint64_t frames_played = 0;
   uint64_t frames_silence = 0;
 

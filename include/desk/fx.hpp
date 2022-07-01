@@ -22,6 +22,7 @@
 
 #include "base/typical.hpp"
 #include "dsp/peaks.hpp"
+#include "fx/names.hpp"
 #include <desk/fx/histogram.hpp>
 
 #include <memory>

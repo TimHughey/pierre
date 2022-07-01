@@ -18,45 +18,39 @@
     https://www.wisslanding.com
 */
 
-#include "headunit/fx/leave.hpp"
+#include "desk/fx/leave.hpp"
+#include "desk/desk.hpp"
+#include "desk/unit/all.hpp"
 
 namespace pierre {
-namespace hdu {
 namespace fx {
 
 Leave::Leave(const float hue_step, const float brightness)
-    : _hue_step(hue_step), _brightness(brightness),
-      _next_color({.hue = 0, .sat = 100, .bri = _brightness}) {
-  main = unit<PinSpot>("main");
-  fill = unit<PinSpot>("fill");
-}
+    : hue_step(hue_step), brightness(brightness),
+      next_color({.hue = 0, .sat = 100, .bri = brightness}) {}
 
-void Leave::executeFX(audio::spPeaks peaks) {
-  peaks.reset(); // no use for peaks, release them
-
-  if (_next_brightness < 50.0) {
-    _next_brightness++;
-    _next_color.setBrightness(_next_brightness);
+void Leave::execute([[maybe_unused]] shPeaks peaks) {
+  if (next_brightness < 50.0) {
+    next_brightness++;
+    next_color.setBrightness(next_brightness);
   }
 
-  main->color(_next_color);
-  fill->color(_next_color);
+  Desk::derivedUnit<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
+  Desk::derivedUnit<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
 
-  if (_next_brightness >= 50.0) {
-    _next_color.rotateHue(_hue_step);
+  if (next_brightness >= 50.0) {
+    next_color.rotateHue(hue_step);
   }
 }
 
 void Leave::once() {
-  unit<LedForest>("led forest")->leave();
-  unit<ElWire>("el dance")->leave();
-  unit<ElWire>("el entry")->leave();
-  unit<DiscoBall>("discoball")->leave();
-
-  main->black();
-  fill->black();
+  Desk::derivedUnit<LedForest>(unit::LED_FOREST)->leave();
+  Desk::derivedUnit<ElWire>(unit::EL_DANCE)->leave();
+  Desk::derivedUnit<ElWire>(unit::EL_ENTRY)->leave();
+  Desk::derivedUnit<DiscoBall>(unit::DISCO_BALL)->leave();
+  Desk::derivedUnit<PinSpot>(unit::MAIN_SPOT)->black();
+  Desk::derivedUnit<PinSpot>(unit::FILL_SPOT)->black();
 }
 
 } // namespace fx
-} // namespace hdu
 } // namespace pierre

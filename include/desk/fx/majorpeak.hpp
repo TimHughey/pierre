@@ -157,7 +157,7 @@ public:
   ~MajorPeak() = default;
 
   void execute(shPeaks peaks) override;
-  csv name() const override { return FX_NAME; }
+  csv name() const override { return fx::MAJOR_PEAK; }
 
   void once() override;
 
@@ -201,8 +201,6 @@ private:
 
   circular_buffer _main_history;
   circular_buffer _fill_history;
-
-  static constexpr csv FX_NAME{"MajorPeak"};
 };
 
 } // namespace fx

@@ -20,10 +20,12 @@
 
 #pragma once
 
-#include "lightdesk/fx/fx.hpp"
+#include "base/color.hpp"
+#include "base/typical.hpp"
+#include "desk/fx.hpp"
+#include "dsp/peaks.hpp"
 
 namespace pierre {
-namespace lightdesk {
 namespace fx {
 
 class Leave : public FX {
@@ -31,26 +33,18 @@ public:
   Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
   ~Leave() = default;
 
-  void executeFX(audio::spPeaks peaks) override;
-  const string &name() const override {
-    static const string fx_name = "Leave";
-
-    return fx_name;
-  }
+  void execute(shPeaks peaks) override;
+  csv name() const override { return fx::LEAVING; };
 
   void once() override;
 
 private:
-  float _hue_step = 0.25f;
-  float _brightness = 100.0f;
+  float hue_step = 0.25f;
+  float brightness = 100.0f;
 
-  float _next_brightness = 0;
-  lightdesk::Color _next_color;
-
-  spPinSpot main;
-  spPinSpot fill;
+  float next_brightness = 0;
+  Color next_color;
 };
 
 } // namespace fx
-} // namespace lightdesk
 } // namespace pierre

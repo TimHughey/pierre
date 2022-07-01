@@ -150,23 +150,18 @@ public:
   bool keep(FlushRequest &flush);
 
   const Nanos localTimeDiff() const; // calculate diff between local and frame time
-  static shFrame markPlayed(shFrame frame, auto &played, auto &not_played) {
+  shFrame markPlayed(auto &played, auto &not_played) {
     // note: when called on a nextFrame() it is safe to allow outdated frames
     // because they passed FrameTimeDiff late check
 
-    if (ok(frame)) {
-      if (frame->stateEqual({fra::PLAYABLE, fra::OUTDATED})) {
-        frame->_state = fra::PLAYED;
-        ++played;
-      } else {
-        ++not_played;
-      }
-
-      return frame->shared_from_this();
+    if (stateEqual({fra::PLAYABLE, fra::OUTDATED})) {
+      _state = fra::PLAYED;
+      ++played;
+    } else {
+      ++not_played;
     }
 
-    ++not_played;
-    return frame;
+    return shared_from_this();
   }
 
   // nextFrame() returns true when searching should stop; false to keep searching

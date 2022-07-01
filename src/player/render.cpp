@@ -22,6 +22,10 @@
 #include "base/pe_time.hpp"
 #include "core/input_info.hpp"
 #include "desk/desk.hpp"
+#include "desk/fx.hpp"
+#include "desk/fx/majorpeak.hpp"
+#include "desk/fx/names.hpp"
+#include "desk/fx/silence.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
 #include "typedefs.hpp"
@@ -38,14 +42,9 @@ std::optional<player::shRender> &render() { return __render; }
 } // namespace shared
 
 namespace player {
-
-namespace asio = boost::asio;
-namespace errc = boost::system::errc;
-using io_context = boost::asio::io_context;
-using error_code = boost::system::error_code;
 namespace chrono = std::chrono;
 
-Render::Render(io_context &io_ctx, player::shSpooler spooler)
+Render::Render(io_context &io_ctx, shSpooler spooler)
     : io_ctx(io_ctx),                     // grab the io_ctx
       spooler(spooler),                   // use this spooler for unloading Frames
       local_strand(spooler->strandOut()), // use the unload strand from spooler
@@ -54,8 +53,8 @@ Render::Render(io_context &io_ctx, player::shSpooler spooler)
       silence_timer(io_ctx),              // track silence
       leave_timer(io_ctx),                // track when to leave
       standby_timer(io_ctx),              // track when to enter standby
-      play_start(SteadyTimePoint::min()), // play not started yet
-      play_frame_counter(0)               // no frames played yet
+      render_start(),                     // play not started yet
+      rendered_frames(0)                  // no frames played yet
 {
   const auto render_fps = pe_time::as_millis_fp(dmx::frame_ns());
   const auto input_fps = pe_time::as_millis_fp(InputInfo::fps_ns());
@@ -67,7 +66,7 @@ Render::Render(io_context &io_ctx, player::shSpooler spooler)
 }
 
 // static methods for creating, getting and resetting the shared instance
-shRender Render::init(asio::io_context &io_ctx, player::shSpooler spooler) {
+shRender Render::init(asio::io_context &io_ctx, shSpooler spooler) {
   auto self = shared::render().emplace(new Render(io_ctx, spooler));
 
   auto desk = Desk::create();
@@ -81,8 +80,9 @@ void Render::reset() { shared::render().reset(); }
 // public API and member functions
 
 void Render::frameTimer() {
-  // create a precise frame_ns using the elapsed time of last frame
-  frame_timer.expires_at(play_start + Nanos(dmx::frame_ns() * play_frame_counter));
+  // create a precise frame_ns using the timepoint of when rendering started
+  // and frames rendered
+  frame_timer.expires_at(render_start + Nanos(dmx::frame_ns() * rendered_frames));
 
   frame_timer.async_wait(  // wait to generate next frame
       asio::bind_executor( // use a specific executor
@@ -98,28 +98,29 @@ void Render::frameTimer() {
 }
 
 void Render::handleFrame() {
-  ++play_frame_counter;
-
-  if (play_mode == player::PLAYING) {
+  ++rendered_frames;
+  if (play_mode == PLAYING) {
     // Spooler::nextFrame() may return an empty frame
 
     auto frame = spooler->nextFrame(FTD);
+    recent_frame = Frame::ensureFrame(frame)->markPlayed(frames_played, frames_silence);
+    shFX active_fx = Desk::activeFX();
+    fx_name = active_fx->name();
 
-    recent_frame = player::Frame::markPlayed(frame, frames_played, frames_silence);
-
-    if (player::Frame::ok(frame)) {
-      auto peaks = frame->peaksLeft();
-
-      if (Peaks::silence(peaks)) {
+    if ((fx_name == fx::SILENCE) && !recent_frame->silence()) {
+      if (fx_name != fx::MAJOR_PEAK) {
+        Desk::activateFX<fx::MajorPeak>();
       }
     }
 
-    if (player::Frame::ok(frame) && frame->unplayed()) {
-      __LOGX("{:<18} FRAME {}\n", moduleId, player::Frame::inspectFrame(frame));
-    }
+    active_fx->executeLoop(recent_frame->peaksLeft());
 
-    frameTimer();
+    if (Frame::ok(frame) && frame->unplayed()) {
+      __LOGX("{:<18} FRAME {}\n", moduleId, Frame::inspectFrame(frame));
+    }
   }
+
+  frameTimer();
 }
 
 const string Render::stats() const {
@@ -129,14 +130,19 @@ const string Render::stats() const {
     silence = (silence > 0.0) ? silence : 1;
   }
 
-  return fmt::format("state={:<10} played={:<8} silent={:<8} silence={:6.2f}%", //
-                     player::Frame::stateVal(recent_frame), frames_played, frames_silence,
-                     silence * 100.0);
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  fmt::format_to(w, "fx_name={:<10} frame_status={:<10} ", fx_name, Frame::stateVal(recent_frame));
+  fmt::format_to(w, "played={:<8} silent={:<8} ", frames_played, frames_silence);
+  fmt::format_to(w, "silence={:6.2f}%", silence * 100.0);
+
+  return msg;
 }
 
 void Render::statsTimer(const Nanos report_ns) {
   // should the frame timer run?
-  if (play_mode == player::NOT_PLAYING) {
+  if (play_mode == NOT_PLAYING) {
     [[maybe_unused]] error_code ec;
     stats_timer.cancel(ec);
     return;
