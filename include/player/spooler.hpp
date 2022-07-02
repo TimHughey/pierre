@@ -23,28 +23,22 @@
 
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
+#include "io/io.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame.hpp"
 #include "player/frame_time.hpp"
 #include "player/reel.hpp"
-#include "player/typedefs.hpp"
 
 #include <atomic>
-#include <boost/asio.hpp>
-#include <chrono>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <vector>
 
+namespace ranges = std::ranges;
+
 namespace pierre {
 namespace player {
-
-namespace { // anonymous namespace limits scope
-namespace asio = boost::asio;
-using io_context = asio::io_context;
-using strand = asio::io_context::strand;
-} // namespace
 
 class Spooler;
 typedef std::shared_ptr<Spooler> shSpooler;

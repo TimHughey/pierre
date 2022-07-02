@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "common/typedefs.hpp"
+#include "base/typical.hpp"
 
 namespace pierre {
 namespace airplay {

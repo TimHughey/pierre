@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "packet/content.hpp"
 
 #include <algorithm>
@@ -38,9 +39,6 @@ namespace pierre {
 namespace packet {
 
 namespace header {
-
-using csv = std::string_view;
-
 struct type {
   static constexpr csv CSeq = "CSeq";
   static constexpr csv Server = "Server";
@@ -81,12 +79,6 @@ typedef fmt::basic_memory_buffer<char, 256> HeaderList;
 
 class Headers {
 public:
-  using string = std::string;
-  using string_view = std::string_view;
-
-public:
-  typedef const char *ccs;
-  typedef const std::string_view csv;
   typedef std::map<csv, string> HeaderMap;
   typedef std::set<string> UnknownHeaders;
 

@@ -26,7 +26,7 @@ namespace reply {
 
 class Parameter : public Reply {
 public:
-  Parameter() = default;
+  Parameter() : Reply(csv("PARAMETER")){};
 
   bool populate() override;
 

@@ -18,10 +18,9 @@
 
 #pragma once
 
-#include "airplay/common/typedefs.hpp"
+#include "base/typical.hpp"
+#include "io/io.hpp"
 
-#include <boost/asio.hpp>
-#include <fmt/format.h>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -31,10 +30,6 @@
 
 namespace pierre {
 namespace airplay {
-
-namespace { // anonymous constrains to this file
-namespace asio = boost::asio;
-}
 
 class Controller;
 typedef std::shared_ptr<Controller> shController;
@@ -71,7 +66,7 @@ private:
 private:
   // order depdendent
   io_context io_ctx; // run by multiple threads
-  asio::high_resolution_timer watchdog_timer;
+  steady_timer watchdog_timer;
 
   // std::once_flag _kickstart_;
 

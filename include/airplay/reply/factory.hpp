@@ -29,6 +29,7 @@ namespace reply {
 
 struct Factory {
   static shReply create(const reply::Inject &di);
+  static constexpr csv moduleId{"FACTORY"};
 
 private:
   // misc

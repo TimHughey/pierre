@@ -20,7 +20,6 @@
 
 #include "base/typical.hpp"
 #include "common/ops_mode.hpp"
-#include "common/typedefs.hpp"
 #include "conn_info/stream.hpp"
 #include "conn_info/stream_info.hpp"
 
@@ -77,14 +76,6 @@ public:
   StreamInfo stream_info;
   Stream stream;
 
-  // stream category, stream type and timing type
-  // is it a remote control stream or a normal "full service" stream?
-  airplay_stream_c airplay_stream_category = airplay_stream_c::unspecified_stream_category;
-  // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
-  airplay_t airplay_type = airplay_t::ap_2; // Always AirPlay2
-  // is it realtime audio or buffered audio?
-  airplay_stream_t airplay_stream_type;
-
   // captured from RTSP SETUP initial message (no stream data)
   string airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group
                       // UUID is the same as the pi UUID
@@ -113,9 +104,6 @@ private:
   uint64_t anchor_clock;
   uint64_t anchor_time; // this is the time according to the clock
   uint32_t anchor_rtptime;
-
-  // are we using NTP or PTP on this connection?
-  timing_t timing_type;
 
   int last_anchor_info_is_valid;
   uint32_t last_anchor_rtptime;

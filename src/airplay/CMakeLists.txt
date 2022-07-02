@@ -18,21 +18,18 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/session/*.h*"
 )
 
-set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
-set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
-set(Boost_USE_MULTITHREADED          ON)
-set(Boost_THREADAPI             pthread)
+# set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
+# set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
+# set(Boost_USE_MULTITHREADED          ON)
+# set(Boost_THREADAPI             pthread)
 
-find_package(Boost 1.78 COMPONENTS system REQUIRED)
-find_package(fmt                          REQUIRED)
-find_library(rt         NAMES rt          REQUIRED)
+# find_package(Boost 1.78 COMPONENTS system REQUIRED)
+# find_package(fmt                          REQUIRED)
+# find_library(rt         NAMES rt          REQUIRED)
 
 add_library(${__target}
   # public API and overall controller
   airplay.cpp controller.cpp
-
-  # clock and anhcor
-  # clock/info.cpp clock/clock.cpp anchor/anchor.cpp anchor/net_time.cpp
   
   # connection info
   conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp
@@ -60,7 +57,6 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PUBLIC
   ${Boost_LIBRARIES}
-  fmt::fmt
-  rt
-  base core mdns packet ap_aes player
+  # fmt::fmt rt
+  base core io mdns packet ap_aes player
 )

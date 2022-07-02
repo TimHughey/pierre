@@ -18,6 +18,7 @@
 //  https://www.wisslanding.com
 
 #include "reply/parameter.hpp"
+#include "base/typical.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "reply/reply.hpp"
@@ -27,11 +28,11 @@
 #include <string_view>
 #include <vector>
 
+using namespace pierre::packet;
+
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-using namespace pierre::packet;
 
 bool Parameter::populate() {
   auto rc = false;
@@ -49,7 +50,7 @@ bool Parameter::populate() {
 
 bool Parameter::handleGet() {
   auto rc = false;
-  const auto param = rContent().toStringView();
+  csv param = rContent().toStringView();
 
   if (param.starts_with("volume")) {
     static csv full_volume("\r\nvolume: -1.0\r\n");
@@ -65,10 +66,9 @@ bool Parameter::handleGet() {
 }
 
 bool Parameter::handleSet() {
-  // if (rHeaders().contentType() == csv(header::val::TextParameters)) {
-  //   constexpr auto f = FMT_STRING("{} SET_PARAMETER content={}\n");
-  //   fmt::print(f, runTicks(), rContent().toStringView());
-  // }
+  if (rHeaders().contentType() == csv(header::val::TextParameters)) {
+    __LOG0(LCOL01 "content={}\n", moduleID(), LBLANK, rContent().toStringView());
+  }
 
   responseCode(RespCode::OK);
 

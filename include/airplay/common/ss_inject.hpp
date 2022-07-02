@@ -18,28 +18,26 @@
 
 #pragma once
 
-#include "common/typedefs.hpp"
+#include "base/typical.hpp"
+#include "io/io.hpp"
 
 namespace pierre {
 namespace airplay {
 
 namespace server {
-
 // server dependency injection
 struct Inject {
   io_context &io_ctx;
 };
-
 } // namespace server
 
 namespace session {
-
 // session dependency injection
 struct Inject {
   io_context &io_ctx;
   tcp_socket &&socket;
 };
-} // namespace session
 
+} // namespace session
 } // namespace airplay
 } // namespace pierre

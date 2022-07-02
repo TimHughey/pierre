@@ -21,9 +21,9 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 
 #include <array>
-#include <boost/asio.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -31,18 +31,8 @@
 #include <memory>
 #include <optional>
 #include <pthread.h>
-#include <string>
-#include <string_view>
 
 namespace pierre {
-
-namespace { // anonymous namespace limits scope to this file
-using io_context = boost::asio::io_context;
-using io_strand = boost::asio::io_context::strand;
-using ip_address = boost::asio::ip::address;
-using udp_endpoint = boost::asio::ip::udp::endpoint;
-using udp_socket = boost::asio::ip::udp::socket;
-} // namespace
 
 class MasterClock;
 typedef std::shared_ptr<MasterClock> shMasterClock;
@@ -156,7 +146,7 @@ private:
 
 private:
   // order dependent
-  io_strand strand;
+  strand local_strand;
   udp_socket socket;
   ip_address address;
   udp_endpoint endpoint; // local endpoint (c)

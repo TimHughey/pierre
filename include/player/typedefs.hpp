@@ -24,10 +24,5 @@
 #include <vector>
 
 namespace pierre {
-namespace player {
-
-constexpr auto NOT_PLAYING = csv("NOT PLAYING");
-constexpr auto PLAYING = csv("PLAYING");
-
-} // namespace player
+namespace player {} // namespace player
 } // namespace pierre

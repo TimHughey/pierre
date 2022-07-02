@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "airplay/common/typedefs.hpp"
+#include "base/typical.hpp"
 
 #include <memory>
 #include <optional>

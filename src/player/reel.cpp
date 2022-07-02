@@ -17,14 +17,14 @@
 //  https://www.wisslanding.com
 
 #include "player/reel.hpp"
+#include "base/typical.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame.hpp"
-#include "player/typedefs.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/clock.hpp"
+#include "base/pe_time.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <fmt/compile.h>
 #include <fmt/format.h>
 #include <iterator>
@@ -35,7 +35,6 @@ using namespace std::chrono_literals;
 namespace pierre {
 namespace player {
 namespace ranges = std::ranges;
-namespace chrono = std::chrono;
 
 // Reel serial number (for unique identification of each Reel)
 uint64_t Reel::SERIAL_NUM = 0x1000; // class level

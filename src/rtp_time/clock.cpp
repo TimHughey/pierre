@@ -51,7 +51,7 @@ void MasterClock::reset() { shared::master_clock().reset(); }
 
 // create the MasterClock
 MasterClock::MasterClock(const Inject &di)
-    : strand(di.io_ctx),                         // syncronize clock io
+    : local_strand(di.io_ctx),                   // syncronize clock io
       socket(di.io_ctx),                         // create socket on strand
       address(ip::make_address(LOCALHOST)),      // endpoint address
       endpoint(udp_endpoint(address, CTRL_PORT)) // endpoint to use
@@ -153,7 +153,7 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
     socket.async_connect(          // comment for formatting
         endpoint,
         bind_executor(                                   // formatting comment
-            strand,                                      // schedule on the strand
+            local_strand,                                // schedule on the strand
             [self = shared_from_this()](error_code ec) { // hold ptr to ourself
               if (ec == errc::success) {
                 __LOGX("{:<18} connect handle={}\n", moduleId, self->socket.native_handle);
@@ -165,30 +165,30 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
   }
 
   // queue the update to prevent collisions
-  strand.post([peers = std::move(new_peers), // avoid a copy
-               self = shared_from_this()]    // hold a ptr to ourself
-              {
-                // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
-                uint8v msg;
-                auto w = std::back_inserter(msg);
-                fmt::format_to(w, "{} T", self->shm_name);
+  local_strand.post([peers = std::move(new_peers), // avoid a copy
+                     self = shared_from_this()]    // hold a ptr to ourself
+                    {
+                      // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
+                      uint8v msg;
+                      auto w = std::back_inserter(msg);
+                      fmt::format_to(w, "{} T", self->shm_name);
 
-                if (peers.empty() == false) {
-                  fmt::format_to(w, " {}", fmt::join(peers, " "));
-                }
+                      if (peers.empty() == false) {
+                        fmt::format_to(w, " {}", fmt::join(peers, " "));
+                      }
 
-                msg.emplace_back(0x00); // must be null terminated
+                      msg.emplace_back(0x00); // must be null terminated
 
-                __LOGX("{:<18} peers={}\n", moduleId, msg.view());
+                      __LOGX("{:<18} peers={}\n", moduleId, msg.view());
 
-                error_code ec;
-                [[maybe_unused]] auto tx_bytes =
-                    self->socket.send_to(buffer(msg),       // need asio buffer
-                                         self->endpoint, 0, // flags
-                                         ec);
+                      error_code ec;
+                      [[maybe_unused]] auto tx_bytes =
+                          self->socket.send_to(buffer(msg),       // need asio buffer
+                                               self->endpoint, 0, // flags
+                                               ec);
 
-                __LOGX("CLOCK send_to bytes={:>03} ec={}\n", tx_bytes, ec.what());
-              });
+                      __LOGX("CLOCK send_to bytes={:>03} ec={}\n", tx_bytes, ec.what());
+                    });
 }
 
 void MasterClock::unMap() {

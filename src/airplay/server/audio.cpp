@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "server/audio.hpp"
-#include "common/typedefs.hpp"
+#include "base/typical.hpp"
 #include "session/audio.hpp"
 
 #include <fmt/format.h>
@@ -31,8 +31,6 @@ namespace ranges = std::ranges;
 namespace session = pierre::airplay::session;
 
 static std::list<session::shAudio> _sessions;
-
-using namespace boost::system;
 
 Audio::~Audio() {
   [[maybe_unused]] auto handle = acceptor.native_handle();

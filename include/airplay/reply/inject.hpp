@@ -19,8 +19,8 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
+#include "base/typical.hpp"
 #include "common/ss_inject.hpp"
-#include "common/typedefs.hpp"
 #include "packet/headers.hpp"
 
 namespace pierre {

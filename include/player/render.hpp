@@ -26,10 +26,7 @@
 #include "player/frame.hpp"
 #include "player/frame_time.hpp"
 #include "player/spooler.hpp"
-#include "player/typedefs.hpp"
 
-#include <boost/asio.hpp>
-#include <chrono>
 #include <memory>
 #include <optional>
 #include <set>
@@ -37,16 +34,11 @@
 namespace pierre {
 namespace player {
 
-namespace { // anonymous namespace limits scope to this file
-using steady_clock = std::chrono::steady_clock;
-} // namespace
-
 class Render;
 typedef std::shared_ptr<Render> shRender;
 
 class Render : public std::enable_shared_from_this<Render> {
 private:
-  typedef steady_clock::time_point SteadyTimePoint;
   static constexpr FrameTimeDiff FTD{.old = pe_time::negative(dmx::frame_ns()),
                                      .late = pe_time::negative(Nanos(dmx::frame_ns() / 2)),
                                      .lead = dmx::frame_ns()};
@@ -84,7 +76,7 @@ private:
     } else {
       frame_timer.cancel();
       stats_timer.cancel();
-      render_start = SteadyTimePoint();
+      render_start = TimePoint();
     }
   }
 
@@ -104,7 +96,7 @@ private:
   steady_timer leave_timer;
   steady_timer standby_timer;
 
-  SteadyTimePoint render_start;
+  TimePoint render_start;
   uint64_t rendered_frames = 0;
 
   // order independent

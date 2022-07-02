@@ -20,6 +20,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <cstdint>
 
 namespace pierre {
 
@@ -38,5 +39,10 @@ using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
 using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
+
+typedef uint16_t Port;
+
+// types of the various servers we will spin up
+enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
 
 } // namespace pierre

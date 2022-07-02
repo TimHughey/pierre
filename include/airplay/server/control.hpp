@@ -19,7 +19,6 @@
 #pragma once
 
 #include "common/ss_inject.hpp"
-#include "common/typedefs.hpp"
 #include "server/base.hpp"
 
 #include <array>

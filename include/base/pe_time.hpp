@@ -35,6 +35,7 @@ using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::duration<long double>;
 using steady_clock = std::chrono::steady_clock;
+using TimePoint = std::chrono::time_point<steady_clock>;
 
 typedef uint64_t ClockID; // master clock id
 
@@ -77,6 +78,8 @@ struct pe_time {
 
     return Nanos(secs_part + ns_part);
   }
+
+  template <typename T> static T nowSteady() { return as_duration<Nanos, T>(nowNanos()); }
 };
 
 } // namespace pierre

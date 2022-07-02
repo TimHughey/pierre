@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "common/typedefs.hpp"
 #include "packet/aplist.hpp"
 #include "reply/reply.hpp"
 

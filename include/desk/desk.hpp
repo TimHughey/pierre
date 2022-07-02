@@ -77,10 +77,8 @@ public:
 public:
   static shFX activeFX() { return ptr()->active_fx; }
 
-  template <typename T> static shFX activateFX() {
-    ptr()->active_fx = createFX<T>();
-
-    return ptr()->active_fx;
+  template <typename T> static shFX activateFX(csv &fx_name) {
+    return ptr()->activate<T>(fx_name);
   }
 
   template <typename T> std::shared_ptr<T> addUnit(const auto opts) {
@@ -120,6 +118,15 @@ public:
   }
 
 private:
+  template <typename T> shFX activate(csv &fx_name) {
+    if (active_fx.use_count() && !active_fx->matchName(fx_name)) {
+      // shared_ptr empty or name doesn't match, create the FX
+      active_fx = createFX<T>();
+    }
+
+    return active_fx;
+  }
+
   static void forEach(auto func) { ranges::for_each(ptr()->units, func); }
 
 private:

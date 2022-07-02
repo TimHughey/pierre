@@ -19,7 +19,8 @@
 #pragma once
 
 #include "base/shk.hpp"
-#include "common/typedefs.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 
 #include <cstdint>
 #include <fmt/format.h>

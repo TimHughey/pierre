@@ -34,6 +34,11 @@ typedef const src_loc csrc_loc;
 constexpr ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
 const string runTicks(); // a timestamp
 
+#define LCOL0 "{:18}"
+#define LCOL1 "{:15}"
+#define LCOL01 LCOL0 LCOL1
+#define LBLANK " "
+
 const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
 const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");
 void __vlog(fmt::string_view format, fmt::format_args args);

@@ -36,22 +36,37 @@ typedef fader::ToBlack<fader::SineDeceleratingToZero> MainFader;
 
 namespace fx {
 
-// make these globals in this file for convenience
-static shPinSpot main;
-static shPinSpot fill;
-static shPulseWidth led_forest;
-static shPulseWidth el_dance_floor;
-static shPulseWidth el_entry;
+// store the shared_ptr to all the units here AND get a copy of the direct pointer
+// to avoid the tax of accessing the shared_ptr
+static shPinSpot sh_main;
+static PinSpot *main;
+static shPinSpot sh_fill;
+static PinSpot *fill;
+static shPulseWidth sh_led_forest;
+static PulseWidth *led_forest;
+static shPulseWidth sh_el_dance_floor;
+static PulseWidth *el_dance_floor;
+static shPulseWidth sh_el_entry;
+static PulseWidth *el_entry;
 
 MajorPeak::MajorPeak() : FX(), _prev_peaks(88), _main_history(88), _fill_history(88) {
   std::random_device r;
   _random.seed(r());
 
-  main = Desk::derivedUnit<PinSpot>(unit::MAIN_SPOT);
-  fill = Desk::derivedUnit<PinSpot>(unit::FILL_SPOT);
-  led_forest = Desk::derivedUnit<LedForest>(unit::LED_FOREST);
-  el_dance_floor = Desk::derivedUnit<ElWire>(unit::EL_DANCE);
-  el_entry = Desk::derivedUnit<ElWire>(unit::EL_ENTRY);
+  sh_main = Desk::derivedUnit<PinSpot>(unit::MAIN_SPOT);
+  main = sh_main.get();
+
+  sh_fill = Desk::derivedUnit<PinSpot>(unit::FILL_SPOT);
+  fill = sh_fill.get();
+
+  sh_led_forest = Desk::derivedUnit<LedForest>(unit::LED_FOREST);
+  led_forest = sh_led_forest.get();
+
+  sh_el_dance_floor = Desk::derivedUnit<ElWire>(unit::EL_DANCE);
+  el_dance_floor = sh_el_dance_floor.get();
+
+  sh_el_entry = Desk::derivedUnit<ElWire>(unit::EL_ENTRY);
+  el_entry = sh_el_entry.get();
 
   // initialize static frequency to color mapping
   if (_ref_colors.size() == 0) {
@@ -73,9 +88,24 @@ MajorPeak::MajorPeak() : FX(), _prev_peaks(88), _main_history(88), _fill_history
   }
 }
 
-void MajorPeak::execute(shPeaks peaks) {
-  static elapsedMillis color_elapsed;
+MajorPeak::~MajorPeak() {
+  sh_main.reset();
+  main = nullptr;
 
+  sh_fill.reset();
+  fill = nullptr;
+
+  sh_led_forest.reset();
+  led_forest = nullptr;
+
+  sh_el_dance_floor.reset();
+  el_dance_floor = nullptr;
+
+  sh_el_entry.reset();
+  el_entry = nullptr;
+}
+
+void MajorPeak::execute(shPeaks peaks) {
   if (_color_config.rotate.enable) {
     if (color_elapsed > _color_config.rotate.ms) {
       _color.rotateHue(randomRotation());
@@ -96,8 +126,8 @@ void MajorPeak::handleElWire(shPeaks peaks) {
   const auto &soft = _freq.soft;
 
   std::array<PulseWidth *, 2> elwires;
-  elwires[0] = el_dance_floor.get();
-  elwires[1] = el_entry.get();
+  elwires[0] = el_dance_floor;
+  elwires[1] = el_entry;
 
   const auto freq_range = MinMaxFloat(log10(soft.floor), log10(soft.ceiling));
   const auto &peak = peaks->majorPeak();

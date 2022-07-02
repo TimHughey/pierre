@@ -36,11 +36,7 @@
 namespace pierre {
 namespace packet {
 
-using namespace std::literals;
 using namespace std::literals::string_view_literals;
-using std::regex;
-using std::string, std::string_view, std::unordered_map, std::back_inserter;
-
 namespace ranges = std::ranges;
 
 static std::array __known_types{header::type::CSeq,

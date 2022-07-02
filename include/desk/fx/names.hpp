@@ -27,9 +27,9 @@ namespace fx {
 
 using namespace std::literals::string_view_literals;
 
-constexpr auto COLOR_BARS = "Color Bars"sv;
+constexpr auto COLOR_BARS = "ColorBars"sv;
 constexpr auto LEAVING = "Leaving"sv;
-constexpr auto MAJOR_PEAK = "Major Peak"sv;
+constexpr auto MAJOR_PEAK = "MajorPeak"sv;
 constexpr auto SILENCE = "Silence"sv;
 
 } // namespace fx

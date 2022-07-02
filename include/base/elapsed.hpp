@@ -24,16 +24,42 @@
 
 #pragma once
 
+#include "base/pe_time.hpp"
+
 #include <chrono>
 #include <cstdint>
 
 namespace pierre {
-class elapsedMillis {
-public:
-  typedef std::chrono::steady_clock clock;
-  typedef std::chrono::time_point<clock> timepoint;
-  typedef std::chrono::milliseconds milliseconds;
 
+class Elapsed {
+public:
+  Elapsed(void) noexcept : nanos(pe_time::nowNanos()) {}
+
+  template <typename T> T as() const { return pe_time::as_duration<Nanos, T>(elapsed()); }
+  Seconds asSecs() const { return pe_time::as_secs(elapsed()); }
+
+  Elapsed &freeze() {
+    frozen = true;
+    nanos = pe_time::elapsed_abs_ns(nanos);
+    return *this;
+  }
+
+  template <typename T> bool operator>=(const T &rhs) const { return elapsed() >= rhs; }
+
+  Elapsed &reset() {
+    *this = Elapsed();
+    return *this;
+  }
+
+private:
+  Nanos elapsed() const { return frozen ? nanos : pe_time::elapsed_abs_ns(nanos); }
+
+private:
+  Nanos nanos;
+  bool frozen = false;
+};
+
+class elapsedMillis {
 public:
   elapsedMillis(void) { _ms = millis(); }
   elapsedMillis(const elapsedMillis &orig) : _ms(orig._ms), _frozen(orig._frozen) {}
@@ -82,22 +108,11 @@ private:
   uint32_t _ms;
   bool _frozen = false;
 
-  uint32_t millis() const {
-    auto t = clock::now();
-
-    auto ms = duration_cast<milliseconds>(t.time_since_epoch()).count();
-
-    return ms;
-  }
+  uint32_t millis() const { return pe_time::nowSteady<Millis>().count(); }
   inline uint32_t val() const { return (_frozen) ? (_ms) : (millis() - _ms); }
 };
 
 class elapsedMicros {
-public:
-  typedef std::chrono::steady_clock clock;
-  typedef std::chrono::time_point<clock> timepoint;
-  typedef std::chrono::microseconds microseconds;
-
 public:
   elapsedMicros(void) : _us(micros()) {}
   elapsedMicros(const elapsedMicros &rhs) : _us(rhs._us), _frozen(rhs._frozen) {}
@@ -166,9 +181,7 @@ private:
 
   static constexpr double seconds_us = 1000.0 * 1000.0;
 
-  uint64_t micros() const {
-    return duration_cast<microseconds>(clock::now().time_since_epoch()).count();
-  }
+  uint64_t micros() const { return pe_time::nowSteady<Micros>().count(); }
 
   inline uint32_t val() const { return (_frozen) ? (_us) : (micros() - _us); }
 };

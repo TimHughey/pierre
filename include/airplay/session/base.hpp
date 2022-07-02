@@ -18,10 +18,10 @@
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "common/ss_inject.hpp"
-#include "common/typedefs.hpp"
+#include "io/io.hpp"
 
-#include <fmt/format.h>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -60,7 +60,7 @@ public:
 protected:
   // order dependent - initialized by constructor
   tcp_socket socket;
-  io_strand local_strand;
+  strand local_strand;
 
 private:
   string session_id; // used for logging

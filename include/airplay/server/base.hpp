@@ -20,8 +20,6 @@
 
 #include "common/ss_inject.hpp"
 
-#include "fmt/format.h"
-
 namespace pierre {
 namespace airplay {
 namespace server {

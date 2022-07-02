@@ -126,7 +126,8 @@ private:
 private:
   Frame(uint8v &packet);
   Frame(uint8_t version, fra::State state, bool silence)
-      : version(version), _state(state), _silence(silence) {}
+      : version(version), _state(state), _peaks_left(Peaks::create()),
+        _peaks_right(Peaks::create()), _silence(silence) {}
 
 public:
   // Object Creation

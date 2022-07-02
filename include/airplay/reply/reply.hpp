@@ -21,6 +21,7 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
+#include "base/typical.hpp"
 #include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "packet/out.hpp"
@@ -79,7 +80,8 @@ public:
 
 public:
   // construct a new Reply and inject dependencies
-  Reply() = default;
+  Reply() : module_id("REPLY") {}
+  Reply(csv module_id) : module_id(module_id) {}
 
   packet::Out &build();
   Reply &inject(const reply::Inject &di);
@@ -101,6 +103,8 @@ public:
   // direct access to injected dependencies
   const Inject &injected() { return *di; }
 
+  virtual csv moduleID() const { return moduleId; }
+
   inline void responseCode(packet::RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
 
@@ -116,7 +120,8 @@ public:
 protected:
   std::optional<reply::Inject> di; // copy, ok because it's only references
 
-  string_view moduleId = csv("REPLY BASE");
+  string_view moduleId = csv("REPLY"); // FIX ME
+  csv module_id;                       // FIX ME
 
   string _err_msg;
 

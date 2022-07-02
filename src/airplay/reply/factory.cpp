@@ -16,15 +16,11 @@
 //
 //  https://www.wisslanding.com
 
-#include "common/typedefs.hpp"
+#include "base/typical.hpp"
 #include "reply/all.hpp"
 
 #include <algorithm>
 #include <array>
-#include <fmt/format.h>
-#include <source_location>
-#include <string_view>
-#include <unordered_set>
 
 namespace pierre {
 namespace airplay {
@@ -36,10 +32,8 @@ shReply Factory::create(const reply::Inject &di) {
   const std::string_view method = di.method;
   const std::string_view path = di.path;
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} FACTORY cseq={} method={} path={}\n");
-    fmt::print(f, runTicks(), di.headers.getVal(header::type::CSeq), method, path);
-  }
+  __LOGX(LCOL0 LCOL1 "cseq={} method={} path={}\n", moduleId, csv("CREATE"),
+         di.headers.getVal(header::type::CSeq), method, path);
 
   if (method.starts_with("CONTINUE")) {
     return std::make_shared<LoadMore>();
@@ -73,7 +67,7 @@ shReply Factory::create(const reply::Inject &di) {
       if (found != pair_paths.end()) {
         return std::make_shared<Pairing>();
       } else {
-        fmt::print("Factory::create(): unhandled pair path: {}\n", path);
+        __LOG0(LCOL01 "unhandled pair path: {}\n", moduleId, LBLANK, path);
       }
     }
   }
@@ -112,12 +106,8 @@ shReply Factory::create(const reply::Inject &di) {
     return std::make_shared<FlushBuffered>();
   }
 
-  if (true) {
-    const auto log_method = (method.empty()) ? "<empty>" : method;
-    const auto log_path = (path.empty()) ? "<empty>" : path;
-    constexpr auto f = FMT_STRING("{} FACTORY FAILED method={} path={}\n");
-    fmt::print(f, runTicks(), log_method, log_path);
-  }
+  __LOG0(LCOL01 "method={} path={}]\n", moduleId, csv("FAILED"),
+         method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
 
   return std::make_shared<Unhandled>();
 }

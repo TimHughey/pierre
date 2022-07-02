@@ -16,9 +16,13 @@ set(Boost_USE_MULTITHREADED          ON)
 set(Boost_THREADAPI             pthread)
 
 find_package(Boost 1.78 COMPONENTS system REQUIRED)
+find_library(rt         NAMES rt          REQUIRED)
 
 add_library(${__target} INTERFACE ${HEADER_LIST})
 
 # all includes are relative to base includes
 target_include_directories(${__target} PUBLIC INTERFACE ${HEADER_PATH})
-target_link_libraries(${__target} INTERFACE ${Boost_LIBRARIES})
+target_link_libraries(${__target} INTERFACE 
+  ${Boost_LIBRARIES}
+  rt
+)

@@ -17,30 +17,24 @@
 //  https://www.wisslanding.com
 
 #include "player/spooler.hpp"
+#include "io/io.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame.hpp"
 #include "player/reel.hpp"
-#include "player/typedefs.hpp"
 
 #include <algorithm>
-#include <atomic>
-#include <boost/asio.hpp>
 #include <chrono>
 #include <fmt/format.h>
 #include <iterator>
 #include <mutex>
-#include <optional>
 #include <ranges>
 #include <vector>
 
 using namespace std::chrono_literals;
-using error_code = boost::system::error_code;
+namespace ranges = std::ranges;
 
 namespace pierre {
 namespace player {
-namespace asio = boost::asio;
-namespace errc = boost::system::errc;
-namespace ranges = std::ranges;
 
 // general API and member functions
 
@@ -72,10 +66,12 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
   });
 
   // clean up empty reels
+  [[maybe_unused]] auto reels_before = reels_out.size();
   auto erased = std::erase_if(reels_out, [](shReel reel) { return reel->empty(); });
 
   if (erased) {
-    __LOG0("{:<18} reels erased={}\n", moduleId(), erased);
+    __LOG0("{:<18} {:<12}erased={} remaining={}\n", moduleId(), //
+           csv("REELS OUT"), erased, reels_before - erased);
   }
 
   return Frame::ok(frame) ? frame->shared_from_this() : frame;

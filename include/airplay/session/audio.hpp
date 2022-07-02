@@ -65,7 +65,7 @@ private:
 
 private:
   // order dependent
-  high_res_timer timer;
+  steady_timer timer;
 
   uint8v packet_len_buffer;
   uint8v packet_buffer;

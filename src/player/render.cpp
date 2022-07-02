@@ -19,7 +19,9 @@
 */
 
 #include "render.hpp"
+#include "base/elapsed.hpp"
 #include "base/pe_time.hpp"
+#include "base/typical.hpp"
 #include "core/input_info.hpp"
 #include "desk/desk.hpp"
 #include "desk/fx.hpp"
@@ -28,7 +30,6 @@
 #include "desk/fx/silence.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
-#include "typedefs.hpp"
 
 #include <ArduinoJson.h>
 #include <chrono>
@@ -43,6 +44,8 @@ std::optional<player::shRender> &render() { return __render; }
 
 namespace player {
 namespace chrono = std::chrono;
+
+using namespace std::literals::chrono_literals;
 
 Render::Render(io_context &io_ctx, shSpooler spooler)
     : io_ctx(io_ctx),                     // grab the io_ctx
@@ -98,6 +101,8 @@ void Render::frameTimer() {
 }
 
 void Render::handleFrame() {
+  [[maybe_unused]] Elapsed elapsed;
+
   ++rendered_frames;
   if (play_mode == PLAYING) {
     // Spooler::nextFrame() may return an empty frame
@@ -108,9 +113,7 @@ void Render::handleFrame() {
     fx_name = active_fx->name();
 
     if ((fx_name == fx::SILENCE) && !recent_frame->silence()) {
-      if (fx_name != fx::MAJOR_PEAK) {
-        Desk::activateFX<fx::MajorPeak>();
-      }
+      Desk::activateFX<fx::MajorPeak>(fx::MAJOR_PEAK);
     }
 
     active_fx->executeLoop(recent_frame->peaksLeft());
@@ -121,6 +124,10 @@ void Render::handleFrame() {
   }
 
   frameTimer();
+
+  if (elapsed.freeze() >= 3ms) {
+    __LOG0("{:<18} FRAME TIMER elapsed={:0.2}\n", moduleId, elapsed.as<MillisFP>());
+  }
 }
 
 const string Render::stats() const {

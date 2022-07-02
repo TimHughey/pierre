@@ -56,6 +56,8 @@ public:
   bool isPtpStream() const { return _cat == stream::cat::ptp_stream; }
   bool isRemote() const { return _cat == stream::cat::remote_control; }
 
+  static constexpr csv moduleId{"STREAM"};
+
   uint64_t typeVal() const;
 
 private:

@@ -27,7 +27,6 @@
 #include "io/io.hpp"
 #include "player/flush_request.hpp"
 #include "player/spooler.hpp"
-#include "player/typedefs.hpp"
 #include "rtp_time/anchor/data.hpp"
 
 #include <boost/asio.hpp>
@@ -82,7 +81,7 @@ private:
   Thread dsp_thread;
   Threads dsp_threads;
 
-  string_view play_mode = player::NOT_PLAYING;
+  string_view play_mode = NOT_PLAYING;
   FlushRequest flush_request;
   uint64_t packet_count = 0;
 

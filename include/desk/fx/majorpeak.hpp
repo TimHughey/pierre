@@ -21,6 +21,7 @@
 #pragma once
 
 #include "base/color.hpp"
+#include "base/elapsed.hpp"
 #include "base/typical.hpp"
 #include "desk/fx.hpp"
 #include "dsp/peaks.hpp"
@@ -154,7 +155,7 @@ public:
 
 public:
   MajorPeak();
-  ~MajorPeak() = default;
+  ~MajorPeak();
 
   void execute(shPeaks peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
@@ -189,6 +190,7 @@ private:
   random_engine _random;
 
   Color _color;
+  elapsedMillis color_elapsed;
 
   static ReferenceColors _ref_colors;
 
@@ -198,7 +200,6 @@ private:
   } _last_peak;
 
   circular_buffer _prev_peaks;
-
   circular_buffer _main_history;
   circular_buffer _fill_history;
 };

@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "base/typical.hpp"
+
 #include <cstdint>
 #include <string_view>
 #include <vector>
@@ -28,10 +30,6 @@ namespace pierre {
 namespace packet {
 
 class In : public std::vector<uint8_t> {
-public:
-  typedef const std::string_view csv;
-  typedef const char *ccs;
-
 public:
   ccs raw() const { return (ccs)data(); }
   const csv view() const { return csv(raw(), size()); }

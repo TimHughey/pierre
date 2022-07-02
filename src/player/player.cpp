@@ -95,7 +95,7 @@ void Player::run() {
   // to maximizing system utilization hardware_concurrency() threads
   // are started.  however, we know other classes will also start a thread
   // pool of their own so we only use hardware_concurrency
-  for (uint8_t n = 1; n < std::jthread::hardware_concurrency(); n++) {
+  for (uint8_t n = 1; n < std::jthread::hardware_concurrency() * 0.75; n++) {
     // notes:
     //  1. skip thread 0 (n = 1) (it is already started)
     //  2. all threads run the same io_ctx
@@ -115,7 +115,7 @@ void Player::saveAnchor(anchor::Data &data) { // static, must be in .cpp
   Anchor::ptr()->save(data);
 
   auto self = ptr();
-  self->play_mode = data.playing() ? player::PLAYING : player::NOT_PLAYING;
+  self->play_mode = data.playing() ? PLAYING : NOT_PLAYING;
   player::Render::playMode(self->play_mode);
 }
 

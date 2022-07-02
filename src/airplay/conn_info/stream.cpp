@@ -63,10 +63,7 @@ uint64_t Stream::typeVal() const {
 }
 
 Stream::Stream(csv timing_protocol) {
-  if (false) { // debug
-    auto constexpr f = FMT_STRING("{} {} timing_protocol={}\n");
-    fmt::print(f, runTicks(), fnName(), timing_protocol);
-  }
+  __LOGX(LCOL0 LCOL1 "timing_protocol={}\n", moduleId, LBLANK, timing_protocol);
 
   if (timing_protocol == reply::dv::PTP) {
     _cat = cat::ptp_stream;

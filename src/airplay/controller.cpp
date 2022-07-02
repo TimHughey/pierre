@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "controller.hpp"
+#include "base/typical.hpp"
 #include "common/ss_inject.hpp"
-#include "common/typedefs.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"

@@ -20,7 +20,6 @@
 
 // one header to rule them all
 
-#include "common/typedefs.hpp"
 #include "reply/cmd.hpp"
 #include "reply/factory.hpp"
 #include "reply/fairplay.hpp"

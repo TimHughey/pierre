@@ -44,5 +44,3 @@ add_subdirectory(fader)
 # desk (head units, FX 
 add_subdirectory(desk)
 
-# add_subdirectory(dmx)
-# add_subdirectory(lightdesk)
