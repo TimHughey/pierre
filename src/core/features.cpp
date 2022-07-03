@@ -18,24 +18,28 @@
 
 #include "features.hpp"
 
-#include <array>
+#include <ranges>
+#include <vector>
 
 namespace pierre {
 
 using namespace ft;
+namespace ranges = std::ranges;
 
 Features::Features() {
-  auto set_bits = std::array{b48TransientPairing, b47PeerManagement,     b46HomeKitPairing,
-                             b41_PTPClock,        b40BufferedAudio,      b30UnifiedAdvertisingInfo,
-                             b22AudioUnencrypted, b20ReceiveAudioAAC_LC, b19ReceiveAudioALAC,
-                             b18ReceiveAudioPCM,  b17AudioMetaTxtDAAP,   b16AudioMetaProgress,
-                             b15AudioMetaCovers,  b14MFiSoft_FairPlay,   b09AirPlayAudio};
+  auto set_bits = std::vector{
+      b48TransientPairing, b47PeerManagement,         b46HomeKitPairing,   b41_PTPClock,
+      b40BufferedAudio,    b30UnifiedAdvertisingInfo, b22AudioUnencrypted, b20ReceiveAudioAAC_LC,
+      b19ReceiveAudioALAC, b18ReceiveAudioPCM,        b17AudioMetaTxtDAAP, b16AudioMetaProgress,
+      b15AudioMetaCovers,  b14MFiSoft_FairPlay,       b09AirPlayAudio};
 
-  for (const auto bit : set_bits) {
-    _ap2_default.set(bit);
-  }
+  ranges::for_each(set_bits, [&](const auto bit) { ap2_default.set(bit); });
+
+  ap2_setpeersx = ap2_default;
+  ap2_setpeersx.set(b52PeersExtendedMessage);
 }
 
-uint64_t Features::ap2_default() const { return _ap2_default.to_ullong(); }
+uint64_t Features::ap2Default() const { return ap2_default.to_ullong(); }
+uint64_t Features::ap2SetPeersX() const { return ap2_setpeersx.to_ullong(); }
 
 } // namespace pierre

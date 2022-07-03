@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "base/types.hpp"
+
 namespace pierre {
 namespace airplay {
 namespace reply {

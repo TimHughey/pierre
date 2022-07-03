@@ -133,10 +133,12 @@ class Features {
 public:
   Features();
 
-  uint64_t ap2_default() const;
+  uint64_t ap2Default() const;
+  uint64_t ap2SetPeersX() const;
 
 private:
-  ft::Bits _ap2_default;
+  ft::Bits ap2_default;
+  ft::Bits ap2_setpeersx;
 };
 
 } // namespace pierre

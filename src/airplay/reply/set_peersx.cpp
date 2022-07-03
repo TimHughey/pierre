@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "reply/set_peers.hpp"
+#include "reply/set_peersx.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtp_time/clock.hpp"
 
@@ -28,12 +28,12 @@ namespace reply {
 
 using namespace packet;
 
-bool SetPeers::populate() {
+bool SetPeersX::populate() {
   rdict = plist();
 
   __LOG0(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
 
-  auto peers = rdict.stringArray({dk::ROOT});
+  auto peers = rdict.stringArray({dk::IDX0, dk::ADDRESSES});
   if (peers.empty()) {
     return false;
   }

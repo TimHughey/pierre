@@ -94,6 +94,10 @@ shReply Factory::create(const reply::Inject &di) {
     return std::make_shared<SetPeers>();
   }
 
+  if (method == csv("SETPEERSX")) {
+    return std::make_shared<SetPeersX>();
+  }
+
   if (method.starts_with("SETRATEANCHORTIME")) {
     return std::make_shared<SetAnchor>();
   }

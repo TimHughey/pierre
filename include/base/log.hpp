@@ -24,7 +24,13 @@
 #include <cstdint>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include <iterator>
+#include <ranges>
 #include <source_location>
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace pierre {
 
@@ -36,8 +42,26 @@ const string runTicks(); // a timestamp
 
 #define LCOL0 "{:18}"
 #define LCOL1 "{:15}"
-#define LCOL01 LCOL0 LCOL1
+#define LCOL01 LCOL0 " " LCOL1
 #define LBLANK " "
+
+const auto __LOG_COL2 = fmt::format(LCOL01, LBLANK, LBLANK);
+csv __LOG_COL2_SV{__LOG_COL2};
+
+struct pe_log {
+  static void indent2(string &msg, csv more) {
+    msg.append(__LOG_COL2_SV); // add indent for first line
+
+    ranges::for_each(more, [&msg = msg](const auto c) {
+      if (c == '\n') {
+        fmt::format_to(std::back_inserter(msg), "\n{}", __LOG_COL2_SV);
+      } else {
+        msg.push_back(c);
+      }
+    });
+  }
+  static void nlCol2(auto w) { fmt::format_to(w, "\n{}", __LOG_COL2); }
+};
 
 const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
 const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");

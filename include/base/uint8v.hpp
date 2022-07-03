@@ -22,18 +22,39 @@
 
 #include "base/types.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string_view>
+#include <ranges>
 #include <vector>
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace pierre {
 
 class uint8v : public std::vector<uint8_t> {
 public:
   template <typename T> const T *raw() const { return (const T *)data(); }
-  const std::string_view view() const { return std::string_view(raw<char>(), size()); }
+  const string_view view() const { return string_view(raw<char>(), size()); }
+
+  virtual void dump(csv type = csv("unknown")) const;
+  virtual string inspect() const;
+
+protected:
+  bool printable() const {
+    if (size()) {
+      return ranges::all_of( // only look at the first 10%
+          begin(), begin() + (size() / 10),
+          [](auto c) { return std::isprint(static_cast<unsigned char>(c)); });
+    }
+
+    return false;
+  }
+  string &toByteArrayString(string &msg) const;
 };
 
 } // namespace pierre

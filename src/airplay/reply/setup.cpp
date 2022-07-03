@@ -69,6 +69,7 @@ bool Setup::populate() {
   }
 
   if (rc == false) {
+    rHeaders().dump();
     rdict.dump();
   }
 

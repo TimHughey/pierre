@@ -50,10 +50,10 @@ bool Parameter::populate() {
 
 bool Parameter::handleGet() {
   auto rc = false;
-  csv param = rContent().toStringView();
+  csv param = rContent().view();
 
   if (param.starts_with("volume")) {
-    static csv full_volume("\r\nvolume: -1.0\r\n");
+    static csv full_volume("\r\nvolume: 0.0\r\n");
 
     copyToContent(full_volume);
     headers.add(header::type::ContentType, header::val::TextParameters);
@@ -67,7 +67,7 @@ bool Parameter::handleGet() {
 
 bool Parameter::handleSet() {
   if (rHeaders().contentType() == csv(header::val::TextParameters)) {
-    __LOG0(LCOL01 "content={}\n", moduleID(), LBLANK, rContent().toStringView());
+    rContent().dump();
   }
 
   responseCode(RespCode::OK);

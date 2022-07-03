@@ -18,30 +18,25 @@
     https://www.wisslanding.com
 */
 
-#include "reply/set_peers.hpp"
-#include "reply/dict_keys.hpp"
-#include "rtp_time/clock.hpp"
+#pragma once
+
+#include "packet/aplist.hpp"
+#include "reply/reply.hpp"
 
 namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
+class SetPeersX : public Reply {
+public:
+  SetPeersX() : Reply(REPLY_TYPE), rdict(packet::Aplist::DEFER_DICT) {}
 
-bool SetPeers::populate() {
-  rdict = plist();
+  bool populate() override;
 
-  __LOG0(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
-
-  auto peers = rdict.stringArray({dk::ROOT});
-  if (peers.empty()) {
-    return false;
-  }
-
-  MasterClock::peers(peers);  // set the peer lists
-  responseCode(RespCode::OK); // indicate success
-  return true;
-}
+private:
+  packet::Aplist rdict;
+  static constexpr csv REPLY_TYPE{"SET_PEERSX"};
+};
 
 } // namespace reply
 } // namespace airplay

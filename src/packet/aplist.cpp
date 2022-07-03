@@ -527,9 +527,10 @@ const string Aplist::inspect(plist_t what_dict) const {
   plist_to_xml(dict, &buf, &bytes);
 
   fmt::format_to(w, "dict={} bytes={}\n", fmt::ptr(dict), bytes);
-  fmt::format_to(w, "{}", csv(buf, bytes));
-
+  pe_log::indent2(msg, csv(buf, bytes));
   plist_to_xml_free(buf);
+
+  // fmt::format_to(w, "{}", csv(buf, bytes));
 
   return msg;
 }

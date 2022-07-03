@@ -18,15 +18,6 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/session/*.h*"
 )
 
-# set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
-# set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
-# set(Boost_USE_MULTITHREADED          ON)
-# set(Boost_THREADAPI             pthread)
-
-# find_package(Boost 1.78 COMPONENTS system REQUIRED)
-# find_package(fmt                          REQUIRED)
-# find_library(rt         NAMES rt          REQUIRED)
-
 add_library(${__target}
   # public API and overall controller
   airplay.cpp controller.cpp
@@ -38,7 +29,8 @@ add_library(${__target}
   reply/cmd.cpp reply/factory.cpp reply/fairplay.cpp reply/feedback.cpp
   reply/flush.cpp reply/info.cpp reply/options.cpp reply/pairing.cpp
   reply/parameter.cpp reply/record.cpp reply/reply.cpp reply/set_anchor.cpp
-  reply/set_peers.cpp reply/setup.cpp reply/teardown.cpp reply/unhandled.cpp
+  reply/set_peers.cpp reply/set_peersx.cpp reply/setup.cpp reply/teardown.cpp
+  reply/unhandled.cpp
 
   # servers
   server/servers.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp

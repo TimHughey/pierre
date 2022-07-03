@@ -20,6 +20,9 @@
 
 #pragma once
 
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -27,21 +30,16 @@
 namespace pierre {
 namespace packet {
 
-class Content : public std::vector<uint8_t> {
+class Content : public uint8v {
 public:
-  typedef const char *ccs;
+  void storeContentType(csr type) { _type = type; }
+  csr type() const { return _type; }
 
-public:
-  void dump() const;
-  void storeContentType(const std::string &type) { _type = type; }
-  const std::string_view toStringView() const;
-  const std::string &type() const { return _type; }
+  // misc debug
+  void dump() const { uint8v::dump(_type); }
 
 private:
-  bool printable() const;
-
-private:
-  std::string _type;
+  string _type;
 };
 
 } // namespace packet

@@ -33,6 +33,7 @@
 #include "reply/record.hpp"
 #include "reply/set_anchor.hpp"
 #include "reply/set_peers.hpp"
+#include "reply/set_peersx.hpp"
 #include "reply/setup.hpp"
 #include "reply/teardown.hpp"
 #include "reply/unhandled.hpp"

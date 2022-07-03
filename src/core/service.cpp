@@ -62,7 +62,7 @@ void Service::addFeatures() {
   // _features_val = 0x1C340405D4A00 & (~mask64);
 
   Features features;
-  _features_val = features.ap2_default();
+  _features_val = features.ap2SetPeersX();
 
   constexpr auto mask32 = 0xffffffff;
   const uint64_t hi = (_features_val >> 32) & mask32;
