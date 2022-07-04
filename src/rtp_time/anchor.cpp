@@ -110,9 +110,17 @@ const anchor::Data &Anchor::getData() {
   // to the master clock
 
   if (is_new) { // log the anchor clock has changed since
-    __LOG0("{:<18} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} {}\n", Anchor::moduleId,
-           is_new, recent.clockID, clock_info.clockID,
+    __LOG0("{:<18} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} masterFor={}\n",
+           Anchor::moduleId, is_new, recent.clockID, clock_info.clockID,
            pe_time::as_secs(clock_info.masterFor(now_ns)));
+
+    last = recent;
+    last.localTime = Nanos(recent.networkTime - clock_info.rawOffset);
+    last.setLocalTimeAt(now_ns); // capture when local time calculated
+
+    is_new = false;
+
+    return last;
   }
 
   if (last.valid && (is_new == false)) {

@@ -21,11 +21,11 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
+#include "base/content.hpp"
+#include "base/resp_code.hpp"
 #include "base/typical.hpp"
-#include "packet/content.hpp"
+#include "base/uint8v.hpp"
 #include "packet/headers.hpp"
-#include "packet/out.hpp"
-#include "packet/resp_code.hpp"
 #include "reply/inject.hpp"
 
 #include <array>
@@ -37,6 +37,10 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+
+namespace { // unnamed namespace visible only in this file
+namespace ranges = std::ranges;
+} // namespace
 
 namespace pierre {
 namespace airplay {
@@ -64,14 +68,9 @@ namespace reply {
 class Reply; // forward decl for shared_ptr typedef
 typedef std::shared_ptr<Reply> shReply;
 
-namespace { // unnamed namespace visible only in this file
-namespace header = pierre::packet::header;
-namespace ranges = std::ranges;
-} // namespace
-
 class Reply {
 public:
-  using enum packet::RespCode;
+  using enum RespCode;
 
 public:
   // static member function calls Factory to create the appropriate Reply
@@ -83,7 +82,7 @@ public:
   Reply() : module_id("REPLY") {}
   Reply(csv module_id) : module_id(module_id) {}
 
-  packet::Out &build();
+  uint8v &build();
   Reply &inject(const reply::Inject &di);
   virtual bool populate() = 0;
 
@@ -96,16 +95,16 @@ public:
   auto &aesCtx() { return di->aes_ctx; }
   auto &method() const { return di->method; }
   auto &path() const { return di->path; }
-  const packet::Content &plist() const { return di->content; }
-  const packet::Content &rContent() const { return di->content; }
-  const packet::Headers &rHeaders() const { return di->headers; };
+  const Content &plist() const { return di->content; }
+  const Content &rContent() const { return di->content; }
+  const Headers &rHeaders() const { return di->headers; };
 
   // direct access to injected dependencies
   const Inject &injected() { return *di; }
 
   virtual csv moduleID() const { return moduleId; }
 
-  inline void responseCode(packet::RespCode code) { _rcode = code; }
+  inline void responseCode(RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
 
   // sequence number of this request/reply exchange
@@ -125,11 +124,11 @@ protected:
 
   string _err_msg;
 
-  packet::RespCode _rcode = packet::RespCode::NotImplemented;
-  packet::Headers headers;
+  RespCode _rcode = RespCode::NotImplemented;
+  Headers headers;
 
-  packet::Content _content;
-  packet::Out _packet;
+  Content _content;
+  uint8v _packet;
 
   bool _debug_flag = false;
 };

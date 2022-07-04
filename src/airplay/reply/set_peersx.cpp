@@ -26,21 +26,18 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
-
 bool SetPeersX::populate() {
   rdict = plist();
 
   __LOG0(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
 
-  auto peers = rdict.stringArray({dk::IDX0, dk::ADDRESSES});
-  if (peers.empty()) {
-    return false;
+  if (auto peers = rdict.stringArray({dk::IDX0, dk::ADDRESSES}); !peers.empty()) {
+    MasterClock::peers(peers);  // set the peer lists
+    responseCode(RespCode::OK); // indicate success
+    return true;
   }
 
-  MasterClock::peers(peers);  // set the peer lists
-  responseCode(RespCode::OK); // indicate success
-  return true;
+  return false;
 }
 
 } // namespace reply

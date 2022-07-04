@@ -19,11 +19,12 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
+#include "base/content.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
 #include "core/host.hpp"
-#include "packet/content.hpp"
 #include "packet/headers.hpp"
-#include "packet/in.hpp"
 #include "reply/inject.hpp"
 #include "session/base.hpp"
 
@@ -73,8 +74,8 @@ public:
   void asyncLoop() override; // see .cpp file for critical function details
 
   // Getters
-  const packet::Content &content() const { return _content; }
-  const packet::Headers &headers() const { return _headers; }
+  const Content &content() const { return _content; }
+  const Headers &headers() const { return _headers; }
   csv method() const { return _headers.method(); }
   csv path() const { return _headers.path(); }
   csv protocol() const { return _headers.protocol(); }
@@ -87,7 +88,7 @@ private:
   void handleRequest(size_t bytes);
   bool rxAvailable(); // load bytes immediately available
   // bool txContinue();  // send Continue reply
-  packet::In &wire() { return _wire; }
+  uint8v &wire() { return _wire; }
 
   // misc debug / logging
   void dump(DumpKind dump_type = RawOnly);
@@ -98,10 +99,10 @@ private:
   // order dependent - initialized by constructor
   AesCtx aes_ctx;
 
-  packet::In _wire;   // plain text or ciphered
-  packet::In _packet; // deciphered
-  packet::Headers _headers;
-  packet::Content _content;
+  uint8v _wire;   // plain text or ciphered
+  uint8v _packet; // deciphered
+  Headers _headers;
+  Content _content;
 };
 
 } // namespace session

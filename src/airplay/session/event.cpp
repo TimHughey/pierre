@@ -28,7 +28,6 @@ namespace session {
 using namespace std::chrono_literals;
 using namespace boost::asio;
 using namespace boost::system;
-using namespace pierre::packet;
 
 void Event::asyncLoop() {
   // notes:

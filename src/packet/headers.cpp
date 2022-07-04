@@ -19,25 +19,21 @@
 */
 
 #include "packet/headers.hpp"
+#include "base/content.hpp"
+#include "base/resp_code.hpp"
 #include "base/typical.hpp"
-#include "packet/content.hpp"
-#include "packet/resp_code.hpp"
 
 #include <algorithm>
 #include <array>
 #include <exception>
-#include <fmt/format.h>
 #include <iterator>
 #include <regex>
 #include <sstream>
-#include <string>
-#include <string_view>
-
-namespace pierre {
-namespace packet {
 
 using namespace std::literals::string_view_literals;
 namespace ranges = std::ranges;
+
+namespace pierre {
 
 static std::array __known_types{header::type::CSeq,
                                 header::type::Server,
@@ -300,5 +296,4 @@ void Headers::dump() const {
   fmt::print("{}\n", header_list);
 }
 
-} // namespace packet
 } // namespace pierre

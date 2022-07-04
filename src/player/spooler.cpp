@@ -39,12 +39,12 @@ namespace player {
 // general API and member functions
 
 void Spooler::flush(const FlushRequest &request) {
-  asio::post(strand_in, // serialize Reels reels_in actions
+  asio::post(strand_in, // serialize Reels IN actions
              [self = shared_from_this(), request = request]() {
                self->flushReels(request, self->reels_in);
              });
 
-  asio::post(strand_out, // serialize Reels reels_in actions
+  asio::post(strand_out, // serialize Reels OUT actions
              [self = shared_from_this(), request = request]() {
                self->flushReels(request, self->reels_out);
              });
@@ -70,7 +70,7 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
   auto erased = std::erase_if(reels_out, [](shReel reel) { return reel->empty(); });
 
   if (erased) {
-    __LOG0("{:<18} {:<12}erased={} remaining={}\n", moduleId(), //
+    __LOG0(LCOL01 " erased={} remaining={}\n", moduleId(), //
            csv("REELS OUT"), erased, reels_before - erased);
   }
 

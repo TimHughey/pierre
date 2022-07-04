@@ -29,12 +29,12 @@ namespace reply {
 
 class SetPeersX : public Reply {
 public:
-  SetPeersX() : Reply(REPLY_TYPE), rdict(packet::Aplist::DEFER_DICT) {}
+  SetPeersX() : Reply(REPLY_TYPE), rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 
 private:
-  packet::Aplist rdict;
+  Aplist rdict;
   static constexpr csv REPLY_TYPE{"SET_PEERSX"};
 };
 

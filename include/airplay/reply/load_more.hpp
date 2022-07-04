@@ -29,7 +29,7 @@ public:
   LoadMore() = default;
 
   bool populate() override {
-    responseCode(packet::RespCode::Continue);
+    responseCode(RespCode::Continue);
 
     return true;
   };

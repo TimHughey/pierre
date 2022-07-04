@@ -26,8 +26,6 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-namespace packet = pierre::packet;
-
 bool FlushBuffered::populate() {
   rdict = plist();
 
@@ -48,7 +46,7 @@ bool FlushBuffered::populate() {
 
   Player::flush(flush_req);
 
-  responseCode(packet::RespCode::OK);
+  responseCode(RespCode::OK);
   return true;
 }
 

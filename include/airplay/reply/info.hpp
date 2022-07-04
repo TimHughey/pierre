@@ -29,7 +29,7 @@ enum InfoStage { StageUnknown, Stage1, Stage2 };
 
 class Info : public Reply {
 public:
-  Info() : rdict(packet::Aplist::DEFER_DICT) {}
+  Info() : rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 
@@ -39,7 +39,7 @@ private:
 
 private:
   InfoStage _stage = StageUnknown;
-  packet::Aplist rdict;
+  Aplist rdict;
 };
 
 } // namespace reply

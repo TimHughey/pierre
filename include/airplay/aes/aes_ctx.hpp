@@ -18,12 +18,12 @@
 
 #pragma once
 
+#include "base/content.hpp"
+#include "base/resp_code.hpp"
+#include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "core/pair/pair.h"
-#include "packet/content.hpp"
 #include "packet/headers.hpp"
-#include "packet/in.hpp"
-#include "packet/out.hpp"
-#include "packet/resp_code.hpp"
 
 #include <array>
 #include <cstdint>
@@ -40,7 +40,7 @@ typedef struct pair_result *PairResult;
 
 struct AesResult {
   bool ok = true;
-  packet::RespCode resp_code = packet::RespCode::OK;
+  RespCode resp_code = RespCode::OK;
 };
 
 // NOTE: this struct consolidates the pairing "state"
@@ -48,23 +48,23 @@ class AesCtx {
 public:
   AesCtx(const char *device_str);
 
-  size_t decrypt(packet::In &packet, packet::In &ciphered);
-  size_t encrypt(packet::Out &packet);
+  size_t decrypt(uint8v &packet, uint8v &ciphered);
+  size_t encrypt(uint8v &packet);
 
   // size_t decrypt()
 
   inline bool haveSharedSecret() const { return secretBytes() > 0; }
-  AesResult verify(const packet::Content &in, packet::Content &out);
+  AesResult verify(const Content &in, Content &out);
 
   inline auto secret() { return _result->shared_secret; }
   inline size_t secretBytes() const { return _result->shared_secret_len; }
 
-  AesResult setup(const packet::Content &in, packet::Content &out);
+  AesResult setup(const Content &in, Content &out);
 
 private:
   inline CipherCtx cipher() { return _cipher; }
 
-  packet::Content &copyBodyTo(packet::Content &out, const uint8_t *data, size_t bytes) const;
+  Content &copyBodyTo(Content &out, const uint8_t *data, size_t bytes) const;
 
 private:
   bool _decrypt_in = false;

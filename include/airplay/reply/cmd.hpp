@@ -29,7 +29,7 @@ namespace reply {
 
 class Command : public Reply {
 public:
-  Command() : rdict(packet::Aplist::DEFER_DICT) {}
+  Command() : rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 
@@ -37,7 +37,7 @@ private:
   bool checkUpdateSupportedCommands();
 
 private:
-  packet::Aplist rdict;
+  Aplist rdict;
   std::vector<bool> _checks;
 };
 

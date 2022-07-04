@@ -27,7 +27,7 @@ namespace reply {
 
 class Teardown : public Reply {
 public:
-  Teardown() : rdict(packet::Aplist::DEFER_DICT) {}
+  Teardown() : rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 
@@ -36,7 +36,7 @@ private:
   void phase2();
 
 private:
-  packet::Aplist rdict;
+  Aplist rdict;
 };
 
 } // namespace reply

@@ -28,7 +28,7 @@ namespace airplay {
 namespace reply {
 
 namespace { // anoanymous namespace limits scope to this file
-using Aplist = packet::Aplist;
+using Aplist = Aplist;
 }
 
 class Setup : public Reply {

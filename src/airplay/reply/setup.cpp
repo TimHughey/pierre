@@ -37,7 +37,7 @@ namespace airplay {
 namespace reply {
 
 using namespace std::chrono_literals;
-using namespace packet;
+
 using enum ServerType;
 
 bool Setup::populate() {

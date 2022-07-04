@@ -25,8 +25,6 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
-
 bool SetAnchor::populate() {
   rdict = plist();
 

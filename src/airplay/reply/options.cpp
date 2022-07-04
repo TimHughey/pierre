@@ -19,12 +19,11 @@
 */
 
 #include "reply/options.hpp"
+#include "packet/headers.hpp"
 
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-using namespace packet;
 
 static const string _opts{"ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, "
                           "TEARDOWN, OPTIONS, POST, GET, PUT"};

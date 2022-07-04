@@ -26,15 +26,13 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
-
 bool Feedback::populate() {
-  //  packet::Aplist stream0_dict;
+  //  Aplist stream0_dict;
 
   // stream0_dict.setUint(dk::TYPE, 103);
   // stream0_dict.setReal(dk::SR, 44100.0);
 
-  // packet::Aplist reply_dict;
+  // Aplist reply_dict;
 
   // reply_dict.setArray(dk::STREAMS, stream0_dict);
 
@@ -44,7 +42,7 @@ bool Feedback::populate() {
 
   // headers.add(header::type::ContentType, header::val::AppleBinPlist);
 
-  responseCode(packet::RespCode::OK);
+  responseCode(RespCode::OK);
   return true;
 }
 

@@ -19,10 +19,10 @@
 */
 
 #include "reply/reply.hpp"
+#include "base/resp_code.hpp"
 #include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "packet/headers.hpp"
-#include "packet/out.hpp"
-#include "packet/resp_code.hpp"
 #include "reply/factory.hpp"
 
 #include <algorithm>
@@ -33,9 +33,6 @@
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-using enum packet::RespCode;
-namespace header = pierre::packet::header;
 
 // this static member function is in the .cpp due to the call to Factory to
 // create the approprite Reply subclass
@@ -53,7 +50,7 @@ namespace header = pierre::packet::header;
   return reply;
 }
 
-[[nodiscard]] packet::Out &Reply::build() {
+[[nodiscard]] uint8v &Reply::build() {
   constexpr csv seperator("\r\n");
 
   [[maybe_unused]] const auto ok = populate();

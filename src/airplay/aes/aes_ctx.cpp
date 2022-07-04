@@ -18,6 +18,9 @@
     https://www.wisslanding.com
 */
 
+#include "aes_ctx.hpp"
+#include "base/uint8v.hpp"
+
 #include <algorithm>
 #include <cstdlib>
 #include <exception>
@@ -25,10 +28,6 @@
 #include <iterator>
 #include <memory>
 #include <string>
-
-#include "aes_ctx.hpp"
-#include "packet/in.hpp"
-#include "packet/out.hpp"
 
 using namespace std;
 
@@ -53,8 +52,7 @@ AesCtx::AesCtx(const char *device_str) {
   }
 }
 
-packet::Content &AesCtx::copyBodyTo(packet::Content &out, const uint8_t *body,
-                                    size_t bytes) const {
+Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body, size_t bytes) const {
   out.clear();
 
   if (body && (bytes > 0)) {
@@ -72,7 +70,7 @@ packet::Content &AesCtx::copyBodyTo(packet::Content &out, const uint8_t *body,
 
 // this function is a NOP until cipher is established and the first encrypted
 // packet is received
-size_t AesCtx::encrypt(packet::Out &packet) {
+size_t AesCtx::encrypt(uint8v &packet) {
   ssize_t bytes_ciphered = packet.size();
 
   if (cipher() && _encrypt_out) {
@@ -85,7 +83,7 @@ size_t AesCtx::encrypt(packet::Out &packet) {
 
     if (rc >= 0) { // success
       packet.clear();
-      // NOTE: packet::Out is based on a vector so we can use std::copy()
+      // NOTE: uint8v is based on a vector so we can use std::copy()
       auto where = std::back_inserter(packet);
       auto last_byte = ciphered_data + ciphered_len;
 
@@ -100,7 +98,7 @@ size_t AesCtx::encrypt(packet::Out &packet) {
   return bytes_ciphered;
 }
 
-size_t AesCtx::decrypt(packet::In &packet, packet::In &ciphered) {
+size_t AesCtx::decrypt(uint8v &packet, uint8v &ciphered) {
   // even is cipher isn't available we will still copy to packet
   auto to = std::back_inserter(packet);
 
@@ -119,7 +117,7 @@ size_t AesCtx::decrypt(packet::In &packet, packet::In &ciphered) {
       std::copy(data, data + len, to);
 
       // create a new cipher packet of the unconsumed bytes
-      packet::In cipher_rest;
+      uint8v cipher_rest;
       cipher_rest.assign(ciphered.begin() + consumed, ciphered.end());
       std::swap(ciphered, cipher_rest);
     }
@@ -132,13 +130,13 @@ size_t AesCtx::decrypt(packet::In &packet, packet::In &ciphered) {
   return ciphered.size();
 }
 
-AesResult AesCtx::verify(const packet::Content &in, packet::Content &out) {
+AesResult AesCtx::verify(const Content &in, Content &out) {
   AesResult aes_result;
   uint8_t *body = nullptr;
   size_t body_bytes = 0;
 
   if (pair_verify(&body, &body_bytes, _verify, in.data(), in.size()) < 0) {
-    aes_result.resp_code = packet::RespCode::AuthRequired;
+    aes_result.resp_code = RespCode::AuthRequired;
     copyBodyTo(out, body, body_bytes);
     return aes_result;
   }
@@ -151,7 +149,7 @@ AesResult AesCtx::verify(const packet::Content &in, packet::Content &out) {
       _decrypt_in = true;
     } else {
       fmt::print("error setting up control channel ciper\n");
-      aes_result.resp_code = packet::RespCode::InternalServerError;
+      aes_result.resp_code = RespCode::InternalServerError;
     }
   }
 
@@ -159,7 +157,7 @@ AesResult AesCtx::verify(const packet::Content &in, packet::Content &out) {
   return aes_result;
 }
 
-AesResult AesCtx::setup(const packet::Content &in, packet::Content &out) {
+AesResult AesCtx::setup(const Content &in, Content &out) {
   AesResult aes_result;
   uint8_t *body = nullptr;
   size_t body_bytes = 0;
@@ -168,7 +166,7 @@ AesResult AesCtx::setup(const packet::Content &in, packet::Content &out) {
   // return AuthRequired
 
   if (pair_setup(&body, &body_bytes, _setup, in.data(), in.size()) < 0) {
-    aes_result.resp_code = packet::RespCode::AuthRequired;
+    aes_result.resp_code = RespCode::AuthRequired;
     copyBodyTo(out, body, body_bytes);
     return aes_result;
   }

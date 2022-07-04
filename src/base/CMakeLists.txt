@@ -1,5 +1,5 @@
 #
-# common
+# base
 #
 
 set(__target base)
@@ -11,7 +11,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 find_package(fmt REQUIRED)
 
 add_library(${__target} SHARED
-  log.cpp shk.cpp color.cpp uint8v.cpp ${HEADER_LIST})
+  log.cpp shk.cpp color.cpp resp_code.cpp uint8v.cpp ${HEADER_LIST})
 
 # source files compiled for the library can include headers
 # without using the full path

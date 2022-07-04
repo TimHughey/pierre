@@ -24,8 +24,6 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
-
 bool Unhandled::populate() {
   responseCode(RespCode::BadRequest);
 

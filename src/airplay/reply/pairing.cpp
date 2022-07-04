@@ -21,13 +21,9 @@
 #include "reply/pairing.hpp"
 #include "aes/aes_ctx.hpp"
 
-#include <fmt/format.h>
-
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-namespace header = pierre::packet::header;
 
 bool Pairing::populate() {
   AesResult aes_result;

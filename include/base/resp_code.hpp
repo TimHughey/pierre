@@ -18,10 +18,9 @@
 
 #pragma once
 
-#include <string_view>
+#include "base/typical.hpp"
 
 namespace pierre {
-namespace packet {
 
 enum RespCode : uint16_t {
   Continue = 100,
@@ -34,10 +33,6 @@ enum RespCode : uint16_t {
   NotImplemented = 501
 };
 
-// make available for any compilation unit that includes
-using enum RespCode;
+csv respCodeToView(RespCode resp_code);
 
-std::string_view respCodeToView(RespCode resp_code);
-
-} // namespace packet
 } // namespace pierre

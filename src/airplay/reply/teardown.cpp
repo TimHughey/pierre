@@ -29,14 +29,12 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-namespace header = pierre::packet::header;
-
 bool Teardown::populate() {
   auto servers = Servers::ptr();
   rdict = plist();
 
   headers.add(header::type::ContentSimple, header::val::ConnectionClosed);
-  responseCode(packet::RespCode::OK); // always OK
+  responseCode(RespCode::OK); // always OK
 
   auto has_streams = rdict.exists(dk::STREAMS);
 

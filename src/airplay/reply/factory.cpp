@@ -26,11 +26,9 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-namespace header = pierre::packet::header;
-
 shReply Factory::create(const reply::Inject &di) {
-  const std::string_view method = di.method;
-  const std::string_view path = di.path;
+  const string_view method = di.method;
+  const string_view path = di.path;
 
   __LOGX(LCOL0 LCOL1 "cseq={} method={} path={}\n", moduleId, csv("CREATE"),
          di.headers.getVal(header::type::CSeq), method, path);
@@ -90,7 +88,7 @@ shReply Factory::create(const reply::Inject &di) {
     return std::make_shared<Record>();
   }
 
-  if (method.starts_with("SETPEERS")) {
+  if (method == csv("SETPEERS")) {
     return std::make_shared<SetPeers>();
   }
 

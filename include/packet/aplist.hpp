@@ -18,15 +18,14 @@
 
 #pragma once
 
+#include "base/content.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "packet/content.hpp"
 
 #include <array>
 #include <cstdarg>
 #include <exception>
 #include <fmt/format.h>
-#include <functional>
 #include <list>
 #include <memory>
 #include <plist/plist++.h>
@@ -35,7 +34,6 @@
 #include <vector>
 
 namespace pierre {
-namespace packet {
 
 class Aplist {
 public:
@@ -134,7 +132,8 @@ private:
 
 private:
   plist_t _plist = nullptr;
+
+  static constexpr csv moduleId{"APLIST"};
 };
 
-} // namespace packet
 } // namespace pierre

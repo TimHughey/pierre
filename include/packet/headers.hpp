@@ -18,25 +18,22 @@
 
 #pragma once
 
+#include "base/content.hpp"
 #include "base/typical.hpp"
-#include "packet/content.hpp"
+#include "packet/headers.hpp"
 
 #include <algorithm>
-#include <array>
-#include <fmt/core.h>
-#include <fmt/format.h>
 #include <limits>
 #include <list>
 #include <map>
 #include <regex>
 #include <set>
-#include <source_location>
-#include <string>
-#include <string_view>
-#include <vector>
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace pierre {
-namespace packet {
 
 namespace header {
 struct type {
@@ -70,10 +67,6 @@ struct val {
 };
 
 } // namespace header
-
-namespace {
-namespace ranges = std::ranges;
-}
 
 typedef fmt::basic_memory_buffer<char, 256> HeaderList;
 
@@ -140,5 +133,4 @@ private:
   static constexpr auto THROW = std::numeric_limits<size_t>::max();
 };
 
-} // namespace packet
 } // namespace pierre

@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
-#include "packet/in.hpp"
 #include "session/base.hpp"
 
 #include <fmt/format.h>
@@ -60,11 +60,11 @@ private:
 
   bool rxAtLeast(size_t bytes = 1);
   bool rxAvailable(); // load bytes immediately available
-  packet::In &wire() { return _wire; }
+  uint8v &wire() { return _wire; }
   void wireToPacket();
 
 private:
-  packet::In _wire;
+  uint8v _wire;
 };
 
 } // namespace session

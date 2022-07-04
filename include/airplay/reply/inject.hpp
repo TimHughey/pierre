@@ -30,8 +30,8 @@ namespace reply {
 struct Inject {
   csv method;
   csv path;
-  const packet::Content &content;
-  const packet::Headers &headers;
+  const Content &content;
+  const Headers &headers;
   AesCtx &aes_ctx;
 };
 

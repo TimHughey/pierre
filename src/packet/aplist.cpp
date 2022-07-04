@@ -36,15 +36,11 @@ extern uint8_t _binary_get_info_resp_plist_start[];
 extern uint8_t _binary_get_info_resp_plist_end;
 extern uint8_t _binary_get_info_resp_plist_size;
 
-namespace pierre {
-namespace packet {
-
-using namespace std;
 namespace ranges = std::ranges;
 
-using namespace PList;
+namespace pierre {
 
-template <typename T> using Func = std::function<T()>;
+// template <typename T> using Func = std::function<T()>;
 
 Aplist::Aplist(bool allocate) {
   if (allocate != DEFER_DICT) {
@@ -234,10 +230,8 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
     return _plist;
   }
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} want_type={} keys={}\n");
-    fmt::print(f, runTicks(), fnName(), type, fmt::join(steps, ", "));
-  }
+  __LOGX(LCOL01 " want_type={} steps={}\n", moduleId, //
+         csv("FETCH NODE"), type, fmt::join(steps, ", "));
 
   plist_t node;
 
@@ -250,6 +244,9 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
       if (isArrayIndex(steps[1])) {
         uint32_t idx = std::atoi(steps[1].data());
         node = plist_access_path(_plist, 2, steps[0].data(), idx);
+      } else if (isArrayIndex(steps[0])) {
+        uint32_t idx = std::atoi(steps[0].data());
+        node = plist_access_path(_plist, 2, idx, steps[1].data());
       } else {
         node = plist_access_path(_plist, 2, steps[0].data(), steps[1].data());
       }
@@ -269,11 +266,8 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
       node = nullptr;
   }
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} node={} type={}\n");
-    plist_type type = (node) ? plist_get_node_type(node) : PLIST_NONE;
-    fmt::print(f, runTicks(), fnName(), fmt::ptr(node), type);
-  }
+  __LOGX(LCOL01 " node={} type={}\n", moduleId, //
+         csv("FOUND"), fmt::ptr(node), node ? plist_get_node_type(node) : PLIST_NONE);
 
   return (node && (type == plist_get_node_type(node))) ? node : nullptr;
 }
@@ -342,7 +336,7 @@ bool Aplist::setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strin
 
   constexpr auto msg = "unable to add array to missing or non-dict node";
   fmt::print("{}\n", msg);
-  throw(runtime_error(msg));
+  throw(std::runtime_error(msg));
 }
 
 void Aplist::setData(ccs key, const fmt::memory_buffer &buf) {
@@ -374,7 +368,7 @@ bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
 
   constexpr auto msg = "unable to add string to missing or non-dict node";
   fmt::print("{}\n", msg);
-  throw(runtime_error(msg));
+  throw(std::runtime_error(msg));
 }
 
 void Aplist::setString(csv key, csr str_val) {
@@ -402,7 +396,7 @@ bool Aplist::setUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
 
   constexpr auto msg = "unable to add uint to missing or non-dict node";
   fmt::print("{}\n", msg);
-  throw(runtime_error(msg));
+  throw(std::runtime_error(msg));
 }
 
 void Aplist::setUints(const UintList &key_uints) {
@@ -535,5 +529,4 @@ const string Aplist::inspect(plist_t what_dict) const {
   return msg;
 }
 
-} // namespace packet
 } // namespace pierre

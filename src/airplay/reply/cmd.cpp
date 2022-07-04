@@ -24,8 +24,6 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-using namespace packet;
-
 bool Command::populate() {
   auto rc = true;
   rdict = plist();
@@ -35,7 +33,7 @@ bool Command::populate() {
   }
 
   // default to OK
-  responseCode(packet::RespCode::OK);
+  responseCode(RespCode::OK);
 
   if (!rdict.empty() && checkUpdateSupportedCommands()) {
     rc = true;

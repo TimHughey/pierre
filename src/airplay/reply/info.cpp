@@ -27,12 +27,11 @@
 #include <iterator>
 #include <memory>
 
+using namespace pierre::service;
+
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-using namespace packet;
-using namespace pierre::service;
 
 bool Info::populate() {
   // if dictionary is empty this is a stage 2 packet
@@ -61,7 +60,7 @@ bool Info::stage1() {
   auto serv = Service::ptr();
 
   // create the reply dict from an embedded plist
-  packet::Aplist reply_dict(Aplist::Embedded::GetInfoRespStage1);
+  Aplist reply_dict(Aplist::Embedded::GetInfoRespStage1);
 
   // create the qualifier data value
   auto qual_data = fmt::memory_buffer();
@@ -116,7 +115,7 @@ bool Info::stage2() {
   auto serv = Service::ptr();
 
   // the response dict is based on the request
-  packet::Aplist reply_dict(Aplist::GetInfoRespStage1);
+  Aplist reply_dict(Aplist::GetInfoRespStage1);
 
   // handle the uints first
   const auto features_key = serv->fetchKey(apFeatures);

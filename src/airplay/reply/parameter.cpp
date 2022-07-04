@@ -18,8 +18,8 @@
 //  https://www.wisslanding.com
 
 #include "reply/parameter.hpp"
+#include "base/content.hpp"
 #include "base/typical.hpp"
-#include "packet/content.hpp"
 #include "packet/headers.hpp"
 #include "reply/reply.hpp"
 
@@ -27,8 +27,6 @@
 #include <iterator>
 #include <string_view>
 #include <vector>
-
-using namespace pierre::packet;
 
 namespace pierre {
 namespace airplay {

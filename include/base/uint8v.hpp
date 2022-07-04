@@ -38,7 +38,20 @@ namespace pierre {
 
 class uint8v : public std::vector<uint8_t> {
 public:
+  uint8v() = default;
+  uint8v(size_t reserve_default) : reserve_default(reserve_default) { reserve(reserve_default); }
   template <typename T> const T *raw() const { return (const T *)data(); }
+  void reset(size_t reserve_bytes = 0) {
+    clear();
+
+    if ((reserve_bytes == 0) && (reserve_default > 0)) {
+      reserve(reserve_default);
+
+    } else if (reserve_bytes > 0) {
+      reserve(reserve_bytes);
+    }
+  }
+
   const string_view view() const { return string_view(raw<char>(), size()); }
 
   virtual void dump(csv type = csv("unknown")) const;
@@ -55,6 +68,9 @@ protected:
     return false;
   }
   string &toByteArrayString(string &msg) const;
+
+private:
+  size_t reserve_default = 0;
 };
 
 } // namespace pierre

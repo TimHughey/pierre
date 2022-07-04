@@ -32,7 +32,7 @@ public:
   bool populate() override;
 
 private:
-  packet::Aplist rdict;
+  Aplist rdict;
 };
 
 } // namespace reply

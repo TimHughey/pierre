@@ -22,12 +22,11 @@
 #include <iterator>
 #include <stdexcept>
 
+using namespace std::literals;
+
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-using namespace std::literals;
-using namespace packet;
 
 static const uint8_t __header[] = {0x46, 0x50, 0x4c, 0x59, 0x03, 0x01,
                                    0x04, 0x00, 0x00, 0x00, 0x00, 0x14};
