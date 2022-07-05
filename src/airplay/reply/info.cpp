@@ -103,7 +103,7 @@ bool Info::stage1() {
   copyToContent(binary, bytes);
 
   responseCode(OK);
-  headers.add(header::type::ContentType, header::val::AppleBinPlist);
+  headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
   return true;
 }
@@ -145,7 +145,7 @@ bool Info::stage2() {
   copyToContent(binary, bytes);
 
   responseCode(OK);
-  headers.add(header::type::ContentType, header::val::AppleBinPlist);
+  headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
   return true;
 }

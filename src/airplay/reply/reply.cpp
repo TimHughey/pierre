@@ -19,10 +19,10 @@
 */
 
 #include "reply/reply.hpp"
+#include "base/headers.hpp"
 #include "base/resp_code.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "packet/headers.hpp"
 #include "reply/factory.hpp"
 
 #include <algorithm>
@@ -63,7 +63,7 @@ namespace reply {
   fmt::format_to(where, "RTSP/1.0 {:d} {}{}", _rcode, resp_text, seperator);
 
   if (!_content.empty()) { // add the content length before adding the header list
-    headers.add(header::type::ContentLength, _content.size());
+    headers.add(hdr_type::ContentLength, _content.size());
   }
 
   headers.list(where);
@@ -86,8 +86,8 @@ namespace reply {
 
     if (di->path != feedback) {
       __LOG0("{:<18} cseq={:>4} fb={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
-             log_module, headers.getValInt(header::type::CSeq), feedbacks, _packet.size(),
-             resp_text, di->method, di->path);
+             log_module, headers.getValInt(hdr_type::CSeq), feedbacks, _packet.size(), resp_text,
+             di->method, di->path);
     }
   }
 
@@ -105,8 +105,8 @@ void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
 
 Reply &Reply::inject(const reply::Inject &injected) {
   // copy the sequence header, must be part of the reply headers
-  headers.copy(injected.headers, header::type::CSeq);
-  headers.add(header::type::Server, header::val::AirPierre);
+  headers.copy(injected.headers, hdr_type::CSeq);
+  headers.add(hdr_type::Server, hdr_val::AirPierre);
 
   di.emplace(injected); // use an optional because it contains references
 

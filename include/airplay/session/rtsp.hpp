@@ -24,7 +24,7 @@
 #include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
 #include "core/host.hpp"
-#include "packet/headers.hpp"
+#include "base/headers.hpp"
 #include "reply/inject.hpp"
 #include "session/base.hpp"
 
@@ -87,7 +87,6 @@ private:
   // receives the rx_bytes from async_read
   void handleRequest(size_t bytes);
   bool rxAvailable(); // load bytes immediately available
-  // bool txContinue();  // send Continue reply
   uint8v &wire() { return _wire; }
 
   // misc debug / logging

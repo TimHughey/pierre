@@ -31,14 +31,16 @@ namespace pierre {
 
 class Content : public uint8v {
 public:
-  void storeContentType(csr type) { _type = type; }
+  void storeContentType(auto type) { _type = type; }
   csr type() const { return _type; }
 
   // misc debug
-  void dump() const { uint8v::dump(_type); }
+  void dump() const override;
+  virtual csv moduleId() const override { return module_id; }
 
 private:
   string _type;
+  static constexpr csv module_id{"CONTENT"};
 };
 
 } // namespace pierre

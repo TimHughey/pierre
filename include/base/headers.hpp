@@ -20,11 +20,9 @@
 
 #include "base/content.hpp"
 #include "base/typical.hpp"
-#include "packet/headers.hpp"
 
 #include <algorithm>
 #include <limits>
-#include <list>
 #include <map>
 #include <regex>
 #include <set>
@@ -35,9 +33,8 @@ namespace ranges = std::ranges;
 
 namespace pierre {
 
-namespace header {
-struct type {
-  static constexpr csv CSeq = "CSeq";
+struct hdr_type {
+  static constexpr csv CSeq{"CSeq"};
   static constexpr csv Server = "Server";
   static constexpr csv ContentSimple = "Content";
   static constexpr csv ContentType = "Content-Type";
@@ -57,18 +54,14 @@ struct type {
   static constexpr csv XAppleAbsoulteTime = "X-Apple-AbsoluteTime";
 };
 
-struct val {
-  static constexpr auto OctetStream = "application/octet-stream";
-  static constexpr auto AirPierre = "AirPierre/366.0";
-  static constexpr auto AppleBinPlist = "application/x-apple-binary-plist";
-  static constexpr auto TextParameters = "text/parameters";
-  static constexpr auto ImagePng = "image/png";
-  static constexpr auto ConnectionClosed = "close";
+struct hdr_val {
+  static const string OctetStream;
+  static const string AirPierre;
+  static const string AppleBinPlist;
+  static const string TextParameters;
+  static const string ImagePng;
+  static const string ConnectionClosed;
 };
-
-} // namespace header
-
-typedef fmt::basic_memory_buffer<char, 256> HeaderList;
 
 class Headers {
 public:
@@ -78,32 +71,35 @@ public:
 public:
   Headers() = default;
 
-  void add(csv type, const string_view val);
-  void add(csv type, size_t);
-
-  size_t contentLength() const { return getValInt(header::type::ContentLength); }
-  csv contentType() const { return getVal(header::type::ContentType); }
+  void add(csv type, csv val); // must be in .cpp
+  void add(csv type, size_t val) { add(type, fmt::format("{}", val)); }
+  size_t contentLength() const { return getValInt(hdr_type::ContentLength); }
+  csv contentType() const { return getVal(hdr_type::ContentType); }
   void copy(const Headers &from, csv type);
-  bool exists(csv type) const;
-  bool isContentType(csv val) const;
-  const string &getVal(csv want_type) const;
+  bool exists(csv type) const { return map.contains(type); }
+  bool contentTypeEquals(csv want_val) const {
+    const auto &search = map.find(hdr_type::ContentType);
+    return (search != map.end()) && (want_val == search->second) ? true : false;
+  }
+
+  const string_view getVal(csv want_type) const;
   size_t getValInt(csv want_type) const;
 
   // member functions that act on the entire container
   void clear();
-  inline auto count() const { return _omap.size(); }
+  auto count() const { return map.size(); }
   void dump() const;
 
   void list(auto &where) const {
-    ranges::for_each(_omap, [&](const auto &entry) {
-      const auto &[type, val] = entry;
-
-      fmt::format_to(where, "{}: {}\r\n", type, val);
+    ranges::for_each(map, [&](const auto &entry) {
+      fmt::format_to(where, "{}: {}\r\n", entry.first, entry.second);
     });
   }
 
-  size_t loadMore(csv view, Content &content, bool debug = false);
+  size_t loadMore(csv view, Content &content);
   size_t moreBytes() const { return _more_bytes; }
+
+  static bool valEquals(csv v1, csv v2) { return v1 == v2; }
 
   // preamble info
   csv method() const { return csv(_method); }
@@ -116,8 +112,8 @@ private:
   void parseMethod(const string_view &view);
 
 private:
-  HeaderMap _omap;
-  UnknownHeaders _unknown;
+  HeaderMap map;
+  UnknownHeaders unknown;
 
   string _method;
   string _path;
@@ -131,6 +127,7 @@ private:
   static constexpr string_view EOL{"\r\n"};
   static constexpr string_view SEP{"\r\n\r\n"};
   static constexpr auto THROW = std::numeric_limits<size_t>::max();
+  static constexpr csv moduleId{"HEADERS"};
 };
 
 } // namespace pierre

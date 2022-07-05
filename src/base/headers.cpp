@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "packet/headers.hpp"
+#include "base/headers.hpp"
 #include "base/content.hpp"
 #include "base/resp_code.hpp"
 #include "base/typical.hpp"
@@ -35,49 +35,48 @@ namespace ranges = std::ranges;
 
 namespace pierre {
 
-static std::array __known_types{header::type::CSeq,
-                                header::type::Server,
-                                header::type::ContentSimple,
-                                header::type::ContentType,
-                                header::type::ContentLength,
-                                header::type::Public,
-                                header::type::DacpActiveRemote,
-                                header::type::DacpID,
-                                header::type::AppleProtocolVersion,
-                                header::type::UserAgent,
-                                header::type::AppleHKP,
-                                header::type::XAppleClientName,
-                                header::type::XApplePD,
-                                header::type::XAppleProtocolVersion,
-                                header::type::XAppleHKP,
-                                header::type::XAppleET,
-                                header::type::RtpInfo,
-                                header::type::XAppleAbsoulteTime};
+// initialize hdr_val static data
+const string hdr_val::OctetStream("application/octet-stream");
+const string hdr_val::AirPierre("AirPierre/366.0");
+const string hdr_val::AppleBinPlist("application/x-apple-binary-plist");
+const string hdr_val::TextParameters("text/parameters");
+const string hdr_val::ImagePng("image/png");
+const string hdr_val::ConnectionClosed("close");
+
+static std::array __known_types{hdr_type::CSeq,
+                                hdr_type::Server,
+                                hdr_type::ContentSimple,
+                                hdr_type::ContentType,
+                                hdr_type::ContentLength,
+                                hdr_type::Public,
+                                hdr_type::DacpActiveRemote,
+                                hdr_type::DacpID,
+                                hdr_type::AppleProtocolVersion,
+                                hdr_type::UserAgent,
+                                hdr_type::AppleHKP,
+                                hdr_type::XAppleClientName,
+                                hdr_type::XApplePD,
+                                hdr_type::XAppleProtocolVersion,
+                                hdr_type::XAppleHKP,
+                                hdr_type::XAppleET,
+                                hdr_type::RtpInfo,
+                                hdr_type::XAppleAbsoulteTime};
 
 static string __EMPTY;
+static csv __EMPTY_SV(__EMPTY);
 
 void Headers::add(csv type, csv val) {
-  auto known_header = ranges::find(__known_types, type);
-
-  if (known_header == __known_types.end()) {
-    const auto &[it, __inserted] = _unknown.emplace(string(type));
-    _omap.try_emplace(*it, string(val));
-
+  if (auto known = ranges::find(__known_types, type); known != __known_types.end()) {
+    map.try_emplace(*known, string(val));
   } else {
-    _omap.try_emplace(*known_header, string(val));
+    unknown.emplace(string(type));
   }
-}
-
-void Headers::add(csv type, size_t val) {
-  auto str = fmt::format("{}", val);
-
-  add(type, str);
 }
 
 void Headers::copy(const Headers &from, csv type) { add(type, from.getVal(type)); }
 
 void Headers::clear() {
-  _omap.clear();
+  map.clear();
   _separators.clear();
 
   _method.clear();
@@ -88,45 +87,26 @@ void Headers::clear() {
   _ok = false;
 }
 
-bool Headers::exists(csv type) const { return _omap.contains(type); }
-
-bool Headers::isContentType(csv want_val) const {
-  const auto &search = _omap.find(header::type::ContentType);
-
-  if (search == _omap.end())
-    return false;
-
-  return want_val == search->second;
-}
-
-const string &Headers::getVal(csv want_type) const {
-  const auto &search = _omap.find(want_type);
-
-  if (search == _omap.end()) {
-    if (false) { // debug
-      constexpr auto f = FMT_STRING("{} {} type={} not found (returning empty string)\n");
-      fmt::print(f, runTicks(), fnName(), want_type);
-    }
-
-    return __EMPTY;
+const string_view Headers::getVal(csv want_type) const {
+  if (const auto &search = map.find(want_type); search != map.end()) {
+    return csv(search->second);
   }
 
-  return search->second;
+  __LOG0(LCOL01 " type={} not found (returning empty string)\n", moduleId, //
+         csv("GET VAL"), want_type);
+
+  return __EMPTY;
 }
 
 size_t Headers::getValInt(csv want_type) const {
-  const auto &search = _omap.find(want_type);
-
-  if (search == _omap.end()) {
-    constexpr auto f = FMT_STRING("{} {} type={} not found (returning 0)\n");
-    fmt::print(f, runTicks(), fnName(), want_type);
-
-    return 0;
-
-    //  throw(std::runtime_error("header type not found"));
+  if (const auto &search = map.find(want_type); search != map.end()) {
+    return static_cast<size_t>(std::atoi(search->second.data()));
   }
 
-  return static_cast<size_t>(std::atoi(search->second.data()));
+  __LOG0(LCOL01, " type={} not found (returning 0)\n", moduleId, //
+         csv("GETVAL INT"), want_type);
+
+  return 0;
 }
 
 bool Headers::haveSeparators(const string_view &view) {
@@ -147,7 +127,7 @@ bool Headers::haveSeparators(const string_view &view) {
   return _separators.size() == 2;
 }
 
-size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
+size_t Headers::loadMore(const string_view view, Content &content) {
   // keep loading if we haven't found the separators
   if (haveSeparators(view) == false) {
     static size_t count = 0;
@@ -176,7 +156,7 @@ size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
   parseHeaderBlock(hdr_block);
 
   // no content, we're done
-  if (exists(header::type::ContentType) == false) {
+  if (exists(hdr_type::ContentType) == false) {
     return 0;
   }
 
@@ -184,17 +164,13 @@ size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
   const size_t content_begin = headers_end + SEP.size();
   const auto view_size = view.size();
 
-  int32_t byte_diff = view_size - contentLength();
+  int64_t byte_diff = view_size - contentLength();
 
   // byte diff is negative indicating we need more data
   if (byte_diff < 0) {
-    if (debug) {
-      constexpr auto f = FMT_STRING("{} method={} path={} content_type={}"
-                                    " have={} content_len={} diff={}\n");
-
-      fmt::print(f, fnName(), method(), path(), contentType(), view_size, contentLength(),
-                 byte_diff);
-    }
+    __LOGX(LCOL01, " method={} path={} content_type={} have={} content_len={} diff={}\n", //
+           moduleId, csv("LOAD MORE"), method(),                                          //
+           path(), contentType(), view_size, contentLength(), byte_diff);
 
     _more_bytes = std::abs(byte_diff);
 
@@ -203,17 +179,15 @@ size_t Headers::loadMore(const string_view view, Content &content, bool debug) {
 
   // we have all the content, copy it
   content.clear();
+  content.storeContentType(contentType());
   auto copy_begin = view.begin() + content_begin;
   auto copy_end = view.end();
 
   content.assign(copy_begin, copy_end);
 
   // if we've reached here then everything is as it should be
-  if (debug) {
-    constexpr auto f = FMT_STRING("{} complete method={} path={}"
-                                  "content_type={} content_len={}\n");
-    fmt::print(f, fnName(), method(), path(), contentType(), content.size());
-  }
+  __LOGX(LCOL01, "complete method={} path={} content_type={} content_len={}\n", //
+         moduleId, csv("LOAD MORE"), method(), path(), contentType(), content.size());
 
   return 0;
 }
@@ -245,16 +219,12 @@ void Headers::parseHeaderBlock(const string_view &view) {
       colon_pos++;                                    // skip space after the colon
       auto val = view.substr(++colon_pos, view.npos); // to eol
 
-      if (false) { // debug
-        auto constexpr f = FMT_STRING("{} key={} val={}\n");
-        fmt::print(f, fnName(), key, val);
-      }
+      __LOGX(LCOL01, " key={} val={}\n", moduleId, csv("PARSE"), key, val);
 
       add(key, val);
 
     } else {
-      constexpr auto f = FMT_STRING("WARN {} {}\n\tignored --> {} <-- ignored\n");
-      fmt::print(f, fnName(), "colon not found"sv, line);
+      __LOG0(LCOL01, " ignored={}\n", moduleId, csv("PARSE"), line);
     }
   }
 }

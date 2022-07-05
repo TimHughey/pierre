@@ -40,6 +40,11 @@ typedef const src_loc csrc_loc;
 constexpr ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
 const string runTicks(); // a timestamp
 
+#define __LOG(format, ...) __log(1, FMT_STRING(format), __VA_ARGS__)
+#define __LOG0(format, ...) __log(0, FMT_STRING(format), __VA_ARGS__)
+#define __LOG1(format, ...) __log(1, FMT_STRING(format), __VA_ARGS__)
+#define __LOGX(format, ...)
+
 #define LCOL0 "{:18}"
 #define LCOL1 "{:15}"
 #define LCOL01 LCOL0 " " LCOL1
@@ -60,7 +65,11 @@ struct pe_log {
       }
     });
   }
-  static void nlCol2(auto w) { fmt::format_to(w, "\n{}", __LOG_COL2); }
+  static void nlCol2(auto &w) { fmt::format_to(w, "\n{}", __LOG_COL2); }
+
+  static void prepend(auto &w, csv module_id, csv category) {
+    fmt::format_to(w, LCOL01, module_id, category);
+  }
 };
 
 const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
@@ -71,10 +80,5 @@ template <typename S, typename... Args> // accepts the format and var args
 void __log([[maybe_unused]] int level, const S &format, Args &&...args) {
   __vlog(format, fmt::make_args_checked<Args...>(format, args...));
 }
-
-#define __LOG(format, ...) __log(1, FMT_STRING(format), __VA_ARGS__)
-#define __LOG0(format, ...) __log(0, FMT_STRING(format), __VA_ARGS__)
-#define __LOG1(format, ...) __log(1, FMT_STRING(format), __VA_ARGS__)
-#define __LOGX(format, ...)
 
 } // namespace pierre

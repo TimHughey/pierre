@@ -22,10 +22,10 @@
 
 #include "aes/aes_ctx.hpp"
 #include "base/content.hpp"
+#include "base/headers.hpp"
 #include "base/resp_code.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "packet/headers.hpp"
 #include "reply/inject.hpp"
 
 #include <array>
@@ -108,7 +108,7 @@ public:
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
 
   // sequence number of this request/reply exchange
-  size_t sequence() { return headers.getValInt(header::type::CSeq); };
+  size_t sequence() { return headers.getValInt(hdr_type::CSeq); };
 
   // misc debug
   bool debugFlag(bool debug_flag);

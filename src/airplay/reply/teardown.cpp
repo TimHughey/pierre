@@ -17,10 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "reply/teardown.hpp"
+#include "base/headers.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
-#include "packet/headers.hpp"
 #include "player/player.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
@@ -33,7 +33,7 @@ bool Teardown::populate() {
   auto servers = Servers::ptr();
   rdict = plist();
 
-  headers.add(header::type::ContentSimple, header::val::ConnectionClosed);
+  headers.add(hdr_type::ContentSimple, hdr_val::ConnectionClosed);
   responseCode(RespCode::OK); // always OK
 
   auto has_streams = rdict.exists(dk::STREAMS);

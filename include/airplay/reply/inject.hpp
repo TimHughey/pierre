@@ -21,7 +21,7 @@
 #include "aes/aes_ctx.hpp"
 #include "base/typical.hpp"
 #include "common/ss_inject.hpp"
-#include "packet/headers.hpp"
+#include "base/headers.hpp"
 
 namespace pierre {
 namespace airplay {

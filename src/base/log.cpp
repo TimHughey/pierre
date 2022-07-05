@@ -33,7 +33,7 @@ const string runTicks() { //
 }
 
 void __vlog(fmt::string_view format, fmt::format_args args) {
-  fmt::print("{:>11.1}  ", pe_time::elapsed_as<MillisFP>(startup));
+  fmt::print("{:>11.1} ", pe_time::elapsed_as<MillisFP>(startup));
   fmt::vprint(format, args);
 }
 

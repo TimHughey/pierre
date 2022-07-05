@@ -17,7 +17,6 @@ find_package(Sodium                           REQUIRED)
 find_package(ZLIB                             REQUIRED)
 
 add_library(packet
-  headers.cpp
   aplist.cpp 
   dmx.cpp
   ${HEADER_LIST}

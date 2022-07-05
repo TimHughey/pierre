@@ -29,10 +29,9 @@ using namespace std::literals::string_view_literals;
 
 namespace pierre {
 
-void uint8v::dump(csv type) const {
-  const auto filler = fmt::format(LCOL01, LBLANK, LBLANK);
-  __LOG0(LCOL01 " type={} bytes={}\n{}{}", "CONTENT"sv, "DUMP"sv, //
-         type, size(), filler, inspect());
+void uint8v::dump() const {
+  __LOG0(LCOL01 " size={}\n{}{}\n", moduleId(), //
+         csv("<unspecified>"), size(), __LOG_COL2, inspect());
 }
 
 string uint8v::inspect() const { // virtual

@@ -11,7 +11,24 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 find_package(fmt REQUIRED)
 
 add_library(${__target} SHARED
-  log.cpp shk.cpp color.cpp resp_code.cpp uint8v.cpp ${HEADER_LIST})
+  # logging
+  log.cpp 
+  
+  # connection shared key
+  shk.cpp
+
+  # generic vector of uint8_t (as a base class or standalone)
+  uint8v.cpp
+
+  # RTSP message support
+  content.cpp headers.cpp resp_code.cpp
+
+  # colors (used by multiple libraries)
+  color.cpp
+  
+  # headers
+  ${HEADER_LIST}
+)
 
 # source files compiled for the library can include headers
 # without using the full path

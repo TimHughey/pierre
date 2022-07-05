@@ -64,7 +64,7 @@ bool Setup::populate() {
     auto binary = reply_dict.toBinary(bytes);
     copyToContent(binary, bytes);
 
-    headers.add(header::type::ContentType, header::val::AppleBinPlist);
+    headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
     responseCode(RespCode::OK);
   }
 
@@ -149,8 +149,8 @@ bool Setup::handleStreams() {
     stream_data.client_id = s0.stringView({dk::CLIENT_ID});
     stream_data.type = s0.uint({dk::TYPE});
 
-    stream_data.active_remote = rHeaders().getVal(header::type::DacpActiveRemote);
-    stream_data.dacp_id = rHeaders().getVal(header::type::DacpID);
+    stream_data.active_remote = rHeaders().getVal(hdr_type::DacpActiveRemote);
+    stream_data.dacp_id = rHeaders().getVal(hdr_type::DacpID);
 
     ConnInfo::ptr()->save(stream_data);
 

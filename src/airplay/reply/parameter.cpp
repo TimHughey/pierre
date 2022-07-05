@@ -19,8 +19,8 @@
 
 #include "reply/parameter.hpp"
 #include "base/content.hpp"
+#include "base/headers.hpp"
 #include "base/typical.hpp"
-#include "packet/headers.hpp"
 #include "reply/reply.hpp"
 
 #include <fmt/format.h>
@@ -54,7 +54,7 @@ bool Parameter::handleGet() {
     static csv full_volume("\r\nvolume: 0.0\r\n");
 
     copyToContent(full_volume);
-    headers.add(header::type::ContentType, header::val::TextParameters);
+    headers.add(hdr_type::ContentType, hdr_val::TextParameters);
     responseCode(OK);
 
     rc = true;
@@ -64,7 +64,7 @@ bool Parameter::handleGet() {
 }
 
 bool Parameter::handleSet() {
-  if (rHeaders().contentType() == csv(header::val::TextParameters)) {
+  if (rHeaders().contentType() == csv(hdr_val::TextParameters)) {
     rContent().dump();
   }
 

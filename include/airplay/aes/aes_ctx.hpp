@@ -23,7 +23,7 @@
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "core/pair/pair.h"
-#include "packet/headers.hpp"
+#include "base/headers.hpp"
 
 #include <array>
 #include <cstdint>

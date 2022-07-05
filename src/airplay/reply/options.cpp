@@ -19,7 +19,7 @@
 */
 
 #include "reply/options.hpp"
-#include "packet/headers.hpp"
+#include "base/headers.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -29,7 +29,7 @@ static const string _opts{"ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED,
                           "TEARDOWN, OPTIONS, POST, GET, PUT"};
 
 bool Options::populate() {
-  headers.add(header::type::Public, _opts);
+  headers.add(hdr_type::Public, _opts);
   responseCode(RespCode::OK);
 
   return true;

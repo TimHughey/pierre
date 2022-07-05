@@ -102,7 +102,7 @@ bool FairPlay::populate() {
   }
 
   if (_content.size() > 0) {
-    headers.add(header::type::ContentType, header::val::OctetStream);
+    headers.add(hdr_type::ContentType, hdr_val::OctetStream);
     responseCode(OK);
 
     return true;

@@ -18,33 +18,29 @@
     https://www.wisslanding.com
 */
 
-#include "reply/pairing.hpp"
-#include "aes/aes_ctx.hpp"
+#include "base/content.hpp"
+#include "base/headers.hpp"
+
+#include <iomanip>
 
 namespace pierre {
-namespace airplay {
-namespace reply {
 
-bool Pairing::populate() {
-  AesResult aes_result;
+void Content::dump() const {
+  string msg;
+  auto w = std::back_inserter(msg);
 
-  if (path().starts_with("/pair-setup")) {
-    aes_result = aesCtx().setup(rContent(), _content);
+  pe_log::prepend(w, moduleId(), csv("DUMP"));
+  fmt::format_to(w, " type={} bytes={} ", _type, size());
+
+  if (Headers::valEquals(_type, hdr_val::TextParameters)) {
+    fmt::format_to(w, "parameters='{}'", toSingleLineString());
+  } else if (multiLineString()) {
+    fmt::format_to(w, "\n{}{}", __LOG_COL2_SV, inspect());
+  } else {
+    fmt::format_to(w, "val='{}'", inspect()); // output inspect msg on the same line
   }
 
-  if (path().starts_with("/pair-verify")) {
-    aes_result = aesCtx().verify(rContent(), _content);
-  }
-
-  if (_content.empty() == false) {
-    headers.add(hdr_type::ContentType, hdr_val::OctetStream);
-  }
-
-  responseCode(aes_result.resp_code);
-
-  return aes_result.ok;
+  __LOG0("{}\n", msg);
 }
 
-} // namespace reply
-} // namespace airplay
 } // namespace pierre

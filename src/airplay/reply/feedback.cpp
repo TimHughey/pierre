@@ -40,7 +40,7 @@ bool Feedback::populate() {
   // auto binary = reply_dict.toBinary(bytes);
   // copyToContent(binary, bytes);
 
-  // headers.add(header::type::ContentType, header::val::AppleBinPlist);
+  // headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
   responseCode(RespCode::OK);
   return true;

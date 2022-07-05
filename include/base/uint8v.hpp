@@ -32,7 +32,7 @@
 
 namespace {
 namespace ranges = std::ranges;
-}
+} // namespace
 
 namespace pierre {
 
@@ -40,6 +40,13 @@ class uint8v : public std::vector<uint8_t> {
 public:
   uint8v() = default;
   uint8v(size_t reserve_default) : reserve_default(reserve_default) { reserve(reserve_default); }
+
+  bool multiLineString() const {
+    auto nl_count = ranges::count_if(view(), [](const char c) { return c == '\n'; });
+
+    return nl_count > 2;
+  }
+
   template <typename T> const T *raw() const { return (const T *)data(); }
   void reset(size_t reserve_bytes = 0) {
     clear();
@@ -52,10 +59,20 @@ public:
     }
   }
 
+  string toSingleLineString() const {
+    auto vspace = [](const char c) { return ((c != '\n') && (c != '\r')); };
+    auto v = ranges::filter_view(view(), vspace);
+
+    return string(v.begin(), v.end());
+  }
+
   const string_view view() const { return string_view(raw<char>(), size()); }
 
-  virtual void dump(csv type = csv("unknown")) const;
+  // debug, logging
+
+  virtual void dump() const;
   virtual string inspect() const;
+  virtual csv moduleId() const { return module_id_base; }
 
 protected:
   bool printable() const {
@@ -71,6 +88,7 @@ protected:
 
 private:
   size_t reserve_default = 0;
+  static constexpr csv module_id_base{"UINT8V"};
 };
 
 } // namespace pierre
