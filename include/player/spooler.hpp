@@ -75,13 +75,9 @@ private:
       elapsed_ns = pe_time::elapsed_abs_ns(at_ns);
 
       if (reel_frames) {
-        string msg;
-        auto w = std::back_inserter(msg);
-        fmt::format_to(w, "{:<11} frames={} elapsed={:<0.3}",
-                       reel_frames ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
-                       pe_time::as_millis_fp(elapsed_ns));
-
-        __LOG("{:<18} {}\n", moduleId, msg);
+        __LOG(LCOL01 "frames={} elapsed={:<0.3}\n", moduleId,
+              reel_frames ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
+              pe_time::as_millis_fp(elapsed_ns));
       }
 
       at_ns = Nanos::zero();

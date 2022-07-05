@@ -113,6 +113,14 @@ Aplist &Aplist::operator=(Aplist &&ap) {
   return *this;
 }
 
+uint32_t Aplist::arrayItemCount(const Steps &steps) const {
+  if (auto node = fetchNode(steps, PLIST_ARRAY); node != nullptr) {
+    return plist_array_get_size(node);
+  }
+
+  return 0;
+}
+
 bool Aplist::boolVal(const Steps &steps) const {
   auto node = fetchNode(steps, PLIST_BOOLEAN);
 
@@ -233,41 +241,19 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
   __LOGX(LCOL01 " want_type={} steps={}\n", moduleId, //
          csv("FETCH NODE"), type, fmt::join(steps, ", "));
 
-  plist_t node;
+  plist_t node = _plist; // start at the root
 
-  switch (steps.size()) {
-    case 1:
-      node = plist_access_path(_plist, 1, steps[0].data());
-      break;
-
-    case 2: {
-      if (isArrayIndex(steps[1])) {
-        uint32_t idx = std::atoi(steps[1].data());
-        node = plist_access_path(_plist, 2, steps[0].data(), idx);
-      } else if (isArrayIndex(steps[0])) {
-        uint32_t idx = std::atoi(steps[0].data());
-        node = plist_access_path(_plist, 2, idx, steps[1].data());
-      } else {
-        node = plist_access_path(_plist, 2, steps[0].data(), steps[1].data());
-      }
-    } break;
-
-    case 3: {
-      if (isArrayIndex(steps[1])) {
-        uint32_t idx = std::atoi(steps[1].data());
-        node = plist_access_path(_plist, 3, steps[0].data(), idx, steps[2].data());
-      } else {
-        node = plist_access_path(_plist, 3, steps[0].data(), steps[1].data(), steps[2].data());
-      }
-
-    } break;
-
-    default:
-      node = nullptr;
-  }
+  ranges::for_each(steps, [&](csv step) {
+    if ((step[0] >= '0') && (step[0] <= '9')) { // is this an array index?
+      uint32_t idx = std::atoi(step.data());
+      node = plist_access_path(node, 1, idx);
+    } else {
+      node = plist_access_path(node, 1, step.data());
+    }
+  });
 
   __LOGX(LCOL01 " node={} type={}\n", moduleId, //
-         csv("FOUND"), fmt::ptr(node), node ? plist_get_node_type(node) : PLIST_NONE);
+         csv("FETCH NODE"), fmt::ptr(node), node ? plist_get_node_type(node) : PLIST_NONE);
 
   return (node && (type == plist_get_node_type(node))) ? node : nullptr;
 }
@@ -276,8 +262,6 @@ plist_t Aplist::getItem(csv key) const {
   const auto plist = _plist; // need const for function to be const
   return plist_dict_get_item(plist, key.data());
 }
-
-bool Aplist::isArrayIndex(csv key) const { return (key[0] == '0') ? true : false; }
 
 void Aplist::setArray(csv key, const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up

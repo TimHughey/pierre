@@ -74,6 +74,8 @@ public:
   Aplist &operator=(Aplist &&ap);               // allow move assignment
   Aplist &operator=(const Content &content);    // allow assignment from Content
 
+  uint32_t arrayItemCount(const Steps &steps) const;
+
   Aplist &clear();
 
   // general API
@@ -128,7 +130,6 @@ private:
 
   Aplist &fromContent(const Content &content);
   plist_t getItem(csv key) const;
-  bool isArrayIndex(csv key) const;
 
 private:
   plist_t _plist = nullptr;

@@ -147,7 +147,7 @@ bool MasterClock::mapSharedMem() {
 }
 
 void MasterClock::peersUpdate(const Peers &new_peers) {
-  __LOGX("{:<18} new peers count={}\n", moduleId, new_peers.size());
+  __LOGX(LCOL01 " count={}\n", moduleId, csv("NEW PEERS"), new_peers.size());
 
   if (socket.is_open() == false) { // connect, if needed
     socket.async_connect(          // comment for formatting
@@ -179,7 +179,7 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
 
                       msg.emplace_back(0x00); // must be null terminated
 
-                      __LOGX("{:<18} peers={}\n", moduleId, msg.view());
+                      __LOGX(LCOL01 " peers={}\n", moduleId, csv("PEERS UPDATE"), msg.view());
 
                       error_code ec;
                       [[maybe_unused]] auto tx_bytes =

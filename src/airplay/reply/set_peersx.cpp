@@ -22,6 +22,10 @@
 #include "reply/dict_keys.hpp"
 #include "rtp_time/clock.hpp"
 
+#include <ranges>
+
+namespace ranges = std::ranges;
+
 namespace pierre {
 namespace airplay {
 namespace reply {
@@ -29,15 +33,30 @@ namespace reply {
 bool SetPeersX::populate() {
   rdict = plist();
 
-  __LOG0(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
+  MasterClock::Peers peer_list;
+  const auto count = rdict.arrayItemCount({dk::ROOT});
+  __LOGX(LCOL01 " count={}\n", moduleId, csv("POPULATE"), count);
 
-  if (auto peers = rdict.stringArray({dk::IDX0, dk::ADDRESSES}); !peers.empty()) {
-    MasterClock::peers(peers);  // set the peer lists
-    responseCode(RespCode::OK); // indicate success
-    return true;
+  for (uint32_t idx = 0; idx < count; idx++) {
+    auto idxs = fmt::format("{}", idx);
+    if (auto peers = rdict.stringArray({csv(idxs), dk::ADDRESSES}); peers.size() > 0) {
+      ranges::copy(peers, std::back_inserter(peer_list));
+
+      responseCode(RespCode::OK); // we got some peer addresses
+    }
   }
 
-  return false;
+  MasterClock::peers(peer_list);
+
+  return peer_list.size() ? true : false;
+
+  // if (auto peers = rdict.stringArray({dk::IDX0, dk::ADDRESSES}); !peers.empty()) {
+  //   MasterClock::peers(peers);  // set the peer lists
+  //   responseCode(RespCode::OK); // indicate success
+  //   return true;
+  // }
+
+  // return false;
 }
 
 } // namespace reply
