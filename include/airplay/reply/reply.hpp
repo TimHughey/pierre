@@ -82,6 +82,7 @@ public:
   Reply() : module_id("REPLY") {}
   Reply(csv module_id) : module_id(module_id) {}
 
+  csv baseID() const { return base_id; }
   uint8v &build();
   Reply &inject(const reply::Inject &di);
   virtual bool populate() = 0;
@@ -102,7 +103,7 @@ public:
   // direct access to injected dependencies
   const Inject &injected() { return *di; }
 
-  virtual csv moduleID() const { return moduleId; }
+  virtual csv moduleID() const { return module_id; }
 
   inline void responseCode(RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
@@ -117,12 +118,12 @@ public:
   auto &errMsg() const { return _err_msg; }
 
 protected:
+  // order dependent
+  string_view module_id;
+
   std::optional<reply::Inject> di; // copy, ok because it's only references
 
-  string_view moduleId = csv("REPLY"); // FIX ME
-  csv module_id;                       // FIX ME
-
-  string _err_msg;
+    string _err_msg;
 
   RespCode _rcode = RespCode::NotImplemented;
   Headers headers;
@@ -131,6 +132,8 @@ protected:
   uint8v _packet;
 
   bool _debug_flag = false;
+
+  static constexpr csv base_id{"REPLY"};
 };
 
 } // namespace reply

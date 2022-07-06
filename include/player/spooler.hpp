@@ -62,22 +62,20 @@ private:
     Nanos elapsed_ns{0};
     size_t frames = 0;
 
-    csv moduleId = csv("REQUISITION");
+    static constexpr csv moduleId{"REQUISITION"};
 
     Requisition(strand &src_strand, Reels &src, strand &dst_strand, Reels &dst)
         : src_strand(src_strand), src(src), dst_strand(dst_strand), dst(dst){};
 
     MillisFP elapsed() const { return pe_time::elapsed_as<MillisFP>(at_ns); }
-    void finish(Reels &reels, shReel reel) {
-      finish(reels.emplace_back(reel)->updateReserve()->size());
-    }
+    void finish(Reels &reels, shReel reel) { finish(reels.emplace_back(reel)->size()); }
     void finish(size_t reel_frames = 0) {
       elapsed_ns = pe_time::elapsed_abs_ns(at_ns);
 
       if (reel_frames) {
-        __LOG(LCOL01 "frames={} elapsed={:<0.3}\n", moduleId,
-              reel_frames ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
-              pe_time::as_millis_fp(elapsed_ns));
+        __LOG0(LCOL01 " frames={} elapsed={:<0.3}\n", moduleId,
+               reel_frames ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
+               pe_time::as_millis_fp(elapsed_ns));
       }
 
       at_ns = Nanos::zero();

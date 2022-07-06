@@ -31,8 +31,27 @@
 #include <memory>
 #include <optional>
 #include <pthread.h>
+#include <vector>
 
 namespace pierre {
+
+struct ClockPort {
+  string id;
+  Port port;
+};
+
+typedef std::vector<ClockPort> ClockPorts;
+
+struct PeerInfo {
+  string id;
+  uint8v addresses;
+  ClockPorts clock_ports;
+  int device_type = 0;
+  ClockID clock_id = 0;
+  bool port_matching_override = false;
+};
+
+typedef std::vector<PeerInfo> PeerList;
 
 class MasterClock;
 typedef std::shared_ptr<MasterClock> shMasterClock;
@@ -41,7 +60,7 @@ class MasterClock : public std::enable_shared_from_this<MasterClock> {
 private:
   static constexpr uint16_t CTRL_PORT = 9000; // see note
   static constexpr auto LOCALHOST = "127.0.0.1";
-  static constexpr auto moduleId = csv("MASTER CLOCK");
+  static constexpr csv moduleId{"MASTER CLOCK"};
   static constexpr uint16_t NQPTP_VERSION = 7;
 
 public:
@@ -64,7 +83,7 @@ public:
 
     bool ok() const {
       if (clockID == 0) { // no master clock
-        __LOG0("{:<18} no clock info\n", moduleId);
+        __LOG0(LCOL01 " no clock info\n", moduleId, csv("WARN"));
 
         return false;
       }

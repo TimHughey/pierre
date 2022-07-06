@@ -76,7 +76,6 @@ namespace reply {
   }
 
   if (true) { // debug
-    constexpr auto log_module = csv("REPLY FINAL");
     constexpr auto feedback = csv("/feedback");
     static uint64_t feedbacks = 0;
 
@@ -86,7 +85,7 @@ namespace reply {
 
     if (di->path != feedback) {
       __LOG0("{:<18} cseq={:>4} fb={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
-             log_module, headers.getValInt(hdr_type::CSeq), feedbacks, _packet.size(), resp_text,
+             moduleID(), headers.getValInt(hdr_type::CSeq), feedbacks, _packet.size(), resp_text,
              di->method, di->path);
     }
   }

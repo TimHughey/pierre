@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "reply/reply.hpp"
 
 namespace pierre {
@@ -26,7 +27,7 @@ namespace reply {
 
 class Parameter : public Reply {
 public:
-  Parameter() : Reply(csv("PARAMETER")){};
+  Parameter() : Reply("PARAMETER"){};
 
   bool populate() override;
 

@@ -33,7 +33,7 @@ using Aplist = Aplist;
 
 class Setup : public Reply {
 public:
-  Setup() : rdict(Aplist::DEFER_DICT), reply_dict() {}
+  Setup() : Reply("SETUP"), rdict(Aplist::DEFER_DICT), reply_dict() {}
 
   bool populate() override;
 

@@ -18,15 +18,8 @@
 //  https://www.wisslanding.com
 
 #include "reply/parameter.hpp"
-#include "base/content.hpp"
 #include "base/headers.hpp"
-#include "base/typical.hpp"
 #include "reply/reply.hpp"
-
-#include <fmt/format.h>
-#include <iterator>
-#include <string_view>
-#include <vector>
 
 namespace pierre {
 namespace airplay {
@@ -65,7 +58,7 @@ bool Parameter::handleGet() {
 
 bool Parameter::handleSet() {
   if (rHeaders().contentType() == csv(hdr_val::TextParameters)) {
-    rContent().dump();
+    // rContent().dump();
   }
 
   responseCode(RespCode::OK);

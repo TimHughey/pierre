@@ -52,12 +52,10 @@ void Controller::reset() { // static
   shared::controller().reset();
 }
 
-namespace errc = boost::system::errc;
-
 // executed once at startup (by one of the threads) to create necessary
 // resources (e.g. Clock, Anchor, Servers
 void Controller::kickstart() {
-  __LOG0("{:<18} features={:#x}\n", moduleId, Features().ap2Default());
+  __LOG0(LCOL01 " features={:#x}\n", moduleId, csv("KICKSTART"), Features().ap2Default());
 
   watchDog();                // watchDog() ensures io_ctx has work
   MasterClock::peersReset(); // reset timing peers
@@ -113,11 +111,12 @@ void Controller::watchDog() {
 
   watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
     if (ec != errc::success) { // any error, fall out of scope
-      __LOG0("{} going out of scope reason={}\n", fnName(), ec.message());
+      __LOG0(LCOL01 " falling out of scope reason={}\n", self->moduleId, //
+             csv("WATCHDOG"), ec.message());
       return;
     }
 
-    __LOGX("{} executing\n", fnName());
+    __LOGX(LCOL01 " executing\n", self->moduleId, csv("WATCHDOG"));
 
     auto stop_token = self->airplay_thread.get_stop_token();
 

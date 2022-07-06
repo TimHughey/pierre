@@ -93,7 +93,7 @@ constexpr size_t b38ControlChannelEncrypt = 38;
 constexpr size_t b39_Unknown = 39;
 // 40 absence: requires ANNOUNCE method
 constexpr size_t b40BufferedAudio = 40;
-constexpr size_t b41_PTPClock = 41;
+constexpr size_t b41PTPClock = 41;
 constexpr size_t b42ScreenMultiCodec = 42;
 // 43
 constexpr size_t b43SystemPairing = 43;

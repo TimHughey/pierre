@@ -27,7 +27,7 @@ namespace reply {
 
 class SetAnchor : public Reply {
 public:
-  SetAnchor() : rdict(Aplist::DEFER_DICT) { moduleId = csv("SET ANCHOR"); };
+  SetAnchor() : Reply("SET_ANCHOR"), rdict(Aplist::DEFER_DICT){};
 
   bool populate() override;
 

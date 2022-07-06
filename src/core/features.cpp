@@ -28,7 +28,7 @@ namespace ranges = std::ranges;
 
 Features::Features() {
   auto set_bits = std::vector{
-      b48TransientPairing, b47PeerManagement,         b46HomeKitPairing,   b41_PTPClock,
+      b48TransientPairing, b47PeerManagement,         b46HomeKitPairing,   b41PTPClock,
       b40BufferedAudio,    b30UnifiedAdvertisingInfo, b22AudioUnencrypted, b20ReceiveAudioAAC_LC,
       b19ReceiveAudioALAC, b18ReceiveAudioPCM,        b17AudioMetaTxtDAAP, b16AudioMetaProgress,
       b15AudioMetaCovers,  b14MFiSoft_FairPlay,       b09AirPlayAudio};
@@ -37,6 +37,7 @@ Features::Features() {
 
   ap2_setpeersx = ap2_default;
   ap2_setpeersx.set(b52PeersExtendedMessage);
+  // ap2_setpeersx.set(b59AudioStreamConnectionSetup);
 }
 
 uint64_t Features::ap2Default() const { return ap2_default.to_ullong(); }

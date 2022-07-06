@@ -28,17 +28,11 @@
 #include "server/servers.hpp"
 
 #include <algorithm>
-#include <chrono>
-#include <fmt/format.h>
 #include <iterator>
 
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-using namespace std::chrono_literals;
-
-using enum ServerType;
 
 bool Setup::populate() {
   responseCode(RespCode::BadRequest); // default response is BadRequest
@@ -46,12 +40,11 @@ bool Setup::populate() {
   rdict = plist();
   auto rc = rdict.ready();
 
+  // rdict.dump();
+
   const auto has_streams = (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} has_streams={}\n");
-    fmt::print(f, runTicks(), fnName(), has_streams);
-  }
+  __LOGX(LCOL01 " has_streams={}\n", baseID(), moduleID(), has_streams);
 
   if (rc && has_streams) { // followup SETUP (contains streams data)
     rc = handleStreams();
@@ -98,7 +91,7 @@ bool Setup::handleNoStreams() {
     peer_info.setString(dk::ID, ip_addrs[0]);
 
     reply_dict.setArray(dk::TIMING_PEER_INFO, {peer_info});
-    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(Event)},
+    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
                          {dk::TIMING_PORT, 0}}); // unused by AP2
 
     // adjust Service system flags and request mDNS update
@@ -110,13 +103,12 @@ bool Setup::handleNoStreams() {
   }
 
   if (stream.isNtpStream()) {
-    constexpr auto f = FMT_STRING("{} {} WARNING NTP timing requested!");
-    fmt::print(f, runTicks(), fnName());
+    __LOG0(LCOL01 " NTP timing requested!", baseID(), moduleID());
     return false;
   }
 
   if (stream.isRemote()) { // remote control only; open event port, send timing dummy port
-    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(Event)},
+    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
                          {dk::TIMING_PORT, 0}}); // unused by AP2
 
     return true;
@@ -157,10 +149,7 @@ bool Setup::handleStreams() {
     // get the stream type that is starting
     auto stream_type = rdict.uint({dk::STREAMS, dk::IDX0, dk::TYPE});
 
-    if (false) { // debug
-      constexpr auto f = FMT_STRING("{} {} stream_type={}\n");
-      fmt::print(f, runTicks(), fnName(), stream_type);
-    }
+    __LOG0(LCOL01 " stream_type={}\n", baseID(), moduleID(), stream_type);
 
     // now handle the specific stream type
     switch (stream_type) {
@@ -168,9 +157,10 @@ bool Setup::handleStreams() {
         conn->stream.buffered(); // this is a buffered audio stream
 
         // reply requires the type, audio data port and our buffer size
-        reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()},         // stream type
-                                {dk::DATA_PORT, servers->localPort(Audio)}, // audio port
-                                {dk::BUFF_SIZE, conn->bufferSize()}});      // our buffer size
+        reply_stream0.setUints(
+            {{dk::TYPE, stream::typeBuffered()},                     // stream type
+             {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
+             {dk::BUFF_SIZE, conn->bufferSize()}});                  // our buffer size
 
         rc = true;
         break;
@@ -195,11 +185,13 @@ bool Setup::handleStreams() {
 
   if (rc) {
     // regardless of stream type start the control server and add it's port to the reply
-    reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(Control));
+    reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(ServerType::Control));
 
     // put the sub dict into the reply
     reply_dict.setArray(dk::STREAMS, reply_stream0);
   }
+
+  // reply_dict.dump();
 
   return rc;
 }

@@ -81,9 +81,9 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
 
 shFrame Spooler::queueFrame(shFrame frame) {
   asio::post(strand_in, // guard with reels strand
-             [&dst = reels_in, frame = frame]() {
+             [&dst = reels_in, frame = frame, &strand_out = strand_out]() {
                shReel dst_reel = dst.empty() //
-                                     ? dst.emplace_back(Reel::create())
+                                     ? dst.emplace_back(Reel::create(strand_out))
                                      : dst.back()->shared_from_this();
 
                dst_reel->addFrame(frame);

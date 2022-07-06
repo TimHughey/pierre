@@ -33,6 +33,8 @@ namespace reply {
 bool SetPeersX::populate() {
   rdict = plist();
 
+  rdict.dump();
+
   MasterClock::Peers peer_list;
   const auto count = rdict.arrayItemCount({dk::ROOT});
   __LOGX(LCOL01 " count={}\n", moduleId, csv("POPULATE"), count);

@@ -24,14 +24,15 @@
 
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
+#include "io/io.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame.hpp"
 #include "player/frame_time.hpp"
 
+#include <deque>
 #include <iterator>
 #include <memory>
 #include <ranges>
-#include <vector>
 
 namespace {
 namespace ranges = std::ranges;
@@ -46,28 +47,32 @@ typedef std::shared_ptr<Reel> shReel;
 
 class Reel : public std::enable_shared_from_this<Reel> {
 private:
-  typedef std::vector<shFrame> Frames;
+  typedef std::deque<shFrame> Frames;
 
 private: // constructor private, all access through shared_ptr
-  Reel()
-      : serial(fmt::format("{:#05x}", ++SERIAL_NUM)), // note 1
-        module_id(fmt::format("REEL {}", serial)),    // note 2
-        stats_map(Frame::statsMap()) {                // note 3
+  Reel(strand &strand_out)
+
+      : strand_out(strand_out),                       // note 1
+        serial(fmt::format("{:#05x}", ++SERIAL_NUM)), // note 2
+        module_id(fmt::format("REEL {}", serial)),    // note 3
+        stats_map(Frame::statsMap()) {                // note 4
     // notes:
     //  1. Reel unique serial num (for debugging)
     //  1. Reel loggind prefix
     //  2. initialize stats map to capture the status of the frames
     //     returned by nextFrame()
-
-    frames.reserve(256); // limit reallocations
   }
 
   // static functions that create Reels
 public:
-  static shReel create() { return shReel(new Reel()); }
+  static shReel create(strand &strand_out) { return shReel(new Reel(strand_out)); }
 
 public:
   void addFrame(shFrame frame) { frames.emplace_back(frame); }
+  void cleanUp() {
+    std::erase_if(frames, [](shFrame frame) { return frame->purgeable(); });
+  }
+
   bool empty() const { return frames.empty(); }
   bool flush(const FlushRequest &flush);
 
@@ -79,16 +84,13 @@ public:
   //   2. if a frame is found it may not be playable
   //      handling unplayable frames is left to the caller
   shFrame nextFrame(const FrameTimeDiff &ftd) {
-    // purge the reel BEFORE attempting the find to limit the
-    // loop iterations required to find the next frame
-    std::erase_if(frames, [](shFrame frame) { return frame->purgeable(); });
+    cleanUp();
 
-    auto f = ranges::find_if(frames, //
-                             [&ftd = ftd, &stats_map = stats_map](auto frame) {
-                               return frame->nextFrame(ftd, stats_map);
-                             });
+    auto next = ranges::find_if(frames, [&](shFrame frame) { //
+      return frame->nextFrame(ftd, stats_map);
+    });
 
-    return f != frames.end() ? (*f)->shared_from_this() : shFrame();
+    return next != frames.end() ? (*next)->shared_from_this() : shFrame();
   }
 
   const string &serialNum() const { return serial; }
@@ -100,11 +102,6 @@ public:
     return ranges::count_if(frames, [](auto frame) { return frame->unplayed(); });
   }
 
-  shReel updateReserve() {
-    frames_reserve = std::max(frames_reserve, size());
-    return shared_from_this();
-  }
-
   // misc stats, debug
   static const string inspect(shReel reel);
   void log() { __LOG("{:<18} {}", moduleId(), inspect(shared_from_this())); }
@@ -112,16 +109,17 @@ public:
 
 private:
   // order dependent
+  strand &strand_out;
   const string serial;
   const string module_id;
   fra::StatsMap stats_map;
 
   // order independent
   Frames frames;
-  size_t frames_reserve = 1024;
 
   // class static
   static uint64_t SERIAL_NUM;
+  static constexpr size_t PURGE_MAX = 10;
 };
 } // namespace player
 } // namespace pierre
