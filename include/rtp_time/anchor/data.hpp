@@ -114,7 +114,11 @@ struct Data {
   }
 
   // misc debug
-  void dump(csrc_loc loc = src_loc::current()) const;
+  auto moduleID() const { return module_id; }
+  void dump() const;
+
+private:
+  static constexpr csv module_id{"ANCHOR_DATA"};
 };
 
 enum Entry : size_t { ACTUAL = 0, LAST, RECENT };

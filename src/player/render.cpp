@@ -36,6 +36,8 @@
 #include <memory>
 #include <optional>
 
+namespace asio_errc = boost::asio::error;
+
 namespace pierre {
 namespace shared {
 std::optional<player::shRender> __render;
@@ -72,7 +74,6 @@ Render::Render(io_context &io_ctx, shSpooler spooler)
 // static methods for creating, getting and resetting the shared instance
 shRender Render::init(asio::io_context &io_ctx, shSpooler spooler) {
   auto self = shared::render().emplace(new Render(io_ctx, spooler));
-
   auto desk = Desk::create();
 
   return self;
@@ -95,13 +96,15 @@ void Render::frameTimer() {
             if (ec == errc::success) {
               self->handleFrame();
 
-            } else {
-              __LOG0("{:<18} terminating reason={}\n", csv("FRAME TIMER"), ec.message());
+            } else if (ec != asio_errc::operation_aborted) {
+              __LOG0(LCOL01 " terminating reason={}\n", self->moduleId, csv("FRAME TIMER"),
+                     ec.message());
             }
           }));
 }
 
 void Render::handleFrame() {
+  static csv CATEGORY{"FRAME TIMER"};
   [[maybe_unused]] Elapsed elapsed;
 
   ++rendered_frames;
@@ -120,14 +123,14 @@ void Render::handleFrame() {
     active_fx->executeLoop(recent_frame->peaksLeft());
 
     if (Frame::ok(frame) && frame->unplayed()) {
-      __LOGX("{:<18} FRAME {}\n", moduleId, Frame::inspectFrame(frame));
+      __LOGX(LCOL01 " {}\n", moduleId, CATEGORY, Frame::inspectFrame(frame));
     }
   }
 
   frameTimer();
 
   if (elapsed.freeze() >= 3ms) {
-    __LOG0("{:<18} FRAME TIMER elapsed={:0.2}\n", moduleId, elapsed.as<MillisFP>());
+    __LOG0(LCOL01 " elapsed={:0.2}\n", moduleId, CATEGORY, elapsed.as<MillisFP>());
   }
 }
 
@@ -141,7 +144,6 @@ const string Render::stats() const {
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "fx_name={:<10} frame_status={:<10} ", fx_name, Frame::stateVal(recent_frame));
   fmt::format_to(w, "played={:<8} silent={:<8} ", frames_played, frames_silence);
   fmt::format_to(w, "silence={:6.2f}%", silence * 100.0);
 
@@ -166,7 +168,7 @@ void Render::statsTimer(const Nanos report_ns) {
               return;
             }
 
-            __LOG0("{:<18} {}\n", moduleId, self->stats());
+            __LOG0(LCOL01 " {}\n", moduleId, Frame::stateVal(self->recent_frame), self->stats());
 
             self->statsTimer();
           })
@@ -211,5 +213,4 @@ void Render::stream() {
 }
 */
 } // namespace player
-
 } // namespace pierre

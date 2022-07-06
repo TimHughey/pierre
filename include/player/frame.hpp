@@ -25,6 +25,7 @@
 #include "player/flush_request.hpp"
 #include "player/frame_time.hpp"
 
+#include <array>
 #include <future>
 #include <map>
 #include <memory>
@@ -46,17 +47,18 @@ typedef std::vector<State> States;
 typedef std::vector<State> StateKeys;
 typedef std::map<State, size_t> StatsMap;
 
-constexpr auto ANCHOR_DELAY = csv("anchor_delay");
-constexpr auto DECODED = csv("decoded");
-constexpr auto EMPTY = csv("empty");
-constexpr auto ERROR = csv("error");
-constexpr auto FUTURE = csv("future");
-constexpr auto INVALID = csv("invalid");
-constexpr auto NONE = csv("none");
-constexpr auto NOT_READY = csv("not_ready");
-constexpr auto OUTDATED = csv("outdated");
-constexpr auto PLAYABLE = csv("playable");
-constexpr auto PLAYED = csv("played");
+constexpr csv ANCHOR_DELAY{"anchor_delay"};
+constexpr csv DECODED{"decoded"};
+constexpr csv EMPTY{"empty"};
+constexpr csv ERROR{"error"};
+constexpr csv FUTURE{"future"};
+constexpr csv INVALID{"invalid"};
+constexpr csv LATE{"late"};
+constexpr csv NONE{"none"};
+constexpr csv NOT_READY{"not_ready"};
+constexpr csv OUTDATED{"outdated"};
+constexpr csv PLAYABLE{"playable"};
+constexpr csv PLAYED{"played"};
 
 StateKeys &state_keys();
 } // namespace fra
@@ -155,7 +157,7 @@ public:
     // note: when called on a nextFrame() it is safe to allow outdated frames
     // because they passed FrameTimeDiff late check
 
-    if (stateEqual({fra::PLAYABLE, fra::OUTDATED})) {
+    if (stateEqual({fra::LATE, fra::PLAYABLE})) {
       _state = fra::PLAYED;
       ++played;
     } else {
@@ -250,7 +252,7 @@ private:
   shPeaks _peaks_right;
   bool _silence = true;
 
-  static constexpr auto moduleId = csv("FRAME");
+  static constexpr csv moduleId{"FRAME"};
 };
 
 } // namespace player

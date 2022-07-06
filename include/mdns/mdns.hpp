@@ -18,16 +18,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "base/typical.hpp"
 #include "core/host.hpp"
 #include "core/service.hpp"
 
 #include <array>
-#include <fmt/format.h>
 #include <list>
 #include <memory>
 #include <optional>
-#include <source_location>
-#include <string>
 #include <vector>
 
 #include <avahi-client/client.h>
@@ -45,26 +43,20 @@ namespace pierre {
 class mDNS;
 typedef std::shared_ptr<mDNS> shmDNS;
 
-namespace shared {
-std::optional<shmDNS> &mdns();
-} // namespace shared
-
 class mDNS : public std::enable_shared_from_this<mDNS> {
 public:
   typedef std::list<AvahiEntryGroup *> Groups;
 
-public:
-  using sstream = std::stringstream;
+private:
+  mDNS() = default;
 
 public:
-  static shmDNS init() { return shared::mdns().emplace(new mDNS()); }
-  static shmDNS ptr() { return shared::mdns().value()->shared_from_this(); }
-  static void reset() { shared::mdns().reset(); }
+  static shmDNS init();
+  static shmDNS ptr();
+  static void reset();
 
 public:
-  mDNS(){};
   void advertise(AvahiClient *client);
-
   const string deviceID();
 
   void makePrivateKey();
@@ -75,6 +67,9 @@ public:
   void saveGroup(AvahiEntryGroup *group);
 
   void update();
+
+  // misc
+  static csv moduleID() { return csv{"MDNS"}; }
 
 public:
   string _dacp_id;
@@ -100,7 +95,7 @@ private:
   Groups _groups;
   string _service_base;
 
-  static constexpr auto _port = 7000;
+  static constexpr auto PORT = 7000;
 
   // Avahi
 public:

@@ -19,12 +19,15 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 # find_package(fmt                          REQUIRED)
 # find_library(rt         NAMES rt          REQUIRED)
 
-add_library(${__target} ${HEADER_LIST}
+add_library(${__target} SHARED 
   # ptp master clock
   clock.cpp 
 
   # rtp anchor
   anchor.cpp anchor/data.cpp
+
+  # headers
+  ${HEADER_LIST}
 )
 
 # all includes are relative to base includes
@@ -33,9 +36,4 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCA
 # all includes are relative to base includes
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PUBLIC
-  # ${Boost_LIBRARIES}
-  # fmt::fmt
-  # rt
-  core io packet
-)
+target_link_libraries(${__target} PRIVATE core io packet)

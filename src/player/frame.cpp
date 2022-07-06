@@ -20,17 +20,14 @@
 #include "base/shk.hpp"
 #include "base/uint8v.hpp"
 #include "core/input_info.hpp"
-#include "player/av.hpp"
 #include "dsp/fft.hpp"
 #include "dsp/peaks.hpp"
+#include "player/av.hpp"
 #include "rtp_time/anchor.hpp"
 
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <exception>
-#include <fmt/chrono.h>
-#include <fmt/format.h>
 #include <iterator>
 #include <mutex>
 #include <ranges>
@@ -44,7 +41,7 @@ namespace ranges = std::ranges;
 namespace pierre {
 namespace fra {
 StateKeys &stateKeys() {
-  static auto keys = StateKeys{DECODED, OUTDATED, PLAYABLE, PLAYED};
+  static auto keys = StateKeys{DECODED, OUTDATED, PLAYABLE, PLAYED, FUTURE};
 
   return keys;
 }
@@ -91,16 +88,18 @@ void check_nullptr(void *ptr) {
 }
 
 void debugDump() {
-  constexpr auto f1 = FMT_STRING("{} {}\n");
-  fmt::print(f1, runTicks(), fnName());
+  string msg;
+  auto w = std::back_inserter(msg);
 
-  constexpr auto f2 = FMT_STRING("{:>25}={:}\n");
-  fmt::print(f2, "AVCodec", fmt::ptr(codec));
-  fmt::print(f2, "AVCodecContext", fmt::ptr(codec_ctx));
-  fmt::print(f2, "codec_open_rc", codec_open_rc);
-  fmt::print(f2, "AVCodecParserContext", fmt::ptr(parser_ctx));
-  fmt::print(f2, "AVPacket", fmt::ptr(pkt));
-  fmt::print(f2, "SwrContext", fmt::ptr(swr));
+  constexpr auto f = FMT_STRING("{:>25}={:}\n");
+  fmt::format_to(w, f, "AVCodec", fmt::ptr(codec));
+  fmt::format_to(w, f, "AVCodecContext", fmt::ptr(codec_ctx));
+  fmt::format_to(w, f, "codec_open_rc", codec_open_rc);
+  fmt::format_to(w, f, "AVCodecParserContext", fmt::ptr(parser_ctx));
+  fmt::format_to(w, f, "AVPacket", fmt::ptr(pkt));
+  fmt::format_to(w, f, "SwrContext", fmt::ptr(swr));
+
+  __LOG0(LCOL01 "\n{}\n", moduleId, csv("DEBUG DUMP"), msg);
 }
 
 void init() {
@@ -497,16 +496,15 @@ bool Frame::keep(FlushRequest &flush) {
 }
 
 const Nanos Frame::localTimeDiff() const {
-  const auto &anchor_data = Anchor::getData();
-  const auto net_time_ns = anchor_data.netTimeNow();
-  const auto frame_time_ns = anchor_data.frameLocalTime(timestamp);
+  Nanos diff = Nanos::min();
 
-  if (anchor_data.ok()) {
-    // note: frame_time_ns - net_time_ns
-    return pe_time::elapsed_as<Nanos>(net_time_ns, frame_time_ns);
-  } else {
-    return Nanos::min();
+  // must be in .cpp due to delibrate limiting of visibility of Anchor
+  if (const auto &anchor_data = Anchor::getData(); anchor_data.ok()) {
+    diff = pe_time::elapsed_as<Nanos>(anchor_data.netTimeNow(),
+                                      anchor_data.frameLocalTime(timestamp));
   }
+
+  return diff;
 }
 
 bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
@@ -519,7 +517,7 @@ bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
 
       // determine if the state of the frame should be changed based on local time diff
       // we only want to look at specific frame states
-      if (rc = stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); rc == true) {
+      if (rc = unplayed(); rc == true) {
         local_time_diff = diff; // set local_time_diff for debugging
 
         if (diff <= ftd.old) {    // very old, not reasonable to consider for playing
@@ -530,8 +528,8 @@ bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
           // frame maybe playable or usable for out-of-sync correction
           // stop searching (default rc) and allow the caller to decide what to do
           // this frame will not be considered on subsequent calls to nextFrame()
-          // once marked as outdated
-          _state = fra::OUTDATED;
+          // once marked as late
+          _state = fra::LATE;
 
         } else if (diff <= ftd.lead) { // within lead time range
           _state = fra::PLAYABLE;      // mark as playable
@@ -541,7 +539,7 @@ bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
           _state = fra::FUTURE;
         }
 
-        __LOGX("{:<18} {}\n", moduleId, inspect());
+        __LOGX(LCOL01 " {}\n", moduleId, csv("NEXT_FRAME"), inspect());
       } // end frame state update
     } else {
       // anchor wasn't ready, set state override

@@ -18,7 +18,6 @@ find_package(Avahi    REQUIRED)
 find_package(fmt      REQUIRED)
 
 
-
 add_library(mdns SHARED
   mdns.cpp callbacks.cpp
   ${HEADER_LIST}
@@ -35,10 +34,6 @@ target_include_directories(mdns
 # the based include directory
 target_include_directories(mdns PUBLIC ${HEADER_PATH} ${AVAHI_INCLUDE_DIR})
 
-target_link_libraries(mdns PUBLIC
-  core
-  ${AVAHI_LIBRARIES} 
-  fmt::fmt
-)
+target_link_libraries(mdns PRIVATE core ${AVAHI_LIBRARIES})
 
-target_compile_definitions(mdns PUBLIC ${AVAHI_DEFINITIONS})
+target_compile_definitions(mdns PRIVATE ${AVAHI_DEFINITIONS})

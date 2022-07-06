@@ -35,6 +35,11 @@ std::optional<shmDNS> __mdns;
 std::optional<shmDNS> &mdns() { return shared::__mdns; }
 } // namespace shared
 
+// create and access shared MDNS
+shmDNS mDNS::init() { return shared::mdns().emplace(new mDNS()); }
+shmDNS mDNS::ptr() { return shared::mdns().value()->shared_from_this(); }
+void mDNS::reset() { shared::mdns().reset(); }
+
 using enum service::Key;
 using enum service::Type;
 
@@ -102,7 +107,7 @@ bool mDNS::groupAddService(AvahiEntryGroup *group, auto stype, const auto &prepp
 
   auto sl = avahi_string_list_new_from_array(string_pointers.data(), string_pointers.size());
   auto rc = avahi_entry_group_add_service_strlst(group, iface, proto, pub_flags, name, reg_type,
-                                                 NULL, NULL, _port, sl);
+                                                 NULL, NULL, PORT, sl);
 
   if (rc == AVAHI_ERR_COLLISION) {
     fmt::print("AirPlay2 name already in use\n");
@@ -124,17 +129,14 @@ bool mDNS::resetGroupIfNeeded() {
   if (_groups.size()) {
     auto group = _groups.front();
 
-    if (true) { // debug
-      const auto state = avahi_entry_group_get_state(group);
-      constexpr auto f = FMT_STRING("{} {} reset group count={} front={} state={}\n");
-      fmt::print(f, runTicks(), fnName(), _groups.size(), fmt::ptr(group), state);
-    }
+    [[maybe_unused]] const auto state = avahi_entry_group_get_state(group);
+    __LOG0(LCOL01 " reset count={} front={} state={}\n", mDNS::moduleID(), csv("GROUP"),
+           _groups.size(), fmt::ptr(group), state);
 
     auto ac = avahi_entry_group_reset(group);
 
     if (ac != 0) {
-      auto fmt_str = FMT_STRING("{} group reset failed={}\n");
-      fmt::print(fmt_str, fnName(), ac);
+      __LOG0(LCOL01 " reset failed={}\n", mDNS::moduleID(), csv("GROUP"), ac);
 
       rc = false;
     }
@@ -153,8 +155,8 @@ bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtoco
                                          userdata);
 
   if (_resolver == nullptr) {
-    constexpr auto f = FMT_STRING("{} BROWSER RESOLVE failed, service[{}] {} ");
-    error = format(f, fnName(), name, mdns::error_string(client));
+    __LOG0(LCOL01 " resolve failed, service='{}' reason={}\n", mDNS::moduleID(), //
+           csv("BROWSER"), name, mdns::error_string(client));
     return false;
   }
 
@@ -163,13 +165,9 @@ bool mDNS::resolverNew(AvahiClient *client, AvahiIfIndex interface, AvahiProtoco
 
 void mDNS::saveGroup(AvahiEntryGroup *group) {
   if (_groups.size() > 0) {
-    if (true) { // debug
-      auto state = avahi_entry_group_get_state(group);
-
-      constexpr auto f = FMT_STRING("{} {} group eixsts state={} same={}\n");
-      fmt::print(f, runTicks(), fnName(), state, (_groups.front() == group));
-    }
-
+    [[maybe_unused]] const auto state = avahi_entry_group_get_state(group);
+    __LOG0(LCOL01 "exists state-{} same={}\n", mDNS::moduleID(), //
+           csv("SAVE GROUP"), state, (_groups.front() == group));
     return;
   }
 
@@ -197,10 +195,7 @@ bool mDNS::start() {
 }
 
 void mDNS::update() {
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} groups size={}\n");
-    fmt::print(f, runTicks(), fnName(), _groups.size());
-  }
+  __LOGX(LCOL01, " size={}\n", mDNS::moduleID(), csv("GROUP UPDATE"), _groups_size());
 
   avahi_threaded_poll_lock(_tpoll); // lock the thread poll
 
@@ -208,10 +203,7 @@ void mDNS::update() {
 
   const auto kvmap = Service::ptr()->keyValList(AirPlayTCP);
   for (const auto &[key, val] : *kvmap) {
-    if (false) { // debug
-      constexpr auto f = FMT_STRING("{} {} {:>18}={}\n");
-      fmt::print(f, runTicks(), fnName(), key, val);
-    }
+    __LOGX(LCOL01 " {:<18}={}\n", mDNS::moduleID(), csv("GROUP UPDATE"), key, val);
 
     sl = avahi_string_list_add_pair(sl, key, val);
   }
@@ -224,13 +216,11 @@ void mDNS::update() {
 
   auto group = _groups.front(); // we're going to update the first (and only group)
 
-  auto rc = avahi_entry_group_update_service_txt_strlst(group, iface, proto, pub_flags, name,
-                                                        reg_type, NULL, sl);
+  [[maybe_unused]] auto rc = //
+      avahi_entry_group_update_service_txt_strlst(group, iface, proto, pub_flags, name, reg_type,
+                                                  NULL, sl);
 
-  if (rc != 0) {
-    constexpr auto f = FMT_STRING("{} {} failed rc={}\n");
-    fmt::print(f, runTicks(), fnName(), rc);
-  }
+  __LOGX(LCOL01 " failed rc={}\n", mDNS::moduleID(), csv("GROUP UPDATE"), rc);
 
   avahi_threaded_poll_unlock(_tpoll); // resume thread poll
 

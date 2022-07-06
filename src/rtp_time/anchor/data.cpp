@@ -49,14 +49,13 @@ namespace anchor {
  */
 
 // misc debug
-void Data::dump(csrc_loc loc) const {
+void Data::dump() const {
   const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
   const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
 
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "{}\n", fnName(loc));
   fmt::format_to(w, hex_fmt_str, "rate", rate);
   fmt::format_to(w, hex_fmt_str, "clockID", clockID);
   fmt::format_to(w, dec_fmt_str, "secs", secs);
@@ -69,7 +68,7 @@ void Data::dump(csrc_loc loc) const {
   fmt::format_to(w, dec_fmt_str, "valid", valid);
   fmt::format_to(w, dec_fmt_str, "valid_at_ns", valid_at_ns);
 
-  __LOG0("{}\n", msg);
+  __LOG0(LCOL01 "\n{}\n", moduleID(), csv("DUMP"), msg);
 }
 
 } // namespace anchor

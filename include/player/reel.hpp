@@ -69,10 +69,6 @@ public:
 
 public:
   void addFrame(shFrame frame) { frames.emplace_back(frame); }
-  void cleanUp() {
-    std::erase_if(frames, [](shFrame frame) { return frame->purgeable(); });
-  }
-
   bool empty() const { return frames.empty(); }
   bool flush(const FlushRequest &flush);
 
@@ -84,10 +80,13 @@ public:
   //   2. if a frame is found it may not be playable
   //      handling unplayable frames is left to the caller
   shFrame nextFrame(const FrameTimeDiff &ftd) {
-    cleanUp();
-
     auto next = ranges::find_if(frames, [&](shFrame frame) { //
       return frame->nextFrame(ftd, stats_map);
+    });
+
+    // schedule reel cleanup and guard by strand_out
+    asio::post(strand_out, [self = shared_from_this()]() {
+      std::erase_if(self->frames, [](shFrame frame) { return frame->purgeable(); });
     });
 
     return next != frames.end() ? (*next)->shared_from_this() : shFrame();

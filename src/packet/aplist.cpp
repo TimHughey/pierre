@@ -40,8 +40,6 @@ namespace ranges = std::ranges;
 
 namespace pierre {
 
-// template <typename T> using Func = std::function<T()>;
-
 Aplist::Aplist(bool allocate) {
   if (allocate != DEFER_DICT) {
     _plist = plist_new_dict();
@@ -76,20 +74,6 @@ Aplist::Aplist(Embedded embedded) {
   if (begin) {
     size_t bytes = end - begin;
     plist_from_memory(begin, bytes, &_plist);
-  }
-}
-
-Aplist::Aplist(const Aplist &src, Level level, ...) {
-  va_list args;
-
-  va_start(args, level);
-  auto node = plist_access_pathv(src._plist, level, args);
-  va_end(args);
-
-  if (node && (PLIST_DICT == plist_get_node_type(node))) {
-    _plist = plist_copy(node);
-  } else {
-    _plist = plist_new_dict();
   }
 }
 

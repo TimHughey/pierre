@@ -149,7 +149,7 @@ bool Setup::handleStreams() {
     // get the stream type that is starting
     auto stream_type = rdict.uint({dk::STREAMS, dk::IDX0, dk::TYPE});
 
-    __LOG0(LCOL01 " stream_type={}\n", baseID(), moduleID(), stream_type);
+    __LOGX(LCOL01 " stream_type={}\n", baseID(), moduleID(), stream_type);
 
     // now handle the specific stream type
     switch (stream_type) {

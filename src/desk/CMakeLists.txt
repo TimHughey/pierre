@@ -12,7 +12,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH}/${__target}/**/*.h*")
 # set(Boost_USE_MULTITHREADED      ON)
 # find_package(Boost 1.78.0 COMPONENTS system)
 
-add_library(${__target} 
+add_library(${__target} SHARED
   # public API for (light)desk 
   desk.cpp
 
@@ -31,9 +31,7 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 # the basedinclude directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PUBLIC
-  base io fader packet
-)
+target_link_libraries(${__target} PRIVATE base io fader packet)
 
 # IDEs should put the headers in a nice place
 # source_group(

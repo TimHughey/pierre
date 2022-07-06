@@ -42,7 +42,7 @@ using namespace std::chrono_literals;
 namespace chrono = std::chrono;
 
 // destructor, singleton static functions
-Anchor::~Anchor() { __LOG0("{:<18} destructed\n", Anchor::moduleId); }
+Anchor::~Anchor() { __LOG0(LCOL01 "\n", Anchor::moduleId, csv("DESTRUCT")); }
 shAnchor Anchor::init() { return shared::anchor().emplace(new Anchor()); }
 shAnchor Anchor::ptr() { return shared::anchor().value()->shared_from_this(); }
 void Anchor::reset() { shared::anchor().reset(); }
@@ -74,7 +74,7 @@ const anchor::Data &Anchor::getData() {
     // if recent data (set via SET_ANCHOR message) isn't valid
     // nothing we can do, return INVALID_DATA
     if (recent.valid == false) {
-      __LOG0("{:<18} RECENT invalid\n", Anchor::moduleId);
+      __LOG0(LCOL01 " invalid\n", Anchor::moduleId, csv("RECENT"));
       return anchor::INVALID_DATA;
     }
 
@@ -83,8 +83,8 @@ const anchor::Data &Anchor::getData() {
     // are we already synced to this clock?
     if (clock_info.clockID == recent.clockID) {
       if (clock_info.masterFor(now_ns) < 1.5s) {
-        __LOG0("{:<18} master too young {:<0.3}\n", Anchor::moduleId,
-               pe_time::as_secs(clock_info.masterFor(now_ns)));
+        __LOG0(LCOL01 "too young {:0.3}\n", Anchor::moduleId, //
+               csv("MASTER"), pe_time::as_secs(clock_info.masterFor(now_ns)));
 
         return anchor::INVALID_DATA;
 
@@ -94,8 +94,8 @@ const anchor::Data &Anchor::getData() {
         last.setLocalTimeAt(now_ns); // capture when local time calculated
 
         if (is_new) {
-          __LOG0("{:<18} VALID clockId={:#x} master_for={:<0.3}\n", //
-                 Anchor::moduleId, clock_info.clockID,
+          __LOG0(LCOL01 " valid clockId={:#x} master_for={:<0.3}\n", //
+                 Anchor::moduleId, csv("MASTER"), clock_info.clockID,
                  pe_time::as_secs(clock_info.masterFor(now_ns)));
 
           is_new = false;
@@ -110,8 +110,8 @@ const anchor::Data &Anchor::getData() {
   // to the master clock
 
   if (is_new) { // log the anchor clock has changed since
-    __LOG0("{:<18} CLOCK CHANGE isNew={} clockID={:x} masterClockID={:x} masterFor={}\n",
-           Anchor::moduleId, is_new, recent.clockID, clock_info.clockID,
+    __LOG0(LCOL01 " change isNew={} clockID={:x} masterClockID={:x} masterFor={}\n",
+           Anchor::moduleId, csv("MASTER"), is_new, recent.clockID, clock_info.clockID,
            pe_time::as_secs(clock_info.masterFor(now_ns)));
 
     last = recent;
@@ -128,8 +128,8 @@ const anchor::Data &Anchor::getData() {
       recent.networkTime = last.localAtNanos.count() + clock_info.rawOffset;
 
       if (clock_info.clockID == actual.clockID) { // original anchor clock is master again
-        __LOG0("{:<18} master == anchor clockId={:#x} deviation={}\n", //
-               Anchor::moduleId, clock_info.clockID,
+        __LOG0(LCOL01 " matches original anchor clockId={:#x} deviation={}\n", //
+               Anchor::moduleId, csv("MASTER"), clock_info.clockID,
                pe_time::as_secs(Nanos(recent.networkTime - actual.networkTime)));
       }
 
@@ -170,7 +170,7 @@ void Anchor::save(anchor::Data &ad) {
   if ((ad <=> recent) < 0) { // this is a new anchor clock
     _is_new = true;
 
-    __LOG0("{:<18} clock={:#x} {}\n", moduleId, //
+    __LOG0(LCOL01 " clock={:#x} {}\n", moduleId, csv("RECENT"), //
            ad.clockID, ad.clockID == last.clockID ? csv("SAME") : csv("NEW"));
   }
 
@@ -178,7 +178,8 @@ void Anchor::save(anchor::Data &ad) {
     if (last.valid && (last.validFor() < 5s)) {
       last.valid = false;
 
-      __LOG0("{:<18} change before stablized clockId={:#x}\n", moduleId, ad.clockID);
+      __LOG0(LCOL01 " change before stablized clockId={:#x}\n", moduleId, //
+             csv("MASTER"), ad.clockID);
     }
   }
 

@@ -22,8 +22,8 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
 find_package(fmt                          REQUIRED)
 find_library(rt         NAMES rt          REQUIRED)
 
-add_library(${__target}
-    aes_ctx.cpp
+add_library(${__target} SHARED
+  aes_ctx.cpp
   ${HEADER_LIST}
 )
 
@@ -33,9 +33,4 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH_LOCAL})
 # all includes are relative to base includes
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PUBLIC
-  # ${Boost_LIBRARIES}
-  fmt::fmt
-  rt
-  core
-)
+target_link_libraries(${__target} PRIVATE rt core)

@@ -18,7 +18,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/session/*.h*"
 )
 
-add_library(${__target}
+add_library(${__target} SHARED
   # public API and overall controller
   airplay.cpp controller.cpp
   
@@ -47,8 +47,10 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCA
 # all includes are relative to base includes
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PUBLIC
+target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
-  # fmt::fmt rt
   base core io mdns packet ap_aes player
 )
+
+target_link_libraries(${__target} PUBLIC mdns)
+

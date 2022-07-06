@@ -52,6 +52,5 @@ target_link_libraries(core PUBLIC
   sodium
   ssl
   gcrypt
-  # fmt::fmt
   base
 )

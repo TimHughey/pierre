@@ -16,7 +16,7 @@ find_library(m      NAMES m REQUIRED)
 find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
-add_library(${__target}
+add_library(${__target} SHARED
   # orchestration
   player.cpp
 
@@ -41,15 +41,20 @@ target_link_libraries(${__target} PRIVATE
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   ArduinoJson
-)
-
-target_link_libraries(${__target} PUBLIC
   base
   desk
   dsp
-  io
   packet
   rtp_time
 )
+
+# target_link_libraries(${__target} PUBLIC
+#   base
+#   desk
+#   dsp
+#   io
+#   packet
+#   rtp_time
+# )
 
 
