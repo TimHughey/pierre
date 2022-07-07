@@ -22,9 +22,9 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
+#include "desk/dmx.hpp"
 #include "desk/headunit.hpp"
 #include "fader/color_travel.hpp"
-#include "packet/dmx.hpp"
 
 #include <cstdint>
 #include <fmt/format.h>

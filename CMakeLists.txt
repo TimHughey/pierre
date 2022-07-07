@@ -97,7 +97,7 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  core airplay packet rtp_time
+  core airplay rtp_time
   ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs

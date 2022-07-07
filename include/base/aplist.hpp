@@ -37,7 +37,10 @@ namespace pierre {
 
 class Aplist {
 public:
-  enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
+  struct KeyUint {
+    csv key;
+    uint64_t val;
+  };
 
   typedef std::vector<string> ArrayStrings;
   typedef std::vector<Aplist> ArrayDicts;
@@ -46,6 +49,7 @@ public:
   typedef std::vector<ccs> Dictionaries;
   typedef std::vector<string_view> KeyList;
   typedef std::vector<string_view> Steps;
+  typedef std::vector<KeyUint> UintList;
 
 public:
   static constexpr bool DEFER_DICT = false;
@@ -56,7 +60,7 @@ public:
   Aplist(Aplist &&ap); // allow move construction
   Aplist(const Content &content) { fromContent(content); }
   Aplist(const Dictionaries &dicts);
-  Aplist(Embedded embedded);
+  Aplist(csv mem);
   Aplist(const Aplist &src, const Steps &steps); //
   Aplist(const Aplist &ap) = delete;             // no copies
 

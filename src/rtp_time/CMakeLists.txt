@@ -36,4 +36,4 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCA
 # all includes are relative to base includes
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE core io packet)
+target_link_libraries(${__target} PRIVATE core io)

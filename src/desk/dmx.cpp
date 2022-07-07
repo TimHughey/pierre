@@ -18,9 +18,9 @@
     https://www.wisslanding.com
 */
 
-#include "packet/dmx.hpp"
+#include "desk/dmx.hpp"
 
-#include <ArduinoJson.hpp>
+#include <ArduinoJson.h>
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 

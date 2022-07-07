@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "packet/aplist.hpp"
+#include "base/aplist.hpp"
 
 #include <algorithm>
 #include <array>
@@ -30,11 +30,6 @@
 #include <ranges>
 #include <sstream>
 #include <string>
-
-// embedded binary data via ld (see CMakeLists.txt)
-extern uint8_t _binary_get_info_resp_plist_start[];
-extern uint8_t _binary_get_info_resp_plist_end;
-extern uint8_t _binary_get_info_resp_plist_size;
 
 namespace ranges = std::ranges;
 
@@ -60,22 +55,7 @@ Aplist::Aplist(const Dictionaries &dictionaries) {
   }
 }
 
-Aplist::Aplist(Embedded embedded) {
-  const char *begin = nullptr;
-  const char *end = nullptr;
-
-  switch (embedded) {
-    case GetInfoRespStage1:
-      begin = (const char *)&_binary_get_info_resp_plist_start;
-      end = (const char *)&_binary_get_info_resp_plist_end;
-      break;
-  }
-
-  if (begin) {
-    size_t bytes = end - begin;
-    plist_from_memory(begin, bytes, &_plist);
-  }
-}
+Aplist::Aplist(csv mem) { plist_from_memory(mem.data(), mem.size(), &_plist); }
 
 Aplist::Aplist(const Aplist &src, const Steps &steps) {
   auto node = src.fetchNode(steps, PLIST_DICT);

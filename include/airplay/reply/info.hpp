@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "packet/aplist.hpp"
+#include "base/aplist.hpp"
 #include "reply/reply.hpp"
 
 namespace pierre {
@@ -29,7 +29,7 @@ enum InfoStage { StageUnknown, Stage1, Stage2 };
 
 class Info : public Reply {
 public:
-  Info() : rdict(Aplist::DEFER_DICT) {}
+  Info() : Reply("INFO"), rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 

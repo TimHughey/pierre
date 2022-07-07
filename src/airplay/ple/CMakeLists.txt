@@ -2,11 +2,18 @@
 # Embedded plist
 #
 
-set(__target embed_plist)
+set(__target ple)
 
-add_library(${__target} embed.cpp)
+set(HEADER_PATH                         ${pierre_SOURCE_DIR}/include)
+set(HEADER_PATH_LOCAL                   ${HEADER_PATH}/airplay/${__target})
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 
-# embed statis plists
+add_library(${__target} 
+  embed.cpp
+  ${HEADER_LIST}
+)
+
+# embed static plists
 set(PLIST_EMBED ${CMAKE_CURRENT_SOURCE_DIR})
 set(PLIST_GET_INFO get_info_resp.plist)
 set(PLIST_GET_INFO_BIN ${CMAKE_CURRENT_BINARY_DIR}/${PLIST_GET_INFO}.bin)
@@ -20,6 +27,7 @@ add_custom_command(TARGET
   VERBATIM
 )
 
+target_include_directories(${__target} PUBLIC ${HEADER_PATH_LOCAL})
 target_link_libraries(${__target} PUBLIC ${PLIST_GET_INFO_BIN})
 
 

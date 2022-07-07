@@ -44,17 +44,8 @@ target_link_libraries(${__target} PRIVATE
   base
   desk
   dsp
-  packet
   rtp_time
 )
 
-# target_link_libraries(${__target} PUBLIC
-#   base
-#   desk
-#   dsp
-#   io
-#   packet
-#   rtp_time
-# )
 
 

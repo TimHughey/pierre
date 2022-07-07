@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "reply/flush.hpp"
-#include "packet/aplist.hpp"
+#include "base/aplist.hpp"
 #include "player/flush_request.hpp"
 #include "player/player.hpp"
 #include "reply/dict_keys.hpp"

@@ -3,6 +3,7 @@
 #
 
 add_subdirectory(aes)
+add_subdirectory(ple)
 
 set(THREADS_PREFER_PTHREAD_FLAG true)
 
@@ -17,6 +18,8 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/server/*.h*"
   "${HEADER_PATH_LOCAL}/session/*.h*"
 )
+
+find_library(plist        NAMES plist         REQUIRED)
 
 add_library(${__target} SHARED
   # public API and overall controller
@@ -49,7 +52,9 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
-  base core io mdns packet ap_aes player
+  ${plist}
+  ple
+  base core io mdns ap_aes player 
 )
 
 target_link_libraries(${__target} PUBLIC mdns)

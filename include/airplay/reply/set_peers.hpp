@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "packet/aplist.hpp"
+#include "base/aplist.hpp"
 #include "reply/reply.hpp"
 
 namespace pierre {

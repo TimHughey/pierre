@@ -26,7 +26,6 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PUBLIC
   base
-  packet
   rtp_time
 )
 

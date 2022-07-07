@@ -16,6 +16,9 @@ add_library(${__target} SHARED
   # public API for (light)desk 
   desk.cpp
 
+  # DMX
+  dmx.cpp
+
   # FX
   fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp
   
@@ -31,7 +34,7 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 # the basedinclude directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE base io fader packet)
+target_link_libraries(${__target} PRIVATE ArduinoJson base io fader)
 
 # IDEs should put the headers in a nice place
 # source_group(

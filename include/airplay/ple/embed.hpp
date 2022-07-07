@@ -18,4 +18,19 @@
     https://www.wisslanding.com
 */
 
-[[maybe_unused]] static bool __embedded = true;
+#pragma once
+
+#include <cstdint>
+#include <string_view>
+
+namespace pierre {
+namespace airplay {
+
+struct ple {
+  enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
+
+  static const std::string_view binary(const Embedded &embedded);
+};
+
+} // namespace airplay
+} // namespace pierre

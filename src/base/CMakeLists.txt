@@ -11,6 +11,9 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 find_package(fmt REQUIRED)
 
 add_library(${__target} SHARED
+  # Apple Property List
+  aplist.cpp
+
   # logging
   log.cpp 
   

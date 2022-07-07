@@ -21,8 +21,8 @@
 #pragma once
 
 #include "base/typical.hpp"
+#include "desk/dmx.hpp"
 #include "desk/unit/opts.hpp"
-#include "packet/dmx.hpp"
 
 #include <fmt/format.h>
 #include <memory>
