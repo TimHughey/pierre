@@ -26,7 +26,7 @@ namespace reply {
 
 class LoadMore : public Reply {
 public:
-  LoadMore() = default;
+  LoadMore() : Reply("LOAD MORE") {}
 
   bool populate() override {
     responseCode(RespCode::Continue);

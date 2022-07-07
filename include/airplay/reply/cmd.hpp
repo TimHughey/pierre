@@ -29,7 +29,7 @@ namespace reply {
 
 class Command : public Reply {
 public:
-  Command() : rdict(Aplist::DEFER_DICT) {}
+  Command() : Reply("COMMAND"), rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 

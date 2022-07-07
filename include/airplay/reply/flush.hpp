@@ -27,7 +27,7 @@ namespace reply {
 
 class FlushBuffered : public Reply {
 public:
-  FlushBuffered() = default;
+  FlushBuffered() : Reply("FLUSHBUFFERED") {}
 
   bool populate() override;
 

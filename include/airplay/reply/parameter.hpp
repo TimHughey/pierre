@@ -27,7 +27,7 @@ namespace reply {
 
 class Parameter : public Reply {
 public:
-  Parameter() : Reply("PARAMETER"){};
+  Parameter() : Reply("PARAMETER") {}
 
   bool populate() override;
 

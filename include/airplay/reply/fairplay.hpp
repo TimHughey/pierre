@@ -31,7 +31,7 @@ namespace reply {
 
 class FairPlay : public Reply {
 public:
-  FairPlay() = default;
+  FairPlay() : Reply("FAIRPLAY") {}
 
   bool populate() override;
 

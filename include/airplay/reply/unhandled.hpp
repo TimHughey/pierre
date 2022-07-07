@@ -26,7 +26,7 @@ namespace reply {
 
 class Unhandled : public Reply {
 public:
-  Unhandled() = default;
+  Unhandled() : Reply("UNHANDLED") {}
 
   bool populate() override;
 };

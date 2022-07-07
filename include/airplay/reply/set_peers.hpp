@@ -35,7 +35,7 @@ public:
 
 private:
   Aplist rdict;
-  static constexpr csv REPLY_TYPE{"SET_PEERSX"};
+  static constexpr csv REPLY_TYPE{"SET_PEERS"};
 };
 
 } // namespace reply

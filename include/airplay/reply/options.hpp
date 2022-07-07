@@ -28,7 +28,7 @@ namespace reply {
 
 class Options : public Reply {
 public:
-  Options() = default;
+  Options() : Reply("OPTIONS") {}
 
   bool populate() override;
 };

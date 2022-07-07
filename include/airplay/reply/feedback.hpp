@@ -26,7 +26,7 @@ namespace reply {
 
 class Feedback : public Reply {
 public:
-  Feedback() = default;
+  Feedback() : Reply("FEEDBACK") {}
 
   bool populate() override;
 };

@@ -32,7 +32,7 @@ namespace reply {
 
 class Pairing : public Reply {
 public:
-  Pairing() = default;
+  Pairing() : Reply("PAIRING") {}
 
   bool populate() override;
 };

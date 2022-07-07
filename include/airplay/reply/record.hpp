@@ -26,7 +26,7 @@ namespace reply {
 
 class Record : public Reply {
 public:
-  Record() = default;
+  Record() : Reply("RECORD") {}
 
   bool populate() override;
 };
