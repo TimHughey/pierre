@@ -17,6 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "session/base.hpp"
+#include "base/typical.hpp"
+#include "io/io.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -27,21 +29,11 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
-using namespace boost::system;
-
-Base::Base(const Inject &di, csv session_id)
-    : socket(std::move(di.socket)), local_strand(di.io_ctx), session_id(session_id) {
-  _acc.emplace(ACCUMULATE::RX, 0);
-  _acc.emplace(ACCUMULATE::TX, 0);
-}
-
 Base::~Base() {
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
-    fmt::print(f, runTicks(), session_id, socket.native_handle());
-  }
+  __LOGX(LCOL01 "shutdown handle={}\n", moduleID(), socket.native_handle());
 
-  [[maybe_unused]] error_code ec; // must use error_code overload to prevent throws
+  [[maybe_unused]] error_code
+      ec; // must use error_code overload to prevent throws
   socket.shutdown(tcp_socket::shutdown_both, ec);
   socket.close(ec);
 }
@@ -51,25 +43,22 @@ bool Base::isReady(const error_code &ec) {
 
   if (rc) {
     switch (ec.value()) {
-      case errc::success:
-        break;
+    case errc::success:
+      break;
 
-      case errc::operation_canceled:
-      case errc::resource_unavailable_try_again:
-      case errc::no_such_file_or_directory:
-        rc = false;
-        break;
+    case errc::operation_canceled:
+    case errc::resource_unavailable_try_again:
+    case errc::no_such_file_or_directory:
+      rc = false;
+      break;
 
-      default: {
-        if (false) { // debug
-          constexpr auto f = FMT_STRING("{} {} socket={} msg={}\n");
-          fmt::print(f, runTicks(), sessionId(), socket.native_handle(), ec.message());
-        }
+    default:
+      __LOG0(LCOL01, " socket={} reason={}\n", moduleID(), csv("NOT READY"),
+             socket.native_handle(), ec.message());
 
-        socket.shutdown(tcp_socket::shutdown_both);
-        socket.close();
-        rc = false;
-      }
+      socket.shutdown(tcp_socket::shutdown_both);
+      socket.close();
+      rc = false;
     }
   }
 

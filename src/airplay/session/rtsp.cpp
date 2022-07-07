@@ -18,25 +18,14 @@
 
 #include "session/rtsp.hpp"
 #include "base/content.hpp"
+#include "reply/factory.hpp"
 #include "reply/reply.hpp"
 
 #include <algorithm>
-#include <fmt/format.h>
-#include <regex>
 
 namespace pierre {
 namespace airplay {
 namespace session {
-
-using namespace reply;
-using namespace boost::asio;
-namespace asio_error = boost::asio::error;
-using namespace boost::system;
-
-constexpr auto re_syntax = std::regex_constants::ECMAScript;
-
-// notes:
-//  1. socket is passed as a reference to a reference so we must move to our local socket reference
 
 void Rtsp::asyncLoop() {
   // notes:
@@ -49,8 +38,7 @@ void Rtsp::asyncLoop() {
   //
   //  3. we capture a shared_ptr (self) for access within the lamba,
   //     that shared_ptr is kept in scope while async_read is
-  //     waiting for data on the socket then during execution
-  //     of the lamba
+  //     waiting for socket data and while the lamba executes
   //
   //  4. when called again from within the lamba the sequence of
   //     events repeats (this function returns) and the shared_ptr
@@ -58,41 +46,39 @@ void Rtsp::asyncLoop() {
   //
   //  5. the crucial point -- we must keep the use count
   //     of the session above zero until the session ends
-  //     (e.g. due to error, natural completion, io_ctx is stopped)
+  //     (e.g. error, natural completion, io_ctx is stopped)
 
-  async_read(socket,                 // rx from this socket
-             dynamic_buffer(wire()), // put rx'ed data here
-             transfer_at_least(12),  // start by rx'ed this many bytes
-             [self = shared_from_this()](error_code ec, size_t rx_bytes) {
-               // general notes:
-               //
-               // 1. this was not captured so the lamba is not in 'this' context
-               // 2. all calls to the session must be via self (which was captured)
-               // 3. we do minimal activities to quickly get to 'this' context
+  asio::async_read(
+      socket,                       // rx from this socket
+      asio::dynamic_buffer(wire()), // put rx'ed data here
+      asio::transfer_at_least(12),  // start by rx'ed this many bytes
+      [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+        // general notes:
+        // 1. this was not captured so the lamba is not in 'this' context
+        // 2. all calls to the session must be via self (which was captured)
+        // 3. we do minimal activities to quickly get to 'this' context
 
-               // essential activies:
-               //
-               // 1. check the error code
-               if (self->isReady(ec)) {
-                 // 2. handle the request
-                 //    a. remember... the data received is in wire buffer
-                 //    b. performs request if bytes rx'ed != content length header
-                 //    c. schedules more io_ctx work or allows shared_ptr to fall out of
-                 //    scope
-                 self->handleRequest(rx_bytes);
-               } // self is about to go out of scope...
-             }); // self is out of scope and the shared_ptr use count is reduced by one
+        // essential activities:
+        // 1. check the error code
+        if (self->isReady(ec)) {
+          // 2. handle the request
+          //    a. remember... the data received is in wire buffer
+          //    b. performs request if bytes rx'ed != content length header
+          //    c. schedules io_ctx work or shared_ptr  falls out of scope
+          self->handleRequest(rx_bytes);
+        } // self is about to go out of scope...
+      }); // self is out of scope and the shared_ptr use count is reduced by one
 
-  // final notes:
-  // 1. the first return of this function traverses back to the Server that created the
-  //    Rtsp (in the same io_ctx)
-  // 2. subsequent returns are to the io_ctx and match the required void return signature
+  // misc notes:
+  // 1. the first return of this function traverses back to the Server that
+  //    created the Rtsp (in the same io_ctx)
+  // 2. subsequent returns are to the io_ctx and match the required void return
+  //    signature
 }
 
 void Rtsp::handleRequest(size_t rx_bytes) {
   accumulate(RX, rx_bytes);
 
-  // try {
   if (rxAvailable()            // drained the socket successfully
       && ensureAllContent()    // loaded bytes == Content-Length
       && createAndSendReply()) // sent the reply OK
@@ -104,28 +90,17 @@ void Rtsp::handleRequest(size_t rx_bytes) {
 
     asyncLoop(); // schedule rx of next packet
   }
-  // } catch (const std::exception &e) {
-  //   constexpr auto f = FMT_STRING("{} RTSP REPLY FAILURE "       // failure
-  //                                 "method={} path={} reason={} " // debug info
-  //                                 "(header and content dump follow)\n\n");
-
-  //   fmt::print(f, runTicks(), _headers.method(), _headers.path(), e.what());
-
-  //   _headers.dump();
-  //   _content.dump();
-
-  //   fmt::print("\n{} RTSP REPLY FAILURE END\n\n", runTicks());
-  // }
 }
 
 bool Rtsp::rxAvailable() {
   error_code ec;
   size_t avail_bytes = socket.available(ec);
 
-  auto buff = dynamic_buffer(_wire);
+  auto buff = asio::dynamic_buffer(_wire);
 
   while (isReady(ec) && (avail_bytes > 0)) {
-    auto rx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
+    auto rx_bytes =
+        asio::read(socket, buff, asio::transfer_at_least(avail_bytes), ec);
     accumulate(RX, rx_bytes);
 
     avail_bytes = socket.available(ec);
@@ -144,15 +119,10 @@ bool Rtsp::ensureAllContent() {
   // parse packet and return if more bytes are needed (e.g. Content-Length)
   auto more_bytes = _headers.loadMore(_packet.view(), _content);
 
-  if (false) { // debug
-    if (more_bytes) {
-      constexpr auto f = FMT_STRING("{} RTSP SESSION NEED MORE bytes={} method={} path={}\n");
-      fmt::print(f, runTicks(), more_bytes, _headers.method(), _headers.path());
-    }
-  }
+  __LOGX(LCOL01 " bytes={} method={} path={}\n", moduleID(), csv("NEED MORE"),
+         more_bytes, _headers.method(), _headers.path());
 
   // loop until we have all the data or an error occurs
-
   while (more_bytes && rc) {
     // send Continue reply indicating packet good so far then
     // read waiting bytes
@@ -166,12 +136,8 @@ bool Rtsp::ensureAllContent() {
     more_bytes = _headers.loadMore(_packet.view(), _content);
   }
 
-  if (false) { // debug
-    if (rc) {
-      constexpr auto f = FMT_STRING("{} RTSP SESSION RX total_bytes={}\n");
-      fmt::print(f, runTicks(), _wire.size());
-    }
-  }
+  __LOGX(LCOL01 " rx total_bytes={}\n", moduleID(), //
+         csv("ENSURE CONTENT"), _wire.size());
 
   return rc;
 }
@@ -185,82 +151,57 @@ bool Rtsp::createAndSendReply() {
                        .headers = headers(),
                        .aes_ctx = aes_ctx};
 
-  auto reply = Reply::create(inject);
+  // create the reply and hold onto the shared_ptr
+  auto reply = reply::Factory::create(inject);
 
+  // build the reply from the reply shared_ptr
   auto &reply_packet = reply->build();
 
   if (reply_packet.size() == 0) { // warn of empty packet, still return true
-    constexpr auto f = FMT_STRING("{} RTSP SESSION EMPTY REPLY method={} path={}\n");
-    fmt::print(f, runTicks(), inject.method, inject.path);
+    __LOG0(LCOL01 " empty reply method={} path={}\n", moduleID(),
+           csv("SEND REPLY"), inject.method, inject.path);
 
     return true;
   }
 
   // reply has content to send
   aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-  auto buff = const_buffer(reply_packet.data(), reply_packet.size());
+  auto buff = asio::const_buffer(reply_packet.data(), reply_packet.size());
 
   error_code ec;
-  auto tx_bytes = write(socket, buff, ec);
+  auto tx_bytes = asio::write(socket, buff, ec);
   accumulate(TX, tx_bytes);
 
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} REPLY SENT tx_bytes={:<4} what={} method={} path={}\n");
-    fmt::print(f, runTicks(), tx_bytes, ec.what(), inject.method, inject.path);
-  }
+  __LOGX(LCOL01 " sent tx_bytes={:<4} reason={} method={} path={}\n",
+         moduleID(), csv("SEND REPLY"), tx_bytes, ec.message(), inject.method,
+         inject.path);
 
   // check the most recent ec
   return isReady(ec);
 }
 
-/*
-bool Rtsp::txContinue() {
-  // send a CONTINUE reply then read the pending data
-  constexpr auto CONTINUE = csv("CONTINUE");
-
-  auto inject = reply::Inject{.method = CONTINUE,
-                              .path = path(),
-                              .content = content(),
-                              .headers = headers(),
-                              .aes_ctx = aes_ctx};
-
-  auto reply = Reply::create(inject);
-  auto &reply_packet = reply->build();
-
-  aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-  auto buff = const_buffer(reply_packet.data(), reply_packet.size());
-
-  error_code ec;
-  auto tx_bytes = write(socket, buff, ec);
-  accumulate(TX, tx_bytes);
-
-  return isReady(ec);
-}
-
-*/
-
 // misc debug, loggind
 
 void Rtsp::dump(DumpKind dump_type) {
-  std::time_t now = std::time(nullptr);
-  std::string dt = std::ctime(&now);
 
   if (dump_type == HeadersOnly) {
-    fmt::print("method={} path={} protocol={} {}\n", method(), path(), protocol(), dt);
+    __LOG0(LCOL01, "method={} path={} protocol={}\n", moduleID(),
+           csv("DUMP HEADERS"), method(), path(), protocol());
 
     _headers.dump();
   }
 
   if (dump_type == ContentOnly) {
+    __LOG0(LCOL01, "method={} path={} protocol={}\n", moduleID(),
+           csv("DUMP CONTENT"), method(), path(), protocol());
     _content.dump();
   }
 
   if (dump_type == RawOnly) {
-    csv out((const char *)_wire.data(), _wire.size());
-    fmt::print("{}\n", out);
+    __LOG0(LCOL01, "\n{}", moduleID(), csv("DUMP RAW"), _wire.view());
   }
 
-  fmt::print("\n");
+  __LOG0(LCOL01 "complete\n", moduleID(), csv("DUMP"));
 }
 
 } // namespace session

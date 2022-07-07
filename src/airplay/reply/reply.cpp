@@ -23,7 +23,7 @@
 #include "base/resp_code.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "reply/factory.hpp"
+// #include "reply/factory.hpp"
 
 #include <algorithm>
 #include <fmt/format.h>
@@ -36,19 +36,19 @@ namespace reply {
 
 // this static member function is in the .cpp due to the call to Factory to
 // create the approprite Reply subclass
-[[nodiscard]] shReply Reply::create(const reply::Inject &di) {
-  if (false) { // false
-    if (di.path != csv("/feedback")) {
-      di.headers.dump();
-    }
-  }
-  auto reply = Factory::create(di);
+// [[nodiscard]] shReply Reply::create(const reply::Inject &di) {
+//   if (false) { // false
+//     if (di.path != csv("/feedback")) {
+//       di.headers.dump();
+//     }
+//   }
+//   auto reply = Factory::create(di);
 
-  // inject dependencies after initial creation
-  reply->inject(di);
+//   // inject dependencies after initial creation
+//   reply->inject(di);
 
-  return reply;
-}
+//   return reply;
+// }
 
 [[nodiscard]] uint8v &Reply::build() {
   constexpr csv seperator("\r\n");
@@ -62,7 +62,8 @@ namespace reply {
 
   fmt::format_to(where, "RTSP/1.0 {:d} {}{}", _rcode, resp_text, seperator);
 
-  if (!_content.empty()) { // add the content length before adding the header list
+  // must add content length before calling headers list()
+  if (!_content.empty()) {
     headers.add(hdr_type::ContentLength, _content.size());
   }
 
@@ -71,23 +72,20 @@ namespace reply {
   // always write the separator between heqders and content
   fmt::format_to(where, "{}", seperator);
 
-  if (_content.empty() == false) {
-    std::copy(_content.begin(), _content.end(), where); // we have content, add it now
+  if (_content.empty() == false) { // we have content, add it
+    std::copy(_content.begin(), _content.end(), where);
   }
 
-  if (true) { // debug
-    constexpr auto feedback = csv("/feedback");
-    static uint64_t feedbacks = 0;
+  constexpr auto feedback = csv("/feedback");
+  static uint64_t feedbacks = 0;
 
-    if (di->path == feedback) {
-      ++feedbacks;
-    }
-
-    if (di->path != feedback) {
-      __LOG0("{:<18} cseq={:>4} fb={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
-             moduleID(), headers.getValInt(hdr_type::CSeq), feedbacks, _packet.size(), resp_text,
-             di->method, di->path);
-    }
+  if (di->path == feedback) {
+    ++feedbacks;
+  } else {
+    __LOG0("{:<18} cseq={:>4} fb={:>4} size={:>4} rc={:<15} method={:<19} "
+           "path={}\n", //
+           moduleID(), headers.getValInt(hdr_type::CSeq), feedbacks,
+           _packet.size(), resp_text, di->method, di->path);
   }
 
   return _packet;
@@ -98,8 +96,7 @@ void Reply::copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {
 }
 
 void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
-  auto where = std::back_inserter(_content);
-  std::copy(begin, begin + bytes, where);
+  std::copy(begin, begin + bytes, std::back_inserter(_content));
 }
 
 Reply &Reply::inject(const reply::Inject &injected) {
@@ -113,11 +110,6 @@ Reply &Reply::inject(const reply::Inject &injected) {
 }
 
 // misc debug
-bool Reply::debugFlag(bool debug_flag) {
-  _debug_flag = debug_flag;
-  return _debug_flag;
-}
-
 void Reply::dump() const { headers.dump(); }
 
 } // namespace reply

@@ -75,7 +75,7 @@ public:
 public:
   // static member function calls Factory to create the appropriate Reply
   // subclass
-  [[nodiscard]] static shReply create(const reply::Inject &inject);
+  // [[nodiscard]] static shReply create(const reply::Inject &inject);
 
 public:
   // construct a new Reply and inject dependencies
@@ -87,7 +87,9 @@ public:
   Reply &inject(const reply::Inject &di);
   virtual bool populate() = 0;
 
-  void copyToContent(const auto &buf) { ranges::copy(buf, std::back_inserter(_content)); }
+  void copyToContent(const auto &buf) {
+    ranges::copy(buf, std::back_inserter(_content));
+  }
 
   void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes);
   void copyToContent(const uint8_t *begin, const size_t bytes);
@@ -112,8 +114,6 @@ public:
   size_t sequence() { return headers.getValInt(hdr_type::CSeq); };
 
   // misc debug
-  bool debugFlag(bool debug_flag);
-  bool debug() const { return _debug_flag; }
   void dump() const;
   auto &errMsg() const { return _err_msg; }
 
@@ -123,15 +123,13 @@ protected:
 
   std::optional<reply::Inject> di; // copy, ok because it's only references
 
-    string _err_msg;
+  string _err_msg;
 
   RespCode _rcode = RespCode::NotImplemented;
   Headers headers;
 
   Content _content;
   uint8v _packet;
-
-  bool _debug_flag = false;
 
   static constexpr csv base_id{"REPLY"};
 };

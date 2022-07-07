@@ -26,7 +26,10 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-shReply Factory::create(const reply::Inject &di) {
+[[nodiscard]] shReply Factory::create(const reply::Inject &di) {
+  static const auto pair_paths = std::vector{"/pair-setup", "/pair-verify"};
+  shReply reply;
+
   csv method = di.method;
   csv path = di.path;
 
@@ -34,78 +37,57 @@ shReply Factory::create(const reply::Inject &di) {
          di.headers.getVal(hdr_type::CSeq), method, path);
 
   if (method.starts_with("CONTINUE")) {
-    return std::make_shared<LoadMore>();
-  }
-
-  // NOTE: compare sequence equivalent to AirPlay conversation
-  if (method == csv("GET") && (path == csv("/info"))) {
-    return std::make_shared<Info>();
-  }
-
-  if (method == csv("POST")) {
+    reply = std::make_shared<LoadMore>();
+  } else if (method == csv("GET") && (path == csv("/info"))) {
+    reply = std::make_shared<Info>();
+  } else if (method == csv("POST")) {
     // NOTE:  all post requests default to OK response code
     if (path == csv("/fp-setup")) {
-      return std::make_shared<FairPlay>();
-    }
-
-    if (path == csv("/command")) {
-      return std::make_shared<Command>();
-    }
-
-    if (path == csv("/feedback")) {
-      return std::make_shared<Feedback>();
-    }
-
-    if (path.starts_with("/pair-")) {
-      static const auto pair_paths = std::vector{"/pair-setup", "/pair-verify"};
-      if (auto found = ranges::find(pair_paths, path); found != pair_paths.end()) {
-        return std::make_shared<Pairing>();
+      reply = std::make_shared<FairPlay>();
+    } else if (path == csv("/command")) {
+      reply = std::make_shared<Command>();
+    } else if (path == csv("/feedback")) {
+      reply = std::make_shared<Feedback>();
+    } else if (path.starts_with("/pair-")) {
+      if (ranges::any_of(pair_paths,
+                         [&path = path](csv p) { return p == path; })) {
+        reply = std::make_shared<Pairing>();
       } else {
-        __LOG0(LCOL01 "unhandled pair path: {}\n", moduleId, LBLANK, path);
+        __LOG0(LCOL01 "unhandled pairing path={}\n", moduleId, //
+               csv("CREATE"), path);
       }
     }
+  } else if (method == csv("OPTIONS") && (path == csv("*"))) {
+    reply = std::make_shared<Options>();
+  } else if (method == csv("SETUP")) {
+    reply = std::make_shared<Setup>();
+  } else if ((method == csv("GET_PARAMETER")) ||
+             (method == csv("SET_PARAMETER"))) {
+    reply = std::make_shared<Parameter>();
+  } else if (method == csv("RECORD")) {
+    reply = std::make_shared<Record>();
+  } else if (method == csv("SETPEERS")) {
+    reply = std::make_shared<SetPeers>();
+  } else if (method == csv("SETPEERSX")) {
+    reply = std::make_shared<SetPeersX>();
+  } else if (method == csv("SETRATEANCHORTIME")) {
+    reply = std::make_shared<SetAnchor>();
+  } else if (method == csv("TEARDOWN")) {
+    reply = std::make_shared<Teardown>();
+  } else if (method == csv("FLUSHBUFFERED")) {
+    reply = std::make_shared<FlushBuffered>();
+  } else if (reply.use_count() == 0) {
+
+    __LOG0(LCOL01 "method={} path={}]\n", moduleId, csv("FAILED"), //
+           method.empty() ? "<empty>" : method,
+           path.empty() ? "<empty>" : path);
+
+    reply = std::make_shared<Unhandled>();
   }
 
-  if (method == csv("OPTIONS") && (path == csv("*"))) {
-    return std::make_shared<Options>();
-  }
+  reply->inject(di);
 
-  if (method == csv("SETUP")) {
-    return std::make_shared<Setup>();
-  }
-
-  if (method.starts_with("GET_PARAMETER") || method.starts_with("SET_PARAMETER")) {
-    return std::make_shared<Parameter>();
-  }
-
-  if (method == csv("RECORD")) {
-    return std::make_shared<Record>();
-  }
-
-  if (method == csv("SETPEERS")) {
-    return std::make_shared<SetPeers>();
-  }
-
-  if (method == csv("SETPEERSX")) {
-    return std::make_shared<SetPeersX>();
-  }
-
-  if (method == csv("SETRATEANCHORTIME")) {
-    return std::make_shared<SetAnchor>();
-  }
-
-  if (method == csv("TEARDOWN")) {
-    return std::make_shared<Teardown>();
-  }
-
-  if (method == csv("FLUSHBUFFERED")) {
-    return std::make_shared<FlushBuffered>();
-  }
-
-  __LOG0(LCOL01 "method={} path={}]\n", moduleId, csv("FAILED"), //
-         method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
-
-  return std::make_shared<Unhandled>();
+  return reply;
 }
 
 } // namespace reply

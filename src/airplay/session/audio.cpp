@@ -45,8 +45,8 @@ Audio::Audio(const Inject &di)
 
 /*
 constructor notes:
-  1. socket is passed as a reference to a reference so we must move to our local socket
-reference
+  1. socket is passed as a reference to a reference so we must move to our local
+socket reference
 
 asyncAudioBufferLoop notes:
   1. nothing within this function can be captured by the lamba
@@ -88,12 +88,14 @@ within the lamba:
 
   6. otherwise schedule async_* of next packet
 
-  7. reminder this session will auto destruct if more async_ work isn't scheduled
+  7. reminder this session will auto destruct if more async_ work isn't
+scheduled
 
 misc notes:
-  1. the first return of this function traverses back to the Server that created the
-     Audio (in the same io_ctx)
-  2. subsequent returns are to the io_ctx and match the required void return signature
+  1. the first return of this function traverses back to the Server that created
+the Audio (in the same io_ctx)
+  2. subsequent returns are to the io_ctx and match the required void return
+signature
 */
 
 void Audio::asyncLoop() {
@@ -111,12 +113,14 @@ void Audio::asyncLoop() {
             // check for error and ensure receipt of the packet length
             if (self->isReady(ec)) {
               if (rx_bytes == PACKET_LEN_BYTES) {
-                __LOGX("{} will read packet_len={}\n", fnName(), self->packetLength(););
+                __LOGX("{} will read packet_len={}\n", fnName(),
+                       self->packetLength(););
 
                 // async load the packet
                 self->asyncRxPacket();
 
-                std::call_once(__stats_started, [self = self] { self->stats(); });
+                std::call_once(__stats_started,
+                               [self = self] { self->stats(); });
               }
 
             }  // self is about to go out of scope...
@@ -139,14 +143,16 @@ void Audio::asyncRxPacket() {
               self->accumulate(RX, rx_bytes);
 
               if (rx_bytes == self->packetLength()) {
-                uint8v packet_handoff;                          // handoff this packet
-                std::swap(packet_handoff, self->packet_buffer); // by swapping local buffer
+                uint8v packet_handoff; // handoff this packet
+                std::swap(packet_handoff,
+                          self->packet_buffer); // by swapping local buffer
 
                 // inform player a complete packet is ready
                 Player::accept(packet_handoff);
               } else {
                 const auto len = self->packetLength();
-                __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);
+                __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(),
+                       rx_bytes, len);
               }
 
               // wait for next packet
@@ -183,13 +189,15 @@ void Audio::teardown() {
 void Audio::stats() {
   timer.expires_after(10s);
 
-  timer.                                                   // this timer
-      async_wait(                                          // waits via
-          bind_executor(                                   // a specific executor
-              local_strand,                                // running on this strand
-              [self = shared_from_this()](error_code ec) { // to execute this completion handler
+  timer.                    // this timer
+      async_wait(           // waits via
+          bind_executor(    // a specific executor
+              local_strand, // running on this strand
+              [self = shared_from_this()](
+                  error_code ec) { // to execute this completion handler
                 static uint64_t rx_last = 0;
-                // only check for success here, check for actual packet length bytes later
+                // only check for success here, check for actual packet length
+                // bytes later
                 if (ec == errc::success) {
                   const auto rx_total = self->accumulated(RX);
 
@@ -198,8 +206,9 @@ void Audio::stats() {
                   }
 
                   if (rx_total != rx_last) {
-                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n", self->sessionId(),
-                           rx_total, (rx_total - (int64_t)rx_last));
+                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n",
+                           self->moduleID(), rx_total,
+                           (rx_total - (int64_t)rx_last));
                     rx_last = rx_total;
                   }
 

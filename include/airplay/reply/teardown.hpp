@@ -27,13 +27,14 @@ namespace reply {
 
 class Teardown : public Reply {
 public:
-  Teardown() : rdict(Aplist::DEFER_DICT) {}
+  Teardown() : Reply("TEARDOWN"), rdict(Aplist::DEFER_DICT) {}
 
   bool populate() override;
 
 private:
-  void phase1();
-  void phase2();
+  bool phase1();
+  bool phase2();
+  bool phase12() { return phase1() && phase2(); }
 
 private:
   Aplist rdict;

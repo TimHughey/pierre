@@ -42,7 +42,8 @@ bool Setup::populate() {
 
   // rdict.dump();
 
-  const auto has_streams = (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
+  const auto has_streams =
+      (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
 
   __LOGX(LCOL01 " has_streams={}\n", baseID(), moduleID(), has_streams);
 
@@ -76,7 +77,7 @@ bool Setup::handleNoStreams() {
   // deduces cat, type and timing
   auto stream = Stream(rdict.stringView({dk::TIMING_PROTOCOL}));
 
-  // now we create a replu plist based on the type of stream
+  // now we create a reply plist based on the type of stream
   if (stream.isPtpStream()) {
     conn->airplay_gid = rdict.stringView({dk::GROUP_UUID});
     conn->groupContainsGroupLeader = rdict.boolVal({dk::GROUP_LEADER});
@@ -91,8 +92,9 @@ bool Setup::handleNoStreams() {
     peer_info.setString(dk::ID, ip_addrs[0]);
 
     reply_dict.setArray(dk::TIMING_PEER_INFO, {peer_info});
-    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
-                         {dk::TIMING_PORT, 0}}); // unused by AP2
+    reply_dict.setUints(
+        {{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
+         {dk::TIMING_PORT, 0}}); // unused by AP2
 
     // adjust Service system flags and request mDNS update
     Service::ptr()->receiverActive();
@@ -107,9 +109,11 @@ bool Setup::handleNoStreams() {
     return false;
   }
 
-  if (stream.isRemote()) { // remote control only; open event port, send timing dummy port
-    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
-                         {dk::TIMING_PORT, 0}}); // unused by AP2
+  if (stream.isRemote()) { // remote control only; open event port, send timing
+                           // dummy port
+    reply_dict.setUints(
+        {{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
+         {dk::TIMING_PORT, 0}}); // unused by AP2
 
     return true;
   }
@@ -127,7 +131,8 @@ bool Setup::handleStreams() {
   StreamData stream_data;
   Aplist reply_stream0; // build the streams sub dict
 
-  if (conn->stream.isPtpStream()) { // initial setup is PTP, this setup finalizes details
+  if (conn->stream.isPtpStream()) { // initial setup is PTP, this setup
+                                    // finalizes details
     const auto s0 = Aplist(rdict, {dk::STREAMS, dk::IDX0});
 
     // capture stream info common for buffered or real-time
@@ -136,7 +141,8 @@ bool Setup::handleStreams() {
     stream_data.conn_id = s0.uint({dk::STREAM_CONN_ID});
     stream_data.spf = s0.uint({dk::SAMPLE_FRAMES_PER_PACKET});
     stream_data.key = s0.dataArray({dk::SHK});
-    stream_data.supports_dynamic_stream_id = s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
+    stream_data.supports_dynamic_stream_id =
+        s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
     stream_data.audio_format = s0.uint({dk::AUDIO_FORMAT});
     stream_data.client_id = s0.stringView({dk::CLIENT_ID});
     stream_data.type = s0.uint({dk::TYPE});
@@ -153,26 +159,26 @@ bool Setup::handleStreams() {
 
     // now handle the specific stream type
     switch (stream_type) {
-      case stream::typeBuffered():
-        conn->stream.buffered(); // this is a buffered audio stream
+    case stream::typeBuffered():
+      conn->stream.buffered(); // this is a buffered audio stream
 
-        // reply requires the type, audio data port and our buffer size
-        reply_stream0.setUints(
-            {{dk::TYPE, stream::typeBuffered()},                     // stream type
-             {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
-             {dk::BUFF_SIZE, conn->bufferSize()}});                  // our buffer size
+      // reply requires the type, audio data port and our buffer size
+      reply_stream0.setUints(
+          {{dk::TYPE, stream::typeBuffered()}, // stream type
+           {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
+           {dk::BUFF_SIZE, conn->bufferSize()}}); // our buffer size
 
-        rc = true;
-        break;
+      rc = true;
+      break;
 
-      case stream::typeRealTime():
-        conn->stream.realtime();
-        rc = true;
-        break;
+    case stream::typeRealTime():
+      conn->stream.realtime();
+      rc = true;
+      break;
 
-      default:
-        rc = false;
-        break;
+    default:
+      rc = false;
+      break;
     }
 
   } else if (conn->stream.isRemote()) {
@@ -184,8 +190,10 @@ bool Setup::handleStreams() {
   }
 
   if (rc) {
-    // regardless of stream type start the control server and add it's port to the reply
-    reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(ServerType::Control));
+    // regardless of stream type start the control server and add it's port to
+    // the reply
+    reply_stream0.setUint(dk::CONTROL_PORT,
+                          servers->localPort(ServerType::Control));
 
     // put the sub dict into the reply
     reply_dict.setArray(dk::STREAMS, reply_stream0);

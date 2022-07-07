@@ -38,10 +38,15 @@ protected:
   enum ACCUMULATE : uint8_t { RX = 31, TX };
 
 private:
-  static constexpr csv DEF_SESSION_ID{"unknown session"};
+  static constexpr csv DEF_MODULE_ID{"UNSET MODULE"};
 
 public:
-  Base(const Inject &di, csv session_id = DEF_SESSION_ID);
+  Base(const Inject &di, csv module_id = DEF_MODULE_ID)
+      : socket(std::move(di.socket)), local_strand(di.io_ctx),
+        module_id(module_id) {
+    _acc.emplace(ACCUMULATE::RX, 0);
+    _acc.emplace(ACCUMULATE::TX, 0);
+  }
 
   virtual ~Base();
 
@@ -50,7 +55,7 @@ public:
   bool isReady() const { return socket.is_open(); };
   bool isReady(const error_code &ec);
 
-  csv sessionId() const { return session_id; }
+  csv moduleID() const { return module_id; }
   virtual void shutdown() { teardown(); }
   virtual void teardown();
 
@@ -63,7 +68,7 @@ protected:
   strand local_strand;
 
 private:
-  string session_id; // used for logging
+  string module_id; // used for logging
 
   std::unordered_map<ACCUMULATE, uint64_t> _acc;
 };

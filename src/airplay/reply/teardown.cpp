@@ -18,6 +18,8 @@
 
 #include "reply/teardown.hpp"
 #include "base/headers.hpp"
+#include "base/shk.hpp"
+#include "base/typical.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
@@ -30,57 +32,43 @@ namespace airplay {
 namespace reply {
 
 bool Teardown::populate() {
-  auto servers = Servers::ptr();
   rdict = plist();
 
   headers.add(hdr_type::ContentSimple, hdr_val::ConnectionClosed);
   responseCode(RespCode::OK); // always OK
 
-  auto has_streams = rdict.exists(dk::STREAMS);
+  return rdict.exists(dk::STREAMS) ? phase1() : phase12();
+}
 
-  if (has_streams == true) { // stop processing audio data
-    if (false) {             // debug
-      constexpr auto f = FMT_STRING("{} {} phase 1 has_streams={}\n");
-      fmt::print(f, runTicks(), fnName(), has_streams);
-    }
-
-    phase1();
-
-  } else { // we've been asked to disconnect
-
-    if (false) { // debug
-      constexpr auto f = FMT_STRING("{} {} phase 2 has_streams={}\n");
-      fmt::print(f, runTicks(), fnName(), has_streams);
-    }
-
-    phase1();
-    phase2();
-  }
+bool Teardown::phase1() {
+  __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 1"));
+  SharedKey::clear();
+  Player::teardown(); // clear player frames
 
   return true;
 }
 
-void Teardown::phase1() {
-  ConnInfo::ptr()->sessionKeyClear();
+bool Teardown::phase2() { // we've been asked to disconnect
+  __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 2"));
+  auto servers = Servers::ptr().get();
 
-  Player::teardown(); // clear player frames
-}
-
-void Teardown::phase2() {
   Service::ptr()->receiverActive(false);
   mDNS::ptr()->update();
 
-  Servers::ptr()->teardown(ServerType::Event);
-  Servers::ptr()->teardown(ServerType::Control);
-  Servers::ptr()->teardown(ServerType::Audio);
+  servers->teardown(ServerType::Event);
+  servers->teardown(ServerType::Control);
+  servers->teardown(ServerType::Audio);
 
   if (ConnInfo::ptr()->stream.isNtpStream()) {
     ConnInfo::ptr()->airplay_gid.clear();
   }
+
   ConnInfo::ptr()->groupContainsGroupLeader = false;
   ConnInfo::ptr()->dacp_active_remote.clear();
 
   Player::teardown();
+
+  return true;
 }
 
 } // namespace reply

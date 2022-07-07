@@ -20,11 +20,11 @@
 
 #include "aes/aes_ctx.hpp"
 #include "base/content.hpp"
+#include "base/headers.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
 #include "core/host.hpp"
-#include "base/headers.hpp"
 #include "reply/inject.hpp"
 #include "session/base.hpp"
 
@@ -63,10 +63,10 @@ public:
 
 private:
   Rtsp(const Inject &di)
-      : Base(di, csv("RTSP SESSION")),           // Base holds the newly connected socket
+      : Base(di, csv("RTSP SESSION")), // Base holds the newly connected socket
         aes_ctx(AesCtx(Host::ptr()->deviceID())) // create aes ctx
   {
-    __LOG0("{} NEW handle={}\n", sessionId(), socket.native_handle());
+    __LOG0("{} NEW handle={}\n", moduleID(), socket.native_handle());
   }
 
 public:
@@ -82,7 +82,7 @@ public:
 
 private:
   bool createAndSendReply();
-  bool ensureAllContent(); // uses Headers functionality to ensure all content loaded
+  bool ensureAllContent(); // uses Headers to ensure all content is loaded
 
   // receives the rx_bytes from async_read
   void handleRequest(size_t bytes);
@@ -102,6 +102,8 @@ private:
   uint8v _packet; // deciphered
   Headers _headers;
   Content _content;
+
+  string active_remote;
 };
 
 } // namespace session

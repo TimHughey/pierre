@@ -53,8 +53,12 @@ private:
   using CondV = std::condition_variable;
 
 public:
-  static shConnInfo init() { return shared::connInfo().emplace(new ConnInfo()); }
-  static shConnInfo ptr() { return shared::connInfo().value()->shared_from_this(); }
+  static shConnInfo init() {
+    return shared::connInfo().emplace(new ConnInfo());
+  }
+  static shConnInfo ptr() {
+    return shared::connInfo().value()->shared_from_this();
+  }
   static void reset() { shared::connInfo().reset(); }
 
 private:
@@ -65,13 +69,10 @@ public:
   const StreamData &streamData() const { return stream_info.data(); }
 
   // getters
-  csv sessionKey() const { return stream_info.key(); }
 
   // setters
   void save(const Stream &new_stream) { stream = new_stream; }
   void save(const StreamData &data);
-
-  void sessionKeyClear() { stream_info.keyClear(); }
 
   StreamInfo stream_info;
   Stream stream;
