@@ -28,6 +28,9 @@ add_library(${__target} SHARED
   # connection info
   conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp
 
+  # embedded plists (via ld text file to binary, see ple/CMakeLists.txt)
+  embed/embed.cpp
+
   # reply
   reply/cmd.cpp reply/factory.cpp reply/fairplay.cpp reply/feedback.cpp
   reply/flush.cpp reply/info.cpp reply/options.cpp reply/pairing.cpp

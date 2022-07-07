@@ -20,7 +20,7 @@
 
 #include "reply/info.hpp"
 #include "core/service.hpp"
-#include "ple/embed.hpp"
+#include "embed/embed.hpp"
 #include "reply/dict_keys.hpp"
 
 #include <array>
@@ -61,7 +61,7 @@ bool Info::stage1() {
   auto serv = Service::ptr();
 
   // create the reply dict from an embedded plist
-  Aplist reply_dict(ple::Embedded::GetInfoRespStage1);
+  Aplist reply_dict(ple::binary(ple::Embedded::GetInfoRespStage1));
 
   // create the qualifier data value
   auto qual_data = fmt::memory_buffer();
@@ -116,7 +116,7 @@ bool Info::stage2() {
   auto serv = Service::ptr();
 
   // the response dict is based on the request
-  Aplist reply_dict(ple::Embedded::GetInfoRespStage1);
+  Aplist reply_dict(ple::binary(ple::Embedded::GetInfoRespStage1));
 
   // handle the uints first
   const auto features_key = serv->fetchKey(apFeatures);

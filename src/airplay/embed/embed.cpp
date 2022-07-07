@@ -18,19 +18,17 @@
     https://www.wisslanding.com
 */
 
-#include "embed.hpp"
+#include "embed/embed.hpp"
 
-#include <iterator>
-
-namespace pierre {
-namespace airplay {
-
-// embedded binary data via ld (see CMakeLists.txt)
+// embedded binary data via ld (see ple/CMakeLists.txt)
 extern uint8_t _binary_get_info_resp_plist_start[];
 extern uint8_t _binary_get_info_resp_plist_end;
 extern uint8_t _binary_get_info_resp_plist_size;
 
-const std::string_view ple::binary(const Embedded &embedded) { // static
+namespace pierre {
+namespace airplay {
+
+const csv ple::binary(const Embedded &embedded) { // static
   const char *begin = nullptr;
   const char *end = nullptr;
 
@@ -41,7 +39,7 @@ const std::string_view ple::binary(const Embedded &embedded) { // static
       break;
   }
 
-  return std::string_view(begin, std::distance(begin, end));
+  return csv(begin, end - begin);
 }
 
 } // namespace airplay

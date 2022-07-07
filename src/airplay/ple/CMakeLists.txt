@@ -4,14 +4,11 @@
 
 set(__target ple)
 
-set(HEADER_PATH                         ${pierre_SOURCE_DIR}/include)
-set(HEADER_PATH_LOCAL                   ${HEADER_PATH}/airplay/${__target})
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
+# no headers, only a single file and binary file via ld
+# must be separate library consisting of only the ld created binary file
+# to prevent linker relocation errors
 
-add_library(${__target} 
-  embed.cpp
-  ${HEADER_LIST}
-)
+add_library(${__target} STATIC ple.cpp)
 
 # embed static plists
 set(PLIST_EMBED ${CMAKE_CURRENT_SOURCE_DIR})
@@ -27,7 +24,6 @@ add_custom_command(TARGET
   VERBATIM
 )
 
-target_include_directories(${__target} PUBLIC ${HEADER_PATH_LOCAL})
 target_link_libraries(${__target} PUBLIC ${PLIST_GET_INFO_BIN})
 
 

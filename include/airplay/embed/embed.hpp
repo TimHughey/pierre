@@ -20,8 +20,7 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string_view>
+#include "base/types.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -29,7 +28,7 @@ namespace airplay {
 struct ple {
   enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
 
-  static const std::string_view binary(const Embedded &embedded);
+  static csv binary(const Embedded &embedded);
 };
 
 } // namespace airplay
