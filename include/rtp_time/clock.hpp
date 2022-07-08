@@ -79,7 +79,9 @@ public:
     static constexpr Nanos AGE_MIN{1500ms};
 
     uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
-    Nanos masterFor(Nanos now = pe_time::nowNanos()) const { return now - mastershipStartTime; }
+    Nanos masterFor(Nanos now = pe_time::nowNanos()) const {
+      return now - mastershipStartTime;
+    }
 
     bool ok() const {
       if (clockID == 0) { // no master clock
@@ -124,13 +126,15 @@ public:
 
 public:
   struct nqptp {
-    pthread_mutex_t copy_mutes;           // for safely accessing the structure
-    uint16_t version;                     // check version==VERSION
-    uint64_t master_clock_id;             // the current master clock
-    char master_clock_ip[64];             // where it's coming from
-    uint64_t local_time;                  // the time when the offset was calculated
-    uint64_t local_to_master_time_offset; // add this to the local time to get master clock time
-    uint64_t master_clock_start_time;     // this is when the master clock became master}
+    pthread_mutex_t copy_mutes; // for safely accessing the structure
+    uint16_t version;           // check version==VERSION
+    uint64_t master_clock_id;   // the current master clock
+    char master_clock_ip[64];   // where it's coming from
+    uint64_t local_time;        // the time when the offset was calculated
+    uint64_t local_to_master_time_offset; // add this to the local time to get
+                                          // master clock time
+    uint64_t
+        master_clock_start_time; // this is when the master clock became master}
   };
 
 public:
@@ -149,9 +153,8 @@ public:
 
   // misc debug
   static void dump() {
-    const auto msg = ptr()->getInfo().inspect();
-
-    __LOG0("{:<18} inspect info\n{}\n", moduleId, msg);
+    __LOG0(LCOL01 " inspect info\n{}\n", moduleId, csv("DUMP"),
+           ptr()->getInfo().inspect());
   }
 
 private:
@@ -175,10 +178,11 @@ private:
 
 public:
   // prevent copies, moves and assignments
-  MasterClock(const MasterClock &clock) = delete;            // no copy
-  MasterClock(const MasterClock &&clock) = delete;           // no move
-  MasterClock &operator=(const MasterClock &clock) = delete; // no copy assignment
-  MasterClock &operator=(MasterClock &&clock) = delete;      // no move assignment
+  MasterClock(const MasterClock &clock) = delete;  // no copy
+  MasterClock(const MasterClock &&clock) = delete; // no move
+  MasterClock &
+  operator=(const MasterClock &clock) = delete;         // no copy assignment
+  MasterClock &operator=(MasterClock &&clock) = delete; // no move assignment
 };
 
 /*
