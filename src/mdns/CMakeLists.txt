@@ -8,7 +8,7 @@ set(HEADER_PATH_LOCAL ${HEADER_PATH}/${__target})
 
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.hpp")
 
-find_package(Avahi    REQUIRED)
+find_package(Avahi REQUIRED)
 
 add_library(${__target} SHARED mdns.cpp ${HEADER_LIST})
 

@@ -2,6 +2,15 @@
 # Desk
 #
 
+include(FetchContent)
+
+FetchContent_Declare(ArduinoJson
+    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+    GIT_TAG        v6.19.4
+)
+
+FetchContent_MakeAvailable(ArduinoJson)
+
 set(__target desk)
 
 set(HEADER_PATH "${pierre_SOURCE_DIR}/include/")

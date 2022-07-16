@@ -65,23 +65,24 @@ endif()
 
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-    libavdevice
-    libavfilter
-    libavformat
-    libavcodec
-    libswresample
-    libswscale
-    libavutil
-)
+# find_package(PkgConfig REQUIRED)
+# pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+#     libavdevice
+#     libavfilter
+#     libavformat
+#     libavcodec
+#     libswresample
+#     libswscale
+#     libavutil
+# )
 
-include(FetchContent)
-  FetchContent_Declare(ArduinoJson
-    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
-    GIT_TAG        v6.19.4
-)
-FetchContent_MakeAvailable(ArduinoJson)
+# include(FetchContent)
+#   FetchContent_Declare(ArduinoJson
+#     GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+#     GIT_TAG        v6.19.4
+# )
+
+# FetchContent_MakeAvailable(ArduinoJson)
 
 add_subdirectory(src libs)
 
@@ -97,8 +98,8 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  core airplay rtp_time
-  ${Boost_LIBRARIES}
+  base core airplay rtp_time
+  # ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs
 )
