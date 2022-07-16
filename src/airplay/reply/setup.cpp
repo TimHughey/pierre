@@ -20,6 +20,7 @@
 
 #include "reply/setup.hpp"
 #include "conn_info/conn_info.hpp"
+#include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
@@ -42,8 +43,7 @@ bool Setup::populate() {
 
   // rdict.dump();
 
-  const auto has_streams =
-      (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
+  const auto has_streams = (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
 
   __LOGX(LCOL01 " has_streams={}\n", baseID(), moduleID(), has_streams);
 
@@ -92,9 +92,8 @@ bool Setup::handleNoStreams() {
     peer_info.setString(dk::ID, ip_addrs[0]);
 
     reply_dict.setArray(dk::TIMING_PEER_INFO, {peer_info});
-    reply_dict.setUints(
-        {{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
-         {dk::TIMING_PORT, 0}}); // unused by AP2
+    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
+                         {dk::TIMING_PORT, 0}}); // unused by AP2
 
     // adjust Service system flags and request mDNS update
     Service::ptr()->receiverActive();
@@ -111,9 +110,8 @@ bool Setup::handleNoStreams() {
 
   if (stream.isRemote()) { // remote control only; open event port, send timing
                            // dummy port
-    reply_dict.setUints(
-        {{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
-         {dk::TIMING_PORT, 0}}); // unused by AP2
+    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
+                         {dk::TIMING_PORT, 0}}); // unused by AP2
 
     return true;
   }
@@ -141,8 +139,7 @@ bool Setup::handleStreams() {
     stream_data.conn_id = s0.uint({dk::STREAM_CONN_ID});
     stream_data.spf = s0.uint({dk::SAMPLE_FRAMES_PER_PACKET});
     stream_data.key = s0.dataArray({dk::SHK});
-    stream_data.supports_dynamic_stream_id =
-        s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
+    stream_data.supports_dynamic_stream_id = s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
     stream_data.audio_format = s0.uint({dk::AUDIO_FORMAT});
     stream_data.client_id = s0.stringView({dk::CLIENT_ID});
     stream_data.type = s0.uint({dk::TYPE});
@@ -163,10 +160,9 @@ bool Setup::handleStreams() {
       conn->stream.buffered(); // this is a buffered audio stream
 
       // reply requires the type, audio data port and our buffer size
-      reply_stream0.setUints(
-          {{dk::TYPE, stream::typeBuffered()}, // stream type
-           {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
-           {dk::BUFF_SIZE, conn->bufferSize()}}); // our buffer size
+      reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()}, // stream type
+                              {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
+                              {dk::BUFF_SIZE, conn->bufferSize()}}); // our buffer size
 
       rc = true;
       break;
@@ -192,8 +188,7 @@ bool Setup::handleStreams() {
   if (rc) {
     // regardless of stream type start the control server and add it's port to
     // the reply
-    reply_stream0.setUint(dk::CONTROL_PORT,
-                          servers->localPort(ServerType::Control));
+    reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(ServerType::Control));
 
     // put the sub dict into the reply
     reply_dict.setArray(dk::STREAMS, reply_stream0);
