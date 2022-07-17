@@ -15,7 +15,7 @@ find_library(libUUID   NAMES uuid       REQUIRED)
 find_library(libplist  NAMES plist      REQUIRED)
 find_package(GCRYPT                     REQUIRED)
 find_package(Sodium                     REQUIRED)
-find_package(OpenSSL                    REQUIRED)
+# find_package(OpenSSL                    REQUIRED)
 
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
@@ -59,7 +59,7 @@ target_link_libraries(${__target} PRIVATE
   ${libUUID}
   ${Boost_LIBRARIES}
   sodium
-  ssl
+  # ssl
   gcrypt
   base
 )
