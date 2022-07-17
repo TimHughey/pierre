@@ -25,12 +25,9 @@
 #include <array>
 #include <cstdarg>
 #include <exception>
-#include <fmt/format.h>
 #include <list>
 #include <memory>
 #include <plist/plist++.h>
-#include <string>
-#include <string_view>
 #include <vector>
 
 namespace pierre {
@@ -128,7 +125,7 @@ private:
 private:
   plist_t _plist = nullptr;
 
-  static constexpr csv moduleId{"APLIST"};
+  static constexpr csv moduleId = "APLIST";
 };
 
 } // namespace pierre

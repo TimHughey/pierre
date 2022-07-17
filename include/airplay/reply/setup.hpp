@@ -20,16 +20,12 @@
 
 #pragma once
 
-#include "base/aplist.hpp"
+#include "aplist/aplist.hpp"
 #include "reply/reply.hpp"
 
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-namespace { // anoanymous namespace limits scope to this file
-using Aplist = Aplist;
-}
 
 class Setup : public Reply {
 public:

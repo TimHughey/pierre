@@ -5,25 +5,28 @@
 add_subdirectory(aes)
 add_subdirectory(ple)
 
-set(THREADS_PREFER_PTHREAD_FLAG true)
-
 set(__target  airplay)
 
 set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
 set(HEADER_PATH_LOCAL "${HEADER_PATH}/${__target}")
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS 
   "${HEADER_PATH_LOCAL}/*.h*"
+  "${HEADER_PATH_LOCAL}/aplist/*.h*"
   "${HEADER_PATH_LOCAL}/common/*.h*"
   "${HEADER_PATH_LOCAL}/reply/*.h*"
   "${HEADER_PATH_LOCAL}/server/*.h*"
   "${HEADER_PATH_LOCAL}/session/*.h*"
+
 )
 
-find_library(plist        NAMES plist         REQUIRED)
+find_library(libplist     NAMES plist      REQUIRED)
 
 add_library(${__target} SHARED
   # public API and overall controller
   airplay.cpp controller.cpp
+
+  # apple property lists
+  aplist/aplist.cpp
   
   # connection info
   conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp
@@ -48,14 +51,15 @@ add_library(${__target} SHARED
 )
 
 # all includes are relative to base includes
-target_include_directories(${__target} PRIVATE ${HEADER_PATH} ${HEADER_PATH_LOCAL})
+target_include_directories(${__target} PRIVATE
+  ${HEADER_PATH} ${HEADER_PATH_LOCAL})
 
 # all includes are relative to base includes
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
-  ${plist}
+  ${libplist}
   ple
   base core io mdns ap_aes player 
 )

@@ -3,14 +3,6 @@
 # Source Directories
 #
 
-include(FetchContent)
-FetchContent_Declare(ArduinoJson
-    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
-    GIT_TAG        v6.19.3
-)
-
-FetchContent_MakeAvailable(ArduinoJson)
-
 # common types, logging, helpers and shared session key
 add_subdirectory(base)
 
