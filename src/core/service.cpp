@@ -23,8 +23,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <exception>
 #include <fmt/format.h>
 
-#include <plist/plist++.h>
-
 namespace pierre {
 
 namespace shared {
@@ -56,10 +54,6 @@ Service::Service() {
 }
 
 void Service::addFeatures() {
-  // constexpr uint64_t bit = 1;
-  // uint64_t mask64 = (bit << 17) | (bit << 16) | (bit << 15) | (bit << 50);
-  // APX + Authentication4 (b14) with no metadata
-  // _features_val = 0x1C340405D4A00 & (~mask64);
 
   Features features;
   _features_val = features.ap2SetPeersX();
@@ -70,19 +64,19 @@ void Service::addFeatures() {
 
   for (auto key : std::array{apFeatures, mdFeatures, plFeatures}) {
     switch (key) {
-      case apFeatures:
-      case mdFeatures: {
-        auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
-        saveCalcVal(key, str);
-      } break;
+    case apFeatures:
+    case mdFeatures: {
+      auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
+      saveCalcVal(key, str);
+    } break;
 
-      case plFeatures: {
-        auto str = fmt::format("{}", (int64_t)_features_val);
-        saveCalcVal(key, str);
-      } break;
+    case plFeatures: {
+      auto str = fmt::format("{}", (int64_t)_features_val);
+      saveCalcVal(key, str);
+    } break;
 
-      default:
-        break;
+    default:
+      break;
     }
   }
 }
@@ -188,11 +182,11 @@ service::sKeyValList Service::keyValList(const KeySeq &want_keys) const {
 
 const KeyVal Service::nameAndReg(Type type) const {
   switch (type) {
-    case service::AirPlayTCP:
-      return fetch(AirPlayRegNameType);
+  case service::AirPlayTCP:
+    return fetch(AirPlayRegNameType);
 
-    case service::RaopTCP:
-      return fetch(RaopRegNameType);
+  case service::RaopTCP:
+    return fetch(RaopRegNameType);
   }
 
   throw(std::runtime_error("bad service type"));

@@ -25,7 +25,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <plist/plist++.h>
 #include <tuple>
 #include <unordered_map>
 
