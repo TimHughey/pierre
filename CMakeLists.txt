@@ -5,8 +5,8 @@
 #
 
 cmake_minimum_required(VERSION 3.22.0)
-set(FIND_LIBRARY_USE_LIB64_PATHS true)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+set(FIND_LIBRARY_USE_LIB64_PATHS  true)
+set(CMAKE_VERBOSE_MAKEFILE        ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 # set the project name and version
@@ -23,13 +23,13 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
-  set(CMAKE_CXX_EXTENSIONS         ON)
-  set(CMAKE_CXX_STANDARD           20)
-  set(CMAKE_CXX_STANDARD_REQUIRED  TRUE)
+  set(CMAKE_CXX_EXTENSIONS            ON)
+  set(CMAKE_CXX_STANDARD              20)
+  set(CMAKE_CXX_STANDARD_REQUIRED     TRUE)
 
-  set(CMAKE_C_EXTENSIONS         ON)
-  set(CMAKE_C_STANDARD           17)
-  set(CMAKE_C_STANDARD_REQUIRED  TRUE)
+  set(CMAKE_C_EXTENSIONS              ON)
+  set(CMAKE_C_STANDARD                17)
+  set(CMAKE_C_STANDARD_REQUIRED       TRUE)
 
   add_compile_options(-Wall -Wextra -pedantic -Werror)
 
@@ -65,30 +65,9 @@ endif()
 
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
-# find_package(PkgConfig REQUIRED)
-# pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-#     libavdevice
-#     libavfilter
-#     libavformat
-#     libavcodec
-#     libswresample
-#     libswscale
-#     libavutil
-# )
+add_subdirectory(src)
 
-# include(FetchContent)
-#   FetchContent_Declare(ArduinoJson
-#     GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
-#     GIT_TAG        v6.19.4
-# )
-
-# FetchContent_MakeAvailable(ArduinoJson)
-
-add_subdirectory(src libs)
-
-add_executable(${_target}
-  apps/pierre.cpp apps/main.cpp
-)
+add_executable(${_target} apps/pierre.cpp apps/main.cpp)
 
 configure_file(cmake/version.h.in version.h @ONLY)
 
@@ -99,7 +78,6 @@ target_include_directories(${_target} PUBLIC
 
 target_link_libraries(${_target} PUBLIC
   base core airplay rtp_time
-  # ${Boost_LIBRARIES}
   Threads::Threads
   stdc++fs
 )
