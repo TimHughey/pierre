@@ -104,7 +104,7 @@ void Render::frameTimer() {
 }
 
 void Render::handleFrame() {
-  static csv CATEGORY{"FRAME TIMER"};
+  static csv fn_id = "HANDLE_FRAME";
   [[maybe_unused]] Elapsed elapsed;
 
   ++rendered_frames;
@@ -123,14 +123,14 @@ void Render::handleFrame() {
     active_fx->executeLoop(recent_frame->peaksLeft());
 
     if (Frame::ok(frame) && frame->unplayed()) {
-      __LOGX(LCOL01 " {}\n", moduleId, CATEGORY, Frame::inspectFrame(frame));
+      __LOGX(LCOL01 " {}\n", moduleId, fn_id, Frame::inspectFrame(frame));
     }
   }
 
   frameTimer();
 
   if (elapsed.freeze() >= 3ms) {
-    __LOG0(LCOL01 " elapsed={:0.2}\n", moduleId, CATEGORY, elapsed.as<MillisFP>());
+    __LOG0(LCOL01 " elapsed={:0.2}\n", moduleId, fn_id, elapsed.as<MillisFP>());
   }
 }
 

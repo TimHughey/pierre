@@ -21,7 +21,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "base/typical.hpp"
 
 #include <memory>
-#include <optional>
 
 namespace pierre {
 
@@ -39,6 +38,7 @@ public:
   static void reset();
 
 public:
+  static void browse(csv stype);
   static auto port() { return PORT; }
   bool start();
   void update();

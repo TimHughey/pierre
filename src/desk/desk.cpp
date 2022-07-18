@@ -25,6 +25,7 @@
 #include "desk/fx/silence.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/opts.hpp"
+#include "mdns/mdns.hpp"
 
 #include <math.h>
 #include <ranges>
@@ -43,6 +44,7 @@ Desk::Desk() : active_fx(createFX<fx::Silence>()) {
 
 // static creation, access to instance
 shDesk Desk::create() {
+  mDNS::browse(csv("_ruth._tcp"));
   auto desk = shared::tracker().emplace(new Desk());
 
   desk->addUnit<PinSpot>(unit::MAIN_SPOT_OPTS);

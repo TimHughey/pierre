@@ -132,18 +132,6 @@ private:
 private:
   Units units;
   shFX active_fx;
-
-  // struct {
-  //   std::mutex mtx;
-  //   std::shared_ptr<fx::FX> fx;
-  // } _active;
-
-  // spPinSpot main;
-  // spPinSpot fill;
-  // spLedForest led_forest;
-  // spElWire el_dance_floor;
-  // spElWire el_entry;
-  // spDiscoBall discoball;
 };
 
 } // namespace pierre

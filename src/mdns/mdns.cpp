@@ -59,10 +59,8 @@ static bool group_add_service(AvahiEntryGroup *group, service::Type stype, const
 static bool group_reset_if_needed();
 static void group_save(AvahiEntryGroup *group);
 
-[[maybe_unused]] static bool resolver_new(AvahiClient *client, AvahiIfIndex interface,
-                                          AvahiProtocol protocol, ccs name, ccs type, ccs domain,
-                                          AvahiProtocol aprotocol, AvahiLookupFlags flags,
-                                          AvahiServiceResolverCallback callback, void *userdata);
+[[maybe_unused]] static bool resolver_new(AvahiIfIndex interface, AvahiProtocol protocol, ccs name,
+                                          ccs type, ccs domain, AvahiLookupFlags flags, void *d);
 
 void cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol protocol,
                AvahiBrowserEvent event, ccs name, ccs type, ccs domain,
@@ -133,9 +131,10 @@ void cb_client(AvahiClient *client, AvahiClientState state, [[maybe_unused]] voi
   }
 }
 
-void cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol protocol,
-               AvahiBrowserEvent event, ccs name, ccs type, ccs domain,
-               [[maybe_unused]] AvahiLookupResultFlags flags, void *d) {
+void cb_browse([[maybe_unused]] AvahiServiceBrowser *b, [[maybe_unused]] AvahiIfIndex iface,
+               [[maybe_unused]] AvahiProtocol protocol, AvahiBrowserEvent event, ccs name,
+               ccs type, ccs domain, [[maybe_unused]] AvahiLookupResultFlags flags,
+               [[maybe_unused]] void *d) {
   // NOTE:  Called when a service becomes available or is removed from the
   // network
 
@@ -149,31 +148,53 @@ void cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol protoco
     break;
 
   case AVAHI_BROWSER_NEW:
-    // debug(1, "browse_callback: avahi_service_resolver_new for service '%s' of
-    // type '%s' in domain
-    // '%s'.", name, type, domain);
+    __LOG0(LCOL01 " NEW host={} type={} domain={}\n", mDNS::moduleID(), fn_id, name, type, domain);
+
     /* We ignore the returned resolver object. In the callback
-       function we free it. If the server is terminated before
-       the callback function is called the server will free
-       the resolver for us. */
-    if (!(avahi_service_resolver_new(_client, iface, protocol, name, type, domain,
-                                     AVAHI_PROTO_UNSPEC, (AvahiLookupFlags)9, cb_resolve, d))) {
-      mDNS::ptr()->error = error_string(_client);
-      __LOG0(LCOL01 " resolve failed service={} error={}\n", mDNS::moduleID(), fn_id, type,
-             mDNS::ptr()->error);
+          function we free it. If the server is terminated before
+          the callback function is called the server will free
+          the resolver for us. */
+
+    if (resolver_new(iface,               //
+                     protocol,            //
+                     name,                //
+                     type,                //
+                     domain,              // domain
+                     (AvahiLookupFlags)0, //
+                     d) == false)         // user data
+    {
+
+      // if (auto r =                                        //
+      //     avahi_service_resolver_new(mdns::_client,       //
+      //                                iface,               //
+      //                                protocol,            //
+      //                                name,                //
+      //                                type,                //
+      //                                domain,              //
+      //                                AVAHI_PROTO_UNSPEC,  //
+      //                                (AvahiLookupFlags)0, //
+      //                                mdns::cb_resolve,    //
+      //                                d);
+      //     r == nullptr) {
+      __LOG0(LCOL01 " failed to create resolver service={} error={}\n", mDNS::moduleID(),
+             fn_id, //
+             type, mDNS::ptr()->error);
     }
 
     break;
 
   case AVAHI_BROWSER_REMOVE:
-    __LOG0(LCOL01 " remove service={} typr={} domain={}\n", mDNS::moduleID(), fn_id, name, type,
-           domain);
+    __LOG0(LCOL01 " REMOVE service={} type={} domain={}\n", mDNS::moduleID(), fn_id, //
+           name, type, domain);
     break;
 
   case AVAHI_BROWSER_ALL_FOR_NOW:
+    __LOG0(LCOL01 " all for now\n", mDNS::moduleID(), fn_id);
+    break;
+
   case AVAHI_BROWSER_CACHE_EXHAUSTED:
-    // debug(1, "(Browser) %s.", event == AVAHI_BROWSER_CACHE_EXHAUSTED ?
-    // "CACHE_EXHAUSTED" : "ALL_FOR_NOW");
+    __LOG0(LCOL01 " cache exhausted\n", mDNS::moduleID(), fn_id);
+
     break;
   }
 }
@@ -206,41 +227,41 @@ void cb_entry_group(AvahiEntryGroup *group, AvahiEntryGroupState state, [[maybe_
 
 void cb_resolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface,
                 [[maybe_unused]] AvahiProtocol protocol, AvahiResolverEvent event, ccs name,
-                ccs type, ccs domain, [[maybe_unused]] ccs host_name,
+                ccs type, [[maybe_unused]] ccs domain, [[maybe_unused]] ccs host_name,
                 [[maybe_unused]] const AvahiAddress *address, [[maybe_unused]] uint16_t port,
                 [[maybe_unused]] AvahiStringList *txt,
                 [[maybe_unused]] AvahiLookupResultFlags flags, [[maybe_unused]] void *d) {
-  [[maybe_unused]] static constexpr csv fn_id("cb_resolve()");
+  [[maybe_unused]] static constexpr csv fn_id("CB_RESOLVE");
 
-  const string dacp_id{name};
+  // const string dacp_id{name};
   auto mdns = mDNS::ptr();
-
-  __LOG0(LCOL01 " unexpected call dacp_id={}\n", mDNS::moduleID(), fn_id, dacp_id);
-
-  /* Called whenever a service has been resolved successfully or timed out */
-  mdns->type = type;
-  mdns->domain = domain;
-  mdns->host_name = host_name;
 
   switch (event) {
   case AVAHI_RESOLVER_FAILURE:
     mdns->found = false;
     mdns->error = error_string(avahi_service_resolver_get_client(r));
+
+    __LOG0(LCOL01 " failed reason={}\n", mDNS::moduleID(), fn_id, mdns->error);
+
     break;
 
   case AVAHI_RESOLVER_FOUND: // found
-    //    char a[AVAHI_ADDRESS_STR_MAX], *t;
-    // debug(3, "resolve_callback: Service '%s' of type '%s' in domain '%s':",
-    // name, type, domain);
-    __LOG0(LCOL01 " found service={} type={}\n", mDNS::moduleID(), fn_id, name, type);
+  {
+    std::array<char, AVAHI_ADDRESS_STR_MAX> addr_str{0};
+    avahi_address_snprint(addr_str.data(), addr_str.size(), address);
+    const auto addr_sv = csv(addr_str.data(), addr_str.size());
+    auto txt_str = avahi_string_list_to_string(txt);
+    auto proto_str = avahi_proto_to_string(protocol);
 
-    if (dacp_id.ends_with(mdns->_dacp_id)) {
-      mdns->found = true;
-    }
-    break;
+    __LOG0(LCOL01 " found name={} type={} address={} proto={} flags=0x{:x} txt={}\n", //
+           mDNS::moduleID(), fn_id, name, type, addr_sv, proto_str, flags, txt_str);
+
+    avahi_free(txt_str);
   }
 
-  // debug(1,"service resolver freed by resolve_callback");
+  break;
+  }
+
   avahi_service_resolver_free(r);
 }
 
@@ -336,19 +357,19 @@ void group_save(AvahiEntryGroup *group) {
   _groups.emplace_back(group);
 }
 
-bool resolver_new(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol protocol, ccs name,
-                  ccs type, ccs domain, [[maybe_unused]] AvahiProtocol aprotocol,
-                  [[maybe_unused]] AvahiLookupFlags flags,
-                  [[maybe_unused]] AvahiServiceResolverCallback callback, void *d) {
+bool resolver_new(AvahiIfIndex interface, AvahiProtocol protocol, ccs name, ccs type, ccs domain,
+                  AvahiLookupFlags lookup_flags, void *d) {
 
   auto rc = true; // assume success
   static constexpr csv fn_id = "resolver_new()";
-  if (_resolver = avahi_service_resolver_new(client, interface, protocol, //
-                                             name, type, domain, AVAHI_PROTO_UNSPEC,
-                                             (AvahiLookupFlags)9, cb_resolve, d);
+  if (_resolver = avahi_service_resolver_new(mdns::_client, //
+                                             interface,     //
+                                             protocol,      //
+                                             name, type, domain, AVAHI_PROTO_UNSPEC, lookup_flags,
+                                             cb_resolve, d);
       _resolver == nullptr) {
     __LOG0(LCOL01 "failed, service='{}' reason={}\n", mDNS::moduleID(), fn_id, //
-           name, mdns::error_string(client));
+           name, mdns::error_string(mdns::_client));
     rc = false;
   }
 
@@ -357,16 +378,25 @@ bool resolver_new(AvahiClient *client, AvahiIfIndex interface, AvahiProtocol pro
 
 } // namespace mdns
 
-// using enum service::Key;
-// using enum service::Type;
-
-// const string mDNS::deviceID() {
-//   const auto &[__unused_key, val_str] = Service::ptr()->fetch(apDeviceID);
-
-//   return string(val_str);
-// }
-
 // mDNS Class General API
+
+void mDNS::browse(csv stype) { // static
+
+  [[maybe_unused]] static constexpr csv fn_id = "BROWSE";
+
+  if (auto sb = avahi_service_browser_new(mdns::_client,       //
+                                          AVAHI_IF_UNSPEC,     //
+                                          AVAHI_PROTO_UNSPEC,  //
+                                          stype.data(),        //
+                                          nullptr,             // domain
+                                          (AvahiLookupFlags)0, // lookup flags
+                                          mdns::cb_browse,     // callback
+                                          mdns::_client);      // userdata
+      sb == nullptr) {
+    __LOG0(LCOL01 " create failed reason={}\n", mDNS::moduleID(), fn_id,
+           mdns::error_string(mdns::_client));
+  }
+}
 
 bool mDNS::start() {
   auto rc = true; // assume success

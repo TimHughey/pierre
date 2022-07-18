@@ -43,7 +43,7 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 # the basedinclude directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE ArduinoJson base io fader)
+target_link_libraries(${__target} PRIVATE ArduinoJson base dsp io fader mdns)
 
 # IDEs should put the headers in a nice place
 # source_group(
