@@ -1,5 +1,5 @@
 /*
-    lightdesk/lightdesk.cpp - Ruth Light Desk
+    Pierre
     Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -18,19 +18,23 @@
     https://www.wisslanding.com
 */
 
-#include "dsp/peaks.hpp"
+#pragma once
+
+#include "base/types.hpp"
 
 #include <cmath>
-#include <ranges>
 
 namespace pierre {
+namespace peak {
 
-shPeaks Peaks::sort() {
-  ranges::sort(_peaks, [](const Peak &lhs, const Peak &rhs) { // reverse order by magnitude
-    return lhs.magnitude() > rhs.magnitude();
-  });
+constexpr Scaled scaleVal(Unscaled val) {
+  // log10 of 0 is undefined
+  if (val <= 0.0f) {
+    return 0.0f;
+  }
 
-  return shared_from_this();
+  return 10.0f * std::log10(val);
 }
 
+} // namespace peak
 } // namespace pierre

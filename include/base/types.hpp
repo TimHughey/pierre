@@ -45,8 +45,12 @@ typedef std::vector<float> Reals;
 // airplay frame sequence num
 typedef uint32_t SeqNum;
 
-// Frequency
+// Frequency, magnitude, scaled values,
 typedef float Freq;
+typedef float Mag;
+typedef float MagScaled;
+typedef float Scaled;
+typedef float Unscaled;
 
 // stream is playing or not playing
 constexpr csv NOT_PLAYING{"NOT PLAYING"};

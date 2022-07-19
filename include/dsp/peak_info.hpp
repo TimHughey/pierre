@@ -1,6 +1,6 @@
 /*
-    lightdesk/lightdesk.cpp - Ruth Light Desk
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show via DMX for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,19 +18,16 @@
     https://www.wisslanding.com
 */
 
-#include "dsp/peaks.hpp"
+#pragma once
 
-#include <cmath>
-#include <ranges>
+#include "dsp/peaks.hpp"
 
 namespace pierre {
 
-shPeaks Peaks::sort() {
-  ranges::sort(_peaks, [](const Peak &lhs, const Peak &rhs) { // reverse order by magnitude
-    return lhs.magnitude() > rhs.magnitude();
-  });
-
-  return shared_from_this();
-}
+struct PeakInfo {
+  shPeaks left;
+  shPeaks right;
+  bool silence;
+};
 
 } // namespace pierre
