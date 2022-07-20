@@ -34,8 +34,8 @@ namespace ranges = std::ranges;
 
 namespace pierre {
 namespace shared {
-std::optional<shDesk> __tracker;
-std::optional<shDesk> &tracker() { return __tracker; }
+std::optional<shDesk> __desk;
+std::optional<shDesk> &desk() { return __desk; }
 } // namespace shared
 
 Desk::Desk() : active_fx(createFX<fx::Silence>()) {
@@ -45,7 +45,7 @@ Desk::Desk() : active_fx(createFX<fx::Silence>()) {
 // static creation, access to instance
 shDesk Desk::create() {
   mDNS::browse(csv("_ruth._tcp"));
-  auto desk = shared::tracker().emplace(new Desk());
+  auto desk = shared::desk().emplace(new Desk());
 
   desk->addUnit<PinSpot>(unit::MAIN_SPOT_OPTS);
   desk->addUnit<PinSpot>(unit::FILL_SPOT_OPTS);
@@ -57,7 +57,7 @@ shDesk Desk::create() {
   return desk;
 }
 
-shDesk Desk::ptr() { return shared::tracker().value()->shared_from_this(); }
+shDesk Desk::ptr() { return shared::desk().value()->shared_from_this(); }
 
 // Desk::Desk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {
 //   FX::setTracker(_tracker);
