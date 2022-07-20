@@ -19,6 +19,7 @@
 #include "controller.hpp"
 #include "base/typical.hpp"
 #include "common/ss_inject.hpp"
+#include "config/config.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"
@@ -69,7 +70,7 @@ void Controller::run() {
   nameThread(0); // controller thread is Airplay 00
 
   MasterClock::init({.io_ctx = io_ctx,
-                     .service_name = Host::ptr()->serviceName(),
+                     .service_name = Config::receiverName(),
                      .device_id = Host::ptr()->deviceID()});
 
   Anchor::init();

@@ -18,47 +18,25 @@
     https://www.wisslanding.com
 */
 
-#pragma once
-
+#include "embed/embed.hpp"
 #include "base/types.hpp"
-#include "core/args.hpp"
 
 #include <memory>
-#include <string>
-#include <tuple>
+
+// embedded binary data via ld (see cfg_fallback/CMakeLists.txt)
+extern uint8_t _binary_cfg_fallback_json_start[];
+extern uint8_t _binary_cfg_fallback_json_end;
+extern uint8_t _binary_cfg_fallback_json_size;
 
 namespace pierre {
+namespace cfg {
 
-// forward decl for Pierre shared_ptr
-class Pierre;
-typedef std::shared_ptr<Pierre> shPierre;
+const csv fallback::binary() { // static
+  const char *begin = (const char *)&_binary_cfg_fallback_json_start;
+  const char *end = (const char *)&_binary_cfg_fallback_json_end;
 
-class Pierre : public std::enable_shared_from_this<Pierre> {
-private:
-  struct Inject {
-    csr app_name;
-    const ArgsMap &args_map;
-  };
+  return csv(begin, end - begin);
+}
 
-public:
-  ~Pierre() = default;
-
-  static shPierre create(const Inject &di) {
-    // Not using std::make_shared<Pierre>, constructor is private
-    return shPierre(new Pierre(di));
-  }
-
-  static csv moduleID() { return module_id; }
-
-  // main entry point
-  void run();
-
-private:
-  Pierre(const Inject &di) : di(di) {}
-
-private:
-  Inject di;
-  static constexpr csv module_id = "PIERRE";
-};
-
+} // namespace cfg
 } // namespace pierre

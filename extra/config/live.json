@@ -1,7 +1,8 @@
 {
   "pierre": {
+    "receiver_name": "%h",
     "title": "Pierre Live Config",
-    "version": 1,
+    "version": 2,
     "use_home": false,
     "working_dir": ".pierre",
     "log_dir": "/tmp/pierre.log"
@@ -10,92 +11,95 @@
     "fft": {
       "samples": 1024,
       "rate": 44100
+    }
+  },
+  "player": {
+    "dmx_service": "_ruth._tcp"
+  },
+  "lightdesk": {
+    "silence": {
+      "min_ms": 13000,
+      "suspend_after_ms": 600000
     },
-    "lightdesk": {
-      "silence": {
-        "min_ms": 13000,
-        "suspend_after_ms": 600000
+    "majorpeak": {
+      "logging": {
+        "file": "majorpeak.log",
+        "truncate": true,
+        "peaks": false,
+        "colors": false
       },
-      "majorpeak": {
-        "logging": {
-          "file": "majorpeak.log",
-          "truncate": true,
-          "peaks": false,
-          "colors": false
+      "color": {
+        "reference": {
+          "hue": 0.0,
+          "sat": 100.0,
+          "bri": 100
         },
-        "color": {
-          "reference": {
-            "hue": 0.0,
-            "sat": 100.0,
-            "bri": 100
+        "random_start": false,
+        "rotate": {
+          "enable": false,
+          "ms": 7000
+        }
+      },
+      "frequencies": {
+        "hard": {
+          "ceiling": 10000.0,
+          "floor": 40.0
+        },
+        "soft": {
+          "ceiling": 1500.0,
+          "floor": 110.0
+        }
+      },
+      "pinspots": {
+        "fill": {
+          "name": "fill",
+          "frequency_max": 1000.0,
+          "fade_max ms": 800.0,
+          "when_greater": {
+            "frequency": 180.0,
+            "brightness_min": 3.0,
+            "higher_frequency": {
+              "brightness_min": 80.0
+            }
           },
-          "random_start": false,
-          "rotate": {
-            "enable": false,
-            "ms": 7000
+          "when_lessthan": {
+            "frequency": 180.0,
+            "brightness_min": 27.0
           }
         },
-        "frequencies": {
-          "hard": {
-            "ceiling": 10000.0,
-            "floor": 40.0
-          },
-          "soft": {
-            "ceiling": 1500.0,
-            "floor": 110.0
-          }
-        },
-        "pinspot": {
-          "fill": {
-            "name": "fill",
-            "frequency_max": 1000.0,
-            "fade_max ms": 800.0,
-            "when_greater": {
-              "frequency": 180.0,
-              "brightness_min": 3.0,
-              "higher_frequency": {
-                "brightness_min": 80.0
-              }
-            },
-            "when_lessthan": {
-              "frequency": 180.0,
-              "brightness_min": 27.0
-            }
-          },
-          "main": {
-            "name": "main",
-            "frequency_min": 180.0,
-            "fade_max_ms": 700,
-            "when_fading": {
-              "brightness_min": 5.0,
-              "freq_greater": {
-                "brightness_min": 69
-              }
+        "main": {
+          "name": "main",
+          "frequency_min": 180.0,
+          "fade_max_ms": 700,
+          "when_fading": {
+            "brightness_min": 5.0,
+            "freq_greater": {
+              "brightness_min": 69
             }
           }
-        },
-        "makecolor": {
-          "above_soft_ceiling": {
-            "hue": {
-              "min": 345.0,
-              "max": 355.0,
-              "step": 0.0001
-            },
-            "brightness": {
-              "max": 50.0,
-              "mag_scaled": true
-            }
+        }
+      },
+      "makecolor": {
+        "above_soft_ceiling": {
+          "hue": {
+            "min": 345.0,
+            "max": 355.0,
+            "step": 0.0001
           },
-          "generic": {
-            "hue": {
-              "min": 30.0,
-              "max": 360.0,
-              "step": 0.0001
-            },
-            "brightness": {
-              "max": 100.0,
-              "mag_scaled": true
-            }
+          "brightness": {
+            "max": 50.0,
+            "mag_scaled": true
+          }
+        },
+        "generic": {
+          "hue": {
+            "min": 30.0,
+            "max": 360.0,
+            "step": 0.0001
+          },
+          "brightness": {
+            "max": 100.0,
+            "mag_scaled": true
           }
         }
       }

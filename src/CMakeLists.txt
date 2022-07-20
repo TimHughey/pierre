@@ -6,8 +6,11 @@
 # common types, logging, helpers and shared session key
 add_subdirectory(base)
 
-# args, config, host, service
+# args, host, service
 add_subdirectory(core)
+
+# config
+add_subdirectory(config)
 
 # asio wrapper
 add_subdirectory(io)

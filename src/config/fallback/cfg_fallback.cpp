@@ -18,47 +18,11 @@
     https://www.wisslanding.com
 */
 
-#pragma once
-
-#include "base/types.hpp"
-#include "core/args.hpp"
-
-#include <memory>
-#include <string>
-#include <tuple>
+// NOTE: this file only exists to serve as a compilation unit for for ple
 
 namespace pierre {
+namespace cfg {
+[[maybe_unused]] static bool ___fallback = true;
 
-// forward decl for Pierre shared_ptr
-class Pierre;
-typedef std::shared_ptr<Pierre> shPierre;
-
-class Pierre : public std::enable_shared_from_this<Pierre> {
-private:
-  struct Inject {
-    csr app_name;
-    const ArgsMap &args_map;
-  };
-
-public:
-  ~Pierre() = default;
-
-  static shPierre create(const Inject &di) {
-    // Not using std::make_shared<Pierre>, constructor is private
-    return shPierre(new Pierre(di));
-  }
-
-  static csv moduleID() { return module_id; }
-
-  // main entry point
-  void run();
-
-private:
-  Pierre(const Inject &di) : di(di) {}
-
-private:
-  Inject di;
-  static constexpr csv module_id = "PIERRE";
-};
-
+} // namespace cfg
 } // namespace pierre

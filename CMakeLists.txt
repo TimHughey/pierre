@@ -34,7 +34,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   add_compile_options(-Wall -Wextra -pedantic -Werror)
 
   # Let's nicely support folders in IDEs
-  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+  # not supported by Vscode
+  # set_property(GLOBAL PROPERTY USE_FOLDERS ON) 
 endif()
 
 # find pthreads
@@ -65,6 +66,15 @@ endif()
 
 string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
 
+include(FetchContent)
+
+FetchContent_Declare(ArduinoJson
+    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+    GIT_TAG        v6.19.4
+)
+
+FetchContent_MakeAvailable(ArduinoJson)
+
 add_subdirectory(src)
 
 add_executable(${_target} apps/pierre.cpp apps/main.cpp)
@@ -73,13 +83,11 @@ configure_file(cmake/version.h.in version.h @ONLY)
 
 target_include_directories(${_target} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_BINARY_DIR}
 )
 
 target_link_libraries(${_target} PUBLIC
-  base core airplay rtp_time
+  base core airplay config rtp_time
   Threads::Threads
-  stdc++fs
 )
 
 

@@ -26,7 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 #include "core/args.hpp"
 #include "pierre.hpp"
 
-pierre::sPierre pierre_instance;
+pierre::shPierre pierre_instance;
 
 void exitting() {
   using namespace std;
@@ -41,18 +41,18 @@ void handleSignal(int signal) {
   using namespace std;
 
   switch (signal) {
-    case SIGINT:
-      cerr << endl << "caught SIGINT" << endl;
-      exit(EXIT_SUCCESS);
-      break;
+  case SIGINT:
+    cerr << endl << "caught SIGINT" << endl;
+    exit(EXIT_SUCCESS);
+    break;
 
-    case SIGTERM:
-      cerr << endl << "caught SIGINT" << endl;
-      exit(EXIT_SUCCESS);
-      break;
+  case SIGTERM:
+    cerr << endl << "caught SIGINT" << endl;
+    exit(EXIT_SUCCESS);
+    break;
 
-    default:
-      cerr << endl << "caught signal: " << signal << " (ignored" << endl;
+  default:
+    cerr << endl << "caught signal: " << signal << " (ignored" << endl;
   }
 }
 

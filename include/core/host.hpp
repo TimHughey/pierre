@@ -19,12 +19,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "base/typical.hpp"
-#include "core/config.hpp"
 
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <uuid/uuid.h>
 #include <vector>
 
 namespace pierre {
@@ -44,22 +42,15 @@ std::optional<shHost> &host();
 // Host Command Information
 class Host : public std::enable_shared_from_this<Host> {
 public:
-  struct Inject {
-    const Config &cfg;
-  };
-
-public:
-  static shHost init(const Inject &di) { return shared::host().emplace(new Host(di)); }
+  static shHost init() { return shared::host().emplace(new Host()); }
   static shHost ptr() { return shared::host().value()->shared_from_this(); }
   static void reset() { shared::host().reset(); }
 
 public:
-  Host(const Inject &di);
+  Host();
 
   // general API
-  csv appName() const { return serviceName(); }
   ccs deviceID() const { return _device_id.c_str(); }
-  ccs firmwareVerson() const { return cfg.firmwareVersion().c_str(); };
   ccs hwAddr() const { return _hw_addr.c_str(); }
 
   // IP address(es) of this host
@@ -69,7 +60,6 @@ public:
   const string pk() const; // without 0x prefix
 
   ccs serialNum() const { return _serial_num.c_str(); }
-  ccs serviceName() const { return cfg.serviceName().c_str(); }
 
   // UUID for this host
   ccs uuid() const { return _uuid.c_str(); }
@@ -84,11 +74,6 @@ private:
   bool findHardwareAddr(HwAddrBytes &dest);
 
 public:
-  // config provider
-  const Config &cfg;
-
-  string _app_name;
-
   string _device_id;
   string _hw_addr;
   HwAddrBytes _hw_addr_bytes{0};

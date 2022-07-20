@@ -9,7 +9,7 @@ set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target})
 set(HEADER_PATH_PAIR          ${HEADER_PATH_LOCAL}/pair)
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 
-find_library(libConfig NAMES config++   REQUIRED)
+# find_library(libConfig NAMES config++   REQUIRED)
 find_library(libUUID   NAMES uuid       REQUIRED)
 find_package(GCRYPT                     REQUIRED)
 find_package(Sodium                     REQUIRED)
@@ -20,7 +20,7 @@ set(Boost_USE_MULTITHREADED      ON)
 find_package(Boost 1.78 COMPONENTS program_options)
 
 add_library(${__target} SHARED
-  args.cpp config.cpp host.cpp features.cpp
+  args.cpp host.cpp features.cpp
   status_flags.cpp service.cpp static.cpp
   pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
   ${HEADER_LIST}
@@ -31,7 +31,6 @@ add_library(${__target} SHARED
 target_include_directories(${__target} PRIVATE 
   ${HEADER_PATH_LOCAL}
   ${HEADER_PATH_PAIR}
-  ${CMAKE_BINARY_DIR}
 )
 
 # external users of this library include headers relative to
@@ -40,15 +39,11 @@ target_include_directories(${__target} PUBLIC
   ${HEADER_PATH}
 )
 
-target_link_libraries(${__target} PUBLIC
-  ${libConfig}
-)
-
 target_link_libraries(${__target} PRIVATE
-  ${libConfig}
   ${libUUID}
   ${Boost_LIBRARIES}
   sodium
   gcrypt
   base
+  config
 )

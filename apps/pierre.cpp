@@ -21,31 +21,25 @@
 #include "pierre.hpp"
 #include "airplay/airplay.hpp"
 #include "base/typical.hpp"
+#include "config/config.hpp"
 #include "core/args.hpp"
-#include "core/config.hpp"
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "mdns/mdns.hpp"
-
-#include <exception>
-#include <fmt/format.h>
-#include <list>
-#include <thread>
 
 namespace pierre {
 
 // create and run all threads
 void Pierre::run() {
-  if (!cfg.findFile() || !cfg.load()) {
-    throw(std::runtime_error("bad configuration file"));
-  }
+  auto host = Host::init();
 
-  // create core dependencies for injection
-  auto host = Host::init({.cfg = cfg});
-  __LOG0("{:<18} {} {}\n", moduleId, host->serviceName(), host->firmwareVerson());
+  auto cfg = Config::init({.app_name = di.app_name,
+                           .cli_cfg_file = di.args_map.cfg_file,
+                           .hostname = host->deviceID()});
+  __LOG0(LCOL01 " {} {}\n", moduleID(), csv("RUN"), cfg->receiverName(), cfg->firmwareVersion());
 
+  Host::init();
   Service::init();
-
   mDNS::init()->start();
 
   // create and start Airplay

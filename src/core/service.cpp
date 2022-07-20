@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "core/service.hpp"
+#include "config/config.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"
 
@@ -43,8 +44,8 @@ Service::Service() {
   saveCalcVal(apGroupUUID, host->uuid());
   saveCalcVal(apSerialNumber, host->serialNum());
 
-  saveCalcVal(ServiceName, host->cfg.serviceName());
-  saveCalcVal(FirmwareVsn, host->firmwareVerson());
+  saveCalcVal(ServiceName, Config::receiverName());
+  saveCalcVal(FirmwareVsn, Config::firmwareVersion());
 
   saveCalcVal(PublicKey, host->pk());
 
@@ -206,10 +207,6 @@ void Service::saveCalcVal(Key key, const string &val) {
   _kvm_calc.insert_or_assign(key, service::KeyValCalc{key_str, val_str});
 }
 
-void Service::saveCalcVal(Key key, ccs val_ptr) {
-  const auto val = string(val_ptr);
-
-  saveCalcVal(key, val);
-}
+void Service::saveCalcVal(Key key, ccs val_ptr) { saveCalcVal(key, string(val_ptr)); }
 
 } // namespace pierre

@@ -61,7 +61,7 @@ target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
   ple
-  base core io mdns ap_aes player 
+  base config core io mdns ap_aes player 
 )
 
 target_link_libraries(${__target} PUBLIC mdns)

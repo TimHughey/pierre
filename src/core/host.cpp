@@ -19,7 +19,6 @@
 */
 
 #include "host.hpp"
-#include "config.hpp"
 #include "pair/pair.h"
 
 #include <algorithm>
@@ -53,7 +52,7 @@ std::optional<shHost> __host;
 std::optional<shHost> &host() { return shared::__host; }
 } // namespace shared
 
-Host::Host(const Inject &di) : cfg(di.cfg) {
+Host::Host() {
   initCrypto();
 
   // find the mac addr, store a binary and text representation
@@ -172,7 +171,7 @@ void Host::initCrypto() {
 
   if (gcry_check_version(_gcrypt_vsn) == nullptr) {
     static string buff;
-    fmt::format_to(std::back_inserter(buff), "outdate libcrypt, need {}\n", _gcrypt_vsn);
+    fmt::format_to(std::back_inserter(buff), "outdated libcrypt, need {}\n", _gcrypt_vsn);
     const char *msg = buff.data();
     throw(std::runtime_error(msg));
   }
