@@ -67,7 +67,7 @@ void Controller::kickstart() {
 
 void Controller::run() {
   static std::once_flag once;
-  nameThread(0); // controller thread is Airplay 00
+  name_thread(0); // controller thread is Airplay 00
 
   MasterClock::init({.io_ctx = io_ctx,
                      .service_name = Config::receiverName(),
@@ -90,8 +90,8 @@ void Controller::run() {
     threads.emplace_back([&once = once, n = n, self = shared_from_this()] {
       std::call_once(once, [self] { self->kickstart(); }); // sync thread start
 
-      self->nameThread(n); // give the thread a name
-      self->io_ctx.run();  // run the io_ctx (returns when io_ctx canceled)
+      self->name_thread(n); // give the thread a name
+      self->io_ctx.run();   // run the io_ctx (returns when io_ctx canceled)
     });
   }
 

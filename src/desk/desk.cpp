@@ -44,7 +44,6 @@ Desk::Desk() : active_fx(createFX<fx::Silence>()) {
 
 // static creation, access to instance
 shDesk Desk::create() {
-  mDNS::browse(csv("_ruth._tcp"));
   auto desk = shared::desk().emplace(new Desk());
 
   desk->addUnit<PinSpot>(unit::MAIN_SPOT_OPTS);

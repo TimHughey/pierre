@@ -60,7 +60,7 @@ public:
   static csr appName() { return ptr()->di.app_name; }
   static csr firmwareVersion() { return ptr()->firmware_vsn; };
   static csv moduleID() { return module_id; }
-  static JsonObject object(csv key) { return ptr()->doc[key].as<JsonObject>(); }
+  static JsonObject object(csv key) { return ptr()->doc[key]; }
   static const string receiverName() { return ptr()->receiver(); }
 
   void test(const char *setting, const char *key);

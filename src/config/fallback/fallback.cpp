@@ -22,7 +22,8 @@
 
 namespace pierre {
 namespace cfg {
-[[maybe_unused]] static bool ___fallback = true;
+
+[[maybe_unused]] static bool fallback = true; // dummy val so file is compiled by cmake
 
 } // namespace cfg
 } // namespace pierre

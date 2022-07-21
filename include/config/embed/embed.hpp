@@ -25,9 +25,7 @@
 namespace pierre {
 namespace cfg {
 
-struct fallback {
-  static csv binary();
-};
+csv fallback();
 
 } // namespace cfg
 } // namespace pierre

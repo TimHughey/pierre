@@ -24,16 +24,16 @@
 #include <memory>
 
 // embedded binary data via ld (see cfg_fallback/CMakeLists.txt)
-extern uint8_t _binary_cfg_fallback_json_start[];
-extern uint8_t _binary_cfg_fallback_json_end;
-extern uint8_t _binary_cfg_fallback_json_size;
+extern uint8_t _binary_fallback_json_start[];
+extern uint8_t _binary_fallback_json_end;
+extern uint8_t _binary_fallback_json_size;
 
 namespace pierre {
 namespace cfg {
 
-const csv fallback::binary() { // static
-  const char *begin = (const char *)&_binary_cfg_fallback_json_start;
-  const char *end = (const char *)&_binary_cfg_fallback_json_end;
+csv fallback() {
+  const char *begin = (const char *)&_binary_fallback_json_start;
+  const char *end = (const char *)&_binary_fallback_json_end;
 
   return csv(begin, end - begin);
 }

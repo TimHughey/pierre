@@ -60,13 +60,13 @@ public:
 
   static void accept(uint8v &packet_accept);
   static void flush(const FlushRequest &request) { ptr()->spooler->flush(request); }
+  static csv moduleID() { return module_id; }
   static void saveAnchor(anchor::Data &data); // must be declared in .cpp
   static void shutdown();
   static void teardown(); // must be declared in .cpp
 
 private:
-  void run();
-  void start() { dsp_thread = Thread(&Player::run, this); }
+  shPlayer start();
   void watchDog();
 
 private:
@@ -78,14 +78,13 @@ private:
   steady_timer watchdog_timer; // watch for shutdown
 
   // order independent
-  Thread dsp_thread;
   Threads dsp_threads;
 
   string_view play_mode = NOT_PLAYING;
   FlushRequest flush_request;
   uint64_t packet_count = 0;
 
-  static constexpr csv moduleId{"PLAYER"};
+  static constexpr csv module_id = "PLAYER";
 };
 
 } // namespace pierre

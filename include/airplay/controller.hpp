@@ -53,7 +53,7 @@ private:
 
   void kickstart();
 
-  void nameThread(auto num) {
+  void name_thread(auto num) {
     const auto handle = pthread_self();
     const auto name = fmt::format("AirPlay {}", num);
 

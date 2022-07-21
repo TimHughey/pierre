@@ -17,6 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "player.hpp"
+#include "config/config.hpp"
+#include "mdns/mdns.hpp"
 #include "render.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
@@ -34,11 +36,13 @@ using namespace pierre::player;
 
 namespace pierre {
 
-void nameThread(auto num) {
+static void name_thread(csv name, auto num) {
   const auto handle = pthread_self();
-  const auto name = fmt::format("Player {}", num);
+  const auto fullname = fmt::format("{} {}", name, num);
 
-  pthread_setname_np(handle, name.c_str());
+  __LOG0(LCOL01 " handle={} name={}\n", Player::moduleID(), "NAME_THREAD", handle, fullname);
+
+  pthread_setname_np(handle, fullname.c_str());
 }
 
 namespace shared {
@@ -53,11 +57,9 @@ shPlayer Player::init(io_context &io_ctx) { // static
   auto self = shared::player().emplace(new Player(io_ctx));
 
   player::Render::init(io_ctx, self->spooler);
-  self->start();
-
-  return self->shared_from_this();
+  mDNS::browse(Config::object("player")["dmx_service"]); // start async browse
+  return self->start();
 }
-
 shPlayer Player::ptr() { return shared::player().value()->shared_from_this(); }
 void Player::reset() { shared::player().reset(); }
 
@@ -88,27 +90,30 @@ void Player::accept(uint8v &packet) { // static
   }
 }
 
-void Player::run() {
-  nameThread(0);
-  watchDog();
+shPlayer Player::start() {
+  static std::once_flag once;
 
   // to maximizing system utilization hardware_concurrency() threads
   // are started.  however, we know other classes will also start a thread
   // pool of their own so we only use hardware_concurrency
-  for (uint8_t n = 1; n < std::jthread::hardware_concurrency() * 0.75; n++) {
+  float factor = Config::object("player")["dsp"]["concurrency_factor"];
+
+  __LOG(LCOL01 " factor={}\n", Player::moduleID(), "START", factor);
+  for (uint8_t n = 0; n < std::jthread::hardware_concurrency() * factor; n++) {
     // notes:
-    //  1. skip thread 0 (n = 1) (it is already started)
+    //  1. start the dsp threads
     //  2. all threads run the same io_ctx
     //  3. objects are free to create their own strands, as needed
 
+    std::call_once(once, [this]() { watchDog(); });
+
     dsp_threads.emplace_back([n = n, self = shared_from_this()] {
-      nameThread(n);          // give the thread a name
+      name_thread("DSP", n);  // give the thread a name
       self->io_ctx_dsp.run(); // dsp processing thread
     });
   }
 
-  io_ctx_dsp.run(); // include the Player thread in the dsp pool
-  // returns when io_ctx does not have scheduled work
+  return shared_from_this();
 }
 
 void Player::saveAnchor(anchor::Data &data) { // static, must be in .cpp
@@ -120,13 +125,11 @@ void Player::saveAnchor(anchor::Data &data) { // static, must be in .cpp
 }
 
 void Player::shutdown() { // static
-  auto self = ptr();
-  auto &thread = self->dsp_thread;
-  auto &threads = self->dsp_threads;
+  auto &threads = ptr()->dsp_threads;
+  auto &stop_thread = threads.front(); // signal the first thread
 
-  thread.request_stop();                                  // stop caught by watchDog()
-  ranges::for_each(threads, [](Thread &t) { t.join(); }); // wait for threads
-  thread.join();                                          // wait for dsp thread to complete
+  stop_thread.request_stop();                             // stop caught by watchDog()
+  ranges::for_each(threads, [](Thread &t) { t.join(); }); // wait for threads to stop
 }
 
 void Player::teardown() { // static, must be in .cpp
@@ -138,17 +141,17 @@ void Player::watchDog() {
   // cancels any running timers
   [[maybe_unused]] auto timers_cancelled = watchdog_timer.expires_after(250ms);
 
-  watchdog_timer.async_wait([moduleId = moduleId, self = shared_from_this()](const error_code ec) {
+  watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
     if (ec == errc::success) { // unless success, fall out of scape
 
-      if (self->dsp_thread.get_stop_token().stop_requested()) { // thread wants to stop
-        self->io_ctx_dsp.stop();                                // stops io_ctx and threads
-
+      auto &stop_thread = self->dsp_threads.front();       // the first thread is signaled to stop
+      if (stop_thread.get_stop_token().stop_requested()) { // thread wants to stop
+        self->io_ctx_dsp.stop();                           // stops io_ctx and threads
       } else {
         self->watchDog(); // restart the timer (keeps us in scope)
       }
     } else {
-      __LOG0("{:<18} going out of scope reason={}\n", moduleId, ec.message());
+      __LOG0(LCOL01 " going out of scope reason={}\n", moduleID(), csv("WATCH_DOG"), ec.message());
     }
   });
 }

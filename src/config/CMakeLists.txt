@@ -1,8 +1,6 @@
 #
-# Config
+# Fallback Config
 #
-
-
 
 add_subdirectory(fallback)
 
@@ -29,7 +27,8 @@ target_include_directories(${__target} PRIVATE
 
 # external users of this library include headers relative to
 # the based include directory
+target_include_directories(${__target} PRIVATE ${HEADER_PATH_LOCAL})
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE base stdc++fs cfg_fallback)
+target_link_libraries(${__target} PRIVATE base stdc++fs fallback)
 target_link_libraries(${__target} PUBLIC ArduinoJson)

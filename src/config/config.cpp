@@ -108,7 +108,7 @@ Config::Config(const Inject &di)
 
   if (doc.isNull()) {
     __LOGX(LCOL01 " using fallback config\n", moduleID(), csv("CONSTRUCT"));
-    if (auto err = deserializeJson(doc, cfg::fallback::binary()); err) {
+    if (auto err = deserializeJson(doc, cfg::fallback()); err) {
       __LOG0(LCOL01 " err={}\n", moduleID(), csv("FALLBACK"), err.c_str());
     }
   }

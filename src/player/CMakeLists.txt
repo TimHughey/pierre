@@ -53,6 +53,7 @@ target_link_libraries(${__target} PRIVATE
   base
   desk
   dsp
+  mdns
   rtp_time
 )
 
