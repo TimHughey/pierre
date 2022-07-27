@@ -28,6 +28,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace pierre {
 
 typedef std::array<uint8_t, 6> HwAddrBytes;
+typedef std::string Hostname;
 typedef std::string IpAddr;
 typedef std::vector<IpAddr> IpAddrs;
 typedef std::array<uint8_t, 32> PkBytes;
@@ -55,6 +56,7 @@ public:
 
   // IP address(es) of this host
   const HwAddrBytes &hwAddrBytes() const { return _hw_addr_bytes; }
+  const Hostname &hostname() const { return _hostname; }
   const IpAddrs &ipAddrs() const { return _ip_addrs; }
 
   const string pk() const; // without 0x prefix
@@ -74,6 +76,7 @@ private:
   bool findHardwareAddr(HwAddrBytes &dest);
 
 public:
+  Hostname _hostname;
   string _device_id;
   string _hw_addr;
   HwAddrBytes _hw_addr_bytes{0};

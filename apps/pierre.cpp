@@ -35,10 +35,9 @@ void Pierre::run() {
 
   auto cfg = Config::init({.app_name = di.app_name,
                            .cli_cfg_file = di.args_map.cfg_file,
-                           .hostname = host->deviceID()});
+                           .hostname = host->hostname()});
   __LOG0(LCOL01 " {} {}\n", moduleID(), csv("RUN"), cfg->receiverName(), cfg->firmwareVersion());
 
-  Host::init();
   Service::init();
   mDNS::init()->start();
 

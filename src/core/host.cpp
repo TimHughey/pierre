@@ -52,7 +52,7 @@ std::optional<shHost> __host;
 std::optional<shHost> &host() { return shared::__host; }
 } // namespace shared
 
-Host::Host() {
+Host::Host() : _hostname(255, 0x00) {
   initCrypto();
 
   // find the mac addr, store a binary and text representation
@@ -66,6 +66,7 @@ Host::Host() {
 }
 
 void Host::createHostIdentifiers() {
+
   if (findHardwareAddr(_hw_addr_bytes)) {
     // build the various representations of hw address needed
 
@@ -78,6 +79,13 @@ void Host::createHostIdentifiers() {
     // serial num is the dash separated hex bytes with a trailing colon + number
     _serial_num = fmt::format("{:02X}:5", fmt::join(_hw_addr_bytes, "-"));
   }
+
+  if (gethostname(_hostname.data(), _hostname.size()) != 0) {
+    // gethostname() has failed, fallback to device_id
+    _hostname = _device_id;
+  }
+
+  _hostname.shrink_to_fit();
 }
 
 void Host::createPublicKey() {
