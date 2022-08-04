@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "io/io.hpp"
@@ -101,10 +102,10 @@ private:
 
   // order independent
   string_view play_mode = NOT_PLAYING;
-  string_view fx_name;
   shFrame recent_frame;
   uint64_t frames_played = 0;
   uint64_t frames_silence = 0;
+  Elapsed uptime;
 
   static constexpr auto moduleId = csv("RENDER");
 };

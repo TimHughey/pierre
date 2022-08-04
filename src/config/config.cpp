@@ -113,6 +113,8 @@ Config::Config(const Inject &di)
     }
   }
 
+  receiver_name = receiver();
+
   __LOGX(LCOL01 " doc_used={}\n", moduleID(), csv("CONSTRUCT"), doc.memoryUsage());
 }
 

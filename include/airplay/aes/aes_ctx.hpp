@@ -19,11 +19,11 @@
 #pragma once
 
 #include "base/content.hpp"
+#include "base/headers.hpp"
 #include "base/resp_code.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "core/pair/pair.h"
-#include "base/headers.hpp"
 
 #include <array>
 #include <cstdint>
@@ -46,7 +46,7 @@ struct AesResult {
 // NOTE: this struct consolidates the pairing "state"
 class AesCtx {
 public:
-  AesCtx(const char *device_str);
+  AesCtx(csv device_str);
 
   size_t decrypt(uint8v &packet, uint8v &ciphered);
   size_t encrypt(uint8v &packet);

@@ -22,8 +22,8 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
-#include "desk/dmx.hpp"
 #include "desk/headunit.hpp"
+#include "desk/msg.hpp"
 #include "fader/color_travel.hpp"
 
 #include <cstdint>
@@ -76,16 +76,16 @@ public:
     fx = FX::None;
   }
 
-  void framePrepare() override { faderMove(); }
+  void preExecute() override { faderMove(); }
   inline bool isFading() const { return (bool)fader; }
 
   void leave() override { Color::black(); }
 
+  void updateMsg(desk::shMsg msg) override;
+
 private:
   // functions
   void faderMove();
-
-  void frameUpdate(packet::DMX &packet) override;
 
 private:
   Color color;

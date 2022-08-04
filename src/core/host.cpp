@@ -90,7 +90,7 @@ void Host::createHostIdentifiers() {
 
 void Host::createPublicKey() {
   auto *dest = _pk_bytes.data();
-  auto *secret = hwAddr();
+  auto *secret = hwAddr().data();
 
   pair_public_key_get(PAIR_SERVER_HOMEKIT, dest, secret);
 }

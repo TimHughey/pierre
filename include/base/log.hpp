@@ -52,6 +52,9 @@ const string runTicks(); // a timestamp
 
 const auto __LOG_COL2 = fmt::format(LCOL01, LBLANK, LBLANK);
 csv __LOG_COL2_SV{__LOG_COL2};
+const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
+const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");
+const auto __LOG_DETAIL_INDENT = fmt::format("\n{} " LCOL01, __LOG_PREFIX, LBLANK, LBLANK);
 
 struct pe_log {
   static void indent2(string &msg, csv more) {
@@ -72,8 +75,6 @@ struct pe_log {
   }
 };
 
-const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
-const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");
 void __vlog(fmt::string_view format, fmt::format_args args);
 
 template <typename S, typename... Args> // accepts the format and var args

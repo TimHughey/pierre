@@ -36,10 +36,6 @@ public:
     config.pulse_start = unitPercent(0.02);
     config.pulse_end = config.dim;
 
-    _id[0] = 'L';
-    _id[1] = 'F';
-    _id[2] = 'R';
-
     dim();
   }
 };

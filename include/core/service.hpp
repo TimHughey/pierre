@@ -84,7 +84,7 @@ private:
   void addSystemFlags();
 
   void saveCalcVal(Key key, csr val);
-  void saveCalcVal(Key key, ccs val);
+  void saveCalcVal(Key key, auto val) { saveCalcVal(key, string(val)); }
 
 private:
   static constexpr uint16_t _base_port = 7000;

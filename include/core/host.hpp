@@ -51,16 +51,15 @@ public:
   Host();
 
   // general API
-  ccs deviceID() const { return _device_id.c_str(); }
-  ccs hwAddr() const { return _hw_addr.c_str(); }
+  csv deviceID() const { return csv(_device_id.c_str()); }
+  csv hostname() const { return csv(_hostname.c_str()); }
+  csv hwAddr() const { return csv(_hw_addr.c_str()); }
 
   // IP address(es) of this host
   const HwAddrBytes &hwAddrBytes() const { return _hw_addr_bytes; }
-  const Hostname &hostname() const { return _hostname; }
   const IpAddrs &ipAddrs() const { return _ip_addrs; }
 
   const string pk() const; // without 0x prefix
-
   ccs serialNum() const { return _serial_num.c_str(); }
 
   // UUID for this host

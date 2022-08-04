@@ -40,7 +40,7 @@ static void name_thread(csv name, auto num) {
   const auto handle = pthread_self();
   const auto fullname = fmt::format("{} {}", name, num);
 
-  __LOG0(LCOL01 " handle={} name={}\n", Player::moduleID(), "NAME_THREAD", handle, fullname);
+  __LOGX(LCOL01 " handle={:#x}\n", Player::moduleID(), fullname, handle);
 
   pthread_setname_np(handle, fullname.c_str());
 }
@@ -98,7 +98,6 @@ shPlayer Player::start() {
   // pool of their own so we only use hardware_concurrency
   float factor = Config::object("player")["dsp"]["concurrency_factor"];
 
-  __LOG(LCOL01 " factor={}\n", Player::moduleID(), "START", factor);
   for (uint8_t n = 0; n < std::jthread::hardware_concurrency() * factor; n++) {
     // notes:
     //  1. start the dsp threads
@@ -134,7 +133,7 @@ void Player::shutdown() { // static
 
 void Player::teardown() { // static, must be in .cpp
   ptr()->packet_count = 0;
-  player::Render::teardown();
+  // player::Render::teardown();
 }
 
 void Player::watchDog() {

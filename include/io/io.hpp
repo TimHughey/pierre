@@ -32,6 +32,7 @@ using io_context = asio::io_context;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using ip_udp = boost::asio::ip::udp;
+using socket_base = boost::asio::socket_base;
 using steady_timer = asio::steady_timer;
 using strand = io_context::strand;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;

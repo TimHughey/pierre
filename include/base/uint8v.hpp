@@ -40,11 +40,10 @@ class uint8v : public std::vector<uint8_t> {
 public:
   uint8v() = default;
   uint8v(size_t reserve_default) : reserve_default(reserve_default) { reserve(reserve_default); }
+  uint8v(size_t count, uint8_t byte) : std::vector<uint8_t>(count, byte), reserve_default(count) {}
 
   bool multiLineString() const {
-    auto nl_count = ranges::count_if(view(), [](const char c) { return c == '\n'; });
-
-    return nl_count > 2;
+    return ranges::count_if(view(), [](const char c) { return c == '\n'; }) > 2;
   }
 
   template <typename T> const T *raw() const { return (const T *)data(); }
@@ -53,7 +52,6 @@ public:
 
     if ((reserve_bytes == 0) && (reserve_default > 0)) {
       reserve(reserve_default);
-
     } else if (reserve_bytes > 0) {
       reserve(reserve_bytes);
     }

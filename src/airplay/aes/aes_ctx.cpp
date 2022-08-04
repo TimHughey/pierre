@@ -34,9 +34,9 @@ using namespace std;
 namespace pierre {
 namespace airplay {
 
-AesCtx::AesCtx(const char *device_str) {
+AesCtx::AesCtx(csv device_id) {
   // allocate the setup and verify contexts
-  _setup = pair_setup_new(_pair_type, _pin, NULL, NULL, device_str);
+  _setup = pair_setup_new(_pair_type, _pin, NULL, NULL, device_id.data());
 
   if (_setup == nullptr) {
     static const char *msg = "pair_setup_new() failed";
@@ -44,7 +44,7 @@ AesCtx::AesCtx(const char *device_str) {
     throw(runtime_error(msg));
   }
 
-  _verify = pair_verify_new(_pair_type, NULL, NULL, NULL, device_str);
+  _verify = pair_verify_new(_pair_type, NULL, NULL, NULL, device_id.data());
   if (_verify == nullptr) {
     static const char *msg = "pair_verify_new() failed";
     fmt::print("{}\n", msg);

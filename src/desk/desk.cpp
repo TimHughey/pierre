@@ -21,8 +21,9 @@
 #include "desk/desk.hpp"
 // #include "desk/fx/colorbars.hpp"
 // #include "desk/fx/leave.hpp"
-// #include "desk/fx/majorpeak.hpp"
+#include "desk/fx/majorpeak.hpp"
 #include "desk/fx/silence.hpp"
+#include "desk/msg.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/opts.hpp"
 #include "mdns/mdns.hpp"
@@ -30,21 +31,22 @@
 #include <math.h>
 #include <ranges>
 
-namespace ranges = std::ranges;
-
 namespace pierre {
 namespace shared {
 std::optional<shDesk> __desk;
-std::optional<shDesk> &desk() { return __desk; }
 } // namespace shared
 
-Desk::Desk() : active_fx(createFX<fx::Silence>()) {
-  // active FX initializes to Silence
-}
+// must be defined in .cpp to hide mdns
+Desk::Desk(io_context &io_ctx)
+    : io_ctx(io_ctx),                        // io_ctx run by AirPlay 2 controller
+      local_strand(io_ctx),                  // local strand to serialize work
+      active_fx(createFX<fx::Silence>()),    // active FX initializes to Silence
+      zservice(mDNS::zservice("_ruth._tcp")) // get the remote service, if available
+{}
 
 // static creation, access to instance
-shDesk Desk::create() {
-  auto desk = shared::desk().emplace(new Desk());
+shDesk Desk::create(io_context &io_ctx) {
+  auto desk = shared::desk().emplace(new Desk(io_ctx));
 
   desk->addUnit<PinSpot>(unit::MAIN_SPOT_OPTS);
   desk->addUnit<PinSpot>(unit::FILL_SPOT_OPTS);
@@ -56,102 +58,73 @@ shDesk Desk::create() {
   return desk;
 }
 
-shDesk Desk::ptr() { return shared::desk().value()->shared_from_this(); }
+// General API
+void Desk::handlePeaks(const PeakInfo &peak_info) {
+  auto msg = desk::Msg::create(peak_info);
 
-// Desk::Desk(shared_ptr<audio::Dsp> dsp) : _dsp(std::move(dsp)) {
-//   FX::setTracker(_tracker);
+  if ((active_fx->matchName(fx::SILENCE)) && !peak_info.silence) {
+    activateFX<fx::MajorPeak>(fx::MAJOR_PEAK);
+  }
 
-//   _tracker->insert<PinSpot>("main", 1);
-//   _tracker->insert<PinSpot>("fill", 7);
-//   _tracker->insert<DiscoBall>("discoball", 1);
-//   _tracker->insert<ElWire>("el dance", 2);
-//   _tracker->insert<ElWire>("el entry", 3);
-//   _tracker->insert<LedForest>("led forest", 4);
+  ranges::for_each(units, [](shHeadUnit unit) { unit->preExecute(); });
 
-//   main = _tracker->unit<PinSpot>("main");
-//   fill = _tracker->unit<PinSpot>("fill");
-//   led_forest = _tracker->unit<LedForest>("led forest");
-//   el_dance_floor = _tracker->unit<ElWire>("el dance");
-//   el_entry = _tracker->unit<ElWire>("el entry");
-//   discoball = _tracker->unit<DiscoBall>("discoball");
+  active_fx->executeLoop(peak_info.left);
 
-//   // lightdesk always starts assuming silence
-//   _active.fx = make_shared<Silence>();
-// }
+  ranges::for_each(units, [msg = msg->ptr()](shHeadUnit unit) { unit->updateMsg(msg); });
 
-// Desk::~Desk() { FX::resetTracker(); }
+  // the socket is only created if it doesn't exist
+  // connect() returns true when the connection is ready
+  if (connect()) {
+    msg->transmit2(local_strand, socket2.value());
+  }
+}
 
-// void Desk::executeFX() {
-//   audio::spPeaks peaks = _dsp->peaks();
+/*
+void Desk::leave() {
+  // auto x = State::leavingDuration<seconds>().count();
+  {
+    lock_guard lck(_active.mtx);
+    _active.fx = make_shared<Leave>();
+  }
 
-//   _active.fx->execute(peaks);
+  this_thread::sleep_for(State::leavingDuration<milliseconds>());
+  State::shutdown();
+}
 
-//   // this is placeholder code for future FX
-//   // at present the only FX is MajorPeak which never ends
-//   if (_active.fx->finished()) {
-//     _active.fx = make_shared<MajorPeak>();
-//   }
-// }
+void Desk::stream() {
+  while (State::isRunning()) {
+    // nominal condition:
+    // sound is present and MajorPeak is active
+    if (_active.fx->matchName("MajorPeak"sv)) {
+      // if silent but not yet reached suspended start Leave
+      if (State::isSilent()) {
+        if (!State::isSuspended()) {
+          _active.fx = make_shared<Leave>();
+        }
+      }
+      goto delay;
+    }
+    // catch anytime we're coming out of silence or suspend
+    // ensure that MajorPeak is running when not silent and not suspended
+    if (!State::isSilent() && !State::isSuspended()) {
+      _active.fx = make_shared<MajorPeak>();
+      goto delay;
+    }
+    // transitional condition:
+    // there is no sound present however the timer for suspend hasn't elapsed
+    if (_active.fx->matchName("Leave"sv)) {
+      // if silent and have reached suspended, start Silence
+      if (State::isSilent() && State::isSuspended()) {
+        _active.fx = make_shared<Silence>();
+      }
+    }
 
-// void Desk::leave() {
-//   // auto x = State::leavingDuration<seconds>().count();
+    goto delay;
 
-//   {
-//     lock_guard lck(_active.mtx);
-//     _active.fx = make_shared<Leave>();
-//   }
-
-//   // cout << "leaving for " << x << " second";
-//   // if (x > 1) {
-//   //   cout << "s";
-//   // }
-
-//   // cout << " (or Ctrl-C to quit immediately)";
-//   // cout.flush();
-
-//   this_thread::sleep_for(State::leavingDuration<milliseconds>());
-
-//   State::shutdown();
-
-//   // cout << endl;
-// }
-
-// void Desk::stream() {
-//   while (State::isRunning()) {
-//     // nominal condition:
-//     // sound is present and MajorPeak is active
-//     if (_active.fx->matchName("MajorPeak"sv)) {
-//       // if silent but not yet reached suspended start Leave
-//       if (State::isSilent()) {
-//         if (!State::isSuspended()) {
-//           _active.fx = make_shared<Leave>();
-//         }
-//       }
-
-//       goto delay;
-//     }
-
-//     // catch anytime we're coming out of silence or suspend
-//     // ensure that MajorPeak is running when not silent and not suspended
-//     if (!State::isSilent() && !State::isSuspended()) {
-//       _active.fx = make_shared<MajorPeak>();
-//       goto delay;
-//     }
-
-//     // transitional condition:
-//     // there is no sound present however the timer for suspend hasn't elapsed
-//     if (_active.fx->matchName("Leave"sv)) {
-//       // if silent and have reached suspended, start Silence
-//       if (State::isSilent() && State::isSuspended()) {
-//         _active.fx = make_shared<Silence>();
-//       }
-//     }
-
-//     goto delay;
-
-//   delay:
-//     this_thread::sleep_for(seconds(1));
-//   }
-// }
+  delay:
+    this_thread::sleep_for(seconds(1));
+  }
+}
+*/
 
 } // namespace pierre

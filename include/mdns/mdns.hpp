@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "base/typical.hpp"
+#include "mdns/zservice.hpp"
 
 #include <memory>
 
@@ -42,6 +43,7 @@ public:
   static auto port() { return PORT; }
   bool start();
   void update();
+  static shZeroConfService zservice(csv type);
 
   // misc
   static csv moduleID() { return module_id; }

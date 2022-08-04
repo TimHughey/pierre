@@ -38,8 +38,6 @@ public:
     config.pulse_end = config.dim;
     config.leave = unitPercent(0.50);
 
-    snprintf(_id.data(), _id.size(), "EL%u", address);
-
     dim();
   }
 };

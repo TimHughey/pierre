@@ -30,13 +30,7 @@ typedef std::shared_ptr<DiscoBall> shDiscoBall;
 
 class DiscoBall : public PulseWidth {
 public:
-  DiscoBall(const unit::Opts opts) : PulseWidth(opts) {
-    config.leave = 0;
-
-    _id[0] = 'D';
-    _id[1] = 'S';
-    _id[2] = 'B';
-  }
+  DiscoBall(const unit::Opts opts) : PulseWidth(opts) { config.leave = 0; }
 
 public: // effects
   inline void spin() { percent(0.65); }

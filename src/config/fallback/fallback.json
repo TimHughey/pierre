@@ -11,7 +11,7 @@
     "dmx_service": "_ruth._tcp",
     "dsp": {
       "note": "threads = hardware_concurrency() * factor",
-      "concurrency_factor": 0.75
+      "concurrency_factor": 0.5
     }
   },
   "lightdesk": {

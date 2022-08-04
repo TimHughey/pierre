@@ -18,15 +18,17 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "dsp/peak_info.hpp"
 #include "dsp/peaks.hpp"
 #include "player/flush_request.hpp"
 #include "player/frame_time.hpp"
 
+#include <any>
 #include <array>
-#include <future>
 #include <map>
 #include <memory>
 #include <ranges>
@@ -118,9 +120,6 @@ N
 class Frame;
 typedef std::shared_ptr<Frame> shFrame;
 
-typedef std::promise<shFrame> FramePromise;
-typedef std::future<shFrame> FrameFuture;
-
 class Frame : public std::enable_shared_from_this<Frame> {
 private:
   static constexpr size_t PAYLOAD_MIN_SIZE = 24;
@@ -152,7 +151,9 @@ public:
 
   bool keep(FlushRequest &flush);
 
-  const Nanos localTimeDiff() const; // calculate diff between local and frame time
+  // NOTE: localTime() and localTimeDiff() must be defined in .cpp due to intentional
+  // limited visibility of Anchor
+  const Nanos localTimeDiff(); // calculate diff between local and frame time
   shFrame markPlayed(auto &played, auto &not_played) {
     // note: when called on a nextFrame() it is safe to allow outdated frames
     // because they passed FrameTimeDiff late check
@@ -172,8 +173,7 @@ public:
 
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
-  shPeaks peaksLeft() { return _peaks_left; }
-  shPeaks peaksRight() { return _peaks_right; }
+  PeakInfo peakInfo(Elapsed &uptime); // must be in .cpp due to Anchor dependency
 
   // state
   bool decoded() const { return stateEqual(fra::DECODED); }
@@ -222,6 +222,7 @@ public:
   // misc debug
   const string inspect() { return inspectFrame(shared_from_this()); }
   static const string inspectFrame(shFrame frame, bool full = false);
+  static constexpr csv moduleID() { return moduleId; }
 
 public:
   // order independent
@@ -239,8 +240,6 @@ public:
   int samples_per_channel = 0;
   int channels = 0;
 
-  Nanos local_time_diff = Nanos::zero();
-
 private:
   // order independent
   fra::State _state = fra::EMPTY;
@@ -251,6 +250,8 @@ private:
   shPeaks _peaks_left;
   shPeaks _peaks_right;
   bool _silence = true;
+  Nanos local_time_diff;
+  std::any anchor_data;
 
   static constexpr csv moduleId{"FRAME"};
 };

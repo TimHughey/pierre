@@ -74,7 +74,7 @@ Render::Render(io_context &io_ctx, shSpooler spooler)
 // static methods for creating, getting and resetting the shared instance
 shRender Render::init(asio::io_context &io_ctx, shSpooler spooler) {
   auto self = shared::render().emplace(new Render(io_ctx, spooler));
-  auto desk = Desk::create();
+  auto desk = Desk::create(io_ctx);
 
   return self;
 }
@@ -87,7 +87,8 @@ void Render::reset() { shared::render().reset(); }
 void Render::frameTimer() {
   // create a precise frame_ns using the timepoint of when rendering started
   // and frames rendered
-  frame_timer.expires_at(render_start + Nanos(dmx::frame_ns() * rendered_frames));
+  // frame_timer.expires_at(render_start + Nanos(dmx::frame_ns() * rendered_frames));
+  frame_timer.expires_at(render_start + Nanos(InputInfo::fps_ns() * rendered_frames));
 
   frame_timer.async_wait(  // wait to generate next frame
       asio::bind_executor( // use a specific executor
@@ -109,22 +110,12 @@ void Render::handleFrame() {
 
   ++rendered_frames;
   if (play_mode == PLAYING) {
-    // Spooler::nextFrame() may return an empty frame
-
-    auto frame = spooler->nextFrame(FTD);
+    auto frame = spooler->nextFrame(FTD); // may return an empty frame
     recent_frame = Frame::ensureFrame(frame)->markPlayed(frames_played, frames_silence);
-    shFX active_fx = Desk::activeFX();
-    fx_name = active_fx->name();
 
-    if ((fx_name == fx::SILENCE) && !recent_frame->silence()) {
-      Desk::activateFX<fx::MajorPeak>(fx::MAJOR_PEAK);
-    }
-
-    active_fx->executeLoop(recent_frame->peaksLeft());
-
-    if (Frame::ok(frame) && frame->unplayed()) {
-      __LOGX(LCOL01 " {}\n", moduleId, fn_id, Frame::inspectFrame(frame));
-    }
+    Desk::nextPeaks(recent_frame->peakInfo(uptime));
+  } else {
+    Desk::nextPeaks(Frame::createSilence()->peakInfo(uptime));
   }
 
   frameTimer();
@@ -137,8 +128,7 @@ void Render::handleFrame() {
 const string Render::stats() const {
   float silence = 1;
   if (frames_played) {
-    silence = (float)frames_silence / (frames_played + frames_silence);
-    silence = (silence > 0.0) ? silence : 1;
+    silence = frames_silence ? (float)frames_silence / (frames_played + frames_silence) : 0;
   }
 
   string msg;
@@ -176,41 +166,5 @@ void Render::statsTimer(const Nanos report_ns) {
   );
 }
 
-/*
-void Render::stream() {
-  string func(__PRETTY_FUNCTION__);
-
-  // this_thread::sleep_for(chrono::seconds(2));
-
-  uint64_t frames = 0;
-  long frame_us = ((1000 * 1000) / 44) - 250;
-  duration frame_interval_half = us(frame_us / 2);
-
-  while (State::isRunning()) {
-    auto loop_start = steady_clock::now();
-    for (auto p : producers) {
-      p->prepare();
-    }
-
-    this_thread::sleep_for(frame_interval_half);
-
-    packet::DMX packet;
-
-    for (auto p : producers) {
-      p->update(packet);
-    }
-
-    auto elapsed = duration_cast<us>(steady_clock::now() - loop_start);
-
-    this_thread::sleep_for(us(frame_us) - elapsed);
-
-    if (!State::isSuspended()) {
-      _net.write(packet);
-    }
-
-    frames++;
-  }
-}
-*/
 } // namespace player
 } // namespace pierre

@@ -466,7 +466,7 @@ void Frame::findPeaks(shFrame frame) {
   frame->_peaks_left = fft_left.findPeaks();
   frame->_peaks_right = fft_right.findPeaks();
 
-  frame->_silence = Peaks::silence(frame->peaksLeft()) && Peaks::silence(frame->peaksRight());
+  frame->_silence = Peaks::silence(frame->_peaks_left) && Peaks::silence(frame->_peaks_right);
 
   // really clear the payload (prevent lingering memory allocations)
   uint8v empty;
@@ -495,16 +495,15 @@ bool Frame::keep(FlushRequest &flush) {
   return (decipher() && (decipher_len > 0));
 }
 
-const Nanos Frame::localTimeDiff() const {
-  Nanos diff = Nanos::min();
+const Nanos Frame::localTimeDiff() {
+  // must be in .cpp due to intentional limiting of visibility of Anchor
+  if (const auto &data = Anchor::getData(); data.ok()) {
+    anchor_data = data;
 
-  // must be in .cpp due to delibrate limiting of visibility of Anchor
-  if (const auto &anchor_data = Anchor::getData(); anchor_data.ok()) {
-    diff = pe_time::elapsed_as<Nanos>(anchor_data.netTimeNow(),
-                                      anchor_data.frameLocalTime(timestamp));
+    return pe_time::elapsed_as<Nanos>(data.netTimeNow(), data.frameLocalTime(timestamp));
   }
 
-  return diff;
+  return Nanos::min();
 }
 
 bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
@@ -561,6 +560,21 @@ bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
   // the time diff can be used to correct an out-of-sync condition
 
   return rc;
+}
+
+PeakInfo Frame::peakInfo(Elapsed &uptime) {
+  auto adata = anchor::Data::any_cast(anchor_data);
+
+  return PeakInfo{
+      .seq_num = seq_num,                                 // frame seq_num
+      .timestamp = timestamp,                             // frame timestamp (raw)
+      .left = _peaks_left,                                // left channel peaks
+      .right = _peaks_right,                              // right channel peaks
+      .silence = _silence,                                // frame is silence
+      .nettime_now = adata.netTimeNow(),                  // current network time (master clock)
+      .frame_localtime = adata.frameLocalTime(timestamp), // frame calculated local time
+      .uptime = uptime                                    // uptime of render thread
+  };
 }
 
 fra::StateConst &Frame::stateVal(shFrame frame) { // static

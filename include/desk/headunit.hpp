@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/typical.hpp"
-#include "desk/dmx.hpp"
+#include "desk/msg.hpp"
 #include "desk/unit/opts.hpp"
 
 #include <fmt/format.h>
@@ -47,8 +47,8 @@ public:
   virtual ~HeadUnit() {}
 
   virtual void dark() = 0;
-  virtual void framePrepare() = 0;
-  virtual void frameUpdate(packet::DMX &packet) = 0;
+  virtual void preExecute() = 0;
+  virtual void updateMsg(desk::shMsg msg) = 0;
   virtual void leave() = 0;
   csv unitName() const { return csv(unit_name); }
 

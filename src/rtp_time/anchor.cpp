@@ -38,8 +38,8 @@ std::optional<shAnchor> __anchor;
 std::optional<shAnchor> &anchor() { return __anchor; }
 } // namespace shared
 
-using namespace std::chrono_literals;
-namespace chrono = std::chrono;
+// using namespace std::chrono_literals;
+// namespace chrono = std::chrono;
 
 // destructor, singleton static functions
 Anchor::~Anchor() { __LOG0(LCOL01 "\n", Anchor::moduleId, csv("DESTRUCT")); }
@@ -101,6 +101,7 @@ const anchor::Data &Anchor::getData() {
           is_new = false;
         }
       }
+
       return last; // ok, last has updated local time
     }
   }

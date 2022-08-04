@@ -44,7 +44,7 @@ public:
   struct Inject {
     string app_name;
     string cli_cfg_file;
-    string hostname;
+    csv hostname;
   };
 
 private:
@@ -60,14 +60,16 @@ public:
   static csr appName() { return ptr()->di.app_name; }
   static csr firmwareVersion() { return ptr()->firmware_vsn; };
   static csv moduleID() { return module_id; }
-  static JsonObject object(csv key) { return ptr()->doc[key]; }
-  static const string receiverName() { return ptr()->receiver(); }
+  static JsonObject object(csv key) { return ptr()->doc[key].as<JsonObject>(); }
+  static csv receiverName() { return ptr()->receiver_name; }
 
   void test(const char *setting, const char *key);
 
 private:
   const string receiver() const {
-    if (csv r = doc["pierre"]["receiver_name"]; r.size()) {
+    if (auto r = doc["pierre"]["receiver_name"].as<string_view>(); r.size()) {
+      __LOGX(LCOL01 " receiver config={}\n", moduleID(), "CONFIG", r);
+
       if (r == csv("%h")) {
         return string(di.hostname);
       } else {
@@ -85,6 +87,7 @@ private:
 
   // order independent
   string cfg_file; // will be an empty string if no on disk file was located
+  string receiver_name;
 
   // doc is guarenteed to be valid (either from a file on disk or the fallback config)
   StaticJsonDocument<MAX_DOC_SIZE> doc;

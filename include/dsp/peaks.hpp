@@ -85,9 +85,9 @@ public:
 
   static bool silence(shPeaks peaks) {
     __LOGX(LCOL01 " use_count={} hasPeak={}\n", moduleID(), csv("SILENCE"), //
-           peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : "NA");
+           peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : false);
 
-    return peaks.use_count() && peaks->hasPeak(1) ? true : false;
+    return (peaks && peaks->hasPeak(1)) == false;
   }
 
   auto size() const { return _peaks.size(); }

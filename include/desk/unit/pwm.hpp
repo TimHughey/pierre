@@ -34,24 +34,12 @@ namespace pierre {
 typedef uint32_t DutyVal;
 typedef float DutyPercent;
 
-//
-// IMPORTANT!
-//
-// This object is subject to race conditions when multiple tasks call:
-//  1. effects (e.g. dark(), pulse())
-//  2. framePrepare()
-//
-// As coded this object is safe for a second task to call frameUpdate().
-//
-
 class PulseWidth;
 typedef std::shared_ptr<PulseWidth> shPulseWidth;
 
 class PulseWidth : public HeadUnit {
 public:
   PulseWidth(const unit::Opts opts) : HeadUnit(opts, unit::NO_FRAME) {
-    _id.fill(0x00);
-
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);
@@ -91,42 +79,38 @@ public:
 
   virtual void percent(const DutyPercent x) { fixed(unitPercent(x)); }
 
-  virtual void framePrepare() override {
+  virtual void preExecute() override {
     const uint32_t duty_now = duty();
 
     switch (_mode) {
-      case FIXED:
-        break;
+    case FIXED:
+      break;
 
-      case PULSE_INIT:
-        // unitNext() has already been set by the call to pulse()
-        _mode = PULSE_RUNNING;
-        break;
+    case PULSE_INIT:
+      // unitNext() has already been set by the call to pulse()
+      _mode = PULSE_RUNNING;
+      break;
 
-      case PULSE_RUNNING:
-        const DutyVal fuzzy = _dest + _velocity;
-        const DutyVal next = duty_now - _velocity;
+    case PULSE_RUNNING:
+      const DutyVal fuzzy = _dest + _velocity;
+      const DutyVal next = duty_now - _velocity;
 
-        // we've reached or are close enough to the destination
-        if ((duty_now <= fuzzy) || (next <= _dest)) {
-          unitNext(_dest);
-          _mode = FIXED;
-        } else {
-          unitNext(next);
-        }
+      // we've reached or are close enough to the destination
+      if ((duty_now <= fuzzy) || (next <= _dest)) {
+        unitNext(_dest);
+        _mode = FIXED;
+      } else {
+        unitNext(next);
+      }
 
-        break;
+      break;
     }
   }
 
-  virtual void frameUpdate(packet::DMX &packet) override {
+  virtual void updateMsg(desk::shMsg msg) override {
     _duty = _unit_next;
 
-    auto root = packet.rootObj();
-
-    if (_id[0] != 0x00) {
-      root[_id.data()] = _duty;
-    }
+    msg->rootObj()[unitName()] = _duty;
   }
 
   void pulse(float intensity = 1.0, float secs = 0.2) {
@@ -152,8 +136,6 @@ protected:
     DutyVal pulse_start;
     DutyVal pulse_end;
   } config;
-
-  std::array<char, 6> _id;
 
 protected:
   virtual void unitNext(DutyVal duty) {

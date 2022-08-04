@@ -20,14 +20,22 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
+#include "base/pe_time.hpp"
+
 #include "dsp/peaks.hpp"
 
 namespace pierre {
 
 struct PeakInfo {
+  uint32_t seq_num;
+  uint32_t timestamp;
   shPeaks left;
   shPeaks right;
   bool silence;
+  Nanos nettime_now;
+  Nanos frame_localtime;
+  Elapsed &uptime;
 };
 
 } // namespace pierre

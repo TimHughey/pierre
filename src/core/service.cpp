@@ -39,12 +39,12 @@ Service::Service() {
 
   // stora calculated key/vals available from Host
   saveCalcVal(apAirPlayPairingIdentity, host->hwAddr());
-  saveCalcVal(apDeviceID, host->hwAddr());
+  saveCalcVal(apDeviceID, host->deviceID());
 
   saveCalcVal(apGroupUUID, host->uuid());
   saveCalcVal(apSerialNumber, host->serialNum());
 
-  saveCalcVal(ServiceName, Config::receiverName());
+  saveCalcVal(ServiceName, string(Config::receiverName()));
   saveCalcVal(FirmwareVsn, Config::firmwareVersion());
 
   saveCalcVal(PublicKey, host->pk());
@@ -206,7 +206,5 @@ void Service::saveCalcVal(Key key, const string &val) {
   // put the key/val tuple into the calc map
   _kvm_calc.insert_or_assign(key, service::KeyValCalc{key_str, val_str});
 }
-
-void Service::saveCalcVal(Key key, ccs val_ptr) { saveCalcVal(key, string(val_ptr)); }
 
 } // namespace pierre

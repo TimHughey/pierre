@@ -22,6 +22,8 @@
 #include "base/typical.hpp"
 #include "core/input_info.hpp"
 
+#include <any>
+
 namespace pierre {
 namespace anchor {
 
@@ -93,6 +95,10 @@ struct Data {
   Nanos sinceUpdate(const Nanos now = pe_time::nowNanos()) const { return now - localAtNanos; }
 
   auto validFor() const { return pe_time::nowNanos() - at_nanos; }
+
+  static Data any_cast(std::any &data) {
+    return data.has_value() ? std::any_cast<Data>(data) : Data();
+  }
 
   // return values:
   // -1 = clock is different
