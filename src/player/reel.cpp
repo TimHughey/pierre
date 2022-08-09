@@ -17,12 +17,12 @@
 //  https://www.wisslanding.com
 
 #include "player/reel.hpp"
+#include "base/flush_request.hpp"
+#include "base/pe_time.hpp"
 #include "base/typical.hpp"
-#include "player/flush_request.hpp"
-#include "player/frame.hpp"
+#include "frame/frame.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/clock.hpp"
-#include "base/pe_time.hpp"
 
 #include <algorithm>
 #include <fmt/compile.h>
@@ -103,8 +103,6 @@ const string Reel::inspect(shReel reel) { // static
       fmt::format_to(w, " seq a/b={:>8}/{:<8}", front->seq_num, back->seq_num);
       fmt::format_to(w, " ts a/b={:>12}/{:<12}", front->timestamp, back->timestamp);
     }
-
-    Frame::statsMsg(msg, reel->stats_map);
   }
 
   return msg;

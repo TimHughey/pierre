@@ -42,7 +42,7 @@ typedef std::shared_ptr<Msg> shMsg;
 
 class Msg : public std::enable_shared_from_this<Msg> {
 private:
-  static constexpr size_t DOC_SIZE = 3072; // JSON_ARRAY_SIZE(64) + JSON_OBJECT_SIZE(13);
+  static constexpr size_t DOC_SIZE = 4096; // JSON_ARRAY_SIZE(64) + JSON_OBJECT_SIZE(13);
 
 private:
   Msg(const PeakInfo &pi)
@@ -57,6 +57,7 @@ private:
     root["nettime_now_µs"] = pe_time::as_duration<Nanos, Micros>(pi.nettime_now).count();
     root["frame_localtime_µs"] = pe_time::as_duration<Nanos, Micros>(pi.frame_localtime).count();
     root["uptime_µs"] = pi.uptime.as<Micros>().count();
+    root["now_µs"] = pe_time::now_epoch<Micros>().count();
   }
 
 public:

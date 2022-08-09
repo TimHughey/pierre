@@ -16,13 +16,14 @@
 //
 //  https://www.wisslanding.com
 
-#include "player/frame.hpp"
+#include "frame/frame.hpp"
+#include "base/elapsed.hpp"
+#include "base/input_info.hpp"
 #include "base/shk.hpp"
 #include "base/uint8v.hpp"
-#include "core/input_info.hpp"
 #include "dsp/fft.hpp"
 #include "dsp/peaks.hpp"
-#include "player/av.hpp"
+#include "frame/av.hpp"
 #include "rtp_time/anchor.hpp"
 
 #include <cstdint>
@@ -46,8 +47,6 @@ StateKeys &stateKeys() {
   return keys;
 }
 } // namespace fra
-
-namespace player {
 
 namespace av { // encapsulation of libav*
 
@@ -426,11 +425,11 @@ bool Frame::decipher() {
   return true;
 }
 
-void Frame::decode(shFrame frame) {
-  // function definition must be in this file due to deliberate limited visibility of
-  // av namespace
-  av::parse(frame);
-}
+// void Frame::decode(shFrame frame) {
+//   // function definition must be in this file due to deliberate limited visibility of
+//   // av namespace
+//   av::parse(frame);
+// }
 
 void Frame::findPeaks(shFrame frame) {
   auto &payload = frame->_payload;
@@ -492,7 +491,13 @@ bool Frame::keep(FlushRequest &flush) {
     }
   }
 
-  return (decipher() && (decipher_len > 0));
+  auto rc = false;
+  if (decipher(); decipher_len) {
+    rc = true;
+    av::parse(this->shared_from_this());
+  }
+
+  return rc;
 }
 
 const Nanos Frame::localTimeDiff() {
@@ -506,10 +511,9 @@ const Nanos Frame::localTimeDiff() {
   return Nanos::min();
 }
 
-bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
+bool Frame::nextFrame(const Nanos &lead_time) {
   auto rc = true;               // true: stop searching, false: keep searching
   const bool ready = isReady(); // cache value in case it changes during this function
-  fra::State state_override = fra::NONE;
 
   if (timestamp && seq_num && ready) {                             // frame is legit
     if (const auto diff = localTimeDiff(); diff != Nanos::min()) { // anchor is ready
@@ -519,39 +523,21 @@ bool Frame::nextFrame(const FrameTimeDiff &ftd, fra::StatsMap &stats_map) {
       if (rc = unplayed(); rc == true) {
         local_time_diff = diff; // set local_time_diff for debugging
 
-        if (diff <= ftd.old) {    // very old, not reasonable to consider for playing
-          _state = fra::OUTDATED; // mark as outdated
-          rc = false;             // keep searching
+        if (diff < Nanos::zero()) { // old, before required lead time
+          _state = fra::OUTDATED;   // mark as outdated
+          rc = false;               // keep searching
 
-        } else if ((diff >= ftd.late) && (diff < Nanos::zero())) { // before lead time
-          // frame maybe playable or usable for out-of-sync correction
-          // stop searching (default rc) and allow the caller to decide what to do
-          // this frame will not be considered on subsequent calls to nextFrame()
-          // once marked as late
-          _state = fra::LATE;
+        } else if (diff <= lead_time) { // within lead time range
+          _state = fra::PLAYABLE;       // mark as playable
 
-        } else if (diff <= ftd.lead) { // within lead time range
-          _state = fra::PLAYABLE;      // mark as playable
-
-        } else if ((diff > ftd.lead) && (_state == fra::DECODED)) { // future frame
-          // don't change the frame state, set override
+        } else if ((diff > lead_time) && (_state == fra::DECODED)) { // future frame
           _state = fra::FUTURE;
         }
 
         __LOGX(LCOL01 " {}\n", moduleId, csv("NEXT_FRAME"), inspect());
       } // end frame state update
-    } else {
-      // anchor wasn't ready, set state override
-      state_override = fra::ANCHOR_DELAY;
-    } // end frame local time diff check
-  } else {
-    // frame failed valid or ready
-    // if frame was ready then it must have been invalid, set state override
-    state_override = ready ? fra::INVALID : fra::NOT_READY;
-  }
-
-  // update stats based on the frame state or the state override
-  statsAdd(stats_map, state_override);
+    }   // anchor not ready
+  }     // frame failed valid or ready...
 
   // NOTE:
   // return value designed for use with ranges::find_if: true == found; false == not found
@@ -575,23 +561,6 @@ PeakInfo Frame::peakInfo(Elapsed &uptime) {
       .frame_localtime = adata.frameLocalTime(timestamp), // frame calculated local time
       .uptime = uptime                                    // uptime of render thread
   };
-}
-
-fra::StateConst &Frame::stateVal(shFrame frame) { // static
-  return frame.use_count() ? frame->_state : fra::EMPTY;
-}
-
-fra::StatsMap Frame::statsMap() { // static
-  const std::vector<fra::State>   // possible states
-      keys{fra::ANCHOR_DELAY, fra::FUTURE, fra::NOT_READY, fra::OUTDATED, fra::PLAYED};
-
-  fra::StatsMap map;
-
-  ranges::for_each(keys, [&](auto state) { //
-    map.try_emplace(state, 0);
-  });
-
-  return map;
 }
 
 // misc debug
@@ -624,5 +593,4 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
   return msg;
 }
 
-} // namespace player
 } // namespace pierre

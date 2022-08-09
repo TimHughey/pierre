@@ -21,11 +21,11 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/input_info.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
+#include "frame/frame.hpp"
 #include "io/io.hpp"
-#include "player/frame.hpp"
-#include "player/frame_time.hpp"
 #include "player/spooler.hpp"
 
 #include <memory>
@@ -39,11 +39,6 @@ class Render;
 typedef std::shared_ptr<Render> shRender;
 
 class Render : public std::enable_shared_from_this<Render> {
-private:
-  static constexpr FrameTimeDiff FTD{.old = pe_time::negative(dmx::frame_ns()),
-                                     .late = pe_time::negative(Nanos(dmx::frame_ns() / 2)),
-                                     .lead = dmx::frame_ns()};
-
 private: // all access via shared_ptr
   Render(io_context &io_ctx, shSpooler spooler);
 
@@ -53,6 +48,7 @@ public: // static creation, access, etc.
   static void reset();
 
 public: // public API
+  static constexpr csv moduleID() { return moduleId; }
   static void playMode(csv mode) {
     asio::post(ptr()->local_strand, [self = ptr(), mode = mode]() { self->playStart(mode); });
   }
@@ -60,29 +56,54 @@ public: // public API
   static void teardown() { ptr()->playMode(NOT_PLAYING); }
 
 private:
-  void frameTimer();
-  void handleFrame();
+  void handle_frames();
+  void post_handle_frames() {
+    if (playing()) {
+      asio::post(local_strand, [self = shared_from_this()] { self->handle_frames(); });
+    }
+  }
   static void nextPacket(shFrame next_packet, const Nanos start);
 
   bool playing() const { return play_mode.front() == PLAYING.front(); }
 
   void playStart(csv mode) {
-    play_mode = mode;
 
-    if (play_mode.front() == PLAYING.front()) {
-      render_start = steady_clock::now();
-      rendered_frames = 0;
-      frameTimer(); // frame timer handles play/not play
-      statsTimer();
-    } else {
-      frame_timer.cancel();
-      stats_timer.cancel();
-      render_start = TimePoint();
-    }
+    asio::post(local_strand, [mode = mode, self = shared_from_this()] {
+      self->play_mode = mode;
+
+      if (self->play_mode.front() == PLAYING.front()) {
+
+        self->post_handle_frames();
+        self->statsTimer();
+      } else {
+
+        self->handle_timer.cancel();
+        self->release_timer.cancel();
+        self->stats_timer.cancel();
+      }
+    });
+  }
+
+  void release(shFrame frame); // see .cpp
+
+  void schedule_release(shFrame frame, const Nanos &sync_wait) {
+    release_timer.expires_after(sync_wait);
+
+    release_timer.async_wait(asio::bind_executor( // use a specific executor
+        local_strand,                             // serialize rendering
+        [frame = frame->shared_from_this(), self = shared_from_this()](const error_code ec) {
+          // check playing since it could be stopped before the release
+
+          if (!ec) {
+            self->release(frame);
+          } else {
+            __LOG0(LCOL01 " error, dropping seq_num={} reason={}\n", moduleID(), "SCHED RELEASE",
+                   frame->seq_num, ec.message());
+          }
+        }));
   }
 
   // misc debug, stats
-
   const string stats() const;
   void statsTimer(const Nanos report_ns = 10s);
 
@@ -91,18 +112,14 @@ private:
   io_context &io_ctx;
   shSpooler spooler;
   strand &local_strand;
-  steady_timer frame_timer;
+  steady_timer handle_timer;
+  steady_timer release_timer;
   steady_timer stats_timer;
-  steady_timer silence_timer;
-  steady_timer leave_timer;
-  steady_timer standby_timer;
 
-  TimePoint render_start;
-  uint64_t rendered_frames = 0;
+  Nanos lead_time;
 
   // order independent
   string_view play_mode = NOT_PLAYING;
-  shFrame recent_frame;
   uint64_t frames_played = 0;
   uint64_t frames_silence = 0;
   Elapsed uptime;

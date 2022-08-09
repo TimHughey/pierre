@@ -18,7 +18,7 @@
 
 #include "rtp_time/anchor/data.hpp"
 #include "base/typical.hpp"
-#include "core/input_info.hpp"
+#include "base/input_info.hpp"
 #include "rtp_time/clock.hpp"
 
 #include <chrono>

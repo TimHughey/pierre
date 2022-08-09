@@ -18,7 +18,7 @@
 
 #include "reply/flush.hpp"
 #include "aplist/aplist.hpp"
-#include "player/flush_request.hpp"
+#include "base/flush_request.hpp"
 #include "player/player.hpp"
 #include "reply/dict_keys.hpp"
 

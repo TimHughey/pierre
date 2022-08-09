@@ -17,9 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "player/spooler.hpp"
+#include "base/flush_request.hpp"
+#include "frame/frame.hpp"
 #include "io/io.hpp"
-#include "player/flush_request.hpp"
-#include "player/frame.hpp"
 #include "player/reel.hpp"
 
 #include <algorithm>
@@ -50,7 +50,7 @@ void Spooler::flush(const FlushRequest &request) {
              });
 }
 
-shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
+shFrame Spooler::nextFrame(const Nanos &lead_time) {
   // do we need a reel?
   requisition.ifNeeded();
 
@@ -58,8 +58,8 @@ shFrame Spooler::nextFrame(const FrameTimeDiff &ftd) {
 
   // look through all available reels for the next frame
   // no need to capture the result, frame is set within the find
-  ranges::find_if(reels_out, [&frame = frame, &ftd = ftd](shReel reel) {
-    frame = reel->nextFrame(ftd);
+  ranges::find_if(reels_out, [&](shReel reel) {
+    frame = reel->nextFrame(lead_time);
 
     // if frame is ok then stop finding, otherwise keep searching
     return Frame::ok(frame);

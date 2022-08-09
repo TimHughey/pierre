@@ -20,9 +20,9 @@
 
 #include "render.hpp"
 #include "base/elapsed.hpp"
+#include "base/input_info.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
-#include "core/input_info.hpp"
 #include "desk/desk.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"
@@ -53,20 +53,13 @@ Render::Render(io_context &io_ctx, shSpooler spooler)
     : io_ctx(io_ctx),                     // grab the io_ctx
       spooler(spooler),                   // use this spooler for unloading Frames
       local_strand(spooler->strandOut()), // use the unload strand from spooler
-      frame_timer(io_ctx),                // generate process frames
+      handle_timer(io_ctx),               //
+      release_timer(io_ctx),              // handle available frames
       stats_timer(io_ctx),                // period stats reporting
-      silence_timer(io_ctx),              // track silence
-      leave_timer(io_ctx),                // track when to leave
-      standby_timer(io_ctx),              // track when to enter standby
-      render_start(),                     // play not started yet
-      rendered_frames(0)                  // no frames played yet
+      lead_time(InputInfo::fps_ns())      // frame lead time
 {
-  const auto render_fps = pe_time::as_millis_fp(dmx::frame_ns());
-  const auto input_fps = pe_time::as_millis_fp(InputInfo::fps_ns());
-  const auto diff = render_fps - input_fps;
-
-  __LOG0(LCOL01 " render_fps={:0.1} input_fps={:0.1} diff={:0.2}\n", moduleId, csv("CONSTRUCT"),
-         render_fps, input_fps, diff);
+  __LOG0(LCOL01 " lead_time_ms={:0.1}\n", moduleId, csv("CONSTRUCT"),
+         pe_time::as_millis_fp(lead_time));
 
   // call no functions here that use self
 }
@@ -84,51 +77,49 @@ void Render::reset() { shared::render().reset(); }
 
 // public API and member functions
 
-void Render::frameTimer() {
-  // create a precise frame_ns using the timepoint of when rendering started
-  // and frames rendered
-  // frame_timer.expires_at(render_start + Nanos(dmx::frame_ns() * rendered_frames));
-  frame_timer.expires_at(render_start + Nanos(InputInfo::fps_ns() * rendered_frames));
-
-  frame_timer.async_wait(  // wait to generate next frame
-      asio::bind_executor( // use a specific executor
-          local_strand,    // serialize rendering
-          [self = shared_from_this()](const error_code ec) {
-            if (ec == errc::success) {
-              self->handleFrame();
-
-            } else if (ec != asio_errc::operation_aborted) {
-              __LOG0(LCOL01 " terminating reason={}\n", self->moduleId, csv("FRAME TIMER"),
-                     ec.message());
-            }
-          }));
-}
-
-void Render::handleFrame() {
-  static csv fn_id = "HANDLE_FRAME";
+void Render::handle_frames() {
+  static csv fn_id = "HANDLE_FRAMES";
   [[maybe_unused]] Elapsed elapsed;
 
-  ++rendered_frames;
-  if (play_mode == PLAYING) {
-    auto frame = spooler->nextFrame(FTD); // may return an empty frame
-    recent_frame = Frame::ensureFrame(frame)->markPlayed(frames_played, frames_silence);
+  auto sync_wait = lead_time;
 
-    Desk::nextPeaks(recent_frame->peakInfo(uptime));
+  if (auto frame = spooler->nextFrame(lead_time); frame && frame->playable()) {
+    sync_wait = frame->syncWaitDuration(lead_time);
+
+    __LOGX(LCOL01 " seq_num={} sync_wait={}\n", moduleID(), fn_id, frame->seq_num, sync_wait);
+    schedule_release(frame, sync_wait);
+
   } else {
-    Desk::nextPeaks(Frame::createSilence()->peakInfo(uptime));
-  }
+    __LOG0(LCOL01 " no playable frames\n", moduleID(), fn_id);
+    handle_timer.expires_after(Nanos(lead_time / 3));
+    handle_timer.async_wait(                                //
+        [self = shared_from_this()](const error_code &ec) { //
+          if (!ec) {
+            self->post_handle_frames();
+          }
 
-  frameTimer();
+        });
+  }
 
   if (elapsed.freeze() >= 3ms) {
     __LOG0(LCOL01 " elapsed={:0.2}\n", moduleId, fn_id, elapsed.as<MillisFP>());
   }
 }
 
+// must be in .cpp due to intentional limited Desk visibility
+void Render::release(shFrame frame) {
+  Desk::nextPeaks(frame->peakInfo(uptime));
+  frame->markPlayed(frames_played, frames_silence);
+
+  post_handle_frames();
+}
+
 const string Render::stats() const {
-  float silence = 1;
-  if (frames_played) {
-    silence = frames_silence ? (float)frames_silence / (frames_played + frames_silence) : 0;
+  float silence = 0;
+  if (frames_played && frames_silence) {
+    silence = (float)frames_silence / (frames_played + frames_silence);
+  } else if (frames_silence) {
+    silence = 1.0;
   }
 
   string msg;
@@ -154,13 +145,11 @@ void Render::statsTimer(const Nanos report_ns) {
       asio::bind_executor( // use a specific executor
           local_strand,    // use our local strand
           [self = shared_from_this()](const error_code ec) {
-            if (ec != errc::success) {
-              return;
+            if (!ec) {
+              __LOG0(LCOL01 " {}\n", moduleId, "STATS", self->stats());
+
+              self->statsTimer();
             }
-
-            __LOG0(LCOL01 " {}\n", moduleId, Frame::stateVal(self->recent_frame), self->stats());
-
-            self->statsTimer();
           })
 
   );

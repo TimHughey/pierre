@@ -40,6 +40,7 @@ using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
 using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
+using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
 typedef uint16_t Port;
 

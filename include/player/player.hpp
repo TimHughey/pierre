@@ -22,17 +22,18 @@
 
 #pragma once
 
+#include "base/flush_request.hpp"
+#include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
-#include "player/flush_request.hpp"
 #include "player/spooler.hpp"
 #include "rtp_time/anchor/data.hpp"
 
-#include <boost/asio.hpp>
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <stop_token>
 #include <vector>
 
 namespace pierre {
@@ -42,19 +43,19 @@ typedef std::shared_ptr<Player> shPlayer;
 
 class Player : public std::enable_shared_from_this<Player> {
 private:
-  typedef std::vector<Thread> Threads;
+  static constexpr auto PLAYER_THREADS = 2; // +1 include main thread
 
 private: // constructor private, all access through shared_ptr
-  Player(io_context &io_ctx)
-      : local_strand(io_ctx),                     // player serialized work
-        decode_strand(io_ctx),                    // decoder serialized work
-        spooler(player::Spooler::create(io_ctx)), // in/out spooler
-        watchdog_timer(io_ctx_dsp) {              // dsp threads shutdown
+  Player()
+      : spooler(player::Spooler::create(io_ctx)), // frame in/out spooler
+        watchdog_timer(io_ctx_dsp),               // watches for shutdown requests
+        player_guard(std::make_shared<work_guard>(io_ctx.get_executor())) // maybe not needed
+  {
     // call no member functions that use shared_from_this() in constructor
   }
 
 public:
-  static shPlayer init(io_context &io_ctx);
+  static void init();
   static shPlayer ptr();
   static void reset();
 
@@ -62,23 +63,28 @@ public:
   static void flush(const FlushRequest &request) { ptr()->spooler->flush(request); }
   static csv moduleID() { return module_id; }
   static void saveAnchor(anchor::Data &data); // must be declared in .cpp
-  static void shutdown();
-  static void teardown(); // must be declared in .cpp
+  static void teardown();                     // must be declared in .cpp
 
 private:
-  shPlayer start();
-  void watchDog();
+  void stop_io() {
+    io_ctx.stop();
+    io_ctx_dsp.stop();
+  }
+
+  void watch_dog();
 
 private:
   // order dependent
+  io_context io_ctx;           // player (and friends) context
   io_context io_ctx_dsp;       // dsp work
-  strand local_strand;         // serialize player activites
-  strand decode_strand;        // serialize packet decoding
   player::shSpooler spooler;   // in/out spooler
   steady_timer watchdog_timer; // watch for shutdown
+  std::shared_ptr<work_guard> player_guard;
 
   // order independent
-  Threads dsp_threads;
+  Thread thread_main;
+  Threads threads;
+  std::stop_token stop_token;
 
   string_view play_mode = NOT_PLAYING;
   FlushRequest flush_request;

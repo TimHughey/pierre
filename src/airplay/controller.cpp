@@ -76,6 +76,7 @@ void Controller::run() {
   Anchor::init();
   ConnInfo::init();
   Servers::init({.io_ctx = io_ctx});
+  Player::init();
 
   // run the controller with standard concurrency
   // other classes may start their own thread pools
@@ -95,9 +96,7 @@ void Controller::run() {
     });
   }
 
-  Player::init(io_ctx);
-
-  io_ctx.run(); // run io_ctx on controller thread
+    io_ctx.run(); // run io_ctx on controller thread
 }
 
 Thread &Controller::start() {

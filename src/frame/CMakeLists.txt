@@ -1,5 +1,7 @@
 #
-# PLAYER
+# Frame
+#
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavdevice
@@ -11,7 +13,7 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavutil
 )
 
-set(__target player)
+set(__target frame)
 
 set(THREADS_PREFER_PTHREAD_FLAG true)
 
@@ -26,14 +28,8 @@ find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
 add_library(${__target} SHARED
-  # orchestration
-  player.cpp
-
-  # AirPlay 2 packet handling and queuing
-  reel.cpp spooler.cpp
-
-  # Render Player Frames
-  render.cpp
+  # the frame
+  frame.cpp
 
   ${HEADER_LIST}
 )
@@ -47,11 +43,10 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${__target})
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
-  ArduinoJson
+  PkgConfig::LIBAV
+  ${sodium_LIBRARY_RELEASE}
   base
-  desk
-  frame
-  mdns
+  dsp
   rtp_time
 )
 

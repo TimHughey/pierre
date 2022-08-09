@@ -22,12 +22,11 @@
 
 #pragma once
 
+#include "base/flush_request.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
+#include "frame/frame.hpp"
 #include "io/io.hpp"
-#include "player/flush_request.hpp"
-#include "player/frame.hpp"
-#include "player/frame_time.hpp"
 
 #include <deque>
 #include <iterator>
@@ -54,8 +53,8 @@ private: // constructor private, all access through shared_ptr
 
       : strand_out(strand_out),                       // note 1
         serial(fmt::format("{:#05x}", ++SERIAL_NUM)), // note 2
-        module_id(fmt::format("REEL {}", serial)),    // note 3
-        stats_map(Frame::statsMap()) {                // note 4
+        module_id(fmt::format("REEL {}", serial))     // note 3
+  {
     // notes:
     //  1. Reel unique serial num (for debugging)
     //  1. Reel loggind prefix
@@ -79,10 +78,9 @@ public:
   //      this is a signal to the caller to keep looking in other reels
   //   2. if a frame is found it may not be playable
   //      handling unplayable frames is left to the caller
-  shFrame nextFrame(const FrameTimeDiff &ftd) {
-    auto next = ranges::find_if(frames, [&](shFrame frame) { //
-      return frame->nextFrame(ftd, stats_map);
-    });
+  shFrame nextFrame(const Nanos &lead_time) {
+    auto next =
+        ranges::find_if(frames, [&](shFrame frame) { return frame->nextFrame(lead_time); });
 
     // schedule reel cleanup and guard by strand_out
     asio::post(strand_out, [self = shared_from_this()]() {
@@ -111,7 +109,6 @@ private:
   strand &strand_out;
   const string serial;
   const string module_id;
-  fra::StatsMap stats_map;
 
   // order independent
   Frames frames;

@@ -21,12 +21,11 @@
 
 #pragma once
 
+#include "base/flush_request.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
+#include "frame/frame.hpp"
 #include "io/io.hpp"
-#include "player/flush_request.hpp"
-#include "player/frame.hpp"
-#include "player/frame_time.hpp"
 #include "player/reel.hpp"
 
 #include <atomic>
@@ -153,7 +152,7 @@ public:
 public:
   void flush(const FlushRequest &flush);
   void loadTimeout();
-  shFrame nextFrame(const FrameTimeDiff &ftd);
+  shFrame nextFrame(const Nanos &lead_time);
   shFrame queueFrame(shFrame frame);
   strand &strandOut() { return strand_out; }
 

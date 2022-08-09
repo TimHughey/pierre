@@ -35,6 +35,7 @@ using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::duration<long double>;
 using steady_clock = std::chrono::steady_clock;
+using system_clock = std::chrono::system_clock;
 using TimePoint = std::chrono::time_point<steady_clock>;
 
 typedef uint64_t ClockID; // master clock id
@@ -54,18 +55,26 @@ struct pe_time {
     return std::chrono::duration_cast<Seconds>(d);
   }
 
+  template <typename T> static T diff_abs(const T &d1, const T &d2) {
+    return std::chrono::abs(d1 - d2);
+  }
+
   template <typename T>
   static T elapsed_as(const Nanos &d1, const Nanos d2 = pe_time::nowNanos()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
   static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pe_time::nowNanos()) { //
-    return std::chrono::abs(d2 - d1);
+    return diff_abs(d2, d1);
   }
 
   static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
   static constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
   static constexpr Nanos negative(Nanos d) { return Nanos::zero() - d; }
+
+  template <typename T> static T now_epoch() {
+    return std::chrono::duration_cast<T>(system_clock::now().time_since_epoch());
+  }
 
   static Millis nowMillis() { return std::chrono::duration_cast<Millis>(nowNanos()); }
 

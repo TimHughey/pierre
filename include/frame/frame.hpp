@@ -19,13 +19,13 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/flush_request.hpp"
+#include "base/input_info.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "dsp/peak_info.hpp"
 #include "dsp/peaks.hpp"
-#include "player/flush_request.hpp"
-#include "player/frame_time.hpp"
 
 #include <any>
 #include <array>
@@ -55,7 +55,6 @@ constexpr csv EMPTY{"empty"};
 constexpr csv ERROR{"error"};
 constexpr csv FUTURE{"future"};
 constexpr csv INVALID{"invalid"};
-constexpr csv LATE{"late"};
 constexpr csv NONE{"none"};
 constexpr csv NOT_READY{"not_ready"};
 constexpr csv OUTDATED{"outdated"};
@@ -63,9 +62,9 @@ constexpr csv PLAYABLE{"playable"};
 constexpr csv PLAYED{"played"};
 
 StateKeys &state_keys();
-} // namespace fra
 
-namespace player {
+void start_dsp_threads();
+} // namespace fra
 
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 typedef std::shared_ptr<CipherBuff> shCipherBuff;
@@ -121,8 +120,6 @@ class Frame;
 typedef std::shared_ptr<Frame> shFrame;
 
 class Frame : public std::enable_shared_from_this<Frame> {
-private:
-  static constexpr size_t PAYLOAD_MIN_SIZE = 24;
 
 private:
   Frame(uint8v &packet);
@@ -132,17 +129,14 @@ private:
 
 public:
   // Object Creation
-  static shFrame create(uint8v &packet) { //
-    return std::shared_ptr<Frame>(new Frame(packet));
-  }
-  static shFrame createSilence() { //
+  static shFrame create(uint8v &packet) { return std::shared_ptr<Frame>(new Frame(packet)); }
+
+  static shFrame createSilence() {
     return std::shared_ptr<Frame>(new Frame(0x02, fra::PLAYABLE, true));
   }
 
   // Public API
-  void cleanup() { _m.reset(); }
-  bool decipher();                   // sodium decipher packet
-  static void decode(shFrame frame); // definition must be in cpp
+  bool decipher(); // sodium decipher packet
   void decodeOk() { _state = fra::DECODED; }
   static shFrame ensureFrame(shFrame frame) { return ok(frame) ? frame : createSilence(); }
   static void findPeaks(shFrame frame); // defnition must be in cpp
@@ -155,10 +149,7 @@ public:
   // limited visibility of Anchor
   const Nanos localTimeDiff(); // calculate diff between local and frame time
   shFrame markPlayed(auto &played, auto &not_played) {
-    // note: when called on a nextFrame() it is safe to allow outdated frames
-    // because they passed FrameTimeDiff late check
-
-    if (stateEqual({fra::LATE, fra::PLAYABLE})) {
+    if (playable()) {
       _state = fra::PLAYED;
       ++played;
     } else {
@@ -169,7 +160,7 @@ public:
   }
 
   // nextFrame() returns true when searching should stop; false to keep searching
-  bool nextFrame(const FrameTimeDiff &frame_time_diff, fra::StatsMap &stats_map);
+  bool nextFrame(const Nanos &lead_time);
 
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
@@ -181,40 +172,31 @@ public:
   bool future() const { return stateEqual(fra::FUTURE); }
   static bool ok(shFrame frame) { return frame.use_count(); }
   bool outdated() const { return stateEqual(fra::OUTDATED); }
-  bool playable() const { return stateEqual(fra::PLAYABLE); }
+  bool playable() const { return stateEqual({fra::PLAYABLE, fra::FUTURE}); }
   bool played() const { return stateEqual(fra::PLAYED); }
   bool purgeable() const { return stateEqual({fra::OUTDATED, fra::PLAYED}); }
   bool silence() const { return _silence; }
-  static fra::StateConst &stateVal(shFrame frame);
+  static fra::StateConst &stateVal(shFrame frame) {
+    return frame.use_count() ? frame->_state : fra::EMPTY;
+  }
   bool stateEqual(fra::StateConst &check) const { return check == _state; }
   bool stateEqual(const fra::States &states) const {
     return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
   }
+
+  Nanos syncWaitDuration(const Nanos &lead_time,
+                         [[maybe_unused]] const Nanos latency = Nanos::zero()) {
+    auto lead_time_min = Nanos(lead_time / 4);
+    auto lt_diff = localTimeDiff();
+
+    if (lt_diff > lead_time_min) {
+      return pe_time::diff_abs(lt_diff, lead_time_min);
+    }
+
+    return Nanos::zero();
+  }
+
   bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
-
-  // stats
-
-  // create an empty StatsMap
-  static fra::StatsMap statsMap();
-
-  // add a state to a StatsMap
-  void statsAdd(fra::StatsMap &stats_map, fra::State override = fra::NONE) {
-    // use override, if specified
-    ++stats_map[(override == fra::NONE) ? _state : override];
-  }
-
-  // create a textual representation of the StatsMap
-  static auto &statsMsg(auto &msg, const fra::StatsMap &map) {
-    ranges::for_each(map, [w = std::back_inserter(msg)](auto &key_val) {
-      const auto &[key, val] = key_val;
-
-      if (val > 0) {
-        fmt::format_to(w, "{}={:<5} ", key, val);
-      }
-    });
-
-    return msg;
-  }
 
   // class member functions
   friend void swap(Frame &a, Frame &b); // swap specialization
@@ -225,7 +207,7 @@ public:
   static constexpr csv moduleID() { return moduleId; }
 
 public:
-  // order independent
+  // order dependent
   uint8_t version = 0x00;
   bool padding = false;
   bool extension = false;
@@ -256,5 +238,4 @@ private:
   static constexpr csv moduleId{"FRAME"};
 };
 
-} // namespace player
 } // namespace pierre

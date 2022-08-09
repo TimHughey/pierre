@@ -75,6 +75,13 @@ FetchContent_Declare(ArduinoJson
 
 FetchContent_MakeAvailable(ArduinoJson)
 
+FetchContent_Declare(InfluxData
+    GIT_REPOSITORY https://github.com/offa/influxdb-cxx
+    GIT_TAG        v0.6.7
+)
+
+FetchContent_MakeAvailable(InfluxData)
+
 add_subdirectory(src)
 
 add_executable(${_target} apps/pierre.cpp apps/main.cpp)

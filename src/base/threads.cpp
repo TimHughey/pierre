@@ -16,27 +16,17 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/pe_time.hpp"
-#include "base/typical.hpp"
-
-#include <chrono>
+#include "threads.hpp"
 
 namespace pierre {
 
-struct FrameTimeDiff {
-  // old and late must be negative values
-  Nanos old{0};  // too old to be considered, must be less than late
-  Nanos late{0}; // maybe playable or useable to correct out-of-sync, must be greater than old
-  Nanos lead{0}; // desired lead time, positive value
-};
+void name_thread(csv name) {
+  const auto handle = pthread_self();
 
-namespace dmx {
-using FPS = std::chrono::duration<double, std::ratio<1, 44>>;
+  __LOG0(LCOL01 " handle={:#x}\n", "BASE", "NAME THREAD", handle);
 
-// duration to wait between sending DMX frames
-constexpr Nanos frame_ns() { return std::chrono::duration_cast<Nanos>(FPS(1)); }
-} // namespace dmx
+  pthread_setname_np(handle, name.data());
+}
 
+void name_thread(csv name, auto num) { name_thread(fmt::format("{} {}", name, num)); }
 } // namespace pierre
