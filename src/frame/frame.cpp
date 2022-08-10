@@ -425,12 +425,6 @@ bool Frame::decipher() {
   return true;
 }
 
-// void Frame::decode(shFrame frame) {
-//   // function definition must be in this file due to deliberate limited visibility of
-//   // av namespace
-//   av::parse(frame);
-// }
-
 void Frame::findPeaks(shFrame frame) {
   auto &payload = frame->_payload;
   const auto samples_per_channel = frame->samples_per_channel;
@@ -443,13 +437,13 @@ void Frame::findPeaks(shFrame frame) {
   auto &right = fft_right.real();
 
   constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
-  uint8_t *fptr = payload.data();                   // ptr into array of uint8_t to convert
+  uint8_t *sptr = payload.data();                   // ptr to next sample
   const auto interleaved_samples = payload.size() / SAMPLE_BYTES;
 
   for (size_t idx = 0; idx < interleaved_samples; ++idx) {
     uint16_t val;
-    std::memcpy(&val, fptr, SAMPLE_BYTES); // memcpy to avoid strict aliasing rules
-    fptr += SAMPLE_BYTES;                  // point to the next sample
+    std::memcpy(&val, sptr, SAMPLE_BYTES); // memcpy to avoid strict aliasing rules
+    sptr += SAMPLE_BYTES;                  // increment to next sample
 
     if ((idx % 2) == 0) { // left channel
       left.emplace_back(static_cast<float>(val));

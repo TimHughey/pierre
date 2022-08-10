@@ -34,6 +34,7 @@
 #include <optional>
 #include <ranges>
 #include <stop_token>
+#include <time.h> // for nanosleep
 
 using namespace std::chrono_literals;
 using namespace pierre::player;

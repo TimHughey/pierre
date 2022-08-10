@@ -89,6 +89,8 @@ struct pe_time {
   }
 
   template <typename T> static T nowSteady() { return as_duration<Nanos, T>(nowNanos()); }
+
+  static auto now_nanos() { return steady_clock::now().time_since_epoch(); }
 };
 
 } // namespace pierre

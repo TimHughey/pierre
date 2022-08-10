@@ -22,13 +22,17 @@
 
 #include "base/minmax.hpp"
 #include "base/typical.hpp"
-#include "dsp/util.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <ranges>
 
 namespace pierre {
+
+template <typename T> constexpr T scale_val(T val) { //
+  return (val <= 0.0) ? 0.0 : std::log10(val);
+}
 
 struct Peak {
 private:
@@ -41,11 +45,11 @@ private:
   struct mag_scaled {
     static constexpr Mag factor = 2.41;
     static constexpr Mag step = 0.001;
-    static constexpr Mag floor = peak::scaleVal(mag_base::floor * factor);
-    static constexpr Mag ceiling = peak::scaleVal(mag_base::ceiling);
+    static constexpr Mag floor = scale_val(mag_base::floor * factor);
+    static constexpr Mag ceiling = scale_val(mag_base::ceiling);
 
     static constexpr Mag interpolate(Mag m) {
-      return (peak::scaleVal(m) - mag_scaled::floor) / (mag_scaled::ceiling - mag_scaled::floor);
+      return (scale_val(m) - mag_scaled::floor) / (mag_scaled::ceiling - mag_scaled::floor);
     }
   };
 
@@ -58,15 +62,15 @@ public: // Peak
   }
 
   Freq frequency() const { return freq; }
-  Freq frequencyScaled() const { return peak::scaleVal(freq); }
+  Freq frequencyScaled() const { return scale_val(freq); }
   bool greaterThanFloor() const { return mag > Peak::magFloor(); }
   bool greaterThanFreq(Freq want_freq) const { return freq > want_freq; }
 
   Mag magnitude() const { return mag; }
-  static Mag magFloor() { return mag_base::floor; }
+  static constexpr Mag magFloor() { return mag_base::floor; }
 
   MagScaled magScaled() const {
-    auto scaled = peak::scaleVal(mag) - mag_scaled::floor;
+    auto scaled = scale_val(mag) - mag_scaled::floor;
 
     return scaled > 0 ? scaled : 0;
   }
@@ -85,7 +89,7 @@ public: // Peak
     return ranges::clamp(ret_val, range.min(), range.max());
   }
 
-  static const Peak zero() { return std::move(Peak()); }
+  static constexpr Peak zero() { return Peak(); }
 
 private:
   size_t index = 0;

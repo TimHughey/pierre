@@ -23,7 +23,6 @@
 #include "base/typical.hpp"
 
 #include "dsp/peak.hpp"
-#include "dsp/util.hpp"
 
 #include <memory>
 #include <type_traits>
