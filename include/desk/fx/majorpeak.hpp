@@ -24,7 +24,7 @@
 #include "base/elapsed.hpp"
 #include "base/typical.hpp"
 #include "desk/fx.hpp"
-#include "dsp/peaks.hpp"
+#include "frame/peaks.hpp"
 
 #include <boost/circular_buffer.hpp>
 #include <deque>

@@ -24,7 +24,7 @@
 #include "base/typical.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/names.hpp"
-#include "dsp/peaks.hpp"
+#include "frame/peaks.hpp"
 
 #include <memory>
 

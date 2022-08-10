@@ -21,9 +21,9 @@
 #include "base/input_info.hpp"
 #include "base/shk.hpp"
 #include "base/uint8v.hpp"
-#include "dsp/fft.hpp"
-#include "dsp/peaks.hpp"
 #include "frame/av.hpp"
+#include "frame/fft.hpp"
+#include "frame/peaks.hpp"
 #include "rtp_time/anchor.hpp"
 
 #include <cstdint>

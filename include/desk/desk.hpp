@@ -25,7 +25,7 @@
 #include "desk/dmx.hpp"
 #include "desk/fx.hpp"
 #include "desk/headunit.hpp"
-#include "dsp/peak_info.hpp"
+#include "frame/peak_info.hpp"
 #include "io/io.hpp"
 #include "mdns/mdns.hpp"
 

@@ -23,8 +23,8 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "desk/fx.hpp"
-#include "dsp/peaks.hpp"
 #include "fader/toblack.hpp"
+#include "frame/peaks.hpp"
 
 namespace pierre {
 namespace fx {

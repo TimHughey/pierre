@@ -15,8 +15,6 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
 
 set(__target frame)
 
-set(THREADS_PREFER_PTHREAD_FLAG true)
-
 set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
 file(GLOB_RECURSE
   HEADER_LIST CONFIGURE_DEPENDS 
@@ -28,6 +26,9 @@ find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
 add_library(${__target} SHARED
+  # dsp
+  fft.cpp peaks.cpp
+
   # the frame
   frame.cpp
 
@@ -46,7 +47,6 @@ target_link_libraries(${__target} PRIVATE
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   base
-  dsp
   rtp_time
 )
 

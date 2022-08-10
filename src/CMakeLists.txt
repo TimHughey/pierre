@@ -24,9 +24,6 @@ add_subdirectory(airplay)
 # rtp time (PTP master clock and RTP anchor)
 add_subdirectory(rtp_time)
 
-# Digital Signal Processing
-add_subdirectory(dsp)
-
 # Frame of processed audio
 add_subdirectory(frame)
 

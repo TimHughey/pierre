@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "dsp/fft.hpp"
+#include "frame/fft.hpp"
 
 #include <limits>
 #include <numbers>
@@ -244,46 +244,45 @@ void FFT::windowing(FFTWindow windowType, FFTDirection dir, bool withCompensatio
       float weighingFactor = 1.0;
       // Compute and record weighting factor
       switch (windowType) {
-        case FFTWindow::Rectangle: // rectangle (box car)
-          weighingFactor = 1.0;
-          break;
-        case FFTWindow::Hamming: // hamming
-          weighingFactor = 0.54 - (0.46 * cos(fft::PI2 * ratio));
-          break;
-        case FFTWindow::Hann: // hann
-          weighingFactor = 0.54 * (1.0 - cos(fft::PI2 * ratio));
-          break;
-        case FFTWindow::Triangle: // triangle (Bartlett)
-          weighingFactor =
-              1.0 - ((2.0 * abs(indexMinusOne - (samplesMinusOne / 2.0))) / samplesMinusOne);
-          break;
-        case FFTWindow::Nuttall: // nuttall
-          weighingFactor = 0.355768 - (0.487396 * (cos(fft::PI2 * ratio))) +
-                           (0.144232 * (cos(fft::PI4 * ratio))) -
-                           (0.012604 * (cos(fft::PI6 * ratio)));
-          break;
-        case FFTWindow::Blackman: // blackman
-          weighingFactor =
-              0.42323 - (0.49755 * (cos(fft::PI2 * ratio))) + (0.07922 * (cos(fft::PI4 * ratio)));
-          break;
-        case FFTWindow::Blackman_Nuttall: // blackman nuttall
-          weighingFactor = 0.3635819 - (0.4891775 * (cos(fft::PI2 * ratio))) +
-                           (0.1365995 * (cos(fft::PI4 * ratio))) -
-                           (0.0106411 * (cos(fft::PI6 * ratio)));
-          break;
-        case FFTWindow::Blackman_Harris: // blackman harris
-          weighingFactor = 0.35875 - (0.48829 * (cos(fft::PI2 * ratio))) +
-                           (0.14128 * (cos(fft::PI4 * ratio))) -
-                           (0.01168 * (cos(fft::PI6 * ratio)));
-          break;
-        case FFTWindow::Flat_top: // flat top
-          weighingFactor = 0.2810639 - (0.5208972 * cos(fft::PI2 * ratio)) +
-                           (0.1980399 * cos(fft::PI4 * ratio));
-          break;
-        case FFTWindow::Welch: // welch
-          weighingFactor =
-              1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) / (samplesMinusOne / 2.0));
-          break;
+      case FFTWindow::Rectangle: // rectangle (box car)
+        weighingFactor = 1.0;
+        break;
+      case FFTWindow::Hamming: // hamming
+        weighingFactor = 0.54 - (0.46 * cos(fft::PI2 * ratio));
+        break;
+      case FFTWindow::Hann: // hann
+        weighingFactor = 0.54 * (1.0 - cos(fft::PI2 * ratio));
+        break;
+      case FFTWindow::Triangle: // triangle (Bartlett)
+        weighingFactor =
+            1.0 - ((2.0 * abs(indexMinusOne - (samplesMinusOne / 2.0))) / samplesMinusOne);
+        break;
+      case FFTWindow::Nuttall: // nuttall
+        weighingFactor = 0.355768 - (0.487396 * (cos(fft::PI2 * ratio))) +
+                         (0.144232 * (cos(fft::PI4 * ratio))) -
+                         (0.012604 * (cos(fft::PI6 * ratio)));
+        break;
+      case FFTWindow::Blackman: // blackman
+        weighingFactor =
+            0.42323 - (0.49755 * (cos(fft::PI2 * ratio))) + (0.07922 * (cos(fft::PI4 * ratio)));
+        break;
+      case FFTWindow::Blackman_Nuttall: // blackman nuttall
+        weighingFactor = 0.3635819 - (0.4891775 * (cos(fft::PI2 * ratio))) +
+                         (0.1365995 * (cos(fft::PI4 * ratio))) -
+                         (0.0106411 * (cos(fft::PI6 * ratio)));
+        break;
+      case FFTWindow::Blackman_Harris: // blackman harris
+        weighingFactor = 0.35875 - (0.48829 * (cos(fft::PI2 * ratio))) +
+                         (0.14128 * (cos(fft::PI4 * ratio))) - (0.01168 * (cos(fft::PI6 * ratio)));
+        break;
+      case FFTWindow::Flat_top: // flat top
+        weighingFactor =
+            0.2810639 - (0.5208972 * cos(fft::PI2 * ratio)) + (0.1980399 * cos(fft::PI4 * ratio));
+        break;
+      case FFTWindow::Welch: // welch
+        weighingFactor =
+            1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) / (samplesMinusOne / 2.0));
+        break;
       }
       if (withCompensation) {
         weighingFactor *= compensationFactor;

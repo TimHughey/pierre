@@ -23,7 +23,7 @@
 #include "base/color.hpp"
 #include "base/typical.hpp"
 #include "desk/fx.hpp"
-#include "dsp/peaks.hpp"
+#include "frame/peaks.hpp"
 
 namespace pierre {
 namespace fx {

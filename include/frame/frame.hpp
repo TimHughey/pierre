@@ -24,8 +24,8 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "dsp/peak_info.hpp"
-#include "dsp/peaks.hpp"
+#include "frame/peak_info.hpp"
+#include "frame/peaks.hpp"
 
 #include <any>
 #include <array>
