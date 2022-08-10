@@ -456,10 +456,10 @@ void Frame::findPeaks(shFrame frame) {
   fft_left.process();
   fft_right.process();
 
-  frame->_peaks_left = fft_left.findPeaks();
-  frame->_peaks_right = fft_right.findPeaks();
+  frame->peaks_left = fft_left.findPeaks();
+  frame->peaks_right = fft_right.findPeaks();
 
-  frame->_silence = Peaks::silence(frame->_peaks_left) && Peaks::silence(frame->_peaks_right);
+  frame->_silence = Peaks::silence(frame->peaks_left) && Peaks::silence(frame->peaks_right);
 
   // really clear the payload (prevent lingering memory allocations)
   uint8v empty;
@@ -497,8 +497,6 @@ bool Frame::keep(FlushRequest &flush) {
 const Nanos Frame::localTimeDiff() {
   // must be in .cpp due to intentional limiting of visibility of Anchor
   if (const auto &data = Anchor::getData(); data.ok()) {
-    anchor_data = data;
-
     return pe_time::elapsed_as<Nanos>(data.netTimeNow(), data.frameLocalTime(timestamp));
   }
 
@@ -515,7 +513,7 @@ bool Frame::nextFrame(const Nanos &lead_time) {
       // determine if the state of the frame should be changed based on local time diff
       // we only want to look at specific frame states
       if (rc = unplayed(); rc == true) {
-        local_time_diff = diff; // set local_time_diff for debugging
+        cached_time_diff = diff; // will need this later
 
         if (diff < Nanos::zero()) { // old, before required lead time
           _state = fra::OUTDATED;   // mark as outdated
@@ -531,7 +529,7 @@ bool Frame::nextFrame(const Nanos &lead_time) {
         __LOGX(LCOL01 " {}\n", moduleId, csv("NEXT_FRAME"), inspect());
       } // end frame state update
     }   // anchor not ready
-  }     // frame failed valid or ready...
+  }     // frame failed valid or not ready
 
   // NOTE:
   // return value designed for use with ranges::find_if: true == found; false == not found
@@ -540,21 +538,6 @@ bool Frame::nextFrame(const Nanos &lead_time) {
   // the time diff can be used to correct an out-of-sync condition
 
   return rc;
-}
-
-PeakInfo Frame::peakInfo(Elapsed &uptime) {
-  auto adata = anchor::Data::any_cast(anchor_data);
-
-  return PeakInfo{
-      .seq_num = seq_num,                                 // frame seq_num
-      .timestamp = timestamp,                             // frame timestamp (raw)
-      .left = _peaks_left,                                // left channel peaks
-      .right = _peaks_right,                              // right channel peaks
-      .silence = _silence,                                // frame is silence
-      .nettime_now = adata.netTimeNow(),                  // current network time (master clock)
-      .frame_localtime = adata.frameLocalTime(timestamp), // frame calculated local time
-      .uptime = uptime                                    // uptime of render thread
-  };
 }
 
 // misc debug
@@ -575,8 +558,8 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
                    frame->seq_num, frame->timestamp, frame->_state, frame.use_count(),
                    frame->isReady());
 
-    if (frame->local_time_diff != Nanos::min()) {
-      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->local_time_diff));
+    if (frame->cached_time_diff != Nanos::min()) {
+      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->cached_time_diff));
     }
 
     if (frame->silence()) {

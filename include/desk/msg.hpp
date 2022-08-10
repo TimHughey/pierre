@@ -24,7 +24,7 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "frame/peak_info.hpp"
+#include "frame/frame.hpp"
 #include "io/io.hpp"
 
 #include <ArduinoJson.h>
@@ -45,23 +45,21 @@ private:
   static constexpr size_t DOC_SIZE = 4096; // JSON_ARRAY_SIZE(64) + JSON_OBJECT_SIZE(13);
 
 private:
-  Msg(const PeakInfo &pi)
+  Msg(shFrame frame)
       : root(doc.to<JsonObject>()), // grab a reference to the root object
         dmx_frame(64, 0x00),        // init the dmx frame to all zeros
-        silence(pi.silence)         // is this silence?
+        silence(frame->silence())   // is this silence?
   {
     root["type"] = "desk";
-    root["seq_num"] = pi.seq_num;
-    root["timestamp"] = pi.timestamp; // frame RTSP timestamp
+    root["seq_num"] = frame->seq_num;
+    root["timestamp"] = frame->timestamp; // frame RTSP timestamp
     root["silence"] = silence;
-    root["nettime_now_µs"] = pe_time::as_duration<Nanos, Micros>(pi.nettime_now).count();
-    root["frame_localtime_µs"] = pe_time::as_duration<Nanos, Micros>(pi.frame_localtime).count();
-    root["uptime_µs"] = pi.uptime.as<Micros>().count();
-    root["now_µs"] = pe_time::now_epoch<Micros>().count();
+    root["nettime_now_µs"] = frame->nettime<Micros>().count();
+    root["frame_localtime_µs"] = frame->time_diff<Micros>().count();
   }
 
 public:
-  static shMsg create(const PeakInfo &pi) { return shMsg(new Msg(pi)); }
+  static shMsg create(shFrame frame) { return shMsg(new Msg(frame)); }
   shMsg ptr() { return shared_from_this(); }
 
   auto dmxFrame() { return dmx_frame.data(); }
@@ -93,6 +91,7 @@ public:
 
     // magic added to end of document as additional check of message completeness
     root["magic"] = 0xc9d2;
+    root["now_µs"] = pe_time::now_epoch<Micros>().count();
 
     __LOGX(LCOL01 " {}\n", "desk::Msg", "TRANSMIT2", inspect());
 

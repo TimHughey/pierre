@@ -24,7 +24,6 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "frame/peak_info.hpp"
 #include "frame/peaks.hpp"
 
 #include <any>
@@ -124,23 +123,21 @@ class Frame : public std::enable_shared_from_this<Frame> {
 private:
   Frame(uint8v &packet);
   Frame(uint8_t version, fra::State state, bool silence)
-      : version(version), _state(state), _peaks_left(Peaks::create()),
-        _peaks_right(Peaks::create()), _silence(silence) {}
+      : version(version), _state(state), peaks_left(Peaks::create()), peaks_right(Peaks::create()),
+        _silence(silence) {}
 
 public:
   // Object Creation
-  static shFrame create(uint8v &packet) { return std::shared_ptr<Frame>(new Frame(packet)); }
-
-  static shFrame createSilence() {
-    return std::shared_ptr<Frame>(new Frame(0x02, fra::PLAYABLE, true));
-  }
+  static shFrame create(uint8v &packet) { return shFrame(new Frame(packet)); }
+  static shFrame createSilence() { return shFrame(new Frame(0x02, fra::PLAYABLE, true)); }
 
   // Public API
+
   bool decipher(); // sodium decipher packet
   void decodeOk() { _state = fra::DECODED; }
   static shFrame ensureFrame(shFrame frame) { return ok(frame) ? frame : createSilence(); }
   static void findPeaks(shFrame frame); // defnition must be in cpp
-  bool isReady() const { return _peaks_left.use_count() && _peaks_right.use_count(); }
+  bool isReady() const { return peaks_left.use_count() && peaks_right.use_count(); }
   bool isValid() const { return version == 0x02; }
 
   bool keep(FlushRequest &flush);
@@ -164,7 +161,15 @@ public:
 
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
-  PeakInfo peakInfo(Elapsed &uptime); // must be in .cpp due to Anchor dependency
+
+  // cached frame time info
+  template <typename T> const T nettime() {
+    return pe_time::as_duration<Nanos, T>(cached_nettime);
+  }
+
+  template <typename T> const T time_diff() {
+    return pe_time::as_duration<Nanos, T>(cached_time_diff);
+  }
 
   // state
   bool decoded() const { return stateEqual(fra::DECODED); }
@@ -222,18 +227,21 @@ public:
   int samples_per_channel = 0;
   int channels = 0;
 
+  Nanos cached_nettime = Nanos::min();
+  Nanos cached_time_diff = Nanos::min();
+  fra::State _state = fra::EMPTY;
+  shPeaks peaks_left;
+  shPeaks peaks_right;
+
 private:
   // order independent
-  fra::State _state = fra::EMPTY;
+
   uint8v _nonce;
   uint8v _tag;
   uint8v _aad;
   uint8v _payload;
-  shPeaks _peaks_left;
-  shPeaks _peaks_right;
+
   bool _silence = true;
-  Nanos local_time_diff;
-  std::any anchor_data;
 
   static constexpr csv moduleId{"FRAME"};
 };

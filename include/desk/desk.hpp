@@ -25,7 +25,7 @@
 #include "desk/dmx.hpp"
 #include "desk/fx.hpp"
 #include "desk/headunit.hpp"
-#include "frame/peak_info.hpp"
+#include "frame/frame.hpp"
 #include "io/io.hpp"
 #include "mdns/mdns.hpp"
 
@@ -90,17 +90,16 @@ public:
     forEach([](shHeadUnit unit) { unit->dark(); });
   }
 
-  void handlePeaks(const PeakInfo &peak_info);
-  static void nextPeaks(PeakInfo peak_info) {
-    auto self = ptr();
-
-    asio::post(self->local_strand, [self = ptr(), peak_info = std::move(peak_info)]() {
-      self->handlePeaks(peak_info);
-    });
-  }
+  void handle_frame(shFrame frame);
 
   static void leave() {
     forEach([](shHeadUnit unit) { unit->leave(); });
+  }
+
+  static void next_frame(shFrame frame) {
+    auto self = ptr();
+
+    asio::post(self->local_strand, [=] { self->handle_frame(frame); });
   }
 
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }

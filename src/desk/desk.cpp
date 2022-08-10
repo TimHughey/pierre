@@ -59,18 +59,18 @@ shDesk Desk::create(io_context &io_ctx) {
 }
 
 // General API
-void Desk::handlePeaks(const PeakInfo &peak_info) {
-  auto msg = desk::Msg::create(peak_info);
+void Desk::handle_frame(shFrame frame) {
+  auto msg = desk::Msg::create(frame);
 
-  if ((active_fx->matchName(fx::SILENCE)) && !peak_info.silence) {
+  if ((active_fx->matchName(fx::SILENCE)) && !frame->silence()) {
     activateFX<fx::MajorPeak>(fx::MAJOR_PEAK);
   }
 
   ranges::for_each(units, [](shHeadUnit unit) { unit->preExecute(); });
 
-  active_fx->executeLoop(peak_info.left);
+  active_fx->executeLoop(frame->peaks_left);
 
-  ranges::for_each(units, [msg = msg->ptr()](shHeadUnit unit) { unit->updateMsg(msg); });
+  ranges::for_each(units, [=](shHeadUnit unit) { unit->updateMsg(msg); });
 
   // the socket is only created if it doesn't exist
   // connect() returns true when the connection is ready

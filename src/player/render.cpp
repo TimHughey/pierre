@@ -108,7 +108,7 @@ void Render::handle_frames() {
 
 // must be in .cpp due to intentional limited Desk visibility
 void Render::release(shFrame frame) {
-  Desk::nextPeaks(frame->peakInfo(uptime));
+  Desk::next_frame(frame);
   frame->markPlayed(frames_played, frames_silence);
 
   post_handle_frames();
