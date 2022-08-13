@@ -23,7 +23,7 @@
 #include "base/input_info.hpp"
 #include "base/minmax.hpp"
 #include "base/typical.hpp"
-#include "desk/headunit.hpp"
+#include "desk/unit.hpp"
 
 #include <array>
 #include <cstdint>
@@ -38,9 +38,9 @@ typedef float DutyPercent;
 class PulseWidth;
 typedef std::shared_ptr<PulseWidth> shPulseWidth;
 
-class PulseWidth : public HeadUnit {
+class PulseWidth : public Unit {
 public:
-  PulseWidth(const unit::Opts opts) : HeadUnit(opts, unit::NO_FRAME) {
+  PulseWidth(const unit::Opts opts) : Unit(opts, unit::NO_FRAME) {
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);

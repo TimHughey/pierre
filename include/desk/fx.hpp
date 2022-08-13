@@ -21,8 +21,8 @@
 #pragma once
 
 #include "base/typical.hpp"
-#include "desk/headunits.hpp"
 #include "desk/msg.hpp"
+#include "desk/units.hpp"
 #include "frame/frame.hpp"
 #include "fx/histogram.hpp"
 #include "fx/names.hpp"
@@ -64,7 +64,7 @@ protected:
   virtual void execute(shPeaks peaks) = 0;
 
 protected:
-  static shHeadUnits units;
+  static shUnits units;
   bool finished = false;
   fx::Histogram histo;
 

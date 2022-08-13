@@ -22,8 +22,8 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
-#include "desk/headunit.hpp"
 #include "desk/msg.hpp"
+#include "desk/unit.hpp"
 #include "fader/color_travel.hpp"
 
 #include <cstdint>
@@ -35,7 +35,7 @@ namespace pierre {
 class PinSpot;
 typedef std::shared_ptr<PinSpot> shPinSpot;
 
-class PinSpot : public HeadUnit {
+class PinSpot : public Unit {
 public:
   enum FX {
     None = 0x00,
@@ -57,7 +57,7 @@ public:
   };
 
 public:
-  PinSpot(const unit::Opts opts) : HeadUnit(opts, FRAME_LEN) {}
+  PinSpot(const unit::Opts opts) : Unit(opts, FRAME_LEN) {}
   ~PinSpot() = default;
 
   template <typename T> void activate(const typename T::Opts &opts) {

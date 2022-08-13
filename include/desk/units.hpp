@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/typical.hpp"
-#include "desk/headunit.hpp"
+#include "desk/unit.hpp"
 #include "desk/msg.hpp"
 
 #include <algorithm>
@@ -31,14 +31,14 @@
 
 namespace pierre {
 
-class HeadUnits;
-typedef std::shared_ptr<HeadUnits> shHeadUnits;
+class Units;
+typedef std::shared_ptr<Units> shUnits;
 
-class HeadUnits : public std::vector<shHeadUnit>, std::enable_shared_from_this<HeadUnits> {
+class Units : public std::vector<shUnit>, std::enable_shared_from_this<Units> {
 
 public:
-  HeadUnits() = default;
-  ~HeadUnits() = default;
+  Units() = default;
+  ~Units() = default;
 
   template <typename T> void add(auto opts) { this->emplace_back(std::make_shared<T>(opts)); }
 
@@ -50,8 +50,8 @@ public:
     return std::static_pointer_cast<T>(find(name));
   }
 
-  shHeadUnit find(csv name) {
-    auto check_name = [=](shHeadUnit u) { return name == u->unitName(); };
+  shUnit find(csv name) {
+    auto check_name = [=](shUnit u) { return name == u->unitName(); };
 
     if (auto unit = ranges::find_if(*this, check_name); unit != this->end()) {
       return *unit;

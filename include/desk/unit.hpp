@@ -32,19 +32,19 @@
 
 namespace pierre {
 
-class HeadUnit;
-typedef std::shared_ptr<HeadUnit> shHeadUnit;
+class Unit;
+typedef std::shared_ptr<Unit> shUnit;
 
-class HeadUnit {
+class Unit {
 public:
-  HeadUnit(const unit::Opts opts) : unit_name(opts.name), address(opts.address), frame_len(0) {
+  Unit(const unit::Opts opts) : unit_name(opts.name), address(opts.address), frame_len(0) {
     // support headunits that do not use the DMX frame
   }
 
-  HeadUnit(const unit::Opts opts, size_t frame_len)
+  Unit(const unit::Opts opts, size_t frame_len)
       : unit_name(opts.name), address(opts.address), frame_len(frame_len){};
 
-  virtual ~HeadUnit() {}
+  virtual ~Unit() {}
 
   virtual void dark() = 0;
   virtual void prepare() = 0;
