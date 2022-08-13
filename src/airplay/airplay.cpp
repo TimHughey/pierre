@@ -17,24 +17,87 @@
 //  https://www.wisslanding.com
 
 #include "airplay/airplay.hpp"
-#include "airplay/controller.hpp"
+#include "common/ss_inject.hpp"
+#include "config/config.hpp"
+#include "conn_info/conn_info.hpp"
+#include "core/features.hpp"
+#include "core/host.hpp"
+#include "player/player.hpp"
+#include "rtp_time/anchor.hpp"
+#include "rtp_time/clock.hpp"
+#include "server/servers.hpp"
 
-#include <chrono>
-#include <list>
-#include <optional>
-#include <thread>
+#include <latch>
 
 namespace pierre {
 
 namespace shared {
 std::optional<shAirplay> __airplay;
-std::optional<shAirplay> &airplay() { return shared::__airplay; }
 } // namespace shared
 
-Thread &Airplay::run() {
-  auto controller = airplay::Controller::init();
+shAirplay Airplay::init() { // static
+  auto self = shared::__airplay.emplace(new Airplay());
+  __LOG0(LCOL01 " features={:#x}\n", moduleID(), csv("INIT"), Features().ap2Default());
 
-  return controller->start();
+  // executed by caller thread
+  Anchor::init();
+  airplay::ConnInfo::init();
+  Player::init();
+
+  // init the master clock on Airplay io_ctx
+  MasterClock::init({.io_ctx = self->io_ctx,
+                     .service_name = Config::receiverName(),
+                     .device_id = Host::ptr()->deviceID()});
+
+  airplay::Servers::init({.io_ctx = self->io_ctx});
+
+  std::latch threads_latch(AIRPLAY_THREADS);
+  self->thread_main = Thread([=, &threads_latch](std::stop_token token) {
+    name_thread("Airplay", 0); // main thread
+    self->stop_token = token;
+
+    // add some work to io_ctx so threads don't exit immediately
+    self->watch_dog();
+
+    // start remaining threads
+    for (auto n = 1; n < AIRPLAY_THREADS; n++) {
+      self->threads.emplace_back([=, &threads_latch] {
+        name_thread("Airplay", n);
+        threads_latch.count_down();
+        self->io_ctx.run();
+      });
+    }
+
+    threads_latch.count_down();
+    self->io_ctx.run(); // run io_ctx on main airplay thread
+  });
+
+  threads_latch.wait();      // wait for all threads to start
+  MasterClock::peersReset(); // reset timing peers
+
+  // finally, start listening for Rtsp messages
+  airplay::Servers::ptr()->localPort(ServerType::Rtsp);
+
+  return self->shared_from_this();
+}
+
+void Airplay::watch_dog() {
+  // cancels any running timers
+  [[maybe_unused]] auto timers_cancelled = watchdog_timer.expires_after(250ms);
+
+  watchdog_timer.async_wait([&, self = shared_from_this()](const error_code ec) {
+    if (ec == errc::success) { // unless success, fall out of scape
+
+      // check if any thread has received a stop request
+      if (self->stop_token.stop_requested()) {
+        self->io_ctx.stop();
+      } else {
+        self->watch_dog();
+      }
+    } else {
+      __LOG0(LCOL01 " going out of scope reason={}\n", moduleID(), csv("WATCH_DOG"), ec.message());
+    }
+  });
 }
 
 } // namespace pierre

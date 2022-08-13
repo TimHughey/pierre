@@ -21,9 +21,11 @@
 #pragma once
 
 #include "base/typical.hpp"
-#include "frame/peaks.hpp"
+#include "desk/headunits.hpp"
+#include "desk/msg.hpp"
+#include "frame/frame.hpp"
+#include "fx/histogram.hpp"
 #include "fx/names.hpp"
-#include <desk/fx/histogram.hpp>
 
 #include <memory>
 
@@ -32,25 +34,37 @@ namespace pierre {
 class FX;
 typedef std::shared_ptr<FX> shFX;
 
+struct fx_factory {
+  template <typename T> static shFX create() {
+    return std::static_pointer_cast<T>(std::make_shared<T>());
+  }
+
+  template <typename T> static std::shared_ptr<T> derive(shFX fx) {
+    return std::static_pointer_cast<T>(fx);
+  }
+};
+
 class FX {
 public:
-  FX() = default;
+  FX();
   virtual ~FX() = default;
 
   virtual bool completed() { return finished; }
 
-  // signal to caller if once() was called by returning the stored valued
-  void executeLoop(shPeaks peaks);
-
   const auto histogram() const { return histo.map; }
   bool matchName(csv &match) const { return match == name(); }
   virtual csv name() const = 0;
+
+  // workhorse of FX
+  void render(shFrame frame, desk::shMsg msg);
+
   virtual void once() {} // subclasses should override once() to run setup code one time
 
 protected:
   virtual void execute(shPeaks peaks) = 0;
 
 protected:
+  static shHeadUnits units;
   bool finished = false;
   fx::Histogram histo;
 

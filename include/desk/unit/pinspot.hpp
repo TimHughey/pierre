@@ -76,12 +76,12 @@ public:
     fx = FX::None;
   }
 
-  void preExecute() override { faderMove(); }
+  void prepare() override { faderMove(); }
   inline bool isFading() const { return (bool)fader; }
 
   void leave() override { Color::black(); }
 
-  void updateMsg(desk::shMsg msg) override;
+  void update_msg(desk::shMsg msg) override;
 
 private:
   // functions

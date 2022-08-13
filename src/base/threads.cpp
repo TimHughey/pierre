@@ -23,10 +23,10 @@ namespace pierre {
 void name_thread(csv name) {
   const auto handle = pthread_self();
 
-  __LOG0(LCOL01 " handle={:#x}\n", "BASE", "NAME THREAD", handle);
+  __LOG0(LCOL01 " {:<16} handle={:#x}\n", "BASE", "NAME THREAD", name, handle);
 
   pthread_setname_np(handle, name.data());
 }
 
-void name_thread(csv name, auto num) { name_thread(fmt::format("{} {}", name, num)); }
+void name_thread(csv name, int num) { name_thread(fmt::format("{} {}", name, num)); }
 } // namespace pierre

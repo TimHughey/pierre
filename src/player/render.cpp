@@ -50,16 +50,16 @@ namespace chrono = std::chrono;
 using namespace std::literals::chrono_literals;
 
 Render::Render(io_context &io_ctx, shSpooler spooler)
-    : io_ctx(io_ctx),                     // grab the io_ctx
-      spooler(spooler),                   // use this spooler for unloading Frames
-      local_strand(spooler->strandOut()), // use the unload strand from spooler
-      handle_timer(io_ctx),               //
-      release_timer(io_ctx),              // handle available frames
-      stats_timer(io_ctx),                // period stats reporting
-      lead_time(InputInfo::fps_ns())      // frame lead time
+    : io_ctx(io_ctx),                      // grab the io_ctx
+      spooler(spooler),                    // use this spooler for unloading Frames
+      local_strand(spooler->strandOut()),  // use the unload strand from spooler
+      handle_timer(io_ctx),                //
+      release_timer(io_ctx),               // handle available frames
+      stats_timer(io_ctx),                 // period stats reporting
+      lead_time(InputInfo::frame<Nanos>()) // frame lead time
 {
-  __LOG0(LCOL01 " lead_time_ms={:0.1}\n", moduleId, csv("CONSTRUCT"),
-         pe_time::as_millis_fp(lead_time));
+  __LOG0(LCOL01 " lead_time={} fps={:0.3f}\n", moduleId, csv("CONSTRUCT"), lead_time,
+         InputInfo::fps());
 
   // call no functions here that use self
 }
@@ -67,7 +67,7 @@ Render::Render(io_context &io_ctx, shSpooler spooler)
 // static methods for creating, getting and resetting the shared instance
 shRender Render::init(asio::io_context &io_ctx, shSpooler spooler) {
   auto self = shared::render().emplace(new Render(io_ctx, spooler));
-  auto desk = Desk::create(io_ctx);
+  Desk::init(); // starts desk threads
 
   return self;
 }

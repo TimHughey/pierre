@@ -18,10 +18,15 @@
 
 #pragma once
 
+#include "base/threads.hpp"
 #include "base/typical.hpp"
+#include "io/io.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
+#include <stop_token>
 
 namespace pierre {
 
@@ -29,23 +34,48 @@ class Airplay;
 typedef std::shared_ptr<Airplay> shAirplay;
 
 namespace shared {
-std::optional<shAirplay> &airplay();
+extern std::optional<shAirplay> __airplay;
+std::optional<shAirplay> &airplay() { return shared::__airplay; };
 } // namespace shared
 
 class Airplay : public std::enable_shared_from_this<Airplay> {
+private:
+  static constexpr int AIRPLAY_THREADS = 3;
+
+private:
+  Airplay() : watchdog_timer(io_ctx) {}
+
 public:
   // shared instance management
-  static shAirplay init() { return shared::airplay().emplace(new Airplay()); }
+  static shAirplay init(); // create and start threads, dependencies
   static shAirplay ptr() { return shared::airplay().value()->shared_from_this(); }
   static void reset() { shared::airplay().reset(); }
 
-  // thread maintenance
-  Thread &run();
+  void join() { thread_main.join(); }
 
-  void teardown(){};
+  void shutdown() {
+    thread_main.request_stop();
+    ranges::for_each(threads, [](Thread &t) { t.join(); });
+    thread_main.join();
+  }
+
+  // misc debug
+  static constexpr csv moduleID() { return module_id; }
 
 private:
-  Airplay(){};
+  void watch_dog();
+
+private:
+  // order depdendent
+  io_context io_ctx; // run by multiple threads
+  steady_timer watchdog_timer;
+
+  // order independent
+  Thread thread_main;
+  Threads threads;
+  std::stop_token stop_token;
+
+  static constexpr csv module_id = "AIRPLAY";
 };
 
 } // namespace pierre

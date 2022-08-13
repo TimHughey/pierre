@@ -21,6 +21,7 @@
 #include "desk/desk.hpp"
 // #include "desk/fx/colorbars.hpp"
 // #include "desk/fx/leave.hpp"
+#include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"
 #include "desk/fx/silence.hpp"
 #include "desk/msg.hpp"
@@ -28,6 +29,7 @@
 #include "desk/unit/opts.hpp"
 #include "mdns/mdns.hpp"
 
+#include <latch>
 #include <math.h>
 #include <ranges>
 
@@ -37,25 +39,34 @@ std::optional<shDesk> __desk;
 } // namespace shared
 
 // must be defined in .cpp to hide mdns
-Desk::Desk(io_context &io_ctx)
-    : io_ctx(io_ctx),                        // io_ctx run by AirPlay 2 controller
-      local_strand(io_ctx),                  // local strand to serialize work
-      active_fx(createFX<fx::Silence>()),    // active FX initializes to Silence
-      zservice(mDNS::zservice("_ruth._tcp")) // get the remote service, if available
-{}
+Desk::Desk()
+    : local_strand(io_ctx),                         // local strand to serialize work
+      active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
+      zservice(mDNS::zservice("_ruth._tcp")),       // get the remote service, if available
+      guard(std::make_shared<work_guard>(io_ctx.get_executor())) {}
 
 // static creation, access to instance
-shDesk Desk::create(io_context &io_ctx) {
-  auto desk = shared::desk().emplace(new Desk(io_ctx));
+void Desk::init() { // static
+  auto desk = shared::desk().emplace(new Desk());
 
-  desk->addUnit<PinSpot>(unit::MAIN_SPOT_OPTS);
-  desk->addUnit<PinSpot>(unit::FILL_SPOT_OPTS);
-  desk->addUnit<DiscoBall>(unit::DISCO_BALL_OPTS);
-  desk->addUnit<ElWire>(unit::EL_DANCE_OPTS);
-  desk->addUnit<ElWire>(unit::EL_ENTRY_OPTS);
-  desk->addUnit<LedForest>(unit::LED_FOREST_OPTS);
+  std::latch threads_latch(DESK_THREADS);
+  desk->thread_main = Thread([=, &threads_latch](std::stop_token token) {
+    desk->stop_token = token;
+    name_thread("Desk", 0);
 
-  return desk;
+    // note: work guard created by constructor
+    for (auto n = 0; n < DESK_THREADS; n++) {
+      desk->threads.emplace_back([=, &threads_latch] {
+        name_thread("Desk", n + 1); // main thread is 0
+        threads_latch.count_down();
+        desk->io_ctx.run();
+      });
+    }
+
+    desk->io_ctx.run();
+  });
+
+  threads_latch.wait(); // wait for all threads to start
 }
 
 // General API
@@ -63,14 +74,10 @@ void Desk::handle_frame(shFrame frame) {
   auto msg = desk::Msg::create(frame);
 
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silence()) {
-    activateFX<fx::MajorPeak>(fx::MAJOR_PEAK);
+    active_fx = fx_factory::create<fx::MajorPeak>();
   }
 
-  ranges::for_each(units, [](shHeadUnit unit) { unit->preExecute(); });
-
-  active_fx->executeLoop(frame->peaks_left);
-
-  ranges::for_each(units, [=](shHeadUnit unit) { unit->updateMsg(msg); });
+  active_fx->render(frame, msg);
 
   // the socket is only created if it doesn't exist
   // connect() returns true when the connection is ready

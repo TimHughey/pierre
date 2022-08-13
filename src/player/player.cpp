@@ -61,32 +61,33 @@ void Player::init() { // static
   // start the main player thread
   self->thread_main = Thread([=, &threads_latch](std::stop_token token) {
     self->stop_token = token;
-    name_thread("PLAYER MAIN");
+    name_thread("Player", 0);
 
-    self->watch_dog(); // schedule work for player dsp context
+    self->watch_dog(); // schedule work for frame (dsp) io_ctx
 
-    for (auto n = 0; n < PLAYER_THREADS + dsp_threads; n++) {
+    for (auto n = 1; n < thread_count; n++) {
       // notes:
-      //  1. start the dsp threads (unique io_ctx)
-      //  2. starts player threads (unique io_ctx)
-      //  3. objects are free to create their own strands, as needed
+      //  1. start the player threads (unique io_ctx)
+      //  2. starts frame (dsp) threads (unique io_ctx)
+      //  3. objects maye create their own strands, as needed
 
-      if (n < dsp_threads) {
+      if (n < PLAYER_THREADS) {
         self->threads.emplace_back([=, &threads_latch, self = ptr()] {
-          name_thread("Player DSP", n);
+          name_thread("Player", n);
           threads_latch.count_down();
-          self->io_ctx_dsp.run(); // dsp io_ctx
+          self->io_ctx.run(); // player io_ctx
         });
       } else {
         self->threads.emplace_back([=, &threads_latch, self = ptr()] {
-          name_thread("Player", n - dsp_threads); // give the thread a name
+          name_thread("Frame", (n - PLAYER_THREADS));
           threads_latch.count_down();
-          self->io_ctx.run(); // player io_ctx
+          self->io_ctx_dsp.run(); // dsp (frame) io_ctx
         });
       }
     }
 
-    self->io_ctx.run(); // final player thread
+    threads_latch.count_down();
+    self->io_ctx.run(); // player main thread
   });
 
   threads_latch.wait();

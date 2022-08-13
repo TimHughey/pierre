@@ -22,8 +22,8 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
 find_library(libplist     NAMES plist      REQUIRED)
 
 add_library(${__target} SHARED
-  # public API and overall controller
-  airplay.cpp controller.cpp
+  # public API
+  airplay.cpp 
 
   # apple property lists
   aplist/aplist.cpp

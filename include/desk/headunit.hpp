@@ -20,12 +20,15 @@
 
 #pragma once
 
+#include "base/input_info.hpp"
 #include "base/typical.hpp"
 #include "desk/msg.hpp"
 #include "desk/unit/opts.hpp"
 
-#include <fmt/format.h>
+#include <algorithm>
 #include <memory>
+#include <ranges>
+#include <vector>
 
 namespace pierre {
 
@@ -33,9 +36,6 @@ class HeadUnit;
 typedef std::shared_ptr<HeadUnit> shHeadUnit;
 
 class HeadUnit {
-public:
-  static constexpr float fps() { return 44.0f; }
-
 public:
   HeadUnit(const unit::Opts opts) : unit_name(opts.name), address(opts.address), frame_len(0) {
     // support headunits that do not use the DMX frame
@@ -47,8 +47,8 @@ public:
   virtual ~HeadUnit() {}
 
   virtual void dark() = 0;
-  virtual void preExecute() = 0;
-  virtual void updateMsg(desk::shMsg msg) = 0;
+  virtual void prepare() = 0;
+  virtual void update_msg(desk::shMsg msg) = 0;
   virtual void leave() = 0;
   csv unitName() const { return csv(unit_name); }
 
@@ -58,4 +58,5 @@ protected:
   const uint16_t address;
   const size_t frame_len;
 };
+
 } // namespace pierre

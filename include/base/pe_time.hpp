@@ -43,7 +43,7 @@ typedef uint64_t ClockID; // master clock id
 struct pe_time {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
 
-  template <typename FROM, typename TO> static TO as_duration(auto x) {
+  template <typename FROM, typename TO> static constexpr TO as_duration(auto x) {
     return std::chrono::duration_cast<TO>(FROM(x));
   }
 
@@ -53,6 +53,10 @@ struct pe_time {
 
   template <typename T> static Seconds as_secs(const T &d) {
     return std::chrono::duration_cast<Seconds>(d);
+  }
+
+  template <typename FROM, typename TO> static constexpr TO cast(auto x) {
+    return std::chrono::duration_cast<TO>(FROM(x));
   }
 
   template <typename T> static T diff_abs(const T &d1, const T &d2) {

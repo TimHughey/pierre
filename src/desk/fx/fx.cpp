@@ -19,17 +19,39 @@
 */
 
 #include "desk/fx.hpp"
+#include "desk/msg.hpp"
+#include "desk/unit/all.hpp"
+#include "desk/unit/opts.hpp"
+#include "frame/frame.hpp"
 
 namespace pierre {
 
-void FX::executeLoop(shPeaks peaks) {
+shHeadUnits FX::units; // static class member
+
+FX::FX() {
+  if (!units) { // create the units once
+    units = std::make_shared<HeadUnits>();
+    units->add<PinSpot>(unit::MAIN_SPOT_OPTS);
+    units->add<PinSpot>(unit::FILL_SPOT_OPTS);
+    units->add<DiscoBall>(unit::DISCO_BALL_OPTS);
+    units->add<ElWire>(unit::EL_DANCE_OPTS);
+    units->add<ElWire>(unit::EL_ENTRY_OPTS);
+    units->add<LedForest>(unit::LED_FOREST_OPTS);
+  }
+}
+
+void FX::render(shFrame frame, desk::shMsg msg) {
   if (called_once == false) {
     // frame 0 is always consumed by the call to once()
     once();
     called_once = true;
   } else {
-    // frame n is passed to executeFX
-    execute(peaks);
+    units->prepare();
+
+    // frame n is passed to execute
+    execute(frame->peaks_left);
+
+    units->update_msg(msg);
   }
 }
 

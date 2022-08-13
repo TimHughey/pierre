@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "base/input_info.hpp"
 #include "base/minmax.hpp"
 #include "base/typical.hpp"
 #include "desk/headunit.hpp"
@@ -79,7 +80,7 @@ public:
 
   virtual void percent(const DutyPercent x) { fixed(unitPercent(x)); }
 
-  virtual void preExecute() override {
+  virtual void prepare() override {
     const uint32_t duty_now = duty();
 
     switch (_mode) {
@@ -107,7 +108,7 @@ public:
     }
   }
 
-  virtual void updateMsg(desk::shMsg msg) override {
+  virtual void update_msg(desk::shMsg msg) override {
     _duty = _unit_next;
 
     msg->rootObj()[unitName()] = _duty;
@@ -121,7 +122,7 @@ public:
     _dest = config.pulse_end;
 
     // compute change per frame required to reach dark within requested secs
-    _velocity = (start - _dest) / (fps() * secs);
+    _velocity = (start - _dest) / (InputInfo::fps() * secs);
 
     _mode = PULSE_INIT;
   }

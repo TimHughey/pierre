@@ -29,14 +29,7 @@
 namespace pierre {
 typedef std::vector<Thread> Threads;
 
-void name_thread(auto name) {
-  const auto handle = pthread_self();
-
-  __LOG0(LCOL01 " handle={:#x}\n", "BASE", name, handle);
-
-  pthread_setname_np(handle, csv(name).data());
-}
-
-void name_thread(auto name, auto num) { name_thread(fmt::format("{} {}", name, num)); }
+void name_thread(csv name);
+void name_thread(csv name, int num);
 
 } // namespace pierre

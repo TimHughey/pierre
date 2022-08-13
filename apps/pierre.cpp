@@ -42,8 +42,6 @@ void Pierre::run() {
   mDNS::init()->start();
 
   // create and start Airplay
-  auto &airplay_thread = Airplay::init()->run();
-
-  airplay_thread.join();
+  Airplay::init()->join();
 }
 } // namespace pierre

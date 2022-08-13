@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "base/helpers.hpp"
+#include "base/pe_time.hpp"
 #include "base/typical.hpp"
 
 #include <chrono>
@@ -36,8 +38,10 @@ public:
 
   typedef std::chrono::duration<double, std::ratio<1, rate / 1024>> InputFPS;
 
-  static constexpr std::chrono::nanoseconds fps_ns() {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(InputFPS(1));
+  static constexpr double fps() { return rate / 1024.0; }
+  static constexpr MillisFP frame_ms() { return MillisFP(1000.0 / fps()); }
+  template <typename T> static constexpr T frame() {
+    return pe_time::cast<MillisFP, T>(frame_ms());
   }
 };
 

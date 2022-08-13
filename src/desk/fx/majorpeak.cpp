@@ -53,19 +53,19 @@ MajorPeak::MajorPeak() : FX(), _prev_peaks(88), _main_history(88), _fill_history
   std::random_device r;
   _random.seed(r());
 
-  sh_main = Desk::derivedUnit<PinSpot>(unit::MAIN_SPOT);
+  sh_main = units->derive<PinSpot>(unit::MAIN_SPOT);
   main = sh_main.get();
 
-  sh_fill = Desk::derivedUnit<PinSpot>(unit::FILL_SPOT);
+  sh_fill = units->derive<PinSpot>(unit::FILL_SPOT);
   fill = sh_fill.get();
 
-  sh_led_forest = Desk::derivedUnit<LedForest>(unit::LED_FOREST);
+  sh_led_forest = units->derive<LedForest>(unit::LED_FOREST);
   led_forest = sh_led_forest.get();
 
-  sh_el_dance_floor = Desk::derivedUnit<ElWire>(unit::EL_DANCE);
+  sh_el_dance_floor = units->derive<ElWire>(unit::EL_DANCE);
   el_dance_floor = sh_el_dance_floor.get();
 
-  sh_el_entry = Desk::derivedUnit<ElWire>(unit::EL_ENTRY);
+  sh_el_entry = units->derive<ElWire>(unit::EL_ENTRY);
   el_entry = sh_el_entry.get();
 
   // initialize static frequency to color mapping
@@ -346,7 +346,7 @@ void MajorPeak::makeRefColors() {
 }
 
 // must be in .cpp to avoid including Desk in .hpp
-void MajorPeak::once() { Desk::dark(); }
+void MajorPeak::once() { units->dark(); }
 
 double MajorPeak::randomHue() {
   auto hue = static_cast<double>(_random() % 360) / 360.0;
