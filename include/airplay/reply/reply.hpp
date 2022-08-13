@@ -38,10 +38,6 @@
 #include <unordered_map>
 #include <vector>
 
-namespace { // unnamed namespace visible only in this file
-namespace ranges = std::ranges;
-} // namespace
-
 namespace pierre {
 namespace airplay {
 namespace reply {
@@ -87,12 +83,15 @@ public:
   Reply &inject(const reply::Inject &di);
   virtual bool populate() = 0;
 
-  void copyToContent(const auto &buf) {
-    ranges::copy(buf, std::back_inserter(_content));
+  void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {
+    copyToContent(data.get(), bytes);
   }
 
-  void copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes);
-  void copyToContent(const uint8_t *begin, const size_t bytes);
+  void copyToContent(const uint8_t *begin, const size_t bytes) {
+    std::copy(begin, begin + bytes, std::back_inserter(_content));
+  }
+
+  void copyToContent(const auto &buf) { ranges::copy(buf, std::back_inserter(_content)); }
 
   // access injected dependencies
   auto &aesCtx() { return di->aes_ctx; }
@@ -116,6 +115,7 @@ public:
   // misc debug
   void dump() const;
   auto &errMsg() const { return _err_msg; }
+  void log_reply(csv resp_text);
 
 protected:
   // order dependent

@@ -60,11 +60,10 @@ bool Setup::populate() {
 
     headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
     responseCode(RespCode::OK);
-  }
-
-  if (rc == false) {
-    rHeaders().dump();
-    rdict.dump();
+  } else {
+    __LOG0(LCOL01 " implementation missing for control_type=1\n", moduleID(), "WARN");
+    // rHeaders().dump();
+    // rdict.dump();
   }
 
   return rc;
@@ -193,8 +192,6 @@ bool Setup::handleStreams() {
     // put the sub dict into the reply
     reply_dict.setArray(dk::STREAMS, reply_stream0);
   }
-
-  // reply_dict.dump();
 
   return rc;
 }

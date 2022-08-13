@@ -71,7 +71,7 @@ private:
     void finish(size_t reel_frames = 0) {
       elapsed_ns = pe_time::elapsed_abs_ns(at_ns);
 
-      if (reel_frames) {
+      if (reel_frames && (elapsed_ns > 1ms)) {
         __LOG0(LCOL01 " frames={} elapsed={:<0.3}\n", moduleId,
                reel_frames ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
                pe_time::as_millis_fp(elapsed_ns));

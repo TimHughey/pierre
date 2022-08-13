@@ -29,7 +29,7 @@ namespace reply {
 bool SetPeers::populate() {
   rdict = plist();
 
-  __LOG0(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
+  __LOGX(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
 
   auto peers = rdict.stringArray({dk::ROOT});
   if (peers.empty()) {

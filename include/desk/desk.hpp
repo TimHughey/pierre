@@ -72,7 +72,6 @@ public: // general API
 
 private:
   bool connect() {
-
     if (zservice && !socket2.has_value()) {
       __LOG0(LCOL01 " attempting connect\n", moduleID(), "CONNECT");
 
@@ -82,7 +81,7 @@ private:
       asio::async_connect(        // async connect
           *socket2,               // this socket
           std::array{*endpoint2}, // to this endpoint
-          asio::bind_executor(    //
+          asio::bind_executor(    // serialize with
               local_strand, [self = ptr()](const error_code ec, const tcp_endpoint endpoint) {
                 if (!ec) {
 
@@ -120,17 +119,19 @@ private:
   }
 
   void reset_connection() {
-    error_code shut_ec;
-    error_code close_ec;
+    asio::defer(local_strand, [self = ptr()] {
+      error_code shut_ec;
+      error_code close_ec;
 
-    socket2->shutdown(tcp_socket::shutdown_both, shut_ec);
-    socket2->close(close_ec);
-    __LOG0(LCOL01 " socket error shutdown_reason={} close_reason={}\n", moduleID(), "WATCH",
-           shut_ec.message(), close_ec.message());
+      self->socket2->shutdown(tcp_socket::shutdown_both, shut_ec);
+      self->socket2->close(close_ec);
+      __LOG0(LCOL01 " socket error shutdown_reason={} close_reason={}\n", moduleID(), "WATCH",
+             shut_ec.message(), close_ec.message());
 
-    socket2.reset();
-    endpoint2.reset();
-    endpoint_connected.reset();
+      self->socket2.reset();
+      self->endpoint2.reset();
+      self->endpoint_connected.reset();
+    });
   }
 
   void watch_connection() {

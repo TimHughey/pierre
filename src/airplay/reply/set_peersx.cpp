@@ -33,8 +33,6 @@ namespace reply {
 bool SetPeersX::populate() {
   rdict = plist();
 
-  rdict.dump();
-
   MasterClock::Peers peer_list;
   const auto count = rdict.arrayItemCount({dk::ROOT});
   __LOGX(LCOL01 " count={}\n", moduleId, csv("POPULATE"), count);
@@ -51,14 +49,6 @@ bool SetPeersX::populate() {
   MasterClock::peers(peer_list);
 
   return peer_list.size() ? true : false;
-
-  // if (auto peers = rdict.stringArray({dk::IDX0, dk::ADDRESSES}); !peers.empty()) {
-  //   MasterClock::peers(peers);  // set the peer lists
-  //   responseCode(RespCode::OK); // indicate success
-  //   return true;
-  // }
-
-  // return false;
 }
 
 } // namespace reply

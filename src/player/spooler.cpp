@@ -66,12 +66,12 @@ shFrame Spooler::nextFrame(const Nanos &lead_time) {
   });
 
   // clean up empty reels
-  [[maybe_unused]] auto reels_before = reels_out.size();
+  auto reels_before = reels_out.size();
   auto erased = std::erase_if(reels_out, [](shReel reel) { return reel->empty(); });
+  int remaining = static_cast<int>(reels_before) - static_cast<int>(erased);
 
-  if (erased) {
-    __LOG0(LCOL01 " erased={} remaining={}\n", moduleId(), //
-           csv("REELS OUT"), erased, reels_before - erased);
+  if (erased && (remaining <= 0)) {
+    __LOG0(LCOL01 " erased={} remaining={}\n", moduleId(), csv("REELS OUT"), erased, remaining);
   }
 
   return Frame::ok(frame) ? frame->shared_from_this() : frame;

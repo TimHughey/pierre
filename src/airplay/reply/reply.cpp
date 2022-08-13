@@ -23,32 +23,15 @@
 #include "base/resp_code.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-// #include "reply/factory.hpp"
 
 #include <algorithm>
-#include <fmt/format.h>
 #include <iterator>
+#include <ranges>
 #include <typeinfo>
 
 namespace pierre {
 namespace airplay {
 namespace reply {
-
-// this static member function is in the .cpp due to the call to Factory to
-// create the approprite Reply subclass
-// [[nodiscard]] shReply Reply::create(const reply::Inject &di) {
-//   if (false) { // false
-//     if (di.path != csv("/feedback")) {
-//       di.headers.dump();
-//     }
-//   }
-//   auto reply = Factory::create(di);
-
-//   // inject dependencies after initial creation
-//   reply->inject(di);
-
-//   return reply;
-// }
 
 [[nodiscard]] uint8v &Reply::build() {
   constexpr csv seperator("\r\n");
@@ -76,27 +59,9 @@ namespace reply {
     std::copy(_content.begin(), _content.end(), where);
   }
 
-  constexpr auto feedback = csv("/feedback");
-  static uint64_t feedbacks = 0;
-
-  if (di->path == feedback) {
-    ++feedbacks;
-  } else {
-    __LOG0("{:<18} cseq={:>4} fb={:>4} size={:>4} rc={:<15} method={:<19} "
-           "path={}\n", //
-           moduleID(), headers.getValInt(hdr_type::CSeq), feedbacks,
-           _packet.size(), resp_text, di->method, di->path);
-  }
+  log_reply(resp_text);
 
   return _packet;
-}
-
-void Reply::copyToContent(std::shared_ptr<uint8_t[]> data, const size_t bytes) {
-  copyToContent(data.get(), bytes);
-}
-
-void Reply::copyToContent(const uint8_t *begin, const size_t bytes) {
-  std::copy(begin, begin + bytes, std::back_inserter(_content));
 }
 
 Reply &Reply::inject(const reply::Inject &injected) {
@@ -111,6 +76,21 @@ Reply &Reply::inject(const reply::Inject &injected) {
 
 // misc debug
 void Reply::dump() const { headers.dump(); }
+
+void Reply::log_reply(csv resp_text) {
+  constexpr std::array no_log{csv("GET"),       csv("GET_PARAMETER"), csv("RECORD"),
+                              csv("SETPEERSX"), csv("SET_PARAMETER"), csv("POST"),
+                              csv("SETUP"),     csv("FEEDBACK"),      csv("SETRATEANCHORTIME"),
+                              csv("TEARDOWN")};
+
+  if (di.has_value()) {
+    if (ranges::none_of(no_log, [&](csv m) { return di->method == m; })) {
+      __LOG0(LCOL01 " cseq={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
+             moduleID(), "REPLY", headers.getValInt(hdr_type::CSeq), _packet.size(), resp_text,
+             di->method, di->path);
+    }
+  }
+}
 
 } // namespace reply
 } // namespace airplay

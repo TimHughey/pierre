@@ -57,7 +57,7 @@ MasterClock::MasterClock(const Inject &di)
       endpoint(udp_endpoint(address, CTRL_PORT)),                    // endpoint to use
       shm_name(fmt::format("/{}-{}", di.service_name, di.device_id)) // make shm_name
 {
-  __LOG0(LCOL01 " shm_name={} dest={}\n", moduleId, "CONSTRUCT", shm_name, endpoint.port());
+  __LOGX(LCOL01 " shm_name={} dest={}\n", moduleId, "CONSTRUCT", shm_name, endpoint.port());
 }
 
 const MasterClock::Info MasterClock::info() {

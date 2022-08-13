@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <ranges>
 
 namespace pierre {
 namespace airplay {
@@ -28,6 +29,7 @@ namespace reply {
 
 [[nodiscard]] shReply Factory::create(const reply::Inject &di) {
   static const auto pair_paths = std::vector{"/pair-setup", "/pair-verify"};
+
   shReply reply;
 
   csv method = di.method;
@@ -49,8 +51,7 @@ namespace reply {
     } else if (path == csv("/feedback")) {
       reply = std::make_shared<Feedback>();
     } else if (path.starts_with("/pair-")) {
-      if (ranges::any_of(pair_paths,
-                         [&path = path](csv p) { return p == path; })) {
+      if (ranges::any_of(pair_paths, [&path = path](csv p) { return p == path; })) {
         reply = std::make_shared<Pairing>();
       } else {
         __LOG0(LCOL01 "unhandled pairing path={}\n", moduleId, //
@@ -61,8 +62,7 @@ namespace reply {
     reply = std::make_shared<Options>();
   } else if (method == csv("SETUP")) {
     reply = std::make_shared<Setup>();
-  } else if ((method == csv("GET_PARAMETER")) ||
-             (method == csv("SET_PARAMETER"))) {
+  } else if ((method == csv("GET_PARAMETER")) || (method == csv("SET_PARAMETER"))) {
     reply = std::make_shared<Parameter>();
   } else if (method == csv("RECORD")) {
     reply = std::make_shared<Record>();
@@ -79,8 +79,7 @@ namespace reply {
   } else if (reply.use_count() == 0) {
 
     __LOG0(LCOL01 "method={} path={}]\n", moduleId, csv("FAILED"), //
-           method.empty() ? "<empty>" : method,
-           path.empty() ? "<empty>" : path);
+           method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
 
     reply = std::make_shared<Unhandled>();
   }

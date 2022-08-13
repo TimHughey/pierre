@@ -259,32 +259,15 @@ void parse(shFrame frame) {
        AV_FORMAT_OUT,                           // desired format (see const above)
        1);                                      // default alignment
 
-  { // debug
-    constexpr uint8_t MAX_REPORT = 1;
-    static uint8_t count = 0;
-    if (count < MAX_REPORT) {
-      __LOG0("{:<18} ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
-             moduleId, ret, frame->channels, frame->samples_per_channel, dst_bufsize);
-
-      ++count;
-    }
-  }
+  __LOGX(LCOL01 " ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
+         moduleId, "INFO", ret, frame->channels, frame->samples_per_channel, dst_bufsize);
 
   if (dst_bufsize > 0) { // put PCM data into payload
     auto to = std::back_inserter(payload);
     ranges::copy_n(pcm_audio, dst_bufsize, to);
 
-    if (true) { // debug
-      constexpr int MAX_REPORTS = 1;
-      static int count = 0;
-
-      if (count < MAX_REPORTS) {
-        __LOG0("{:<18} pcm data={} buf_size={:<5} payload_size={}\n", //
-               moduleId, fmt::ptr(pcm_audio), dst_bufsize, payload.size());
-
-        ++count;
-      }
-    }
+    __LOGX(LCOL01 " pcm data={} buf_size={:<5} payload_size={}\n", //
+           moduleId, "INFO", fmt::ptr(pcm_audio), dst_bufsize, payload.size());
 
     frame->decodeOk();
   }
