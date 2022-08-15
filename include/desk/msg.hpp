@@ -47,7 +47,7 @@ private:
 private:
   Msg(shFrame frame)
       : root(doc.to<JsonObject>()), // grab a reference to the root object
-        dmx_frame(64, 0x00),        // init the dmx frame to all zeros
+        dmx_frame(16, 0x00),        // init the dmx frame to all zeros
         silence(frame->silence())   // is this silence?
   {
     root["type"] = "desk";
@@ -65,21 +65,33 @@ public:
   auto dmxFrame() { return dmx_frame.data(); }
   JsonObject &rootObj() { return root; }
 
-  void transmit(udp_socket &socket, udp_endpoint &endpoint) {
-    std::array<char, 1024> packed{0};
+  inline void transmit(udp_socket &socket, udp_endpoint &endpoint) {
+    auto dframe = root.createNestedArray("dframe");
+    for (auto byte : dmx_frame) {
+      dframe.add(byte);
+    }
 
-    // string serialize_debug;
-    // [[maybe_unused]] auto json_len = serializeJsonPretty(doc, serialize_debug);
-    // __LOGX(LCOL01 "json len={}\n{}\n", "desk::Msg", "TRANSMIT", json_len, serialize_debug);
+    // magic added to end of document as additional check of message completeness
+    root["magic"] = 0xc9d2;
+    root["now_µs"] = pe_time::now_epoch<Micros>().count();
+
+    __LOGX(LCOL01 " {}\n", "desk::Msg", "TRANSMIT", inspect());
 
     if (auto packed_len = serializeMsgPack(doc, packed.data(), packed.size()); packed_len > 0) {
-      auto buff = asio::const_buffer(packed.data(), packed_len);
+      if (socket.is_open()) {
 
-      [[maybe_unused]] error_code ec;
-      [[maybe_unused]] auto tx_bytes = socket.send_to(buff, endpoint, 0, ec);
+        auto buff = asio::const_buffer(packed.data(), packed_len);
+
+        error_code ec;
+        if (auto bytes = socket.send_to(buff, endpoint, 0, ec); ec) {
+          __LOG0(LCOL01 " failed, dest={}:{} bytes={} reason={}\n", "desk::Msg", "SEND_TO",
+                 endpoint.address().to_string(), endpoint.port(), bytes, ec.message());
+        }
+      }
     }
   }
 
+  /*
   void transmit2(strand &local_strand, tcp_socket &socket) {
     error_code ec;
     std::array<char, 1024> packed{0};
@@ -98,7 +110,7 @@ public:
     if (auto packed_len = serializeMsgPack(doc, packed.data(), packed.size()); packed_len > 0) {
       __LOGX(LCOL01 " sending MsgPax len={}\n", "desk::Msg", "TRANSMIT2", packed_len);
 
-      uint16_t header = htons(packed_len); // host to network order
+      header = htons(packed_len); // host to network order
 
       if (socket.is_open()) {
         auto buffers = std::array{asio::const_buffer(&header, sizeof(header)),
@@ -119,6 +131,7 @@ public:
       }
     }
   }
+  */
 
   string inspect() const {
     string msg;
@@ -137,6 +150,9 @@ private:
   JsonObject root;
   uint8v dmx_frame;
   bool silence;
+
+  // order independent
+  std::array<uint8_t, 1024> packed;
 };
 
 } // namespace desk

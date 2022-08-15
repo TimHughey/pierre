@@ -91,7 +91,7 @@ private:
 
     release_timer.async_wait(asio::bind_executor( // use a specific executor
         local_strand,                             // serialize rendering
-        [frame = frame->shared_from_this(), self = shared_from_this()](const error_code ec) {
+        [=, self = shared_from_this()](const error_code ec) {
           // check playing since it could be stopped before the release
 
           if (!ec) {

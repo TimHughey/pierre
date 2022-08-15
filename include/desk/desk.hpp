@@ -23,12 +23,14 @@
 #include "base/elapsed.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
+#include "base/uint8v.hpp"
 #include "desk/dmx.hpp"
 #include "desk/fx.hpp"
 #include "frame/frame.hpp"
 #include "io/io.hpp"
 #include "mdns/mdns.hpp"
 
+#include <array>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -72,24 +74,24 @@ public: // general API
 
 private:
   bool connect() {
-    if (zservice && !socket2.has_value()) {
+    if (zservice && !ctrl_socket.has_value()) {
       __LOG0(LCOL01 " attempting connect\n", moduleID(), "CONNECT");
 
-      socket2.emplace(io_ctx);
-      endpoint2.emplace(asio::ip::make_address_v4(zservice->address()), zservice->port());
+      ctrl_socket.emplace(io_ctx);
+      ctrl_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), zservice->port());
 
-      asio::async_connect(        // async connect
-          *socket2,               // this socket
-          std::array{*endpoint2}, // to this endpoint
-          asio::bind_executor(    // serialize with
+      asio::async_connect(            // async connect
+          *ctrl_socket,               // this socket
+          std::array{*ctrl_endpoint}, // to this endpoint
+          asio::bind_executor(        // serialize with
               local_strand, [self = ptr()](const error_code ec, const tcp_endpoint endpoint) {
                 if (!ec) {
-
-                  self->socket2->set_option(ip_tcp::no_delay(true));
+                  self->ctrl_socket->set_option(ip_tcp::no_delay(true));
                   self->endpoint_connected.emplace(endpoint);
 
                   self->log_connected();
                   self->watch_connection();
+                  self->setup_connection();
 
                 } else {
                   self->reset_connection();
@@ -99,55 +101,18 @@ private:
       zservice = mDNS::zservice("_ruth._tcp");
     }
 
-    return endpoint_connected.has_value() && socket2->is_open();
+    return endpoint_connected.has_value() && ctrl_socket->is_open();
   }
 
-  bool createSocket() {
-    if (zservice && !socket.has_value()) {
-      socket.emplace(io_ctx).open(ip_udp::v4());
-
-      Port remote_port = zservice->txtVal<uint32_t>("msg_port");
-      endpoint.emplace(asio::ip::make_address_v4(zservice->address()), remote_port);
-
-      __LOG0(LCOL01 " created socket handle={}\n", moduleID(), "CREATE_SOCKET",
-             socket->native_handle());
-    } else if (!zservice) {
-      zservice = mDNS::zservice(("_ruth._tcp"));
-    }
-
-    return socket.has_value() && socket->is_open();
-  }
-
-  void reset_connection() {
-    asio::defer(local_strand, [self = ptr()] {
-      error_code shut_ec;
-      error_code close_ec;
-
-      self->socket2->shutdown(tcp_socket::shutdown_both, shut_ec);
-      self->socket2->close(close_ec);
-      __LOG0(LCOL01 " socket error shutdown_reason={} close_reason={}\n", moduleID(), "WATCH",
-             shut_ec.message(), close_ec.message());
-
-      self->socket2.reset();
-      self->endpoint2.reset();
-      self->endpoint_connected.reset();
-    });
-  }
-
-  void watch_connection() {
-    socket2->async_wait(tcp_socket::wait_error, // wait for any error on the socket
-                        [self = shared_from_this()]([[maybe_unused]] error_code ec) {
-                          self->reset_connection();
-
-                          self->connect();
-                        });
-  }
+  void reset_connection();
+  void setup_connection();
+  void watch_connection();
 
   // misc debug
   void log_connected() {
     __LOG0(LCOL01 " connected handle={} {}:{} -> {}:{}\n", moduleID(), "CONNECT",
-           socket2->native_handle(), socket2->local_endpoint().address().to_string(),
-           socket2->local_endpoint().port(), endpoint_connected->address().to_string(),
+           ctrl_socket->native_handle(), ctrl_socket->local_endpoint().address().to_string(),
+           ctrl_socket->local_endpoint().port(), endpoint_connected->address().to_string(),
            endpoint_connected->port());
   }
 
@@ -157,6 +122,7 @@ private:
   strand local_strand;
   shFX active_fx;
   shZeroConfService zservice;
+  uint8v work_buff;
   std::shared_ptr<work_guard> guard;
 
   // order independent
@@ -164,10 +130,10 @@ private:
   Threads threads;
   std::stop_token stop_token;
 
-  std::optional<udp_socket> socket;
-  std::optional<udp_endpoint> endpoint;
-  std::optional<tcp_socket> socket2;
-  std::optional<tcp_endpoint> endpoint2;
+  std::optional<udp_socket> data_socket;
+  std::optional<udp_endpoint> data_endpoint;
+  std::optional<tcp_socket> ctrl_socket;
+  std::optional<tcp_endpoint> ctrl_endpoint;
   std::optional<tcp_endpoint> endpoint_connected;
 
   static constexpr csv module_id = "DESK";
