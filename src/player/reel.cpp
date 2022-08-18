@@ -73,8 +73,8 @@ bool Reel::flush(const FlushRequest &flush) {
     }
   } else {
     frames.clear();
-    __LOG0("{:<18} DISCARDED frames={} seq={}/{}\n", //
-           moduleId(), frames_before, a->seq_num, b->seq_num);
+    __LOG0(LCOL01 " frames={} seq={}/{}\n", moduleId(), "DISCARDED", //
+           frames_before, a->seq_num, b->seq_num);
   }
 
   return frames.empty() == false; // keep this spool

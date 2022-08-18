@@ -67,7 +67,21 @@ public: // general API
   static void next_frame(shFrame frame) {
     auto self = ptr();
 
-    asio::post(self->local_strand, [=] { self->handle_frame(frame); });
+    // recalc the sync wait to account for lag
+    auto sync_wait = frame->calc_sync_wait(self->latency);
+
+    if (sync_wait < Nanos::zero()) {
+      sync_wait = Nanos::zero();
+    }
+
+    // schedule the release
+    self->release_timer.expires_after(sync_wait);
+    self->release_timer.async_wait(
+        [self = std::move(self), frame = std::move(frame)](const error_code &ec) {
+          if (!ec) {
+            self->handle_frame(frame);
+          }
+        });
   }
 
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
@@ -120,7 +134,9 @@ private:
   // order dependent
   io_context io_ctx;
   strand local_strand;
+  steady_timer release_timer;
   shFX active_fx;
+  Nanos latency;
   shZeroConfService zservice;
   uint8v work_buff;
   std::shared_ptr<work_guard> guard;

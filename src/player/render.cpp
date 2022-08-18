@@ -81,37 +81,33 @@ void Render::handle_frames() {
   static csv fn_id = "HANDLE_FRAMES";
   [[maybe_unused]] Elapsed elapsed;
 
+  // lag and default sync_wait when no playable frames
+  auto lag = Nanos(1ms);
   auto sync_wait = lead_time;
 
   if (auto frame = spooler->nextFrame(lead_time); frame && frame->playable()) {
-    sync_wait = frame->syncWaitDuration(lead_time);
+    sync_wait = frame->calc_sync_wait(lag);
 
-    __LOGX(LCOL01 " seq_num={} sync_wait={}\n", moduleID(), fn_id, frame->seq_num, sync_wait);
-    schedule_release(frame, sync_wait);
+    __LOGX(LCOL01 " seq_num={} sync_wait={}\n", moduleID(), fn_id, frame->seq_num,
+           pe_time::as_duration<Nanos, MillisFP>(sync_wait));
 
+    // mark played and immediately send the frame to Desk
+    frame->mark_played();
+    Desk::next_frame(frame);
+    frames_played++;
   } else {
     __LOG0(LCOL01 " no playable frames\n", moduleID(), fn_id);
-    handle_timer.expires_after(Nanos(lead_time / 3));
-    handle_timer.async_wait(                                //
-        [self = shared_from_this()](const error_code &ec) { //
-          if (!ec) {
-            self->post_handle_frames();
-          }
-
-        });
+    sync_wait = Nanos(lead_time / 4);
+    frames_silence++;
   }
+
+  // use the calculated sync_wait to control frame rate (when played) or
+  // poll for the next frame using the default sync_wait
+  wait_next_frame(sync_wait);
 
   if (elapsed.freeze() >= 3ms) {
     __LOG0(LCOL01 " elapsed={:0.2}\n", moduleId, fn_id, elapsed.as<MillisFP>());
   }
-}
-
-// must be in .cpp due to intentional limited Desk visibility
-void Render::release(shFrame frame) {
-  Desk::next_frame(frame);
-  frame->markPlayed(frames_played, frames_silence);
-
-  post_handle_frames();
 }
 
 const string Render::stats() const {

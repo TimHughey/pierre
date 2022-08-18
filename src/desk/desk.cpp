@@ -93,7 +93,9 @@ auto async_read_msg(tcp_socket &socket, uint8v &buff, CompletionToken &&token) -
 // must be defined in .cpp to hide mdns
 Desk::Desk()
     : local_strand(io_ctx),                         // local strand to serialize work
+      release_timer(io_ctx),                        // controls when frame is sent
       active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
+      latency(5ms),                                 // ruth latency (default)
       zservice(mDNS::zservice("_ruth._tcp")),       // get the remote service, if available
       work_buff(1024),                              // pre-allocate work buff
       guard(std::make_shared<work_guard>(io_ctx.get_executor())) {}
@@ -147,10 +149,13 @@ void Desk::reset_connection() {
   error_code shut_ec;
   error_code close_ec;
 
+  release_timer.cancel(ec);
+
   if (ctrl_socket.has_value()) {
     ctrl_socket->cancel(ec);
     ctrl_socket->shutdown(tcp_socket::shutdown_both, shut_ec);
     ctrl_socket->close(close_ec);
+
     __LOG0(LCOL01 " shutdown_reason={} close_reason={}\n", moduleID(), "RESET", shut_ec.message(),
            close_ec.message());
   }

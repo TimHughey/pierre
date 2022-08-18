@@ -1,0 +1,32 @@
+{
+  "type": "desk",
+  "seq_num": 9626250,
+  "timestamp": 3748975521,
+  "silence": false,
+  "nettime_now_µs": -9223372036854775,
+  "frame_localtime_µs": 28777,
+  "disco ball": 0,
+  "el dance": 61,
+  "el entry": 61,
+  "led forest": 0,
+  "dframe": [
+    240,
+    0,
+    89,
+    244,
+    0,
+    0,
+    0,
+    240,
+    0,
+    72,
+    62,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "magic": 51666,
+  "now_µs": 1660531646373202
+}

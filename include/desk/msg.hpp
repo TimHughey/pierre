@@ -56,6 +56,7 @@ private:
     root["silence"] = silence;
     root["nettime_now_µs"] = frame->nettime<Micros>().count();
     root["frame_localtime_µs"] = frame->time_diff<Micros>().count();
+    root["sync_wait_µs"] = pe_time::as_duration<Nanos, Micros>(frame->sync_wait).count();
   }
 
 public:
@@ -91,55 +92,13 @@ public:
     }
   }
 
-  /*
-  void transmit2(strand &local_strand, tcp_socket &socket) {
-    error_code ec;
-    std::array<char, 1024> packed{0};
-
-    auto dframe = root.createNestedArray("dframe");
-    for (auto byte : dmx_frame) {
-      dframe.add(byte);
-    }
-
-    // magic added to end of document as additional check of message completeness
-    root["magic"] = 0xc9d2;
-    root["now_µs"] = pe_time::now_epoch<Micros>().count();
-
-    __LOGX(LCOL01 " {}\n", "desk::Msg", "TRANSMIT2", inspect());
-
-    if (auto packed_len = serializeMsgPack(doc, packed.data(), packed.size()); packed_len > 0) {
-      __LOGX(LCOL01 " sending MsgPax len={}\n", "desk::Msg", "TRANSMIT2", packed_len);
-
-      header = htons(packed_len); // host to network order
-
-      if (socket.is_open()) {
-        auto buffers = std::array{asio::const_buffer(&header, sizeof(header)),
-                                  asio::const_buffer(packed.data(), packed_len)};
-
-        asio::async_write(
-            socket,              // write to this socket
-            buffers,             // send these buffers
-            asio::bind_executor( // serialize
-                local_strand, [](const error_code ec, [[maybe_unused]] size_t tx_bytes) {
-                  if (ec) {
-                    __LOGX(LCOL01 " async_write() failed tx_bytes={} reason={}\n", //
-                           "desk::Msg", "TRANSMIT", tx_bytes, ec.message());
-                  } else {
-                    __LOGX(LCOL01, " async_write() tx_bytes={}\n", tx_bytes);
-                  }
-                }));
-      }
-    }
-  }
-  */
-
   string inspect() const {
     string msg;
 
-    fmt::format_to(std::back_inserter(msg), " silence={} json_len={} dmx_len={}\n", //
-                   silence, measureJson(doc), dmx_frame.size());
+    fmt::format_to(std::back_inserter(msg), " silence={} packed_len={} dmx_len={}\n", //
+                   silence, measureMsgPack(doc), dmx_frame.size());
 
-    serializeJson(doc, msg);
+    serializeJsonPretty(doc, msg);
 
     return msg;
   }

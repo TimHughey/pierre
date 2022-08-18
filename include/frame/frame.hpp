@@ -133,6 +133,19 @@ public:
 
   // Public API
 
+  Nanos calc_sync_wait(Nanos const &lag, bool log = false) {
+    sync_wait = localTimeDiff() - lag;
+    sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : sync_wait;
+
+    if (log) {
+      __LOG0(LCOL01 " seq_num={} sync_wait={:0.2}\n", //
+             moduleID(), "CALC_SYNC", seq_num,        //
+             pe_time::as_duration<Nanos, MillisFP>(sync_wait));
+    }
+
+    return sync_wait;
+  }
+
   bool decipher(); // sodium decipher packet
   void decodeOk() { _state = fra::DECODED; }
   static shFrame ensureFrame(shFrame frame) { return ok(frame) ? frame : createSilence(); }
@@ -145,16 +158,7 @@ public:
   // NOTE: localTime() and localTimeDiff() must be defined in .cpp due to intentional
   // limited visibility of Anchor
   const Nanos localTimeDiff(); // calculate diff between local and frame time
-  shFrame markPlayed(auto &played, auto &not_played) {
-    if (playable()) {
-      _state = fra::PLAYED;
-      ++played;
-    } else {
-      ++not_played;
-    }
-
-    return shared_from_this();
-  }
+  void mark_played() { _state = fra::PLAYED; }
 
   // nextFrame() returns true when searching should stop; false to keep searching
   bool nextFrame(const Nanos &lead_time);
@@ -189,18 +193,6 @@ public:
     return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
   }
 
-  Nanos syncWaitDuration(const Nanos &lead_time,
-                         [[maybe_unused]] const Nanos latency = Nanos::zero()) {
-    auto lead_time_min = Nanos(lead_time / 4);
-    auto lt_diff = localTimeDiff();
-
-    if (lt_diff > lead_time_min) {
-      return pe_time::diff_abs(lt_diff, lead_time_min);
-    }
-
-    return Nanos::zero();
-  }
-
   bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
 
   // class member functions
@@ -229,6 +221,7 @@ public:
 
   Nanos cached_nettime = Nanos::min();
   Nanos cached_time_diff = Nanos::min();
+  Nanos sync_wait = Nanos::zero();
   fra::State _state = fra::EMPTY;
   shPeaks peaks_left;
   shPeaks peaks_right;

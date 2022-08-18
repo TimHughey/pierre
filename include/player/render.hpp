@@ -50,30 +50,26 @@ public: // static creation, access, etc.
 public: // public API
   static constexpr csv moduleID() { return moduleId; }
   static void playMode(csv mode) {
-    asio::post(ptr()->local_strand, [self = ptr(), mode = mode]() { self->playStart(mode); });
+    auto self = ptr();
+    asio::post(self->local_strand, [=]() { self->playStart(mode); });
   }
 
   static void teardown() { ptr()->playMode(NOT_PLAYING); }
 
 private:
   void handle_frames();
-  void post_handle_frames() {
-    if (playing()) {
-      asio::post(local_strand, [self = shared_from_this()] { self->handle_frames(); });
-    }
-  }
+
   static void nextPacket(shFrame next_packet, const Nanos start);
 
   bool playing() const { return play_mode.front() == PLAYING.front(); }
 
   void playStart(csv mode) {
-
     asio::post(local_strand, [mode = mode, self = shared_from_this()] {
       self->play_mode = mode;
 
       if (self->play_mode.front() == PLAYING.front()) {
 
-        self->post_handle_frames();
+        self->wait_next_frame();
         self->statsTimer();
       } else {
 
@@ -84,23 +80,18 @@ private:
     });
   }
 
-  void release(shFrame frame); // see .cpp
+  void wait_next_frame(Nanos sync_wait = Nanos(1ms)) {
+    if (playing()) {
 
-  void schedule_release(shFrame frame, const Nanos &sync_wait) {
-    release_timer.expires_after(sync_wait);
-
-    release_timer.async_wait(asio::bind_executor( // use a specific executor
-        local_strand,                             // serialize rendering
-        [=, self = shared_from_this()](const error_code ec) {
-          // check playing since it could be stopped before the release
-
-          if (!ec) {
-            self->release(frame);
-          } else {
-            __LOG0(LCOL01 " error, dropping seq_num={} reason={}\n", moduleID(), "SCHED RELEASE",
-                   frame->seq_num, ec.message());
-          }
-        }));
+      handle_timer.expires_after(sync_wait);
+      handle_timer.async_wait(asio::bind_executor( //
+          local_strand,                            //
+          [self = shared_from_this()](const error_code &ec) {
+            if (!ec) {
+              self->handle_frames();
+            }
+          }));
+    }
   }
 
   // misc debug, stats
