@@ -24,7 +24,6 @@
 #include "base/input_info.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
-#include "frame/frame.hpp"
 #include "io/io.hpp"
 #include "player/spooler.hpp"
 
@@ -35,73 +34,26 @@
 namespace pierre {
 namespace player {
 
-class Render;
-typedef std::shared_ptr<Render> shRender;
-
-class Render : public std::enable_shared_from_this<Render> {
-private: // all access via shared_ptr
-  Render(io_context &io_ctx, shSpooler spooler);
-
-public: // static creation, access, etc.
-  static shRender init(io_context &io_ctx, shSpooler spooler);
-  static shRender ptr();
-  static void reset();
+class Render {
+public:
+  Render(io_context &io_ctx, Spooler &spooler);
 
 public: // public API
-  static constexpr csv moduleID() { return moduleId; }
-  static void playMode(csv mode) {
-    auto self = ptr();
-    asio::post(self->local_strand, [=]() { self->playStart(mode); });
-  }
-
-  static void teardown() { ptr()->playMode(NOT_PLAYING); }
+  void adjust_play_mode(csv mode);
 
 private:
-  void handle_frames();
-
-  static void nextPacket(shFrame next_packet, const Nanos start);
+  void next_frame(Nanos sync_wait = 1ms, Nanos lag = 1ms);
 
   bool playing() const { return play_mode.front() == PLAYING.front(); }
 
-  void playStart(csv mode) {
-    asio::post(local_strand, [mode = mode, self = shared_from_this()] {
-      self->play_mode = mode;
-
-      if (self->play_mode.front() == PLAYING.front()) {
-
-        self->wait_next_frame();
-        self->statsTimer();
-      } else {
-
-        self->handle_timer.cancel();
-        self->release_timer.cancel();
-        self->stats_timer.cancel();
-      }
-    });
-  }
-
-  void wait_next_frame(Nanos sync_wait = Nanos(1ms)) {
-    if (playing()) {
-
-      handle_timer.expires_after(sync_wait);
-      handle_timer.async_wait(asio::bind_executor( //
-          local_strand,                            //
-          [self = shared_from_this()](const error_code &ec) {
-            if (!ec) {
-              self->handle_frames();
-            }
-          }));
-    }
-  }
-
   // misc debug, stats
-  const string stats() const;
-  void statsTimer(const Nanos report_ns = 10s);
+  static constexpr csv moduleID() { return moduleId; }
+  void report_stats(const Nanos interval = Nanos::zero());
 
 private:
   // order dependent
   io_context &io_ctx;
-  shSpooler spooler;
+  Spooler &spooler;
   strand &local_strand;
   steady_timer handle_timer;
   steady_timer release_timer;
@@ -111,11 +63,12 @@ private:
 
   // order independent
   string_view play_mode = NOT_PLAYING;
-  uint64_t frames_played = 0;
-  uint64_t frames_silence = 0;
+  uint64_t frames_handled = 0;
+  uint64_t frames_none = 0;
   Elapsed uptime;
 
   static constexpr auto moduleId = csv("RENDER");
+  static constexpr Nanos STATS_INTERVAL = 10s;
 };
 } // namespace player
 } // namespace pierre

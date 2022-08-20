@@ -24,10 +24,7 @@
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "desk/desk.hpp"
-#include "desk/fx.hpp"
-#include "desk/fx/majorpeak.hpp"
-#include "desk/fx/names.hpp"
-#include "desk/fx/silence.hpp"
+#include "frame/frame.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
 
@@ -39,20 +36,12 @@
 namespace asio_errc = boost::asio::error;
 
 namespace pierre {
-namespace shared {
-std::optional<player::shRender> __render;
-std::optional<player::shRender> &render() { return __render; }
-} // namespace shared
-
 namespace player {
-namespace chrono = std::chrono;
 
-using namespace std::literals::chrono_literals;
-
-Render::Render(io_context &io_ctx, shSpooler spooler)
+Render::Render(io_context &io_ctx, Spooler &spooler)
     : io_ctx(io_ctx),                      // grab the io_ctx
       spooler(spooler),                    // use this spooler for unloading Frames
-      local_strand(spooler->strandOut()),  // use the unload strand from spooler
+      local_strand(spooler.strandOut()),   // use the unload strand from spooler
       handle_timer(io_ctx),                //
       release_timer(io_ctx),               // handle available frames
       stats_timer(io_ctx),                 // period stats reporting
@@ -61,94 +50,75 @@ Render::Render(io_context &io_ctx, shSpooler spooler)
   __LOG0(LCOL01 " lead_time={} fps={:0.3f}\n", moduleId, csv("CONSTRUCT"), lead_time,
          InputInfo::fps());
 
-  // call no functions here that use self
+  Desk::init();
 }
-
-// static methods for creating, getting and resetting the shared instance
-shRender Render::init(asio::io_context &io_ctx, shSpooler spooler) {
-  auto self = shared::render().emplace(new Render(io_ctx, spooler));
-  Desk::init(); // starts desk threads
-
-  return self;
-}
-
-shRender Render::ptr() { return shared::render().value()->shared_from_this(); }
-void Render::reset() { shared::render().reset(); }
 
 // public API and member functions
+void Render::adjust_play_mode(csv mode) {
+  asio::post(local_strand, [this, mode = mode]() {
+    play_mode = mode;
 
-void Render::handle_frames() {
-  static csv fn_id = "HANDLE_FRAMES";
-  [[maybe_unused]] Elapsed elapsed;
-
-  // lag and default sync_wait when no playable frames
-  auto lag = Nanos(1ms);
-  auto sync_wait = lead_time;
-
-  if (auto frame = spooler->nextFrame(lead_time); frame && frame->playable()) {
-    sync_wait = frame->calc_sync_wait(lag);
-
-    __LOGX(LCOL01 " seq_num={} sync_wait={}\n", moduleID(), fn_id, frame->seq_num,
-           pe_time::as_duration<Nanos, MillisFP>(sync_wait));
-
-    // mark played and immediately send the frame to Desk
-    frame->mark_played();
-    Desk::next_frame(frame);
-    frames_played++;
-  } else {
-    __LOG0(LCOL01 " no playable frames\n", moduleID(), fn_id);
-    sync_wait = Nanos(lead_time / 4);
-    frames_silence++;
-  }
-
-  // use the calculated sync_wait to control frame rate (when played) or
-  // poll for the next frame using the default sync_wait
-  wait_next_frame(sync_wait);
-
-  if (elapsed.freeze() >= 3ms) {
-    __LOG0(LCOL01 " elapsed={:0.2}\n", moduleId, fn_id, elapsed.as<MillisFP>());
-  }
+    if (play_mode.front() == PLAYING.front()) {
+      next_frame();
+      report_stats();
+    } else {
+      handle_timer.cancel();
+      release_timer.cancel();
+      stats_timer.cancel();
+    }
+  });
 }
 
-const string Render::stats() const {
-  float silence = 0;
-  if (frames_played && frames_silence) {
-    silence = (float)frames_silence / (frames_played + frames_silence);
-  } else if (frames_silence) {
-    silence = 1.0;
-  }
+void Render::next_frame(Nanos sync_wait, Nanos lag) {
+  static csv fn_id = "NEXT_FRAME";
 
-  string msg;
-  auto w = std::back_inserter(msg);
+  handle_timer.expires_after(sync_wait);
+  handle_timer.async_wait( // wait the required sync duration before next frame
+      asio::bind_executor(local_strand, [=, this](const error_code &ec) mutable {
+        Elapsed elapsed;
 
-  fmt::format_to(w, "played={:<8} silent={:<8} ", frames_played, frames_silence);
-  fmt::format_to(w, "silence={:6.2f}%", silence * 100.0);
+        if (!ec && playing()) {
 
-  return msg;
+          if (auto frame = spooler.nextFrame(lead_time); frame && frame->playable()) {
+            sync_wait = frame->calc_sync_wait(lag);
+
+            __LOGX(LCOL01 " seq_num={} sync_wait={}\n", moduleID(), fn_id, frame->seq_num,
+                   pe_time::as_duration<Nanos, MillisFP>(sync_wait));
+
+            // mark played and immediately send the frame to Desk
+            frame->mark_played();
+            Desk::next_frame(frame);
+            frames_handled++;
+          } else {
+            __LOG0(LCOL01 " no playable frames\n", moduleID(), fn_id);
+            sync_wait = Nanos(lead_time / 2);
+            frames_none++;
+          }
+
+          if (elapsed() >= 3ms) {
+            __LOG0(LCOL01 " elapsed={:0.2} sync_wait={}\n", moduleID(), fn_id,
+                   elapsed.as<MillisFP>(), pe_time::as_duration<Nanos, MillisFP>(sync_wait));
+          }
+
+          // use the calculated sync_wait to control frame rate (when played) or
+          // poll for the next frame using the default sync_wait
+          next_frame(sync_wait, elapsed());
+        } else {
+          __LOG0(LCOL01 " playing={} reason={}\n", moduleID(), fn_id, playing(), ec.message());
+        }
+      }));
 }
 
-void Render::statsTimer(const Nanos report_ns) {
-  // should the frame timer run?
-  if (play_mode == NOT_PLAYING) {
-    [[maybe_unused]] error_code ec;
-    stats_timer.cancel(ec);
-    return;
-  }
+void Render::report_stats(const Nanos interval) {
+  stats_timer.expires_after(interval);
+  stats_timer.async_wait([this](const error_code ec) {
+    if (!ec) {
+      __LOG0(LCOL01 " frames handled={:>6} none={:>6}\n", moduleId, "STATS", frames_handled,
+             frames_none);
 
-  stats_timer.expires_after(report_ns);
-
-  stats_timer.async_wait(  // wait to report stats
-      asio::bind_executor( // use a specific executor
-          local_strand,    // use our local strand
-          [self = shared_from_this()](const error_code ec) {
-            if (!ec) {
-              __LOG0(LCOL01 " {}\n", moduleId, "STATS", self->stats());
-
-              self->statsTimer();
-            }
-          })
-
-  );
+      report_stats(STATS_INTERVAL);
+    }
+  });
 }
 
 } // namespace player

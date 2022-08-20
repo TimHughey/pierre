@@ -113,14 +113,12 @@ void Audio::asyncLoop() {
             // check for error and ensure receipt of the packet length
             if (self->isReady(ec)) {
               if (rx_bytes == PACKET_LEN_BYTES) {
-                __LOGX("{} will read packet_len={}\n", fnName(),
-                       self->packetLength(););
+                __LOGX("{} will read packet_len={}\n", fnName(), self->packetLength(););
 
                 // async load the packet
                 self->asyncRxPacket();
 
-                std::call_once(__stats_started,
-                               [self = self] { self->stats(); });
+                std::call_once(__stats_started, [self = self] { self->stats(); });
               }
 
             }  // self is about to go out of scope...
@@ -151,8 +149,7 @@ void Audio::asyncRxPacket() {
                 Player::accept(packet_handoff);
               } else {
                 const auto len = self->packetLength();
-                __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(),
-                       rx_bytes, len);
+                __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);
               }
 
               // wait for next packet
@@ -189,12 +186,11 @@ void Audio::teardown() {
 void Audio::stats() {
   timer.expires_after(10s);
 
-  timer.                    // this timer
-      async_wait(           // waits via
-          bind_executor(    // a specific executor
-              local_strand, // running on this strand
-              [self = shared_from_this()](
-                  error_code ec) { // to execute this completion handler
+  timer.                                                   // this timer
+      async_wait(                                          // waits via
+          bind_executor(                                   // a specific executor
+              local_strand,                                // running on this strand
+              [self = shared_from_this()](error_code ec) { // to execute this completion handler
                 static uint64_t rx_last = 0;
                 // only check for success here, check for actual packet length
                 // bytes later
@@ -206,9 +202,8 @@ void Audio::stats() {
                   }
 
                   if (rx_total != rx_last) {
-                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n",
-                           self->moduleID(), rx_total,
-                           (rx_total - (int64_t)rx_last));
+                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n", self->moduleID(),
+                           rx_total, (rx_total - (int64_t)rx_last));
                     rx_last = rx_total;
                   }
 

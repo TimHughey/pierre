@@ -24,7 +24,6 @@
 #include "desk/msg.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
-#include "fx/histogram.hpp"
 #include "fx/names.hpp"
 
 #include <memory>
@@ -51,7 +50,6 @@ public:
 
   virtual bool completed() { return finished; }
 
-  const auto histogram() const { return histo.map; }
   bool matchName(csv &match) const { return match == name(); }
   virtual csv name() const = 0;
 
@@ -66,7 +64,6 @@ protected:
 protected:
   static shUnits units;
   bool finished = false;
-  fx::Histogram histo;
 
 private:
   bool called_once = false;

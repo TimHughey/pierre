@@ -28,6 +28,7 @@
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
 #include "player/spooler.hpp"
+#include "player/stats.hpp"
 #include "rtp_time/anchor/data.hpp"
 
 #include <chrono>
@@ -43,30 +44,54 @@ typedef std::shared_ptr<Player> shPlayer;
 
 class Player : public std::enable_shared_from_this<Player> {
 private:
-  static constexpr auto PLAYER_THREADS = 2; // +1 include main thread
+  static constexpr auto PLAYER_THREADS = 3; // +1 include main thread
 
 private: // constructor private, all access through shared_ptr
-  Player()
-      : spooler(player::Spooler::create(io_ctx)), // frame in/out spooler
-        watchdog_timer(io_ctx_dsp),               // watches for shutdown requests
-        player_guard(std::make_shared<work_guard>(io_ctx.get_executor())) // maybe not needed
+  Player(const Nanos &lead_time)
+      : spooler(io_ctx),                   // local automatic object
+        lead_time(lead_time),              // default frame lead time
+        frame_strand(spooler.strandOut()), // next frame serialized processing
+        frame_timer(io_ctx),               // timer for next frame sync
+        stats(io_ctx, 10s),                // stats reporter (uses Player executor)
+        watchdog_timer(io_ctx_dsp),        // watches for shutdown requests
+        guard(io_ctx.get_executor())       // maybe not needed
   {
     // call no member functions that use shared_from_this() in constructor
   }
 
 public:
-  static void init();
+  static void init(const Nanos &lead_time);
   static shPlayer ptr();
   static void reset();
 
-  static void accept(uint8v &packet_accept);
-  static void flush(const FlushRequest &request) { ptr()->spooler->flush(request); }
-  static csv moduleID() { return module_id; }
+  static void accept(uint8v &packet);
+
+  void adjust_play_mode(csv next_mode) {
+    play_mode = next_mode;
+
+    if (play_mode == PLAYING) {
+      next_frame();
+      stats.async_report(5ms);
+    } else {
+      frame_timer.cancel();
+      stats.cancel();
+    }
+  }
+
+  static void flush(const FlushRequest &request) { ptr()->spooler.flush(request); }
+
   static void saveAnchor(anchor::Data &data); // must be declared in .cpp
   static void teardown();                     // must be declared in .cpp
 
+  // misc debug
+  static csv moduleID() { return module_id; }
+
 private:
+  void next_frame(Nanos sync_wait = 1ms, Nanos lag = 1ms);
+  bool playing() const { return play_mode.front() == PLAYING.front(); }
+
   void stop_io() {
+    guard.reset();
     io_ctx.stop();
     io_ctx_dsp.stop();
   }
@@ -75,11 +100,16 @@ private:
 
 private:
   // order dependent
+  Elapsed uptime;              // runtime of this object
   io_context io_ctx;           // player (and friends) context
   io_context io_ctx_dsp;       // dsp work
-  player::shSpooler spooler;   // in/out spooler
+  player::Spooler spooler;     // in/out spooler
+  Nanos lead_time;             // frame lead time
+  strand frame_strand;         // next frame serialized processing
+  steady_timer frame_timer;    // timer for next frame sync
+  player::stats stats;         // stats reporter
   steady_timer watchdog_timer; // watch for shutdown
-  std::shared_ptr<work_guard> player_guard;
+  work_guard guard;
 
   // order independent
   Thread thread_main;
@@ -88,7 +118,6 @@ private:
 
   string_view play_mode = NOT_PLAYING;
   FlushRequest flush_request;
-  uint64_t packet_count = 0;
 
   static constexpr csv module_id = "PLAYER";
 };

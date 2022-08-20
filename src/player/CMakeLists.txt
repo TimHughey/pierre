@@ -26,14 +26,11 @@ find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
 add_library(${__target} SHARED
-  # orchestration
+  # orchestration, next frame sync
   player.cpp
 
   # AirPlay 2 packet handling and queuing
   reel.cpp spooler.cpp
-
-  # Render Player Frames
-  render.cpp
 
   ${HEADER_LIST}
 )

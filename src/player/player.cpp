@@ -20,10 +20,11 @@
 #include "base/elapsed.hpp"
 #include "base/threads.hpp"
 #include "config/config.hpp"
+#include "desk/desk.hpp"
 #include "mdns/mdns.hpp"
-#include "render.hpp"
 #include "rtp_time/anchor.hpp"
 #include "spooler.hpp"
+#include "stats.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
@@ -47,10 +48,13 @@ std::optional<shPlayer> &player() { return __player; }
 } // namespace shared
 
 // static methods for creating, getting and resetting the shared instance
-void Player::init() { // static
-  auto self = shared::__player.emplace(new Player());
+void Player::init(const Nanos &lead_time) { // static
 
-  player::Render::init(self->io_ctx, self->spooler);     // adds work to the player io_ctx
+  Desk::init();
+
+  auto self = shared::__player.emplace(new Player(lead_time));
+
+  // adds work to the player io_ctx
   mDNS::browse(Config::object("player")["dmx_service"]); // start async browse
 
   float dsp_hw_factor = Config::object("player")["dsp"]["concurrency_factor"];
@@ -107,21 +111,59 @@ void Player::accept(uint8v &packet) { // static
   if (frame->keep(self->flush_request)) {
     asio::post(           // async dsp
         self->io_ctx_dsp, // use a thread pool, finding peaks takes awhile
-        [frame = self->spooler->queueFrame(frame)]() { Frame::findPeaks(frame); });
+        [frame = self->spooler.queueFrame(frame)]() { Frame::findPeaks(frame); });
   }
+}
+
+void Player::next_frame(Nanos sync_wait, Nanos lag) {
+  static csv fn_id = "NEXT_FRAME";
+
+  frame_timer.expires_after(sync_wait);
+  frame_timer.async_wait( // wait the required sync duration before next frame
+      asio::bind_executor(frame_strand, [=, this](const error_code &ec) mutable {
+        Elapsed elapsed;
+
+        if (!ec && playing()) {
+
+          if (auto frame = spooler.nextFrame(lead_time); frame && frame->playable()) {
+            sync_wait = frame->calc_sync_wait(lag);
+
+            __LOGX(LCOL01 " seq_num={} sync_wait={}\n", moduleID(), fn_id, frame->seq_num,
+                   pe_time::as_duration<Nanos, MillisFP>(sync_wait));
+
+            // mark played and immediately send the frame to Desk
+            frame->mark_played();
+            Desk::next_frame(frame);
+            stats.handled++;
+          } else {
+            __LOGX(LCOL01 " no playable frames\n", moduleID(), fn_id);
+            sync_wait = Nanos(lead_time / 2);
+            stats.none++;
+          }
+
+          if (elapsed() >= 3ms) {
+            __LOG0(LCOL01 " elapsed={:0.2} sync_wait={}\n", moduleID(), fn_id,
+                   elapsed.as<MillisFP>(), pe_time::as_duration<Nanos, MillisFP>(sync_wait));
+          }
+
+          // use the calculated sync_wait to control frame rate (when played) or
+          // poll for the next frame using the default sync_wait
+          next_frame(sync_wait, elapsed());
+        } else {
+          __LOG0(LCOL01 " playing={} reason={}\n", moduleID(), fn_id, playing(), ec.message());
+        }
+      }));
 }
 
 void Player::saveAnchor(anchor::Data &data) { // static, must be in .cpp
   Anchor::ptr()->save(data);
 
-  auto self = ptr();
-  self->play_mode = data.playing() ? PLAYING : NOT_PLAYING;
-  player::Render::playMode(self->play_mode);
+  auto mode = data.playing() ? PLAYING : NOT_PLAYING;
+  ptr()->adjust_play_mode(mode);
 }
 
 void Player::teardown() { // static, must be in .cpp
-  ptr()->packet_count = 0;
-  // player::Render::teardown();
+  ptr()->adjust_play_mode(NOT_PLAYING);
 }
 
 void Player::watch_dog() {

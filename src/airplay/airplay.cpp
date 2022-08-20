@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "airplay/airplay.hpp"
+#include "base/input_info.hpp"
 #include "common/ss_inject.hpp"
 #include "config/config.hpp"
 #include "conn_info/conn_info.hpp"
@@ -42,7 +43,7 @@ shAirplay Airplay::init() { // static
   // executed by caller thread
   Anchor::init();
   airplay::ConnInfo::init();
-  Player::init();
+  Player::init(InputInfo::frame<Nanos>());
 
   // init the master clock on Airplay io_ctx
   MasterClock::init({.io_ctx = self->io_ctx,

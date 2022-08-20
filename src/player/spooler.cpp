@@ -39,15 +39,11 @@ namespace player {
 // general API and member functions
 
 void Spooler::flush(const FlushRequest &request) {
-  asio::post(strand_in, // serialize Reels IN actions
-             [self = shared_from_this(), request = request]() {
-               self->flushReels(request, self->reels_in);
-             });
+  // serialize Reels IN actions
+  asio::post(strand_in, [=, this] { flushReels(request, reels_in); });
 
-  asio::post(strand_out, // serialize Reels OUT actions
-             [self = shared_from_this(), request = request]() {
-               self->flushReels(request, self->reels_out);
-             });
+  // serialize Reels OUT actions
+  asio::post(strand_out, [=, this] { flushReels(request, reels_out); });
 }
 
 shFrame Spooler::nextFrame(const Nanos &lead_time) {
@@ -75,16 +71,14 @@ shFrame Spooler::nextFrame(const Nanos &lead_time) {
   }
 
   return Frame::ok(frame) ? frame->shared_from_this() : frame;
-
-  // return f != reels_out.end() ? frame->shared_from_this() : shFrame();
 }
 
 shFrame Spooler::queueFrame(shFrame frame) {
   asio::post(strand_in, // guard with reels strand
-             [&dst = reels_in, frame = frame, &strand_out = strand_out]() {
-               shReel dst_reel = dst.empty() //
-                                     ? dst.emplace_back(Reel::create(strand_out))
-                                     : dst.back()->shared_from_this();
+             [this, frame = frame]() {
+               shReel dst_reel = reels_in.empty() //
+                                     ? reels_in.emplace_back(Reel::create(strand_out))
+                                     : reels_in.back()->shared_from_this();
 
                dst_reel->addFrame(frame);
              });

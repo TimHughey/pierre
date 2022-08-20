@@ -44,6 +44,7 @@ public:
     return *this;
   }
 
+  Nanos operator()() const { return elapsed(); }
   template <typename T> bool operator>=(const T &rhs) const { return elapsed() >= rhs; }
 
   Elapsed &reset() {

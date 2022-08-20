@@ -39,10 +39,7 @@ namespace ranges = std::ranges;
 namespace pierre {
 namespace player {
 
-class Spooler;
-typedef std::shared_ptr<Spooler> shSpooler;
-
-class Spooler : public std::enable_shared_from_this<Spooler> {
+class Spooler {
 private:
   // a reel contains frames, in ascending order by sequence,
   // possibly with gaps
@@ -139,15 +136,12 @@ private:
     Reels &dst;
   };
 
-private:
+public:
   Spooler(io_context &io_ctx)
       : module_id(csv("SPOOLER")), // set the module id
         strand_in(io_ctx),         // guard Reels reels_in
         strand_out(io_ctx),        // guard Reels reels_out
         requisition(strand_in, reels_in, strand_out, reels_out) {}
-
-public:
-  static shSpooler create(io_context &io_ctx) { return shSpooler(new Spooler(io_ctx)); }
 
 public:
   void flush(const FlushRequest &flush);
@@ -159,8 +153,9 @@ public:
   // misc stats and debug
   const string inspect() const;
   void logAsync() {
-    asio::post(strand_in, [self = shared_from_this()]() { self->logSync(); });
+    asio::post(strand_in, [&] { logSync(); });
   }
+
   void logSync() { __LOG0("{:<18} {}\n", module_id, inspect()); }
   const string &moduleId() const { return module_id; }
 

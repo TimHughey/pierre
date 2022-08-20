@@ -50,7 +50,7 @@ constexpr auto &desk() { return __desk; }
 
 class Desk : public std::enable_shared_from_this<Desk> {
 private:
-  static constexpr auto DESK_THREADS = 2; // +1 for main thread
+  static constexpr auto DESK_THREADS = 3; // +1 for main thread
 
 private:
   Desk(); // must be defined in .cpp to hide FX includes
