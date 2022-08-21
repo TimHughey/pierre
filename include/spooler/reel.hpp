@@ -33,16 +33,15 @@
 #include <memory>
 #include <ranges>
 
-namespace {
-namespace ranges = std::ranges;
-}
-
 namespace pierre {
-namespace player {
 
 // a sequence of frames in ascending order
 class Reel;
 typedef std::shared_ptr<Reel> shReel;
+
+// a reel contains frames, in ascending order by sequence,
+// possibly with gaps
+typedef std::vector<shReel> Reels;
 
 class Reel : public std::enable_shared_from_this<Reel> {
 private:
@@ -50,7 +49,6 @@ private:
 
 private: // constructor private, all access through shared_ptr
   Reel(strand &strand_out)
-
       : strand_out(strand_out),                       // note 1
         serial(fmt::format("{:#05x}", ++SERIAL_NUM)), // note 2
         module_id(fmt::format("REEL {}", serial))     // note 3
@@ -117,5 +115,5 @@ private:
   static uint64_t SERIAL_NUM;
   static constexpr size_t PURGE_MAX = 10;
 };
-} // namespace player
+
 } // namespace pierre

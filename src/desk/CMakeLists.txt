@@ -31,4 +31,4 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 # the base include directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE ArduinoJson base frame io fader mdns)
+target_link_libraries(${__target} PRIVATE ArduinoJson base frame io fader mdns spooler)

@@ -18,7 +18,7 @@
 
 #include "session/audio.hpp"
 #include "base/uint8v.hpp"
-#include "player/player.hpp"
+#include "spooler/spooler.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
@@ -146,7 +146,7 @@ void Audio::asyncRxPacket() {
                           self->packet_buffer); // by swapping local buffer
 
                 // inform player a complete packet is ready
-                Player::accept(packet_handoff);
+                ispooler()->accept(packet_handoff);
               } else {
                 const auto len = self->packetLength();
                 __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);

@@ -21,14 +21,17 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/pe_time.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "desk/dmx.hpp"
 #include "desk/fx.hpp"
+#include "desk/stats.hpp"
 #include "frame/frame.hpp"
 #include "io/io.hpp"
 #include "mdns/mdns.hpp"
+#include "rtp_time/anchor/data.hpp"
 
 #include <array>
 #include <exception>
@@ -41,82 +44,38 @@
 namespace pierre {
 
 class Desk;
-typedef std::shared_ptr<Desk> shDesk;
+Desk *idesk();
 
-namespace shared {
-extern std::optional<shDesk> __desk;
-constexpr auto &desk() { return __desk; }
-} // namespace shared
-
-class Desk : public std::enable_shared_from_this<Desk> {
-private:
-  static constexpr auto DESK_THREADS = 3; // +1 for main thread
+class Desk {
+public:
+  static constexpr csv PLAYING{"playing"};
+  static constexpr csv NOT_PLAYING{"not playing"};
 
 private:
-  Desk(); // must be defined in .cpp to hide FX includes
+  Desk(const Nanos &lead_time); // must be defined in .cpp to hide FX includes
 
-public: // static init, access to Desk
-  static void init();
-  static shDesk ptr() { return shared::desk().value()->shared_from_this(); }
-  static void reset() { shared::desk().reset(); }
-  static constexpr csv moduleID() { return module_id; }
+public: // instance API
+  static void init(const Nanos &lead_time);
 
 public: // general API
-  void handle_frame(shFrame frame);
-
-  static void next_frame(shFrame frame) {
-    auto self = ptr();
-
-    // recalc the sync wait to account for lag
-    auto sync_wait = frame->calc_sync_wait(self->latency);
-
-    if (sync_wait < Nanos::zero()) {
-      sync_wait = Nanos::zero();
-    }
-
-    // schedule the release
-    self->release_timer.expires_after(sync_wait);
-    self->release_timer.async_wait(
-        [self = std::move(self), frame = std::move(frame)](const error_code &ec) {
-          if (!ec) {
-            self->handle_frame(frame);
-          }
-        });
-  }
-
+  void adjust_play_mode(csv next_mode);
+  void halt() { adjust_play_mode(NOT_PLAYING); }
+  bool playing() const { return play_mode.front() == PLAYING.front(); }
+  void save_anchor_data(anchor::Data data); // see .cpp
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
 
+  // misc debug
+  static constexpr csv moduleID() { return module_id; }
+
 private:
-  bool connect() {
-    if (zservice && !ctrl_socket.has_value()) {
-      __LOG0(LCOL01 " attempting connect\n", moduleID(), "CONNECT");
+  bool connect();
+  bool connected() const { return data_socket.has_value() && data_endpoint.has_value(); }
 
-      ctrl_socket.emplace(io_ctx);
-      ctrl_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), zservice->port());
+  void frame_next(Nanos sync_wait = 1ms, Nanos lag = 1ms); // despool frames
+  void frame_release(shFrame frame);
+  void frame_render(shFrame frame); //
 
-      asio::async_connect(            // async connect
-          *ctrl_socket,               // this socket
-          std::array{*ctrl_endpoint}, // to this endpoint
-          asio::bind_executor(        // serialize with
-              local_strand, [self = ptr()](const error_code ec, const tcp_endpoint endpoint) {
-                if (!ec) {
-                  self->ctrl_socket->set_option(ip_tcp::no_delay(true));
-                  self->endpoint_connected.emplace(endpoint);
-
-                  self->log_connected();
-                  self->watch_connection();
-                  self->setup_connection();
-
-                } else {
-                  self->reset_connection();
-                }
-              }));
-    } else if (!zservice) {
-      zservice = mDNS::zservice("_ruth._tcp");
-    }
-
-    return endpoint_connected.has_value() && ctrl_socket->is_open();
-  }
+  void next_frame(shFrame frame); // calc timing of next frame
 
   void reset_connection();
   void setup_connection();
@@ -130,19 +89,25 @@ private:
            endpoint_connected->port());
   }
 
+  void log_despooled(shFrame frame, Elapsed &elapsed);
+
 private:
   // order dependent
+  Nanos lead_time;
   io_context io_ctx;
-  strand local_strand;
+  strand frame_strand;
+  steady_timer frame_timer;
+  strand conn_strand;
   steady_timer release_timer;
   shFX active_fx;
   Nanos latency;
   shZeroConfService zservice;
   uint8v work_buff;
-  std::shared_ptr<work_guard> guard;
+  work_guard guard;
+  string_view play_mode;
+  desk::stats stats;
 
   // order independent
-  Thread thread_main;
   Threads threads;
   std::stop_token stop_token;
 
@@ -153,6 +118,8 @@ private:
   std::optional<tcp_endpoint> endpoint_connected;
 
   static constexpr csv module_id = "DESK";
+  static constexpr auto TASK_NAME = "Desk";
+  static constexpr auto DESK_THREADS = 4;
 };
 
 } // namespace pierre

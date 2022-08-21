@@ -27,8 +27,8 @@ add_subdirectory(rtp_time)
 # Frame of processed audio
 add_subdirectory(frame)
 
-# player (aka queued)
-add_subdirectory(player)
+# central spooler maintains reels of available frames
+add_subdirectory(spooler)
 
 # faders
 add_subdirectory(fader)

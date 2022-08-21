@@ -16,25 +16,17 @@
 //
 //  https://www.wisslanding.com
 
-#include "player/reel.hpp"
+#include "spooler/reel.hpp"
 #include "base/flush_request.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "frame/frame.hpp"
-#include "rtp_time/anchor.hpp"
-#include "rtp_time/clock.hpp"
 
 #include <algorithm>
-#include <fmt/compile.h>
-#include <fmt/format.h>
 #include <iterator>
 #include <ranges>
 
-using namespace std::chrono_literals;
-
 namespace pierre {
-namespace player {
-namespace ranges = std::ranges;
 
 // Reel serial number (for unique identification of each Reel)
 uint64_t Reel::SERIAL_NUM = 0x1000; // class level
@@ -108,5 +100,4 @@ const string Reel::inspect(shReel reel) { // static
   return msg;
 }
 
-} // namespace player
 } // namespace pierre

@@ -23,7 +23,7 @@
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"
-#include "player/player.hpp"
+#include "desk/desk.hpp"
 #include "rtp_time/anchor.hpp"
 #include "rtp_time/clock.hpp"
 #include "server/servers.hpp"
@@ -43,7 +43,7 @@ shAirplay Airplay::init() { // static
   // executed by caller thread
   Anchor::init();
   airplay::ConnInfo::init();
-  Player::init(InputInfo::frame<Nanos>());
+  Desk::init(InputInfo::frame<Nanos>());
 
   // init the master clock on Airplay io_ctx
   MasterClock::init({.io_ctx = self->io_ctx,

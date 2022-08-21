@@ -20,24 +20,25 @@
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/shk.hpp"
+#include "base/threads.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
 #include "frame/av.hpp"
 #include "frame/fft.hpp"
 #include "frame/peaks.hpp"
+#include "io/io.hpp"
 #include "rtp_time/anchor.hpp"
 
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <iterator>
+#include <latch>
 #include <mutex>
 #include <ranges>
 #include <sodium.h>
 #include <utility>
 #include <vector>
-
-namespace chrono = std::chrono;
-namespace ranges = std::ranges;
 
 namespace pierre {
 namespace fra {
@@ -367,8 +368,93 @@ void swap(Frame &a, Frame &b) {
  * NOTE: the payload size must include the ADTS header size
  */
 
-// general API and member functions
+// Digital Signal Analysis Async Threads
+namespace dsp {
+// order dependent
+static io_context io_ctx;                   // player (and friends) context
+static steady_timer watchdog_timer(io_ctx); // watch for shutdown
+static work_guard guard(io_ctx.get_executor());
+static constexpr csv moduleID() { return csv{"DSP"}; }
 
+// order independent
+static Thread thread_main;
+static Threads threads;
+static std::stop_token stop_token;
+
+// forward decls
+void init();
+void process(shFrame frame);
+void watch_dog();
+void shutdown();
+
+// initialize the thread pool for digital signal analysis
+void init() {
+  float dsp_hw_factor = Config::object("player")["dsp"]["concurrency_factor"];
+  int thread_count = std::jthread::hardware_concurrency() * dsp_hw_factor;
+
+  std::latch threads_latch{thread_count};
+
+  // start the main player thread
+  thread_main = Thread([=, &threads_latch](std::stop_token token) {
+    stop_token = token;
+    name_thread("Frame", 0);
+
+    watch_dog(); // schedule work for frame (dsp) io_ctx
+
+    for (auto n = 1; n < thread_count; n++) {
+      // notes:
+      //  1. start DSP processing threads
+      threads.emplace_back([=, &threads_latch] {
+        name_thread("Frame", n);
+        threads_latch.count_down();
+        io_ctx.run(); // dsp (frame) io_ctx
+      });
+    }
+
+    // main thread
+    threads_latch.count_down();
+    io_ctx.run();
+  });
+
+  threads_latch.wait();
+}
+
+// perform digital signal analysis on a Frame
+void process(shFrame frame) {
+  asio::post(io_ctx, [=]() { frame->findPeaks(); });
+}
+
+// shutdown thread pool and wait for all threads to stop
+void shutdown() {
+  thread_main.request_stop();
+  thread_main.join();
+  ranges::for_each(threads, [](auto &t) { t.join(); });
+}
+
+// watch for thread stop request
+void watch_dog() {
+  // cancels any running timers
+  [[maybe_unused]] auto canceled = watchdog_timer.expires_after(250ms);
+
+  watchdog_timer.async_wait([&](const error_code ec) {
+    if (ec == errc::success) { // unless success, fall out of scape
+
+      // check if any thread has received a stop request
+      if (stop_token.stop_requested()) {
+        io_ctx.stop();
+      } else {
+        watch_dog();
+      }
+    } else {
+      __LOG0(LCOL01 " going out of scope reason={}\n", //
+             moduleID(), csv("WATCH_DOG"), ec.message());
+    }
+  });
+}
+
+} // namespace dsp
+
+// general Frame API and member functions
 bool Frame::decipher() {
   if (SharedKey::empty()) {
     __LOG0("{:<18} shared key empty\n", moduleId);
@@ -408,9 +494,8 @@ bool Frame::decipher() {
   return true;
 }
 
-void Frame::findPeaks(shFrame frame) {
-  auto &payload = frame->_payload;
-  const auto samples_per_channel = frame->samples_per_channel;
+void Frame::findPeaks() {
+  constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
 
   FFT fft_left(samples_per_channel, InputInfo::rate);
   FFT fft_right(samples_per_channel, InputInfo::rate);
@@ -419,9 +504,8 @@ void Frame::findPeaks(shFrame frame) {
   auto &left = fft_left.real();
   auto &right = fft_right.real();
 
-  constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
-  uint8_t *sptr = payload.data();                   // ptr to next sample
-  const auto interleaved_samples = payload.size() / SAMPLE_BYTES;
+  uint8_t *sptr = _payload.data(); // ptr to next sample
+  const auto interleaved_samples = _payload.size() / SAMPLE_BYTES;
 
   for (size_t idx = 0; idx < interleaved_samples; ++idx) {
     uint16_t val;
@@ -439,14 +523,14 @@ void Frame::findPeaks(shFrame frame) {
   fft_left.process();
   fft_right.process();
 
-  frame->peaks_left = fft_left.findPeaks();
-  frame->peaks_right = fft_right.findPeaks();
+  peaks_left = fft_left.findPeaks();
+  peaks_right = fft_right.findPeaks();
 
-  frame->_silence = Peaks::silence(frame->peaks_left) && Peaks::silence(frame->peaks_right);
+  _silence = Peaks::silence(peaks_left) && Peaks::silence(peaks_right);
 
   // really clear the payload (prevent lingering memory allocations)
   uint8v empty;
-  std::swap(empty, payload);
+  std::swap(empty, _payload);
 }
 
 bool Frame::keep(FlushRequest &flush) {
@@ -471,7 +555,8 @@ bool Frame::keep(FlushRequest &flush) {
   auto rc = false;
   if (decipher(); decipher_len) {
     rc = true;
-    av::parse(this->shared_from_this());
+    av::parse(shared_from_this());
+    dsp::process(shared_from_this());
   }
 
   return rc;

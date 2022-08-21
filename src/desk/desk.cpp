@@ -29,104 +29,83 @@
 #include "desk/msg.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/opts.hpp"
+#include "io/async_msg.hpp"
 #include "mdns/mdns.hpp"
+#include "rtp_time/anchor.hpp"
+#include "spooler/spooler.hpp"
 
+#include <future>
 #include <latch>
 #include <math.h>
 #include <ranges>
 
 namespace pierre {
-namespace shared {
-std::optional<shDesk> __desk;
-} // namespace shared
+namespace desk { // instance
+std::unique_ptr<Desk> i;
+} // namespace desk
 
-struct async_read_msg_impl {
-  tcp_socket &socket;
-  uint8v &buff;
-  enum { starting, msg_content, finished } state = starting;
-
-  template <typename Self> void operator()(Self &self, error_code ec = {}, size_t n = 0) {
-
-    switch (state) {
-    case starting:
-      state = msg_content;
-      socket.async_read_some(asio::buffer(buff.data(), sizeof(uint16_t)),
-                             asio::bind_executor(socket.get_executor(), std::move(self)));
-      break;
-
-    case msg_content:
-      if (!ec) {
-        state = finished;
-        socket.async_read_some(asio::buffer(buff.data(), msg_len()),
-                               asio::bind_executor(socket.get_executor(), std::move(self)));
-      } else {
-        self.complete(ec, n);
-      }
-      break;
-
-    case finished:
-      self.complete(ec, n);
-      break;
-    }
-  }
-
-private:
-  uint16_t msg_len() {
-    uint16_t *msg_len_ptr = (uint16_t *)buff.data();
-    return ntohs(*msg_len_ptr);
-  }
-
-  void log(const error_code &ec, size_t n) {
-    __LOG0(LCOL01 " state={} len={} reason={}\n", Desk::moduleID(), "IMPL", state, n,
-           ec.message());
-  }
-};
-
-template <typename CompletionToken>
-auto async_read_msg(tcp_socket &socket, uint8v &buff, CompletionToken &&token) ->
-    typename asio::async_result<typename std::decay<CompletionToken>::type,
-                                void(error_code, size_t)>::return_type {
-  return asio::async_compose<CompletionToken, void(error_code, size_t)>(
-      async_read_msg_impl(socket, buff), token, socket);
-}
+Desk *idesk() { return desk::i.get(); }
 
 // must be defined in .cpp to hide mdns
-Desk::Desk()
-    : local_strand(io_ctx),                         // local strand to serialize work
+Desk::Desk(const Nanos &lead_time)
+    : lead_time(lead_time),                         // despool frame lead time
+      frame_strand(io_ctx),                         // local strand to serialize work
+      frame_timer(io_ctx),                          // controls when frame is despooled
+      conn_strand(io_ctx),                          // serialize connection and msg exchange
       release_timer(io_ctx),                        // controls when frame is sent
       active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
       latency(5ms),                                 // ruth latency (default)
       zservice(mDNS::zservice("_ruth._tcp")),       // get the remote service, if available
       work_buff(1024),                              // pre-allocate work buff
-      guard(std::make_shared<work_guard>(io_ctx.get_executor())) {}
+      guard(io_ctx.get_executor()),                 // prevent io_ctx from ending
+      play_mode(NOT_PLAYING),                       // render or don't render
+      stats(io_ctx, 10s) {}
 
-// static creation, access to instance
-void Desk::init() { // static
-  auto desk = shared::desk().emplace(new Desk());
+// general API
+void Desk::adjust_play_mode(csv next_mode) {
+  play_mode = next_mode;
 
-  std::latch threads_latch(DESK_THREADS);
-  desk->thread_main = Thread([=, &threads_latch](std::stop_token token) {
-    desk->stop_token = token;
-    name_thread("Desk", 0);
-
-    // note: work guard created by constructor
-    for (auto n = 1; n < DESK_THREADS; n++) { // main thread is 0s
-      desk->threads.emplace_back([=, &threads_latch] {
-        name_thread("Desk", n);
-        threads_latch.count_down();
-        desk->io_ctx.run();
-      });
-    }
-
-    threads_latch.count_down();
-    desk->io_ctx.run();
-  });
-
-  threads_latch.wait(); // wait for all threads to start
+  if (play_mode == PLAYING) {
+    frame_next(); // starts despooling frames
+    stats.async_report(5ms);
+  } else {
+    frame_timer.cancel();
+    stats.cancel();
+  }
 }
 
-// General API
-void Desk::handle_frame(shFrame frame) {
+bool Desk::connect() {
+  if (zservice && !ctrl_socket.has_value()) {
+    __LOG0(LCOL01 " attempting connect\n", moduleID(), "CONNECT");
+
+    ctrl_socket.emplace(io_ctx);
+    ctrl_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), zservice->port());
+
+    asio::async_connect(            // async connect
+        *ctrl_socket,               // this socket
+        std::array{*ctrl_endpoint}, // to this endpoint
+        asio::bind_executor(        // serialize with
+            conn_strand, [this](const error_code ec, const tcp_endpoint endpoint) {
+              if (!ec) {
+                ctrl_socket->set_option(ip_tcp::no_delay(true));
+                endpoint_connected.emplace(endpoint);
+
+                log_connected();
+                watch_connection();
+                setup_connection();
+
+              } else {
+                reset_connection();
+              }
+            }));
+  } else if (!zservice) {
+    zservice = mDNS::zservice("_ruth._tcp");
+  }
+
+  return endpoint_connected.has_value() && ctrl_socket->is_open();
+}
+
+void Desk::frame_render(shFrame frame) {
   auto msg = desk::Msg::create(frame);
 
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silence()) {
@@ -137,11 +116,93 @@ void Desk::handle_frame(shFrame frame) {
 
   // the socket is only created if it doesn't exist
   // connect() returns true when the connection is ready
-  if (connect()) {
-    if (data_socket.has_value() && data_endpoint.has_value()) {
-      msg->transmit(data_socket.value(), data_endpoint.value());
-    }
+  if (connected()) {
+    msg->transmit(data_socket.value(), data_endpoint.value());
   }
+}
+
+void Desk::frame_next(Nanos sync_wait, Nanos lag) {
+  static csv fn_id = "FRAME_NEXT";
+
+  if (playing()) {
+    connect();
+
+    frame_timer.expires_after(sync_wait);
+    frame_timer.async_wait( // wait the required sync duration before next frame
+        asio::bind_executor(frame_strand, [=, this](const error_code &ec) mutable {
+          if (!ec) {
+            Elapsed elapsed;
+
+            // waits for future
+            auto future = ispooler()->next_frame(lead_time);
+            auto status = future.wait_for(sync_wait);
+            auto frame = status == std::future_status::ready ? future.get() : shFrame();
+
+            if (frame && frame->playable()) {
+              sync_wait = frame->calc_sync_wait(lag);
+
+              // mark played and immediately send the frame to Desk
+              frame_release(frame);
+              stats.handled++;
+            } else {
+              sync_wait = Nanos(lead_time / 2);
+              stats.none++;
+            }
+
+            log_despooled(frame, elapsed);
+
+            // use sync_wait calculated above to wait for the next frame and the
+            // elapsed time as the lag
+            frame_next(sync_wait, elapsed());
+          } else {
+            __LOG0(LCOL01 " playing={} reason={}\n", moduleID(), fn_id, playing(), ec.message());
+          }
+        }));
+  }
+}
+
+void Desk::frame_release(shFrame frame) {
+  frame->mark_played();
+
+  // recalc the sync wait to account for lag
+  auto sync_wait = frame->calc_sync_wait(latency);
+
+  sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : std::move(sync_wait);
+
+  // schedule the release
+  release_timer.expires_after(sync_wait);
+  release_timer.async_wait([this, frame = frame](const error_code &ec) {
+    if (!ec) {
+      frame_render(frame);
+    }
+  });
+}
+
+void Desk::init(const Nanos &lead_time) { // static instance creation
+  if (auto self = desk::i.get(); !self) {
+
+    self = new Desk(lead_time);
+    desk::i = std::move(std::unique_ptr<Desk>(self));
+
+    __LOG0(LCOL01 " ptr={} sizeof=%u", moduleID(), "INIT", fmt::ptr(self), sizeof(Desk));
+
+    std::latch latch(DESK_THREADS);
+
+    // note: work guard created by constructor
+    for (auto n = 0; n < DESK_THREADS; n++) { // main thread is 0s
+      self->threads.emplace_back([=, &latch] {
+        name_thread(TASK_NAME, n);
+        latch.count_down();
+        self->io_ctx.run();
+      });
+    }
+
+    // caller thread waits until all tasks are started
+    latch.wait();
+  }
+
+  // ensure spooler is started
+  Spooler::init();
 }
 
 void Desk::reset_connection() {
@@ -149,6 +210,7 @@ void Desk::reset_connection() {
   error_code shut_ec;
   error_code close_ec;
 
+  frame_timer.cancel(ec);
   release_timer.cancel(ec);
 
   if (ctrl_socket.has_value()) {
@@ -174,23 +236,30 @@ void Desk::reset_connection() {
   data_socket.reset();
 }
 
+void Desk::save_anchor_data(anchor::Data data) {
+  auto anchor = Anchor::ptr().get();
+  anchor->save(data);
+
+  adjust_play_mode(data.play_mode());
+}
+
 void Desk::setup_connection() {
+
   async_read_msg(
       *ctrl_socket, work_buff,
-      asio::bind_executor(local_strand, [self = ptr()](const error_code ec, size_t bytes) {
+      asio::bind_executor(conn_strand, [this](const error_code ec, size_t bytes) {
         if (!ec) {
           StaticJsonDocument<2048> doc;
 
-          if (auto err = deserializeMsgPack(doc, self->work_buff.data(), bytes); err) {
+          if (auto err = deserializeMsgPack(doc, work_buff.data(), bytes); err) {
             __LOG0(LCOL01 " failed, reason={}\n", moduleID(), "DESERAILIZE", err.c_str());
-            self->reset_connection();
+            reset_connection();
           } else {
             uint16_t data_port = doc["data_port"].as<uint16_t>();
             __LOG0(LCOL01 " remote udp data_port={}\n", moduleID(), "SETUP", data_port);
 
-            self->data_socket.emplace(self->io_ctx).open(ip_udp::v4());
-            self->data_endpoint.emplace(asio::ip::make_address_v4(self->zservice->address()),
-                                        data_port);
+            data_socket.emplace(io_ctx).open(ip_udp::v4());
+            data_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), data_port);
           }
         }
       }));
@@ -199,10 +268,44 @@ void Desk::setup_connection() {
 void Desk::watch_connection() {
   ctrl_socket->async_wait(    // wait for a specific event
       tcp_socket::wait_error, // any error on the socket
-      asio::bind_executor(local_strand, [self = shared_from_this()](error_code ec) {
+      asio::bind_executor(conn_strand, [this](error_code ec) {
         __LOG0(LCOL01 " socket shutdown reason={}\n", moduleID(), "WATCH", ec.message());
-        self->reset_connection();
+        reset_connection();
       }));
+}
+
+// misc debug and logging API
+void Desk::log_despooled(shFrame frame, Elapsed &elapsed) {
+  static uint64_t no_playable = 0;
+  static uint64_t playable = 0;
+
+  asio::defer(io_ctx, [=, this]() {
+    string msg;
+    auto w = std::back_inserter(msg);
+
+    if (frame) {
+      no_playable = 0;
+      playable++;
+      if ((frame->sync_wait < 10ms) || ((playable % 1000) == 0)) {
+        fmt::format_to(w, " seq_num={} sync_wait={}", frame->seq_num,
+                       pe_time::as_duration<Nanos, MillisFP>(frame->sync_wait));
+      }
+    } else {
+      playable = 0;
+      no_playable++;
+      if ((no_playable == 1) || ((no_playable % 100) == 0)) {
+        fmt::format_to(w, " no playable frames");
+      }
+    }
+
+    if (elapsed() >= 3ms) {
+      fmt::format_to(w, " elapsed={:0.2}", elapsed.as<MillisFP>());
+    }
+
+    if (!msg.empty()) {
+      __LOG0(LCOL01 "{}\n", moduleID(), "DESPOOLED", msg);
+    }
+  });
 }
 
 /*

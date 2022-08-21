@@ -29,7 +29,7 @@
 #include <memory>
 
 namespace pierre {
-namespace player {
+namespace desk {
 
 class stats {
 public:
@@ -58,8 +58,8 @@ private:
   Nanos interval;
   steady_timer timer;
 
-  static constexpr csv module_id{"PLAYER STATS"};
+  static constexpr csv module_id{"DESK STATS"};
 };
 
-} // namespace player
+} // namespace desk
 } // namespace pierre

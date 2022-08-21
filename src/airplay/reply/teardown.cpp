@@ -22,8 +22,8 @@
 #include "base/typical.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
+#include "desk/desk.hpp"
 #include "mdns/mdns.hpp"
-#include "player/player.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
 
@@ -43,7 +43,7 @@ bool Teardown::populate() {
 bool Teardown::phase1() {
   __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 1"));
   SharedKey::clear();
-  Player::teardown(); // clear player frames
+  idesk()->adjust_play_mode(Desk::NOT_PLAYING); // clear player frames
 
   return true;
 }
@@ -66,7 +66,7 @@ bool Teardown::phase2() { // we've been asked to disconnect
   ConnInfo::ptr()->groupContainsGroupLeader = false;
   ConnInfo::ptr()->dacp_active_remote.clear();
 
-  Player::teardown();
+  idesk()->halt();
 
   return true;
 }

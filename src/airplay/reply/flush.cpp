@@ -19,8 +19,8 @@
 #include "reply/flush.hpp"
 #include "aplist/aplist.hpp"
 #include "base/flush_request.hpp"
-#include "player/player.hpp"
 #include "reply/dict_keys.hpp"
+#include "spooler/spooler.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -44,7 +44,7 @@ bool FlushBuffered::populate() {
       .until_ts = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_TS})    // until timestamp
   };
 
-  Player::flush(flush_req);
+  ispooler()->flush(flush_req);
 
   responseCode(RespCode::OK);
   return true;

@@ -35,10 +35,6 @@
 #include <utility>
 #include <vector>
 
-namespace {
-namespace ranges = std::ranges;
-}
-
 namespace pierre {
 namespace fra {
 
@@ -64,6 +60,15 @@ StateKeys &state_keys();
 
 void start_dsp_threads();
 } // namespace fra
+
+class Frame;
+typedef std::shared_ptr<Frame> shFrame;
+
+namespace dsp {
+extern void init();
+extern void process(shFrame frame);
+extern void shutdown();
+} // namespace dsp
 
 typedef std::array<uint8_t, 16 * 1024> CipherBuff;
 typedef std::shared_ptr<CipherBuff> shCipherBuff;
@@ -115,9 +120,6 @@ N
 
 */
 
-class Frame;
-typedef std::shared_ptr<Frame> shFrame;
-
 class Frame : public std::enable_shared_from_this<Frame> {
 
 private:
@@ -131,8 +133,11 @@ public:
   static shFrame create(uint8v &packet) { return shFrame(new Frame(packet)); }
   static shFrame createSilence() { return shFrame(new Frame(0x02, fra::PLAYABLE, true)); }
 
-  // Public API
+  // Digital Signal Analysis (hidden in .cpp)
+  static void init() { dsp::init(); }
+  static void shutdown() { dsp::shutdown(); }
 
+  // Public API
   Nanos calc_sync_wait(Nanos const &lag, bool log = false) {
     sync_wait = localTimeDiff() - lag;
     sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : sync_wait;
@@ -149,10 +154,12 @@ public:
   bool decipher(); // sodium decipher packet
   void decodeOk() { _state = fra::DECODED; }
   static shFrame ensureFrame(shFrame frame) { return ok(frame) ? frame : createSilence(); }
-  static void findPeaks(shFrame frame); // defnition must be in cpp
+  void findPeaks(); // defnition must be in cpp
   bool isReady() const { return peaks_left.use_count() && peaks_right.use_count(); }
   bool isValid() const { return version == 0x02; }
 
+  // determines if this is a viable frame
+  // if so, runs the frame through av::parse and performs async digial signal analysis
   bool keep(FlushRequest &flush);
 
   // NOTE: localTime() and localTimeDiff() must be defined in .cpp due to intentional

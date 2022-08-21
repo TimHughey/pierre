@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "reply/set_anchor.hpp"
-#include "player/player.hpp"
+#include "desk/desk.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtp_time/anchor/data.hpp"
 
@@ -43,18 +43,15 @@ void SetAnchor::saveAnchorInfo() {
                              dk::NET_TIME_FRAC, dk::NET_TIME_FLAGS,  dk::RTP_TIME};
 
   if (rdict.existsAll(keys)) {
-    // this is a complete anchor set
-    auto anchor_data = anchor::Data{.rate = rdict.uint({dk::RATE}),
-                                    .clockID = rdict.uint({dk::NET_TIMELINE_ID}),
-                                    .secs = rdict.uint({dk::NET_TIME_SECS}),
-                                    .frac = rdict.uint({dk::NET_TIME_FRAC}),
-                                    .flags = rdict.uint({dk::NET_TIME_FLAGS}),
-                                    .rtpTime = rdict.uint({dk::RTP_TIME})};
-
-    Player::saveAnchor(anchor_data);
+    // this is a complete anchor data set
+    idesk()->save_anchor_data(anchor::Data{.rate = rdict.uint({dk::RATE}),
+                                           .clockID = rdict.uint({dk::NET_TIMELINE_ID}),
+                                           .secs = rdict.uint({dk::NET_TIME_SECS}),
+                                           .frac = rdict.uint({dk::NET_TIME_FRAC}),
+                                           .flags = rdict.uint({dk::NET_TIME_FLAGS}),
+                                           .rtpTime = rdict.uint({dk::RTP_TIME})});
   } else {
-    auto anchor_data = anchor::Data{.rate = rdict.uint({dk::RATE})};
-    Player::saveAnchor(anchor_data);
+    idesk()->save_anchor_data(anchor::Data{.rate = rdict.uint({dk::RATE})});
   }
 }
 

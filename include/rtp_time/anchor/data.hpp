@@ -75,6 +75,7 @@ struct Data {
   Nanos netTimeNow() const { return valid_at_ns + pe_time::elapsed_abs_ns(valid_at_ns); }
 
   bool ok() const { return clockID != 0; }
+  csv play_mode() const { return playing() ? PLAYING : NOT_PLAYING; }
   bool playing() const { return rate & 0x01; }
   Data &setAt() {
     at_nanos = pe_time::nowNanos();
@@ -124,6 +125,8 @@ struct Data {
   void dump() const;
 
 private:
+  static constexpr csv PLAYING{"playing"};
+  static constexpr csv NOT_PLAYING{"not playing"};
   static constexpr csv module_id{"ANCHOR_DATA"};
 };
 
