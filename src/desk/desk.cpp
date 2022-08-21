@@ -184,7 +184,7 @@ void Desk::init(const Nanos &lead_time) { // static instance creation
     self = new Desk(lead_time);
     desk::i = std::move(std::unique_ptr<Desk>(self));
 
-    __LOG0(LCOL01 " ptr={} sizeof=%u", moduleID(), "INIT", fmt::ptr(self), sizeof(Desk));
+    __LOG0(LCOL01 " ptr={} sizeof={}\n", moduleID(), "INIT", fmt::ptr(self), sizeof(Desk));
 
     std::latch latch(DESK_THREADS);
 
