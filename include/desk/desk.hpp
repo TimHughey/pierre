@@ -78,7 +78,7 @@ private:
   void next_frame(shFrame frame); // calc timing of next frame
 
   void reset_connection();
-  void setup_connection();
+  void setup_connection(shZeroConfService zservice);
   void watch_connection();
 
   // misc debug
@@ -101,7 +101,6 @@ private:
   steady_timer release_timer;
   shFX active_fx;
   Nanos latency;
-  shZeroConfService zservice;
   uint8v work_buff;
   work_guard guard;
   string_view play_mode;

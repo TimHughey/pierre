@@ -55,7 +55,6 @@ Desk::Desk(const Nanos &lead_time)
       release_timer(io_ctx),                        // controls when frame is sent
       active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
       latency(5ms),                                 // ruth latency (default)
-      zservice(mDNS::zservice("_ruth._tcp")),       // get the remote service, if available
       work_buff(1024),                              // pre-allocate work buff
       guard(io_ctx.get_executor()),                 // prevent io_ctx from ending
       play_mode(NOT_PLAYING),                       // render or don't render
@@ -75,31 +74,32 @@ void Desk::adjust_play_mode(csv next_mode) {
 }
 
 bool Desk::connect() {
+  auto zservice = mDNS::zservice("_ruth._tcp");
+
   if (zservice && !ctrl_socket.has_value()) {
+
     __LOG0(LCOL01 " attempting connect\n", moduleID(), "CONNECT");
 
     ctrl_socket.emplace(io_ctx);
     ctrl_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), zservice->port());
 
-    asio::async_connect(            // async connect
-        *ctrl_socket,               // this socket
-        std::array{*ctrl_endpoint}, // to this endpoint
-        asio::bind_executor(        // serialize with
-            conn_strand, [this](const error_code ec, const tcp_endpoint endpoint) {
-              if (!ec) {
-                ctrl_socket->set_option(ip_tcp::no_delay(true));
-                endpoint_connected.emplace(endpoint);
+    asio::async_connect(                 // async connect
+        *ctrl_socket,                    // this socket
+        std::array{*ctrl_endpoint},      // to this endpoint
+        asio::bind_executor(conn_strand, // serialize with
+                            [zservice = std::move(zservice), this](const error_code ec,
+                                                                   const tcp_endpoint endpoint) {
+                              if (!ec) {
+                                ctrl_socket->set_option(ip_tcp::no_delay(true));
+                                endpoint_connected.emplace(endpoint);
 
-                log_connected();
-                watch_connection();
-                setup_connection();
-
-              } else {
-                reset_connection();
-              }
-            }));
-  } else if (!zservice) {
-    zservice = mDNS::zservice("_ruth._tcp");
+                                log_connected();
+                                watch_connection();
+                                setup_connection(std::move(zservice));
+                              } else {
+                                reset_connection();
+                              }
+                            }));
   }
 
   return endpoint_connected.has_value() && ctrl_socket->is_open();
@@ -143,7 +143,7 @@ void Desk::frame_next(Nanos sync_wait, Nanos lag) {
 
               // mark played and immediately send the frame to Desk
               frame_release(frame);
-              stats.handled++;
+              stats.frames++;
             } else {
               sync_wait = Nanos(lead_time / 2);
               stats.none++;
@@ -180,6 +180,8 @@ void Desk::frame_release(shFrame frame) {
 
 void Desk::init(const Nanos &lead_time) { // static instance creation
   if (auto self = desk::i.get(); !self) {
+
+    mDNS::browse("_ruth._tcp");
 
     self = new Desk(lead_time);
     desk::i = std::move(std::unique_ptr<Desk>(self));
@@ -243,26 +245,28 @@ void Desk::save_anchor_data(anchor::Data data) {
   adjust_play_mode(data.play_mode());
 }
 
-void Desk::setup_connection() {
+void Desk::setup_connection(shZeroConfService zservice) {
 
   async_read_msg(
       *ctrl_socket, work_buff,
-      asio::bind_executor(conn_strand, [this](const error_code ec, size_t bytes) {
-        if (!ec) {
-          StaticJsonDocument<2048> doc;
+      asio::bind_executor(
+          conn_strand, //
+          [zservice = std::move(zservice), this](const error_code ec, size_t bytes) {
+            if (!ec) {
+              StaticJsonDocument<2048> doc;
 
-          if (auto err = deserializeMsgPack(doc, work_buff.data(), bytes); err) {
-            __LOG0(LCOL01 " failed, reason={}\n", moduleID(), "DESERAILIZE", err.c_str());
-            reset_connection();
-          } else {
-            uint16_t data_port = doc["data_port"].as<uint16_t>();
-            __LOG0(LCOL01 " remote udp data_port={}\n", moduleID(), "SETUP", data_port);
+              if (auto err = deserializeMsgPack(doc, work_buff.data(), bytes); err) {
+                __LOG0(LCOL01 " failed, reason={}\n", moduleID(), "DESERAILIZE", err.c_str());
+                reset_connection();
+              } else {
+                uint16_t data_port = doc["data_port"].as<uint16_t>();
+                __LOG0(LCOL01 " remote udp data_port={}\n", moduleID(), "SETUP", data_port);
 
-            data_socket.emplace(io_ctx).open(ip_udp::v4());
-            data_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), data_port);
-          }
-        }
-      }));
+                data_socket.emplace(io_ctx).open(ip_udp::v4());
+                data_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), data_port);
+              }
+            }
+          }));
 }
 
 void Desk::watch_connection() {

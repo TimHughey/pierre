@@ -78,10 +78,10 @@ Reply &Reply::inject(const reply::Inject &injected) {
 void Reply::dump() const { headers.dump(); }
 
 void Reply::log_reply(csv resp_text) {
-  constexpr std::array no_log{csv("GET"),       csv("GET_PARAMETER"), csv("RECORD"),
-                              csv("SETPEERSX"), csv("SET_PARAMETER"), csv("POST"),
-                              csv("SETUP"),     csv("FEEDBACK"),      csv("SETRATEANCHORTIME"),
-                              csv("TEARDOWN")};
+  constexpr std::array no_log{csv{"GET"},       csv{"GET_PARAMETER"}, csv{"RECORD"},
+                              csv{"SETPEERSX"}, csv{"SET_PARAMETER"}, csv{"POST"},
+                              csv{"SETUP"},     csv{"FEEDBACK"},      csv{"SETRATEANCHORTIME"},
+                              csv{"TEARDOWN"},  csv{"FLUSHBUFFERED"}};
 
   if (di.has_value()) {
     if (ranges::none_of(no_log, [&](csv m) { return di->method == m; })) {

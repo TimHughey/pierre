@@ -40,7 +40,7 @@ public:
     timer.expires_after(report_interval);
     timer.async_wait([this](const error_code ec) {
       if (!ec) {
-        __LOG0(LCOL01 " frames handled={:>6} none={:>6}\n", module_id, "REPORT", handled, none);
+        __LOG0(LCOL01 " frames={:>6} none={:>6}\n", module_id, "REPORT", frames, none);
 
         async_report(interval);
       }
@@ -49,7 +49,7 @@ public:
 
   void cancel() { timer.cancel(); }
 
-  uint64_t handled = 0;
+  uint64_t frames = 0;
   uint64_t none = 0;
 
 private:
