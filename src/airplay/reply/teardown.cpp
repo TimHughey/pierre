@@ -43,7 +43,7 @@ bool Teardown::populate() {
 bool Teardown::phase1() {
   __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 1"));
   SharedKey::clear();
-  idesk()->adjust_play_mode(Desk::NOT_PLAYING); // clear player frames
+  idesk()->adjust_play_mode(Desk::NOT_PLAYING);
 
   return true;
 }

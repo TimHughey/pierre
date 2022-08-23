@@ -32,26 +32,26 @@ namespace pierre {
 uint64_t Reel::SERIAL_NUM = 0x1000; // class level
 
 bool Reel::flush(const FlushRequest &flush) {
-  if (frames.empty()) { // nothing to flush
-    return false;       // don't keep this spool
+  if (_frames.empty()) { // nothing to flush
+    return false;        // don't keep this spool
   }
 
   // grab how many packets we currently have for debug stats (below)
-  [[maybe_unused]] int64_t frames_before = frames.size();
+  [[maybe_unused]] int64_t frames_before = _frames.size();
 
   const auto fseq_num = flush.until_seq;
-  const auto a = frames.front();
-  const auto b = frames.back();
+  const auto a = _frames.front();
+  const auto b = _frames.back();
 
   // spool contains flush request
   if ((fseq_num > a->seq_num) && (fseq_num <= b->seq_num)) {
-    __LOG0("{:<18} FLUSH MATCH {}\n", moduleId(), inspect(shared_from_this()));
+    __LOG0("{:<18} FLUSH MATCH {}\n", moduleID(), inspect(shared_from_this()));
 
     Frames frames_keep; // frames to keep
 
     // the flush seq_num is in this spool. iterate the rtp packets
     // swapping over the frames to keep
-    ranges::for_each(frames, [&](shFrame &frame) mutable {
+    ranges::for_each(_frames, [&](shFrame &frame) mutable {
       // this is a frame to keep, swap it into the new frames
       if (frame->seq_num > flush.until_seq) {
         frames_keep.emplace_back(frame->shared_from_this());
@@ -60,16 +60,23 @@ bool Reel::flush(const FlushRequest &flush) {
 
     // if any frames were keep then swap with object frames
     if (frames_keep.empty() == false) {
-      std::swap(frames, frames_keep);
+      std::swap(_frames, frames_keep);
       log();
     }
   } else {
-    frames.clear();
-    __LOG0(LCOL01 " frames={} seq={}/{}\n", moduleId(), "DISCARDED", //
+    _frames.clear();
+    __LOG0(LCOL01 " frames={} seq={}/{}\n", moduleID(), "DISCARDED", //
            frames_before, a->seq_num, b->seq_num);
   }
 
-  return frames.empty() == false; // keep this spool
+  return _frames.empty() == false; // keep this spool
+}
+
+void Reel::purge() {
+  // schedule reel cleanup and guard by strand_out
+  asio::defer(strand_out, [self = shared_from_this()]() {
+    std::erase_if(self->_frames, [](shFrame frame) { return frame->purgeable(); });
+  });
 }
 
 const string Reel::inspect(shReel reel) { // static
@@ -89,8 +96,8 @@ const string Reel::inspect(shReel reel) { // static
     fmt::format_to(w, "frames={:<4} diff={:>+6} use_count={:<2}", size_now, diff, use_count);
 
     if (reel->size()) {
-      auto front = reel->frames.front();
-      auto back = reel->frames.back();
+      auto front = reel->_frames.front();
+      auto back = reel->_frames.back();
 
       fmt::format_to(w, " seq a/b={:>8}/{:<8}", front->seq_num, back->seq_num);
       fmt::format_to(w, " ts a/b={:>12}/{:<12}", front->timestamp, back->timestamp);

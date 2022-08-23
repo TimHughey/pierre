@@ -42,11 +42,9 @@ typedef std::shared_ptr<Reel> shReel;
 // a reel contains frames, in ascending order by sequence,
 // possibly with gaps
 typedef std::vector<shReel> Reels;
+typedef std::deque<shFrame> Frames;
 
 class Reel : public std::enable_shared_from_this<Reel> {
-private:
-  typedef std::deque<shFrame> Frames;
-
 private: // constructor private, all access through shared_ptr
   Reel(strand &strand_out)
       : strand_out(strand_out),                       // note 1
@@ -65,9 +63,11 @@ public:
   static shReel create(strand &strand_out) { return shReel(new Reel(strand_out)); }
 
 public:
-  void addFrame(shFrame frame) { frames.emplace_back(frame); }
-  bool empty() const { return frames.empty(); }
+  void addFrame(shFrame frame) { _frames.emplace_back(frame); }
+
+  bool empty() const { return _frames.empty(); }
   bool flush(const FlushRequest &flush);
+  Frames &frames() { return _frames; }
 
   // get and return the next frame
   //
@@ -76,31 +76,22 @@ public:
   //      this is a signal to the caller to keep looking in other reels
   //   2. if a frame is found it may not be playable
   //      handling unplayable frames is left to the caller
-  shFrame nextFrame(const Nanos &lead_time) {
-    auto next =
-        ranges::find_if(frames, [&](shFrame frame) { return frame->nextFrame(lead_time); });
+  shFrame next_frame(const Nanos &lead_time, const Nanos &lag) {
+    auto next = ranges::find_if(_frames, [&](auto frame) //
+                                { return frame->next(lead_time, lag); });
 
-    // schedule reel cleanup and guard by strand_out
-    asio::post(strand_out, [self = shared_from_this()]() {
-      std::erase_if(self->frames, [](shFrame frame) { return frame->purgeable(); });
-    });
-
-    return next != frames.end() ? (*next)->shared_from_this() : shFrame();
+    return next != _frames.end() ? *next : shFrame();
   }
+
+  void purge(); // erase purgeable frames
 
   const string &serialNum() const { return serial; }
-  size_t size() const { return frames.size(); }
-
-  bool unplayedAtLeastOne() const { return unplayedCount() > 0; }
-
-  size_t unplayedCount() const {
-    return ranges::count_if(frames, [](auto frame) { return frame->unplayed(); });
-  }
+  size_t size() const { return _frames.size(); }
 
   // misc stats, debug
   static const string inspect(shReel reel);
-  void log() { __LOG("{:<18} {}", moduleId(), inspect(shared_from_this())); }
-  const string &moduleId() const { return module_id; }
+  void log() { __LOG("{:<18} {}", moduleID(), inspect(shared_from_this())); }
+  const string &moduleID() const { return module_id; }
 
 private:
   // order dependent
@@ -109,7 +100,7 @@ private:
   const string module_id;
 
   // order independent
-  Frames frames;
+  Frames _frames;
 
   // class static
   static uint64_t SERIAL_NUM;

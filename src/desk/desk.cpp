@@ -23,6 +23,7 @@
 // #include "desk/fx/leave.hpp"
 #include "ArduinoJson.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"
 #include "desk/fx/silence.hpp"
@@ -74,7 +75,8 @@ void Desk::adjust_play_mode(csv next_mode) {
 }
 
 bool Desk::connect() {
-  auto zservice = mDNS::zservice("_ruth._tcp");
+  auto name = Config::object("desk")["dmx_service"];
+  auto zservice = mDNS::zservice(name);
 
   if (zservice && !ctrl_socket.has_value()) {
 
@@ -105,6 +107,31 @@ bool Desk::connect() {
   return endpoint_connected.has_value() && ctrl_socket->is_open();
 }
 
+void Desk::feedback_msgs(const error_code ec) {
+  static std::optional<uint8v> buff;
+
+  if (!ec) {
+    // always ensure buff is clear
+    buff.reset();
+    buff.emplace();
+
+    async_read_msg(                      //
+        *ctrl_socket,                    //
+        *buff,                           //
+        asio::bind_executor(conn_strand, //
+                            [this](const error_code ec, size_t bytes) {
+                              if (!ec) {
+
+                                __LOG0(LCOL01 " bytes={} reason={}\n", moduleID(), "FEEDBACK",
+                                       bytes, ec.message());
+                                feedback_msgs(ec);
+                              } else {
+                                reset_connection();
+                              }
+                            }));
+  }
+}
+
 void Desk::frame_render(shFrame frame) {
   auto msg = desk::Msg::create(frame);
 
@@ -133,20 +160,24 @@ void Desk::frame_next(Nanos sync_wait, Nanos lag) {
           if (!ec) {
             Elapsed elapsed;
 
-            // waits for future
-            auto future = ispooler()->next_frame(lead_time);
-            auto status = future.wait_for(sync_wait);
+            auto future = ispooler()->next_frame(lead_time, lag);
+            auto status = future.wait_for(sync_wait - lag - latency); // waits for future
             auto frame = status == std::future_status::ready ? future.get() : shFrame();
 
-            if (frame && frame->playable()) {
-              sync_wait = frame->calc_sync_wait(lag);
+            if (status == std::future_status::ready) {
+              if (frame && frame->playable()) {
+                sync_wait = frame->calc_sync_wait(lag); // recalc to include spooler lag
 
-              // mark played and immediately send the frame to Desk
-              frame_release(frame);
-              stats.frames++;
-            } else {
-              sync_wait = Nanos(lead_time / 2);
-              stats.none++;
+                // mark played and immediately send the frame to Desk
+                frame_release(frame);
+                stats.frames++;
+              } else {
+                sync_wait = Nanos(lead_time / 2); // prevent frame skips, wait 50% of lead time
+                stats.none++;
+              }
+            } else if (status == std::future_status::timeout) { // wait 25% of lead time
+              sync_wait = Nanos(lead_time / 4);
+              stats.timeouts++;
             }
 
             log_despooled(frame, elapsed);
@@ -209,33 +240,31 @@ void Desk::init(const Nanos &lead_time) { // static instance creation
 
 void Desk::reset_connection() {
   [[maybe_unused]] error_code ec; // generic and unchecked
-  error_code shut_ec;
-  error_code close_ec;
 
   frame_timer.cancel(ec);
   release_timer.cancel(ec);
 
-  if (ctrl_socket.has_value()) {
-    ctrl_socket->cancel(ec);
-    ctrl_socket->shutdown(tcp_socket::shutdown_both, shut_ec);
-    ctrl_socket->close(close_ec);
+  asio::post(conn_strand, [this]() {
+    [[maybe_unused]] error_code ec; // generic and unchecked
+    error_code shut_ec;
 
-    __LOG0(LCOL01 " shutdown_reason={} close_reason={}\n", moduleID(), "RESET", shut_ec.message(),
-           close_ec.message());
-  }
+    if (ctrl_socket.has_value()) {
+      ctrl_socket->shutdown(tcp_socket::shutdown_both, shut_ec);
 
-  if (data_socket.has_value()) {
-    data_socket->cancel(ec);
-    data_socket->shutdown(udp_socket::shutdown_both, ec);
-    data_socket->close(ec);
-  }
+      __LOG0(LCOL01 " shutdown_reason={}\n", moduleID(), "RESET", shut_ec.message());
+    }
 
-  ctrl_endpoint.reset();
-  endpoint_connected.reset();
-  data_endpoint.reset();
+    if (data_socket.has_value()) {
+      data_socket->shutdown(udp_socket::shutdown_both, ec);
+    }
 
-  ctrl_socket.reset();
-  data_socket.reset();
+    ctrl_endpoint.reset();
+    endpoint_connected.reset();
+    data_endpoint.reset();
+
+    ctrl_socket.reset();
+    data_socket.reset();
+  });
 }
 
 void Desk::save_anchor_data(anchor::Data data) {
@@ -264,6 +293,9 @@ void Desk::setup_connection(shZeroConfService zservice) {
 
                 data_socket.emplace(io_ctx).open(ip_udp::v4());
                 data_endpoint.emplace(asio::ip::make_address_v4(zservice->address()), data_port);
+
+                // ctrl and data sockets are open, handle feedback messages
+                feedback_msgs();
               }
             }
           }));
@@ -272,10 +304,10 @@ void Desk::setup_connection(shZeroConfService zservice) {
 void Desk::watch_connection() {
   ctrl_socket->async_wait(    // wait for a specific event
       tcp_socket::wait_error, // any error on the socket
-      asio::bind_executor(conn_strand, [this](error_code ec) {
+      [this](const error_code ec) {
         __LOG0(LCOL01 " socket shutdown reason={}\n", moduleID(), "WATCH", ec.message());
         reset_connection();
-      }));
+      });
 }
 
 // misc debug and logging API
@@ -291,8 +323,9 @@ void Desk::log_despooled(shFrame frame, Elapsed &elapsed) {
       no_playable = 0;
       playable++;
       if ((frame->sync_wait < 10ms) || ((playable % 1000) == 0)) {
-        fmt::format_to(w, " seq_num={} sync_wait={}", frame->seq_num,
-                       pe_time::as_duration<Nanos, MillisFP>(frame->sync_wait));
+        fmt::format_to(w, " seq_num={} sync_wait={} state={}", frame->seq_num,
+                       pe_time::as_duration<Nanos, MillisFP>(frame->sync_wait),
+                       Frame::stateVal(frame));
       }
     } else {
       playable = 0;
@@ -311,53 +344,5 @@ void Desk::log_despooled(shFrame frame, Elapsed &elapsed) {
     }
   });
 }
-
-/*
-void Desk::leave() {
-  // auto x = State::leavingDuration<seconds>().count();
-  {
-    lock_guard lck(_active.mtx);
-    _active.fx = make_shared<Leave>();
-  }
-
-  this_thread::sleep_for(State::leavingDuration<milliseconds>());
-  State::shutdown();
-}
-
-void Desk::stream() {
-  while (State::isRunning()) {
-    // nominal condition:
-    // sound is present and MajorPeak is active
-    if (_active.fx->matchName("MajorPeak"sv)) {
-      // if silent but not yet reached suspended start Leave
-      if (State::isSilent()) {
-        if (!State::isSuspended()) {
-          _active.fx = make_shared<Leave>();
-        }
-      }
-      goto delay;
-    }
-    // catch anytime we're coming out of silence or suspend
-    // ensure that MajorPeak is running when not silent and not suspended
-    if (!State::isSilent() && !State::isSuspended()) {
-      _active.fx = make_shared<MajorPeak>();
-      goto delay;
-    }
-    // transitional condition:
-    // there is no sound present however the timer for suspend hasn't elapsed
-    if (_active.fx->matchName("Leave"sv)) {
-      // if silent and have reached suspended, start Silence
-      if (State::isSilent() && State::isSuspended()) {
-        _active.fx = make_shared<Silence>();
-      }
-    }
-
-    goto delay;
-
-  delay:
-    this_thread::sleep_for(seconds(1));
-  }
-}
-*/
 
 } // namespace pierre

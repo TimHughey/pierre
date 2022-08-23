@@ -139,8 +139,14 @@ public:
 
   // Public API
   Nanos calc_sync_wait(Nanos const &lag, bool log = false) {
-    sync_wait = localTimeDiff() - lag;
-    sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : sync_wait;
+    // calc_sync_wait() is called after determination of the frame status
+    // so the localTimeDiff() could be negative (for future frames)
+    // therefore take the abs() value and subtract the lag then
+    // ensure sync_wait is >= 0
+    if (playable()) {
+      sync_wait = pe_time::abs(localTimeDiff()) - lag;
+      sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : sync_wait;
+    }
 
     if (log) {
       __LOG0(LCOL01 " seq_num={} sync_wait={:0.2}\n", //
@@ -162,13 +168,10 @@ public:
   // if so, runs the frame through av::parse and performs async digial signal analysis
   bool keep(FlushRequest &flush);
 
-  // NOTE: localTime() and localTimeDiff() must be defined in .cpp due to intentional
-  // limited visibility of Anchor
-  const Nanos localTimeDiff(); // calculate diff between local and frame time
   void mark_played() { _state = fra::PLAYED; }
 
   // nextFrame() returns true when searching should stop; false to keep searching
-  bool nextFrame(const Nanos &lead_time);
+  bool next(const Nanos &lead_time, const Nanos &lag);
 
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
@@ -178,8 +181,8 @@ public:
     return pe_time::as_duration<Nanos, T>(cached_nettime);
   }
 
-  template <typename T> const T time_diff() {
-    return pe_time::as_duration<Nanos, T>(cached_time_diff);
+  template <typename T> const T sync_wait_elapsed() {
+    return pe_time::as_duration<Nanos, T>(sync_wait_initial);
   }
 
   // state
@@ -210,6 +213,11 @@ public:
   static const string inspectFrame(shFrame frame, bool full = false);
   static constexpr csv moduleID() { return moduleId; }
 
+private:
+  // NOTE: localTime() and localTimeDiff() must be defined in .cpp due to intentional
+  // limited visibility of Anchor
+  const Nanos localTimeDiff(); // calculate diff between local and frame time
+
 public:
   // order dependent
   uint8_t version = 0x00;
@@ -227,7 +235,7 @@ public:
   int channels = 0;
 
   Nanos cached_nettime = Nanos::min();
-  Nanos cached_time_diff = Nanos::min();
+  Nanos sync_wait_initial = Nanos::min(); // frame time diff
   Nanos sync_wait = Nanos::zero();
   fra::State _state = fra::EMPTY;
   shPeaks peaks_left;

@@ -141,12 +141,10 @@ void Audio::asyncRxPacket() {
               self->accumulate(RX, rx_bytes);
 
               if (rx_bytes == self->packetLength()) {
-                uint8v packet_handoff; // handoff this packet
-                std::swap(packet_handoff,
-                          self->packet_buffer); // by swapping local buffer
+                uint8v handoff;                          // handoff this packet
+                std::swap(handoff, self->packet_buffer); // by swapping local buffer
 
-                // inform player a complete packet is ready
-                ispooler()->accept(packet_handoff);
+                ispooler()->accept(handoff);
               } else {
                 const auto len = self->packetLength();
                 __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);

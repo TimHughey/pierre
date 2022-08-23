@@ -7,14 +7,12 @@
     "working_dir": ".pierre",
     "log_dir": "/tmp/pierre.log"
   },
-  "player": {
-    "dmx_service": "_ruth._tcp",
-    "dsp": {
-      "note": "threads = hardware_concurrency() * factor",
-      "concurrency_factor": 0.4
-    }
+  "dsp": {
+    "__comment__": "threads = hardware_concurrency() * factor",
+    "concurrency_factor": 0.4
   },
-  "lightdesk": {
+  "desk": {
+    "dmx_service": "_ruth._tcp",
     "silence": {
       "min_ms": 13000,
       "suspend_after_ms": 600000

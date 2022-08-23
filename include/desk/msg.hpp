@@ -55,7 +55,7 @@ private:
     root["timestamp"] = frame->timestamp; // frame RTSP timestamp
     root["silence"] = silence;
     root["nettime_now_µs"] = frame->nettime<Micros>().count();
-    root["frame_localtime_µs"] = frame->time_diff<Micros>().count();
+    root["frame_localtime_µs"] = frame->sync_wait_elapsed<Micros>().count();
     root["sync_wait_µs"] = pe_time::as_duration<Nanos, Micros>(frame->sync_wait).count();
   }
 

@@ -63,22 +63,22 @@ public:
   void accept(uint8v &packet);
   void flush(const FlushRequest &flush_request);
 
-  std::future<shFrame> next_frame(const Nanos lead_time);
+  std::future<shFrame> next_frame(const Nanos lead_time, const Nanos lag);
 
   // public misc debug
   const string inspect() const;
   const csv moduleID() const { return csv(module_id); }
 
 private:
-  void clean_reels();
-  void flushReels(const FlushRequest &request, Reels &reels) {
+  void clean();
+  void flush(const FlushRequest &request, Reels &reels) {
     // create new reels containing the desired seq_nums
     Reels reels_keep;
 
     // transfer un-flushed rtp_packets to new reels
     ranges::for_each(reels, [&](shReel reel) {
       if (auto keep = reel->flush(request); keep == true) { // reel has frames
-        __LOG0("{:<18} FLUSH KEEP {}\n", reel->moduleId(), Reel::inspect(reel));
+        __LOG0("{:<18} FLUSH KEEP {}\n", reel->moduleID(), Reel::inspect(reel));
 
         reels_keep.emplace_back(reel);
       }

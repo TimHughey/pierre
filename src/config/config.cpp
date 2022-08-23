@@ -65,6 +65,11 @@ Config::Config(const Inject &di)
       firmware_vsn(GIT_REVISION) // store the firmvsn (git describe)
 {
 
+  std::error_code ec;
+  auto cwd = fs::current_path(ec);
+
+  __LOG0(LCOL01 " cwd={} reason={}\n", moduleID(), "CONSTRUCT", cwd.c_str(), ec.message());
+
   const auto file = string(CFG_FILE).append(SUFFIX);
 
   paths search{

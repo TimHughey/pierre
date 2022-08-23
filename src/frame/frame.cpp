@@ -371,7 +371,7 @@ void swap(Frame &a, Frame &b) {
 // Digital Signal Analysis Async Threads
 namespace dsp {
 // order dependent
-static io_context io_ctx;                   // player (and friends) context
+static io_context io_ctx;                   // digital signal analysis io_ctx
 static steady_timer watchdog_timer(io_ctx); // watch for shutdown
 static work_guard guard(io_ctx.get_executor());
 static constexpr csv moduleID() { return csv{"DSP"}; }
@@ -380,6 +380,7 @@ static constexpr csv moduleID() { return csv{"DSP"}; }
 static Thread thread_main;
 static Threads threads;
 static std::stop_token stop_token;
+static std::once_flag once_flag;
 
 // forward decls
 void init();
@@ -389,34 +390,27 @@ void shutdown();
 
 // initialize the thread pool for digital signal analysis
 void init() {
-  float dsp_hw_factor = Config::object("player")["dsp"]["concurrency_factor"];
+  float dsp_hw_factor = Config::object("dsp")["concurrency_factor"];
   int thread_count = std::jthread::hardware_concurrency() * dsp_hw_factor;
 
-  std::latch threads_latch{thread_count};
+  std::latch latch{thread_count};
 
-  // start the main player thread
-  thread_main = Thread([=, &threads_latch](std::stop_token token) {
-    stop_token = token;
-    name_thread("Frame", 0);
+  for (auto n = 0; n < thread_count; n++) {
+    // notes:
+    //  1. start DSP processing threads
+    threads.emplace_back([=, &latch](std::stop_token token) {
+      std::call_once(once_flag, [&token]() mutable { stop_token = token; });
 
-    watch_dog(); // schedule work for frame (dsp) io_ctx
+      name_thread("Frame", n);
+      latch.count_down();
+      io_ctx.run(); // dsp (frame) io_ctx
+    });
+  }
 
-    for (auto n = 1; n < thread_count; n++) {
-      // notes:
-      //  1. start DSP processing threads
-      threads.emplace_back([=, &threads_latch] {
-        name_thread("Frame", n);
-        threads_latch.count_down();
-        io_ctx.run(); // dsp (frame) io_ctx
-      });
-    }
+  watch_dog(); // watch for shutdown
 
-    // main thread
-    threads_latch.count_down();
-    io_ctx.run();
-  });
-
-  threads_latch.wait();
+  // caller thread waits until all threads are started
+  latch.wait();
 }
 
 // perform digital signal analysis on a Frame
@@ -462,7 +456,7 @@ bool Frame::decipher() {
     return false;
   }
 
-  _m = std::make_shared<CipherBuff>();
+  _m = std::make_shared<CipherBuff>(); // TODO - release or make automatic
 
   auto cipher_rc = // -1 == failure
       crypto_aead_chacha20poly1305_ietf_decrypt(
@@ -565,27 +559,23 @@ bool Frame::keep(FlushRequest &flush) {
 const Nanos Frame::localTimeDiff() {
   // must be in .cpp due to intentional limiting of visibility of Anchor
   if (const auto &data = Anchor::getData(); data.ok()) {
-    return pe_time::elapsed_as<Nanos>(data.netTimeNow(), data.frameLocalTime(timestamp));
+    return data.frameLocalTime(timestamp) - data.netTimeNow();
+    // return pe_time::elapsed_as<Nanos>(data.netTimeNow(), data.frameLocalTime(timestamp));
   }
 
   return Nanos::min();
 }
 
-bool Frame::nextFrame(const Nanos &lead_time) {
-  auto rc = true;               // true: stop searching, false: keep searching
-  const bool ready = isReady(); // cache value in case it changes during this function
+bool Frame::next(const Nanos &lead_time, const Nanos &lag) {
 
-  if (timestamp && seq_num && ready) {                             // frame is legit
+  if (timestamp && seq_num && isReady()) {                         // frame is legit
     if (const auto diff = localTimeDiff(); diff != Nanos::min()) { // anchor is ready
 
       // determine if the state of the frame should be changed based on local time diff
       // we only want to look at specific frame states
-      if (rc = unplayed(); rc == true) {
-        cached_time_diff = diff; // will need this later
-
+      if (unplayed()) {
         if (diff < Nanos::zero()) { // old, before required lead time
           _state = fra::OUTDATED;   // mark as outdated
-          rc = false;               // keep searching
 
         } else if (diff <= lead_time) { // within lead time range
           _state = fra::PLAYABLE;       // mark as playable
@@ -597,15 +587,20 @@ bool Frame::nextFrame(const Nanos &lead_time) {
         __LOGX(LCOL01 " {}\n", moduleId, csv("NEXT_FRAME"), inspect());
       } // end frame state update
     }   // anchor not ready
-  }     // frame failed valid or not ready
+  }
 
   // NOTE:
-  // return value designed for use with ranges::find_if: true == found; false == not found
-  // the caller will decide how to use this frame,  for example: play if playable, if late
-  // potentially quickly call nextFrame() to determine if this frame should play or
-  // the time diff can be used to correct an out-of-sync condition
+  // return value is a bool for the callers use to determine the next action:
+  //  1. frame is playable, render it
+  //  2. frame is future, schedule it for future rendering
+  //  3. no frame located - render silcnce or the previous frame
 
-  return rc;
+  // ensure the sync-wait is properly calculated for playable or future frames
+  // we store the initial sync_wait for lag/latency calculations downstream
+
+  sync_wait_initial = calc_sync_wait(lag); // calc sync checks playable
+
+  return playable();
 }
 
 // misc debug
@@ -626,8 +621,8 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
                    frame->seq_num, frame->timestamp, frame->_state, frame.use_count(),
                    frame->isReady());
 
-    if (frame->cached_time_diff != Nanos::min()) {
-      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->cached_time_diff));
+    if (frame->sync_wait_initial != Nanos::min()) {
+      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->sync_wait_initial));
     }
 
     if (frame->silence()) {

@@ -34,6 +34,7 @@
 #include "rtp_time/anchor/data.hpp"
 
 #include <array>
+#include <atomic>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -71,9 +72,12 @@ private:
   bool connect();
   bool connected() const { return data_socket.has_value() && data_endpoint.has_value(); }
 
-  void frame_next(Nanos sync_wait = 1ms, Nanos lag = 1ms); // despool frames
+  void feedback_msgs(const error_code ec = error_code());
+
+  void frame_next() { frame_next(Nanos(lead_time / 2), 1ms); } // only for first call
+  void frame_next(Nanos sync_wait, Nanos lag);                 // frame next loop
   void frame_release(shFrame frame);
-  void frame_render(shFrame frame); //
+  void frame_render(shFrame frame);
 
   void next_frame(shFrame frame); // calc timing of next frame
 
@@ -115,6 +119,7 @@ private:
   std::optional<tcp_socket> ctrl_socket;
   std::optional<tcp_endpoint> ctrl_endpoint;
   std::optional<tcp_endpoint> endpoint_connected;
+  std::atomic<bool> connecting = false;
 
   static constexpr csv module_id = "DESK";
   static constexpr auto TASK_NAME = "Desk";
