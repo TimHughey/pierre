@@ -19,15 +19,22 @@
 
 #pragma once
 
+#include "ArduinoJson.h"
+#include "base/types.hpp"
+
+#include <array>
 #include <boost/asio.hpp>
+#include <boost/system.hpp>
 #include <cstdint>
 
 namespace pierre {
 
 namespace asio = boost::asio;
+namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
+using const_buff = asio::const_buffer;
 using io_context = asio::io_context;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
@@ -42,9 +49,24 @@ using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
+static constexpr uint16_t ANY_PORT = 0;
 typedef uint16_t Port;
 
 // types of the various servers we will spin up
 enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
+
+namespace io {
+
+static constexpr size_t DOC_DEFAULT_MAX_SIZE = 5 * 1024;
+static constexpr size_t MSG_LEN_SIZE = sizeof(uint16_t);
+
+typedef std::array<char, 2048> Packed;
+using StaticDoc = StaticJsonDocument<DOC_DEFAULT_MAX_SIZE>;
+using DynaDoc = DynamicJsonDocument;
+
+static constexpr error_code make_error(auto val) {
+  return error_code(val, sys::generic_category());
+}
+} // namespace io
 
 } // namespace pierre

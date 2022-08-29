@@ -20,57 +20,77 @@
 #pragma once
 
 #include "io/io.hpp"
+#include "io/msg.hpp"
+
+#include <array>
+#include <memory>
+#include <type_traits>
 
 namespace pierre {
+namespace io {
 
-struct async_read_msg_impl {
-  tcp_socket &socket;
-  uint8v &buff;
-  enum { starting, msg_content, finished } state = starting;
+class async_tld_impl {
+
+public:
+  async_tld_impl(tcp_socket &socket, Packed &buff, StaticDoc &doc) //
+      : socket(socket), buff(buff), doc(doc) {
+    doc.clear(); // doc maybe reused, clear it
+  }
 
   template <typename Self> void operator()(Self &self, error_code ec = {}, size_t n = 0) {
 
     switch (state) {
     case starting:
       state = msg_content;
-      socket.async_read_some(asio::buffer(buff.data(), sizeof(uint16_t)),
+      socket.async_read_some(asio::buffer(buff.data(), MSG_LEN_BYTES),
                              asio::bind_executor(socket.get_executor(), std::move(self)));
       break;
 
     case msg_content:
+      state = finish;
       if (!ec) {
-        state = finished;
-        socket.async_read_some(asio::buffer(buff.data(), msg_len()),
+        auto *p = reinterpret_cast<uint16_t *>(buff.data());
+        packed_len = ntohs(*p);
+        socket.async_read_some(asio::buffer(buff.data(), packed_len),
                                asio::bind_executor(socket.get_executor(), std::move(self)));
       } else {
         self.complete(ec, n);
       }
       break;
 
-    case finished:
-      self.complete(ec, n);
+    case finish:
+      if (!ec) {
+        if (auto err = deserializeMsgPack(doc, buff.data(), packed_len); err) {
+          self.complete(make_error(errc::protocol_error), 0);
+        } else {
+          self.complete(make_error(errc::success), doc.size());
+        }
+      } else {
+        self.complete(ec, n);
+      }
       break;
     }
   }
 
 private:
-  uint16_t msg_len() {
-    uint16_t *msg_len_ptr = (uint16_t *)buff.data();
-    return ntohs(*msg_len_ptr);
-  }
+  // order dependent
+  tcp_socket &socket;
+  enum { starting, msg_content, finish } state = starting;
+  Packed &buff;
+  StaticDoc &doc;
+  uint16_t packed_len = 0; // calced in msg_content, used in finish
 
-  void log(const error_code &ec, size_t n) {
-    __LOG0(LCOL01 " state={} len={} reason={}\n", Desk::moduleID(), "IMPL", state, n,
-           ec.message());
-  }
+  // const
+  static constexpr auto MSG_LEN_BYTES = sizeof(uint16_t);
 };
 
 template <typename CompletionToken>
-auto async_read_msg(tcp_socket &socket, uint8v &buff, CompletionToken &&token) ->
+auto async_tld(tcp_socket &socket, Packed &work_buff, StaticDoc &doc, CompletionToken &&token) ->
     typename asio::async_result<typename std::decay<CompletionToken>::type,
                                 void(error_code, size_t)>::return_type {
   return asio::async_compose<CompletionToken, void(error_code, size_t)>(
-      async_read_msg_impl(socket, buff), token, socket);
+      async_tld_impl(socket, work_buff, doc), token, socket);
 }
 
+} // namespace io
 } // namespace pierre

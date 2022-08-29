@@ -1,6 +1,6 @@
 /*
-    lightdesk/headunits/discoball.hpp - Ruth LightDesk Headunit Disco Ball
-    Copyright (C) 2020  Tim Hughey
+    Pierre - Custom Light Show for Wiss Landing
+    Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,20 +18,25 @@
     https://www.wisslanding.com
 */
 
-#pragma once
+#include "desk/session/data.hpp"
+#include "ArduinoJson.hpp"
+#include "base/uint8v.hpp"
+#include "desk/data_msg.hpp"
+#include "io/async_msg.hpp"
+#include "io/io.hpp"
 
-#include "desk/unit/pwm.hpp"
-#include <memory>
+#include <future>
+#include <optional>
 
 namespace pierre {
+namespace desk {
 
-class DiscoBall : public PulseWidth {
-public:
-  DiscoBall(const unit::Opts opts) : PulseWidth(opts) { config.leave = 0; }
+void Data::log_connected() {
+  __LOG0(LCOL01 " {}:{} -> {}:{} established, handle={}\n", moduleID(), "CONNECT",
+         _socket->remote_endpoint().address().to_string(), _socket->remote_endpoint().port(),
+         _socket->local_endpoint().address().to_string(), _socket->local_endpoint().port(),
+         _socket->native_handle());
+}
 
-public: // effects
-  inline void spin() { percent(0.65); }
-  inline void still() { dark(); }
-};
-
+} // namespace desk
 } // namespace pierre

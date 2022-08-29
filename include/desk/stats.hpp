@@ -40,8 +40,8 @@ public:
     timer.expires_after(report_interval);
     timer.async_wait([this](const error_code ec) {
       if (!ec) {
-        __LOG0(LCOL01 " frames={:>6} none={:>6} timeouts={:>6}\n", module_id, "REPORT", frames,
-               none, timeouts);
+        __LOG0(LCOL01 " frames={:>6} none={:>6} timeouts={:>6} no_conn={:>6} streams_init={}\n",
+               module_id, "REPORT", frames, none, timeouts, no_conn, streams_init);
 
         async_report(interval);
       }
@@ -50,9 +50,11 @@ public:
 
   void cancel() { timer.cancel(); }
 
-  uint64_t frames = 0;   // count of processed frames
-  uint64_t none = 0;     // count of no next frame
-  uint64_t timeouts = 0; // count of spooler next_frame() future timeouts
+  uint64_t frames = 0;       // count of processed frames
+  uint64_t none = 0;         // count of no next frame
+  uint64_t timeouts = 0;     // count of spooler next_frame() future timeouts
+  uint64_t no_conn = 0;      // count of frames attempted when stream connection unavailable
+  uint64_t streams_init = 0; // count of streams initialization
 
 private:
   // order dependent

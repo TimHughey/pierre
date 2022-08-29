@@ -40,10 +40,17 @@ using TimePoint = std::chrono::time_point<steady_clock>;
 
 typedef uint64_t ClockID; // master clock id
 
+struct pe_time;
+using pet = pe_time;
+
 struct pe_time {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
 
   static constexpr auto abs(const auto &d1) { return std::chrono::abs(d1); }
+
+  template <typename TO> static constexpr TO as(auto x) {
+    return std::chrono::duration_cast<TO>(Nanos(x));
+  }
 
   template <typename FROM, typename TO> static constexpr TO as_duration(auto x) {
     return std::chrono::duration_cast<TO>(FROM(x));
@@ -94,9 +101,18 @@ struct pe_time {
     return Nanos(secs_part + ns_part);
   }
 
-  template <typename T> static T nowSteady() { return as_duration<Nanos, T>(nowNanos()); }
+  template <typename T> static T now_steady() { return as_duration<Nanos, T>(nowNanos()); }
 
-  static auto now_nanos() { return steady_clock::now().time_since_epoch(); }
+  template <typename T> static constexpr T percent(T x, float percent) {
+    Nanos base = std::chrono::duration_cast<Nanos>(x);
+    auto val = Nanos(static_cast<int64_t>(base.count() * percent));
+
+    return std::chrono::duration_cast<T>(val);
+  }
+
+  template <typename T = Nanos> static constexpr T reference() {
+    return std::chrono::duration_cast<T>(steady_clock::now().time_since_epoch());
+  }
 };
 
 } // namespace pierre

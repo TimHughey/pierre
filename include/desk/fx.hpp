@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/typical.hpp"
-#include "desk/msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
 #include "fx/names.hpp"
@@ -54,7 +54,7 @@ public:
   virtual csv name() const = 0;
 
   // workhorse of FX
-  void render(shFrame frame, desk::shMsg msg);
+  void render(shFrame frame, desk::DataMsg *msg);
 
   virtual void once() {} // subclasses should override once() to run setup code one time
 

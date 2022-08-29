@@ -25,9 +25,6 @@
 
 namespace pierre {
 
-class ElWire;
-typedef std::shared_ptr<ElWire> shElWire;
-
 class ElWire : public PulseWidth {
 public:
   ElWire(const unit::Opts opts) : PulseWidth(opts) {

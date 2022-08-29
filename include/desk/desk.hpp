@@ -25,8 +25,9 @@
 #include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "desk/dmx.hpp"
 #include "desk/fx.hpp"
+#include "desk/session/ctrl.hpp"
+#include "desk/session/data.hpp"
 #include "desk/stats.hpp"
 #include "frame/frame.hpp"
 #include "io/io.hpp"
@@ -69,30 +70,17 @@ public: // general API
   static constexpr csv moduleID() { return module_id; }
 
 private:
-  bool connect();
-  bool connected() const { return data_socket.has_value() && data_endpoint.has_value(); }
-
-  void feedback_msgs(const error_code ec = error_code());
-
   void frame_next() { frame_next(Nanos(lead_time / 2), 1ms); } // only for first call
   void frame_next(Nanos sync_wait, Nanos lag);                 // frame next loop
   void frame_release(shFrame frame);
   void frame_render(shFrame frame);
 
+  void streams_deinit();
+  void streams_init();
+
   void next_frame(shFrame frame); // calc timing of next frame
 
-  void reset_connection();
-  void setup_connection(shZeroConfService zservice);
-  void watch_connection();
-
   // misc debug
-  void log_connected() {
-    __LOG0(LCOL01 " connected handle={} {}:{} -> {}:{}\n", moduleID(), "CONNECT",
-           ctrl_socket->native_handle(), ctrl_socket->local_endpoint().address().to_string(),
-           ctrl_socket->local_endpoint().port(), endpoint_connected->address().to_string(),
-           endpoint_connected->port());
-  }
-
   void log_despooled(shFrame frame, Elapsed &elapsed);
 
 private:
@@ -101,7 +89,7 @@ private:
   io_context io_ctx;
   strand frame_strand;
   steady_timer frame_timer;
-  strand conn_strand;
+  strand streams_strand;
   steady_timer release_timer;
   shFX active_fx;
   Nanos latency;
@@ -114,12 +102,10 @@ private:
   Threads threads;
   std::stop_token stop_token;
 
-  std::optional<udp_socket> data_socket;
-  std::optional<udp_endpoint> data_endpoint;
-  std::optional<tcp_socket> ctrl_socket;
-  std::optional<tcp_endpoint> ctrl_endpoint;
-  std::optional<tcp_endpoint> endpoint_connected;
-  std::atomic<bool> connecting = false;
+  std::optional<desk::Control> control;
+
+  // last error tracking
+  error_code ec_last_ctrl_tx;
 
   static constexpr csv module_id = "DESK";
   static constexpr auto TASK_NAME = "Desk";

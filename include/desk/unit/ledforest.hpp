@@ -26,9 +26,6 @@
 
 namespace pierre {
 
-class LedForest;
-typedef std::shared_ptr<LedForest> shLedForest;
-
 class LedForest : public PulseWidth {
 public:
   LedForest(const unit::Opts opts) : PulseWidth(opts) {

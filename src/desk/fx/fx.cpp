@@ -19,7 +19,7 @@
 */
 
 #include "desk/fx.hpp"
-#include "desk/msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/opts.hpp"
 #include "frame/frame.hpp"
@@ -40,7 +40,7 @@ FX::FX() {
   }
 }
 
-void FX::render(shFrame frame, desk::shMsg msg) {
+void FX::render(shFrame frame, desk::DataMsg *msg) {
   if (called_once == false) {
     // frame 0 is always consumed by the call to once()
     once();
@@ -54,18 +54,5 @@ void FX::render(shFrame frame, desk::shMsg msg) {
     units->update_msg(msg);
   }
 }
-
-// void FX::execute(shPeaks peaks) {
-//   State::silent(peaks->silence());
-
-//   // onceWrapper returns true if it called once() and consumes the first
-//   // frame of the FX
-//   if (callOnce() == true) {
-//     return;
-//   }
-
-//   // the second frame is the first call to executeFX()
-//   executeFX(move(peaks));
-// }
 
 } // namespace pierre

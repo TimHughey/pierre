@@ -24,5 +24,6 @@ add_library(${__target} INTERFACE ${HEADER_LIST})
 target_include_directories(${__target} PUBLIC INTERFACE ${HEADER_PATH})
 target_link_libraries(${__target} INTERFACE 
   ${Boost_LIBRARIES}
+  ArduinoJson
   rt
 )

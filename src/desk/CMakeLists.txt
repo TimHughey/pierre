@@ -13,8 +13,8 @@ add_library(${__target} SHARED
   # public API for (light)desk 
   desk.cpp
 
-  # DMX
-  dmx.cpp
+  # desk sessions (control and data)
+  session/ctrl.cpp session/data.cpp
 
   # FX
   fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp

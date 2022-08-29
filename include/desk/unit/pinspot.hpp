@@ -22,7 +22,7 @@
 
 #include "base/color.hpp"
 #include "base/typical.hpp"
-#include "desk/msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit.hpp"
 #include "fader/color_travel.hpp"
 
@@ -81,7 +81,7 @@ public:
 
   void leave() override { Color::black(); }
 
-  void update_msg(desk::shMsg msg) override;
+  void update_msg(desk::DataMsg *msg) override;
 
 private:
   // functions

@@ -30,9 +30,6 @@ public:
   static constexpr bool LOG_TRUE = true;
   static constexpr bool LOG_FALSE = false;
 
-protected:
-  static constexpr auto DEF_ERROR_CODE = error_code();
-
 private:
   static constexpr csv DEF_SERVER_ID{"unknown server"};
 
@@ -40,7 +37,7 @@ public:
   Base(csv server_id = DEF_SERVER_ID) : server_id(server_id){};
   virtual ~Base(){};
 
-  virtual void asyncLoop(const error_code ec_last = DEF_ERROR_CODE) = 0;
+  virtual void asyncLoop(const error_code ec_last = error_code()) = 0;
   virtual Port localPort() = 0;
   csv serverId() const { return server_id; }
   virtual void shutdown() { teardown(); }

@@ -21,8 +21,8 @@
 #pragma once
 
 #include "base/typical.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit.hpp"
-#include "desk/msg.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -72,8 +72,8 @@ public:
     ranges::for_each(*this, [](auto unit) { unit->prepare(); });
   }
 
-  void update_msg(desk::shMsg msg) {
-    ranges::for_each(*this, [=](auto unit) { unit->update_msg(msg); });
+  void update_msg(desk::DataMsg *msg) {
+    ranges::for_each(*this, [&](auto unit) mutable { unit->update_msg(msg); });
   }
 };
 

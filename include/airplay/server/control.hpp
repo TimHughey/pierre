@@ -97,7 +97,7 @@ public:
   Control(const Inject &di);
   ~Control();
 
-  void asyncLoop(const error_code ec_last = DEF_ERROR_CODE) override;
+  void asyncLoop(const error_code ec_last = error_code()) override;
 
   control::hdr &hdr() { return _hdr; }
   uint8_t *hdrData() { return _hdr.data(); }

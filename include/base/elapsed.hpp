@@ -34,6 +34,7 @@ namespace pierre {
 class Elapsed {
 public:
   Elapsed(void) noexcept : nanos(pe_time::nowNanos()) {}
+  Elapsed(int64_t val) noexcept : nanos(pe_time::as_duration<Micros, Nanos>(Micros(val))) {}
 
   template <typename T> T as() const { return pe_time::as_duration<Nanos, T>(elapsed()); }
   Seconds asSecs() const { return pe_time::as_secs(elapsed()); }
@@ -109,7 +110,7 @@ private:
   uint32_t _ms;
   bool _frozen = false;
 
-  uint32_t millis() const { return pe_time::nowSteady<Millis>().count(); }
+  uint32_t millis() const { return pe_time::now_steady<Millis>().count(); }
   inline uint32_t val() const { return (_frozen) ? (_ms) : (millis() - _ms); }
 };
 
@@ -182,7 +183,7 @@ private:
 
   static constexpr double seconds_us = 1000.0 * 1000.0;
 
-  uint64_t micros() const { return pe_time::nowSteady<Micros>().count(); }
+  uint64_t micros() const { return pe_time::now_steady<Micros>().count(); }
 
   inline uint32_t val() const { return (_frozen) ? (_us) : (micros() - _us); }
 };

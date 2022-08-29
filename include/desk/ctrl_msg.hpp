@@ -1,5 +1,5 @@
 /*
-    Pierre - Custom Light Show via DMX for Wiss Landing
+    Pierre
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -20,50 +20,27 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
+#include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
+#include "io/msg.hpp"
 
 #include <ArduinoJson.h>
+#include <arpa/inet.h>
+#include <array>
+#include <memory>
 #include <vector>
 
 namespace pierre {
-namespace packet {
+namespace desk {
 
-class DMX {
-public:
-  DMX();
-
-  inline auto frameData() { return frame.data(); }
-  inline char *msgPack() { return p.payload + p.len.frame; };
-  inline const char *msgPackConst() { return (const char *)msgPack(); }
-  inline auto msgLength() const { return p.len.msg; }
-
-  inline JsonObject &rootObj() { return root; }
-
-  uint8_t *txData();
-  size_t txDataLength() const { return p.len.packet; }
+class CtrlMsg : public io::Msg {
 
 public:
-  uint8v frame;
-
-private:
-  typedef StaticJsonDocument<384> MsgPackDoc;
-
-private:
-  MsgPackDoc doc;
-  JsonObject root;
-
-  // packet contents wrapped to ensure contiguous memory
-  struct {
-    uint16_t magic = 0xc9d2;
-    struct {
-      uint16_t packet = 0;
-      uint16_t frame = 0;
-      uint16_t msg = 0;
-    } len;
-    char payload[768] = {0};
-  } p;
+  CtrlMsg(csv type) : Msg(type) {}
 };
 
-} // namespace packet
+} // namespace desk
 } // namespace pierre

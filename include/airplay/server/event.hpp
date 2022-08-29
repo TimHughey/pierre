@@ -45,7 +45,7 @@ public:
   // with this in mind we accept an error code that is checked before
   // starting the next async_accept.  when the error code is not specified
   // assume this is startup and all is well.
-  void asyncLoop(const error_code ec_last = Base::DEF_ERROR_CODE) override;
+  void asyncLoop(const error_code ec_last = error_code()) override;
 
   Port localPort() override { return acceptor.local_endpoint().port(); }
   void teardown() override; // issue cancel to acceptor
