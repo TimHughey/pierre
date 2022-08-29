@@ -75,26 +75,25 @@ void Desk::adjust_play_mode(csv next_mode) {
 }
 
 void Desk::frame_render(shFrame frame) {
-  auto data_msg = std::make_unique<desk::DataMsg>(frame);
+  desk::DataMsg data_msg(frame);
 
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silence()) {
     active_fx = fx_factory::create<fx::MajorPeak>();
   }
 
-  active_fx->render(frame, data_msg.get());
+  active_fx->render(frame, data_msg);
 
   if (control) {                       // control exists
     if (control->ready()) [[likely]] { // control is ready
 
-      auto buff_seq = data_msg->buff_seq();
-
-      control->data_socket().async_write_some(
-          buff_seq, [dm = std::move(data_msg)](const error_code ec, size_t bytes) mutable {
-            dm->log_tx(ec, bytes);
-            dm.reset();
-          });
-
-    } else if (!ec_last_ctrl_tx) {
+      io::async_write_msg(control->data_socket(), data_msg, [this](const error_code ec) {
+        if (ec) {
+          streams_deinit();
+        } else {
+          stats.frames++;
+        }
+      });
+    } else if (ec_last_ctrl_tx) {
       __LOG0(LCOL01 " shutting down streams, ctrl={}\n", moduleID(), "ERROR",
              ec_last_ctrl_tx.message());
 

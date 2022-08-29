@@ -20,11 +20,12 @@
 #pragma once
 
 #include "io/io.hpp"
-#include "io/msg.hpp"
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 namespace pierre {
 namespace io {
@@ -90,6 +91,63 @@ auto async_tld(tcp_socket &socket, Packed &work_buff, StaticDoc &doc, Completion
                                 void(error_code, size_t)>::return_type {
   return asio::async_compose<CompletionToken, void(error_code, size_t)>(
       async_tld_impl(socket, work_buff, doc), token, socket);
+}
+
+// async_write_msg(): write a message object to the socket
+template <typename M, typename CompletionToken>
+auto async_write_msg(tcp_socket &socket, M msg, CompletionToken &&token) {
+
+  auto initiation = [](auto &&completion_handler, tcp_socket &socket, M msg) {
+    struct intermediate_completion_handler {
+      tcp_socket &socket; // for multiple write ops and obtaining I/O executor
+      M msg;
+
+      typename std::decay<decltype(completion_handler)>::type handler;
+
+      void operator()(const error_code &ec, std::size_t bytes) {
+        msg.log_tx(ec, bytes);
+
+        handler(ec); // call user-supplied handler
+      }
+
+      using executor_type =
+          asio::associated_executor_t<typename std::decay<decltype(completion_handler)>::type,
+                                      tcp_socket::executor_type>;
+
+      executor_type get_executor() const noexcept {
+        return asio::get_associated_executor(handler, socket.get_executor());
+      }
+
+      using allocator_type =
+          asio::associated_allocator_t<typename std::decay<decltype(completion_handler)>::type,
+                                       std::allocator<void>>;
+
+      allocator_type get_allocator() const noexcept {
+        return asio::get_associated_allocator(handler, std::allocator<void>{});
+      }
+    };
+
+    // must grab the buff_seq and tx_len BEFORE moving the msg
+    auto buff_seq = msg.buff_seq();
+    auto tx_len = msg.tx_len;
+
+    // initiate the actual async operation
+    asio::async_write(
+        socket, buff_seq, asio::transfer_exactly(tx_len),
+        intermediate_completion_handler{
+            socket,                                                        // pass the socket along
+            std::move(msg),                                                // move the msg along
+            std::forward<decltype(completion_handler)>(completion_handler) // forward token
+        });
+  };
+
+  // initiate the async operation
+  return asio::async_initiate<CompletionToken, void(error_code)>(
+      initiation,       // initiation function object
+      token,            // user supplied callback
+      std::ref(socket), // wrap non-const args to prevent incorrect decay-copies
+      std::move(msg)    // move the msg for use within the async operation
+  );
 }
 
 } // namespace io

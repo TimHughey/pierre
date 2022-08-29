@@ -43,8 +43,8 @@ void PinSpot::faderMove() {
   }
 }
 
-void PinSpot::update_msg(desk::DataMsg *msg) {
-  auto snippet = msg->dmxFrame() + address;
+void PinSpot::update_msg(desk::DataMsg &msg) {
+  auto snippet = msg.dmxFrame() + address;
 
   color.copyRgbToByteArray(snippet + 1);
 

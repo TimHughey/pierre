@@ -37,8 +37,12 @@
 namespace pierre {
 namespace io {
 
-class Msg {
+static constexpr csv MAGIC{"magic"};
+static constexpr uint16_t MAGIC_VAL = 0xc9d2;
+static constexpr csv NOW_US{"now_µs"};
+static constexpr csv TYPE{"type"};
 
+class Msg {
 public:
   Msg(csv type, size_t max_size = DOC_DEFAULT_MAX_SIZE)
       : type(type.data(), type.size()), //
@@ -73,7 +77,7 @@ public:
   }
 
   // misc logging, debug
-  error_code log_tx(const error_code ec, size_t bytes) {
+  error_code log_tx(const error_code ec, const size_t bytes) {
     if (ec || (tx_len != bytes)) {
       __LOG0(LCOL01 " failed, bytes={}/{} reason={}\n", module_id, type, bytes, tx_len,
              ec.message());
@@ -99,10 +103,10 @@ public:
   std::array<char, 1> fail_buff;
 
   // object key constants
-  static constexpr uint16_t MAGIC_VAL = 0xc9d2;
-  static constexpr csv MAGIC{"magic"};
-  static constexpr csv NOW_US{"now_µs"};
-  static constexpr csv TYPE{"type"};
+  // static constexpr uint16_t MAGIC_VAL = 0xc9d2;
+  // static constexpr csv MAGIC{"magic"};
+  // static constexpr csv NOW_US{"now_µs"};
+  // static constexpr csv TYPE{"type"};
 
   // misc debug
   static constexpr csv module_id{"MSG_BASE"};

@@ -81,7 +81,7 @@ public:
 
   void leave() override { Color::black(); }
 
-  void update_msg(desk::DataMsg *msg) override;
+  void update_msg(desk::DataMsg &msg) override;
 
 private:
   // functions

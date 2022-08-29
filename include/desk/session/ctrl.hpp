@@ -20,18 +20,15 @@
 
 #pragma once
 
-#include "ArduinoJson.hpp"
 #include "base/elapsed.hpp"
 #include "base/pe_time.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "desk/ctrl_msg.hpp"
-#include "desk/data_msg.hpp"
 #include "desk/session/data.hpp"
 #include "io/io.hpp"
+#include "io/msg.hpp"
 
 #include <array>
-#include <future>
 #include <memory>
 #include <optional>
 #include <ranges>

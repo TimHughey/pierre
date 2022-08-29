@@ -40,7 +40,7 @@ FX::FX() {
   }
 }
 
-void FX::render(shFrame frame, desk::DataMsg *msg) {
+void FX::render(shFrame frame, desk::DataMsg &msg) {
   if (called_once == false) {
     // frame 0 is always consumed by the call to once()
     once();

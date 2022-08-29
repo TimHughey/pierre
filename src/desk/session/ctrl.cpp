@@ -25,9 +25,7 @@
 #include "io/msg.hpp"
 #include "mdns/mdns.hpp"
 
-#include <future>
 #include <latch>
-#include <math.h>
 #include <ranges>
 #include <utility>
 
@@ -110,24 +108,14 @@ void Control::handshake() {
 }
 
 void Control::handshake_reply(Port port) {
-  auto ctrl_msg = std::make_unique<CtrlMsg>(HANDSHAKE);
+  io::Msg ctrl_msg(HANDSHAKE);
 
-  ctrl_msg->add_kv("idle_shutdown_ms", 30000);
-  ctrl_msg->add_kv("lead_tims_us", lead_time.count());
-  ctrl_msg->add_kv("ref_µs", pet::reference<Micros>().count());
-  ctrl_msg->add_kv("data_port", port);
+  ctrl_msg.add_kv("idle_shutdown_ms", 30000);
+  ctrl_msg.add_kv("lead_tims_us", lead_time.count());
+  ctrl_msg.add_kv("ref_µs", pet::reference<Micros>().count());
+  ctrl_msg.add_kv("data_port", port);
 
-  auto buff_seq = ctrl_msg->buff_seq();
-
-  socket->async_write_some( //
-      buff_seq,             // must get buff_seq do to move of unique_ptr
-      [this, cm = std::move(ctrl_msg)](const error_code ec, size_t bytes) mutable {
-        cm->log_tx(ec, bytes);
-
-        store_ec_last(ec);
-
-        cm.reset();
-      });
+  io::async_write_msg(*socket, ctrl_msg, [this](const error_code ec) { store_ec_last(ec); });
 
   msg_loop();
 }
@@ -137,41 +125,38 @@ void Control::msg_loop() {
   auto work_buff = std::make_shared<io::Packed>();
   auto rx_doc = std::make_shared<io::StaticDoc>();
 
-  io::async_tld(*socket, *work_buff, *rx_doc,
-                [=, this](const error_code ec, size_t bytes) mutable {
-                  if (!ec && bytes) [[likely]] {
-                    JsonObjectConst root = rx_doc->as<JsonObjectConst>();
+  io::async_tld(
+      *socket, *work_buff, *rx_doc, [=, this](const error_code ec, size_t bytes) mutable {
+        if (!ec && bytes) [[likely]] {
+          JsonObjectConst root = rx_doc->as<JsonObjectConst>();
 
-                    csv type = root["type"];
-                    if (type == FEEDBACK) {
-                      Micros async_loop(root["async_µs"]);
-                      Micros remote_elapsed(root["elapsed_µs"]);
-                      Micros echoed_now(root["echoed_now_µs"].as<int64_t>());
-                      float fps = root["fps"];
+          csv type = root[io::TYPE];
+          if (type == FEEDBACK) {
+            Micros async_loop(root["async_µs"]);
+            Micros remote_elapsed(root["elapsed_µs"]);
 
-                      auto roundtrip = pet::reference() - echoed_now;
+            auto roundtrip =
+                pet::reference<Micros>() - Micros(root["echoed_now_µs"].as<int64_t>());
 
-                      // if (elapsed > pet::percent<Nanos>(lead_time, 0.25)) {
-                      //   __LOG0(LCOL01 " rt={:0.2}\n", moduleID(), "REMOTE",
-                      //   pet::as<MillisFP>(elapsed));
-                      // }
+            if ((async_loop > lead_time)) {
+              __LOG0(LCOL01
+                     " seq_num={:<7} async_loop={:0.1} elapsed={:>6} rt={:0.1} fps={:02.1f}\n",
+                     moduleID(), "REMOTE",
+                     root["seq_num"].as<uint32_t>(), // seq_num of the data msg
+                     pet::as_millis_fp(async_loop),  // elapsed time of the async_loop
+                     remote_elapsed,                 // elapsed time of the async_loop callback
+                     pet::as_millis_fp(roundtrip),   // roundtrip time
+                     root["fps"].as<float>()         // frames per second
+              );
+            }
+          }
 
-                      if ((async_loop > lead_time)) {
-                        __LOG0(LCOL01 " async_loop={:0.1} elapsed={:>6} fps={:02.1f}\n",
-                               moduleID(), "REMOTE",
-                               pet::as_millis_fp(async_loop), //
-                               remote_elapsed,                //
-                               fps                            //
-                        );
-                      }
-                    }
+          msg_loop();
+        }
 
-                    msg_loop();
-                  }
-
-                  rx_doc.reset();
-                  work_buff.reset();
-                });
+        rx_doc.reset();
+        work_buff.reset();
+      });
 }
 
 // misc debug

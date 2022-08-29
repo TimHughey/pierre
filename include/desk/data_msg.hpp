@@ -25,15 +25,7 @@
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "frame/frame.hpp"
-#include "io/io.hpp"
 #include "io/msg.hpp"
-
-#include <ArduinoJson.h>
-#include <arpa/inet.h>
-#include <array>
-#include <future>
-#include <memory>
-#include <vector>
 
 namespace pierre {
 namespace desk {
@@ -52,6 +44,7 @@ public:
     add_kv("nettime_now_µs", frame->nettime<Micros>().count());
     add_kv("frame_localtime_µs", frame->sync_wait_elapsed<Micros>().count());
     add_kv("sync_wait_µs", pet::as_duration<Nanos, Micros>(frame->sync_wait).count());
+    add_kv("now_µs", pet::reference<Micros>().count());
   }
 
 public:

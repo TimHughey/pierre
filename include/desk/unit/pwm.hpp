@@ -108,10 +108,10 @@ public:
     }
   }
 
-  virtual void update_msg(desk::DataMsg *msg) override {
+  virtual void update_msg(desk::DataMsg &msg) override {
     _duty = _unit_next;
 
-    msg->root[unitName()] = _duty;
+    msg.root[unitName()] = _duty;
   }
 
   void pulse(float intensity = 1.0, float secs = 0.2) {
