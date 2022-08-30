@@ -39,9 +39,10 @@ namespace io {
 
 static constexpr size_t DOC_DEFAULT_MAX_SIZE = 7 * 1024;
 static constexpr size_t MSG_LEN_SIZE = sizeof(uint16_t);
+static constexpr size_t PACKED_DEFAULT_MAX_SIZE = DOC_DEFAULT_MAX_SIZE / 2;
 
-typedef std::array<char, 2048> Packed;
-using StaticDoc = StaticJsonDocument<DOC_DEFAULT_MAX_SIZE>;
+typedef std::vector<char> Raw;
+typedef std::vector<char> Packed;
 using DynaDoc = DynamicJsonDocument;
 
 static constexpr csv MAGIC{"magic"};
@@ -51,6 +52,7 @@ static constexpr csv TYPE{"type"};
 
 class Msg {
 public:
+  // outbound messages
   Msg(csv type, size_t max_size = DOC_DEFAULT_MAX_SIZE)
       : type(type.data(), type.size()), //
         doc(max_size)                   //
@@ -59,34 +61,69 @@ public:
     doc[NOW_US] = pet::now_epoch<Micros>().count();
   }
 
+  // inbound messages
+  Msg(size_t max_size = DOC_DEFAULT_MAX_SIZE) : type("read"), doc(max_size) {}
+
   Msg(Msg &m) = delete;
   Msg(const Msg &m) = delete;
   Msg(Msg &&m) = default;
 
   void add_kv(csv key, auto val) { doc[key] = val; }
 
-  auto buff_seq() {
-    if (packed_len > 0) {
-      tx_len = packed_len + MSG_LEN_SIZE;
+  // for Msg RX
+  auto buff_msg_len() { return asio::buffer(len_buff.data(), len_buff.size()); }
 
-      msg_len = htons(packed_len);
-      return std::array{const_buff(&msg_len, MSG_LEN_SIZE), //
-                        const_buff(packed.data(), packed_len)};
-    }
+  // for Msg RX
+  auto buff_packed() {
+    auto *p = reinterpret_cast<uint16_t *>(len_buff.data());
+    packed_len = ntohs(*p);
 
-    return std::array{const_buff(fail_buff.data(), fail_buff.size()),
-                      const_buff(fail_buff.data(), fail_buff.size())};
+    packed.reserve(packed_len); // we know the size of the incoming message
+
+    return asio::buffer(packed.data(), packed.capacity());
   }
+
+  // for Msg TX
+  auto buff_seq() {
+    uint16_t msg_len = htons(packed_len);
+    memcpy(len_buff.data(), &msg_len, len_buff.size());
+
+    tx_len = packed_len + len_buff.size();
+
+    return std::array{const_buff(len_buff.data(), len_buff.size()), //
+                      const_buff(packed.data(), packed.capacity())};
+  }
+
+  auto deserialize(error_code ec, size_t bytes) {
+    const auto err = deserializeMsgPack(doc, packed.data(), packed.capacity());
+
+    log_rx(ec, bytes, err);
+
+    return !err;
+  }
+
+  auto key_equal(csv key, csv val) const { return val == doc[key]; }
 
   auto serialize() {
     finalize();
 
-    doc[MAGIC] = MAGIC_VAL;
+    doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
-    packed_len = serializeMsgPack(doc, packed.data(), packed.size());
+    packed.reserve(PACKED_DEFAULT_MAX_SIZE);
+
+    packed_len = serializeMsgPack(doc, packed.data(), packed.capacity());
   }
 
   // misc logging, debug
+  error_code log_rx(const error_code ec, const size_t bytes, const auto err) {
+    if (ec || (packed_len != bytes) || err) {
+      __LOG0(LCOL01 " failed, bytes={}/{} reason={} deserialize={}\n", module_id, type, bytes,
+             tx_len, ec.message(), err.c_str());
+    }
+
+    return ec;
+  }
+
   error_code log_tx(const error_code ec, const size_t bytes) {
     if (ec || (tx_len != bytes)) {
       __LOG0(LCOL01 " failed, bytes={}/{} reason={}\n", module_id, type, bytes, tx_len,
@@ -101,15 +138,12 @@ public:
   // order dependent
   string type;
   DynaDoc doc;
+  Raw len_buff{MSG_LEN_SIZE, 0x00};
+  Packed packed;
 
   // order independent
-  Packed packed;
-  uint16_t msg_len = 0;
   size_t packed_len = 0;
   size_t tx_len = 0;
-
-  // failed buff
-  static constexpr std::array<char, 1> fail_buff{0};
 
   // misc debug
   static constexpr csv module_id{"MSG_BASE"};

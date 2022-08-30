@@ -26,6 +26,7 @@
 #include "base/typical.hpp"
 #include "io/io.hpp"
 
+#include <boost/circular_buffer.hpp>
 #include <memory>
 
 namespace pierre {

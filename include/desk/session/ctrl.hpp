@@ -122,6 +122,8 @@ private:
 
   // misc debug
   void log_connected(Elapsed &elapsed);
+  void log_feedback(JsonDocument &doc);
+  void log_handshake(JsonDocument &doc);
 
 private:
   // order dependent

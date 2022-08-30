@@ -76,36 +76,14 @@ void Control::connect(const error_code ec) {
 void Control::handshake() {
   auto port = data_session.emplace(io_ctx).accept();
 
-  auto buff = std::make_unique<io::Packed>();
-  auto doc = std::make_unique<io::StaticDoc>();
-
-  auto &bref = *buff;
-  auto &dref = *doc;
-
-  io::async_tld(*socket, bref, dref,
-                [=, this, buff = std::move(buff), rx_doc = std::move(doc)](error_code ec,
-                                                                           size_t bytes) mutable {
-                  // NOTE:  we reuse ec below
-                  if (!ec && bytes) [[likely]] {
-
-                    auto doc = *rx_doc;
-
-                    if (HANDSHAKE == csv(doc["type"])) {
-                      auto remote_now = Micros(doc["now_µs"].as<int64_t>());
-                      remote_time_skew = pet::abs(remote_now - pet::now_epoch<Micros>());
-                      remote_ref_time = Micros(doc["ref_µs"].as<int64_t>());
-
-                      __LOG0(LCOL01 " clock diff={:0.3}\n", moduleID(), "REMOTE",
-                             pet::as_millis_fp(remote_time_skew));
-                      handshake_reply(port);
-                    }
-                  }
-
-                  rx_doc.reset();
-                  buff.reset();
-
-                  reset_if_needed(ec);
-                });
+  io::async_read_msg(*socket, [=, this](const error_code ec, io::Msg msg) {
+    if (!ec) {
+      if (msg.key_equal(io::TYPE, HANDSHAKE)) {
+        log_handshake(msg.doc);
+        handshake_reply(port);
+      }
+    }
+  });
 }
 
 void Control::handshake_reply(Port port) {
@@ -124,41 +102,15 @@ void Control::handshake_reply(Port port) {
 
 void Control::msg_loop() {
 
-  auto work_buff = std::make_shared<io::Packed>();
-  auto rx_doc = std::make_shared<io::StaticDoc>();
+  io::async_read_msg(*socket, [this](const error_code ec, io::Msg msg) {
+    if (!ec) {
+      if (msg.key_equal(io::TYPE, FEEDBACK)) {
+        log_feedback(msg.doc);
+      }
 
-  io::async_tld(
-      *socket, *work_buff, *rx_doc, [=, this](const error_code ec, size_t bytes) mutable {
-        if (!ec && bytes) [[likely]] {
-
-          auto doc = *rx_doc;
-
-          csv type = doc[io::TYPE];
-          if (type == FEEDBACK) {
-            Micros async_loop(doc["async_µs"]);
-            Micros remote_elapsed(doc["elapsed_µs"]);
-
-            auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
-
-            if ((async_loop > lead_time)) {
-              __LOG0(LCOL01 " seq_num={:<7} async_loop={:0.1} elapsed={:>6} "
-                            "fps={:02.1f} rt={:02.1}\n ",
-                     moduleID(), " REMOTE ",
-                     doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
-                     pet::as_millis_fp(async_loop), // elapsed time of the async_loop
-                     remote_elapsed,                // elapsed time of the async_loop
-                     doc["fps"].as<float>(),        // frames per second
-                     pet::as_millis_fp(roundtrip)   // roundtrip time
-              );
-            }
-          }
-
-          msg_loop();
-        }
-
-        rx_doc.reset();
-        work_buff.reset();
-      });
+      msg_loop();
+    }
+  });
 }
 
 // misc debug
@@ -167,6 +119,33 @@ void Control::log_connected(Elapsed &elapsed) {
          socket->local_endpoint().address().to_string(), socket->local_endpoint().port(),
          remote_endpoint->address().to_string(), remote_endpoint->port(), elapsed.as<MillisFP>(),
          socket->native_handle());
+}
+
+void Control::log_feedback(JsonDocument &doc) {
+  Micros async_loop(doc["async_µs"]);
+  Micros remote_elapsed(doc["elapsed_µs"]);
+
+  auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
+
+  if ((async_loop > lead_time)) {
+    __LOG0(LCOL01 " seq_num={:<7} async_loop={:0.1} elapsed={:>6} "
+                  "fps={:02.1f} rt={:02.1}\n",
+           moduleID(), " REMOTE ",
+           doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
+           pet::as_millis_fp(async_loop), // elapsed time of the async_loop
+           remote_elapsed,                // elapsed time of the async_loop
+           doc["fps"].as<float>(),        // frames per second
+           pet::as_millis_fp(roundtrip)   // roundtrip time
+    );
+  }
+}
+
+void Control::log_handshake(JsonDocument &doc) {
+  auto remote_now = Micros(doc["now_µs"].as<int64_t>());
+  remote_time_skew = pet::abs(remote_now - pet::now_epoch<Micros>());
+  remote_ref_time = Micros(doc["ref_µs"].as<int64_t>());
+
+  __LOG0(LCOL01 " clock diff={:0.3}\n", moduleID(), "REMOTE", pet::as_millis_fp(remote_time_skew));
 }
 
 } // namespace desk
