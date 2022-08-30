@@ -47,12 +47,16 @@ public:
     add_kv("now_µs", pet::reference<Micros>().count());
   }
 
+  DataMsg(Msg &m) = delete;
+  DataMsg(const Msg &m) = delete;
+  DataMsg(DataMsg &&m) = default;
+
 public:
-  auto dmxFrame() { return dmx_frame.data(); }
+  uint8_t *dmxFrame() { return dmx_frame.data(); }
 
   void finalize() override {
-    auto dframe = root.createNestedArray("dframe");
-    for (auto byte : dmx_frame) {
+    auto dframe = doc.createNestedArray("dframe");
+    for (uint8_t byte : dmx_frame) {
       dframe.add(byte);
     }
   }
@@ -74,6 +78,7 @@ private:
   static constexpr csv TYPE{"data"};
   uint8v dmx_frame;
   bool silence;
+  static constexpr csv module_id{"DATA_MSG"};
 };
 
 } // namespace desk

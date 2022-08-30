@@ -83,16 +83,17 @@ void Control::handshake() {
   auto &dref = *doc;
 
   io::async_tld(*socket, bref, dref,
-                [=, this, buff = std::move(buff), doc = std::move(doc)](error_code ec,
-                                                                        size_t bytes) mutable {
+                [=, this, buff = std::move(buff), rx_doc = std::move(doc)](error_code ec,
+                                                                           size_t bytes) mutable {
                   // NOTE:  we reuse ec below
                   if (!ec && bytes) [[likely]] {
-                    JsonObject root = doc->as<JsonObject>();
 
-                    if (HANDSHAKE == csv(root["type"])) {
-                      auto remote_now = Micros(root["now_µs"].as<int64_t>());
+                    auto doc = *rx_doc;
+
+                    if (HANDSHAKE == csv(doc["type"])) {
+                      auto remote_now = Micros(doc["now_µs"].as<int64_t>());
                       remote_time_skew = pet::abs(remote_now - pet::now_epoch<Micros>());
-                      remote_ref_time = Micros(root["ref_µs"].as<int64_t>());
+                      remote_ref_time = Micros(doc["ref_µs"].as<int64_t>());
 
                       __LOG0(LCOL01 " clock diff={:0.3}\n", moduleID(), "REMOTE",
                              pet::as_millis_fp(remote_time_skew));
@@ -100,7 +101,7 @@ void Control::handshake() {
                     }
                   }
 
-                  doc.reset();
+                  rx_doc.reset();
                   buff.reset();
 
                   reset_if_needed(ec);
@@ -115,7 +116,8 @@ void Control::handshake_reply(Port port) {
   ctrl_msg.add_kv("ref_µs", pet::reference<Micros>().count());
   ctrl_msg.add_kv("data_port", port);
 
-  io::async_write_msg(*socket, ctrl_msg, [this](const error_code ec) { store_ec_last(ec); });
+  io::async_write_msg(*socket, std::move(ctrl_msg),
+                      [this](const error_code ec) { store_ec_last(ec); });
 
   msg_loop();
 }
@@ -128,25 +130,25 @@ void Control::msg_loop() {
   io::async_tld(
       *socket, *work_buff, *rx_doc, [=, this](const error_code ec, size_t bytes) mutable {
         if (!ec && bytes) [[likely]] {
-          JsonObjectConst root = rx_doc->as<JsonObjectConst>();
 
-          csv type = root[io::TYPE];
+          auto doc = *rx_doc;
+
+          csv type = doc[io::TYPE];
           if (type == FEEDBACK) {
-            Micros async_loop(root["async_µs"]);
-            Micros remote_elapsed(root["elapsed_µs"]);
+            Micros async_loop(doc["async_µs"]);
+            Micros remote_elapsed(doc["elapsed_µs"]);
 
-            auto roundtrip =
-                pet::reference<Micros>() - Micros(root["echoed_now_µs"].as<int64_t>());
+            auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
 
             if ((async_loop > lead_time)) {
-              __LOG0(LCOL01
-                     " seq_num={:<7} async_loop={:0.1} elapsed={:>6} rt={:0.1} fps={:02.1f}\n",
-                     moduleID(), "REMOTE",
-                     root["seq_num"].as<uint32_t>(), // seq_num of the data msg
-                     pet::as_millis_fp(async_loop),  // elapsed time of the async_loop
-                     remote_elapsed,                 // elapsed time of the async_loop callback
-                     pet::as_millis_fp(roundtrip),   // roundtrip time
-                     root["fps"].as<float>()         // frames per second
+              __LOG0(LCOL01 " seq_num={:<7} async_loop={:0.1} elapsed={:>6} "
+                            "fps={:02.1f} rt={:02.1}\n ",
+                     moduleID(), " REMOTE ",
+                     doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
+                     pet::as_millis_fp(async_loop), // elapsed time of the async_loop
+                     remote_elapsed,                // elapsed time of the async_loop
+                     doc["fps"].as<float>(),        // frames per second
+                     pet::as_millis_fp(roundtrip)   // roundtrip time
               );
             }
           }

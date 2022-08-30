@@ -73,7 +73,7 @@ public:
   }
 
   void update_msg(desk::DataMsg &msg) {
-    ranges::for_each(*this, [&](auto unit) mutable { unit->update_msg(msg); });
+    ranges::for_each(*this, [&msg = msg](auto unit) mutable { unit->update_msg(msg); });
   }
 };
 

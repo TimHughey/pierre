@@ -82,17 +82,19 @@ void Desk::frame_render(shFrame frame) {
   }
 
   active_fx->render(frame, data_msg);
+  data_msg.finalize();
 
   if (control) {                       // control exists
     if (control->ready()) [[likely]] { // control is ready
 
-      io::async_write_msg(control->data_socket(), data_msg, [this](const error_code ec) {
-        if (ec) {
-          streams_deinit();
-        } else {
-          stats.frames++;
-        }
-      });
+      io::async_write_msg(control->data_socket(), std::move(data_msg),
+                          [this](const error_code ec) {
+                            if (ec) {
+                              streams_deinit();
+                            } else {
+                              stats.frames++;
+                            }
+                          });
     } else if (ec_last_ctrl_tx) {
       __LOG0(LCOL01 " shutting down streams, ctrl={}\n", moduleID(), "ERROR",
              ec_last_ctrl_tx.message());
@@ -152,7 +154,7 @@ void Desk::frame_next(Nanos sync_wait, Nanos lag) {
 void Desk::frame_release(shFrame frame) {
   frame->mark_played();
 
-  // recalc the sync wait to account for lag
+  // recalc the sync wait to account for latebcy
   auto sync_wait = frame->calc_sync_wait(latency);
 
   sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : std::move(sync_wait);
@@ -244,7 +246,7 @@ void Desk::log_despooled(shFrame frame, Elapsed &elapsed) {
       playable = 0;
       no_playable++;
       if ((no_playable == 1) || ((no_playable % 100) == 0)) {
-        fmt::format_to(w, " no playable frames");
+        fmt::format_to(w, " no playable frames={:<6}", no_playable);
       }
     }
 

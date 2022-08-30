@@ -37,6 +37,13 @@
 namespace pierre {
 namespace io {
 
+static constexpr size_t DOC_DEFAULT_MAX_SIZE = 7 * 1024;
+static constexpr size_t MSG_LEN_SIZE = sizeof(uint16_t);
+
+typedef std::array<char, 2048> Packed;
+using StaticDoc = StaticJsonDocument<DOC_DEFAULT_MAX_SIZE>;
+using DynaDoc = DynamicJsonDocument;
+
 static constexpr csv MAGIC{"magic"};
 static constexpr uint16_t MAGIC_VAL = 0xc9d2;
 static constexpr csv NOW_US{"now_µs"};
@@ -46,24 +53,19 @@ class Msg {
 public:
   Msg(csv type, size_t max_size = DOC_DEFAULT_MAX_SIZE)
       : type(type.data(), type.size()), //
-        doc(max_size),                  //
-        root(doc.to<JsonObject>())      //
+        doc(max_size)                   //
   {
-    root[TYPE] = type;
-    root[NOW_US] = pet::now_epoch<Micros>().count();
+    doc[TYPE] = type;
+    doc[NOW_US] = pet::now_epoch<Micros>().count();
   }
 
-  virtual ~Msg() {}
+  Msg(Msg &m) = delete;
+  Msg(const Msg &m) = delete;
+  Msg(Msg &&m) = default;
 
-  void add_kv(csv key, auto val) { root[key] = val; }
+  void add_kv(csv key, auto val) { doc[key] = val; }
 
   auto buff_seq() {
-    finalize();
-
-    root[MAGIC] = MAGIC_VAL;
-
-    packed_len = serializeMsgPack(doc, packed.data(), packed.size());
-
     if (packed_len > 0) {
       tx_len = packed_len + MSG_LEN_SIZE;
 
@@ -76,6 +78,14 @@ public:
                       const_buff(fail_buff.data(), fail_buff.size())};
   }
 
+  auto serialize() {
+    finalize();
+
+    doc[MAGIC] = MAGIC_VAL;
+
+    packed_len = serializeMsgPack(doc, packed.data(), packed.size());
+  }
+
   // misc logging, debug
   error_code log_tx(const error_code ec, const size_t bytes) {
     if (ec || (tx_len != bytes)) {
@@ -86,12 +96,11 @@ public:
     return ec;
   }
 
-  virtual void finalize() {}
+  virtual void finalize() {} // override for additional work prior to serialization
 
   // order dependent
   string type;
-  DynamicJsonDocument doc;
-  JsonObject root;
+  DynaDoc doc;
 
   // order independent
   Packed packed;
@@ -100,13 +109,7 @@ public:
   size_t tx_len = 0;
 
   // failed buff
-  std::array<char, 1> fail_buff;
-
-  // object key constants
-  // static constexpr uint16_t MAGIC_VAL = 0xc9d2;
-  // static constexpr csv MAGIC{"magic"};
-  // static constexpr csv NOW_US{"now_µs"};
-  // static constexpr csv TYPE{"type"};
+  static constexpr std::array<char, 1> fail_buff{0};
 
   // misc debug
   static constexpr csv module_id{"MSG_BASE"};

@@ -57,13 +57,6 @@ enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
 
 namespace io {
 
-static constexpr size_t DOC_DEFAULT_MAX_SIZE = 5 * 1024;
-static constexpr size_t MSG_LEN_SIZE = sizeof(uint16_t);
-
-typedef std::array<char, 2048> Packed;
-using StaticDoc = StaticJsonDocument<DOC_DEFAULT_MAX_SIZE>;
-using DynaDoc = DynamicJsonDocument;
-
 static constexpr error_code make_error(auto val) {
   return error_code(val, sys::generic_category());
 }

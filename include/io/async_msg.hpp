@@ -141,6 +141,8 @@ auto async_write_msg(tcp_socket &socket, M msg, CompletionToken &&token) {
         });
   };
 
+  msg.serialize();
+
   // initiate the async operation
   return asio::async_initiate<CompletionToken, void(error_code)>(
       initiation,       // initiation function object
