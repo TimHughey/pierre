@@ -74,7 +74,7 @@ void Desk::adjust_play_mode(csv next_mode) {
 }
 
 void Desk::frame_render(shFrame frame) {
-  desk::DataMsg data_msg(frame);
+  desk::DataMsg data_msg(frame, lead_time);
 
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silence()) {
     active_fx = fx_factory::create<fx::MajorPeak>();
