@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/input_info.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 
 #include <any>
@@ -27,21 +27,18 @@
 namespace pierre {
 namespace anchor {
 
-using namespace std::chrono_literals;
-
 struct Data {
   uint64_t rate = 0;
-  ClockID clockID = 0; // aka clock id
+  ClockID clock_id = 0; // aka clock id
   uint64_t secs = 0;
   uint64_t frac = 0;
   uint64_t flags = 0;
-  uint64_t rtpTime = 0;
-  uint64_t networkTime = 0; // from set anchor packet
-  Nanos localTime{0};
-  Nanos at_nanos{0};
-  Nanos localAtNanos{0};
+  uint64_t rtp_time = 0;
+  uint64_t network_time = 0; // from set anchor packet
+  Nanos local_time{0};
+  Nanos local_at{0};
   bool valid = false;
-  Nanos valid_at_ns{0};
+  Nanos valid_at{0};
 
   Data &calcNetTime() {
     uint64_t net_time_fracs = 0;
@@ -50,63 +47,59 @@ struct Data {
     net_time_fracs *= pet::NS_FACTOR.count();
     net_time_fracs >>= 32;
 
-    networkTime = secs * pet::NS_FACTOR.count() + net_time_fracs;
+    network_time = secs * pet::NS_FACTOR.count() + net_time_fracs;
 
     return *this;
   }
 
   Nanos frameLocalTime(uint32_t timestamp) const {
-    Nanos local_time{0};
+    Nanos calced{0};
 
     if (valid) {
-      int32_t diff_frame = timestamp - rtpTime;
+      int32_t diff_frame = timestamp - rtp_time;
       int64_t diff_ts = (diff_frame * pet::NS_FACTOR.count()) / InputInfo::rate;
 
-      local_time = localTime + Nanos(diff_ts);
+      calced = local_time + Nanos(diff_ts);
     }
 
-    return local_time;
+    return calced;
   }
 
   uint32_t localTimeFrame(const Nanos time) { // untested
     uint32_t frame_time{0};
 
     if (valid) {
-      Nanos diff_time = time - localTime;
+      Nanos diff_time = time - local_time;
       int64_t diff_frame = (diff_time.count() * InputInfo::rate) / pet::NS_FACTOR.count();
       int32_t diff_frame32 = diff_frame;
-      frame_time = rtpTime + diff_frame32;
+      frame_time = rtp_time + diff_frame32;
     }
 
     return frame_time;
   }
 
-  Seconds netTimeElapsed() const { return pet::elapsed_as<Seconds>(netTimeNow() - valid_at_ns); }
+  Seconds netTimeElapsed() const { return pet::elapsed_as<Seconds>(netTimeNow() - valid_at); }
 
-  Nanos netTimeNow() const { return valid_at_ns + pet::elapsed_abs_ns(valid_at_ns); }
+  Nanos netTimeNow() const { return valid_at + pet::elapsed_abs_ns(valid_at); }
 
-  bool ok() const { return clockID != 0; }
-  csv play_mode() const { return playing() ? PLAYING : NOT_PLAYING; }
-  bool playing() const { return rate & 0x01; }
-  Data &setAt() {
-    at_nanos = pet::nowNanos();
-    return *this;
-  }
+  bool ok() const { return clock_id != 0; }
+  csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
+  bool rendering() const { return rate & 0x01; }
 
-  Data &setLocalTimeAt(Nanos local_at = pet::nowNanos()) {
-    localAtNanos = local_at;
+  Data &setLocalTimeAt(Nanos _local_at = pet::nowNanos()) {
+    local_at = _local_at;
     return *this;
   }
 
   Data &setValid(bool set_valid = true) {
     valid = set_valid;
-    valid_at_ns = pet::nowNanos();
+    valid_at = pet::nowNanos();
     return *this;
   }
 
-  Nanos sinceUpdate(const Nanos now = pet::nowNanos()) const { return now - localAtNanos; }
+  Nanos sinceUpdate(const Nanos now = pet::nowNanos()) const { return now - valid_at; }
 
-  auto validFor() const { return pet::nowNanos() - at_nanos; }
+  auto validFor() const { return pet::nowNanos() - valid_at; }
 
   static Data any_cast(std::any &data) {
     return data.has_value() ? std::any_cast<Data>(data) : Data();
@@ -114,16 +107,16 @@ struct Data {
 
   // return values:
   // -1 = clock is different
-  //  0 = clock, rtpTime, networkTime are equal
-  // +1 = clock is same, rtpTime and networkTime are different
+  //  0 = clock, rtp_time, network_time are equal
+  // +1 = clock is same, rtp_time and network_time are different
   friend int operator<=>(const Data &lhs, const Data &rhs) {
-    if (lhs.clockID != rhs.clockID) {
+    if (lhs.clock_id != rhs.clock_id) {
       return -1;
     }
 
-    if ((lhs.clockID == rhs.clockID) &&       // clock ID same
-        (lhs.rtpTime == rhs.rtpTime) &&       // rtpTime same
-        (lhs.networkTime == rhs.networkTime)) // networkTime same
+    if ((lhs.clock_id == rhs.clock_id) &&       // clock ID same
+        (lhs.rtp_time == rhs.rtp_time) &&       // rtpTime same
+        (lhs.network_time == rhs.network_time)) // network_time same
     {
       return 0;
     }
@@ -132,12 +125,12 @@ struct Data {
   }
 
   // misc debug
-  auto moduleID() const { return module_id; }
+  static constexpr csv moduleID() { return module_id; }
   void dump() const;
 
 private:
-  static constexpr csv PLAYING{"playing"};
-  static constexpr csv NOT_PLAYING{"not playing"};
+  static constexpr csv RENDERING{"rendering"};
+  static constexpr csv NOT_RENDERING{"not rendering"};
   static constexpr csv module_id{"ANCHOR_DATA"};
 };
 

@@ -60,12 +60,13 @@ MasterClock::MasterClock(const Inject &di)
   __LOGX(LCOL01 " shm_name={} dest={}\n", moduleId, "CONSTRUCT", shm_name, endpoint.port());
 }
 
+// NOTE: new data is available every 126ms
 const MasterClock::Info MasterClock::info() {
   if (mapSharedMem() == false) {
     return Info();
   }
 
-  int prev_state;
+  int prev_state; // to restore pthread cancel state
 
   // prevent thread cancellation while copying
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
@@ -95,11 +96,11 @@ const MasterClock::Info MasterClock::info() {
   clock_ip_sv.remove_suffix(clock_ip_sv.size() - trim_pos);
 
   return Info // calculate a local view of the nqptp data
-      {.clockID = data.master_clock_id,
+      {.clock_id = data.master_clock_id,
        .masterClockIp = string(clock_ip_sv),
-       .sampleTime = pe_time::from_ns(data.local_time),
+       .sampleTime = pet::from_ns(data.local_time),
        .rawOffset = data.local_to_master_time_offset,
-       .mastershipStartTime = pe_time::from_ns(data.master_clock_start_time)};
+       .mastershipStartTime = pet::from_ns(data.master_clock_start_time)};
 }
 
 bool MasterClock::isMapped() const {
@@ -202,7 +203,7 @@ void MasterClock::unMap() {
 }
 
 const string MasterClock::Info::inspect() const {
-  Nanos now = pe_time::nowNanos();
+  Nanos now = pet::nowNanos();
   string msg;
   auto w = std::back_inserter(msg);
 
@@ -210,13 +211,13 @@ const string MasterClock::Info::inspect() const {
   constexpr auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
   constexpr auto flt_fmt_str = FMT_STRING("{:>35}={:>+.3}\n");
 
-  fmt::format_to(w, hex_fmt_str, "clockId", clockID);
+  fmt::format_to(w, hex_fmt_str, "clockId", clock_id);
   fmt::format_to(w, dec_fmt_str, "rawOffset", (int64_t)rawOffset);
-  fmt::format_to(w, dec_fmt_str, "now_ns", pe_time::nowNanos());
+  fmt::format_to(w, dec_fmt_str, "now_ns", pet::nowNanos());
   fmt::format_to(w, dec_fmt_str, "mastershipStart", mastershipStartTime);
   fmt::format_to(w, dec_fmt_str, "sampleTime", sampleTime);
-  fmt::format_to(w, flt_fmt_str, "master_for_secs", pe_time::as_secs(masterFor(now)));
-  fmt::format_to(w, flt_fmt_str, "sample_age_secs", pe_time::as_secs(sampleAge(now)));
+  fmt::format_to(w, flt_fmt_str, "master_for_secs", pet::as_secs(masterFor(now)));
+  fmt::format_to(w, flt_fmt_str, "sample_age_secs", pet::as_secs(sampleAge(now)));
 
   return msg;
 }

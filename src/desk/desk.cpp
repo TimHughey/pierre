@@ -49,22 +49,22 @@ Desk *idesk() { return desk::i.get(); }
 
 // must be defined in .cpp to hide mdns
 Desk::Desk(const Nanos &lead_time)
-    : lead_time(lead_time),                           // despool frame lead time
-      lead_time_50(pe_time::percent(lead_time, 0.5)), // useful constant
-      frame_timer(io_ctx),                            // controls when frame is despooled
-      streams_strand(io_ctx),                         // serialize serialize streams init/deinit
-      release_timer(io_ctx),                          // controls when frame is sent
-      active_fx(fx_factory::create<fx::Silence>()),   // active FX initializes to Silence
-      latency(500us),                                 // ruth latency (default)
-      guard(io_ctx.get_executor()),                   // prevent io_ctx from ending
-      play_mode(NOT_PLAYING),                         // render or don't render
+    : lead_time(lead_time),                         // despool frame lead time
+      lead_time_50(pet::percent(lead_time, 50)),    // useful constant
+      frame_timer(io_ctx),                          // controls when frame is despooled
+      streams_strand(io_ctx),                       // serialize serialize streams init/deinit
+      release_timer(io_ctx),                        // controls when frame is sent
+      active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
+      latency(500us),                               // ruth latency (default)
+      guard(io_ctx.get_executor()),                 // prevent io_ctx from ending
+      render_mode(NOT_RENDERING),                   // render or don't render
       stats(io_ctx, 10s) {}
 
 // general API
-void Desk::adjust_play_mode(csv next_mode) {
-  play_mode = next_mode;
+void Desk::adjust_mode(csv next_mode) {
+  render_mode = next_mode;
 
-  if (play_mode == PLAYING) {
+  if (render_mode == RENDERING) {
     frame_next(lead_time_50); // starts despooling frames
     stats.async_report(5ms);
   } else {
@@ -109,7 +109,7 @@ void Desk::frame_render(shFrame frame) {
 void Desk::frame_next(Nanos sync_wait) {
   static csv fn_id = "FRAME_NEXT";
 
-  if (playing()) {
+  if (rendering()) {
     frame_timer.expires_after(sync_wait);
     frame_timer.async_wait([this](const error_code &ec) {
       if (!ec) {
@@ -125,7 +125,7 @@ void Desk::frame_next(Nanos sync_wait) {
                 frame_release(frame);
                 stats.frames++;
               } else {
-                sync_wait = pet::percent(lead_time, 0.33); // attempt to not miss frames
+                sync_wait = pet::percent(lead_time, 33); // attempt to not miss frames
                 stats.none++;
               }
 
@@ -137,7 +137,7 @@ void Desk::frame_next(Nanos sync_wait) {
             });
 
       } else {
-        __LOG0(LCOL01 " playing={} reason={}\n", moduleID(), fn_id, playing(), ec.message());
+        __LOG0(LCOL01 " rendering={} reason={}\n", moduleID(), fn_id, rendering(), ec.message());
       }
     });
   }
@@ -213,7 +213,7 @@ void Desk::save_anchor_data(anchor::Data data) {
   auto anchor = Anchor::ptr().get();
   anchor->save(data);
 
-  adjust_play_mode(data.play_mode());
+  adjust_mode(data.render_mode());
 }
 
 // misc debug and logging API
@@ -230,7 +230,7 @@ void Desk::log_despooled(shFrame frame, const Nanos elapsed) {
       playable++;
       if ((frame->sync_wait < 10ms) && ((no_playable % 1000) == 0)) {
         fmt::format_to(w, " seq_num={} sync_wait={} state={}", frame->seq_num,
-                       pe_time::as_duration<Nanos, MillisFP>(frame->sync_wait),
+                       pet::as_duration<Nanos, MillisFP>(frame->sync_wait),
                        Frame::stateVal(frame));
       }
     } else {
@@ -241,7 +241,7 @@ void Desk::log_despooled(shFrame frame, const Nanos elapsed) {
       }
     }
 
-    if (elapsed >= pet::percent(lead_time, 0.5)) {
+    if (elapsed >= pet::percent(lead_time, 50)) {
       fmt::format_to(w, " elapsed={:0.2}", pet::as_millis_fp(elapsed));
     }
 

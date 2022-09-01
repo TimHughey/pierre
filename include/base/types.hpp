@@ -52,8 +52,8 @@ typedef float MagScaled;
 typedef float Scaled;
 typedef float Unscaled;
 
-// stream is playing or not playing
-constexpr csv NOT_PLAYING{"NOT PLAYING"};
-constexpr csv PLAYING{"PLAYING"};
+// stream is rendering or not rendering
+constexpr csv NOT_RENDERING{"NOT RENDERING"};
+constexpr csv RENDERING{"RENDERING"};
 
 } // namespace pierre

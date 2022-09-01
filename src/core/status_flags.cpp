@@ -37,7 +37,7 @@ StatusFlags &StatusFlags::ready() {
   return *this;
 }
 
-StatusFlags &StatusFlags::playing() {
+StatusFlags &StatusFlags::rendering() {
   _flags.set(AudioLink);
   _flags.set(RemoteControlRelay);
   _flags.set(ReceiverSessionIsActive);

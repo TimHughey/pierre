@@ -18,7 +18,7 @@
 
 #include "rtp_time/anchor.hpp"
 #include "base/input_info.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "rtp_time/anchor/data.hpp"
 #include "rtp_time/clock.hpp"
@@ -55,7 +55,7 @@ const anchor::Data &Anchor::getData() {
   auto &last = data(anchor::Entry::LAST);
   auto &recent = data(anchor::Entry::RECENT);
   auto &is_new = ptr()->_is_new;
-  auto now_ns = pe_time::nowNanos();
+  auto now_ns = pet::nowNanos();
 
   if (clock_info.ok() == false) { // master clock doesn't exist
     return anchor::INVALID_DATA;  // return default (invalid) info
@@ -63,7 +63,7 @@ const anchor::Data &Anchor::getData() {
 
   // prefer the master clock when anchor clock and master clock match
 
-  if (clock_info.clockID == recent.clockID) {
+  if (clock_info.clock_id == recent.clock_id) {
     // master clock is stabilizing
     if (clock_info.masterFor() < MasterClock::Info::AGE_MIN) {
       return anchor::INVALID_DATA; // return default (invalid) data
@@ -81,22 +81,22 @@ const anchor::Data &Anchor::getData() {
     // ok, we've confirmed the master clock and we have recent data
 
     // are we already synced to this clock?
-    if (clock_info.clockID == recent.clockID) {
+    if (clock_info.clock_id == recent.clock_id) {
       if (clock_info.masterFor(now_ns) < 1.5s) {
         __LOG0(LCOL01 "too young {:0.3}\n", Anchor::moduleId, //
-               csv("MASTER"), pe_time::as_secs(clock_info.masterFor(now_ns)));
+               csv("MASTER"), pet::as_secs(clock_info.masterFor(now_ns)));
 
         return anchor::INVALID_DATA;
 
       } else if ((last.valid == false) || (clock_info.masterFor(now_ns) > 5s)) {
         last = recent;
-        last.localTime = Nanos(recent.networkTime - clock_info.rawOffset);
+        last.local_time = Nanos(recent.network_time - clock_info.rawOffset);
         last.setLocalTimeAt(now_ns); // capture when local time calculated
 
         if (is_new) {
           __LOG0(LCOL01 " valid clockId={:#x} master_for={:<0.3}\n", //
-                 Anchor::moduleId, csv("MASTER"), clock_info.clockID,
-                 pe_time::as_secs(clock_info.masterFor(now_ns)));
+                 Anchor::moduleId, csv("MASTER"), clock_info.clock_id,
+                 pet::as_secs(clock_info.masterFor(now_ns)));
 
           is_new = false;
         }
@@ -111,12 +111,12 @@ const anchor::Data &Anchor::getData() {
   // to the master clock
 
   if (is_new) { // log the anchor clock has changed since
-    __LOG0(LCOL01 " change isNew={} clockID={:x} masterClockID={:x} masterFor={}\n",
-           Anchor::moduleId, csv("MASTER"), is_new, recent.clockID, clock_info.clockID,
-           pe_time::as_secs(clock_info.masterFor(now_ns)));
+    __LOG0(LCOL01 " change isNew={} clock_id={:x} masterClockID={:x} masterFor={}\n",
+           Anchor::moduleId, csv("MASTER"), is_new, recent.clock_id, clock_info.clock_id,
+           pet::as_secs(clock_info.masterFor(now_ns)));
 
     last = recent;
-    last.localTime = Nanos(recent.networkTime - clock_info.rawOffset);
+    last.local_time = Nanos(recent.network_time - clock_info.rawOffset);
     last.setLocalTimeAt(now_ns); // capture when local time calculated
 
     is_new = false;
@@ -126,17 +126,17 @@ const anchor::Data &Anchor::getData() {
 
   if (last.valid && (is_new == false)) {
     if (last.sinceUpdate() > 5s) {
-      recent.networkTime = last.localAtNanos.count() + clock_info.rawOffset;
+      recent.network_time = last.local_at.count() + clock_info.rawOffset;
 
-      if (clock_info.clockID == actual.clockID) { // original anchor clock is master again
+      if (clock_info.clock_id == actual.clock_id) { // original anchor clock is master again
         __LOG0(LCOL01 " matches original anchor clockId={:#x} deviation={}\n", //
-               Anchor::moduleId, csv("MASTER"), clock_info.clockID,
-               pe_time::as_secs(Nanos(recent.networkTime - actual.networkTime)));
+               Anchor::moduleId, csv("MASTER"), clock_info.clock_id,
+               pet::as_secs(Nanos(recent.network_time - actual.network_time)));
       }
 
       recent = actual; // switch back to the actual clock
     } else {
-      recent.clockID = clock_info.clockID;
+      recent.clock_id = clock_info.clock_id;
     }
 
     is_new = false;
@@ -149,20 +149,20 @@ const anchor::Data &Anchor::getData() {
 void Anchor::invalidateLastIfQuickChange(const anchor::Data &data) {
   auto &last = _datum[anchor::Entry::LAST];
 
-  if ((data.clockID == last.clockID) && (last.validFor() < anchor::VALID_MIN_DURATION)) {
+  if ((data.clock_id == last.clock_id) && (last.validFor() < anchor::VALID_MIN_DURATION)) {
     last.valid = false;
   }
 }
 
-bool Anchor::playEnabled() { return ptr()->cdata(anchor::Entry::RECENT).playing(); }
+bool Anchor::playEnabled() { return ptr()->cdata(anchor::Entry::RECENT).rendering(); }
 
 void Anchor::save(anchor::Data &ad) {
-  if ((ad.clockID == 0x00) || (ad.rate == 0)) {
+  if ((ad.clock_id == 0x00) || (ad.rate == 0)) {
     teardown();
     return;
   }
 
-  ad.calcNetTime(); // always ensure networkTime is populated
+  ad.calcNetTime(); // always ensure network_time is populated
 
   auto &actual = _datum[anchor::Entry::ACTUAL];
   auto &last = _datum[anchor::Entry::LAST];
@@ -172,7 +172,7 @@ void Anchor::save(anchor::Data &ad) {
     _is_new = true;
 
     __LOG0(LCOL01 " clock={:#x} {}\n", moduleId, csv("RECENT"), //
-           ad.clockID, ad.clockID == last.clockID ? csv("SAME") : csv("NEW"));
+           ad.clock_id, ad.clock_id == last.clock_id ? csv("SAME") : csv("NEW"));
   }
 
   if ((ad <=> recent) > 0) { // known anchor clock details have changed
@@ -180,23 +180,23 @@ void Anchor::save(anchor::Data &ad) {
       last.valid = false;
 
       __LOG0(LCOL01 " change before stablized clockId={:#x}\n", moduleId, //
-             csv("MASTER"), ad.clockID);
+             csv("MASTER"), ad.clock_id);
     }
   }
 
   // ok, sanity checks complete
-  recent = ad;               // save as recent (since it is)
-  recent.setAt().setValid(); // mark it as valid (can be used to calculate local time)
+  recent = ad;       // save as recent (since it is)
+  recent.setValid(); // mark it as valid (can be used to calculate local time)
 
-  actual = ad;               // save as actual (to detect when anchor and master are the same)
-  actual.setAt().setValid(); // also mark valid and set when it was seen
+  actual = ad;       // save as actual (to detect when anchor and master are the same)
+  actual.setValid(); // also mark valid and set when it was seen
 
   invalidateLastIfQuickChange(ad); // if clock details have changed quickly, invalidate last
 
-  // we have now saved the new anchor info, noted if this is a new clockID and possibly
+  // we have now saved the new anchor info, noted if this is a new clock_id and possibly
   // invalidated last if the clock is changing too quickly
 
-  // deciding which clock to use for accurate networkTime is handled by getInfo()
+  // deciding which clock to use for accurate network_time is handled by getInfo()
 }
 
 void Anchor::teardown() { _datum.fill(anchor::Data()); }

@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/helpers.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 
 #include <chrono>
@@ -41,7 +41,7 @@ public:
   static constexpr double fps() { return rate / 1024.0; }
   static constexpr MillisFP frame_ms() { return MillisFP(1000.0 / fps()); }
   template <typename T> static constexpr T frame() {
-    return pe_time::cast<MillisFP, T>(frame_ms());
+    return pet::cast<MillisFP, T>(frame_ms());
   }
 };
 

@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "desk/session/data.hpp"
@@ -122,6 +122,8 @@ private:
   void store_ec_last(const error_code ec) {
     asio::defer(streams_strand, [=, this]() { ec_last = ec; });
   }
+
+  // watchdogs
 
   // misc debug
   void log_connected(Elapsed &elapsed);

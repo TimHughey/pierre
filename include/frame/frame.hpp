@@ -21,7 +21,7 @@
 #include "base/elapsed.hpp"
 #include "base/flush_request.hpp"
 #include "base/input_info.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "frame/peaks.hpp"
@@ -141,7 +141,6 @@ public:
 
   bool decipher(); // sodium decipher packet
   void decodeOk() { _state = fra::DECODED; }
-  static shFrame ensureFrame(shFrame frame) { return ok(frame) ? frame : createSilence(); }
   void findPeaks(); // defnition must be in cpp
   bool isReady() const { return peaks_left.use_count() && peaks_right.use_count(); }
   bool isValid() const { return version == 0x02; }
@@ -159,9 +158,7 @@ public:
   size_t payloadSize() const { return _payload.size(); }
 
   // cached frame time info
-  template <typename T> const T nettime() {
-    return pe_time::as_duration<Nanos, T>(cached_nettime);
-  }
+  template <typename T> const T nettime() { return pet::as_duration<Nanos, T>(cached_nettime); }
 
   // state
   bool decoded() const { return stateEqual(fra::DECODED); }
@@ -206,9 +203,7 @@ public:
   static constexpr csv moduleID() { return moduleId; }
 
 private:
-  // NOTE: localTime() and localTimeDiff() must be defined in .cpp due to intentional
-  // limited visibility of Anchor
-  const Nanos localTimeDiff(); // calculate diff between local and frame time
+  const Nanos local_time_diff(); // not inlineed, see .cpp for rationale
 
 public:
   // order dependent
@@ -234,7 +229,6 @@ public:
 
 private:
   // order independent
-
   uint8v _nonce;
   uint8v _tag;
   uint8v _aad;

@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
@@ -50,8 +50,8 @@ Desk *idesk();
 
 class Desk {
 public:
-  static constexpr csv PLAYING{"playing"};
-  static constexpr csv NOT_PLAYING{"not playing"};
+  static constexpr csv RENDERING{"rendering"};
+  static constexpr csv NOT_RENDERING{"not rendering"};
 
 private:
   Desk(const Nanos &lead_time); // must be defined in .cpp to hide FX includes
@@ -60,9 +60,9 @@ public: // instance API
   static void init(const Nanos &lead_time);
 
 public: // general API
-  void adjust_play_mode(csv next_mode);
-  void halt() { adjust_play_mode(NOT_PLAYING); }
-  bool playing() const { return play_mode.front() == PLAYING.front(); }
+  void adjust_mode(csv next_mode);
+  void halt() { adjust_mode(NOT_RENDERING); }
+  bool rendering() const { return render_mode.front() == RENDERING.front(); }
   void save_anchor_data(anchor::Data data); // see .cpp
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
 
@@ -93,7 +93,7 @@ private:
   shFX active_fx;
   Nanos latency;
   work_guard guard;
-  string_view play_mode;
+  string_view render_mode;
   desk::stats stats;
 
   // order independent

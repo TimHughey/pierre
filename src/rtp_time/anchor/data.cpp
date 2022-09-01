@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "rtp_time/anchor/data.hpp"
-#include "base/typical.hpp"
 #include "base/input_info.hpp"
+#include "base/typical.hpp"
 #include "rtp_time/clock.hpp"
 
 #include <chrono>
@@ -57,16 +57,14 @@ void Data::dump() const {
   auto w = std::back_inserter(msg);
 
   fmt::format_to(w, hex_fmt_str, "rate", rate);
-  fmt::format_to(w, hex_fmt_str, "clockID", clockID);
+  fmt::format_to(w, hex_fmt_str, "clock_id", clock_id);
   fmt::format_to(w, dec_fmt_str, "secs", secs);
   fmt::format_to(w, dec_fmt_str, "frac", frac);
   fmt::format_to(w, hex_fmt_str, "flags", flags);
-  fmt::format_to(w, dec_fmt_str, "rtpTime", rtpTime);
-  fmt::format_to(w, dec_fmt_str, "networkTime", networkTime);
-  fmt::format_to(w, dec_fmt_str, "at_nanos", at_nanos);
-  fmt::format_to(w, dec_fmt_str, "localAtNanos", localAtNanos);
+  fmt::format_to(w, dec_fmt_str, "rtp_time", rtp_time);
+  fmt::format_to(w, dec_fmt_str, "network_time", network_time);
   fmt::format_to(w, dec_fmt_str, "valid", valid);
-  fmt::format_to(w, dec_fmt_str, "valid_at_ns", valid_at_ns);
+  fmt::format_to(w, dec_fmt_str, "valid_at", valid_at);
 
   __LOG0(LCOL01 "\n{}\n", moduleID(), csv("DUMP"), msg);
 }

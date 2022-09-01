@@ -24,16 +24,16 @@
 #include <fmt/format.h>
 
 namespace pierre {
-static auto startup = pe_time::nowNanos();
+static auto startup = pet::nowNanos();
 
 // Global Helpers Definitions
 
 const string runTicks() { //
-  return fmt::format("{:>11.1} ", pe_time::elapsed_as<MillisFP>(startup));
+  return fmt::format("{:>11.1} ", pet::elapsed_as<MillisFP>(startup));
 }
 
 void __vlog(fmt::string_view format, fmt::format_args args) {
-  fmt::print("{:>11.1} ", pe_time::elapsed_as<MillisFP>(startup));
+  fmt::print("{:>11.1} ", pet::elapsed_as<MillisFP>(startup));
   fmt::vprint(format, args);
 }
 

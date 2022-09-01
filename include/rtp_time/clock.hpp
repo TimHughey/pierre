@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
@@ -69,7 +69,7 @@ public:
 
 public:
   struct Info {
-    ClockID clockID = 0;       // current master clock
+    ClockID clock_id = 0;      // current master clock
     MasterIP masterClockIp{0}; // IP of master clock
     Nanos sampleTime;          // time when the offset was calculated
     uint64_t rawOffset;        // master clock time = sampleTime + rawOffset
@@ -79,10 +79,10 @@ public:
     static constexpr Nanos AGE_MIN{1500ms};
 
     uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
-    Nanos masterFor(Nanos now = pe_time::nowNanos()) const { return now - mastershipStartTime; }
+    Nanos masterFor(Nanos now = pet::nowNanos()) const { return now - mastershipStartTime; }
 
     bool ok() const {
-      if (clockID == 0) { // no master clock
+      if (clock_id == 0) { // no master clock
         __LOG0(LCOL01 " no clock info\n", moduleId, csv("WARN"));
 
         return false;
@@ -91,13 +91,13 @@ public:
       return true;
     }
 
-    Nanos sampleAge(Nanos now = pe_time::nowNanos()) const {
-      return ok() ? pe_time::elapsed_abs_ns(sampleTime, now) : Nanos::zero();
+    Nanos sampleAge(Nanos now = pet::nowNanos()) const {
+      return ok() ? pet::elapsed_abs_ns(sampleTime, now) : Nanos::zero();
     }
 
     bool tooOld() const {
       if (auto age = sampleAge(); age >= AGE_MAX) {
-        return logAgeIssue("TOO OLD", age);
+        return log_age_issue("TOO OLD", age);
       }
 
       return false;
@@ -107,9 +107,9 @@ public:
     const string inspect() const;
 
   private:
-    bool logAgeIssue(csv msg, const Nanos &diff) const {
-      __LOG0("{:<18} {} clockID={:#x} sampleTime={} age={}\n", //
-             moduleId, msg, clockID, sampleTime, pe_time::as_secs(diff));
+    bool log_age_issue(csv msg, const Nanos &diff) const {
+      __LOG0("{:<18} {} clock_id={:#x} sampleTime={} age={}\n", //
+             moduleId, msg, clock_id, sampleTime, pet::as_secs(diff));
 
       return true; // return false, final rc is inverted
     }
@@ -129,8 +129,7 @@ public:
     uint64_t master_clock_id;             // the current master clock
     char master_clock_ip[64];             // where it's coming from
     uint64_t local_time;                  // the time when the offset was calculated
-    uint64_t local_to_master_time_offset; // add this to the local time to get
-                                          // master clock time
+    uint64_t local_to_master_time_offset; // add this to the local time to get master clock time
     uint64_t master_clock_start_time;     // this is when the master clock became master}
   };
 
@@ -140,6 +139,7 @@ public:
   static shMasterClock ptr();
   static void reset();
 
+  // NOTE: new info is updated every 126ms
   static const Info getInfo() { return ptr()->info(); }
   static bool ok() { return ptr()->getInfo().ok(); };
 

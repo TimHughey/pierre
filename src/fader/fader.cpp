@@ -26,11 +26,11 @@ bool Fader::travel() {
   if (progress == 0.0) {
     // the first invocation (frame 0) represents the origin and start time
     // of the fader
-    start_at = pe_time::nowNanos();
+    start_at = pet::nowNanos();
     progress = 0.0001;
 
   } else {
-    if (auto elapsed = pe_time::elapsed_abs_ns(start_at); elapsed < duration) {
+    if (auto elapsed = pet::elapsed_abs_ns(start_at); elapsed < duration) {
       progress = doTravel(elapsed.count(), duration.count());
     } else {
       doFinish();

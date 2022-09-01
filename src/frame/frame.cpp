@@ -556,7 +556,7 @@ bool Frame::keep(FlushRequest &flush) {
   return rc;
 }
 
-const Nanos Frame::localTimeDiff() {
+const Nanos Frame::local_time_diff() {
   // must be in .cpp due to intentional limiting of Anchor visibility
   if (const auto &data = Anchor::getData(); data.ok()) {
     return data.frameLocalTime(timestamp) - data.netTimeNow();
@@ -567,7 +567,7 @@ const Nanos Frame::localTimeDiff() {
 
 bool Frame::next(const Nanos &lead_time) {
   if (timestamp && seq_num && isReady()) { // frame is legit
-    const auto diff = localTimeDiff();
+    const auto diff = local_time_diff();
 
     if (diff != Nanos::min()) { // anchor is ready
 
@@ -615,7 +615,7 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
                    frame->isReady());
 
     if (frame->sync_wait != Nanos::min()) {
-      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->sync_wait));
+      fmt::format_to(w, " diff={:7.2}", pet::as_millis_fp(frame->sync_wait));
     }
 
     if (frame->silence()) {

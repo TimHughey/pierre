@@ -45,11 +45,11 @@ void SetAnchor::saveAnchorInfo() {
   if (rdict.existsAll(keys)) {
     // this is a complete anchor data set
     idesk()->save_anchor_data(anchor::Data{.rate = rdict.uint({dk::RATE}),
-                                           .clockID = rdict.uint({dk::NET_TIMELINE_ID}),
+                                           .clock_id = rdict.uint({dk::NET_TIMELINE_ID}),
                                            .secs = rdict.uint({dk::NET_TIME_SECS}),
                                            .frac = rdict.uint({dk::NET_TIME_FRAC}),
                                            .flags = rdict.uint({dk::NET_TIME_FLAGS}),
-                                           .rtpTime = rdict.uint({dk::RTP_TIME})});
+                                           .rtp_time = rdict.uint({dk::RTP_TIME})});
   } else {
     idesk()->save_anchor_data(anchor::Data{.rate = rdict.uint({dk::RATE})});
   }
@@ -58,86 +58,3 @@ void SetAnchor::saveAnchorInfo() {
 } // namespace reply
 } // namespace airplay
 } // namespace pierre
-
-/*
-
-void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(3, "Connection %d: SETRATEANCHORI %s :: Content-Length %d", conn->connection_number,
-        req->path, req->contentlength);
-
-  plist_t messagePlist = plist_from_rtsp_content(req);
-
-  if (messagePlist != NULL) {
-    pthread_cleanup_push(plist_cleanup, (void *)messagePlist);
-    plist_t item = plist_dict_get_item(messagePlist, "networkTimeSecs");
-    if (item != NULL) {
-      plist_t item_2 = plist_dict_get_item(messagePlist, "networkTimeTimelineID");
-      if (item_2 == NULL) {
-        debug(1, "Can't identify the Clock ID of the player.");
-      } else {
-        uint64_t nid;
-        plist_get_uint_val(item_2, &nid);
-        debug(2, "networkTimeTimelineID \"%" PRIx64 "\".", nid);
-        conn->networkTimeTimelineID = nid;
-      }
-      uint64_t networkTimeSecs;
-      plist_get_uint_val(item, &networkTimeSecs);
-      debug(2, "anchor networkTimeSecs is %" PRIu64 ".", networkTimeSecs);
-
-      item = plist_dict_get_item(messagePlist, "networkTimeFrac");
-      uint64_t networkTimeFrac;
-      plist_get_uint_val(item, &networkTimeFrac);
-      debug(2, "anchor networkTimeFrac is 0%" PRIu64 ".", networkTimeFrac);
-      // it looks like the networkTimeFrac is a fraction where the msb is work
-      // 1/2, the next 1/4 and so on now, convert the network time and fraction
-      // into nanoseconds
-      networkTimeFrac = networkTimeFrac >> 32; // reduce precision to about 1/4 nanosecond
-      networkTimeFrac = networkTimeFrac * 1000000000;
-      networkTimeFrac = networkTimeFrac >> 32; // we should now be left with the ns
-
-      networkTimeSecs = networkTimeSecs * 1000000000; // turn the whole seconds into ns
-      uint64_t anchorTimeNanoseconds = networkTimeSecs + networkTimeFrac;
-
-      debug(2, "anchorTimeNanoseconds looks like %" PRIu64 ".", anchorTimeNanoseconds);
-
-      item = plist_dict_get_item(messagePlist, "rtpTime");
-      uint64_t rtpTime;
-
-      plist_get_uint_val(item, &rtpTime);
-      // debug(1, "anchor rtpTime is %" PRId64 ".", rtpTime);
-      uint32_t anchorRTPTime = rtpTime;
-
-      int32_t added_latency = (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
-      // debug(1,"anchorRTPTime: %" PRIu32 ", added latency: %" PRId32 ".",
-      // anchorRTPTime, added_latency);
-      set_ptp_anchor_info(conn, conn->networkTimeTimelineID, anchorRTPTime - added_latency,
-                          anchorTimeNanoseconds);
-    }
-
-    item = plist_dict_get_item(messagePlist, "rate");
-    if (item != NULL) {
-      uint64_t rate;
-      plist_get_uint_val(item, &rate);
-      debug(3, "anchor rate 0x%016" PRIx64 ".", rate);
-      debug_mutex_lock(&conn->flush_mutex, 1000, 1);
-      pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
-      conn->ap2_rate = rate;
-      if ((rate & 1) != 0) {
-        debug(2, "Connection %d: Start playing.", conn->connection_number);
-        activity_monitor_signify_activity(1);
-        conn->ap2_play_enabled = 1;
-      } else {
-        debug(2, "Connection %d: Stop playing.", conn->connection_number);
-        activity_monitor_signify_activity(0);
-        conn->ap2_play_enabled = 0;
-      }
-      pthread_cleanup_pop(1); // unlock the conn->flush_mutex
-    }
-    pthread_cleanup_pop(1); // plist_free the messagePlist;
-  } else {
-    debug(1, "missing plist!");
-  }
-  resp->respcode = 200;
-}
-
-*/

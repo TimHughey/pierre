@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -33,15 +33,15 @@ namespace pierre {
 
 class Elapsed {
 public:
-  Elapsed(void) noexcept : nanos(pe_time::nowNanos()) {}
-  Elapsed(int64_t val) noexcept : nanos(pe_time::as_duration<Micros, Nanos>(Micros(val))) {}
+  Elapsed(void) noexcept : nanos(pet::nowNanos()) {}
+  Elapsed(int64_t val) noexcept : nanos(pet::as_duration<Micros, Nanos>(Micros(val))) {}
 
-  template <typename T> T as() const { return pe_time::as_duration<Nanos, T>(elapsed()); }
-  Seconds asSecs() const { return pe_time::as_secs(elapsed()); }
+  template <typename T> T as() const { return pet::as_duration<Nanos, T>(elapsed()); }
+  Seconds asSecs() const { return pet::as_secs(elapsed()); }
 
   Elapsed &freeze() {
     frozen = true;
-    nanos = pe_time::elapsed_abs_ns(nanos);
+    nanos = pet::elapsed_abs_ns(nanos);
     return *this;
   }
 
@@ -54,7 +54,7 @@ public:
   }
 
 private:
-  Nanos elapsed() const { return frozen ? nanos : pe_time::elapsed_abs_ns(nanos); }
+  Nanos elapsed() const { return frozen ? nanos : pet::elapsed_abs_ns(nanos); }
 
 private:
   Nanos nanos;
@@ -110,7 +110,7 @@ private:
   uint32_t _ms;
   bool _frozen = false;
 
-  uint32_t millis() const { return pe_time::now_steady<Millis>().count(); }
+  uint32_t millis() const { return pet::now_steady<Millis>().count(); }
   inline uint32_t val() const { return (_frozen) ? (_ms) : (millis() - _ms); }
 };
 
@@ -183,7 +183,7 @@ private:
 
   static constexpr double seconds_us = 1000.0 * 1000.0;
 
-  uint64_t micros() const { return pe_time::now_steady<Micros>().count(); }
+  uint64_t micros() const { return pet::now_steady<Micros>().count(); }
 
   inline uint32_t val() const { return (_frozen) ? (_us) : (micros() - _us); }
 };

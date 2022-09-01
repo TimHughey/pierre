@@ -58,7 +58,7 @@ public:
   StatusFlags();
 
   StatusFlags &ready();
-  StatusFlags &playing();
+  StatusFlags &rendering();
   uint32_t val() const { return _flags.to_ulong(); }
 
 private:

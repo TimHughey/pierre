@@ -112,7 +112,7 @@ void Service::addSystemFlags() {
 
 void Service::receiverActive(bool on_off) {
   if (on_off == true) {
-    _status_flags.playing();
+    _status_flags.rendering();
 
   } else {
     _status_flags.ready();

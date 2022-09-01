@@ -40,10 +40,7 @@ using TimePoint = std::chrono::time_point<steady_clock>;
 
 typedef uint64_t ClockID; // master clock id
 
-struct pe_time;
-using pet = pe_time;
-
-struct pe_time {
+struct pet {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
 
   static constexpr auto abs(const auto &d1) { return std::chrono::abs(d1); }
@@ -72,12 +69,11 @@ struct pe_time {
     return std::chrono::abs(d1 - d2);
   }
 
-  template <typename T>
-  static T elapsed_as(const Nanos &d1, const Nanos d2 = pe_time::nowNanos()) {
+  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::nowNanos()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
-  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pe_time::nowNanos()) { //
+  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pet::nowNanos()) { //
     return diff_abs(d2, d1);
   }
 
@@ -103,9 +99,10 @@ struct pe_time {
 
   template <typename T> static T now_steady() { return as_duration<Nanos, T>(nowNanos()); }
 
-  template <typename T> static constexpr T percent(T x, float percent) {
+  template <typename T> static constexpr T percent(T x, int percent) {
+    float _percent = percent / 100.0;
     Nanos base = std::chrono::duration_cast<Nanos>(x);
-    auto val = Nanos(static_cast<int64_t>(base.count() * percent));
+    auto val = Nanos(static_cast<int64_t>(base.count() * _percent));
 
     return std::chrono::duration_cast<T>(val);
   }

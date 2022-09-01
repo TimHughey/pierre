@@ -22,7 +22,7 @@
 #pragma once
 
 #include "base/flush_request.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "frame/frame.hpp"
 #include "io/io.hpp"
@@ -54,15 +54,15 @@ public:
   Requisition(strand &src_strand, Reels &src, strand &dst_strand, Reels &dst)
       : src_strand(src_strand), src(src), dst_strand(dst_strand), dst(dst){};
 
-  MillisFP elapsed() const { return pe_time::elapsed_as<MillisFP>(at_ns); }
+  MillisFP elapsed() const { return pet::elapsed_as<MillisFP>(at_ns); }
   void finish(Reels &reels, shReel reel) { finish(reels.emplace_back(reel)->size()); }
   void finish(size_t reel_frames = 0) {
-    elapsed_ns = pe_time::elapsed_abs_ns(at_ns);
+    elapsed_ns = pet::elapsed_abs_ns(at_ns);
 
     if (reel_frames && (elapsed_ns > 1ms)) {
       __LOG0(LCOL01 " frames={} elapsed={:<0.3}\n", moduleId,
              reel_frames ? csv("FINISHED") : csv("INCOMPLETE"), reel_frames,
-             pe_time::as_millis_fp(elapsed_ns));
+             pet::as_millis_fp(elapsed_ns));
     }
 
     at_ns = Nanos::zero();
@@ -71,7 +71,7 @@ public:
 
   void ifNeeded() {
     if (needReel()) {
-      at_ns = pe_time::nowNanos(); // start requisition, guard by caller strand
+      at_ns = pet::nowNanos(); // start requisition, guard by caller strand
 
       asio::post(src_strand, [this]() {
         if (src.empty()) { // src is empty, mark requisition as finished

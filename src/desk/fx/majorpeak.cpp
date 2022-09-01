@@ -20,7 +20,7 @@
 
 #include "desk/fx/majorpeak.hpp"
 #include "base/elapsed.hpp"
-#include "base/pe_time.hpp"
+#include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "desk/desk.hpp"
 #include "desk/unit/all.hpp"
@@ -210,7 +210,7 @@ void MajorPeak::handleFillPinspot(shPeaks peaks) {
   if (start_fader) {
     fill->activate<FillFader>(
         {.origin = color,
-         .duration = pe_time::as_duration<Millis, Nanos>(_fill_spot_cfg.fade_max_ms)});
+         .duration = pet::as_duration<Millis, Nanos>(_fill_spot_cfg.fade_max_ms)});
     _fill_history.push_front(peak);
   }
 }
@@ -260,7 +260,7 @@ void MajorPeak::handleMainPinspot(shPeaks peaks) {
   if (start_fader) {
     main->activate<MainFader>(
         {.origin = color,
-         .duration = pe_time::as_duration<Millis, Nanos>(_main_spot_cfg.fade_max_ms)});
+         .duration = pet::as_duration<Millis, Nanos>(_main_spot_cfg.fade_max_ms)});
     _main_history.push_front(peak);
   }
 }
