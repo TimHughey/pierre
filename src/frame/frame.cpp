@@ -557,19 +557,19 @@ bool Frame::keep(FlushRequest &flush) {
 }
 
 const Nanos Frame::localTimeDiff() {
-  // must be in .cpp due to intentional limiting of visibility of Anchor
+  // must be in .cpp due to intentional limiting of Anchor visibility
   if (const auto &data = Anchor::getData(); data.ok()) {
     return data.frameLocalTime(timestamp) - data.netTimeNow();
-    // return pe_time::elapsed_as<Nanos>(data.netTimeNow(), data.frameLocalTime(timestamp));
   }
 
   return Nanos::min();
 }
 
-bool Frame::next(const Nanos &lead_time, const Nanos &lag) {
+bool Frame::next(const Nanos &lead_time) {
+  if (timestamp && seq_num && isReady()) { // frame is legit
+    const auto diff = localTimeDiff();
 
-  if (timestamp && seq_num && isReady()) {                         // frame is legit
-    if (const auto diff = localTimeDiff(); diff != Nanos::min()) { // anchor is ready
+    if (diff != Nanos::min()) { // anchor is ready
 
       // determine if the state of the frame should be changed based on local time diff
       // we only want to look at specific frame states
@@ -584,21 +584,14 @@ bool Frame::next(const Nanos &lead_time, const Nanos &lag) {
           _state = fra::FUTURE;
         }
 
+        // store the difference as the time to wait before rendering frame
+        // use pet::abs() to ensure future frames have a positive duration
+        sync_wait = playable() ? pet::abs(diff) : Nanos::zero();
+
         __LOGX(LCOL01 " {}\n", moduleId, csv("NEXT_FRAME"), inspect());
       } // end frame state update
     }   // anchor not ready
   }
-
-  // NOTE:
-  // return value is a bool for the callers use to determine the next action:
-  //  1. frame is playable, render it
-  //  2. frame is future, schedule it for future rendering
-  //  3. no frame located - render silcnce or the previous frame
-
-  // ensure the sync-wait is properly calculated for playable or future frames
-  // we store the initial sync_wait for lag/latency calculations downstream
-
-  sync_wait_initial = calc_sync_wait(lag); // calc sync checks playable
 
   return playable();
 }
@@ -621,8 +614,8 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
                    frame->seq_num, frame->timestamp, frame->_state, frame.use_count(),
                    frame->isReady());
 
-    if (frame->sync_wait_initial != Nanos::min()) {
-      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->sync_wait_initial));
+    if (frame->sync_wait != Nanos::min()) {
+      fmt::format_to(w, " diff={:7.2}", pe_time::as_millis_fp(frame->sync_wait));
     }
 
     if (frame->silence()) {

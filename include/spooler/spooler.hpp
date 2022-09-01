@@ -32,11 +32,14 @@
 #include "spooler/requisition.hpp"
 
 #include <atomic>
+#include <functional>
 #include <future>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <stop_token>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace pierre {
@@ -61,9 +64,58 @@ public:
 
   // general API
   void accept(uint8v &packet);
-  void flush(const FlushRequest &flush_request);
 
-  std::future<shFrame> next_frame(const Nanos lead_time, const Nanos lag);
+  template <typename CompletionToken>
+  auto async_next_frame(const Nanos &lead_time, io_context &io_ctx, CompletionToken &&token) {
+
+    auto initiation = [](auto &&comp_handler, const Nanos &lead_time, io_context &io_ctx) {
+      struct intermediate_handler {
+        const Nanos lead_time;         // the lead time for retrieving the next frame
+        io_context &io_ctx;            // strand for handoff handler
+        shFrame frame;                 // the inflight frame
+        enum { deque, handoff } state; // current state
+        typename std::decay<decltype(comp_handler)>::type handler; // user supplied handler
+
+        void operator()() // async::post() requires a NullaryToken
+        {
+          __LOGX(LCOL01 " state={}\n", "SPOOLER", "ASYNC_NEXT_FRAME", state);
+
+          switch (state) {
+          case deque:
+            // this case is running in spooler strand_out
+            state = handoff; // the next state
+            frame = ispooler()->next_frame(lead_time);
+
+            asio::post(io_ctx, std::move(*this));
+            return; // more async work to do
+
+          case handoff:
+            // we've reached the end of the async::post() chain, call user
+            // supplied handler
+            handler(std::move(frame));
+          }
+        }
+      }; // end intermediate struct
+
+      // initiate post operation via intermediate handler
+      asio::post(                                           // execute async
+          ispooler()->strand_out,                           // strand to use
+          intermediate_handler{lead_time,                   // the lead time
+                               io_ctx,                      // pass along the dst strand
+                               shFrame(),                   // uninitialized frame
+                               intermediate_handler::deque, // initial state
+                               std::forward<decltype(comp_handler)>(comp_handler)});
+    }; // end initiation function
+
+    return asio::async_initiate<CompletionToken, void(shFrame frame)>(
+        initiation,      // initiation function object
+        token,           // user supplied callback
+        lead_time,       // reel containing the frame
+        std::ref(io_ctx) // wrap non-const args to prevent incorrect decay-copies
+    );
+  }
+
+  void flush(const FlushRequest &flush_request);
 
   // public misc debug
   const string inspect() const;
@@ -87,6 +139,8 @@ private:
     // swap kept reels
     std::swap(reels_keep, reels);
   }
+
+  shFrame next_frame(const Nanos lead_time);
 
   void watch_dog();
 

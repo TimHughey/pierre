@@ -35,31 +35,38 @@ namespace desk {
 class stats {
 public:
   stats(io_context &io_ctx, Nanos interval) //
-      : io_ctx(io_ctx), interval(interval), timer(io_ctx) {}
+      : io_ctx(io_ctx), stats_strand(io_ctx), interval(interval), timer(io_ctx) {}
 
   void async_report(const Nanos report_interval) {
     timer.expires_after(report_interval);
-    timer.async_wait([this](const error_code ec) {
-      if (!ec) {
-        __LOG0(LCOL01 " frames={:>6} none={:>6} timeouts={:>6} no_conn={:>6} streams_init={}\n",
-               module_id, "REPORT", frames, none, timeouts, no_conn, streams_init);
+    timer.async_wait( //
+        asio::bind_executor(stats_strand, [this](const error_code ec) {
+          if (!ec) {
+            __LOG0(LCOL01
+                   " frames={:>6} none={:>6} feedbacks={:>6} no_conn={:>6} streams_init={}\n",
+                   module_id, "REPORT", frames, none, feedbacks, no_conn, streams_init);
 
-        async_report(interval);
-      }
-    });
+            async_report(interval);
+          }
+        }));
   }
 
   void cancel() { timer.cancel(); }
 
+  void feedback() {
+    asio::post(stats_strand, [this]() { feedbacks++; });
+  }
+
+  uint64_t feedbacks = 0;    // count of ctrl feedbacks
   uint64_t frames = 0;       // count of processed frames
-  uint64_t none = 0;         // count of no next frame
-  uint64_t timeouts = 0;     // count of spooler next_frame() future timeouts
   uint64_t no_conn = 0;      // count of frames attempted when stream connection unavailable
+  uint64_t none = 0;         // count of no next frame
   uint64_t streams_init = 0; // count of streams initialization
 
 private:
   // order dependent
   io_context &io_ctx;
+  strand stats_strand;
   Nanos interval;
   steady_timer timer;
 

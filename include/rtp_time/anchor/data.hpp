@@ -47,10 +47,10 @@ struct Data {
     uint64_t net_time_fracs = 0;
 
     net_time_fracs >>= 32;
-    net_time_fracs *= pe_time::NS_FACTOR.count();
+    net_time_fracs *= pet::NS_FACTOR.count();
     net_time_fracs >>= 32;
 
-    networkTime = secs * pe_time::NS_FACTOR.count() + net_time_fracs;
+    networkTime = secs * pet::NS_FACTOR.count() + net_time_fracs;
 
     return *this;
   }
@@ -60,7 +60,7 @@ struct Data {
 
     if (valid) {
       int32_t diff_frame = timestamp - rtpTime;
-      int64_t diff_ts = (diff_frame * pe_time::NS_FACTOR.count()) / InputInfo::rate;
+      int64_t diff_ts = (diff_frame * pet::NS_FACTOR.count()) / InputInfo::rate;
 
       local_time = localTime + Nanos(diff_ts);
     }
@@ -68,34 +68,45 @@ struct Data {
     return local_time;
   }
 
-  Seconds netTimeElapsed() const {
-    return pe_time::elapsed_as<Seconds>(netTimeNow() - valid_at_ns);
+  uint32_t localTimeFrame(const Nanos time) { // untested
+    uint32_t frame_time{0};
+
+    if (valid) {
+      Nanos diff_time = time - localTime;
+      int64_t diff_frame = (diff_time.count() * InputInfo::rate) / pet::NS_FACTOR.count();
+      int32_t diff_frame32 = diff_frame;
+      frame_time = rtpTime + diff_frame32;
+    }
+
+    return frame_time;
   }
 
-  Nanos netTimeNow() const { return valid_at_ns + pe_time::elapsed_abs_ns(valid_at_ns); }
+  Seconds netTimeElapsed() const { return pet::elapsed_as<Seconds>(netTimeNow() - valid_at_ns); }
+
+  Nanos netTimeNow() const { return valid_at_ns + pet::elapsed_abs_ns(valid_at_ns); }
 
   bool ok() const { return clockID != 0; }
   csv play_mode() const { return playing() ? PLAYING : NOT_PLAYING; }
   bool playing() const { return rate & 0x01; }
   Data &setAt() {
-    at_nanos = pe_time::nowNanos();
+    at_nanos = pet::nowNanos();
     return *this;
   }
 
-  Data &setLocalTimeAt(Nanos local_at = pe_time::nowNanos()) {
+  Data &setLocalTimeAt(Nanos local_at = pet::nowNanos()) {
     localAtNanos = local_at;
     return *this;
   }
 
   Data &setValid(bool set_valid = true) {
     valid = set_valid;
-    valid_at_ns = pe_time::nowNanos();
+    valid_at_ns = pet::nowNanos();
     return *this;
   }
 
-  Nanos sinceUpdate(const Nanos now = pe_time::nowNanos()) const { return now - localAtNanos; }
+  Nanos sinceUpdate(const Nanos now = pet::nowNanos()) const { return now - localAtNanos; }
 
-  auto validFor() const { return pe_time::nowNanos() - at_nanos; }
+  auto validFor() const { return pet::nowNanos() - at_nanos; }
 
   static Data any_cast(std::any &data) {
     return data.has_value() ? std::any_cast<Data>(data) : Data();

@@ -76,9 +76,9 @@ public:
   //      this is a signal to the caller to keep looking in other reels
   //   2. if a frame is found it may not be playable
   //      handling unplayable frames is left to the caller
-  shFrame next_frame(const Nanos &lead_time, const Nanos &lag) {
+  shFrame next_frame(const Nanos &lead_time) {
     auto next = ranges::find_if(_frames, [&](auto frame) //
-                                { return frame->next(lead_time, lag); });
+                                { return frame->next(lead_time); });
 
     return next != _frames.end() ? *next : shFrame();
   }

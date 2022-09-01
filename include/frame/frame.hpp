@@ -138,24 +138,6 @@ public:
   static void shutdown() { dsp::shutdown(); }
 
   // Public API
-  Nanos calc_sync_wait(Nanos const &lag, bool log = false) {
-    // calc_sync_wait() is called after determination of the frame status
-    // so the localTimeDiff() could be negative (for future frames)
-    // therefore take the abs() value and subtract the lag then
-    // ensure sync_wait is >= 0
-    if (playable()) {
-      sync_wait = pe_time::abs(localTimeDiff()) - lag;
-      sync_wait = (sync_wait < Nanos::zero()) ? Nanos::zero() : sync_wait;
-    }
-
-    if (log) {
-      __LOG0(LCOL01 " seq_num={} sync_wait={:0.2}\n", //
-             moduleID(), "CALC_SYNC", seq_num,        //
-             pe_time::as_duration<Nanos, MillisFP>(sync_wait));
-    }
-
-    return sync_wait;
-  }
 
   bool decipher(); // sodium decipher packet
   void decodeOk() { _state = fra::DECODED; }
@@ -171,7 +153,7 @@ public:
   void mark_played() { _state = fra::PLAYED; }
 
   // nextFrame() returns true when searching should stop; false to keep searching
-  bool next(const Nanos &lead_time, const Nanos &lag);
+  bool next(const Nanos &lead_time);
 
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
@@ -179,10 +161,6 @@ public:
   // cached frame time info
   template <typename T> const T nettime() {
     return pe_time::as_duration<Nanos, T>(cached_nettime);
-  }
-
-  template <typename T> const T sync_wait_elapsed() {
-    return pe_time::as_duration<Nanos, T>(sync_wait_initial);
   }
 
   // state
@@ -201,6 +179,20 @@ public:
   bool stateEqual(fra::StateConst &check) const { return check == _state; }
   bool stateEqual(const fra::States &states) const {
     return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
+  }
+
+  Nanos sync_wait_consume(const Nanos reduce = Nanos::zero(), bool log = false) {
+    auto sync_wait_prev = sync_wait;
+
+    pet::reduce(sync_wait, reduce);
+
+    if (log) {
+      __LOG0(LCOL01 " seq_num={} sync_wait={:0.2} sync_wait_now={:0.2} reduce={}\n", //
+             moduleID(), "SYNC_CONSUME", seq_num, pet::as_millis_fp(sync_wait_prev),
+             pet::as_millis_fp(sync_wait), pet::as_millis_fp(reduce));
+    }
+
+    return sync_wait;
   }
 
   bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
@@ -235,7 +227,6 @@ public:
   int channels = 0;
 
   Nanos cached_nettime = Nanos::min();
-  Nanos sync_wait_initial = Nanos::min(); // frame time diff
   Nanos sync_wait = Nanos::zero();
   fra::State _state = fra::EMPTY;
   shPeaks peaks_left;

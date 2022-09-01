@@ -70,8 +70,7 @@ public: // general API
   static constexpr csv moduleID() { return module_id; }
 
 private:
-  void frame_next() { frame_next(Nanos(lead_time / 2), 1ms); } // only for first call
-  void frame_next(Nanos sync_wait, Nanos lag);                 // frame next loop
+  void frame_next(Nanos sync_wait); // frame next loop
   void frame_release(shFrame frame);
   void frame_render(shFrame frame);
 
@@ -81,19 +80,18 @@ private:
   void next_frame(shFrame frame); // calc timing of next frame
 
   // misc debug
-  void log_despooled(shFrame frame, Elapsed &elapsed);
+  void log_despooled(shFrame frame, const Nanos elapsed);
 
 private:
   // order dependent
-  Nanos lead_time;
+  const Nanos lead_time;
+  const Nanos lead_time_50;
   io_context io_ctx;
-  strand frame_strand;
   steady_timer frame_timer;
   strand streams_strand;
   steady_timer release_timer;
   shFX active_fx;
   Nanos latency;
-  uint8v work_buff;
   work_guard guard;
   string_view play_mode;
   desk::stats stats;
@@ -101,7 +99,6 @@ private:
   // order independent
   Threads threads;
   std::stop_token stop_token;
-
   std::optional<desk::Control> control;
 
   // last error tracking

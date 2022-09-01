@@ -101,7 +101,6 @@ void Control::handshake_reply(Port port) {
 }
 
 void Control::msg_loop() {
-
   io::async_read_msg(*socket, [this](const error_code ec, io::Msg msg) {
     if (!ec) {
       if (msg.key_equal(io::TYPE, FEEDBACK)) {
@@ -122,20 +121,24 @@ void Control::log_connected(Elapsed &elapsed) {
 }
 
 void Control::log_feedback(JsonDocument &doc) {
+  stats.feedback();
+
   Micros async_loop(doc["async_µs"]);
+  Micros jitter(doc["jitter_µs"]);
   Micros remote_elapsed(doc["elapsed_µs"]);
 
   auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
 
-  if ((async_loop > lead_time)) {
-    __LOG0(LCOL01 " seq_num={:<7} async_loop={:0.1} elapsed={:>6} "
-                  "fps={:02.1f} rt={:02.1}\n",
-           moduleID(), " REMOTE ",
+  if (jitter > 10ms) {
+    __LOG0(LCOL01 " sn={:<8} jitter={:12} elapsed={:8} "
+                  "fps={:03.1f}    rt={:03.1}\n",
+           moduleID(), "REMOTE",
            doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
-           pet::as_millis_fp(async_loop), // elapsed time of the async_loop
+           pet::as_millis_fp(jitter),     // sync_wait jitter
            remote_elapsed,                // elapsed time of the async_loop
            doc["fps"].as<float>(),        // frames per second
            pet::as_millis_fp(roundtrip)   // roundtrip time
+
     );
   }
 }

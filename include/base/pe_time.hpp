@@ -110,6 +110,14 @@ struct pe_time {
     return std::chrono::duration_cast<T>(val);
   }
 
+  static constexpr Nanos &reduce(Nanos &val, const Nanos by, const Nanos floor = Nanos::zero()) {
+    Nanos rval = val - by;
+
+    val = (rval >= floor) ? rval : floor;
+
+    return val;
+  }
+
   template <typename T = Nanos> static constexpr T reference() {
     return std::chrono::duration_cast<T>(steady_clock::now().time_since_epoch());
   }
