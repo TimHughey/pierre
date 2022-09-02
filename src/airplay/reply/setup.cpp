@@ -25,7 +25,7 @@
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtp_time/anchor.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 #include "server/servers.hpp"
 
 #include <algorithm>
@@ -82,7 +82,7 @@ bool Setup::handleNoStreams() {
     conn->groupContainsGroupLeader = rdict.boolVal({dk::GROUP_LEADER});
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
-    MasterClock::peers(peers);
+    pierre::shared::master_clock->peers(peers);
 
     Aplist peer_info;
 

@@ -19,7 +19,7 @@
 #include "rtp_time/anchor/data.hpp"
 #include "base/input_info.hpp"
 #include "base/typical.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 
 #include <chrono>
 #include <cmath>

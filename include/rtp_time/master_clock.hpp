@@ -22,6 +22,7 @@
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
+#include "rtp_time/clock_info.hpp"
 
 #include <array>
 #include <chrono>
@@ -54,66 +55,19 @@ struct PeerInfo {
 typedef std::vector<PeerInfo> PeerList;
 
 class MasterClock;
-typedef std::shared_ptr<MasterClock> shMasterClock;
+namespace shared {
+extern std::optional<MasterClock> master_clock;
+}
 
-class MasterClock : public std::enable_shared_from_this<MasterClock> {
+class MasterClock {
 private:
   static constexpr uint16_t CTRL_PORT = 9000; // see note
   static constexpr auto LOCALHOST = "127.0.0.1";
-  static constexpr csv moduleId{"MASTER CLOCK"};
+  static constexpr csv module_id{"MASTER CLOCK"};
   static constexpr uint16_t NQPTP_VERSION = 7;
 
 public:
-  typedef string MasterIP;
   typedef std::vector<string> Peers;
-
-public:
-  struct Info {
-    ClockID clock_id = 0;      // current master clock
-    MasterIP masterClockIp{0}; // IP of master clock
-    Nanos sampleTime;          // time when the offset was calculated
-    uint64_t rawOffset;        // master clock time = sampleTime + rawOffset
-    Nanos mastershipStartTime; // when the master clock became master
-
-    static constexpr Nanos AGE_MAX{10s};
-    static constexpr Nanos AGE_MIN{1500ms};
-
-    uint64_t masterTime(uint64_t ref) const { return ref - rawOffset; }
-    Nanos masterFor(Nanos now = pet::nowNanos()) const { return now - mastershipStartTime; }
-
-    bool ok() const {
-      if (clock_id == 0) { // no master clock
-        __LOG0(LCOL01 " no clock info\n", moduleId, csv("WARN"));
-
-        return false;
-      }
-
-      return true;
-    }
-
-    Nanos sampleAge(Nanos now = pet::nowNanos()) const {
-      return ok() ? pet::elapsed_abs_ns(sampleTime, now) : Nanos::zero();
-    }
-
-    bool tooOld() const {
-      if (auto age = sampleAge(); age >= AGE_MAX) {
-        return log_age_issue("TOO OLD", age);
-      }
-
-      return false;
-    }
-
-    // misc debug
-    const string inspect() const;
-
-  private:
-    bool log_age_issue(csv msg, const Nanos &diff) const {
-      __LOG0("{:<18} {} clock_id={:#x} sampleTime={} age={}\n", //
-             moduleId, msg, clock_id, sampleTime, pet::as_secs(diff));
-
-      return true; // return false, final rc is inverted
-    }
-  };
 
 public:
   struct Inject {
@@ -134,29 +88,33 @@ public:
   };
 
 public:
+  MasterClock(const Inject &di);
+  // prevent copies, moves and assignments
+  MasterClock(const MasterClock &clock) = delete;            // no copy
+  MasterClock(const MasterClock &&clock) = delete;           // no move
+  MasterClock &operator=(const MasterClock &clock) = delete; // no copy assignment
+  MasterClock &operator=(MasterClock &&clock) = delete;      // no move assignment
+
   ~MasterClock() { unMap(); }
-  static shMasterClock init(const Inject &inject);
-  static shMasterClock ptr();
-  static void reset();
+
+  static MasterClock &init(const Inject &inject) { return shared::master_clock.emplace(inject); }
+  static void reset() { shared::master_clock.reset(); }
 
   // NOTE: new info is updated every 126ms
-  static const Info getInfo() { return ptr()->info(); }
-  static bool ok() { return ptr()->getInfo().ok(); };
+  const ClockInfo getInfo();
+  bool ok() { return getInfo().ok(); };
 
-  static void peersReset() { ptr()->peersUpdate(Peers()); }
-  static void peers(const Peers &peer_list) { ptr()->peersUpdate(peer_list); }
+  void peersReset() { peersUpdate(Peers()); }
+  void peers(const Peers &peer_list) { peersUpdate(peer_list); }
 
-  static void teardown() { ptr()->peersReset(); }
+  void teardown() { peersReset(); }
 
   // misc debug
-  static void dump() {
-    __LOG0(LCOL01 " inspect info\n{}\n", moduleId, csv("DUMP"), ptr()->getInfo().inspect());
+  void dump() {
+    __LOG0(LCOL01 " inspect info\n{}\n", module_id, csv("DUMP"), getInfo().inspect());
   }
 
 private:
-  MasterClock(const Inject &di);
-
-  const Info info();
   bool isMapped() const;
   bool mapSharedMem();
   void unMap();
@@ -173,11 +131,6 @@ private:
   void *mapped = nullptr; // mmapped region of nqptp data struct
 
 public:
-  // prevent copies, moves and assignments
-  MasterClock(const MasterClock &clock) = delete;            // no copy
-  MasterClock(const MasterClock &&clock) = delete;           // no move
-  MasterClock &operator=(const MasterClock &clock) = delete; // no copy assignment
-  MasterClock &operator=(MasterClock &&clock) = delete;      // no move assignment
 };
 
 /*

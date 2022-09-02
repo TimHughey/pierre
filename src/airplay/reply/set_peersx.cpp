@@ -20,7 +20,7 @@
 
 #include "reply/set_peersx.hpp"
 #include "reply/dict_keys.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 
 #include <ranges>
 
@@ -46,7 +46,7 @@ bool SetPeersX::populate() {
     }
   }
 
-  MasterClock::peers(peer_list);
+  shared::master_clock->peers(peer_list);
 
   return peer_list.size() ? true : false;
 }

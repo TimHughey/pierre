@@ -21,7 +21,7 @@
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "rtp_time/anchor/data.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 
 #include <array>
 #include <fmt/format.h>
@@ -54,8 +54,8 @@ private:
   Anchor() { _datum.fill(anchor::Data()); }
   const anchor::Data &cdata(anchor::Entry entry) const { return _datum[entry]; };
   static anchor::Data &data(enum anchor::Entry entry) { return ptr()->_datum[entry]; };
-  void infoNewClock(const MasterClock::Info &info);
-  void warnFrequentChanges(const MasterClock::Info &info);
+  void infoNewClock(const ClockInfo &info);
+  void warnFrequentChanges(const ClockInfo &info);
 
 private:
   std::array<anchor::Data, 3> _datum;

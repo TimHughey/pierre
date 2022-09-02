@@ -16,13 +16,12 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
+#include "base/typical.hpp"
 #include "base/uint8v.hpp"
 
 #include <algorithm>
 #include <fcntl.h>
-#include <fmt/chrono.h>
-#include <fmt/format.h>
 #include <iterator>
 #include <pthread.h>
 #include <ranges>
@@ -33,21 +32,11 @@
 namespace pierre {
 
 namespace shared {
-std::optional<shMasterClock> __master_clock;
-std::optional<shMasterClock> &master_clock() { return __master_clock; }
+std::optional<MasterClock> master_clock;
 } // namespace shared
 
 using namespace boost::asio;
 using namespace boost::system;
-namespace ranges = std::ranges;
-
-shMasterClock MasterClock::init(const Inject &inject) {
-  return shared::master_clock().emplace(new MasterClock(inject));
-}
-
-shMasterClock MasterClock::ptr() { return shared::master_clock().value()->shared_from_this(); }
-
-void MasterClock::reset() { shared::master_clock().reset(); }
 
 // create the MasterClock
 MasterClock::MasterClock(const Inject &di)
@@ -57,13 +46,13 @@ MasterClock::MasterClock(const Inject &di)
       endpoint(udp_endpoint(address, CTRL_PORT)),                    // endpoint to use
       shm_name(fmt::format("/{}-{}", di.service_name, di.device_id)) // make shm_name
 {
-  __LOGX(LCOL01 " shm_name={} dest={}\n", moduleId, "CONSTRUCT", shm_name, endpoint.port());
+  __LOGX(LCOL01 " shm_name={} dest={}\n", module_id, "CONSTRUCT", shm_name, endpoint.port());
 }
 
 // NOTE: new data is available every 126ms
-const MasterClock::Info MasterClock::info() {
+const ClockInfo MasterClock::getInfo() {
   if (mapSharedMem() == false) {
-    return Info();
+    return ClockInfo();
   }
 
   int prev_state; // to restore pthread cancel state
@@ -82,7 +71,7 @@ const MasterClock::Info MasterClock::info() {
   if (data.version != NQPTP_VERSION) {
     static string msg;
     fmt::format_to(std::back_inserter(msg), "nqptp version mismatch vsn={}", data.version);
-    __LOG("{:<18} {}\n", moduleId, msg);
+    __LOG0(LCOL01 " {}\n", module_id, "FATAL", msg);
     throw(std::runtime_error(msg.c_str()));
   }
 
@@ -95,7 +84,7 @@ const MasterClock::Info MasterClock::info() {
   auto trim_pos = clock_ip_sv.find_first_of('\0');
   clock_ip_sv.remove_suffix(clock_ip_sv.size() - trim_pos);
 
-  return Info // calculate a local view of the nqptp data
+  return ClockInfo // calculate a local view of the nqptp data
       {.clock_id = data.master_clock_id,
        .masterClockIp = string(clock_ip_sv),
        .sampleTime = pet::from_ns(data.local_time),
@@ -108,7 +97,7 @@ bool MasterClock::isMapped() const {
   auto ok = (mapped && (mapped != MAP_FAILED));
 
   if (!ok && attempts) {
-    __LOG0("{:<18} nqptp data not mapped attempts={}\n", moduleId, attempts);
+    __LOG0("{:<18} nqptp data not mapped attempts={}\n", module_id, attempts);
 
     ++attempts;
   }
@@ -125,7 +114,7 @@ bool MasterClock::mapSharedMem() {
     auto shm_fd = shm_open(shm_name.c_str(), O_RDWR, 0);
 
     if (shm_fd < 0) {
-      __LOG0("{:<18} clock shm_open failed\n", moduleId);
+      __LOG0("{:<18} clock shm_open failed\n", module_id);
       return false;
     }
 
@@ -138,7 +127,7 @@ bool MasterClock::mapSharedMem() {
 
     close(shm_fd); // done with the shm memory fd
 
-    __LOGX("{:<18} clock mapping complete={}\n", moduleId, isMapped());
+    __LOGX("{:<18} clock mapping complete={}\n", module_id, isMapped());
   }
 
   pthread_setcancelstate(prev_state, nullptr);
@@ -147,47 +136,40 @@ bool MasterClock::mapSharedMem() {
 }
 
 void MasterClock::peersUpdate(const Peers &new_peers) {
-  __LOGX(LCOL01 " count={}\n", moduleId, csv("NEW PEERS"), new_peers.size());
+  __LOGX(LCOL01 " count={}\n", module_id, csv("NEW PEERS"), new_peers.size());
 
   // queue the update to prevent collisions
-  local_strand.post([peers = std::move(new_peers), // avoid a copy
-                     self = shared_from_this()]    // hold a ptr to ourself
-                    {
-                      auto &socket = self->socket;
-                      // build the msg: "<shm_name> T <ip_addr> <ip_addr>" +
-                      // null terminator
-                      uint8v msg;
-                      auto w = std::back_inserter(msg);
+  local_strand.post( //
+      [this, peers = std::move(new_peers)]() {
+        // build the msg: "<shm_name> T <ip_addr> <ip_addr>" +
+        // null terminator
+        uint8v msg;
+        auto w = std::back_inserter(msg);
 
-                      fmt::format_to(w, "{} T", self->shm_name);
+        fmt::format_to(w, "{} T", shm_name);
 
-                      if (peers.empty() == false) {
-                        fmt::format_to(w, " {}", fmt::join(peers, " "));
-                      }
+        if (peers.empty() == false) {
+          fmt::format_to(w, " {}", fmt::join(peers, " "));
+        }
 
-                      msg.emplace_back(0x00); // must be null terminated
+        msg.emplace_back(0x00); // must be null terminated
 
-                      __LOGX(LCOL01 " peers={}\n", moduleId, csv("PEERS UPDATE"), msg.view());
+        __LOGX(LCOL01 " peers={}\n", module_id, csv("PEERS UPDATE"), msg.view());
 
-                      error_code ec;
-                      if (socket.is_open() == false) {
-                        socket.open(ip::udp::v4(), ec);
+        error_code ec;
+        if (socket.is_open() == false) {
+          socket.open(ip::udp::v4(), ec);
 
-                        if (ec != errc::success) {
-                          __LOG0(LCOL01 " socket={} open failed reason={}\n", moduleId,
-                                 csv("PEERS UPDATE"), socket.native_handle(), ec.message());
+          if (ec != errc::success) {
+            __LOG0(LCOL01 " socket={} open failed reason={}\n", module_id, csv("PEERS UPDATE"),
+                   socket.native_handle(), ec.message());
 
-                          return;
-                        }
-                      }
+            return;
+          }
+        }
 
-                      [[maybe_unused]] auto tx_bytes =
-                          socket.send_to(buffer(msg),       // need asio buffer
-                                         self->endpoint, 0, // flags
-                                         ec);
-
-                      __LOGX("CLOCK send_to bytes={:>03} ec={}\n", tx_bytes, ec.what());
-                    });
+        socket.send_to(buffer(msg), endpoint, 0, ec);
+      });
 }
 
 void MasterClock::unMap() {
@@ -200,26 +182,6 @@ void MasterClock::unMap() {
   [[maybe_unused]] error_code ec;
   socket.shutdown(udp_socket::shutdown_both, ec);
   socket.close(ec);
-}
-
-const string MasterClock::Info::inspect() const {
-  Nanos now = pet::nowNanos();
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  constexpr auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
-  constexpr auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
-  constexpr auto flt_fmt_str = FMT_STRING("{:>35}={:>+.3}\n");
-
-  fmt::format_to(w, hex_fmt_str, "clockId", clock_id);
-  fmt::format_to(w, dec_fmt_str, "rawOffset", (int64_t)rawOffset);
-  fmt::format_to(w, dec_fmt_str, "now_ns", pet::nowNanos());
-  fmt::format_to(w, dec_fmt_str, "mastershipStart", mastershipStartTime);
-  fmt::format_to(w, dec_fmt_str, "sampleTime", sampleTime);
-  fmt::format_to(w, flt_fmt_str, "master_for_secs", pet::as_secs(masterFor(now)));
-  fmt::format_to(w, flt_fmt_str, "sample_age_secs", pet::as_secs(sampleAge(now)));
-
-  return msg;
 }
 
 } // namespace pierre

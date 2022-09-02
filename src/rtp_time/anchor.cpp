@@ -21,7 +21,7 @@
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "rtp_time/anchor/data.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -50,7 +50,7 @@ void Anchor::reset() { shared::anchor().reset(); }
 // general API and member functions
 
 const anchor::Data &Anchor::getData() {
-  auto clock_info = MasterClock::getInfo();
+  auto clock_info = shared::master_clock->getInfo();
   auto &actual = data(anchor::Entry::ACTUAL);
   auto &last = data(anchor::Entry::LAST);
   auto &recent = data(anchor::Entry::RECENT);
@@ -65,7 +65,7 @@ const anchor::Data &Anchor::getData() {
 
   if (clock_info.clock_id == recent.clock_id) {
     // master clock is stabilizing
-    if (clock_info.masterFor() < MasterClock::Info::AGE_MIN) {
+    if (clock_info.masterFor() < ClockInfo::AGE_MIN) {
       return anchor::INVALID_DATA; // return default (invalid) data
     }
 

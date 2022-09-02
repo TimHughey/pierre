@@ -25,7 +25,7 @@
 #include "core/host.hpp"
 #include "desk/desk.hpp"
 #include "rtp_time/anchor.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 #include "server/servers.hpp"
 
 #include <latch>
@@ -73,8 +73,8 @@ shAirplay Airplay::init() { // static
     self->io_ctx.run(); // run io_ctx on main airplay thread
   });
 
-  threads_latch.wait();      // wait for all threads to start
-  MasterClock::peersReset(); // reset timing peers
+  threads_latch.wait();               // wait for all threads to start
+  shared::master_clock->peersReset(); // reset timing peers
 
   // finally, start listening for Rtsp messages
   airplay::Servers::ptr()->localPort(ServerType::Rtsp);

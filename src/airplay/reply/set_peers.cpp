@@ -20,7 +20,7 @@
 
 #include "reply/set_peers.hpp"
 #include "reply/dict_keys.hpp"
-#include "rtp_time/clock.hpp"
+#include "rtp_time/master_clock.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -36,8 +36,8 @@ bool SetPeers::populate() {
     return false;
   }
 
-  MasterClock::peers(peers);  // set the peer lists
-  responseCode(RespCode::OK); // indicate success
+  shared::master_clock->peers(peers); // set the peer lists
+  responseCode(RespCode::OK);         // indicate success
   return true;
 }
 
