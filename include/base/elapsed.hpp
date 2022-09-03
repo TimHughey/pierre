@@ -33,7 +33,7 @@ namespace pierre {
 
 class Elapsed {
 public:
-  Elapsed(void) noexcept : nanos(pet::nowNanos()) {}
+  Elapsed(void) noexcept : nanos(pet::now_nanos()) {}
   Elapsed(int64_t val) noexcept : nanos(pet::as_duration<Micros, Nanos>(Micros(val))) {}
 
   template <typename T> T as() const { return pet::as_duration<Nanos, T>(elapsed()); }

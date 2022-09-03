@@ -124,13 +124,14 @@ class Frame : public std::enable_shared_from_this<Frame> {
 
 private:
   Frame(uint8v &packet);
-  Frame(uint32_t seq_num, uint32_t timestamp, fra::State state);
+  Frame(fra::State state, const Nanos lead_time);
 
 public:
   // Object Creation
   static shFrame create(uint8v &packet) { return shFrame(new Frame(packet)); }
-  static shFrame create(uint32_t seq_num, uint32_t timestamp, fra::State state = fra::DECODED) {
-    return shFrame(new Frame(seq_num, timestamp, state));
+  static shFrame create(const Nanos lead_time = InputInfo::frame<Nanos>(),
+                        fra::State state = fra::DECODED) {
+    return shFrame(new Frame(state, lead_time));
   }
 
   // Digital Signal Analysis (hidden in .cpp)
@@ -221,14 +222,15 @@ public:
   int samples_per_channel = 0;
   int channels = 0;
 
-  Nanos cached_nettime = Nanos::min();
-  Nanos sync_wait = Nanos::zero();
-
-  fra::State state = fra::EMPTY;
+  const Nanos created_at{pet::now_monotonic()};
+  Nanos sync_wait = Nanos::zero(); // order dependent
+  const Nanos lead_time;           // order dependent
+  fra::State state = fra::EMPTY;   // order dependent
 
   shPeaks peaks_left;
   shPeaks peaks_right;
   bool use_anchor = true;
+  Nanos cached_nettime = Nanos::min();
 
 private:
   // order independent

@@ -35,7 +35,7 @@ struct ClockInfo {
   static constexpr Nanos AGE_MAX{10s};
   static constexpr Nanos AGE_MIN{1500ms};
 
-  Nanos masterFor(Nanos now = pet::nowNanos()) const { return now - mastershipStartTime; }
+  Nanos masterFor(Nanos now = pet::now_nanos()) const { return now - mastershipStartTime; }
 
   bool ok() const {
     bool rc = clock_id != 0;
@@ -47,7 +47,7 @@ struct ClockInfo {
     return rc;
   }
 
-  Nanos sampleAge(Nanos now = pet::nowNanos()) const {
+  Nanos sampleAge(Nanos now = pet::now_nanos()) const {
     return ok() ? pet::elapsed_abs_ns(sampleTime, now) : Nanos::zero();
   }
 

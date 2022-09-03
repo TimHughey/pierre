@@ -65,6 +65,10 @@ struct Data {
     return calced;
   }
 
+  Nanos frame_diff(uint32_t timestamp) const {
+    return ok() ? frameLocalTime(timestamp) - netTimeNow() : Nanos::min();
+  }
+
   uint32_t localTimeFrame(const Nanos time) { // untested
     uint32_t frame_time{0};
 
@@ -86,20 +90,20 @@ struct Data {
   csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
   bool rendering() const { return rate & 0x01; }
 
-  Data &setLocalTimeAt(Nanos _local_at = pet::nowNanos()) {
+  Data &setLocalTimeAt(Nanos _local_at = pet::now_nanos()) {
     local_at = _local_at;
     return *this;
   }
 
   Data &setValid(bool set_valid = true) {
     valid = set_valid;
-    valid_at = pet::nowNanos();
+    valid_at = pet::now_nanos();
     return *this;
   }
 
-  Nanos sinceUpdate(const Nanos now = pet::nowNanos()) const { return now - valid_at; }
+  Nanos sinceUpdate(const Nanos now = pet::now_nanos()) const { return now - valid_at; }
 
-  auto validFor() const { return pet::nowNanos() - valid_at; }
+  auto validFor() const { return pet::now_nanos() - valid_at; }
 
   static Data any_cast(std::any &data) {
     return data.has_value() ? std::any_cast<Data>(data) : Data();

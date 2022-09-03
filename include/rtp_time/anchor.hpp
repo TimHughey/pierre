@@ -39,6 +39,12 @@ public:
   static shAnchor ptr();
   static void reset();
 
+  static Nanos frame_diff(const uint32_t timestamp) {
+    const auto &data = Anchor::getData();
+
+    return data.frame_diff(timestamp);
+  }
+
   static const anchor::Data &getData();
   void invalidateLastIfQuickChange(const anchor::Data &data);
   static bool playEnabled();

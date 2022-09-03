@@ -71,7 +71,7 @@ public:
 
   void ifNeeded() {
     if (needReel()) {
-      at_ns = pet::nowNanos(); // start requisition, guard by caller strand
+      at_ns = pet::now_nanos(); // start requisition, guard by caller strand
 
       asio::post(src_strand, [this]() {
         if (src.empty()) { // src is empty, mark requisition as finished

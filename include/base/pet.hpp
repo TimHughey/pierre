@@ -70,11 +70,11 @@ struct pet {
     return std::chrono::abs(d1 - d2);
   }
 
-  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::nowNanos()) {
+  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_nanos()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
-  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pet::nowNanos()) { //
+  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pet::now_nanos()) { //
     return diff_abs(d2, d1);
   }
 
@@ -83,16 +83,16 @@ struct pet {
   static constexpr Nanos negative(Nanos d) { return Nanos::zero() - d; }
 
   template <typename T = Nanos> static T now_monotonic() {
-    return std::chrono::duration_cast<T>(nowNanos());
+    return std::chrono::duration_cast<T>(now_nanos());
   }
 
   template <typename T = Nanos> static T now_epoch() {
     return std::chrono::duration_cast<T>(system_clock::now().time_since_epoch());
   }
 
-  static Millis nowMillis() { return std::chrono::duration_cast<Millis>(nowNanos()); }
+  static Millis nowMillis() { return std::chrono::duration_cast<Millis>(now_nanos()); }
 
-  static Nanos nowNanos() {
+  static Nanos now_nanos() {
     struct timespec tn;
     clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
 
@@ -102,7 +102,7 @@ struct pet {
     return Nanos(secs_part + ns_part);
   }
 
-  template <typename T> static T now_steady() { return as_duration<Nanos, T>(nowNanos()); }
+  template <typename T> static T now_steady() { return as_duration<Nanos, T>(now_nanos()); }
 
   template <typename T> static constexpr T percent(T x, int percent) {
     float _percent = percent / 100.0;
