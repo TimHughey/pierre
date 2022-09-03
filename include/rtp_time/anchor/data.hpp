@@ -78,7 +78,7 @@ struct Data {
     return frame_time;
   }
 
-  Seconds netTimeElapsed() const { return pet::elapsed_as<Seconds>(netTimeNow() - valid_at); }
+  SecondsFP netTimeElapsed() const { return pet::elapsed_as<SecondsFP>(netTimeNow() - valid_at); }
 
   Nanos netTimeNow() const { return valid_at + pet::elapsed_abs_ns(valid_at); }
 

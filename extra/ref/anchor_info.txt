@@ -1,0 +1,53 @@
+                               rate=0x1
+                           clock_id=0xa483e7ab91ea0008
+                               secs=420022
+                               frac=16441863253795012608
+                              flags=0x0
+                           rtp_time=1651873152
+                       network_time=420022000000000
+                              valid=false
+                           valid_at=0ns
+
+                             rate=0x1
+                           clock_id=0xa483e7ab91ea0008
+                               secs=425709
+                               frac=944506759500791808
+                              flags=0x0
+                           rtp_time=1959213440
+                       network_time=425709000000000
+                              valid=false
+                           valid_at=0ns
+
+                               rate=0x1
+                           clock_id=0xa483e7ab91ea0008
+                               secs=428242
+                               frac=12534165218554544128
+                              flags=0x0
+                           rtp_time=147757331
+                       network_time=428242000000000
+                              valid=false
+                           valid_at=0ns
+             now_steady secs/micros=165280s 165280001005µs
+
+                               rate=0x1
+                           clock_id=0xa483e7ab91ea0008
+                               secs=428524
+                               frac=4676103211390599168
+                              flags=0x0
+                           rtp_time=3510211991
+                       network_time=428524000000000
+                              valid=false
+                           valid_at=0ns
+             now_steady secs/micros=165562s 165561582865µs 165561582ms
+
+                               rate=0x1
+                           clock_id=0xa483e7ab91ea0008
+                               secs=428961
+                               frac=9816930541788725248
+                              flags=0x0
+                           rtp_time=1882436081
+                       network_time=428961000000000
+                              valid=false
+                           valid_at=0ns
+             now_steady secs/micros=165999s 165998860081µs 165998860ms
+        now_since epoch secs/micros=1.6622e+09s 1662204278971609µs 1662204278971ms

@@ -124,14 +124,14 @@ class Frame : public std::enable_shared_from_this<Frame> {
 
 private:
   Frame(uint8v &packet);
-  Frame(uint8_t version, fra::State state, bool silence)
-      : version(version), _state(state), peaks_left(Peaks::create()), peaks_right(Peaks::create()),
-        _silence(silence) {}
+  Frame(uint32_t seq_num, uint32_t timestamp, fra::State state);
 
 public:
   // Object Creation
   static shFrame create(uint8v &packet) { return shFrame(new Frame(packet)); }
-  static shFrame createSilence() { return shFrame(new Frame(0x02, fra::PLAYABLE, true)); }
+  static shFrame create(uint32_t seq_num, uint32_t timestamp, fra::State state = fra::DECODED) {
+    return shFrame(new Frame(seq_num, timestamp, state));
+  }
 
   // Digital Signal Analysis (hidden in .cpp)
   static void init() { dsp::init(); }
@@ -140,7 +140,7 @@ public:
   // Public API
 
   bool decipher(); // sodium decipher packet
-  void decodeOk() { _state = fra::DECODED; }
+  void decodeOk() { state = fra::DECODED; }
   void findPeaks(); // defnition must be in cpp
   bool isReady() const { return peaks_left.use_count() && peaks_right.use_count(); }
   bool isValid() const { return version == 0x02; }
@@ -149,7 +149,7 @@ public:
   // if so, runs the frame through av::parse and performs async digial signal analysis
   bool keep(FlushRequest &flush);
 
-  void mark_played() { _state = fra::PLAYED; }
+  void mark_played() { state = fra::PLAYED; }
 
   // nextFrame() returns true when searching should stop; false to keep searching
   bool next(const Nanos &lead_time);
@@ -169,11 +169,11 @@ public:
   bool playable() const { return stateEqual({fra::PLAYABLE, fra::FUTURE}); }
   bool played() const { return stateEqual(fra::PLAYED); }
   bool purgeable() const { return stateEqual({fra::OUTDATED, fra::PLAYED}); }
-  bool silence() const { return _silence; }
+  bool silent() const { return Peaks::silence(peaks_left) && Peaks::silence(peaks_right); }
   static fra::StateConst &stateVal(shFrame frame) {
-    return frame.use_count() ? frame->_state : fra::EMPTY;
+    return frame.use_count() ? frame->state : fra::EMPTY;
   }
-  bool stateEqual(fra::StateConst &check) const { return check == _state; }
+  bool stateEqual(fra::StateConst &check) const { return check == state; }
   bool stateEqual(const fra::States &states) const {
     return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
   }
@@ -195,12 +195,12 @@ public:
   bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
 
   // class member functions
-  friend void swap(Frame &a, Frame &b); // swap specialization
+  // friend void swap(Frame &a, Frame &b); // swap specialization
 
   // misc debug
   const string inspect() { return inspectFrame(shared_from_this()); }
   static const string inspectFrame(shFrame frame, bool full = false);
-  static constexpr csv moduleID() { return moduleId; }
+  static constexpr csv moduleID() { return module_id; }
 
 private:
   const Nanos local_time_diff(); // not inlineed, see .cpp for rationale
@@ -223,9 +223,12 @@ public:
 
   Nanos cached_nettime = Nanos::min();
   Nanos sync_wait = Nanos::zero();
-  fra::State _state = fra::EMPTY;
+
+  fra::State state = fra::EMPTY;
+
   shPeaks peaks_left;
   shPeaks peaks_right;
+  bool use_anchor = true;
 
 private:
   // order independent
@@ -234,9 +237,7 @@ private:
   uint8v _aad;
   uint8v _payload;
 
-  bool _silence = true;
-
-  static constexpr csv moduleId{"FRAME"};
+  static constexpr csv module_id{"FRAME"};
 };
 
 } // namespace pierre

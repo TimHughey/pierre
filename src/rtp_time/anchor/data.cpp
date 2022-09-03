@@ -52,6 +52,7 @@ namespace anchor {
 void Data::dump() const {
   const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
   const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
+  const auto now_fmt_str = FMT_STRING("{:>35}={} {} {}\n");
 
   string msg;
   auto w = std::back_inserter(msg);
@@ -65,6 +66,16 @@ void Data::dump() const {
   fmt::format_to(w, dec_fmt_str, "network_time", network_time);
   fmt::format_to(w, dec_fmt_str, "valid", valid);
   fmt::format_to(w, dec_fmt_str, "valid_at", valid_at);
+
+  auto now = pet::now_monotonic();
+
+  fmt::format_to(w, now_fmt_str, "now_steady secs/micros", pet::as_secs<Nanos>(now),
+                 pet::as<Micros>(now), pet::as<Millis>(now));
+
+  auto since_epoch = pet::now_epoch();
+
+  fmt::format_to(w, now_fmt_str, "now_since epoch secs/micros", pet::as_secs<Nanos>(since_epoch),
+                 pet::as<Micros>(since_epoch), pet::as<Millis>(since_epoch));
 
   __LOG0(LCOL01 "\n{}\n", moduleID(), csv("DUMP"), msg);
 }

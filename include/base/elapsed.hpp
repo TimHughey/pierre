@@ -37,7 +37,7 @@ public:
   Elapsed(int64_t val) noexcept : nanos(pet::as_duration<Micros, Nanos>(Micros(val))) {}
 
   template <typename T> T as() const { return pet::as_duration<Nanos, T>(elapsed()); }
-  Seconds asSecs() const { return pet::as_secs(elapsed()); }
+  SecondsFP asSecs() const { return pet::as_secs(elapsed()); }
 
   Elapsed &freeze() {
     frozen = true;

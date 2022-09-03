@@ -26,6 +26,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <ranges>
 #include <vector>
@@ -62,6 +63,20 @@ public:
     auto v = ranges::filter_view(view(), vspace);
 
     return string(v.begin(), v.end());
+  }
+
+  uint32_t to_uint32(size_t offset, int n) const {
+    uint32_t val = 0;
+    size_t shift = (n - 1) * 8;
+
+    for (auto it = std::counted_iterator{begin() + offset, n}; //
+         it != std::default_sentinel;                          //
+         ++it, shift -= 8)                                     //
+    {
+      val += *it << shift;
+    }
+
+    return val;
   }
 
   const string_view view() const { return string_view(raw<char>(), size()); }

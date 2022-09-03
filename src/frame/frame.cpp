@@ -58,7 +58,7 @@ void init(); // throws on alloc failures
 uint8_t *mBuffer();
 void parse(shFrame frame);
 bool keep(shFrame frame, int used);
-constexpr auto moduleId = csv("av::FRAME");
+constexpr auto module_id = csv("av::FRAME");
 
 // namespace globals
 AVCodec *codec = nullptr;
@@ -99,7 +99,7 @@ void debugDump() {
   fmt::format_to(w, f, "AVPacket", fmt::ptr(pkt));
   fmt::format_to(w, f, "SwrContext", fmt::ptr(swr));
 
-  __LOG0(LCOL01 "\n{}\n", moduleId, csv("DEBUG DUMP"), msg);
+  __LOG0(LCOL01 "\n{}\n", module_id, csv("DEBUG DUMP"), msg);
 }
 
 void init() {
@@ -150,7 +150,7 @@ bool keep(shFrame frame, int used) {
 
     string msg;
     auto w = std::back_inserter(msg);
-    fmt::format_to(w, "{:<18}", moduleId);
+    fmt::format_to(w, "{:<18}", module_id);
     fmt::format_to(w, " {} used={:<6} size={:<6}",        // fmt
                    pkt->size == 0 ? malformed : decipher, // log reason
                    used, packet_size);
@@ -183,7 +183,7 @@ uint8_t *mBuffer(shCipherBuff m) {
 
 void parse(shFrame frame) {
   if (frame.use_count() == 1) { // packet is no longer in queue
-    __LOG0("{:<18} not queued, skipping decode\n", moduleId);
+    __LOG0("{:<18} not queued, skipping decode\n", module_id);
     return;
   }
 
@@ -225,7 +225,7 @@ void parse(shFrame frame) {
 
   if (ret < 0) {
     __LOG0("{:<18} AV send packet failed decipher_len={} size={} flags={:#b} rc=0x{:x}\n", //
-           moduleId, decipher_len, pkt->size, pkt->flags, ret);
+           module_id, decipher_len, pkt->size, pkt->flags, ret);
     return;
   }
 
@@ -233,7 +233,7 @@ void parse(shFrame frame) {
   ret = avcodec_receive_frame(codec_ctx, decoded_frame);
 
   if (ret != 0) {
-    __LOG0("{:<18} avcodec_receive_frame={}\n", moduleId, ret);
+    __LOG0("{:<18} avcodec_receive_frame={}\n", module_id, ret);
     return;
   }
 
@@ -261,14 +261,14 @@ void parse(shFrame frame) {
        1);                                      // default alignment
 
   __LOGX(LCOL01 " ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
-         moduleId, "INFO", ret, frame->channels, frame->samples_per_channel, dst_bufsize);
+         module_id, "INFO", ret, frame->channels, frame->samples_per_channel, dst_bufsize);
 
   if (dst_bufsize > 0) { // put PCM data into payload
     auto to = std::back_inserter(payload);
     ranges::copy_n(pcm_audio, dst_bufsize, to);
 
     __LOGX(LCOL01 " pcm data={} buf_size={:<5} payload_size={}\n", //
-           moduleId, "INFO", fmt::ptr(pcm_audio), dst_bufsize, payload.size());
+           module_id, "INFO", fmt::ptr(pcm_audio), dst_bufsize, payload.size());
 
     frame->decodeOk();
   }
@@ -283,80 +283,6 @@ void parse(shFrame frame) {
 }
 
 } // namespace av
-
-// frame helpers
-uint32_t to_uint32(uint8v::iterator begin, long int count) {
-  uint32_t val = 0;
-  size_t shift = (count - 1) * 8;
-
-  for (auto it = std::counted_iterator{begin, count}; it != std::default_sentinel;
-       ++it, shift -= 8) {
-    val += *it << shift;
-  }
-
-  return val;
-}
-
-Frame::Frame(uint8v &packet) {
-  uint8_t byte0 = packet[0]; // first byte to pick bits from
-
-  version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
-  padding = ((byte0 & 0b00100000) >> 5);   // has padding
-  extension = ((byte0 & 0b00010000) >> 4); // has extension
-  ssrc_count = ((byte0 & 0b00001111));     // source system record count
-
-  seq_num = to_uint32(packet.begin() + 1, 3);   // note: only three bytes
-  timestamp = to_uint32(packet.begin() + 4, 4); // four bytes
-  ssrc = to_uint32(packet.begin() + 8, 4);      // four bytes
-
-  // grab the end of the packet, we need it for several parts
-  uint8v::iterator packet_end = packet.begin() + packet.size();
-
-  // nonce is the last eight (8) bytes
-  // a complete nonce is 12 bytes so zero pad then append the mini nonce
-  _nonce.assign(4, 0x00);
-  ranges::copy_n(packet_end - 8, 8, std::back_inserter(_nonce));
-
-  // tag is 24 bytes from end and 16 bytes in length
-  uint8v::iterator tag_begin = packet_end - 24;
-  uint8v::iterator tag_end = tag_begin + 16;
-  _tag.assign(tag_begin, tag_end);
-
-  uint8v::iterator aad_begin = packet.begin() + 4;
-  uint8v::iterator aad_end = aad_begin + 8;
-  _aad.assign(aad_begin, aad_end);
-
-  // finally the actual payload, starts at byte 12, ends
-  uint8v::iterator payload_begin = packet.begin() + 12;
-  uint8v::iterator payload_end = packet_end - 8;
-  _payload.assign(payload_begin, payload_end);
-
-  // NOTE: raw packet falls out of scope
-}
-
-// std::swap specialization (friend)
-void swap(Frame &a, Frame &b) {
-  using std::swap;
-
-  // trivial values
-  swap(a.version, b.version);
-  swap(a.padding, b.padding);
-  swap(a.ssrc_count, b.ssrc_count);
-  swap(a.seq_num, b.seq_num);
-  swap(a.timestamp, b.timestamp);
-  swap(a.ssrc, b.ssrc);
-  swap(a.decipher_len, b.decipher_len);
-  swap(a.samples_per_channel, b.samples_per_channel);
-  swap(a.channels, b.channels);
-  swap(a._state, b._state);
-
-  // containers
-  swap(a._m, b._m);
-  swap(a._nonce, b._nonce);
-  swap(a._tag, b._tag);
-  swap(a._aad, b._aad);
-  swap(a._payload, b._payload);
-}
 
 /*
  * Many thanks to:
@@ -448,10 +374,58 @@ void watch_dog() {
 
 } // namespace dsp
 
-// general Frame API and member functions
+// BEGIN FRAME IMPLEMENTATION
+Frame::Frame(uint8v &packet) {
+  uint8_t byte0 = packet[0]; // first byte to pick bits from
+
+  version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
+  padding = ((byte0 & 0b00100000) >> 5);   // has padding
+  extension = ((byte0 & 0b00010000) >> 4); // has extension
+  ssrc_count = ((byte0 & 0b00001111));     // source system record count
+
+  seq_num = packet.to_uint32(1, 3);   // note: only three bytes
+  timestamp = packet.to_uint32(4, 4); // four bytes
+  ssrc = packet.to_uint32(8, 4);      // four bytes
+
+  // grab the end of the packet, we need it for several parts
+  uint8v::iterator packet_end = packet.begin() + packet.size();
+
+  // nonce is the last eight (8) bytes
+  // a complete nonce is 12 bytes so zero pad then append the mini nonce
+  _nonce.assign(4, 0x00);
+  ranges::copy_n(packet_end - 8, 8, std::back_inserter(_nonce));
+
+  // tag is 24 bytes from end and 16 bytes in length
+  uint8v::iterator tag_begin = packet_end - 24;
+  uint8v::iterator tag_end = tag_begin + 16;
+  _tag.assign(tag_begin, tag_end);
+
+  uint8v::iterator aad_begin = packet.begin() + 4;
+  uint8v::iterator aad_end = aad_begin + 8;
+  _aad.assign(aad_begin, aad_end);
+
+  // finally the actual payload, starts at byte 12, ends
+  uint8v::iterator payload_begin = packet.begin() + 12;
+  uint8v::iterator payload_end = packet_end - 8;
+  _payload.assign(payload_begin, payload_end);
+
+  // NOTE: raw packet falls out of scope
+}
+
+Frame::Frame(uint32_t seq_num, uint32_t timestamp, fra::State state)
+    : version(0x02),                // ensure version is valid
+      seq_num(seq_num),             // populate seq_num
+      timestamp(timestamp),         // populate timestamp
+      state(state),                 // populate state (typically fra::DECODED)
+      peaks_left(Peaks::create()),  // ensure left peaks exist (and represent silence)
+      peaks_right(Peaks::create()), // ensure right peaks exist (and represent silence)
+      use_anchor(false)             // do not use Anchor / MasterClock for frame timing
+{}
+
+// Frame API and member functions
 bool Frame::decipher() {
   if (SharedKey::empty()) {
-    __LOG0("{:<18} shared key empty\n", moduleId);
+    __LOG0("{:<18} shared key empty\n", module_id);
 
     return false;
   }
@@ -475,7 +449,7 @@ bool Frame::decipher() {
 
     if (!__reported) {
       __LOG0("{:<18} decipher size={} rc={} decipher_len={} \n", //
-             moduleId, _payload.size(), cipher_rc, decipher_len == 0 ? fra::EMPTY : fra::ERROR);
+             module_id, _payload.size(), cipher_rc, decipher_len == 0 ? fra::EMPTY : fra::ERROR);
       __reported = true;
     }
 
@@ -483,7 +457,7 @@ bool Frame::decipher() {
   }
 
   __LOGX("{:<18} decipher OK rc={} decipher/cipher{:>6}/{:>6}\n", //
-         moduleId, cipher_rc, decipher_len, _payload.size());
+         module_id, cipher_rc, decipher_len, _payload.size());
 
   return true;
 }
@@ -520,8 +494,6 @@ void Frame::findPeaks() {
   peaks_left = fft_left.findPeaks();
   peaks_right = fft_right.findPeaks();
 
-  _silence = Peaks::silence(peaks_left) && Peaks::silence(peaks_right);
-
   // really clear the payload (prevent lingering memory allocations)
   uint8v empty;
   std::swap(empty, _payload);
@@ -529,7 +501,7 @@ void Frame::findPeaks() {
 
 bool Frame::keep(FlushRequest &flush) {
   if (isValid() == false) {
-    __LOG0("{} invalid version=0x{:02x}\n", moduleId, version);
+    __LOG0("{} invalid version=0x{:02x}\n", module_id, version);
 
     return false;
   }
@@ -542,7 +514,7 @@ bool Frame::keep(FlushRequest &flush) {
     if (seq_num > flush.until_seq) { // flush complete
       flush.complete();
 
-      __LOG0("{} FLUSH COMPLETE until_seq={}\n", moduleId, seq_num);
+      __LOG0("{} FLUSH COMPLETE until_seq={}\n", module_id, seq_num);
     }
   }
 
@@ -558,8 +530,11 @@ bool Frame::keep(FlushRequest &flush) {
 
 const Nanos Frame::local_time_diff() {
   // must be in .cpp due to intentional limiting of Anchor visibility
-  if (const auto &data = Anchor::getData(); data.ok()) {
-    return data.frameLocalTime(timestamp) - data.netTimeNow();
+
+  if (use_anchor) {
+    if (const auto &data = Anchor::getData(); data.ok()) {
+      return data.frameLocalTime(timestamp) - data.netTimeNow();
+    }
   }
 
   return Nanos::min();
@@ -575,20 +550,20 @@ bool Frame::next(const Nanos &lead_time) {
       // we only want to look at specific frame states
       if (unplayed()) {
         if (diff < Nanos::zero()) { // old, before required lead time
-          _state = fra::OUTDATED;   // mark as outdated
+          state = fra::OUTDATED;    // mark as outdated
 
         } else if (diff <= lead_time) { // within lead time range
-          _state = fra::PLAYABLE;       // mark as playable
+          state = fra::PLAYABLE;        // mark as playable
 
-        } else if ((diff > lead_time) && (_state == fra::DECODED)) { // future frame
-          _state = fra::FUTURE;
+        } else if ((diff > lead_time) && (state == fra::DECODED)) { // future frame
+          state = fra::FUTURE;
         }
 
         // store the difference as the time to wait before rendering frame
         // use pet::abs() to ensure future frames have a positive duration
         sync_wait = playable() ? pet::abs(diff) : Nanos::zero();
 
-        __LOGX(LCOL01 " {}\n", moduleId, csv("NEXT_FRAME"), inspect());
+        __LOGX(LCOL01 " {}\n", module_id, csv("NEXT_FRAME"), inspect());
       } // end frame state update
     }   // anchor not ready
   }
@@ -611,14 +586,14 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
     }
 
     fmt::format_to(w, " seq_num={:<8} ts={:<12} state={:<10} use_count={} ready={}", //
-                   frame->seq_num, frame->timestamp, frame->_state, frame.use_count(),
+                   frame->seq_num, frame->timestamp, frame->state, frame.use_count(),
                    frame->isReady());
 
     if (frame->sync_wait != Nanos::min()) {
       fmt::format_to(w, " diff={:7.2}", pet::as_millis_fp(frame->sync_wait));
     }
 
-    if (frame->silence()) {
+    if (frame->silent()) {
       fmt::format_to(w, " silence=true");
     }
   }

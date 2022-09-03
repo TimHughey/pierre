@@ -28,7 +28,7 @@ namespace reply {
 bool SetAnchor::populate() {
   rdict = plist();
 
-  __LOGX("{:<18} DICT DUMP {}\n", moduleId, rdict.inspect());
+  __LOGX(LCOL01 "\n{}\n", moduleID(), "DICT DUMP", rdict.inspect());
 
   saveAnchorInfo();
 

@@ -33,7 +33,8 @@ using MicrosFP = std::chrono::duration<double, std::chrono::microseconds::period
 using Millis = std::chrono::milliseconds;
 using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period>;
 using Nanos = std::chrono::nanoseconds;
-using Seconds = std::chrono::duration<long double>;
+using Seconds = std::chrono::seconds;
+using SecondsFP = std::chrono::duration<long double>;
 using steady_clock = std::chrono::steady_clock;
 using system_clock = std::chrono::system_clock;
 using TimePoint = std::chrono::time_point<steady_clock>;
@@ -57,8 +58,8 @@ struct pet {
     return std::chrono::duration_cast<MillisFP>(d);
   }
 
-  template <typename T> static Seconds as_secs(const T &d) {
-    return std::chrono::duration_cast<Seconds>(d);
+  template <typename T> static SecondsFP as_secs(const T &d) {
+    return std::chrono::duration_cast<SecondsFP>(d);
   }
 
   template <typename FROM, typename TO> static constexpr TO cast(auto x) {
@@ -81,7 +82,11 @@ struct pet {
   static constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
   static constexpr Nanos negative(Nanos d) { return Nanos::zero() - d; }
 
-  template <typename T> static T now_epoch() {
+  template <typename T = Nanos> static T now_monotonic() {
+    return std::chrono::duration_cast<T>(nowNanos());
+  }
+
+  template <typename T = Nanos> static T now_epoch() {
     return std::chrono::duration_cast<T>(system_clock::now().time_since_epoch());
   }
 

@@ -34,9 +34,9 @@ class DataMsg : public io::Msg {
 
 public:
   DataMsg(shFrame frame, const Nanos lead_time)
-      : Msg(TYPE),                // init base class
-        dmx_frame(16, 0x00),      // init the dmx frame to all zeros
-        silence(frame->silence()) // is this silence?
+      : Msg(TYPE),               // init base class
+        dmx_frame(16, 0x00),     // init the dmx frame to all zeros
+        silence(frame->silent()) // is this silence?
   {
     add_kv("seq_num", frame->seq_num);
     add_kv("timestamp", frame->timestamp); // RTSP timestamp

@@ -76,7 +76,7 @@ void Desk::adjust_mode(csv next_mode) {
 void Desk::frame_render(shFrame frame) {
   desk::DataMsg data_msg(frame, lead_time);
 
-  if ((active_fx->matchName(fx::SILENCE)) && !frame->silence()) {
+  if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
     active_fx = fx_factory::create<fx::MajorPeak>();
   }
 
@@ -189,6 +189,13 @@ void Desk::init(const Nanos &lead_time) { // static instance creation
   Spooler::init();
 }
 
+void Desk::save_anchor_data(anchor::Data data) {
+  auto anchor = Anchor::ptr().get();
+  anchor->save(data);
+
+  adjust_mode(data.render_mode());
+}
+
 void Desk::streams_deinit() {
   if (desk::i->control) {
     asio::post(streams_strand, [this]() { desk::i->control.reset(); });
@@ -207,13 +214,6 @@ void Desk::streams_init() {
       );
     });
   }
-}
-
-void Desk::save_anchor_data(anchor::Data data) {
-  auto anchor = Anchor::ptr().get();
-  anchor->save(data);
-
-  adjust_mode(data.render_mode());
 }
 
 // misc debug and logging API
