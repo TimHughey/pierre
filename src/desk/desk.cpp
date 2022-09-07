@@ -186,8 +186,7 @@ void Desk::init(const Nanos &lead_time) { // static instance creation
 }
 
 void Desk::save_anchor_data(AnchorData data) {
-  auto anchor = Anchor::ptr().get();
-  anchor->save(data);
+  shared::anchor->save(data);
 
   adjust_mode(data.render_mode());
 }

@@ -30,45 +30,45 @@
 namespace pierre {
 
 class Anchor;
-typedef std::shared_ptr<Anchor> shAnchor;
+namespace shared {
+extern std::optional<Anchor> anchor;
+}
 
-class Anchor : public std::enable_shared_from_this<Anchor> {
+class Anchor {
 public:
-  ~Anchor();
-  static shAnchor init();
-  static shAnchor ptr();
-  static void reset();
+  Anchor() { _datum.fill(AnchorData()); }
+
+  static void init(); // create shared Anchor
 
   static Nanos frame_diff(const uint32_t timestamp) {
-    const auto &data = Anchor::getData();
+    const auto &data = shared::anchor->getData();
 
     return data.ok() ? data.frame_diff(timestamp) : Nanos::min();
   }
 
-  static const AnchorData &getData();
+  const AnchorData &getData();
   void invalidateLastIfQuickChange(const AnchorData &data);
-  static bool playEnabled();
+  static bool playEnabled() { return shared::anchor->cdata(AnchorEntry::RECENT).rendering(); }
   void save(AnchorData &ad);
   void teardown();
 
   // misc debug
   static void dump(auto entry = AnchorEntry::LAST, auto loc = src_loc::current()) {
-    ptr()->cdata(entry).dump(loc);
+    shared::anchor->cdata(entry).dump(loc);
   }
 
 private:
-  Anchor() { _datum.fill(AnchorData()); }
   const AnchorData &cdata(AnchorEntry entry) const { return _datum[entry]; };
-  static AnchorData &data(enum AnchorEntry entry) { return ptr()->_datum[entry]; };
+  AnchorData &data(enum AnchorEntry entry) { return shared::anchor->_datum[entry]; };
   void infoNewClock(const ClockInfo &info);
   void warnFrequentChanges(const ClockInfo &info);
 
 private:
   std::array<AnchorData, 3> _datum;
-  bool _is_new = false;
+  bool is_new = false;
 
   // misc debug
-  static constexpr auto moduleId = csv("ANCHOR");
+  static constexpr auto module_id = csv("ANCHOR");
 
 public:
   Anchor(const Anchor &) = delete;            // no copy

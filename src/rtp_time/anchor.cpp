@@ -34,18 +34,11 @@
 namespace pierre {
 
 namespace shared {
-std::optional<shAnchor> __anchor;
-std::optional<shAnchor> &anchor() { return __anchor; }
+std::optional<Anchor> anchor;
 } // namespace shared
 
-// using namespace std::chrono_literals;
-// namespace chrono = std::chrono;
-
 // destructor, singleton static functions
-Anchor::~Anchor() { __LOG0(LCOL01 "\n", Anchor::moduleId, csv("DESTRUCT")); }
-shAnchor Anchor::init() { return shared::anchor().emplace(new Anchor()); }
-shAnchor Anchor::ptr() { return shared::anchor().value()->shared_from_this(); }
-void Anchor::reset() { shared::anchor().reset(); }
+void Anchor::init() { shared::anchor.emplace(); }
 
 // general API and member functions
 
@@ -54,7 +47,6 @@ const AnchorData &Anchor::getData() {
   auto &actual = data(AnchorEntry::ACTUAL);
   auto &last = data(AnchorEntry::LAST);
   auto &recent = data(AnchorEntry::RECENT);
-  auto &is_new = ptr()->_is_new;
   auto now_ns = pet::now_nanos();
 
   if (clock_info.ok() == false) { // master clock doesn't exist
@@ -74,7 +66,7 @@ const AnchorData &Anchor::getData() {
     // if recent data (set via SET_ANCHOR message) isn't valid
     // nothing we can do, return INVALID_DATA
     if (recent.valid == false) {
-      __LOG0(LCOL01 " invalid\n", Anchor::moduleId, csv("RECENT"));
+      __LOG0(LCOL01 " invalid\n", Anchor::module_id, csv("RECENT"));
       return ANCHOR_INVALID_DATA;
     }
 
@@ -83,7 +75,7 @@ const AnchorData &Anchor::getData() {
     // are we already synced to this clock?
     if (clock_info.clock_id == recent.clock_id) {
       if (clock_info.masterFor(now_ns) < 1.5s) {
-        __LOG0(LCOL01 "too young {:0.3}\n", Anchor::moduleId, //
+        __LOG0(LCOL01 "too young {:0.3}\n", Anchor::module_id, //
                csv("MASTER"), pet::as_secs(clock_info.masterFor(now_ns)));
 
         return ANCHOR_INVALID_DATA;
@@ -95,7 +87,7 @@ const AnchorData &Anchor::getData() {
 
         if (is_new) {
           __LOG0(LCOL01 " valid clockId={:#x} master_for={:<0.3}\n", //
-                 Anchor::moduleId, csv("MASTER"), clock_info.clock_id,
+                 Anchor::module_id, csv("MASTER"), clock_info.clock_id,
                  pet::as_secs(clock_info.masterFor(now_ns)));
 
           is_new = false;
@@ -112,7 +104,7 @@ const AnchorData &Anchor::getData() {
 
   if (is_new) { // log the anchor clock has changed since
     __LOG0(LCOL01 " change isNew={} clock_id={:x} masterClockID={:x} masterFor={}\n",
-           Anchor::moduleId, csv("MASTER"), is_new, recent.clock_id, clock_info.clock_id,
+           Anchor::module_id, csv("MASTER"), is_new, recent.clock_id, clock_info.clock_id,
            pet::as_secs(clock_info.masterFor(now_ns)));
 
     last = recent;
@@ -130,7 +122,7 @@ const AnchorData &Anchor::getData() {
 
       if (clock_info.clock_id == actual.clock_id) { // original anchor clock is master again
         __LOG0(LCOL01 " matches original anchor clockId={:#x} deviation={}\n", //
-               Anchor::moduleId, csv("MASTER"), clock_info.clock_id,
+               Anchor::module_id, csv("MASTER"), clock_info.clock_id,
                pet::as_secs(Nanos(recent.network_time - actual.network_time)));
       }
 
@@ -154,8 +146,6 @@ void Anchor::invalidateLastIfQuickChange(const AnchorData &data) {
   }
 }
 
-bool Anchor::playEnabled() { return ptr()->cdata(AnchorEntry::RECENT).rendering(); }
-
 void Anchor::save(AnchorData &ad) {
   if ((ad.clock_id == 0x00) || (ad.rate == 0)) {
     teardown();
@@ -169,9 +159,9 @@ void Anchor::save(AnchorData &ad) {
   auto &recent = _datum[AnchorEntry::RECENT];
 
   if ((ad <=> recent) < 0) { // this is a new anchor clock
-    _is_new = true;
+    is_new = true;
 
-    __LOG0(LCOL01 " clock={:#x} {}\n", moduleId, csv("RECENT"), //
+    __LOG0(LCOL01 " clock={:#x} {}\n", module_id, csv("RECENT"), //
            ad.clock_id, ad.clock_id == last.clock_id ? csv("SAME") : csv("NEW"));
   }
 
@@ -179,7 +169,7 @@ void Anchor::save(AnchorData &ad) {
     if (last.valid && (last.validFor() < 5s)) {
       last.valid = false;
 
-      __LOG0(LCOL01 " change before stablized clockId={:#x}\n", moduleId, //
+      __LOG0(LCOL01 " change before stablized clockId={:#x}\n", module_id, //
              csv("MASTER"), ad.clock_id);
     }
   }

@@ -70,7 +70,7 @@ bool Setup::populate() {
 }
 
 bool Setup::handleNoStreams() {
-  auto anchor = Anchor::ptr();
+  // auto &anchor = *pierre::shared::anchor;
   auto conn = ConnInfo::ptr();
 
   // deduces cat, type and timing
