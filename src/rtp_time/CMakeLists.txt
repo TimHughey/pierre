@@ -9,9 +9,6 @@ set(HEADER_PATH_LOCAL "${HEADER_PATH}/${__target}")
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 
 add_library(${__target} SHARED 
-  # generic clock info
-  clock_info.cpp
-
   # ptp master clock
   master_clock.cpp 
 

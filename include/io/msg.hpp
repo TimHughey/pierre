@@ -58,7 +58,6 @@ public:
         doc(max_size)                   //
   {
     doc[TYPE] = type;
-    doc[NOW_US] = pet::now_epoch<Micros>().count();
   }
 
   // inbound messages
@@ -104,17 +103,33 @@ public:
 
   auto key_equal(csv key, csv val) const { return val == doc[key]; }
 
+  virtual void finalize() {} // override for additional work prior to serialization
+
   auto serialize() {
     finalize();
 
+    doc[NOW_US] = pet::reference<Micros>().count();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
     packed.reserve(PACKED_DEFAULT_MAX_SIZE);
 
     packed_len = serializeMsgPack(doc, packed.data(), packed.capacity());
+
+    __LOGX(LCOL01 "{}\n", module_id, "INSPECT", inspect());
   }
 
   // misc logging, debug
+  virtual string inspect() const {
+    string msg;
+
+    fmt::format_to(std::back_inserter(msg), " packed_len={}\n", //
+                   measureMsgPack(doc));
+
+    serializeJsonPretty(doc, msg);
+
+    return msg;
+  }
+
   error_code log_rx(const error_code ec, const size_t bytes, const auto err) {
     if (ec || (packed_len != bytes) || err) {
       __LOG0(LCOL01 " failed, bytes={}/{} reason={} deserialize={}\n", module_id, type, bytes,
@@ -132,8 +147,6 @@ public:
 
     return ec;
   }
-
-  virtual void finalize() {} // override for additional work prior to serialization
 
   // order dependent
   string type;

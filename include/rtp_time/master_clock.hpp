@@ -18,11 +18,11 @@
 
 #pragma once
 
+#include "base/clock_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
-#include "rtp_time/clock_info.hpp"
 
 #include <array>
 #include <chrono>
@@ -101,8 +101,8 @@ public:
   static void reset() { shared::master_clock.reset(); }
 
   // NOTE: new info is updated every 126ms
-  const ClockInfo getInfo();
-  bool ok() { return getInfo().ok(); };
+  const ClockInfo info();
+  bool ok() { return info().ok(); };
 
   void peersReset() { peersUpdate(Peers()); }
   void peers(const Peers &peer_list) { peersUpdate(peer_list); }
@@ -110,9 +110,7 @@ public:
   void teardown() { peersReset(); }
 
   // misc debug
-  void dump() {
-    __LOG0(LCOL01 " inspect info\n{}\n", module_id, csv("DUMP"), getInfo().inspect());
-  }
+  void dump() { __LOG0(LCOL01 " inspect info\n{}\n", module_id, csv("DUMP"), info().inspect()); }
 
 private:
   bool isMapped() const;

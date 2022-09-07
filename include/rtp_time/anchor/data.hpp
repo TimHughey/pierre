@@ -28,13 +28,13 @@ namespace pierre {
 namespace anchor {
 
 struct Data {
-  uint64_t rate = 0;
-  ClockID clock_id = 0; // aka clock id
-  uint64_t secs = 0;
-  uint64_t frac = 0;
-  uint64_t flags = 0;
-  uint64_t rtp_time = 0;
-  uint64_t network_time = 0; // from set anchor packet
+  uint64_t rate{0};
+  ClockID clock_id{0}; // aka clock id
+  uint64_t secs{0};
+  uint64_t frac{0};
+  uint64_t flags{0};
+  uint64_t rtp_time{0};
+  Nanos network_time{0};
   Nanos local_time{0};
   Nanos local_at{0};
   bool valid = false;
@@ -47,12 +47,24 @@ struct Data {
     net_time_fracs *= pet::NS_FACTOR.count();
     net_time_fracs >>= 32;
 
-    network_time = secs * pet::NS_FACTOR.count() + net_time_fracs;
+    network_time = Seconds(secs) + Nanos(frac >> 32);
+
+    // network_time = Nanos(secs * pet::NS_FACTOR.count() + net_time_fracs);
+
+    __LOG0(LCOL01 " network_time={:02.2}\n", module_id, "DEBUG", pet::as_millis_fp(network_time));
 
     return *this;
   }
 
-  Nanos frameLocalTime(uint32_t timestamp) const {
+  // for frame diff calcs using an alternate time reference
+  //   1. returns negative for frame in the past
+  //   2. returns positive for frame in future
+  //   3. returns nanos::min() when data is not ready
+  Nanos frame_diff(uint32_t timestamp) const {
+    return ok() ? frame_time(timestamp) - netTimeNow() : Nanos::min();
+  }
+
+  Nanos frame_time(uint32_t timestamp) const {
     Nanos calced{0};
 
     if (valid) {
@@ -63,10 +75,6 @@ struct Data {
     }
 
     return calced;
-  }
-
-  Nanos frame_diff(uint32_t timestamp) const {
-    return ok() ? frameLocalTime(timestamp) - netTimeNow() : Nanos::min();
   }
 
   uint32_t localTimeFrame(const Nanos time) { // untested

@@ -69,20 +69,6 @@ public:
   bool flush(const FlushRequest &flush);
   Frames &frames() { return _frames; }
 
-  // get and return the next frame
-  //
-  // notes:
-  //   1. an empty shFrame will be returned if a frame was not found
-  //      this is a signal to the caller to keep looking in other reels
-  //   2. if a frame is found it may not be playable
-  //      handling unplayable frames is left to the caller
-  shFrame next_frame(const Nanos &lead_time) {
-    auto next = ranges::find_if(_frames, [&](auto frame) //
-                                { return frame->next(lead_time); });
-
-    return next != _frames.end() ? *next : shFrame();
-  }
-
   void purge(); // erase purgeable frames
 
   const string &serialNum() const { return serial; }
@@ -90,7 +76,7 @@ public:
 
   // misc stats, debug
   static const string inspect(shReel reel);
-  void log() { __LOG("{:<18} {}", moduleID(), inspect(shared_from_this())); }
+  void log() { __LOG(LCOL01 "{}", moduleID(), "INSPECT", inspect(shared_from_this())); }
   const string &moduleID() const { return module_id; }
 
 private:
@@ -104,7 +90,6 @@ private:
 
   // class static
   static uint64_t SERIAL_NUM;
-  static constexpr size_t PURGE_MAX = 10;
 };
 
 } // namespace pierre

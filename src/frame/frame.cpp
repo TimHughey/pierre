@@ -375,7 +375,7 @@ void watch_dog() {
 } // namespace dsp
 
 // BEGIN FRAME IMPLEMENTATION
-Frame::Frame(uint8v &packet) {
+Frame::Frame(uint8v &packet) : lead_time{0} {
   uint8_t byte0 = packet[0]; // first byte to pick bits from
 
   version = (byte0 & 0b11000000) >> 6;     // RTPv2 == 0x02
@@ -412,15 +412,18 @@ Frame::Frame(uint8v &packet) {
   // NOTE: raw packet falls out of scope
 }
 
-Frame::Frame(uint32_t seq_num, uint32_t timestamp, fra::State state)
+Frame::Frame(const Nanos lead_time, fra::State state)
     : version(0x02),                // ensure version is valid
-      seq_num(seq_num),             // populate seq_num
-      timestamp(timestamp),         // populate timestamp
+      lead_time{lead_time},         // used to simulate anchor
       state(state),                 // populate state (typically fra::DECODED)
       peaks_left(Peaks::create()),  // ensure left peaks exist (and represent silence)
       peaks_right(Peaks::create()), // ensure right peaks exist (and represent silence)
       use_anchor(false)             // do not use Anchor / MasterClock for frame timing
-{}
+{
+  if (playable()) {
+    sync_wait = local_time_diff();
+  }
+}
 
 // Frame API and member functions
 bool Frame::decipher() {
@@ -531,44 +534,35 @@ bool Frame::keep(FlushRequest &flush) {
 const Nanos Frame::local_time_diff() {
   // must be in .cpp due to intentional limiting of Anchor visibility
 
-  if (use_anchor) {
-    if (const auto &data = Anchor::getData(); data.ok()) {
-      return data.frameLocalTime(timestamp) - data.netTimeNow();
-    }
-  }
-
-  return Nanos::min();
+  return use_anchor ? Anchor::frame_diff(timestamp)                   // calc via master clock
+                    : lead_time - pet::elapsed_as<Nanos>(created_at); // simulate a clock
 }
 
-bool Frame::next(const Nanos &lead_time) {
-  if (timestamp && seq_num && isReady()) { // frame is legit
-    const auto diff = local_time_diff();
+shFrame Frame::state_now(const Nanos &lead_time) {
+  if (isReady() && unplayed()) { // frame is legit
+    sync_wait = local_time_diff();
 
-    if (diff != Nanos::min()) { // anchor is ready
+    if (sync_wait > Nanos::min()) { // anchor is ready or not using anchor
 
-      // determine if the state of the frame should be changed based on local time diff
+      // determine if the state of the frame should be changed based on local time sync_wait
       // we only want to look at specific frame states
       if (unplayed()) {
-        if (diff < Nanos::zero()) { // old, before required lead time
-          state = fra::OUTDATED;    // mark as outdated
+        if (sync_wait < Nanos::zero()) { // old, before required lead time
+          state = fra::OUTDATED;         // mark as outdated
 
-        } else if (diff <= lead_time) { // within lead time range
-          state = fra::PLAYABLE;        // mark as playable
+        } else if ((sync_wait >= Nanos::zero()) && (sync_wait <= lead_time)) { // in range
+          state = fra::PLAYABLE;
 
-        } else if ((diff > lead_time) && (state == fra::DECODED)) { // future frame
+        } else if ((sync_wait > lead_time) && (state == fra::DECODED)) { // future
           state = fra::FUTURE;
         }
 
-        // store the difference as the time to wait before rendering frame
-        // use pet::abs() to ensure future frames have a positive duration
-        sync_wait = playable() ? pet::abs(diff) : Nanos::zero();
-
-        __LOGX(LCOL01 " {}\n", module_id, csv("NEXT_FRAME"), inspect());
+        __LOGX(LCOL01 " {}\n", module_id, csv("STATE_NOW"), inspect());
       } // end frame state update
     }   // anchor not ready
   }
 
-  return playable();
+  return shared_from_this();
 }
 
 // misc debug
@@ -589,8 +583,8 @@ const string Frame::inspectFrame(shFrame frame, bool full) { // static
                    frame->seq_num, frame->timestamp, frame->state, frame.use_count(),
                    frame->isReady());
 
-    if (frame->sync_wait != Nanos::min()) {
-      fmt::format_to(w, " diff={:7.2}", pet::as_millis_fp(frame->sync_wait));
+    if (frame->sync_wait > Nanos::min()) {
+      fmt::format_to(w, " sync_wait={:7.2}", pet::as_millis_fp(frame->sync_wait));
     }
 
     if (frame->silent()) {

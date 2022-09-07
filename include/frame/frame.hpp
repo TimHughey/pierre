@@ -124,14 +124,13 @@ class Frame : public std::enable_shared_from_this<Frame> {
 
 private:
   Frame(uint8v &packet);
-  Frame(fra::State state, const Nanos lead_time);
+  Frame(const Nanos lead_time, fra::State state);
 
 public:
   // Object Creation
   static shFrame create(uint8v &packet) { return shFrame(new Frame(packet)); }
-  static shFrame create(const Nanos lead_time = InputInfo::frame<Nanos>(),
-                        fra::State state = fra::DECODED) {
-    return shFrame(new Frame(state, lead_time));
+  static shFrame create(const Nanos lead_time, fra::State state = fra::DECODED) {
+    return shFrame(new Frame(lead_time, state));
   }
 
   // Digital Signal Analysis (hidden in .cpp)
@@ -152,9 +151,6 @@ public:
 
   void mark_played() { state = fra::PLAYED; }
 
-  // nextFrame() returns true when searching should stop; false to keep searching
-  bool next(const Nanos &lead_time);
-
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
 
@@ -167,7 +163,7 @@ public:
   bool future() const { return stateEqual(fra::FUTURE); }
   static bool ok(shFrame frame) { return frame.use_count(); }
   bool outdated() const { return stateEqual(fra::OUTDATED); }
-  bool playable() const { return stateEqual({fra::PLAYABLE, fra::FUTURE}); }
+  bool playable() const { return stateEqual(fra::PLAYABLE); }
   bool played() const { return stateEqual(fra::PLAYED); }
   bool purgeable() const { return stateEqual({fra::OUTDATED, fra::PLAYED}); }
   bool silent() const { return Peaks::silence(peaks_left) && Peaks::silence(peaks_right); }
@@ -179,24 +175,11 @@ public:
     return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
   }
 
-  Nanos sync_wait_consume(const Nanos reduce = Nanos::zero(), bool log = false) {
-    auto sync_wait_prev = sync_wait;
-
-    pet::reduce(sync_wait, reduce);
-
-    if (log) {
-      __LOG0(LCOL01 " seq_num={} sync_wait={:0.2} sync_wait_now={:0.2} reduce={}\n", //
-             moduleID(), "SYNC_CONSUME", seq_num, pet::as_millis_fp(sync_wait_prev),
-             pet::as_millis_fp(sync_wait), pet::as_millis_fp(reduce));
-    }
-
-    return sync_wait;
-  }
+  shFrame state_now(const Nanos &lead_time);
 
   bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
 
   // class member functions
-  // friend void swap(Frame &a, Frame &b); // swap specialization
 
   // misc debug
   const string inspect() { return inspectFrame(shared_from_this()); }

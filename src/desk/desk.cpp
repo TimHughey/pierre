@@ -58,7 +58,12 @@ Desk::Desk(const Nanos &lead_time)
       latency(500us),                               // ruth latency (default)
       guard(io_ctx.get_executor()),                 // prevent io_ctx from ending
       render_mode(NOT_RENDERING),                   // render or don't render
-      stats(io_ctx, 10s) {}
+      stats(io_ctx, 10s) {
+
+  // immediately begin sending frames
+  frame_next(lead_time_50);
+  stats.async_report(5ms);
+}
 
 // general API
 void Desk::adjust_mode(csv next_mode) {
@@ -76,6 +81,8 @@ void Desk::adjust_mode(csv next_mode) {
 void Desk::frame_render(shFrame frame) {
   desk::DataMsg data_msg(frame, lead_time);
 
+  frame->mark_played(); // frame is consumed, even when no connection
+
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
     active_fx = fx_factory::create<fx::MajorPeak>();
   }
@@ -88,6 +95,8 @@ void Desk::frame_render(shFrame frame) {
 
       io::async_write_msg(control->data_socket(), std::move(data_msg),
                           [this](const error_code ec) {
+                            stats.frames++;
+
                             if (ec) {
                               streams_deinit();
                             }
@@ -113,49 +122,35 @@ void Desk::frame_next(Nanos sync_wait) {
     frame_timer.expires_after(sync_wait);
     frame_timer.async_wait([this](const error_code &ec) {
       if (!ec) {
-        ispooler()->async_next_frame(
+        ispooler()->async_next_frame( //
             lead_time, io_ctx, [lag = Elapsed(), this](shFrame frame) mutable {
-              Nanos sync_wait;
+              log_despooled(frame, lag());
 
-              if (frame && frame->playable()) {
-                sync_wait = frame->sync_wait_consume(lag());
-                lag.reset();
+              Nanos sync_wait = Nanos::max();
 
-                // mark played and immediately send the frame to Desk
-                frame_release(frame);
-                stats.frames++;
-              } else {
-                sync_wait = pet::percent(lead_time, 33); // attempt to not miss frames
+              if (frame) {
+                if (frame->playable()) { // renderable frame
+                  frame_render(frame);
+
+                  sync_wait = frame->sync_wait;
+
+                } else if (frame->future()) {
+                  stats.futures++;
+
+                  sync_wait = frame->sync_wait;
+                }
+              } else { // no frame available
+                sync_wait = pet::percent(lead_time, 0.5);
                 stats.none++;
               }
 
-              log_despooled(frame, lag());
-
-              // use sync_wait calculated above to wait for the next frame and the
-              // elapsed time as the lag
-              frame_next(sync_wait - lag());
+              frame_next(sync_wait);
             });
-
       } else {
         __LOG0(LCOL01 " rendering={} reason={}\n", moduleID(), fn_id, rendering(), ec.message());
       }
     });
   }
-}
-
-void Desk::frame_release(shFrame frame) {
-  frame->mark_played();
-
-  // recalc the sync wait to account for latebcy
-  auto sync_wait = frame->sync_wait_consume(latency);
-
-  // schedule the release
-  release_timer.expires_after(sync_wait);
-  release_timer.async_wait([this, frame = frame](const error_code &ec) {
-    if (!ec) {
-      frame_render(frame);
-    }
-  });
 }
 
 void Desk::init(const Nanos &lead_time) { // static instance creation
@@ -221,34 +216,31 @@ void Desk::log_despooled(shFrame frame, const Nanos elapsed) {
   static uint64_t no_playable = 0;
   static uint64_t playable = 0;
 
-  asio::defer(io_ctx, [=, frame = std::move(frame), this]() {
-    string msg;
-    auto w = std::back_inserter(msg);
+  string msg;
+  auto w = std::back_inserter(msg);
 
-    if (frame) {
-      no_playable = 0;
-      playable++;
-      if ((frame->sync_wait < 10ms) && ((no_playable % 1000) == 0)) {
-        fmt::format_to(w, " seq_num={} sync_wait={} state={}", frame->seq_num,
-                       pet::as_duration<Nanos, MillisFP>(frame->sync_wait),
-                       Frame::stateVal(frame));
-      }
-    } else {
-      playable = 0;
-      no_playable++;
-      if ((no_playable == 1) || ((no_playable % 100) == 0)) {
-        fmt::format_to(w, " no playable frames={:<6}", no_playable);
-      }
+  if (frame) {
+    no_playable = 0;
+    playable++;
+    if ((frame->sync_wait < 10ms) && ((no_playable % 1000) == 0)) {
+      fmt::format_to(w, " seq_num={} sync_wait={} state={}", frame->seq_num,
+                     pet::as_duration<Nanos, MillisFP>(frame->sync_wait), Frame::stateVal(frame));
     }
+  } else {
+    playable = 0;
+    no_playable++;
+    if ((no_playable == 1) || ((no_playable % 100) == 0)) {
+      fmt::format_to(w, " no playable frames={:<6}", no_playable);
+    }
+  }
 
-    if (elapsed >= pet::percent(lead_time, 50)) {
-      fmt::format_to(w, " elapsed={:0.2}", pet::as_millis_fp(elapsed));
-    }
+  if (elapsed >= pet::percent(lead_time, 50)) {
+    fmt::format_to(w, " elapsed={:0.2}", pet::as_millis_fp(elapsed));
+  }
 
-    if (!msg.empty()) {
-      __LOG0(LCOL01 "{}\n", moduleID(), "DESPOOLED", msg);
-    }
-  });
+  if (!msg.empty()) {
+    __LOG0(LCOL01 "{}\n", moduleID(), "DESPOOLED", msg);
+  }
 }
 
 } // namespace pierre

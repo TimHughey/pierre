@@ -44,7 +44,6 @@ public:
     add_kv("nettime_µs", frame->nettime<Micros>().count());
     add_kv("lead_time_µs", pet::as_duration<Nanos, Micros>(lead_time).count());
     add_kv("sync_wait_µs", pet::as_duration<Nanos, Micros>(frame->sync_wait).count());
-    add_kv("now_µs", pet::reference<Micros>().count());
   }
 
   DataMsg(Msg &m) = delete;
@@ -62,7 +61,7 @@ public:
   }
 
   // misc debug
-  string inspect() const {
+  string inspect() const override {
     string msg;
 
     fmt::format_to(std::back_inserter(msg), " silence={} packed_len={} dmx_len={}\n", //

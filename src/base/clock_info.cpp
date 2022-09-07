@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp_time/clock_info.hpp"
+#include "base/clock_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 
@@ -25,19 +25,19 @@
 namespace pierre {
 
 const string ClockInfo::inspect() const {
-  Nanos now = pet::nowNanos();
+  Nanos now = pet::now_nanos();
   string msg;
   auto w = std::back_inserter(msg);
 
   constexpr auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
-  constexpr auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
+  constexpr auto gen_fmt_str = FMT_STRING("{:>35}={}\n");
   constexpr auto flt_fmt_str = FMT_STRING("{:>35}={:>+.3}\n");
 
   fmt::format_to(w, hex_fmt_str, "clockId", clock_id);
-  fmt::format_to(w, dec_fmt_str, "rawOffset", (int64_t)rawOffset);
-  fmt::format_to(w, dec_fmt_str, "now_ns", pet::nowNanos());
-  fmt::format_to(w, dec_fmt_str, "mastershipStart", mastershipStartTime);
-  fmt::format_to(w, dec_fmt_str, "sampleTime", sampleTime);
+  fmt::format_to(w, gen_fmt_str, "rawOffset", rawOffset);
+  fmt::format_to(w, gen_fmt_str, "now_ns", pet::now_nanos());
+  fmt::format_to(w, gen_fmt_str, "mastershipStart", mastershipStartTime);
+  fmt::format_to(w, gen_fmt_str, "sampleTime", sampleTime);
   fmt::format_to(w, flt_fmt_str, "master_for_secs", pet::as_secs(masterFor(now)));
   fmt::format_to(w, flt_fmt_str, "sample_age_secs", pet::as_secs(sampleAge(now)));
 

@@ -28,6 +28,9 @@ add_library(${__target} SHARED
 
   # colors (used by multiple libraries)
   color.cpp
+
+  # frame / rtp time keeping clock info
+  clock_info.cpp ref_clock.cpp
   
   # headers
   ${HEADER_LIST}

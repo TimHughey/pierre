@@ -42,9 +42,14 @@ public:
     timer.async_wait( //
         asio::bind_executor(stats_strand, [this](const error_code ec) {
           if (!ec) {
-            __LOG0(LCOL01
-                   " frames={:>6} none={:>6} feedbacks={:>6} no_conn={:>6} streams_init={}\n",
-                   module_id, "REPORT", frames, none, feedbacks, no_conn, streams_init);
+            auto avail_metrics = feedbacks + frames + futures + no_conn + none + streams_init;
+
+            if (avail_metrics) {
+              __LOG0(LCOL01 " frames={:>6}  none={:>6}  futures={:>6} "
+                            " feedbacks={:>6}  no_conn={:>6}  streams_init={}\n",
+                     module_id, "REPORT", //
+                     frames, none, futures, feedbacks, no_conn, streams_init);
+            }
 
             async_report(interval);
           }
@@ -57,8 +62,9 @@ public:
     asio::post(stats_strand, [this]() { feedbacks++; });
   }
 
-  uint64_t feedbacks = 0;    // count of ctrl feedbacks
-  uint64_t frames = 0;       // count of processed frames
+  uint64_t feedbacks = 0; // count of ctrl feedbacks
+  uint64_t frames = 0;    // count of processed frames
+  uint64_t futures = 0;
   uint64_t no_conn = 0;      // count of frames attempted when stream connection unavailable
   uint64_t none = 0;         // count of no next frame
   uint64_t streams_init = 0; // count of streams initialization

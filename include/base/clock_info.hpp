@@ -29,11 +29,17 @@ struct ClockInfo {
   ClockID clock_id{0};          // current master clock
   MasterIP masterClockIp{0};    // IP of master clock
   Nanos sampleTime{0};          // time when the offset was calculated
-  uint64_t rawOffset{0};        // master clock time = sampleTime + rawOffset
+  Nanos rawOffset{0};           // master clock time = sampleTime + rawOffset
   Nanos mastershipStartTime{0}; // when the master clock became master
 
   static constexpr Nanos AGE_MAX{10s};
   static constexpr Nanos AGE_MIN{1500ms};
+
+  auto operator()() const {
+    log_raw_offset("OPERATOR");
+
+    return rawOffset;
+  }
 
   Nanos masterFor(Nanos now = pet::now_nanos()) const { return now - mastershipStartTime; }
 
@@ -51,8 +57,14 @@ struct ClockInfo {
     return ok() ? pet::elapsed_abs_ns(sampleTime, now) : Nanos::zero();
   }
 
-  bool tooOld() const {
-    if (auto age = sampleAge(); age >= AGE_MAX) {
+  Nanos local_network_time(const Nanos network_time) const {
+    log_raw_offset("LOCAL_NET");
+
+    return network_time - rawOffset;
+  }
+
+  bool tooOld(auto age_max = AGE_MAX) const {
+    if (auto age = sampleAge(); age >= age_max) {
       return log_age_issue("TOO OLD", age);
     }
 
@@ -68,6 +80,14 @@ private:
            module_id, msg, clock_id, sampleTime, pet::as_secs(diff));
 
     return true; // return false, final rc is inverted
+  }
+
+  void log_raw_offset([[maybe_unused]] csv category) const {
+    const auto offset_secs = pet::as<Seconds, Nanos>(rawOffset);
+    const auto offset = rawOffset - offset_secs;
+
+    __LOGX(LCOL01 " clock_id={:#x} offset={:02.3}\n", //
+           module_id, category, clock_id, pet::as_millis_fp(offset));
   }
 
   static constexpr csv module_id{"CLOCK_INFO"};

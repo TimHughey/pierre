@@ -50,12 +50,12 @@ void Anchor::reset() { shared::anchor().reset(); }
 // general API and member functions
 
 const anchor::Data &Anchor::getData() {
-  auto clock_info = shared::master_clock->getInfo();
+  auto clock_info = shared::master_clock->info();
   auto &actual = data(anchor::Entry::ACTUAL);
   auto &last = data(anchor::Entry::LAST);
   auto &recent = data(anchor::Entry::RECENT);
   auto &is_new = ptr()->_is_new;
-  auto now_ns = pet::nowNanos();
+  auto now_ns = pet::now_nanos();
 
   if (clock_info.ok() == false) { // master clock doesn't exist
     return anchor::INVALID_DATA;  // return default (invalid) info
@@ -90,7 +90,7 @@ const anchor::Data &Anchor::getData() {
 
       } else if ((last.valid == false) || (clock_info.masterFor(now_ns) > 5s)) {
         last = recent;
-        last.local_time = Nanos(recent.network_time - clock_info.rawOffset);
+        last.local_time = clock_info.local_network_time(recent.network_time);
         last.setLocalTimeAt(now_ns); // capture when local time calculated
 
         if (is_new) {
@@ -116,7 +116,7 @@ const anchor::Data &Anchor::getData() {
            pet::as_secs(clock_info.masterFor(now_ns)));
 
     last = recent;
-    last.local_time = Nanos(recent.network_time - clock_info.rawOffset);
+    last.local_time = clock_info.local_network_time(recent.network_time);
     last.setLocalTimeAt(now_ns); // capture when local time calculated
 
     is_new = false;
@@ -126,7 +126,7 @@ const anchor::Data &Anchor::getData() {
 
   if (last.valid && (is_new == false)) {
     if (last.sinceUpdate() > 5s) {
-      recent.network_time = last.local_at.count() + clock_info.rawOffset;
+      recent.network_time = clock_info.local_network_time(last.network_time);
 
       if (clock_info.clock_id == actual.clock_id) { // original anchor clock is master again
         __LOG0(LCOL01 " matches original anchor clockId={:#x} deviation={}\n", //
@@ -196,7 +196,7 @@ void Anchor::save(anchor::Data &ad) {
   // we have now saved the new anchor info, noted if this is a new clock_id and possibly
   // invalidated last if the clock is changing too quickly
 
-  // deciding which clock to use for accurate network_time is handled by getInfo()
+  // deciding which clock to use for accurate network_time is handled by info()
 }
 
 void Anchor::teardown() { _datum.fill(anchor::Data()); }

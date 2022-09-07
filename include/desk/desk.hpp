@@ -71,7 +71,6 @@ public: // general API
 
 private:
   void frame_next(Nanos sync_wait); // frame next loop
-  void frame_release(shFrame frame);
   void frame_render(shFrame frame);
 
   void streams_deinit();

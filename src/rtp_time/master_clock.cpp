@@ -50,7 +50,7 @@ MasterClock::MasterClock(const Inject &di)
 }
 
 // NOTE: new data is available every 126ms
-const ClockInfo MasterClock::getInfo() {
+const ClockInfo MasterClock::info() {
   if (mapSharedMem() == false) {
     return ClockInfo();
   }
@@ -88,7 +88,7 @@ const ClockInfo MasterClock::getInfo() {
       {.clock_id = data.master_clock_id,
        .masterClockIp = string(clock_ip_sv),
        .sampleTime = pet::from_ns(data.local_time),
-       .rawOffset = data.local_to_master_time_offset,
+       .rawOffset = pet::from_ns(data.local_to_master_time_offset),
        .mastershipStartTime = pet::from_ns(data.master_clock_start_time)};
 }
 

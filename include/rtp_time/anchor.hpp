@@ -42,7 +42,7 @@ public:
   static Nanos frame_diff(const uint32_t timestamp) {
     const auto &data = Anchor::getData();
 
-    return data.frame_diff(timestamp);
+    return data.ok() ? data.frame_diff(timestamp) : Nanos::min();
   }
 
   static const anchor::Data &getData();

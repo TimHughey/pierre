@@ -117,9 +117,10 @@ void MajorPeak::execute(shPeaks peaks) {
   handleMainPinspot(peaks);
   handleFillPinspot(peaks);
 
-  const auto peak = peaks->majorPeak();
+  _prev_peaks.push_back(peaks->majorPeak());
 
-  _prev_peaks.push_back(peak);
+  // detect if FX is in suitable finished position (nothing is fading)
+  finished = !main->isFading() && !fill->isFading();
 }
 
 void MajorPeak::handleElWire(shPeaks peaks) {

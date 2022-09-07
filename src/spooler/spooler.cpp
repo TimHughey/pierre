@@ -116,9 +116,9 @@ shFrame Spooler::next_frame(const Nanos lead_time) {
   // two foor loops are required to find the next frame
   //  1. outer for-loop examines the out reels
   //  2. inner for-loop examines the frames in each out reel
-  //  3. when a playable frame is found the frame (above) is set
+  //  3. when a playable or future frame is found the frame (above) is set
   //  4. both inner and outer for-loop use frame as an exit condition
-  //  5. use of ranges::find_if() was considered however the final code
+  //  5. use of ranges::find_if() was considered however this code
   //     is more readable and concise without the lambdas
 
   for (shReel &reel : reels_out) { // outer for-loop (reels)
@@ -126,17 +126,18 @@ shFrame Spooler::next_frame(const Nanos lead_time) {
     auto &frames = reel->frames();
 
     for (shFrame &pf : frames) { // inner for-loop (frames in reel)
-      if (pf->next(lead_time)) { // possible frame is the next frame
+      const auto state = pf->state_now(lead_time);
+
+      if (pf->stateEqual({fra::PLAYABLE, fra::FUTURE})) { // we got a playable frame
         frame = pf;
-        break; // break out of inner for-loop
+        break; // break out of inner for-loop (single reel)
       }
     }
 
     reel->purge(); // always purge played (or outdated) frames
 
-    // found the next frame
-    if (frame) {
-      break; //  break out of outer for-loop
+    if (frame) { // found the next frame
+      break;     //  break out of outer for-loop (reels)
     }
   }
 

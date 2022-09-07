@@ -16,25 +16,8 @@
 //
 //  https://www.wisslanding.com
 
-#include "log.hpp"
-
-#include <chrono>
-#include <fmt/chrono.h>
-#include <fmt/compile.h>
-#include <fmt/format.h>
+#include "base/ref_clock.hpp"
 
 namespace pierre {
-static auto startup = pet::now_nanos();
-
-// Global Helpers Definitions
-
-const string runTicks() { //
-  return fmt::format("{:>11.1} ", pet::elapsed_as<MillisFP>(startup));
+// no .cpp implementation at present
 }
-
-void __vlog(fmt::string_view format, fmt::format_args args) {
-  fmt::print("{:>11.1} ", pet::elapsed_as<MillisFP>(startup));
-  fmt::vprint(format, args);
-}
-
-} // namespace pierre

@@ -79,7 +79,7 @@ struct pet {
   }
 
   static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
-  static constexpr Nanos from_ns(uint64_t ns) { return Nanos(ns); }
+  static constexpr Nanos from_ns(uint64_t ns) { return Nanos(static_cast<int64_t>(ns)); }
   static constexpr Nanos negative(Nanos d) { return Nanos::zero() - d; }
 
   template <typename T = Nanos> static T now_monotonic() {
