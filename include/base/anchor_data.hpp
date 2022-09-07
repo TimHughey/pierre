@@ -42,9 +42,7 @@ struct AnchorData {
   AnchorData &calcNetTime() {
     network_time = Seconds(secs) + Nanos(frac >> 32);
 
-    __LOG0(LCOL01 " network_time={} {} {} {:0.2}\n", module_id, "DEBUG",
-           pet::as<Hours>(network_time), pet::as<Minutes>(network_time),
-           pet::as<Seconds>(network_time), pet::as_millis_fp(network_time));
+    __LOG0(LCOL01 " network_time={}\n", module_id, "DEBUG", pet::humanize(network_time));
 
     return *this;
   }

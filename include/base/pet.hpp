@@ -22,12 +22,12 @@
 #include "base/types.hpp"
 
 #include <chrono>
-#include <time.h>
 
 namespace pierre {
 
 using namespace std::chrono_literals;
 
+using Days = std::chrono::days;
 using Hours = std::chrono::hours;
 using Micros = std::chrono::microseconds;
 using MicrosFP = std::chrono::duration<double, std::chrono::microseconds::period>;
@@ -72,6 +72,8 @@ struct pet {
     return std::chrono::abs(d1 - d2);
   }
 
+  static string humanize(const Nanos all);
+
   template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_nanos()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
@@ -92,17 +94,7 @@ struct pet {
     return std::chrono::duration_cast<T>(system_clock::now().time_since_epoch());
   }
 
-  static Millis nowMillis() { return std::chrono::duration_cast<Millis>(now_nanos()); }
-
-  static Nanos now_nanos() {
-    struct timespec tn;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
-
-    uint64_t secs_part = tn.tv_sec * NS_FACTOR.count();
-    uint64_t ns_part = tn.tv_nsec;
-
-    return Nanos(secs_part + ns_part);
-  }
+  static Nanos now_nanos();
 
   template <typename T> static T now_steady() { return as_duration<Nanos, T>(now_nanos()); }
 
