@@ -22,6 +22,7 @@
 // #include "desk/fx/colorbars.hpp"
 // #include "desk/fx/leave.hpp"
 #include "ArduinoJson.hpp"
+#include "base/anchor_data.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "desk/data_msg.hpp"
@@ -184,7 +185,7 @@ void Desk::init(const Nanos &lead_time) { // static instance creation
   Spooler::init();
 }
 
-void Desk::save_anchor_data(anchor::Data data) {
+void Desk::save_anchor_data(AnchorData data) {
   auto anchor = Anchor::ptr().get();
   anchor->save(data);
 

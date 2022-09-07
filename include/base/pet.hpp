@@ -28,10 +28,12 @@ namespace pierre {
 
 using namespace std::chrono_literals;
 
+using Hours = std::chrono::hours;
 using Micros = std::chrono::microseconds;
 using MicrosFP = std::chrono::duration<double, std::chrono::microseconds::period>;
 using Millis = std::chrono::milliseconds;
 using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period>;
+using Minutes = std::chrono::minutes;
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::seconds;
 using SecondsFP = std::chrono::duration<long double>;

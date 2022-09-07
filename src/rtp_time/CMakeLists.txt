@@ -13,7 +13,7 @@ add_library(${__target} SHARED
   master_clock.cpp 
 
   # rtp anchor
-  anchor.cpp anchor/data.cpp
+  anchor.cpp
 
   # headers
   ${HEADER_LIST}

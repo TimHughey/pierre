@@ -18,9 +18,9 @@
 
 #pragma once
 
+#include "base/anchor_data.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
-#include "rtp_time/anchor/data.hpp"
 #include "rtp_time/master_clock.hpp"
 
 #include <array>
@@ -45,26 +45,26 @@ public:
     return data.ok() ? data.frame_diff(timestamp) : Nanos::min();
   }
 
-  static const anchor::Data &getData();
-  void invalidateLastIfQuickChange(const anchor::Data &data);
+  static const AnchorData &getData();
+  void invalidateLastIfQuickChange(const AnchorData &data);
   static bool playEnabled();
-  void save(anchor::Data &ad);
+  void save(AnchorData &ad);
   void teardown();
 
   // misc debug
-  static void dump(auto entry = anchor::Entry::LAST, auto loc = src_loc::current()) {
+  static void dump(auto entry = AnchorEntry::LAST, auto loc = src_loc::current()) {
     ptr()->cdata(entry).dump(loc);
   }
 
 private:
-  Anchor() { _datum.fill(anchor::Data()); }
-  const anchor::Data &cdata(anchor::Entry entry) const { return _datum[entry]; };
-  static anchor::Data &data(enum anchor::Entry entry) { return ptr()->_datum[entry]; };
+  Anchor() { _datum.fill(AnchorData()); }
+  const AnchorData &cdata(AnchorEntry entry) const { return _datum[entry]; };
+  static AnchorData &data(enum AnchorEntry entry) { return ptr()->_datum[entry]; };
   void infoNewClock(const ClockInfo &info);
   void warnFrequentChanges(const ClockInfo &info);
 
 private:
-  std::array<anchor::Data, 3> _datum;
+  std::array<AnchorData, 3> _datum;
   bool _is_new = false;
 
   // misc debug

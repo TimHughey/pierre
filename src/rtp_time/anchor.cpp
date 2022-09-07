@@ -17,10 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "rtp_time/anchor.hpp"
+#include "base/anchor_data.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
-#include "rtp_time/anchor/data.hpp"
 #include "rtp_time/master_clock.hpp"
 
 #include <chrono>
@@ -49,16 +49,16 @@ void Anchor::reset() { shared::anchor().reset(); }
 
 // general API and member functions
 
-const anchor::Data &Anchor::getData() {
+const AnchorData &Anchor::getData() {
   auto clock_info = shared::master_clock->info();
-  auto &actual = data(anchor::Entry::ACTUAL);
-  auto &last = data(anchor::Entry::LAST);
-  auto &recent = data(anchor::Entry::RECENT);
+  auto &actual = data(AnchorEntry::ACTUAL);
+  auto &last = data(AnchorEntry::LAST);
+  auto &recent = data(AnchorEntry::RECENT);
   auto &is_new = ptr()->_is_new;
   auto now_ns = pet::now_nanos();
 
   if (clock_info.ok() == false) { // master clock doesn't exist
-    return anchor::INVALID_DATA;  // return default (invalid) info
+    return ANCHOR_INVALID_DATA;   // return default (invalid) info
   }
 
   // prefer the master clock when anchor clock and master clock match
@@ -66,7 +66,7 @@ const anchor::Data &Anchor::getData() {
   if (clock_info.clock_id == recent.clock_id) {
     // master clock is stabilizing
     if (clock_info.masterFor() < ClockInfo::AGE_MIN) {
-      return anchor::INVALID_DATA; // return default (invalid) data
+      return ANCHOR_INVALID_DATA; // return default (invalid) data
     }
 
     // ok, we have master clock
@@ -75,7 +75,7 @@ const anchor::Data &Anchor::getData() {
     // nothing we can do, return INVALID_DATA
     if (recent.valid == false) {
       __LOG0(LCOL01 " invalid\n", Anchor::moduleId, csv("RECENT"));
-      return anchor::INVALID_DATA;
+      return ANCHOR_INVALID_DATA;
     }
 
     // ok, we've confirmed the master clock and we have recent data
@@ -86,7 +86,7 @@ const anchor::Data &Anchor::getData() {
         __LOG0(LCOL01 "too young {:0.3}\n", Anchor::moduleId, //
                csv("MASTER"), pet::as_secs(clock_info.masterFor(now_ns)));
 
-        return anchor::INVALID_DATA;
+        return ANCHOR_INVALID_DATA;
 
       } else if ((last.valid == false) || (clock_info.masterFor(now_ns) > 5s)) {
         last = recent;
@@ -146,17 +146,17 @@ const anchor::Data &Anchor::getData() {
   return last;
 }
 
-void Anchor::invalidateLastIfQuickChange(const anchor::Data &data) {
-  auto &last = _datum[anchor::Entry::LAST];
+void Anchor::invalidateLastIfQuickChange(const AnchorData &data) {
+  auto &last = _datum[AnchorEntry::LAST];
 
-  if ((data.clock_id == last.clock_id) && (last.validFor() < anchor::VALID_MIN_DURATION)) {
+  if ((data.clock_id == last.clock_id) && (last.validFor() < ANCHOR_VALID_MIN_DURATION)) {
     last.valid = false;
   }
 }
 
-bool Anchor::playEnabled() { return ptr()->cdata(anchor::Entry::RECENT).rendering(); }
+bool Anchor::playEnabled() { return ptr()->cdata(AnchorEntry::RECENT).rendering(); }
 
-void Anchor::save(anchor::Data &ad) {
+void Anchor::save(AnchorData &ad) {
   if ((ad.clock_id == 0x00) || (ad.rate == 0)) {
     teardown();
     return;
@@ -164,9 +164,9 @@ void Anchor::save(anchor::Data &ad) {
 
   ad.calcNetTime(); // always ensure network_time is populated
 
-  auto &actual = _datum[anchor::Entry::ACTUAL];
-  auto &last = _datum[anchor::Entry::LAST];
-  auto &recent = _datum[anchor::Entry::RECENT];
+  auto &actual = _datum[AnchorEntry::ACTUAL];
+  auto &last = _datum[AnchorEntry::LAST];
+  auto &recent = _datum[AnchorEntry::RECENT];
 
   if ((ad <=> recent) < 0) { // this is a new anchor clock
     _is_new = true;
@@ -199,6 +199,6 @@ void Anchor::save(anchor::Data &ad) {
   // deciding which clock to use for accurate network_time is handled by info()
 }
 
-void Anchor::teardown() { _datum.fill(anchor::Data()); }
+void Anchor::teardown() { _datum.fill(AnchorData()); }
 
 } // namespace pierre

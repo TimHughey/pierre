@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "base/anchor_data.hpp"
 #include "base/elapsed.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
@@ -32,7 +33,6 @@
 #include "frame/frame.hpp"
 #include "io/io.hpp"
 #include "mdns/mdns.hpp"
-#include "rtp_time/anchor/data.hpp"
 
 #include <array>
 #include <atomic>
@@ -63,7 +63,7 @@ public: // general API
   void adjust_mode(csv next_mode);
   void halt() { adjust_mode(NOT_RENDERING); }
   bool rendering() const { return render_mode.front() == RENDERING.front(); }
-  void save_anchor_data(anchor::Data data); // see .cpp
+  void save_anchor_data(AnchorData data); // see .cpp
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
 
   // misc debug

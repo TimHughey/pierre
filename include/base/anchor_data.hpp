@@ -25,9 +25,8 @@
 #include <any>
 
 namespace pierre {
-namespace anchor {
 
-struct Data {
+struct AnchorData {
   uint64_t rate{0};
   ClockID clock_id{0}; // aka clock id
   uint64_t secs{0};
@@ -40,18 +39,12 @@ struct Data {
   bool valid = false;
   Nanos valid_at{0};
 
-  Data &calcNetTime() {
-    uint64_t net_time_fracs = 0;
-
-    net_time_fracs >>= 32;
-    net_time_fracs *= pet::NS_FACTOR.count();
-    net_time_fracs >>= 32;
-
+  AnchorData &calcNetTime() {
     network_time = Seconds(secs) + Nanos(frac >> 32);
 
-    // network_time = Nanos(secs * pet::NS_FACTOR.count() + net_time_fracs);
-
-    __LOG0(LCOL01 " network_time={:02.2}\n", module_id, "DEBUG", pet::as_millis_fp(network_time));
+    __LOG0(LCOL01 " network_time={} {} {} {:0.2}\n", module_id, "DEBUG",
+           pet::as<Hours>(network_time), pet::as<Minutes>(network_time),
+           pet::as<Seconds>(network_time), pet::as_millis_fp(network_time));
 
     return *this;
   }
@@ -98,12 +91,12 @@ struct Data {
   csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
   bool rendering() const { return rate & 0x01; }
 
-  Data &setLocalTimeAt(Nanos _local_at = pet::now_nanos()) {
+  AnchorData &setLocalTimeAt(Nanos _local_at = pet::now_nanos()) {
     local_at = _local_at;
     return *this;
   }
 
-  Data &setValid(bool set_valid = true) {
+  AnchorData &setValid(bool set_valid = true) {
     valid = set_valid;
     valid_at = pet::now_nanos();
     return *this;
@@ -113,15 +106,15 @@ struct Data {
 
   auto validFor() const { return pet::now_nanos() - valid_at; }
 
-  static Data any_cast(std::any &data) {
-    return data.has_value() ? std::any_cast<Data>(data) : Data();
+  static AnchorData any_cast(std::any &data) {
+    return data.has_value() ? std::any_cast<AnchorData>(data) : AnchorData();
   }
 
   // return values:
   // -1 = clock is different
   //  0 = clock, rtp_time, network_time are equal
   // +1 = clock is same, rtp_time and network_time are different
-  friend int operator<=>(const Data &lhs, const Data &rhs) {
+  friend int operator<=>(const AnchorData &lhs, const AnchorData &rhs) {
     if (lhs.clock_id != rhs.clock_id) {
       return -1;
     }
@@ -146,10 +139,9 @@ private:
   static constexpr csv module_id{"ANCHOR_DATA"};
 };
 
-enum Entry : size_t { ACTUAL = 0, LAST, RECENT };
+enum AnchorEntry : size_t { ACTUAL = 0, LAST, RECENT };
 
-constexpr auto VALID_MIN_DURATION = 5s;
-constexpr auto INVALID_DATA = Data();
+constexpr auto ANCHOR_VALID_MIN_DURATION = 5s;
+constexpr auto ANCHOR_INVALID_DATA = AnchorData();
 
-} // namespace anchor
 } // namespace pierre
