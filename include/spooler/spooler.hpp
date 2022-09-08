@@ -130,7 +130,7 @@ private:
     // transfer un-flushed rtp_packets to new reels
     ranges::for_each(reels, [&](shReel reel) {
       if (auto keep = reel->flush(request); keep == true) { // reel has frames
-        __LOG0("{:<18} FLUSH KEEP {}\n", reel->moduleID(), Reel::inspect(reel));
+        __LOG0(LCOL01 " {}\n", reel->moduleID(), "FLUSH_KEEP", Reel::inspect(reel));
 
         reels_keep.emplace_back(reel);
       }
