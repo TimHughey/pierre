@@ -32,12 +32,9 @@
 #include <vector>
 
 namespace pierre {
-
-namespace spool { // instance
-std::unique_ptr<Spooler> i;
-} // namespace spool
-
-Spooler *ispooler() { return spool::i.get(); }
+namespace shared {
+std::optional<Spooler> spooler;
+}
 
 // Spooler API and member functions
 void Spooler::accept(uint8v &packet) { // static
@@ -80,9 +77,8 @@ void Spooler::flush(const FlushRequest &request) {
 
 // initialize the thread pool for digital signal analysis
 void Spooler::init() {
-  if (auto self = spool::i.get(); !self) {
-    self = new Spooler();
-    spool::i = std::move(std::unique_ptr<Spooler>(self));
+  if (!shared::spooler) {
+    auto &spooler = shared::spooler.emplace();
 
     std::latch latch{THREAD_COUNT};
 
@@ -90,14 +86,14 @@ void Spooler::init() {
     for (auto n = 0; n < THREAD_COUNT; n++) {
       // notes:
       //  1. start DSP processing threads
-      self->threads.emplace_back([=, &latch] {
+      spooler.threads.emplace_back([&]() mutable {
         name_thread(THREAD_NAME, n);
         latch.count_down();
-        self->io_ctx.run();
+        spooler.io_ctx.run();
       });
     }
 
-    self->watch_dog();
+    spooler.watch_dog();
 
     // calling thread
     latch.wait();
@@ -107,7 +103,27 @@ void Spooler::init() {
   Frame::init();
 }
 
-shFrame Spooler::next_frame(const Nanos lead_time) {
+shFrame Spooler::head_frame(AnchorLast &anchor) {
+
+  // do we need a reel?
+  requisition.ifNeeded();
+  shFrame frame;
+
+  if (!reels_out.empty()) {
+    if (auto &frames = reels_out.front()->frames(); !frames.empty()) {
+      frame = frames.front(); // get the head frame
+
+      frames.pop_front();       // consume the head frame
+      frame->state_now(anchor); // ensure the state and sync time are updated
+    }
+  } else {
+    __LOG0(LCOL01 " no reels\n", moduleID(), "HEAD_FRAME");
+  }
+
+  return frame;
+}
+
+shFrame Spooler::next_frame(const Nanos lead_time, AnchorLast &anchor) {
 
   // do we need a reel?
   requisition.ifNeeded();
@@ -126,19 +142,23 @@ shFrame Spooler::next_frame(const Nanos lead_time) {
     auto &frames = reel->frames();
 
     for (shFrame &pf : frames) { // inner for-loop (frames in reel)
-      const auto state = pf->state_now(lead_time);
+      // calculate the frame state and sync_wait
 
-      if (pf->stateEqual({fra::PLAYABLE, fra::FUTURE})) { // we got a playable frame
+      auto [valid, sync_wait, renderable] = pf->state_now(anchor, lead_time);
+
+      if (valid && renderable) { // frame meets criteria for rendering
         frame = pf;
         break; // break out of inner for-loop (single reel)
+      } else if (!valid) {
+        // problem calculating sync wait, bail out
+        break;
       }
     }
 
-    reel->purge(); // always purge played (or outdated) frames
+    reel->purge(); // always purge frames from searched reel
 
-    if (frame) { // found the next frame
-      break;     //  break out of outer for-loop (reels)
-    }
+    if (frame) // found the next frame
+      break;   //  break out of outer for-loop (reels)
   }
 
   clean(); // schedule spooler clean up
@@ -148,13 +168,13 @@ shFrame Spooler::next_frame(const Nanos lead_time) {
 
 // shutdown thread pool and wait for all threads to stop
 void Spooler::shutdown() {
-  auto self = ispooler();
+  auto &spooler = *shared::spooler;
 
-  self->threads.front().request_stop();
+  spooler.threads.front().request_stop();
 
-  ranges::for_each(self->threads, [](auto &t) { t.join(); });
+  ranges::for_each(spooler.threads, [](auto &t) { t.join(); });
 
-  spool::i.reset(); // deallocate
+  shared::spooler.reset(); // deallocate
 }
 
 // watch for thread stop request

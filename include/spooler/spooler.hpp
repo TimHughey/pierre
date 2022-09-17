@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "base/anchor_last.hpp"
 #include "base/flush_request.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
@@ -38,6 +39,7 @@
 #include <optional>
 #include <ranges>
 #include <stop_token>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -45,11 +47,12 @@
 namespace pierre {
 
 class Spooler;
-
-Spooler *ispooler();
+namespace shared {
+extern std::optional<Spooler> spooler;
+}
 
 class Spooler {
-private:
+public: // do not create directly, use init
   Spooler()
       : strand_in(io_ctx),            // guard Reels reels_in
         strand_out(io_ctx),           // guard Reels reels_out
@@ -59,6 +62,7 @@ private:
 
 public:
   // instance API
+
   static void init();
   static void shutdown();
 
@@ -66,14 +70,97 @@ public:
   void accept(uint8v &packet);
 
   template <typename CompletionToken>
-  auto async_next_frame(const Nanos &lead_time, io_context &io_ctx, CompletionToken &&token) {
+  auto async_head_frame(io_context &io_ctx, AnchorLast &anchor, const Nanos no_reel_delay,
+                        CompletionToken &&token) { 
 
-    auto initiation = [](auto &&comp_handler, const Nanos &lead_time, io_context &io_ctx) {
+    auto initiation = [](auto &&comp_handler, io_context &io_ctx, AnchorLast &anchor,
+                         const Nanos no_reel_delay, std::unique_ptr<steady_timer> timer) {
       struct intermediate_handler {
-        const Nanos lead_time;         // the lead time for retrieving the next frame
-        io_context &io_ctx;            // strand for handoff handler
-        shFrame frame;                 // the inflight frame
-        enum { deque, handoff } state; // current state
+        io_context &io_ctx;                  // strand for handoff handler
+        AnchorLast anchor;                   // anchor to frame state conversion
+        const Nanos no_reel_delay;           // used as delay when no reels
+        std::unique_ptr<steady_timer> timer; // polling timer when spooler empty
+        shFrame frame;                       // the inflight frame
+        enum { deque, handoff } state;       // current state
+        typename std::decay<decltype(comp_handler)>::type handler; // user supplied handler
+
+        // asio::async_wait() requires a WaitToken
+        // so our operator must accept both, hence the default val for ec
+        void operator()(error_code ec = io::make_error(errc::success)) {
+          __LOGX(LCOL01 " state={}\n", "SPOOLER", "ASYNC_HEAD_FRAME", state);
+
+          if (ec) {
+            handler(std::move(frame));
+          }
+
+          switch (state) {
+          case deque:
+            // this case is running in spooler strand_out
+
+            frame = shared::spooler->head_frame(anchor);
+
+            if (!frame) { // no frames yet, need to wait
+                          // poll for available frames and be sure we run on strand_out
+              timer->expires_after(no_reel_delay);
+              timer->async_wait(std::move(*this));
+              return;
+
+            } else {
+              state = handoff; // we got a frame, hand it off
+              asio::post(io_ctx, std::move(*this));
+              return; // more async work to do
+            }
+
+            break;
+
+          case handoff:
+            // we've reached the end of the async::post() chain, call user
+            // supplied handler
+            handler(std::move(frame));
+          }
+        }
+      }; // end intermediate struct
+
+      // kick off the async chain by attempting to deque a frame via strand_out
+      asio::post(                                           // execute async
+          shared::spooler->strand_out,                      // strand to use
+          intermediate_handler{io_ctx,                      // pass along the dst strand
+                               anchor,                      // anchor for frame sync calculation
+                               no_reel_delay,               // delay when no reels
+                               std::move(timer),            // pass along the timer
+                               shFrame(),                   // uninitialized frame
+                               intermediate_handler::deque, // initial state
+                               std::forward<decltype(comp_handler)>(comp_handler)});
+    }; // end initiation function
+
+    auto timer = std::make_unique<steady_timer>(shared::spooler->io_ctx.get_executor());
+
+    return asio::async_initiate<CompletionToken, void(shFrame frame)>(
+        initiation,       // initiation function object
+        token,            // user supplied callback
+        std::ref(io_ctx), // wrap non-const args to prevent incorrect decay-copies
+        std::ref(anchor), // wrap non-const args to prevent incorrect decay-copies
+        no_reel_delay,
+        std::move(timer) // the polling timer, if needed
+    );
+  }
+
+  //
+  // async_next_frame()
+  //
+  template <typename CompletionToken>
+  auto async_next_frame(io_context &io_ctx, const Nanos &lead_time, AnchorLast &anchor,
+                        CompletionToken &&token) {
+
+    auto initiation = [](auto &&comp_handler, io_context &io_ctx, const Nanos &lead_time,
+                         AnchorLast &anchor) {
+      struct intermediate_handler {
+        io_context &io_ctx;    // strand for handoff handler
+        const Nanos lead_time; // the lead time for retrieving the next frame
+        AnchorLast anchor;     // the anchor for frame time calculations
+        shFrame frame;         // the inflight frame
+
+        enum { deque, handoff } state;                             // current state
         typename std::decay<decltype(comp_handler)>::type handler; // user supplied handler
 
         void operator()() // async::post() requires a NullaryToken
@@ -84,7 +171,7 @@ public:
           case deque:
             // this case is running in spooler strand_out
             state = handoff; // the next state
-            frame = ispooler()->next_frame(lead_time);
+            frame = shared::spooler->next_frame(lead_time, anchor);
 
             asio::post(io_ctx, std::move(*this));
             return; // more async work to do
@@ -92,26 +179,28 @@ public:
           case handoff:
             // we've reached the end of the async::post() chain, call user
             // supplied handler
-            handler(std::move(frame));
+            handler(frame);
           }
         }
       }; // end intermediate struct
 
       // initiate post operation via intermediate handler
       asio::post(                                           // execute async
-          ispooler()->strand_out,                           // strand to use
-          intermediate_handler{lead_time,                   // the lead time
-                               io_ctx,                      // pass along the dst strand
+          shared::spooler->strand_out,                      // strand to use
+          intermediate_handler{io_ctx,                      // pass along the dst strand
+                               lead_time,                   // the lead time
+                               anchor,                      // anchor info
                                shFrame(),                   // uninitialized frame
                                intermediate_handler::deque, // initial state
                                std::forward<decltype(comp_handler)>(comp_handler)});
     }; // end initiation function
 
-    return asio::async_initiate<CompletionToken, void(shFrame frame)>(
-        initiation,      // initiation function object
-        token,           // user supplied callback
-        lead_time,       // reel containing the frame
-        std::ref(io_ctx) // wrap non-const args to prevent incorrect decay-copies
+    return asio::async_initiate<CompletionToken, void(shFrame)>(
+        initiation,       // initiation function object
+        token,            // user supplied callback
+        std::ref(io_ctx), // wrap non-const args to prevent incorrect decay-copies
+        lead_time,        // reel containing the frame
+        std::ref(anchor)  // anchor info for calculating the frame time
     );
   }
 
@@ -140,7 +229,8 @@ private:
     std::swap(reels_keep, reels);
   }
 
-  shFrame next_frame(const Nanos lead_time);
+  shFrame head_frame(AnchorLast &anchor);
+  shFrame next_frame(const Nanos lead_time, AnchorLast &anchor);
 
   void watch_dog();
 

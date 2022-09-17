@@ -34,6 +34,7 @@ namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using const_buff = asio::const_buffer;
+using deadline_timer = asio::deadline_timer;
 using io_context = asio::io_context;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
@@ -56,7 +57,7 @@ enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
 
 namespace io {
 
-static constexpr error_code make_error(auto val) {
+static constexpr error_code make_error(errc::errc_t val = errc::success) {
   return error_code(val, sys::generic_category());
 }
 } // namespace io

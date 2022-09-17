@@ -20,7 +20,7 @@
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
-#include "rtp_time/master_clock.hpp"
+#include "frame/master_clock.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -48,35 +48,40 @@ namespace pierre {
  */
 
 // misc debug
-void AnchorData::dump() const {
-  const auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
-  const auto dec_fmt_str = FMT_STRING("{:>35}={}\n");
-  const auto now_fmt_str = FMT_STRING("{:>35}={} {} {}\n");
+string AnchorData::inspect() const {
+  const auto hex_fmt_str = FMT_STRING("{:>35}={:#02x}\n");
+  const auto gen_fmt_str = FMT_STRING("{:>35}={}\n");
 
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, hex_fmt_str, "rate", rate);
   fmt::format_to(w, hex_fmt_str, "clock_id", clock_id);
-  fmt::format_to(w, dec_fmt_str, "secs", secs);
-  fmt::format_to(w, dec_fmt_str, "frac", frac);
+  fmt::format_to(w, hex_fmt_str, "rate", rate);
   fmt::format_to(w, hex_fmt_str, "flags", flags);
-  fmt::format_to(w, dec_fmt_str, "rtp_time", rtp_time);
-  fmt::format_to(w, dec_fmt_str, "network_time", network_time);
-  fmt::format_to(w, dec_fmt_str, "valid", valid);
-  fmt::format_to(w, dec_fmt_str, "valid_at", valid_at);
+  fmt::format_to(w, gen_fmt_str, "rtp_time", rtp_time);
+  fmt::format_to(w, gen_fmt_str, "anchor_time", pet::humanize(anchor_time));
+  fmt::format_to(w, gen_fmt_str, "localized", pet::humanize(localized));
+  fmt::format_to(w, gen_fmt_str, "viable", viable());
+  fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for));
+  fmt::format_to(w, gen_fmt_str, "now_monotonic", pet::humanize(pet::now_monotonic()));
 
-  auto now = pet::now_monotonic();
+  return msg;
+}
 
-  fmt::format_to(w, now_fmt_str, "now_steady secs/micros", pet::as_secs<Nanos>(now),
-                 pet::as<Micros>(now), pet::as<Millis>(now));
+void AnchorData::log_new(const AnchorData &old, const ClockInfo &clock) const {
 
-  auto since_epoch = pet::now_epoch();
+  __LOG0(LCOL01 " new={:#016x} old={:#016x} master={:#016x}\n", module_id, "FROM_SOURCE", //
+         clock_id, old.clock_id, clock.clock_id);
+}
 
-  fmt::format_to(w, now_fmt_str, "now_since epoch secs/micros", pet::as_secs<Nanos>(since_epoch),
-                 pet::as<Micros>(since_epoch), pet::as<Millis>(since_epoch));
+void AnchorData::log_new_master_if_needed(bool &data_new) const {
 
-  __LOG0(LCOL01 "\n{}\n", moduleID(), csv("DUMP"), msg);
+  if (data_new) {
+    __LOG0(LCOL01 " clock={:#016x} now master and anchor, master_for={}\n", //
+           module_id, "INFO", clock_id, pet::humanize(master_for));
+
+    data_new = false;
+  }
 }
 
 } // namespace pierre

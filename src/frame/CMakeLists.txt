@@ -32,6 +32,9 @@ add_library(${__target} SHARED
   # the frame
   frame.cpp
 
+  # master clock and anchor
+  anchor.cpp master_clock.cpp
+
   ${HEADER_LIST}
 )
 
@@ -47,8 +50,9 @@ target_link_libraries(${__target} PRIVATE
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   base
+  core
   config
-  rtp_time
+  io
 )
 
 

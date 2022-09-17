@@ -19,13 +19,14 @@
 #pragma once
 
 #include "base/anchor_data.hpp"
+#include "base/anchor_last.hpp"
+#include "base/clock_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
-#include "rtp_time/master_clock.hpp"
 
 #include <array>
-#include <fmt/format.h>
 #include <memory>
+#include <optional>
 
 namespace pierre {
 
@@ -35,37 +36,48 @@ extern std::optional<Anchor> anchor;
 }
 
 class Anchor {
-public:
-  Anchor() { _datum.fill(AnchorData()); }
+private:
+  enum Datum { source = 0, live, last, invalid, max_datum };
 
+public:
+  Anchor() {}
   static void init(); // create shared Anchor
 
-  static Nanos frame_diff(const uint32_t timestamp) {
-    const auto &data = shared::anchor->getData();
-
-    return data.ok() ? data.frame_diff(timestamp) : Nanos::min();
+  static frame_local_time_result_t frame_local_time_diff(const uint32_t timestamp) {
+    return shared::anchor->get_data().frame_local_time_diff(timestamp);
   }
 
-  const AnchorData &getData();
-  void invalidateLastIfQuickChange(const AnchorData &data);
-  static bool playEnabled() { return shared::anchor->cdata(AnchorEntry::RECENT).rendering(); }
+  static Nanos frame_to_local_time(const uint32_t timestamp) {
+    return shared::anchor->get_data().frame_to_local_time(timestamp);
+  }
+
+  AnchorLast get_data();
+  static bool rendering() { return shared::anchor->cdatum(Datum::live).rendering(); }
   void save(AnchorData &ad);
   void teardown();
 
+  bool viable() const { return _last.has_value(); }
+
   // misc debug
-  static void dump(auto entry = AnchorEntry::LAST, auto loc = src_loc::current()) {
-    shared::anchor->cdata(entry).dump(loc);
+  static void dump(Datum dat = Datum::live) {
+    __LOG0(LCOL01 " dat={}\n{}\n", module_id, "DUMP", dat, shared::anchor->cdatum(dat).inspect());
   }
 
 private:
-  const AnchorData &cdata(AnchorEntry entry) const { return _datum[entry]; };
-  AnchorData &data(enum AnchorEntry entry) { return shared::anchor->_datum[entry]; };
-  void infoNewClock(const ClockInfo &info);
-  void warnFrequentChanges(const ClockInfo &info);
+  const AnchorData &cdatum(Datum dat) const { return _datum.at(dat); }
+  AnchorData &datum(Datum dat) { return _datum[dat]; }
+
+  void handle_new_data(const AnchorData &new_ad);
+  void handle_quick_change(const AnchorData &ad);
+
+  // misc internal debug
 
 private:
-  std::array<AnchorData, 3> _datum;
-  bool is_new = false;
+  std::array<AnchorData, Datum::max_datum> _datum;
+  std::optional<AnchorLast> _last;
+  bool remote_valid = false;
+  bool data_new = false;
+  const bool log_data_new = true;
 
   // misc debug
   static constexpr auto module_id = csv("ANCHOR");

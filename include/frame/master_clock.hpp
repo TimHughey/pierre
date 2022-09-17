@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <pthread.h>
@@ -70,13 +71,6 @@ public:
   typedef std::vector<string> Peers;
 
 public:
-  struct Inject {
-    io_context &io_ctx;
-    csv service_name;
-    csv device_id;
-  };
-
-public:
   struct nqptp {
     pthread_mutex_t copy_mutes;           // for safely accessing the structure
     uint16_t version;                     // check version==VERSION
@@ -88,20 +82,58 @@ public:
   };
 
 public:
-  MasterClock(const Inject &di);
+  MasterClock(io_context &io_ctx) noexcept;
+
   // prevent copies, moves and assignments
   MasterClock(const MasterClock &clock) = delete;            // no copy
   MasterClock(const MasterClock &&clock) = delete;           // no move
   MasterClock &operator=(const MasterClock &clock) = delete; // no copy assignment
   MasterClock &operator=(MasterClock &&clock) = delete;      // no move assignment
 
-  ~MasterClock() { unMap(); }
+  static void init(io_context &io_ctx);
+  static void reset() {
+    shared::master_clock->unMap();
+    shared::master_clock.reset();
+  }
 
-  static MasterClock &init(const Inject &inject) { return shared::master_clock.emplace(inject); }
-  static void reset() { shared::master_clock.reset(); }
+  //
+  // async_wait_ready():
+  //
+  // NOTE: new info is available every 126ms
+  //
+  void async_wait_ready(auto &&callback, Nanos max_wait = ClockInfo::AGE_STABLE,
+                        std::unique_ptr<steady_timer> timer = nullptr) {
+    auto clock_info = info();
 
-  // NOTE: new info is updated every 126ms
+    if (isMapped() && clock_info.is_minimum_age()) {
+      callback(clock_info, clock_info.is_minimum_age());
+    } else if (max_wait >= ClockInfo::AGE_STABLE) {
+      callback(clock_info, false);
+
+    } else {
+      if (!timer) {
+        auto timer = std::make_unique<steady_timer>(asio::get_associated_executor(local_strand));
+      }
+
+      Nanos till_delay = ClockInfo::AGE_MIN - clock_info.master_for();
+      auto remaining_wait = max_wait - till_delay;
+
+      timer->expires_after(till_delay);
+      timer->async_wait([remaining_wait, callback = std::move(callback),
+                         timer = std::move(timer)](const error_code ec) mutable {
+        if (!ec) {
+          shared::master_clock->async_wait_ready(std::move(callback), remaining_wait,
+                                                 std::move(timer));
+        } else {
+          callback(ClockInfo{0}, false);
+        }
+      });
+    }
+  }
+
+  strand &borrow_strand() { return local_strand; }
   const ClockInfo info();
+
   bool ok() { return info().ok(); };
 
   void peersReset() { peersUpdate(Peers()); }
@@ -122,13 +154,10 @@ private:
   // order dependent
   strand local_strand;
   udp_socket socket;
-  ip_address address;
-  udp_endpoint endpoint; // local endpoint (c)
-  string shm_name;       // shared memmory segment name (built by constructor)
+  udp_endpoint remote_endpoint;
+  const string shm_name; // shared memmory segment name (built by constructor)
 
   void *mapped = nullptr; // mmapped region of nqptp data struct
-
-public:
 };
 
 /*

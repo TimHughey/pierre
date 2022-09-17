@@ -144,7 +144,7 @@ void Audio::asyncRxPacket() {
                 uint8v handoff;                          // handoff this packet
                 std::swap(handoff, self->packet_buffer); // by swapping local buffer
 
-                ispooler()->accept(handoff);
+                pierre::shared::spooler->accept(handoff);
               } else {
                 const auto len = self->packetLength();
                 __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);

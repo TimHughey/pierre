@@ -17,6 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "frame/frame.hpp"
+#include "anchor.hpp"
+#include "base/anchor_last.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/shk.hpp"
@@ -27,7 +29,7 @@
 #include "frame/fft.hpp"
 #include "frame/peaks.hpp"
 #include "io/io.hpp"
-#include "rtp_time/anchor.hpp"
+#include "master_clock.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -43,7 +45,7 @@
 namespace pierre {
 namespace fra {
 StateKeys &stateKeys() {
-  static auto keys = StateKeys{DECODED, OUTDATED, PLAYABLE, PLAYED, FUTURE};
+  static auto keys = StateKeys{DECODED, OUTDATED, RENDERABLE, RENDERED, FUTURE};
 
   return keys;
 }
@@ -419,13 +421,16 @@ Frame::Frame(const Nanos lead_time, fra::State state)
       peaks_left(Peaks::create()),  // ensure left peaks exist (and represent silence)
       peaks_right(Peaks::create()), // ensure right peaks exist (and represent silence)
       use_anchor(false)             // do not use Anchor / MasterClock for frame timing
-{
-  if (playable()) {
-    sync_wait = local_time_diff();
-  }
-}
+{}
 
 // Frame API and member functions
+
+fra::render_mode_t Frame::anchor_save(AnchorData ad) {
+  shared::anchor->save(ad);
+
+  return ad.render_mode();
+}
+
 bool Frame::decipher() {
   if (SharedKey::empty()) {
     __LOG0("{:<18} shared key empty\n", module_id);
@@ -531,38 +536,48 @@ bool Frame::keep(FlushRequest &flush) {
   return rc;
 }
 
-const Nanos Frame::local_time_diff() {
-  // must be in .cpp due to intentional limiting of Anchor visibility
+fra::state_now_result_t Frame::state_now(AnchorLast &anchor, const Nanos &lead_time) {
+  Nanos _sync_wait{0};
 
-  return use_anchor ? Anchor::frame_diff(timestamp)                   // calc via master clock
-                    : lead_time - pet::elapsed_as<Nanos>(created_at); // simulate a clock
-}
+  _anchor = anchor; // cache the anchor used for this calculation
 
-shFrame Frame::state_now(const Nanos &lead_time) {
-  if (isReady() && unplayed()) { // frame is legit
-    sync_wait = local_time_diff();
+  if (isReady()) { // frame is legit
 
-    if (sync_wait > Nanos::min()) { // anchor is ready or not using anchor
+    // valid=true indicates that diff was calculated
+    auto [valid, diff] = anchor.frame_local_time_diff(timestamp);
+
+    if (valid) { // anchor is ready
+      auto prev_state = state;
 
       // determine if the state of the frame should be changed based on local time sync_wait
       // we only want to look at specific frame states
-      if (unplayed()) {
-        if (sync_wait < Nanos::zero()) { // old, before required lead time
-          state = fra::OUTDATED;         // mark as outdated
+      if (not_rendered()) {
+        if (diff < Nanos::zero()) { // old, before required lead time
+          state = fra::OUTDATED;    // mark as outdated
 
-        } else if ((sync_wait >= Nanos::zero()) && (sync_wait <= lead_time)) { // in range
-          state = fra::PLAYABLE;
+        } else if ((diff >= Nanos::zero()) && (diff <= lead_time)) { // in range
+          state = fra::RENDERABLE;
 
-        } else if ((sync_wait > lead_time) && (state == fra::DECODED)) { // future
+        } else if ((diff > lead_time) && (state == fra::DECODED)) { // future
           state = fra::FUTURE;
         }
 
-        __LOGX(LCOL01 " {}\n", module_id, csv("STATE_NOW"), inspect());
+        // update sync_wait anything has changed
+        if (diff != sync_wait) {
+          if (sync_wait != Nanos::min()) {
+            __LOG0(LCOL01 " sync wait change, seq={} state={}/{} sync_wait={}/{}\n", module_id,
+                   "STATE_NOW", seq_num, prev_state, state, pet::humanize(sync_wait),
+                   pet::humanize(diff));
+          }
+          sync_wait = diff;
+        }
+
+        __LOGX(LCOL01 " {}\n", module_id, csv("STATE_NOW"), inspectFrame());
       } // end frame state update
     }   // anchor not ready
   }
 
-  return shared_from_this();
+  return fra::state_now_result_t{sync_wait > Nanos::min(), sync_wait, renderable()};
 }
 
 // misc debug

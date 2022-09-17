@@ -43,7 +43,7 @@ bool Teardown::populate() {
 bool Teardown::phase1() {
   __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 1"));
   SharedKey::clear();
-  idesk()->adjust_mode(Desk::NOT_RENDERING);
+  pierre::shared::desk->adjust_mode(Desk::NOT_RENDERING);
 
   return true;
 }
@@ -66,7 +66,7 @@ bool Teardown::phase2() { // we've been asked to disconnect
   ConnInfo::ptr()->groupContainsGroupLeader = false;
   ConnInfo::ptr()->dacp_active_remote.clear();
 
-  idesk()->halt();
+  pierre::shared::desk->halt();
 
   return true;
 }

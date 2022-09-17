@@ -1,6 +1,6 @@
 /*
     Pierre - Custom Lightshow for Wiss Landing
-    Copyright (C) 2020  Tim Hughey
+    Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 
     https://www.wisslanding.com
 
-    Based on the original work of:
+    Based, in part, on the original work of:
       http://www.pjrc.com/teensy/
       Copyright (c) 2011 PJRC.COM, LLC
 */
@@ -33,28 +33,24 @@ namespace pierre {
 
 class Elapsed {
 public:
-  Elapsed(void) noexcept : nanos(pet::now_nanos()) {}
-  Elapsed(int64_t val) noexcept : nanos(pet::as_duration<Micros, Nanos>(Micros(val))) {}
+  Elapsed(void) noexcept : nanos(pet::now_monotonic()) {}
 
   template <typename T> T as() const { return pet::as_duration<Nanos, T>(elapsed()); }
   SecondsFP asSecs() const { return pet::as_secs(elapsed()); }
 
   Elapsed &freeze() {
     frozen = true;
-    nanos = pet::elapsed_abs_ns(nanos);
+    nanos = pet::elapsed_abs(nanos);
     return *this;
   }
 
   Nanos operator()() const { return elapsed(); }
   template <typename T> bool operator>=(const T &rhs) const { return elapsed() >= rhs; }
 
-  Elapsed &reset() {
-    *this = Elapsed();
-    return *this;
-  }
+  void reset() { *this = Elapsed(); }
 
 private:
-  Nanos elapsed() const { return frozen ? nanos : pet::elapsed_abs_ns(nanos); }
+  Nanos elapsed() const { return frozen ? nanos : pet::elapsed_abs(nanos); }
 
 private:
   Nanos nanos;

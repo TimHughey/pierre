@@ -55,6 +55,7 @@ csv __LOG_COL2_SV{__LOG_COL2};
 const auto __LOG_PREFIX = fmt::format("{:11} ", " ");
 const auto __LOG_MODULE_ID_INDENT = fmt::format("\n{}{:18} ", __LOG_PREFIX, " ");
 const auto __LOG_DETAIL_INDENT = fmt::format("\n{} " LCOL01, __LOG_PREFIX, LBLANK, LBLANK);
+const auto LOG_INDENT = fmt::format("{:<47}", LBLANK);
 
 struct pe_log {
   static void indent2(string &msg, csv more) {

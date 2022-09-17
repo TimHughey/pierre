@@ -30,29 +30,27 @@ bool SetAnchor::populate() {
 
   __LOGX(LCOL01 "\n{}\n", moduleID(), "DICT DUMP", rdict.inspect());
 
-  saveAnchorInfo();
-
-  responseCode(RespCode::OK);
-
-  return true;
-}
-
-void SetAnchor::saveAnchorInfo() {
   // a complete anchor message contains these keys
   const Aplist::KeyList keys{dk::RATE,          dk::NET_TIMELINE_ID, dk::NET_TIME_SECS,
                              dk::NET_TIME_FRAC, dk::NET_TIME_FLAGS,  dk::RTP_TIME};
 
   if (rdict.existsAll(keys)) {
     // this is a complete anchor data set
-    idesk()->save_anchor_data(AnchorData{.rate = rdict.uint({dk::RATE}),
-                                         .clock_id = rdict.uint({dk::NET_TIMELINE_ID}),
-                                         .secs = rdict.uint({dk::NET_TIME_SECS}),
-                                         .frac = rdict.uint({dk::NET_TIME_FRAC}),
-                                         .flags = rdict.uint({dk::NET_TIME_FLAGS}),
-                                         .rtp_time = rdict.uint({dk::RTP_TIME})});
+    Desk::anchor_save(                                // submit the new anchor data
+        AnchorData(rdict.uint({dk::NET_TIMELINE_ID}), // network timeline id (aka source clk)
+                   rdict.uint({dk::RATE}),            // rate (0=not playing, 1=playing)
+                   rdict.uint({dk::NET_TIME_SECS}),   // source clock seconds
+                   rdict.uint({dk::NET_TIME_FRAC}),   // source clock fractional nanos
+                   rdict.uint({dk::RTP_TIME}),        // rtp time (as defined by source),
+                   rdict.uint({dk::NET_TIME_FLAGS})   // flags (from source)
+                   ));
   } else {
-    idesk()->save_anchor_data(AnchorData{.rate = rdict.uint({dk::RATE})});
+    Desk::anchor_save(AnchorData(rdict.uint({dk::RATE})));
   }
+
+  responseCode(RespCode::OK);
+
+  return true;
 }
 
 } // namespace reply

@@ -48,6 +48,14 @@ struct pet {
 
   static constexpr auto abs(const auto &d1) { return std::chrono::abs(d1); }
 
+  static constexpr Nanos add_offset(const Nanos &d, uint64_t offset) {
+    return Nanos{to_uint64_t(d) + offset};
+  }
+
+  static constexpr Nanos apply_offset(const Nanos &d, uint64_t offset) {
+    return Nanos{static_cast<uint64_t>(d.count()) + offset};
+  }
+
   template <typename TO> static constexpr TO as(auto x) {
     return std::chrono::duration_cast<TO>(Nanos(x));
   }
@@ -72,19 +80,25 @@ struct pet {
     return std::chrono::abs(d1 - d2);
   }
 
-  static string humanize(const Nanos all);
+  static string humanize(const Nanos d);
 
-  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_nanos()) {
+  static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) { return d2 - d1; }
+
+  template <typename T>
+  static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
-  static Nanos elapsed_abs_ns(const Nanos &d1, const Nanos d2 = pet::now_nanos()) { //
+  static Nanos elapsed_abs(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) { //
     return diff_abs(d2, d1);
   }
 
   static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
   static constexpr Nanos from_ns(uint64_t ns) { return Nanos(static_cast<int64_t>(ns)); }
-  static constexpr Nanos negative(Nanos d) { return Nanos::zero() - d; }
+
+  template <typename T> static constexpr bool not_zero(const T &d) { return d != T::zero(); }
+
+  static Nanos now_monotonic() { return now_nanos(); }
 
   template <typename T = Nanos> static T now_monotonic() {
     return std::chrono::duration_cast<T>(now_nanos());
@@ -94,11 +108,9 @@ struct pet {
     return std::chrono::duration_cast<T>(system_clock::now().time_since_epoch());
   }
 
-  static Nanos now_nanos();
+  template <typename T> static T now_steady() { return as_duration<Nanos, T>(now_monotonic()); }
 
-  template <typename T> static T now_steady() { return as_duration<Nanos, T>(now_nanos()); }
-
-  template <typename T> static constexpr T percent(T x, int percent) {
+  template <typename T = Nanos> static constexpr T percent(T x, int percent) {
     float _percent = percent / 100.0;
     Nanos base = std::chrono::duration_cast<Nanos>(x);
     auto val = Nanos(static_cast<int64_t>(base.count() * _percent));
@@ -117,6 +129,23 @@ struct pet {
   template <typename T = Nanos> static constexpr T reference() {
     return std::chrono::duration_cast<T>(steady_clock::now().time_since_epoch());
   }
+
+  template <typename T = Nanos> static constexpr void set_if_zero(T &to_set, const T val) {
+    if (to_set == Nanos::zero()) {
+      to_set = val;
+    }
+  }
+
+  static constexpr Nanos subtract_offset(const Nanos &d, uint64_t offset) {
+    return Nanos(to_uint64_t(d) - offset);
+  }
+
+  static constexpr uint64_t to_uint64_t(const Nanos &d) {
+    return static_cast<uint64_t>(d.count());
+  }
+
+private:
+  static Nanos now_nanos();
 };
 
 } // namespace pierre

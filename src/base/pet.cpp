@@ -25,28 +25,28 @@
 
 namespace pierre {
 
-string pet::humanize(Nanos all) {
+string pet::humanize(Nanos d) {
   string msg;
   auto w = std::back_inserter(msg);
 
   auto append = [&w](auto d) { fmt::format_to(w, "{} ", d); };
 
-  if (auto x = as<Hours>(all); x != Hours::zero()) {
+  if (auto x = as<Hours>(d); x != Hours::zero()) {
     append(x);
-    all -= as<Nanos>(x);
+    d -= as<Nanos>(x);
   }
 
-  if (auto x = as<Minutes>(all); x != Minutes::zero()) {
+  if (auto x = as<Minutes>(d); x != Minutes::zero()) {
     append(x);
-    all -= as<Nanos>(x);
+    d -= as<Nanos>(x);
   }
 
-  if (auto x = as<Seconds>(all); x != Seconds::zero()) {
+  if (auto x = as<Seconds>(d); x != Seconds::zero()) {
     append(x);
-    all -= as<Nanos>(x);
+    d -= as<Nanos>(x);
   }
 
-  auto ms = as_millis_fp(all);
+  auto ms = as_millis_fp(d);
   fmt::format_to(w, "{:0.2}", ms);
 
   return msg;

@@ -24,8 +24,8 @@
 #include "core/features.hpp"
 #include "core/host.hpp"
 #include "desk/desk.hpp"
-#include "rtp_time/anchor.hpp"
-#include "rtp_time/master_clock.hpp"
+#include "frame/anchor.hpp"
+#include "frame/master_clock.hpp"
 #include "server/servers.hpp"
 
 #include <latch>
@@ -41,14 +41,14 @@ shAirplay Airplay::init() { // static
   __LOG0(LCOL01 " features={:#x}\n", moduleID(), csv("INIT"), Features().ap2Default());
 
   // executed by caller thread
-  Anchor::init();
+  //  Anchor::init();
   airplay::ConnInfo::init();
   Desk::init(InputInfo::frame<Nanos>());
 
   // init the master clock on Airplay io_ctx
-  MasterClock::init({.io_ctx = self->io_ctx,
-                     .service_name = Config::receiverName(),
-                     .device_id = Host::ptr()->deviceID()});
+  // MasterClock::init({.io_ctx = self->io_ctx,
+  //                    .service_name = Config::receiverName(),
+  //                    .device_id = Host::ptr()->deviceID()});
 
   airplay::Servers::init({.io_ctx = self->io_ctx});
 

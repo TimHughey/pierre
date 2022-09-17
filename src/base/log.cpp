@@ -24,7 +24,7 @@
 #include <fmt/format.h>
 
 namespace pierre {
-static auto startup = pet::now_nanos();
+static auto startup = pet::now_monotonic();
 
 // Global Helpers Definitions
 

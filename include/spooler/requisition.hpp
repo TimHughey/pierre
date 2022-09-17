@@ -52,12 +52,12 @@ public:
   static constexpr csv moduleId{"REQUISITION"};
 
   Requisition(strand &src_strand, Reels &src, strand &dst_strand, Reels &dst)
-      : src_strand(src_strand), src(src), dst_strand(dst_strand), dst(dst){};
+      : src_strand(src_strand), src(src), dst_strand(dst_strand), dst(dst) {}
 
   MillisFP elapsed() const { return pet::elapsed_as<MillisFP>(at_ns); }
   void finish(Reels &reels, shReel reel) { finish(reels.emplace_back(reel)->size()); }
   void finish(size_t reel_frames = 0) {
-    elapsed_ns = pet::elapsed_abs_ns(at_ns);
+    elapsed_ns = pet::elapsed_abs(at_ns);
 
     if (reel_frames && (elapsed_ns > 1ms)) {
       __LOG0(LCOL01 " frames={} elapsed={:<0.3}\n", moduleId,
@@ -71,7 +71,7 @@ public:
 
   void ifNeeded() {
     if (needReel()) {
-      at_ns = pet::now_nanos(); // start requisition, guard by caller strand
+      at_ns = pet::now_monotonic(); // start requisition, guard by caller strand
 
       asio::post(src_strand, [this]() {
         if (src.empty()) { // src is empty, mark requisition as finished

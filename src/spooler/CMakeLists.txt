@@ -30,7 +30,6 @@ target_link_libraries(${__target} PRIVATE
   base
   frame
   io
-  rtp_time
 )
 
 

@@ -18,128 +18,150 @@
 
 #pragma once
 
+#include "base/clock_info.hpp"
+#include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 
 #include <any>
+#include <tuple>
+#include <utility>
 
 namespace pierre {
 
 struct AnchorData {
+  ClockID clock_id{0}; // senders network timeline id (aka clock id)
   uint64_t rate{0};
-  ClockID clock_id{0}; // aka clock id
-  uint64_t secs{0};
-  uint64_t frac{0};
   uint64_t flags{0};
-  uint64_t rtp_time{0};
-  Nanos network_time{0};
-  Nanos local_time{0};
-  Nanos local_at{0};
+  uint32_t rtp_time{0};
+  Nanos anchor_time{0};
+  Nanos master_for{0};
+
+  // for last
+  Nanos localized{0};
+  Elapsed localized_elapsed;
   bool valid = false;
   Nanos valid_at{0};
 
-  AnchorData &calcNetTime() {
-    network_time = Seconds(secs) + Nanos(frac >> 32);
-
-    __LOG0(LCOL01 " network_time={}\n", module_id, "DEBUG", pet::humanize(network_time));
-
-    return *this;
+  AnchorData(ClockID clock_id,  // network timeline id (aka senders clock id)
+             uint64_t rate,     // 0=not playing, 1=playing
+             uint64_t secs,     // anchor time seconds (arbitrary reference)
+             uint64_t fracs,    // anchor time fractional nanoseconds
+             uint64_t rtp_time, // rtp time (as defined by sender)
+             uint64_t flags)    // unknown and unused at present
+      noexcept
+      : clock_id(clock_id),                             // directly save the clock id
+        rate(rate),                                     // directly save rate
+        flags(flags),                                   // directly save flags
+        rtp_time(static_cast<uint32_t>(rtp_time)),      // rtp time is 32 bits
+        anchor_time(Seconds(secs) + Nanos(fracs >> 32)) // combine secs and fracs
+  {
+    __LOG0(LCOL01 " anchor_time={}\n", module_id, "DEBUG", pet::humanize(anchor_time));
   }
 
-  // for frame diff calcs using an alternate time reference
-  //   1. returns negative for frame in the past
-  //   2. returns positive for frame in future
-  //   3. returns nanos::min() when data is not ready
-  Nanos frame_diff(uint32_t timestamp) const {
-    return ok() ? frame_time(timestamp) - netTimeNow() : Nanos::min();
+  // create simple AnchorData with just rate update
+  AnchorData(uint64_t rate = 0x00) noexcept : rate(rate) {}
+
+  void change_clock_id(const ClockInfo &clock) { clock_id = clock.clock_id; }
+
+  bool details_changed(const AnchorData &ad) const {
+    return (clock_id != ad.clock_id) || (rtp_time != ad.rtp_time) ||
+           (anchor_time != ad.anchor_time);
   }
 
-  Nanos frame_time(uint32_t timestamp) const {
-    Nanos calced{0};
+  bool empty() const { return !clock_id && !rate; }
 
-    if (valid) {
-      int32_t diff_frame = timestamp - rtp_time;
-      int64_t diff_ts = (diff_frame * pet::NS_FACTOR.count()) / InputInfo::rate;
+  /*
+    Nanos frame_time(uint32_t timestamp) const {
+      return localized + Nanos(Nanos(timestamp - rtp_time) / InputInfo::rate);
+    }
+  */
+  /*
+    uint32_t localTimeFrame(const Nanos time) { // untested
+      uint32_t frame_time{0};
 
-      calced = local_time + Nanos(diff_ts);
+      if (valid) {
+        Nanos diff_time = time - local_time;
+        int64_t diff_frame = (diff_time.count() * InputInfo::rate) / pet::NS_FACTOR.count();
+        int32_t diff_frame32 = diff_frame;
+        frame_time = rtp_time + diff_frame32;
+      }
+
+      return frame_time;
     }
 
-    return calced;
-  }
-
-  uint32_t localTimeFrame(const Nanos time) { // untested
-    uint32_t frame_time{0};
-
-    if (valid) {
-      Nanos diff_time = time - local_time;
-      int64_t diff_frame = (diff_time.count() * InputInfo::rate) / pet::NS_FACTOR.count();
-      int32_t diff_frame32 = diff_frame;
-      frame_time = rtp_time + diff_frame32;
+    SecondsFP netTimeElapsed() const { return pet::elapsed_as<SecondsFP>(netTimeNow() - valid_at);
     }
 
-    return frame_time;
+    Nanos netTimeNow() const { return valid_at + pet::elapsed_abs_ns(valid_at); }
+  */
+
+  bool master_for_at_least(const auto master_min) const {
+    return (master_for == Nanos::zero()) ? false : master_for >= master_min;
   }
 
-  SecondsFP netTimeElapsed() const { return pet::elapsed_as<SecondsFP>(netTimeNow() - valid_at); }
+  bool match_clock_id(const AnchorData &ad) const { return clock_id == ad.clock_id; }
+  bool match_clock_id(const ClockInfo &ci) const { return clock_id == ci.clock_id; }
 
-  Nanos netTimeNow() const { return valid_at + pet::elapsed_abs_ns(valid_at); }
+  bool match_details(const AnchorData &ad) const {
+    return (anchor_time == ad.anchor_time) || (rtp_time == ad.rtp_time);
+  }
 
-  bool ok() const { return clock_id != 0; }
+  bool not_viable() const { return !viable(); }
+
+  // friend bool operator==(const AnchorData &lhs, const ClockInfo &rhs) {
+  //   return lhs.clock_id == rhs.clock_id;
+  // }
+
+  friend bool operator==(const AnchorData &lhs, const AnchorData &rhs) {
+    return std::tie(lhs.clock_id, lhs.rtp_time, lhs.anchor_time) ==
+           std::tie(rhs.clock_id, rhs.rtp_time, rhs.anchor_time);
+  }
+
   csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
   bool rendering() const { return rate & 0x01; }
 
-  AnchorData &setLocalTimeAt(Nanos _local_at = pet::now_nanos()) {
-    local_at = _local_at;
-    return *this;
+  void reset() { *this = AnchorData(); }
+
+  void set_master_for(const ClockInfo &clock) {
+    if (match_clock_id(clock)) {
+      master_for = clock.master_for();
+    }
   }
 
-  AnchorData &setValid(bool set_valid = true) {
-    valid = set_valid;
-    valid_at = pet::now_nanos();
-    return *this;
+  bool viable(const ClockInfo &clock) {
+    set_master_for(clock);
+
+    return viable();
   }
 
-  Nanos sinceUpdate(const Nanos now = pet::now_nanos()) const { return now - valid_at; }
-
-  auto validFor() const { return pet::now_nanos() - valid_at; }
+  bool viable() const {
+    return (master_for == Nanos::zero()) ? false : master_for >= ClockInfo::AGE_STABLE;
+  }
 
   static AnchorData any_cast(std::any &data) {
     return data.has_value() ? std::any_cast<AnchorData>(data) : AnchorData();
   }
 
-  // return values:
-  // -1 = clock is different
-  //  0 = clock, rtp_time, network_time are equal
-  // +1 = clock is same, rtp_time and network_time are different
-  friend int operator<=>(const AnchorData &lhs, const AnchorData &rhs) {
-    if (lhs.clock_id != rhs.clock_id) {
-      return -1;
-    }
-
-    if ((lhs.clock_id == rhs.clock_id) &&       // clock ID same
-        (lhs.rtp_time == rhs.rtp_time) &&       // rtpTime same
-        (lhs.network_time == rhs.network_time)) // network_time same
-    {
-      return 0;
-    }
-
-    return +1;
+private:
+  Nanos clock_wait_time() const {
+    return viable() ? Nanos::zero() : pet::diff_abs(master_for, ClockInfo::AGE_STABLE);
   }
 
+public:
   // misc debug
+  string inspect() const;
+
+  void log_new(const AnchorData &old, const ClockInfo &clock) const;
+  void log_new_master_if_needed(bool &data_new) const;
+
   static constexpr csv moduleID() { return module_id; }
-  void dump() const;
 
 private:
   static constexpr csv RENDERING{"rendering"};
   static constexpr csv NOT_RENDERING{"not rendering"};
   static constexpr csv module_id{"ANCHOR_DATA"};
 };
-
-enum AnchorEntry : size_t { ACTUAL = 0, LAST, RECENT };
-
-constexpr auto ANCHOR_VALID_MIN_DURATION = 5s;
-constexpr auto ANCHOR_INVALID_DATA = AnchorData();
 
 } // namespace pierre

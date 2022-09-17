@@ -32,9 +32,6 @@ public:
   bool populate() override;
 
 private:
-  void saveAnchorInfo();
-
-private:
   Aplist rdict;
 };
 

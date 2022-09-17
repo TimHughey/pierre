@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "base/anchor_data.hpp"
+#include "base/anchor_last.hpp"
 #include "base/elapsed.hpp"
 #include "base/flush_request.hpp"
 #include "base/input_info.hpp"
@@ -32,6 +34,7 @@
 #include <memory>
 #include <ranges>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -44,6 +47,12 @@ typedef std::vector<State> States;
 typedef std::vector<State> StateKeys;
 typedef std::map<State, size_t> StatsMap;
 
+using renderable_t = bool;
+using render_mode_t = csv;
+using sync_wait_valid_t = bool;
+using sync_wait_time_t = Nanos;
+using state_now_result_t = std::tuple<sync_wait_valid_t, sync_wait_time_t, renderable_t>;
+
 constexpr csv ANCHOR_DELAY{"anchor_delay"};
 constexpr csv DECODED{"decoded"};
 constexpr csv EMPTY{"empty"};
@@ -53,8 +62,8 @@ constexpr csv INVALID{"invalid"};
 constexpr csv NONE{"none"};
 constexpr csv NOT_READY{"not_ready"};
 constexpr csv OUTDATED{"outdated"};
-constexpr csv PLAYABLE{"playable"};
-constexpr csv PLAYED{"played"};
+constexpr csv RENDERABLE{"renderable"};
+constexpr csv RENDERED{"played"};
 
 StateKeys &state_keys();
 
@@ -138,6 +147,8 @@ public:
   static void shutdown() { dsp::shutdown(); }
 
   // Public API
+  // pass through to Anchor to limit library dependencies, see .cpp
+  static fra::render_mode_t anchor_save(AnchorData ad);
 
   bool decipher(); // sodium decipher packet
   void decodeOk() { state = fra::DECODED; }
@@ -149,35 +160,37 @@ public:
   // if so, runs the frame through av::parse and performs async digial signal analysis
   bool keep(FlushRequest &flush);
 
-  void mark_played() { state = fra::PLAYED; }
+  void mark_rendered() { state = fra::RENDERED; }
 
   uint8v &payload() { return _payload; }
   size_t payloadSize() const { return _payload.size(); }
 
-  // cached frame time info
-  template <typename T> const T nettime() { return pet::as_duration<Nanos, T>(cached_nettime); }
-
   // state
-  bool decoded() const { return stateEqual(fra::DECODED); }
-  static bool empty(shFrame frame) { return ok(frame) && frame->stateEqual(fra::EMPTY); }
-  bool future() const { return stateEqual(fra::FUTURE); }
+  bool decoded() const { return state_equal(fra::DECODED); }
+  static bool empty(shFrame frame) { return ok(frame) && frame->state_equal(fra::EMPTY); }
+  bool future() const { return state_equal(fra::FUTURE); }
+  bool not_rendered() const { return state_equal({fra::DECODED, fra::FUTURE, fra::RENDERABLE}); }
   static bool ok(shFrame frame) { return frame.use_count(); }
-  bool outdated() const { return stateEqual(fra::OUTDATED); }
-  bool playable() const { return stateEqual(fra::PLAYABLE); }
-  bool played() const { return stateEqual(fra::PLAYED); }
-  bool purgeable() const { return stateEqual({fra::OUTDATED, fra::PLAYED}); }
+  bool outdated() const { return state_equal(fra::OUTDATED); }
+  bool played() const { return state_equal(fra::RENDERED); }
+  bool purgeable() const { return state_equal({fra::OUTDATED, fra::RENDERED}); }
+  bool renderable() const { return state_equal({fra::RENDERABLE, fra::FUTURE}); }
   bool silent() const { return Peaks::silence(peaks_left) && Peaks::silence(peaks_right); }
   static fra::StateConst &stateVal(shFrame frame) {
     return frame.use_count() ? frame->state : fra::EMPTY;
   }
-  bool stateEqual(fra::StateConst &check) const { return check == state; }
-  bool stateEqual(const fra::States &states) const {
-    return ranges::any_of(states, [&](const auto &state) { return stateEqual(state); });
+  bool state_equal(fra::StateConst &check) const { return check == state; }
+  bool state_equal(const fra::States &states) const {
+    return ranges::any_of(states, [&](const auto &state) { return state_equal(state); });
   }
 
-  shFrame state_now(const Nanos &lead_time);
+  //
+  // state_now();
+  //
+  fra::state_now_result_t state_now(AnchorLast &anchor,
+                                    const Nanos &lead_time = InputInfo::frame<Nanos>());
 
-  bool unplayed() const { return stateEqual({fra::DECODED, fra::FUTURE, fra::PLAYABLE}); }
+  bool sync_wait_ok() const { return sync_wait > Nanos::min(); }
 
   // class member functions
 
@@ -185,9 +198,6 @@ public:
   const string inspect() { return inspectFrame(shared_from_this()); }
   static const string inspectFrame(shFrame frame, bool full = false);
   static constexpr csv moduleID() { return module_id; }
-
-private:
-  const Nanos local_time_diff(); // not inlineed, see .cpp for rationale
 
 public:
   // order dependent
@@ -206,14 +216,13 @@ public:
   int channels = 0;
 
   const Nanos created_at{pet::now_monotonic()};
-  Nanos sync_wait = Nanos::zero(); // order dependent
-  const Nanos lead_time;           // order dependent
-  fra::State state = fra::EMPTY;   // order dependent
+  Nanos sync_wait = Nanos::min(); // order dependent
+  const Nanos lead_time;          // order dependent
+  fra::State state = fra::EMPTY;  // order dependent
 
   shPeaks peaks_left;
   shPeaks peaks_right;
   bool use_anchor = true;
-  Nanos cached_nettime = Nanos::min();
 
 private:
   // order independent
@@ -221,6 +230,7 @@ private:
   uint8v _tag;
   uint8v _aad;
   uint8v _payload;
+  AnchorLast _anchor;
 
   static constexpr csv module_id{"FRAME"};
 };

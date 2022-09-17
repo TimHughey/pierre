@@ -16,11 +16,14 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtp_time/master_clock.hpp"
+#include "master_clock.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
+#include "core/host.hpp"
 
 #include <algorithm>
+#include <errno.h>
 #include <fcntl.h>
 #include <iterator>
 #include <pthread.h>
@@ -35,18 +38,16 @@ namespace shared {
 std::optional<MasterClock> master_clock;
 } // namespace shared
 
-using namespace boost::asio;
-using namespace boost::system;
-
 // create the MasterClock
-MasterClock::MasterClock(const Inject &di)
-    : local_strand(di.io_ctx),                                       // syncronize clock io
-      socket(di.io_ctx),                                             // create socket on strand
-      address(ip::make_address(LOCALHOST)),                          // endpoint address
-      endpoint(udp_endpoint(address, CTRL_PORT)),                    // endpoint to use
-      shm_name(fmt::format("/{}-{}", di.service_name, di.device_id)) // make shm_name
+MasterClock::MasterClock(io_context &io_ctx) noexcept
+    : local_strand(io_ctx),                                          // syncronize clock io
+      socket(io_ctx, ip_udp::v4()),                                  // construct and open
+      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
+      shm_name(
+          fmt::format("/{}-{}", Config::receiverName(), Host::ptr()->deviceID())) // make shm_name
 {
-  __LOGX(LCOL01 " shm_name={} dest={}\n", module_id, "CONSTRUCT", shm_name, endpoint.port());
+  __LOG0(LCOL01 " shm_name={} dest={}:{}\n", module_id, "CONSTRUCT", //
+         shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
 }
 
 // NOTE: new data is available every 126ms
@@ -87,9 +88,18 @@ const ClockInfo MasterClock::info() {
   return ClockInfo // calculate a local view of the nqptp data
       {.clock_id = data.master_clock_id,
        .masterClockIp = string(clock_ip_sv),
-       .sampleTime = pet::from_ns(data.local_time),
-       .rawOffset = pet::from_ns(data.local_to_master_time_offset),
+       .sampleTime = data.local_time,
+       .rawOffset = data.local_to_master_time_offset,
        .mastershipStartTime = pet::from_ns(data.master_clock_start_time)};
+}
+
+void MasterClock::init(io_context &io_ctx) {
+
+  if (shared::master_clock.has_value() == false) {
+    auto &master_clock = shared::master_clock.emplace(io_ctx);
+
+    master_clock.peersReset(); // reset the peers (and creates the shm mem name)
+  }
 }
 
 bool MasterClock::isMapped() const {
@@ -97,40 +107,39 @@ bool MasterClock::isMapped() const {
   auto ok = (mapped && (mapped != MAP_FAILED));
 
   if (!ok && attempts) {
-    __LOG0("{:<18} nqptp data not mapped attempts={}\n", module_id, attempts);
-
     ++attempts;
+    __LOG0(LCOL01 " nqptp data not mapped attempts={}\n", module_id, "CLOCK_MAPPED", attempts);
   }
+
   return ok;
 }
 
 bool MasterClock::mapSharedMem() {
   int prev_state;
 
-  // prevent thread cancellation while mapping
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
-
   if (isMapped() == false) {
+    // prevent thread cancellation while mapping
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
+
     auto shm_fd = shm_open(shm_name.c_str(), O_RDWR, 0);
 
-    if (shm_fd < 0) {
-      __LOG0("{:<18} clock shm_open failed\n", module_id);
-      return false;
+    if (shm_fd >= 0) {
+      // flags must be PROT_READ | PROT_WRITE to allow writes
+      // to mapped memory for the mutex
+      constexpr auto flags = PROT_READ | PROT_WRITE;
+      constexpr auto bytes = sizeof(nqptp);
+
+      mapped = mmap(NULL, bytes, flags, MAP_SHARED, shm_fd, 0);
+
+      close(shm_fd); // done with the shm memory fd
+
+      __LOG0(LCOL01 " complete={}\n", module_id, "CLOCK_MAPPING", isMapped());
+    } else {
+      __LOG0(LCOL01 " clock shm_open failed, error={}\n", module_id, "FATAL", errno);
     }
 
-    // flags must be PROT_READ | PROT_WRITE to allow writes
-    // to mapped memory for the mutex
-    constexpr auto flags = PROT_READ | PROT_WRITE;
-    constexpr auto bytes = sizeof(nqptp);
-
-    mapped = mmap(NULL, bytes, flags, MAP_SHARED, shm_fd, 0);
-
-    close(shm_fd); // done with the shm memory fd
-
-    __LOGX("{:<18} clock mapping complete={}\n", module_id, isMapped());
+    pthread_setcancelstate(prev_state, nullptr);
   }
-
-  pthread_setcancelstate(prev_state, nullptr);
 
   return isMapped();
 }
@@ -141,8 +150,7 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
   // queue the update to prevent collisions
   local_strand.post( //
       [this, peers = std::move(new_peers)]() {
-        // build the msg: "<shm_name> T <ip_addr> <ip_addr>" +
-        // null terminator
+        // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
         uint8v msg;
         auto w = std::back_inserter(msg);
 
@@ -152,23 +160,17 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
           fmt::format_to(w, " {}", fmt::join(peers, " "));
         }
 
-        msg.emplace_back(0x00); // must be null terminated
+        msg.push_back(0x00); // must be null terminated
 
         __LOGX(LCOL01 " peers={}\n", module_id, csv("PEERS UPDATE"), msg.view());
 
         error_code ec;
-        if (socket.is_open() == false) {
-          socket.open(ip::udp::v4(), ec);
+        auto bytes = socket.send_to(asio::buffer(msg), remote_endpoint, 0, ec);
 
-          if (ec != errc::success) {
-            __LOG0(LCOL01 " socket={} open failed reason={}\n", module_id, csv("PEERS UPDATE"),
-                   socket.native_handle(), ec.message());
-
-            return;
-          }
+        if (ec) {
+          __LOG0(LCOL01 " send msg failed, reason={} bytes={}\n", //
+                 module_id, "PEERS_UPDATE", ec.message(), bytes);
         }
-
-        socket.send_to(buffer(msg), endpoint, 0, ec);
       });
 }
 
@@ -180,7 +182,6 @@ void MasterClock::unMap() {
   }
 
   [[maybe_unused]] error_code ec;
-  socket.shutdown(udp_socket::shutdown_both, ec);
   socket.close(ec);
 }
 

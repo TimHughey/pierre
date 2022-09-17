@@ -40,9 +40,7 @@ public:
 
   static constexpr double fps() { return rate / 1024.0; }
   static constexpr MillisFP frame_ms() { return MillisFP(1000.0 / fps()); }
-  template <typename T> static constexpr T frame() {
-    return pet::cast<MillisFP, T>(frame_ms());
-  }
+  template <typename T> static constexpr T frame() { return pet::cast<MillisFP, T>(frame_ms()); }
 };
 
 } // namespace pierre

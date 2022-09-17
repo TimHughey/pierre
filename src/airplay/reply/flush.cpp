@@ -44,7 +44,7 @@ bool FlushBuffered::populate() {
       .until_ts = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_TS})    // until timestamp
   };
 
-  ispooler()->flush(flush_req);
+  pierre::shared::spooler->flush(flush_req);
 
   responseCode(RespCode::OK);
   return true;

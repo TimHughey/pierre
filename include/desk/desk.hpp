@@ -20,40 +20,38 @@
 
 #pragma once
 
-#include "base/anchor_data.hpp"
-#include "base/elapsed.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
-#include "base/uint8v.hpp"
 #include "desk/fx.hpp"
 #include "desk/session/ctrl.hpp"
 #include "desk/session/data.hpp"
 #include "desk/stats.hpp"
 #include "frame/frame.hpp"
 #include "io/io.hpp"
-#include "mdns/mdns.hpp"
 
 #include <array>
 #include <atomic>
-#include <exception>
 #include <memory>
 #include <optional>
-#include <ranges>
 #include <stop_token>
 #include <vector>
 
 namespace pierre {
 
 class Desk;
-Desk *idesk();
+namespace shared {
+extern std::optional<Desk> desk;
+}
 
 class Desk {
 public:
   static constexpr csv RENDERING{"rendering"};
   static constexpr csv NOT_RENDERING{"not rendering"};
 
-private:
+  using anchor_timer = std::unique_ptr<steady_timer>;
+
+public:
   Desk(const Nanos &lead_time); // must be defined in .cpp to hide FX includes
 
 public: // instance API
@@ -61,25 +59,41 @@ public: // instance API
 
 public: // general API
   void adjust_mode(csv next_mode);
+
+  static void anchor_save(AnchorData &&ad) {
+    shared::desk->adjust_mode(Frame::anchor_save(std::forward<AnchorData>(ad)));
+  }
+
   void halt() { adjust_mode(NOT_RENDERING); }
   bool rendering() const { return render_mode.front() == RENDERING.front(); }
-  void save_anchor_data(AnchorData data); // see .cpp
+
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
 
   // misc debug
   static constexpr csv moduleID() { return module_id; }
 
 private:
-  void frame_next(Nanos sync_wait); // frame next loop
+  // frame_first():
+  //  1. called when rendering begins
+  //  2. finds first frame
+  //  3. calculates sync_timing
+  //  4. invokes frame_next()
+  void frame_first();
+  void frame_next(); // frame next loop
   void frame_render(shFrame frame);
 
   void streams_deinit();
   void streams_init();
 
-  void next_frame(shFrame frame); // calc timing of next frame
+  // void wait_for_anchor(Nanos poll = 100ms, anchor_timer timer = nullptr);
 
   // misc debug
-  void log_despooled(shFrame frame, const Nanos elapsed);
+
+  // log_despooled(): returns true if frame is not null
+  bool log_despooled(shFrame frame, const Nanos elapsed);
+
+  // log_frome_timer_error: return true if ec == success
+  bool log_frame_timer_error(const error_code &ec, csv fn_id) const;
 
 private:
   // order dependent
@@ -99,6 +113,7 @@ private:
   Threads threads;
   std::stop_token stop_token;
   std::optional<desk::Control> control;
+  std::atomic_bool anchor_available = false;
 
   // last error tracking
   error_code ec_last_ctrl_tx;

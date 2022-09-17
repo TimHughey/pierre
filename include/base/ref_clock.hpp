@@ -39,8 +39,8 @@ public:
     return ClockInfo // calculate a local view of the nqptp data
         {.clock_id = 0x01,
          .masterClockIp = MasterIP{0},
-         .sampleTime = pet::now_monotonic(),
-         .rawOffset = pet::now_monotonic() - local_ref,
+         .sampleTime = static_cast<uint64_t>(pet::now_monotonic().count()),
+         .rawOffset = static_cast<uint64_t>(pet::now_monotonic().count() - local_ref.count()),
          .mastershipStartTime = ref};
   }
 
