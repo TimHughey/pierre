@@ -20,7 +20,7 @@
 #include "aplist/aplist.hpp"
 #include "base/flush_request.hpp"
 #include "reply/dict_keys.hpp"
-#include "spooler/spooler.hpp"
+#include "frame/spooler.hpp"
 
 namespace pierre {
 namespace airplay {

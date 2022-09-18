@@ -9,7 +9,7 @@ set(__target  airplay)
 
 set(HEADER_PATH       "${pierre_SOURCE_DIR}/include")
 set(HEADER_PATH_LOCAL "${HEADER_PATH}/${__target}")
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS 
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/*.h*"
   "${HEADER_PATH_LOCAL}/aplist/*.h*"
   "${HEADER_PATH_LOCAL}/common/*.h*"
@@ -23,11 +23,11 @@ find_library(libplist     NAMES plist      REQUIRED)
 
 add_library(${__target} SHARED
   # public API
-  airplay.cpp 
+  airplay.cpp
 
   # apple property lists
   aplist/aplist.cpp
-  
+
   # connection info
   conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp
 
@@ -46,7 +46,7 @@ add_library(${__target} SHARED
 
   # sessions
   session/base.cpp session/audio.cpp session/event.cpp session/rtsp.cpp
-  
+
   ${HEADER_LIST}
 )
 
@@ -61,8 +61,7 @@ target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
   ple
-  base config core desk frame io mdns ap_aes spooler
+  base config core desk frame io mdns ap_aes
 )
 
 target_link_libraries(${__target} PUBLIC mdns)
-

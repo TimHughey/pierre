@@ -17,7 +17,7 @@ set(__target frame)
 
 set(HEADER_PATH ${pierre_SOURCE_DIR}/include)
 file(GLOB_RECURSE
-  HEADER_LIST CONFIGURE_DEPENDS 
+  HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH}/${__target}/*.h*"
 )
 
@@ -34,6 +34,9 @@ add_library(${__target} SHARED
 
   # master clock and anchor
   anchor.cpp master_clock.cpp
+
+  # spooler and reels
+  spooler.cpp reel.cpp
 
   ${HEADER_LIST}
 )
@@ -54,6 +57,3 @@ target_link_libraries(${__target} PRIVATE
   config
   io
 )
-
-
-

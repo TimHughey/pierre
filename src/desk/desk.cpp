@@ -36,7 +36,7 @@
 #include "frame/master_clock.hpp"
 #include "io/async_msg.hpp"
 #include "mdns/mdns.hpp"
-#include "spooler/spooler.hpp"
+#include "frame/spooler.hpp"
 
 #include <exception>
 #include <future>

@@ -24,12 +24,8 @@ add_subdirectory(airplay)
 # Frame of processed audio, master clock and anchor
 add_subdirectory(frame)
 
-# central spooler maintains reels of available frames
-add_subdirectory(spooler)
-
 # faders
 add_subdirectory(fader)
 
-# desk (head units, FX 
+# desk (head units, FX
 add_subdirectory(desk)
-

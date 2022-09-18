@@ -18,7 +18,7 @@
 
 #include "session/audio.hpp"
 #include "base/uint8v.hpp"
-#include "spooler/spooler.hpp"
+#include "frame/spooler.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>

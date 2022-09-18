@@ -10,7 +10,7 @@ set(HEADER_PATH "${pierre_SOURCE_DIR}/include/")
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH}/${__target}/**/*.h*")
 
 add_library(${__target} SHARED
-  # public API for (light)desk 
+  # public API for (light)desk
   desk.cpp
 
   # desk sessions (control and data)
@@ -18,7 +18,7 @@ add_library(${__target} SHARED
 
   # FX
   fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp
-  
+
   # (head)units
   unit/pinspot.cpp
   ${HEADER_LIST})
@@ -31,6 +31,6 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 # the base include directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE 
-  ArduinoJson base config frame io fader mdns spooler
+target_link_libraries(${__target} PRIVATE
+  ArduinoJson base config frame io fader mdns
 )
