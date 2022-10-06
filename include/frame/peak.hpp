@@ -20,8 +20,10 @@
 
 #pragma once
 
+#include "base/helpers.hpp"
 #include "base/minmax.hpp"
 #include "base/typical.hpp"
+#include "frame/peak_ref_data.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -30,66 +32,54 @@
 
 namespace pierre {
 
-template <typename T> constexpr T scale_val(T val) { //
-  return (val <= 0.0) ? 0.0 : std::log10(val);
-}
-
 struct Peak {
-private:
-  struct mag_base {
-    static constexpr Mag floor = 36.4 * 1000;         // 36,400
-    static constexpr Mag ceiling = 2.1 * 1000 * 1000; // 2.1 million
-    static constexpr Mag strong = 3.0;
-  };
-
-  struct mag_scaled {
-    static constexpr Mag factor = 2.41;
-    static constexpr Mag step = 0.001;
-    static constexpr Mag floor = scale_val(mag_base::floor * factor);
-    static constexpr Mag ceiling = scale_val(mag_base::ceiling);
-
-    static constexpr Mag interpolate(Mag m) {
-      return (scale_val(m) - mag_scaled::floor) / (mag_scaled::ceiling - mag_scaled::floor);
-    }
-  };
+public:
+  static PeakMagBase mag_base;     // see peaks_ref_data.hpp and peaks.cpp
+  static PeakMagScaled mag_scaled; // see peaks_ref_data.hpp and peaks.cpp
 
 public: // Peak
-  Peak() = default;
-  Peak(const size_t i, const Freq f, const Mag m) : index(i), freq(f), mag(m) {}
+  Peak() noexcept {};
+  Peak(const size_t i, const Freq f, const Mag m) noexcept : index(i), freq(f), mag(m) {}
 
-  static MinMaxFloat magScaleRange() {
-    return MinMaxFloat(0.0, mag_scaled::ceiling - mag_scaled::floor);
-  }
+  static MinMaxFloat magScaleRange() { return MinMaxFloat(0.0, mag_scaled.ceiling - mag_scaled.floor); }
 
   Freq frequency() const { return freq; }
   Freq frequencyScaled() const { return scale_val(freq); }
-  bool greaterThanFloor() const { return mag > Peak::magFloor(); }
+  bool greaterThanFloor() const { return mag_base.floor; }
   bool greaterThanFreq(Freq want_freq) const { return freq > want_freq; }
 
   Mag magnitude() const { return mag; }
-  static constexpr Mag magFloor() { return mag_base::floor; }
 
   MagScaled magScaled() const {
-    auto scaled = scale_val(mag) - mag_scaled::floor;
+    auto scaled = scale_val(mag) - mag_scaled.floor;
 
     return scaled > 0 ? scaled : 0;
   }
 
-  bool magStrong() const { return mag >= (mag_base::floor * mag_base::strong); }
+  bool magStrong() const { return mag >= (mag_base.floor * mag_base.strong); }
 
-  explicit operator bool() const {
-    return (mag > mag_base::floor) && (mag < mag_base::ceiling) ? true : false;
+  explicit operator bool() const { return (mag > mag_base.floor) && (mag < mag_base.ceiling) ? true : false; }
+
+  friend auto operator<=>(const auto &lhs, const auto &rhs) noexcept {
+    if (lhs.mag < rhs.mag) return std::strong_ordering::less;
+    if (lhs.mag > rhs.mag) return std::strong_ordering::greater;
+
+    return std::strong_ordering::equal;
+  }
+
+  template <class T, class = typename std::enable_if<std::is_same<T, Mag>::value>::type> T scaled() const {
+    auto x = scale_val(mag) - mag_scaled.floor;
+
+    return x > 0 ? x : 0;
   }
 
   template <typename T> const T scaleMagToRange(const MinMaxPair<T> &range) const {
-    auto ret_val = static_cast<T>(                                               //
-        mag_scaled::interpolate(mag) * (range.max() - range.min()) + range.min() //
-    );
+    auto ret_val = static_cast<T>(mag_scaled.interpolate(mag) * (range.max() - range.min()) + range.min());
 
     return ranges::clamp(ret_val, range.min(), range.max());
   }
 
-  static constexpr Peak zero() { return Peak(); }
+  static const Peak zero() { return Peak(); }
 
 private:
   size_t index = 0;

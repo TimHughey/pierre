@@ -19,8 +19,8 @@
 #include "reply/flush.hpp"
 #include "aplist/aplist.hpp"
 #include "base/flush_request.hpp"
+#include "frame/racked.hpp"
 #include "reply/dict_keys.hpp"
-#include "frame/spooler.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -36,15 +36,12 @@ bool FlushBuffered::populate() {
 
   // from_seq and from_ts may not be present
   // until_seq and until_ts should always be present
-  FlushRequest flush_req{
-      .active = true,
-      .from_seq = (uint32_t)rdict.uint({dk::FLUSH_FROM_SEQ}),
-      .from_ts = (uint32_t)rdict.uint({dk::FLUSH_FROM_TS}),
-      .until_seq = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_SEQ}), // until seq
-      .until_ts = (uint32_t)rdict.uint({dk::FLUSH_UNTIL_TS})    // until timestamp
-  };
-
-  pierre::shared::spooler->flush(flush_req);
+  Racked::flush(                                      //
+      FlushRequest(rdict.uint({dk::FLUSH_FROM_SEQ}),  //
+                   rdict.uint({dk::FLUSH_FROM_TS}),   //
+                   rdict.uint({dk::FLUSH_UNTIL_SEQ}), //
+                   rdict.uint({dk::FLUSH_UNTIL_TS}))  //
+  );
 
   responseCode(RespCode::OK);
   return true;

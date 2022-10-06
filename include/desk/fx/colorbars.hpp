@@ -35,7 +35,7 @@ class ColorBars : public FX {
 public:
   ColorBars() = default;
 
-  void execute(shPeaks peaks) override;
+  void execute(peaks_t peaks) override;
   csv name() const override { return fx::COLOR_BARS; }
 
 private:

@@ -20,16 +20,60 @@
 
 #include "base/typical.hpp"
 
+#include <algorithm>
+#include <fmt/format.h>
+#include <ranges>
+#include <vector>
+
 namespace pierre {
 
 struct FlushRequest {
   bool active = false;
-  uint32_t from_seq = 0;
-  uint32_t from_ts = 0;
-  uint32_t until_seq = 0;
-  uint32_t until_ts = 0;
+  seq_num_t from_seq = 0;
+  timestamp_t from_ts = 0;
+  seq_num_t until_seq = 0;
+  timestamp_t until_ts = 0;
 
-  void complete() { *this = FlushRequest(); }
+  FlushRequest() = default;
+
+  constexpr FlushRequest(const seq_num_t from_seq, const timestamp_t from_ts, //
+                         const seq_num_t until_seq, const timestamp_t until_ts) noexcept
+      : active(true),         // enable this flush request
+        from_seq(from_seq),   // set the various fields
+        from_ts(from_ts),     // since this is not an aggregate class
+        until_seq(until_seq), // flush everything <=
+        until_ts(until_ts)    //
+  {}
+
+  bool operator!() const noexcept { return !active; }
+
+  template <typename T> bool matches(std::vector<T> items) const {
+    return ranges::all_of(items, [this](auto x) { return x->seq_num <= until_seq; });
+  }
+
+  template <typename T> bool should_keep(T item) noexcept {
+    if (active) {
+      // use the compare result to flip active.
+      active = item->seq_num <= until_seq;
+
+      if (!active) {
+        __LOG0(LCOL01 "{}\n", "FLUSH_REQUEST", "COMPLETE", inspect());
+      }
+    }
+
+    return !active;
+  }
+
+  const string inspect() const {
+    string msg;
+    auto w = std::back_inserter(msg);
+
+    fmt::format_to(w, "seq_num={:>8}/{:<8}", from_seq, until_seq);
+    fmt::format_to(w, " timestamp={:>8}/{:<8}", from_ts, until_ts);
+    fmt::format_to(w, " active={}", active);
+
+    return msg;
+  }
 };
 
 } // namespace pierre

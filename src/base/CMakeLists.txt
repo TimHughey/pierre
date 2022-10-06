@@ -8,6 +8,14 @@ set(HEADER_PATH                         ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL                   ${HEADER_PATH}/${__target})
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 
+set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
+set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
+set(Boost_USE_MULTITHREADED          ON)
+set(Boost_THREADAPI             pthread)
+
+find_package(Boost 1.79 COMPONENTS system REQUIRED)
+find_library(rt         NAMES rt          REQUIRED)
+
 find_package(fmt REQUIRED)
 
 add_library(${__target} SHARED
@@ -30,7 +38,7 @@ add_library(${__target} SHARED
   color.cpp
 
   # time / frame / rtp time keeping anchor and clock info
-  anchor_data.cpp clock_info.cpp pet.cpp ref_clock.cpp
+  anchor_data.cpp clock_info.cpp pet.cpp
   
   # headers
   ${HEADER_LIST}
@@ -46,4 +54,7 @@ target_include_directories(${__target} PRIVATE
 # the based include directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PUBLIC fmt::fmt)
+target_link_libraries(${__target} PUBLIC 
+  ${Boost_LIBRARIES}
+  fmt::fmt
+)

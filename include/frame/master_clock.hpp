@@ -19,10 +19,11 @@
 #pragma once
 
 #include "base/clock_info.hpp"
+#include "base/io.hpp"
 #include "base/pet.hpp"
+#include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
-#include "io/io.hpp"
 
 #include <array>
 #include <chrono>
@@ -30,6 +31,7 @@
 #include <cstdint>
 #include <exception>
 #include <functional>
+#include <future>
 #include <memory>
 #include <optional>
 #include <pthread.h>
@@ -64,7 +66,6 @@ class MasterClock {
 private:
   static constexpr uint16_t CTRL_PORT = 9000; // see note
   static constexpr auto LOCALHOST = "127.0.0.1";
-  static constexpr csv module_id{"MASTER CLOCK"};
   static constexpr uint16_t NQPTP_VERSION = 7;
 
 public:
@@ -82,102 +83,78 @@ public:
   };
 
 public:
-  MasterClock(io_context &io_ctx) noexcept;
+  MasterClock() noexcept;
 
-  // prevent copies, moves and assignments
-  MasterClock(const MasterClock &clock) = delete;            // no copy
-  MasterClock(const MasterClock &&clock) = delete;           // no move
-  MasterClock &operator=(const MasterClock &clock) = delete; // no copy assignment
-  MasterClock &operator=(MasterClock &&clock) = delete;      // no move assignment
+  static void init();
+  static clock_info_future info(Nanos max_wait = ClockInfo::AGE_STABLE) {
+    auto prom = std::make_shared<std::promise<ClockInfo>>();
+    auto clock_info = shared::master_clock->load_info_from_mapped();
 
-  static void init(io_context &io_ctx);
-  static void reset() {
-    shared::master_clock->unMap();
-    shared::master_clock.reset();
-  }
-
-  //
-  // async_wait_ready():
-  //
-  // NOTE: new info is available every 126ms
-  //
-  void async_wait_ready(auto &&callback, Nanos max_wait = ClockInfo::AGE_STABLE,
-                        std::unique_ptr<steady_timer> timer = nullptr) {
-    auto clock_info = info();
-
-    if (isMapped() && clock_info.is_minimum_age()) {
-      callback(clock_info, clock_info.is_minimum_age());
-    } else if (max_wait >= ClockInfo::AGE_STABLE) {
-      callback(clock_info, false);
-
+    if (clock_info.useable()) {
+      // clock info is good, immediately set the future to ready
+      prom->set_value(clock_info);
     } else {
-      if (!timer) {
-        auto timer = std::make_unique<steady_timer>(asio::get_associated_executor(local_strand));
-      }
-
-      Nanos till_delay = ClockInfo::AGE_MIN - clock_info.master_for();
-      auto remaining_wait = max_wait - till_delay;
-
-      timer->expires_after(till_delay);
-      timer->async_wait([remaining_wait, callback = std::move(callback),
-                         timer = std::move(timer)](const error_code ec) mutable {
-        if (!ec) {
-          shared::master_clock->async_wait_ready(std::move(callback), remaining_wait,
-                                                 std::move(timer));
-        } else {
-          callback(ClockInfo{0}, false);
-        }
-      });
+      // clock info not ready yet, retry
+      shared::master_clock->info_retry(clock_info, max_wait, prom);
     }
+
+    return prom->get_future();
   }
 
-  strand &borrow_strand() { return local_strand; }
-  const ClockInfo info();
+  void peers(const Peers &peer_list) { peers_update(peer_list); }
+  void peers_reset() { peers_update(Peers()); }
 
-  bool ok() { return info().ok(); };
+  static void reset();
 
-  void peersReset() { peersUpdate(Peers()); }
-  void peers(const Peers &peer_list) { peersUpdate(peer_list); }
-
-  void teardown() { peersReset(); }
+  void teardown() { peers_reset(); }
 
   // misc debug
-  void dump() { __LOG0(LCOL01 " inspect info\n{}\n", module_id, csv("DUMP"), info().inspect()); }
+  void dump();
 
 private:
-  bool isMapped() const;
-  bool mapSharedMem();
+  void info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_promise_ptr prom = nullptr);
+  bool is_mapped() const;
+  void init_self() noexcept;
+  const ClockInfo load_info_from_mapped();
+  static const string make_shm_name() noexcept;
+  bool map_shm();
   void unMap();
-  void peersUpdate(const Peers &peers);
+  void peers_update(const Peers &peers);
 
 private:
   // order dependent
-  strand local_strand;
+  io_context io_ctx;
+  work_guard guard;
   udp_socket socket;
   udp_endpoint remote_endpoint;
   const string shm_name; // shared memmory segment name (built by constructor)
 
   void *mapped = nullptr; // mmapped region of nqptp data struct
+
+  Threads threads;
+  stop_tokens tokens;
+  static constexpr int THREAD_COUNT{3};
+
+public:
+  static constexpr csv module_id{"MASTER CLOCK"};
 };
 
-/*
- The control port expects a UDP packet with the first space-delimited string
- being the name of the shared memory interface (SMI) to be used.
- This allows client applications to have a dedicated named SMI interface
- with a timing peer list independent of other clients. The name given must
- be a valid SMI name and must contain no spaces. If the named SMI interface
- doesn't exist it will be created by NQPTP. The SMI name should be delimited
- by a space and followed by a command letter. At present, the only command
- is "T", which must followed by nothing or by a space and a space-delimited
- list of IPv4 or IPv6 numbers, the whole not to exceed 4096 characters in
- total. The IPs, if provided, will become the new list of timing peers,
- replacing any previous list. If the master clock of the new list is the
- same as that of the old list, the master clock is retained without
- resynchronisation; this means that non-master devices can be added and
- removed without disturbing the SMI's existing master clock. If no timing
- list is provided, the existing timing list is deleted. (In future version
- of NQPTP the SMI interface may also be deleted at this point.) SMI
- interfaces are not currently deleted or garbage collected.
-*/
+/*  The control port expects a UDP packet with the first space-delimited string
+    being the name of the shared memory interface (SMI) to be used.
+    This allows client applications to have a dedicated named SMI interface
+    with a timing peer list independent of other clients. The name given must
+    be a valid SMI name and must contain no spaces. If the named SMI interface
+    doesn't exist it will be created by NQPTP. The SMI name should be delimited
+    by a space and followed by a command letter. At present, the only command
+    is "T", which must followed by nothing or by a space and a space-delimited
+    list of IPv4 or IPv6 numbers, the whole not to exceed 4096 characters in
+    total. The IPs, if provided, will become the new list of timing peers,
+    replacing any previous list. If the master clock of the new list is the
+    same as that of the old list, the master clock is retained without
+    resynchronisation; this means that non-master devices can be added and
+    removed without disturbing the SMI's existing master clock. If no timing
+    list is provided, the existing timing list is deleted. (In future version
+    of NQPTP the SMI interface may also be deleted at this point.) SMI
+    interfaces are not currently deleted or garbage collected. */
 
 } // namespace pierre

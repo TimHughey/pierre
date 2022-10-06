@@ -1,5 +1,5 @@
 /*
-    Pierre - Custom Light Show for Wiss Landing
+    Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -18,25 +18,14 @@
     https://www.wisslanding.com
 */
 
-#include "desk/session/data.hpp"
-#include "ArduinoJson.hpp"
-#include "base/io.hpp"
-#include "base/uint8v.hpp"
-#include "desk/data_msg.hpp"
-#include "io/async_msg.hpp"
-
-#include <future>
-#include <optional>
+#include "frame/peak.hpp"
+#include "frame/peak_ref_data.hpp"
+#include <base/helpers.hpp>
 
 namespace pierre {
-namespace desk {
 
-void Data::log_connected() {
-  __LOG0(LCOL01 " {}:{} -> {}:{} established, handle={}\n", moduleID(), "CONNECT",
-         _socket->remote_endpoint().address().to_string(), _socket->remote_endpoint().port(),
-         _socket->local_endpoint().address().to_string(), _socket->local_endpoint().port(),
-         _socket->native_handle());
-}
+// static Peak reference data
+PeakMagBase Peak::mag_base;
+PeakMagScaled Peak::mag_scaled(Peak::mag_base);
 
-} // namespace desk
 } // namespace pierre

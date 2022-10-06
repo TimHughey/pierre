@@ -18,26 +18,13 @@
 
 #pragma once
 
-#include "base/io.hpp"
-#include "base/typical.hpp"
-
-namespace pierre {
-namespace airplay {
-
-namespace server {
-// server dependency injection
-struct Inject {
-  io_context &io_ctx;
-};
-} // namespace server
-
-namespace session {
-// session dependency injection
-struct Inject {
-  io_context &io_ctx;
-  tcp_socket &&socket;
-};
-
-} // namespace session
-} // namespace airplay
-} // namespace pierre
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/opt.h>
+#include <libswresample/swresample.h>
+#ifdef __cplusplus
+}
+#endif

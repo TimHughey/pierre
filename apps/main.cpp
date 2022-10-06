@@ -26,7 +26,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 #include "core/args.hpp"
 #include "pierre.hpp"
 
-pierre::shPierre pierre_instance;
+using namespace pierre;
+
+pierre_t pierre_instance;
 
 void exitting() {
   using namespace std;

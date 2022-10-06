@@ -18,7 +18,7 @@
 
 #include "session/audio.hpp"
 #include "base/uint8v.hpp"
-#include "frame/spooler.hpp"
+#include "frame/racked.hpp"
 
 #include <algorithm>
 #include <boost/asio.hpp>
@@ -38,7 +38,7 @@ using namespace boost::system;
 
 namespace errc = boost::system::errc;
 
-Audio::Audio(const Inject &di)
+Audio::Audio(const Inject &di) noexcept
     : Base(di, csv("AUDIO SESSION")), // Base holds the newly connected socket
       timer(di.io_ctx)                // rx bytes reporting
 {}
@@ -144,7 +144,7 @@ void Audio::asyncRxPacket() {
                 uint8v handoff;                          // handoff this packet
                 std::swap(handoff, self->packet_buffer); // by swapping local buffer
 
-                pierre::shared::spooler->accept(handoff);
+                Racked::handoff(handoff);
               } else {
                 const auto len = self->packetLength();
                 __LOG0("{} rx_bytes/packet_len mismatch {} != {}\n", fnName(), rx_bytes, len);
@@ -200,8 +200,8 @@ void Audio::stats() {
                   }
 
                   if (rx_total != rx_last) {
-                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n", self->moduleID(),
-                           rx_total, (rx_total - (int64_t)rx_last));
+                    __LOGX("session_id={:#x} RX total={:<10} 10s={:<10}\n", self->moduleID(), rx_total,
+                           (rx_total - (int64_t)rx_last));
                     rx_last = rx_total;
                   }
 

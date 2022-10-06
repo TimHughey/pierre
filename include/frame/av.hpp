@@ -18,13 +18,17 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/opt.h>
-#include <libswresample/swresample.h>
-#ifdef __cplusplus
-}
-#endif
+#include "frame.hpp"
+#include "types.hpp"
+
+namespace pierre {
+namespace av {
+extern void check_nullptr(void *ptr);
+extern void debug_dump();
+extern void init(); // throws on alloc failures
+extern bool keep(cipher_buff_t *m, size_t decipher_len, int used);
+extern uint8_t *m_buffer(cipher_buff_ptr &m);
+extern void parse(frame_t frame);
+
+} // namespace av
+} // namespace pierre

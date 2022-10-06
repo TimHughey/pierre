@@ -27,211 +27,123 @@
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "frame/peaks.hpp"
+#include "frame/state.hpp"
+#include "frame/types.hpp"
 
-#include <any>
-#include <array>
-#include <map>
+#include <compare>
+#include <future>
 #include <memory>
+#include <optional>
 #include <ranges>
+#include <span>
 #include <string_view>
 #include <tuple>
-#include <utility>
-#include <vector>
 
 namespace pierre {
-namespace fra {
 
-typedef string_view State;
-typedef csv StateConst;
-typedef std::vector<State> States;
-typedef std::vector<State> StateKeys;
-typedef std::map<State, size_t> StatsMap;
-
-using renderable_t = bool;
-using render_mode_t = csv;
-using sync_wait_valid_t = bool;
-using sync_wait_time_t = Nanos;
-using state_now_result_t = std::tuple<sync_wait_valid_t, sync_wait_time_t, renderable_t>;
-
-constexpr csv ANCHOR_DELAY{"anchor_delay"};
-constexpr csv DECODED{"decoded"};
-constexpr csv EMPTY{"empty"};
-constexpr csv ERROR{"error"};
-constexpr csv FUTURE{"future"};
-constexpr csv INVALID{"invalid"};
-constexpr csv NONE{"none"};
-constexpr csv NOT_READY{"not_ready"};
-constexpr csv OUTDATED{"outdated"};
-constexpr csv RENDERABLE{"renderable"};
-constexpr csv RENDERED{"played"};
-
-StateKeys &state_keys();
-
-void start_dsp_threads();
-} // namespace fra
+using state_now_result_t = std::tuple<sync_wait_valid_t, sync_wait_time_t, frame::state>;
 
 class Frame;
-typedef std::shared_ptr<Frame> shFrame;
-
-namespace dsp {
-extern void init();
-extern void process(shFrame frame);
-extern void shutdown();
-} // namespace dsp
-
-typedef std::array<uint8_t, 16 * 1024> CipherBuff;
-typedef std::shared_ptr<CipherBuff> shCipherBuff;
-typedef unsigned long long ullong_t;
-
-/*
-credit to https://emanuelecozzi.net/docs/airplay2/rt for the packet info
-
-RFC3550 header (as tweaked by Apple)
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-     ---------------------------------------------------------------
-0x0  | V |P|X|  CC   |M|     PT      |       Sequence Number         |
-    |---------------------------------------------------------------|
-0x4  |                        Timestamp (AAD[0])                     |
-    |---------------------------------------------------------------|
-0x8  |                          SSRC (AAD[1])                        |
-    |---------------------------------------------------------------|
-0xc  :                                                               :
-
-RFC 3550 Trailer
-        0                   1                   2                   3
-        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-       :                                                               :
-       |---------------------------------------------------------------|
-N-0x18 |                                                               |
-       |--                          Nonce                            --|
-N-0x14 |                                                               |
-       |---------------------------------------------------------------|
-N-0x10 |                                                               |
-       |--                                                           --|
-N-0xc  |                                                               |
-       |--                           Tag                             --|
-N-0x8  |                                                               |
-       |--                                                           --|
-N-0x4  |                                                               |
-        ---------------------------------------------------------------
-N
-
-  notes:
-
-   1.  Apple only provides eight (8) bytes of nonce (defined as a NonceMini
-       in this file).
-
-   2.  ChaCha requires a twelve (12) bytes of nonce.
-
-   3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
-       are zeroed
-
-*/
+using frame_t = std::shared_ptr<Frame>;
+using frame_future = std::shared_future<frame_t>;
+using frame_promise = std::promise<frame_t>;
 
 class Frame : public std::enable_shared_from_this<Frame> {
-
 private:
-  Frame(uint8v &packet);
-  Frame(const Nanos lead_time, fra::State state);
+  Frame(uint8v &packet) noexcept;
 
 public:
-  // Object Creation
-  static shFrame create(uint8v &packet) { return shFrame(new Frame(packet)); }
-  static shFrame create(const Nanos lead_time, fra::State state = fra::DECODED) {
-    return shFrame(new Frame(lead_time, state));
-  }
+  static frame_t create(uint8v &packet) noexcept { return frame_t(new Frame(packet)); }
 
   // Digital Signal Analysis (hidden in .cpp)
-  static void init() { dsp::init(); }
-  static void shutdown() { dsp::shutdown(); }
+  static void init();
+  static void shutdown();
 
   // Public API
-  // pass through to Anchor to limit library dependencies, see .cpp
-  static fra::render_mode_t anchor_save(AnchorData ad);
 
-  bool decipher(); // sodium decipher packet
-  void decodeOk() { state = fra::DECODED; }
-  void findPeaks(); // defnition must be in cpp
-  bool isReady() const { return peaks_left.use_count() && peaks_right.use_count(); }
-  bool isValid() const { return version == 0x02; }
+  state_now_result_t calc_sync_wait(AnchorLast &anchor);
 
-  // determines if this is a viable frame
-  // if so, runs the frame through av::parse and performs async digial signal analysis
-  bool keep(FlushRequest &flush);
+  void find_peaks();
 
-  void mark_rendered() { state = fra::RENDERED; }
+  bool parse();   // parse the deciphered frame into pcm data
+  void process(); // async find peaks via dsp
 
-  uint8v &payload() { return _payload; }
-  size_t payloadSize() const { return _payload.size(); }
+  void mark_rendered() { state = frame::RENDERED; }
 
-  // state
-  bool decoded() const { return state_equal(fra::DECODED); }
-  static bool empty(shFrame frame) { return ok(frame) && frame->state_equal(fra::EMPTY); }
-  bool future() const { return state_equal(fra::FUTURE); }
-  bool not_rendered() const { return state_equal({fra::DECODED, fra::FUTURE, fra::RENDERABLE}); }
-  static bool ok(shFrame frame) { return frame.use_count(); }
-  bool outdated() const { return state_equal(fra::OUTDATED); }
-  bool played() const { return state_equal(fra::RENDERED); }
-  bool purgeable() const { return state_equal({fra::OUTDATED, fra::RENDERED}); }
-  bool renderable() const { return state_equal({fra::RENDERABLE, fra::FUTURE}); }
-  bool silent() const { return Peaks::silence(peaks_left) && Peaks::silence(peaks_right); }
-  static fra::StateConst &stateVal(shFrame frame) {
-    return frame.use_count() ? frame->state : fra::EMPTY;
-  }
-  bool state_equal(fra::StateConst &check) const { return check == state; }
-  bool state_equal(const fra::States &states) const {
-    return ranges::any_of(states, [&](const auto &state) { return state_equal(state); });
+  bool silent() const noexcept {
+    auto [left, right] = peaks;
+
+    return Peaks::silence(left) && Peaks::silence(right);
   }
 
   //
   // state_now();
   //
-  fra::state_now_result_t state_now(AnchorLast &anchor,
-                                    const Nanos &lead_time = InputInfo::frame<Nanos>());
+  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time());
 
   bool sync_wait_ok() const { return sync_wait > Nanos::min(); }
 
-  // class member functions
-
   // misc debug
-  const string inspect() { return inspectFrame(shared_from_this()); }
-  static const string inspectFrame(shFrame frame, bool full = false);
+  const string inspect(bool full = false);
+  static const string inspect_safe(frame_t frame, bool full = false);
+  void log_decipher() const;
   static constexpr csv moduleID() { return module_id; }
+
+private:
+  void set_sync_wait(const Nanos &diff) noexcept {
+    if (diff != sync_wait) {
+      sync_wait = diff;
+    }
+
+    // update sync_wait if changed
+    // if (diff != sync_wait) {
+    //   if (sync_wait != Nanos::min()) {
+    //     __LOG0(LCOL01 " sync wait change, seq={} state={}/{} sync_wait={}/{}\n", module_id,
+    //            "STATE_NOW", seq_num, prev_state(), state(), pet::humanize(sync_wait),
+    //            pet::humanize(diff));
+    //   }
+    //   sync_wait = diff;
+    // }
+
+    //  __LOGX(LCOL01 " {}\n", module_id, csv("STATE_NOW"), inspect());
+  }
 
 public:
   // order dependent
-  uint8_t version = 0x00;
-  bool padding = false;
-  bool extension = false;
-  uint8_t ssrc_count = 0;
-  uint32_t seq_num = 0;
-  uint32_t timestamp = 0;
-  uint32_t ssrc = 0;
+  const Nanos created_at;
+  Nanos sync_wait;
+  const Nanos lead_time;
+  frame::state state;
 
-  ullong_t decipher_len = 0;
-  shCipherBuff _m;
+  uint8_t version{0x00};
+  bool padding{false};
+  bool extension{false};
+  uint8_t ssrc_count{0};
+  seq_num_t seq_num{0};
+  timestamp_t timestamp{0};
+  uint32_t ssrc{0};
+  cipher_buff_ptr m;
 
+  // decipher support
+  int cipher_rc{0};
+  ullong_t decipher_len{0};
+
+  // decode frame
   int samples_per_channel = 0;
   int channels = 0;
+  uint8v decoded;
 
-  const Nanos created_at{pet::now_monotonic()};
-  Nanos sync_wait = Nanos::min(); // order dependent
-  const Nanos lead_time;          // order dependent
-  fra::State state = fra::EMPTY;  // order dependent
-
-  shPeaks peaks_left;
-  shPeaks peaks_right;
-  bool use_anchor = true;
+  // populated by DSP
+  std::tuple<peaks_t, peaks_t> peaks;
 
 private:
   // order independent
-  uint8v _nonce;
-  uint8v _tag;
-  uint8v _aad;
-  uint8v _payload;
   AnchorLast _anchor;
 
+  // static string_view _render_mode;
+  // static std::binary_semaphore _render;
+
+public:
   static constexpr csv module_id{"FRAME"};
 };
 

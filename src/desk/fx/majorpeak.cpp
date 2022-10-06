@@ -105,7 +105,7 @@ MajorPeak::~MajorPeak() {
   el_entry = nullptr;
 }
 
-void MajorPeak::execute(shPeaks peaks) {
+void MajorPeak::execute(peaks_t peaks) {
   if (_color_config.rotate.enable) {
     if (color_elapsed > _color_config.rotate.ms) {
       _color.rotateHue(randomRotation());
@@ -123,7 +123,7 @@ void MajorPeak::execute(shPeaks peaks) {
   finished = !main->isFading() && !fill->isFading();
 }
 
-void MajorPeak::handleElWire(shPeaks peaks) {
+void MajorPeak::handleElWire(peaks_t peaks) {
   const auto &soft = _freq.soft;
 
   std::array<PulseWidth *, 2> elwires;
@@ -149,7 +149,7 @@ void MajorPeak::handleElWire(shPeaks peaks) {
   }
 }
 
-void MajorPeak::handleFillPinspot(shPeaks peaks) {
+void MajorPeak::handleFillPinspot(peaks_t peaks) {
   const auto peak = peaks->majorPeak();
   if (peak.frequency() > _fill_spot_cfg.frequency_max) {
     return;
@@ -210,13 +210,12 @@ void MajorPeak::handleFillPinspot(shPeaks peaks) {
 
   if (start_fader) {
     fill->activate<FillFader>(
-        {.origin = color,
-         .duration = pet::as_duration<Millis, Nanos>(_fill_spot_cfg.fade_max_ms)});
+        {.origin = color, .duration = pet::as_duration<Millis, Nanos>(_fill_spot_cfg.fade_max_ms)});
     _fill_history.push_front(peak);
   }
 }
 
-void MajorPeak::handleMainPinspot(shPeaks peaks) {
+void MajorPeak::handleMainPinspot(peaks_t peaks) {
   auto freq_min = _main_spot_cfg.frequency_min;
   auto peak = (*peaks)[freq_min];
 
@@ -260,8 +259,7 @@ void MajorPeak::handleMainPinspot(shPeaks peaks) {
 
   if (start_fader) {
     main->activate<MainFader>(
-        {.origin = color,
-         .duration = pet::as_duration<Millis, Nanos>(_main_spot_cfg.fade_max_ms)});
+        {.origin = color, .duration = pet::as_duration<Millis, Nanos>(_main_spot_cfg.fade_max_ms)});
     _main_history.push_front(peak);
   }
 }
@@ -274,8 +272,7 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   const auto soft_ceil = _freq.soft.ceiling;
 
   const Freq freq = peak.frequency();
-  bool reasonable =
-      (freq >= hard_floor) && (freq <= hard_ceil) && (peak.magnitude() > Peak::magFloor());
+  bool reasonable = (freq >= hard_floor) && (freq <= hard_ceil) && (peak.magnitude() > Peak::mag_base.floor);
 
   // ensure frequency can be interpolated into a color
   if (!reasonable) {
@@ -336,14 +333,13 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
 }
 
 void MajorPeak::makeRefColors() {
-  _ref_colors.assign(
-      {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
-       Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
-       Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
-       Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
-       Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
-       Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
-       Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
+  _ref_colors.assign({Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
+                      Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
+                      Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
+                      Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
+                      Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
+                      Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
+                      Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
 }
 
 // must be in .cpp to avoid including Desk in .hpp
@@ -366,7 +362,7 @@ Color &MajorPeak::refColor(size_t index) const { return _ref_colors.at(index); }
 bool MajorPeak::useablePeak(const Peak &peak) {
   auto rc = false;
 
-  if (peak && (peak.magnitude() >= Peak::magFloor())) {
+  if (peak && (peak.magnitude() >= Peak::mag_base.floor)) {
     rc = true;
   }
 

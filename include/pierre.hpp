@@ -1,5 +1,4 @@
-/*
-    Pierre - Custom Light Show via DMX for Wiss Landing
+/* Pierre - Custom Light Show via DMX for Wiss Landing
     Copyright (C) 2021  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -15,11 +14,11 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    https://www.wisslanding.com
-*/
+    https://www.wisslanding.com */
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/types.hpp"
 #include "core/args.hpp"
 
@@ -31,7 +30,7 @@ namespace pierre {
 
 // forward decl for Pierre shared_ptr
 class Pierre;
-typedef std::shared_ptr<Pierre> shPierre;
+using pierre_t = std::shared_ptr<Pierre>;
 
 class Pierre : public std::enable_shared_from_this<Pierre> {
 private:
@@ -43,22 +42,25 @@ private:
 public:
   ~Pierre() = default;
 
-  static shPierre create(const Inject &di) {
+  static pierre_t create(const Inject &di) {
     // Not using std::make_shared<Pierre>, constructor is private
-    return shPierre(new Pierre(di));
+    return pierre_t(new Pierre(di));
   }
-
-  static csv moduleID() { return module_id; }
 
   // main entry point
   void run();
 
 private:
-  Pierre(const Inject &di) : di(di) {}
+  Pierre(const Inject &di);
 
 private:
+  // order dependent
   Inject di;
-  static constexpr csv module_id = "PIERRE";
+  io_context io_ctx;
+  work_guard guard;
+
+public:
+  static constexpr csv module_id{"PIERRE"};
 };
 
 } // namespace pierre

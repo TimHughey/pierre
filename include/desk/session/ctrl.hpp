@@ -21,12 +21,12 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "desk/session/data.hpp"
 #include "desk/stats.hpp"
-#include "io/io.hpp"
 #include "io/msg.hpp"
 
 #include <array>
@@ -41,23 +41,20 @@ class Control {
 public:
   Control(io_context &io_ctx, strand &streams_strand, error_code &ec_last, const Nanos lead_time,
           desk::stats &stats)
-      : io_ctx(io_ctx),                 // use shared io_ctx
-        streams_strand(streams_strand), // syncronize shared status
-        ec_last(ec_last),               // shared state
-        lead_time(lead_time),           // grab a local copy of lead time
-        stats(stats),
-        retry_time(Nanos(lead_time * 44)), // duration to wait for reconnect, zservice available
-        retry_timer(io_ctx, retry_time),   // timer for zservice and connect retry
-        state(INITIALIZE)                  // decides which and how ctrl msgs are handled
+      : io_ctx(io_ctx),                                  // use shared io_ctx
+        streams_strand(streams_strand),                  // syncronize shared status
+        ec_last(ec_last),                                // shared state
+        lead_time(lead_time),                            // grab a local copy of lead time
+        stats(stats), retry_time(Nanos(lead_time * 44)), // duration to wait for reconnect, zservice available
+        retry_timer(io_ctx, retry_time),                 // timer for zservice and connect retry
+        state(INITIALIZE)                                // decides which and how ctrl msgs are handled
   {
     connect(); // start connect sequence when constructed
   }
 
   tcp_socket &data_socket() { return data_session->socket(); }
 
-  bool ready() {
-    return socket && socket->is_open() && data_session && data_session->socket().is_open();
-  }
+  bool ready() { return socket && socket->is_open() && data_session && data_session->socket().is_open(); }
 
   void shutdown(strand &streams_strand) {
     asio::post(streams_strand, [this] { reset(io::make_error(errc::operation_canceled)); });

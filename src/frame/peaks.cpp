@@ -25,7 +25,7 @@
 
 namespace pierre {
 
-shPeaks Peaks::sort() {
+peaks_t Peaks::sort() {
   ranges::sort(_peaks, [](const Peak &lhs, const Peak &rhs) { // reverse order by magnitude
     return lhs.magnitude() > rhs.magnitude();
   });

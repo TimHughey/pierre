@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "master_clock.hpp"
+#include "base/io.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
@@ -26,6 +27,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <iterator>
+#include <latch>
 #include <pthread.h>
 #include <ranges>
 #include <sys/mman.h>
@@ -39,20 +41,77 @@ std::optional<MasterClock> master_clock;
 } // namespace shared
 
 // create the MasterClock
-MasterClock::MasterClock(io_context &io_ctx) noexcept
-    : local_strand(io_ctx),                                          // syncronize clock io
+MasterClock::MasterClock() noexcept
+    : guard(io_ctx.get_executor()),                                  // syncronize clock io
       socket(io_ctx, ip_udp::v4()),                                  // construct and open
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
-      shm_name(
-          fmt::format("/{}-{}", Config::receiverName(), Host::ptr()->deviceID())) // make shm_name
+      shm_name(make_shm_name())                                      // make shm_name
 {
   __LOG0(LCOL01 " shm_name={} dest={}:{}\n", module_id, "CONSTRUCT", //
          shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
 }
 
+void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_promise_ptr prom) {
+
+  // perform the retries on the MasterClock io_ctx enabling caller to continue other work
+  // while the clock becomes useable and the future is set to ready
+  asio::post(io_ctx, [=, this]() mutable {
+    while (!clock_info.useable() && (max_wait > Nanos::zero())) {
+
+      // reduce max wait so this loop eventually breaks out
+      auto remaining_wait = clock_info.until_min_age();
+      std::this_thread::sleep_for(remaining_wait);
+
+      max_wait -= remaining_wait;
+
+      clock_info = load_info_from_mapped();
+    }
+
+    // set the promise with whatever the outcome of above
+    prom->set_value(clock_info);
+  });
+}
+
+void MasterClock::init() {
+  if (shared::master_clock.has_value() == false) {
+    shared::master_clock.emplace().init_self();
+  }
+}
+
+void MasterClock::init_self() noexcept {
+  std::latch latch{THREAD_COUNT};
+
+  for (auto n = 0; n < THREAD_COUNT; n++) {
+    // notes:
+    //  1. start DSP processing threads
+    threads.emplace_back([=, this, &latch](std::stop_token token) {
+      tokens.add(std::move(token));
+
+      name_thread(module_id, n);
+      latch.arrive_and_wait();
+      io_ctx.run();
+    });
+  }
+
+  latch.wait();  // caller waits until all threads are started
+  peers_reset(); // reset the peers (and creates the shm mem name)
+}
+
+bool MasterClock::is_mapped() const {
+  static uint32_t attempts = 0;
+  auto ok = (mapped && (mapped != MAP_FAILED));
+
+  if (!ok && attempts) {
+    ++attempts;
+    __LOG0(LCOL01 " nqptp data not mapped attempts={}\n", module_id, "CLOCK_MAPPED", attempts);
+  }
+
+  return ok;
+}
+
 // NOTE: new data is available every 126ms
-const ClockInfo MasterClock::info() {
-  if (mapSharedMem() == false) {
+const ClockInfo MasterClock::load_info_from_mapped() {
+  if (map_shm() == false) {
     return ClockInfo();
   }
 
@@ -85,39 +144,20 @@ const ClockInfo MasterClock::info() {
   auto trim_pos = clock_ip_sv.find_first_of('\0');
   clock_ip_sv.remove_suffix(clock_ip_sv.size() - trim_pos);
 
-  return ClockInfo // calculate a local view of the nqptp data
-      {.clock_id = data.master_clock_id,
-       .masterClockIp = string(clock_ip_sv),
-       .sampleTime = data.local_time,
-       .rawOffset = data.local_to_master_time_offset,
-       .mastershipStartTime = pet::from_ns(data.master_clock_start_time)};
+  return ClockInfo(data.master_clock_id, string(clock_ip_sv),
+                   data.local_time,                  // aka sample time
+                   data.local_to_master_time_offset, // aka raw offset
+                   pet::from_ns(data.master_clock_start_time));
 }
 
-void MasterClock::init(io_context &io_ctx) {
-
-  if (shared::master_clock.has_value() == false) {
-    auto &master_clock = shared::master_clock.emplace(io_ctx);
-
-    master_clock.peersReset(); // reset the peers (and creates the shm mem name)
-  }
+const string MasterClock::make_shm_name() noexcept { // static
+  return fmt::format("/{}-{}", Config::receiverName(), Host::ptr()->deviceID());
 }
 
-bool MasterClock::isMapped() const {
-  static uint32_t attempts = 0;
-  auto ok = (mapped && (mapped != MAP_FAILED));
-
-  if (!ok && attempts) {
-    ++attempts;
-    __LOG0(LCOL01 " nqptp data not mapped attempts={}\n", module_id, "CLOCK_MAPPED", attempts);
-  }
-
-  return ok;
-}
-
-bool MasterClock::mapSharedMem() {
+bool MasterClock::map_shm() {
   int prev_state;
 
-  if (isMapped() == false) {
+  if (is_mapped() == false) {
     // prevent thread cancellation while mapping
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
 
@@ -133,7 +173,7 @@ bool MasterClock::mapSharedMem() {
 
       close(shm_fd); // done with the shm memory fd
 
-      __LOG0(LCOL01 " complete={}\n", module_id, "CLOCK_MAPPING", isMapped());
+      __LOG0(LCOL01 " complete={}\n", module_id, "CLOCK_MAPPING", is_mapped());
     } else {
       __LOG0(LCOL01 " clock shm_open failed, error={}\n", module_id, "FATAL", errno);
     }
@@ -141,14 +181,15 @@ bool MasterClock::mapSharedMem() {
     pthread_setcancelstate(prev_state, nullptr);
   }
 
-  return isMapped();
+  return is_mapped();
 }
 
-void MasterClock::peersUpdate(const Peers &new_peers) {
+void MasterClock::peers_update(const Peers &new_peers) {
   __LOGX(LCOL01 " count={}\n", module_id, csv("NEW PEERS"), new_peers.size());
 
   // queue the update to prevent collisions
-  local_strand.post( //
+  asio::post( //
+      io_ctx, //
       [this, peers = std::move(new_peers)]() {
         // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
         uint8v msg;
@@ -174,8 +215,13 @@ void MasterClock::peersUpdate(const Peers &new_peers) {
       });
 }
 
+void MasterClock::reset() { // static
+  shared::master_clock->unMap();
+  shared::master_clock.reset();
+}
+
 void MasterClock::unMap() {
-  if (isMapped()) {
+  if (is_mapped()) {
     munmap(mapped, sizeof(nqptp));
 
     mapped = nullptr;
@@ -183,6 +229,11 @@ void MasterClock::unMap() {
 
   [[maybe_unused]] error_code ec;
   socket.close(ec);
+}
+
+// misc debug
+void MasterClock::dump() {
+  __LOG0(LCOL01 " inspect info\n{}\n", module_id, "DUMP", load_info_from_mapped().inspect());
 }
 
 } // namespace pierre

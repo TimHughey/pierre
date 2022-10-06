@@ -18,42 +18,25 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <string_view>
-#include <thread>
-#include <vector>
+#include "base/elapsed.hpp"
+#include "base/flush_request.hpp"
+#include "base/input_info.hpp"
+#include "base/pet.hpp"
+#include "base/types.hpp"
+
+#include <array>
+#include <memory>
 
 namespace pierre {
 
-using namespace std::literals;
+using frame_ready_t = bool;
+using renderable_t = bool;
+using sync_wait_time_t = Nanos;
+using sync_wait_valid_t = bool;
 
-// string, string_view and const char *
-using string = std::string;
-typedef const string &csr;
+using cipher_buff_t = std::array<uint8_t, 16 * 1024>;
+using cipher_buff_ptr = std::unique_ptr<cipher_buff_t>;
 
-using string_view = std::string_view;
-typedef const string_view csv;
-typedef const char *ccs;
-
-// threads
-typedef std::jthread Thread;
-
-// Vector of Floats
-typedef std::vector<float> Reals;
-
-// Frequency, magnitude, scaled values
-typedef float Freq;
-typedef float Mag;
-typedef float MagScaled;
-typedef float Scaled;
-typedef float Unscaled;
-
-using render_mode_t = csv;
-constexpr csv NOT_RENDERING{"NOT RENDERING"};
-constexpr csv RENDERING{"RENDERING"};
-
-using seq_num_t = uint32_t;   // frame sequence num
-using timestamp_t = uint32_t; // frame timestamp
+typedef unsigned long long ullong_t; // required by libsodium
 
 } // namespace pierre

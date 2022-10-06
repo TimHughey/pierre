@@ -16,28 +16,16 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/io.hpp"
-#include "base/typical.hpp"
+#include "frame.hpp"
+#include "types.hpp"
 
 namespace pierre {
-namespace airplay {
+namespace dsp {
 
-namespace server {
-// server dependency injection
-struct Inject {
-  io_context &io_ctx;
-};
-} // namespace server
+void init();
+void process(frame_t frame);
+void watch_dog();
+void shutdown();
 
-namespace session {
-// session dependency injection
-struct Inject {
-  io_context &io_ctx;
-  tcp_socket &&socket;
-};
-
-} // namespace session
-} // namespace airplay
+} // namespace dsp
 } // namespace pierre

@@ -19,9 +19,9 @@
 #include "anchor.hpp"
 #include "base/anchor_data.hpp"
 #include "base/input_info.hpp"
+#include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
-#include "io/io.hpp"
 #include "master_clock.hpp"
 
 #include <chrono>
@@ -43,11 +43,7 @@ std::optional<Anchor> anchor;
 // destructor, singleton static functions
 void Anchor::init() { shared::anchor.emplace(); }
 
-// general API and member functions
-
-/*
-
-int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
+/* int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
   uint64_t actual_clock_id, actual_time_of_sample, actual_offset, start_of_mastership;
   int response = ptp_get_clock_info(&actual_clock_id, &actual_time_of_sample, &actual_offset,
@@ -163,11 +159,10 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       response = clock_no_anchor_info; // no anchor information
     }
   }
-}
+} */
 
-*/
-
-AnchorLast Anchor::get_data() {
+// general API and member functions
+AnchorLast Anchor::get_data(const ClockInfo clock) {
 
   // do nothing if we've not received anchor data from the source
   if (remote_valid == false) {
@@ -175,7 +170,6 @@ AnchorLast Anchor::get_data() {
   }
 
   auto &live = datum(Datum::live);
-  const auto &clock = shared::master_clock->info();
 
   if (live.match_clock_id(clock)) {
     live.set_master_for(clock);
@@ -183,7 +177,7 @@ AnchorLast Anchor::get_data() {
     if (clock.is_stable() || (_last.has_value() == false)) {
       // only establish last if clock is of minimum age
       if (clock.is_minimum_age()) {
-        _last.emplace(live.clock_id, live.rate, live.rtp_time, live.anchor_time, clock);
+        _last.emplace(live.clock_id, live.rtp_time, live.anchor_time, clock);
 
         live.log_new_master_if_needed(data_new);
       }
@@ -216,7 +210,8 @@ void Anchor::handle_new_data(const AnchorData &ad) {
       auto w = std::back_inserter(msg);
       std::vector<string> lines;
 
-      const auto &clock = shared::master_clock->info();
+      auto clock_future = shared::master_clock->info(Nanos::zero());
+      const auto clock = clock_future.get();
 
       lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "old",
                                      live.clock_id, live.rtp_time,
@@ -343,22 +338,21 @@ const AnchorData &Anchor::get_data() {
 
 */
 
-void Anchor::save(AnchorData &dat) {
-
-  handle_new_data(dat);
+void Anchor::save_impl(AnchorData ad) {
+  handle_new_data(ad);
 
   // empty clock info, reset Anchor and return
-  if (dat.empty()) {
+  if (ad.empty()) {
     teardown();
     return;
   }
 
-  handle_quick_change(dat);
+  handle_quick_change(ad);
 
   remote_valid = true;
 
-  datum(Datum::live) = dat;
-  datum(Datum::source) = dat;
+  datum(Datum::live) = ad;
+  datum(Datum::source) = ad;
 }
 
 void Anchor::teardown() {

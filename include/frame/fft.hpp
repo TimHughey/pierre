@@ -67,7 +67,7 @@ public:
 
   void dcRemoval(const float mean);
 
-  shPeaks findPeaks();
+  peaks_t find_peaks();
   Freq freqAtIndex(size_t y);
   Mag magAtIndex(const size_t i) const;
   void process();

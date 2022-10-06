@@ -26,17 +26,17 @@ find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
 add_library(${__target} SHARED
-  # dsp
-  fft.cpp peaks.cpp
+  # deoder, dsp
+  av.cpp dsp.cpp fft.cpp peak.cpp peaks.cpp
 
-  # the frame
+  # the frame (from raw to dsp complete)
   frame.cpp
+
+  # racks and reels of frames
+  racked.cpp reel.cpp
 
   # master clock and anchor
   anchor.cpp master_clock.cpp
-
-  # spooler and reels
-  spooler.cpp reel.cpp
 
   ${HEADER_LIST}
 )

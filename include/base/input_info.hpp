@@ -30,7 +30,7 @@
 namespace pierre {
 
 class InputInfo {
-public:
+  public:
   static constexpr uint32_t rate = 44100; // max available at the moment
   static constexpr uint8_t channels = 2;
   static constexpr uint8_t bit_depth = 16;
@@ -41,6 +41,7 @@ public:
   static constexpr double fps() { return rate / 1024.0; }
   static constexpr MillisFP frame_ms() { return MillisFP(1000.0 / fps()); }
   template <typename T> static constexpr T frame() { return pet::cast<MillisFP, T>(frame_ms()); }
+  static constexpr Nanos lead_time() { return frame<Nanos>(); }
 };
 
 } // namespace pierre

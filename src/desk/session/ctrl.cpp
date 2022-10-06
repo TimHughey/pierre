@@ -130,8 +130,7 @@ void Control::log_feedback(JsonDocument &doc) {
   auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
 
   if (jitter > lead_time) {
-    __LOG0(LCOL01 " sn={:<8} jitter={:12} elapsed={:8} "
-                  "fps={:03.1f} rt={:03.1}\n",
+    __LOG0(LCOL01 " seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
            moduleID(), "REMOTE",
            doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
            pet::as_millis_fp(jitter),     // sync_wait jitter

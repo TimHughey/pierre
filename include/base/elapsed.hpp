@@ -44,6 +44,8 @@ public:
     return *this;
   }
 
+  const string humanize() const { return pet::humanize(elapsed()); }
+
   Nanos operator()() const { return elapsed(); }
   template <typename T> bool operator>=(const T &rhs) const { return elapsed() >= rhs; }
 

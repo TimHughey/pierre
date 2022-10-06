@@ -35,7 +35,6 @@ using frame_local_time_result_t = std::pair<bool, Nanos>;
 class AnchorLast {
 public:
   ClockID clock_id{0}; // senders network timeline id (aka clock id)
-  uint64_t rate{0};
   uint32_t rtp_time{0};
   Nanos anchor_time{0};
   Nanos localized{0};
@@ -43,44 +42,30 @@ public:
 
   AnchorLast() = default;
 
-  AnchorLast(ClockID id, uint64_t rate, uint32_t rtp_time, Nanos anchor_time,
-             const ClockInfo &clock)
+  AnchorLast(ClockID id, uint32_t rtp_time, Nanos anchor_time, const ClockInfo &clock)
       : clock_id(id),                                                  //
-        rate(rate),                                                    //
         rtp_time(rtp_time),                                            //
         anchor_time(anchor_time),                                      //
         localized(pet::subtract_offset(anchor_time, clock.rawOffset)), //
         valid(clock.master_for())                                      //
   {}
 
-  // for frame diff calcs using an alternate time reference
-  //   1. returns negative for frame in the past
-  //   2. returns positive for frame in future
-  //   3. returns nanos::min() when data is not ready
-  frame_local_time_result_t frame_local_time_diff(uint32_t timestamp) const {
-    auto rc = viable();
+  Nanos frame_local_time_diff(uint32_t timestamp) const {
     auto diff = Nanos::zero();
+    auto now = pet::now_monotonic();
 
-    if (rc) {
-      auto now = pet::now_monotonic();
+    auto frame_local_time = frame_to_local_time(timestamp);
+    diff = frame_local_time - now;
+    __LOGX(LCOL01 " localized={:^26} frame_local_time={:^26} now={:^26} diff={:^12}\n", module_id,
+           "FRAME_DIFF", pet::humanize(localized), pet::humanize(frame_local_time),
+           pet::humanize(now), pet::humanize(diff));
 
-      auto frame_local_time = frame_to_local_time(timestamp);
-      diff = frame_local_time - now;
-      // __LOG0(LCOL01 " localized={:^26} frame_local_time={:^26} now={:^26} diff={:^12}\n",
-      //        module_id, "FRAME_DIFF", pet::humanize(localized), pet::humanize(frame_local_time),
-      //        pet::humanize(now), pet::humanize(diff));
+    // __LOG0(LCOL01 " diff={}\n", module_id, "FRAME_DIFF", pet::humanize(diff));
 
-      // __LOG0(LCOL01 " diff={}\n", module_id, "FRAME_DIFF", pet::humanize(diff));
-    } else {
-      __LOG0(LCOL01 " not viable, rc={} valid_for={}\n", module_id, "WARN", rc,
-             pet::humanize(diff));
-    }
-
-    return std::make_pair(rc, diff);
+    return diff;
   }
 
-  /*
-  int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+  /* int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
     int result = -1;
     uint32_t anchor_rtptime = 0;
     uint64_t anchor_local_time = 0;
@@ -98,8 +83,7 @@ public:
       debug(3, "frame_to_local_time can't get anchor local time information");
     }
     return result;
-  }
-  */
+  } */
 
   Nanos frame_to_local_time(uint32_t timestamp) const {
     int32_t frame_diff = timestamp - rtp_time;

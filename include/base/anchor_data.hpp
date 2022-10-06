@@ -32,7 +32,6 @@ namespace pierre {
 
 struct AnchorData {
   ClockID clock_id{0}; // senders network timeline id (aka clock id)
-  uint64_t rate{0};
   uint64_t flags{0};
   uint32_t rtp_time{0};
   Nanos anchor_time{0};
@@ -45,14 +44,12 @@ struct AnchorData {
   Nanos valid_at{0};
 
   AnchorData(ClockID clock_id,  // network timeline id (aka senders clock id)
-             uint64_t rate,     // 0=not playing, 1=playing
              uint64_t secs,     // anchor time seconds (arbitrary reference)
              uint64_t fracs,    // anchor time fractional nanoseconds
              uint64_t rtp_time, // rtp time (as defined by sender)
              uint64_t flags)    // unknown and unused at present
       noexcept
       : clock_id(clock_id),                             // directly save the clock id
-        rate(rate),                                     // directly save rate
         flags(flags),                                   // directly save flags
         rtp_time(static_cast<uint32_t>(rtp_time)),      // rtp time is 32 bits
         anchor_time(Seconds(secs) + Nanos(fracs >> 32)) // combine secs and fracs
@@ -60,8 +57,7 @@ struct AnchorData {
     __LOG0(LCOL01 " anchor_time={}\n", module_id, "DEBUG", pet::humanize(anchor_time));
   }
 
-  // create simple AnchorData with just rate update
-  AnchorData(uint64_t rate = 0x00) noexcept : rate(rate) {}
+  AnchorData() = default;
 
   void change_clock_id(const ClockInfo &clock) { clock_id = clock.clock_id; }
 
@@ -70,32 +66,7 @@ struct AnchorData {
            (anchor_time != ad.anchor_time);
   }
 
-  bool empty() const { return !clock_id && !rate; }
-
-  /*
-    Nanos frame_time(uint32_t timestamp) const {
-      return localized + Nanos(Nanos(timestamp - rtp_time) / InputInfo::rate);
-    }
-  */
-  /*
-    uint32_t localTimeFrame(const Nanos time) { // untested
-      uint32_t frame_time{0};
-
-      if (valid) {
-        Nanos diff_time = time - local_time;
-        int64_t diff_frame = (diff_time.count() * InputInfo::rate) / pet::NS_FACTOR.count();
-        int32_t diff_frame32 = diff_frame;
-        frame_time = rtp_time + diff_frame32;
-      }
-
-      return frame_time;
-    }
-
-    SecondsFP netTimeElapsed() const { return pet::elapsed_as<SecondsFP>(netTimeNow() - valid_at);
-    }
-
-    Nanos netTimeNow() const { return valid_at + pet::elapsed_abs_ns(valid_at); }
-  */
+  bool empty() const { return !clock_id; }
 
   bool master_for_at_least(const auto master_min) const {
     return (master_for == Nanos::zero()) ? false : master_for >= master_min;
@@ -119,8 +90,8 @@ struct AnchorData {
            std::tie(rhs.clock_id, rhs.rtp_time, rhs.anchor_time);
   }
 
-  csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
-  bool rendering() const { return rate & 0x01; }
+  // csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
+  // bool rendering() const { return rate & 0x01; }
 
   void reset() { *this = AnchorData(); }
 
@@ -159,8 +130,6 @@ public:
   static constexpr csv moduleID() { return module_id; }
 
 private:
-  static constexpr csv RENDERING{"rendering"};
-  static constexpr csv NOT_RENDERING{"not rendering"};
   static constexpr csv module_id{"ANCHOR_DATA"};
 };
 

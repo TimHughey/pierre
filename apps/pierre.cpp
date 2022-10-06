@@ -25,23 +25,37 @@
 #include "core/args.hpp"
 #include "core/host.hpp"
 #include "core/service.hpp"
+#include "desk/desk.hpp"
+#include "frame/frame.hpp"
 #include "mdns/mdns.hpp"
 
 namespace pierre {
+
+Pierre::Pierre(const Inject &di)
+    : di(di),                      //
+      guard(io_ctx.get_executor()) //
+{}
 
 // create and run all threads
 void Pierre::run() {
   auto host = Host::init();
 
-  auto cfg = Config::init({.app_name = di.app_name,
-                           .cli_cfg_file = di.args_map.cfg_file,
-                           .hostname = host->hostname()});
-  __LOG0(LCOL01 " {} {}\n", moduleID(), csv("RUN"), cfg->receiverName(), cfg->firmwareVersion());
+  auto cfg = Config::init(                   //
+      {.app_name = di.app_name,              //
+       .cli_cfg_file = di.args_map.cfg_file, //
+       .hostname = host->hostname()}         //
+  );
+
+  __LOG0(LCOL01 " {} {}\n", module_id, csv("RUN"), cfg->receiverName(), cfg->firmwareVersion());
 
   Service::init();
   mDNS::init()->start();
+  Frame::init();
+  Desk::init();
 
   // create and start Airplay
-  Airplay::init()->join();
+  Airplay::init();
+
+  io_ctx.run();
 }
 } // namespace pierre

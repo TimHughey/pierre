@@ -91,17 +91,11 @@ public:
 
   struct MakeColor {
     struct ColorControl above_soft_ceiling {
-      .hue = {.min = 345.0, .max = 355.0, .step = 0.0001}, .brightness = {
-        .max = 50.0,
-        .mag_scaled = true
-      }
+      .hue = {.min = 345.0, .max = 355.0, .step = 0.0001}, .brightness = {.max = 50.0, .mag_scaled = true }
     };
 
     struct ColorControl generic {
-      .hue = {.min = 30.0, .max = 360.0, .step = 0.0001}, .brightness = {
-        .max = 100.0,
-        .mag_scaled = true
-      }
+      .hue = {.min = 30.0, .max = 360.0, .step = 0.0001}, .brightness = {.max = 100.0, .mag_scaled = true }
     };
   };
 
@@ -157,7 +151,7 @@ public:
   MajorPeak();
   ~MajorPeak();
 
-  void execute(shPeaks peaks) override;
+  void execute(peaks_t peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
 
   void once() override;
@@ -166,10 +160,10 @@ private:
   typedef std::deque<Color> ReferenceColors;
 
 private:
-  void handleElWire(shPeaks peaks);
-  void handleLedForest(shPeaks peaks);
-  void handleFillPinspot(shPeaks peaks);
-  void handleMainPinspot(shPeaks peaks);
+  void handleElWire(peaks_t peaks);
+  void handleLedForest(peaks_t peaks);
+  void handleFillPinspot(peaks_t peaks);
+  void handleMainPinspot(peaks_t peaks);
 
   const Color makeColor(Color ref, const Peak &freq);
   void makeRefColors();

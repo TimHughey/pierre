@@ -34,13 +34,9 @@ class FX;
 typedef std::shared_ptr<FX> shFX;
 
 struct fx_factory {
-  template <typename T> static shFX create() {
-    return std::static_pointer_cast<T>(std::make_shared<T>());
-  }
+  template <typename T> static shFX create() { return std::static_pointer_cast<T>(std::make_shared<T>()); }
 
-  template <typename T> static std::shared_ptr<T> derive(shFX fx) {
-    return std::static_pointer_cast<T>(fx);
-  }
+  template <typename T> static std::shared_ptr<T> derive(shFX fx) { return std::static_pointer_cast<T>(fx); }
 };
 
 class FX {
@@ -54,12 +50,12 @@ public:
   virtual csv name() const = 0;
 
   // workhorse of FX
-  void render(shFrame frame, desk::DataMsg &msg);
+  void render(frame_t frame, desk::DataMsg &msg);
 
   virtual void once() {} // subclasses should override once() to run setup code one time
 
 protected:
-  virtual void execute(shPeaks peaks) = 0;
+  virtual void execute(peaks_t peaks) = 0;
 
 protected:
   static shUnits units;

@@ -40,20 +40,12 @@ private:
   enum Datum { source = 0, live, last, invalid, max_datum };
 
 public:
-  Anchor() {}
+  Anchor() = default;
   static void init(); // create shared Anchor
 
-  static frame_local_time_result_t frame_local_time_diff(const uint32_t timestamp) {
-    return shared::anchor->get_data().frame_local_time_diff(timestamp);
-  }
+  AnchorLast get_data(const ClockInfo clock_info);
+  static void save(AnchorData ad) { return shared::anchor->save_impl(ad); }
 
-  static Nanos frame_to_local_time(const uint32_t timestamp) {
-    return shared::anchor->get_data().frame_to_local_time(timestamp);
-  }
-
-  AnchorLast get_data();
-  static bool rendering() { return shared::anchor->cdatum(Datum::live).rendering(); }
-  void save(AnchorData &ad);
   void teardown();
 
   bool viable() const { return _last.has_value(); }
@@ -69,6 +61,8 @@ private:
 
   void handle_new_data(const AnchorData &new_ad);
   void handle_quick_change(const AnchorData &ad);
+
+  void save_impl(AnchorData ad); // object impl
 
   // misc internal debug
 

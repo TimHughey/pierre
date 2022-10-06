@@ -56,9 +56,7 @@ struct pet {
     return Nanos{static_cast<uint64_t>(d.count()) + offset};
   }
 
-  template <typename TO> static constexpr TO as(auto x) {
-    return std::chrono::duration_cast<TO>(Nanos(x));
-  }
+  template <typename TO> static constexpr TO as(auto x) { return std::chrono::duration_cast<TO>(Nanos(x)); }
 
   template <typename FROM, typename TO> static constexpr TO as_duration(auto x) {
     return std::chrono::duration_cast<TO>(FROM(x));
@@ -76,16 +74,13 @@ struct pet {
     return std::chrono::duration_cast<TO>(FROM(x));
   }
 
-  template <typename T> static T diff_abs(const T &d1, const T &d2) {
-    return std::chrono::abs(d1 - d2);
-  }
+  template <typename T> static T diff_abs(const T &d1, const T &d2) { return std::chrono::abs(d1 - d2); }
 
   static string humanize(const Nanos d);
 
   static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) { return d2 - d1; }
 
-  template <typename T>
-  static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) {
+  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
@@ -94,6 +89,11 @@ struct pet {
   }
 
   static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
+
+  template <typename S> static constexpr auto from_now(S amount) noexcept {
+    return steady_clock::now() + amount;
+  }
+
   static constexpr Nanos from_ns(uint64_t ns) { return Nanos(static_cast<int64_t>(ns)); }
 
   template <typename T> static constexpr bool not_zero(const T &d) { return d != T::zero(); }
@@ -140,9 +140,7 @@ struct pet {
     return Nanos(to_uint64_t(d) - offset);
   }
 
-  static constexpr uint64_t to_uint64_t(const Nanos &d) {
-    return static_cast<uint64_t>(d.count());
-  }
+  static constexpr uint64_t to_uint64_t(const Nanos &d) { return static_cast<uint64_t>(d.count()); }
 
 private:
   static Nanos now_nanos();

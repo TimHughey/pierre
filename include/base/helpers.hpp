@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 
 namespace pierre {
@@ -40,6 +41,10 @@ constexpr uint64_t upow(uint64_t base, uint64_t exp) {
   }
 
   return result;
+}
+
+template <typename T> constexpr T scale_val(T val) { //
+  return (val <= 0.0) ? 0.0 : std::log10(val);
 }
 
 } // namespace pierre

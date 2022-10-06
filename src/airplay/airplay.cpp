@@ -23,7 +23,6 @@
 #include "conn_info/conn_info.hpp"
 #include "core/features.hpp"
 #include "core/host.hpp"
-#include "desk/desk.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
 #include "server/servers.hpp"
@@ -41,15 +40,7 @@ shAirplay Airplay::init() { // static
   __LOG0(LCOL01 " features={:#x}\n", moduleID(), csv("INIT"), Features().ap2Default());
 
   // executed by caller thread
-  //  Anchor::init();
   airplay::ConnInfo::init();
-  Desk::init(InputInfo::frame<Nanos>());
-
-  // init the master clock on Airplay io_ctx
-  // MasterClock::init({.io_ctx = self->io_ctx,
-  //                    .service_name = Config::receiverName(),
-  //                    .device_id = Host::ptr()->deviceID()});
-
   airplay::Servers::init({.io_ctx = self->io_ctx});
 
   std::latch threads_latch(AIRPLAY_THREADS);
@@ -73,10 +64,10 @@ shAirplay Airplay::init() { // static
     self->io_ctx.run(); // run io_ctx on main airplay thread
   });
 
-  threads_latch.wait();               // wait for all threads to start
-  shared::master_clock->peersReset(); // reset timing peers
+  threads_latch.wait();                // wait for all threads to start
+  shared::master_clock->peers_reset(); // reset timing peers
 
-  // finally, start listening for Rtsp messages
+  // start listening for Rtsp messages
   airplay::Servers::ptr()->localPort(ServerType::Rtsp);
 
   return self->shared_from_this();

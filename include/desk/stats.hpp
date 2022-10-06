@@ -22,9 +22,9 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
-#include "io/io.hpp"
 
 #include <boost/circular_buffer.hpp>
 #include <memory>
@@ -45,8 +45,9 @@ public:
             auto avail_metrics = feedbacks + frames + futures + no_conn + none + streams_init;
 
             if (avail_metrics) {
-              __LOG0(LCOL01 " frames={:>6}  none={:>6}  futures={:>6} "
-                            " feedbacks={:>6}  no_conn={:>6}  streams_init={}\n",
+              __LOG0(LCOL01
+                     " frames={:>6}  none={:>6}  futures={:>6} "
+                     " feedbacks={:>6}  no_conn={:>6}  streams_init={}\n",
                      module_id, "REPORT", //
                      frames, none, futures, feedbacks, no_conn, streams_init);
             }

@@ -25,6 +25,7 @@
 #include <boost/asio.hpp>
 #include <boost/system.hpp>
 #include <cstdint>
+#include <memory>
 
 namespace pierre {
 
@@ -41,6 +42,7 @@ using ip_tcp = boost::asio::ip::tcp;
 using ip_udp = boost::asio::ip::udp;
 using socket_base = boost::asio::socket_base;
 using steady_timer = asio::steady_timer;
+using steady_timer_ptr = std::shared_ptr<steady_timer>;
 using strand = io_context::strand;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
@@ -59,6 +61,10 @@ namespace io {
 
 static constexpr error_code make_error(errc::errc_t val = errc::success) {
   return error_code(val, sys::generic_category());
+}
+
+template <class T> static constexpr steady_timer_ptr make_steady_timer(T &ctx_or_strand) {
+  return std::make_shared<steady_timer>(asio::get_associated_executor(ctx_or_strand));
 }
 } // namespace io
 

@@ -21,7 +21,9 @@ add_library(${__target} SHARED
 
   # (head)units
   unit/pinspot.cpp
-  ${HEADER_LIST})
+
+  ${HEADER_LIST}
+)
 
 # source files compiled for the library can include headers
 # without using the full path

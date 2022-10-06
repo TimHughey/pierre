@@ -29,4 +29,16 @@ void name_thread(csv name) {
 }
 
 void name_thread(csv name, int num) { name_thread(fmt::format("{} {}", name, num)); }
+
+static std::hash<std::thread::id> hasher;
+
+const string thread_id_short() {
+  const auto hashed = fmt::format("{:x}", hasher(std::this_thread::get_id()));
+
+  auto first = hashed.begin();
+  std::advance(first, std::ssize(hashed) - 8);
+
+  return string(first, hashed.end());
+}
+
 } // namespace pierre

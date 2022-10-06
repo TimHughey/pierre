@@ -40,7 +40,7 @@ FX::FX() {
   }
 }
 
-void FX::render(shFrame frame, desk::DataMsg &msg) {
+void FX::render(frame_t frame, desk::DataMsg &msg) {
   if (called_once == false) {
     // frame 0 is always consumed by the call to once()
     once();
@@ -49,7 +49,8 @@ void FX::render(shFrame frame, desk::DataMsg &msg) {
     units->prepare();
 
     // frame n is passed to execute
-    execute(frame->peaks_left);
+    auto [left, right] = frame->peaks;
+    execute(left);
 
     units->update_msg(msg);
   }

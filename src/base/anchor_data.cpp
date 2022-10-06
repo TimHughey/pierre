@@ -56,7 +56,6 @@ string AnchorData::inspect() const {
   auto w = std::back_inserter(msg);
 
   fmt::format_to(w, hex_fmt_str, "clock_id", clock_id);
-  fmt::format_to(w, hex_fmt_str, "rate", rate);
   fmt::format_to(w, hex_fmt_str, "flags", flags);
   fmt::format_to(w, gen_fmt_str, "rtp_time", rtp_time);
   fmt::format_to(w, gen_fmt_str, "anchor_time", pet::humanize(anchor_time));

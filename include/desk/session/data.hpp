@@ -21,11 +21,11 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "frame/frame.hpp"
-#include "io/io.hpp"
 
 #include <array>
 #include <future>
@@ -76,8 +76,7 @@ public:
 
 private:
   void disconnect(const error_code ec) {
-    __LOG0(LCOL01 " handle={} reason={}\n", moduleID(), "DISCONNECT", _socket->native_handle(),
-           ec.message());
+    __LOG0(LCOL01 " handle={} reason={}\n", moduleID(), "DISCONNECT", _socket->native_handle(), ec.message());
 
     acceptor.close();
     _socket.reset();

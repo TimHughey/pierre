@@ -33,7 +33,7 @@ namespace desk {
 class DataMsg : public io::Msg {
 
 public:
-  DataMsg(shFrame frame, const Nanos lead_time)
+  DataMsg(frame_t frame, const Nanos lead_time)
       : Msg(TYPE),               // init base class
         dmx_frame(16, 0x00),     // init the dmx frame to all zeros
         silence(frame->silent()) // is this silence?

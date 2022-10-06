@@ -30,26 +30,28 @@
 
 namespace pierre {
 
-typedef size_t PeakN; // represents peak of interest 1..max_peaks
+using peak_n_t = size_t; // represents peak of interest 1..max_peaks
 
 class Peaks;
-typedef std::shared_ptr<Peaks> shPeaks;
+using peaks_t = std::shared_ptr<Peaks>;
 
 class Peaks : public std::enable_shared_from_this<Peaks> {
 public:
-  static shPeaks create() { return shPeaks(new Peaks()); }
+  static peaks_t create() { return std::shared_ptr<Peaks>(new Peaks()); }
   ~Peaks() = default;
 
 private:
   Peaks() = default;
 
 public:
-  bool hasPeak(PeakN n) const {
-    // PeakN_t represents the peak of interest in the range of 1..max_peaks
-    return _peaks.size() && (_peaks.size() > n) ? true : false;
+  void emplace_pack(Peak &&peak) { _peaks.emplace_back(peak); }
+
+  bool hasPeak(peak_n_t n) const {
+    // peak_n_t_t represents the peak of interest in the range of 1..max_peaks
+    return _peaks.size() > n ? true : false;
   }
 
-  const Peak majorPeak() const { return peakN(1); }
+  const Peak majorPeak() const { return peak_n(1); }
 
   static constexpr csv moduleID() { return module_id; }
 
@@ -66,13 +68,13 @@ public:
     return found != _peaks.end() ? *found : Peak::zero();
   }
 
-  const Peak peakN(const PeakN n) const {
+  const Peak peak_n(const peak_n_t n) const {
     Peak peak;
 
     if (hasPeak(n)) {
       const Peak check = _peaks.at(n - 1);
 
-      if (check.magnitude() > Peak::magFloor()) {
+      if (check.magnitude() > Peak::mag_base.floor) {
         peak = check;
       }
     }
@@ -80,9 +82,7 @@ public:
     return peak;
   }
 
-  void push_back(const Peak &peak) { _peaks.push_back(peak); }
-
-  static bool silence(shPeaks peaks) {
+  static bool silence(peaks_t peaks) {
     __LOGX(LCOL01 " use_count={} hasPeak={}\n", moduleID(), csv("SILENCE"), //
            peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : false);
 
@@ -91,7 +91,7 @@ public:
 
   auto size() const { return _peaks.size(); }
 
-  shPeaks sort();
+  peaks_t sort();
 
 private:
   std::vector<Peak> _peaks;

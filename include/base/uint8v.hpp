@@ -47,6 +47,9 @@ public:
     return ranges::count_if(view(), [](const char c) { return c == '\n'; }) > 2;
   }
 
+  uint8v::iterator from_begin(std::ptrdiff_t bytes) { return begin() + bytes; }
+  uint8v::iterator from_end(std::ptrdiff_t bytes) { return end() - bytes; }
+
   template <typename T> const T *raw() const { return (const T *)data(); }
   void reset(size_t reserve_bytes = 0) {
     clear();

@@ -21,15 +21,36 @@
 
 #include "base/typical.hpp"
 
+#include <algorithm>
+#include <functional>
 #include <pthread.h>
+#include <ranges>
+#include <set>
+#include <stop_token>
 #include <thread>
 #include <type_traits>
 #include <vector>
 
 namespace pierre {
-typedef std::vector<Thread> Threads;
+using Threads = std::vector<Thread>;
 
 void name_thread(csv name);
 void name_thread(csv name, int num);
+
+const string thread_id_short();
+
+class stop_tokens {
+public:
+  stop_tokens() = default;
+
+  void add(std::stop_token &&tok) { _tokens.emplace_back(tok); }
+
+  bool any_requested() {
+    return ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
+  }
+
+private:
+  std::vector<std::stop_token> _tokens;
+};
 
 } // namespace pierre

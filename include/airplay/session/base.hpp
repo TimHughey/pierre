@@ -18,9 +18,9 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/typical.hpp"
 #include "common/ss_inject.hpp"
-#include "io/io.hpp"
 
 #include <memory>
 #include <unordered_map>
@@ -42,8 +42,7 @@ private:
 
 public:
   Base(const Inject &di, csv module_id = DEF_MODULE_ID)
-      : socket(std::move(di.socket)), local_strand(di.io_ctx),
-        module_id(module_id) {
+      : socket(std::move(di.socket)), local_strand(di.io_ctx), module_id(module_id) {
     _acc.emplace(ACCUMULATE::RX, 0);
     _acc.emplace(ACCUMULATE::TX, 0);
   }

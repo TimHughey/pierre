@@ -28,7 +28,7 @@
 namespace pierre {
 namespace fx {
 
-void ColorBars::execute([[maybe_unused]] shPeaks peaks) {
+void ColorBars::execute([[maybe_unused]] peaks_t peaks) {
   Fader::Opts opts{.origin = Color(), .duration = pet::as_duration<Millis, Nanos>(BAR_MS)};
 
   shPinSpot main = units->derive<PinSpot>(unit::MAIN_SPOT);

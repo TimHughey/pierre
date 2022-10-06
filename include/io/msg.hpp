@@ -21,11 +21,11 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
 #include "frame/frame.hpp"
-#include "io/io.hpp"
 
 #include <ArduinoJson.h>
 #include <arpa/inet.h>
@@ -132,8 +132,8 @@ public:
 
   error_code log_rx(const error_code ec, const size_t bytes, const auto err) {
     if (ec || (packed_len != bytes) || err) {
-      __LOG0(LCOL01 " failed, bytes={}/{} reason={} deserialize={}\n", module_id, type, bytes,
-             tx_len, ec.message(), err.c_str());
+      __LOG0(LCOL01 " failed, bytes={}/{} reason={} deserialize={}\n", module_id, type, bytes, tx_len,
+             ec.message(), err.c_str());
     }
 
     return ec;
@@ -141,8 +141,7 @@ public:
 
   error_code log_tx(const error_code ec, const size_t bytes) {
     if (ec || (tx_len != bytes)) {
-      __LOG0(LCOL01 " failed, bytes={}/{} reason={}\n", module_id, type, bytes, tx_len,
-             ec.message());
+      __LOG0(LCOL01 " failed, bytes={}/{} reason={}\n", module_id, type, bytes, tx_len, ec.message());
     }
 
     return ec;

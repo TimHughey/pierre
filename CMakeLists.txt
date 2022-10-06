@@ -93,8 +93,9 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  base core airplay config frame
   Threads::Threads
+  base core config frame desk airplay
+  
 )
 
 

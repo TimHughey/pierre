@@ -35,7 +35,7 @@ class Silence : public FX {
 public:
   Silence() = default;
 
-  void execute(shPeaks peaks) override {
+  void execute(peaks_t peaks) override {
     peaks.reset();
     // do nothing, enjoy the silence
   };
