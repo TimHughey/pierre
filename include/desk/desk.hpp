@@ -64,9 +64,8 @@ public:
 
 private:
   void frame_render(frame_t frame);
-
+  void init_self();
   void run();
-
   void streams_deinit();
   void streams_init();
 
@@ -74,6 +73,7 @@ private:
 
   // log_frome_timer_error: return true if ec == success
   bool log_frame_timer_error(const error_code &ec, csv fn_id) const;
+  void sync_next_frame(const Nanos wait = InputInfo::lead_time()) noexcept;
 
 private:
   // order dependent

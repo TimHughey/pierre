@@ -121,7 +121,7 @@ void Control::log_connected(Elapsed &elapsed) {
 }
 
 void Control::log_feedback(JsonDocument &doc) {
-  stats.feedback();
+  stats(desk::FEEDBACKS);
 
   Micros async_loop(doc["async_µs"]);
   Micros jitter(doc["jitter_µs"]);

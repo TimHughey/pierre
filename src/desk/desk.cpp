@@ -70,6 +70,10 @@ Desk::Desk() noexcept                               //
 
 void Desk::frame_render(frame_t frame) {
 
+  if (!frame || !frame->state.ready()) {
+    return;
+  }
+
   asio::post(render_strand, [=, this]() {
     desk::DataMsg data_msg(frame, InputInfo::lead_time());
 
@@ -87,7 +91,7 @@ void Desk::frame_render(frame_t frame) {
 
         io::async_write_msg(control->data_socket(), std::move(data_msg),
                             [this](const error_code ec) {
-                              stats.frames++;
+                              stats(desk::FRAMES);
 
                               if (ec) {
                                 streams_deinit();
@@ -101,7 +105,7 @@ void Desk::frame_render(frame_t frame) {
         streams_deinit();
 
       } else { // control not ready, increment stats
-        stats.no_conn++;
+        stats(desk::NO_CONN);
       }
     } else { // control does not exist, initialize it
       streams_init();
@@ -111,56 +115,58 @@ void Desk::frame_render(frame_t frame) {
 
 void Desk::init() { // static instance creation
   if (shared::desk.has_value() == false) {
-
-    mDNS::browse("_ruth._tcp");
-
-    shared::desk.emplace();
-
-    __LOG0(LCOL01 " sizeof={}\n", module_id, "INIT", sizeof(Desk));
-
-    std::latch latch(DESK_THREADS);
-
-    // note: work guard created by constructor p
-    for (auto n = 0; n < DESK_THREADS; n++) { // main thread is 0s
-      shared::desk->threads.emplace_back([=, &latch]() mutable {
-        name_thread(TASK_NAME, n);
-        latch.arrive_and_wait();
-        shared::desk->io_ctx.run();
-      });
-    }
-
-    // caller thread waits until all tasks are started
-    latch.wait();
-    __LOG0(LCOL01 " all threads started\n", module_id, "INIT");
-
-    shared::desk->streams_init();
-    shared::desk->run();
+    shared::desk.emplace().init_self();
   }
+}
+
+void Desk::init_self() {
+  mDNS::browse("_ruth._tcp");
+
+  shared::desk.emplace();
+
+  __LOG0(LCOL01 " sizeof={}\n", module_id, "INIT", sizeof(Desk));
+
+  std::latch latch(DESK_THREADS);
+
+  // note: work guard created by constructor p
+  for (auto n = 0; n < DESK_THREADS; n++) { // main thread is 0s
+    shared::desk->threads.emplace_back([=, &latch]() mutable {
+      name_thread(TASK_NAME, n);
+      latch.arrive_and_wait();
+      shared::desk->io_ctx.run();
+    });
+  }
+
+  // caller thread waits until all tasks are started
+  latch.wait();
+  __LOG0(LCOL01 " all threads started\n", module_id, "INIT");
+
+  streams_init();
+  run();
+  stats.start();
 }
 
 void Desk::run() {
 
   if (Racked::rendering()) {
-    asio::post(frame_strand, [&desk = shared::desk.value()]() mutable {
+    asio::post(frame_strand, [this]() mutable {
       Elapsed elapsed;
       auto frame = Racked::next_frame(InputInfo::lead_time()).get();
 
-      if (elapsed() > 10ms) {
+      if (elapsed() > 5ms) {
         __LOG0(LCOL01 "{} {}\n", module_id, "RUN", Frame::inspect_safe(frame), elapsed.humanize());
       }
 
-      if (frame && frame->state.ready()) desk.frame_render(frame);
+      frame_render(frame);
 
       auto sync_wait = (frame) ? frame->sync_wait : InputInfo::lead_time();
 
       if (sync_wait > Nanos::zero()) {
-        desk.frame_timer.expires_after(sync_wait);
-        desk.frame_timer.async_wait([&desk = shared::desk.value()](const error_code ec) mutable {
-          if (!ec) desk.run();
-        });
+        sync_next_frame(sync_wait);
       } else if (sync_wait == Nanos::zero()) {
+        stats(desk::SYNC_WAIT_ZERO);
         __LOG0(LCOL01 " {}\n", module_id, "SYNC_WAIT_ZERO", Frame::inspect_safe(frame));
-        desk.run();
+        run();
       } else {
         __LOG0(LCOL01 " ABORTING {}\n", module_id, "SYNC_WAIT_MEG", Frame::inspect_safe(frame));
       }
@@ -168,36 +174,46 @@ void Desk::run() {
 
   } else {
     // not rendering
-
-    frame_timer.expires_after(InputInfo::lead_time());
-    frame_timer.async_wait([&desk = shared::desk.value()](const error_code ec) mutable {
-      if (!ec) desk.run();
-    });
+    sync_next_frame();
   }
 }
 
 void Desk::streams_deinit() {
   if (shared::desk->control) {
-    asio::post(streams_strand, [this]() { shared::desk->control.reset(); });
+    asio::post(streams_strand, [this]() {
+      stats(desk::STREAMS_DEINIT);
+
+      shared::desk->control.reset();
+    });
   }
 }
 
 void Desk::streams_init() {
   if (!shared::desk->control) {
-    asio::post(streams_strand, [this]() { // syncronize updates to shared state
-      shared::desk->control.emplace(      // create ctrl stream
-          shared::desk->io_ctx,           // majority of rx/tx use io_ctx
-          streams_strand,                 // shared state/status protected by this strand
-          ec_last_ctrl_tx,                // last error_code (updared vis streams_strand)
-          InputInfo::lead_time(),         // default lead_time
-          stats                           // desk stats
+    asio::post(streams_strand, [this]() {
+      stats(desk::STREAMS_INIT);
+
+      shared::desk->control.emplace( // create ctrl stream
+          shared::desk->io_ctx,      // majority of rx/tx use io_ctx
+          streams_strand,            // shared state/status protected by this strand
+          ec_last_ctrl_tx,           // last error_code (updared vis streams_strand)
+          InputInfo::lead_time(),    // default lead_time
+          stats                      // desk stats
       );
     });
   }
 }
 
-// misc debug and logging API
+void Desk::sync_next_frame(const Nanos wait) noexcept {
+  frame_timer.expires_after(wait);
+  frame_timer.async_wait([this](const error_code ec) mutable {
+    if (log_frame_timer_error(ec, "SYNC_NEXT_FRAME")) {
+      run();
+    }
+  });
+}
 
+// misc debug and logging API
 bool Desk::log_frame_timer_error(const error_code &ec, csv fn_id) const {
   auto rc = false;
   string msg;

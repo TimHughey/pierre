@@ -26,49 +26,78 @@
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 
-#include <boost/circular_buffer.hpp>
+#include <array>
+#include <map>
 #include <memory>
 
 namespace pierre {
 namespace desk {
 
+enum stats_val {
+  FRAMES = 0,
+  FEEDBACKS,
+  NO_CONN,
+  STREAMS_DEINIT,
+  STREAMS_INIT,
+  RENDER,
+  SYNC_WAIT_ZERO
+};
+
 class stats {
 public:
   stats(io_context &io_ctx, Nanos interval) //
-      : io_ctx(io_ctx), stats_strand(io_ctx), interval(interval), timer(io_ctx) {}
+      : io_ctx(io_ctx),                     // save a ref to the callers io_ctx
+        stats_strand(io_ctx),               // isolated strand for stats activities
+        interval(interval),                 // frequenxy of stats reports
+        timer(io_ctx),                      // timer for stats reporting
+        val_txt({                           // create map of stats val to text
+                 {FRAMES, "frames"},
+                 {FEEDBACKS, "feedbacks"},
+                 {NO_CONN, "no_conn"},
+                 {STREAMS_DEINIT, "streams_deinit"},
+                 {STREAMS_INIT, "streams_init"},
+                 {RENDER, "render"},
+                 {SYNC_WAIT_ZERO, "sync_wait_zero"}}) {}
 
-  void async_report(const Nanos report_interval) {
-    timer.expires_after(report_interval);
+  void cancel() noexcept {
+    asio::post(stats_strand, [this]() { timer.cancel(); });
+  }
+
+  void operator()(stats_val val, uint32_t inc = 1) noexcept {
+    asio::post(stats_strand, [=, this]() {
+      _map[val] += inc; // adds val to map if it does not exist
+    });
+  }
+
+  void start(const Nanos i = 10s) noexcept { async_report(i); }
+
+private:
+  void async_report(const Nanos i) noexcept {
+    static const auto order = //
+        std::array{FRAMES,  RENDER,       FEEDBACKS,     SYNC_WAIT_ZERO,
+                   NO_CONN, STREAMS_INIT, STREAMS_DEINIT};
+
+    interval = i; // cache the interval
+
+    timer.expires_after(interval);
     timer.async_wait( //
         asio::bind_executor(stats_strand, [this](const error_code ec) {
           if (!ec) {
-            auto avail_metrics = feedbacks + frames + futures + no_conn + none + streams_init;
+            string msg;
+            auto w = std::back_inserter(msg);
 
-            if (avail_metrics) {
-              __LOG0(LCOL01
-                     " frames={:>6}  none={:>6}  futures={:>6} "
-                     " feedbacks={:>6}  no_conn={:>6}  streams_init={}\n",
-                     module_id, "REPORT", //
-                     frames, none, futures, feedbacks, no_conn, streams_init);
+            for (const auto &x : order) {
+              const auto &val = _map[x];
+
+              if (val > 0) fmt::format_to(w, "{}={:>7} ", val_txt[x], val);
             }
+
+            if (!msg.empty()) __LOG0(LCOL01 " {}\n", module_id, "REPORT", msg);
 
             async_report(interval);
           }
         }));
   }
-
-  void cancel() { timer.cancel(); }
-
-  void feedback() {
-    asio::post(stats_strand, [this]() { feedbacks++; });
-  }
-
-  uint64_t feedbacks = 0; // count of ctrl feedbacks
-  uint64_t frames = 0;    // count of processed frames
-  uint64_t futures = 0;
-  uint64_t no_conn = 0;      // count of frames attempted when stream connection unavailable
-  uint64_t none = 0;         // count of no next frame
-  uint64_t streams_init = 0; // count of streams initialization
 
 private:
   // order dependent
@@ -76,8 +105,13 @@ private:
   strand stats_strand;
   Nanos interval;
   steady_timer timer;
+  std::map<stats_val, string> val_txt;
 
-  static constexpr csv module_id{"DESK STATS"};
+  // order independent
+  std::map<stats_val, uint64_t> _map;
+
+public:
+  static constexpr csv module_id{"DESK_STATS"};
 };
 
 } // namespace desk
