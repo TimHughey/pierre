@@ -21,12 +21,12 @@
 
 #include "racked.hpp"
 #include "anchor.hpp"
-#include "base/flush_request.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "frame.hpp"
+#include "frame/flush_info.hpp"
 #include "master_clock.hpp"
 
 #include <algorithm>
@@ -54,7 +54,7 @@ void Racked::impl_anchor_save(bool render, AnchorData &&ad) {
   Anchor::save(std::forward<AnchorData>(ad));
 }
 
-void Racked::impl_flush(FlushRequest request) {
+void Racked::impl_flush(FlushInfo request) {
 
   // execute this on the wip strand
   asio::post(wip_strand, [=, this]() mutable {
@@ -114,7 +114,7 @@ void Racked::impl_handoff(uint8v &packet) {
 
   if (frame->state.decoded()) {
     asio::post(wip_strand, [=, this]() {
-      // NOTE: FlushRequest::should_keep() will complete the flush request
+      // NOTE: FlushInfo::should_keep() will complete the flush request
       //       when the seq_num is outside of the request
       if (flush_request.should_keep(frame)) {
 

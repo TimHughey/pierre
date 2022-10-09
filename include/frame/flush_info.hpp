@@ -27,17 +27,17 @@
 
 namespace pierre {
 
-struct FlushRequest {
+struct FlushInfo {
   bool active = false;
   seq_num_t from_seq = 0;
   timestamp_t from_ts = 0;
   seq_num_t until_seq = 0;
   timestamp_t until_ts = 0;
 
-  FlushRequest() = default;
+  FlushInfo() = default;
 
-  constexpr FlushRequest(const seq_num_t from_seq, const timestamp_t from_ts, //
-                         const seq_num_t until_seq, const timestamp_t until_ts) noexcept
+  constexpr FlushInfo(const seq_num_t from_seq, const timestamp_t from_ts, //
+                      const seq_num_t until_seq, const timestamp_t until_ts) noexcept
       : active(true),         // enable this flush request
         from_seq(from_seq),   // set the various fields
         from_ts(from_ts),     // since this is not an aggregate class

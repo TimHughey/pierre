@@ -22,13 +22,13 @@
 #pragma once
 
 #include "base/anchor_last.hpp"
-#include "base/flush_request.hpp"
 #include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
 #include "base/uint8v.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/reel.hpp"
 #include "frame/types.hpp"
@@ -72,7 +72,7 @@ public:
 
   bool empty() const noexcept { return size() == 0; }
 
-  static void flush(FlushRequest request) { shared::racked->impl_flush(std::move(request)); }
+  static void flush(FlushInfo request) { shared::racked->impl_flush(std::move(request)); }
   static void handoff(uint8v &packet) { shared::racked->impl_handoff(packet); }
 
   static void init();
@@ -117,7 +117,7 @@ private:
   }
 
   void impl_anchor_save(bool render, AnchorData &&ad);
-  void impl_flush(FlushRequest request);
+  void impl_flush(FlushInfo request);
   void impl_handoff(uint8v &packet);
   void impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept;
 
@@ -164,7 +164,7 @@ private:
   std::atomic_int_fast64_t _racked_size{0};
   // order independent
 
-  FlushRequest flush_request;
+  FlushInfo flush_request;
 
   racked_reels racked;
   std::optional<Reel> reel_wip;

@@ -34,7 +34,7 @@ void Reel::consume() noexcept {
   }
 }
 
-Reel &Reel::flush(FlushRequest &flush) noexcept {
+Reel &Reel::flush(FlushInfo &flush) noexcept {
   if (frames.empty() == false) { // nothing to flush
 
     // grab how many frames we currently have for debug stats (below)

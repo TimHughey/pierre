@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include "base/flush_request.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/typical.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/types.hpp"
 
@@ -62,7 +62,7 @@ public:
     return std::make_pair(frames.begin()->second, frames.rbegin()->second);
   }
 
-  Reel &flush(FlushRequest &flush) noexcept;
+  Reel &flush(FlushInfo &flush) noexcept;
 
   bool full() const noexcept { return std::ssize(frames) >= MAX_FRAMES; }
 

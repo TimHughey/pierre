@@ -18,7 +18,7 @@
 
 #include "reply/flush.hpp"
 #include "aplist/aplist.hpp"
-#include "base/flush_request.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/racked.hpp"
 #include "reply/dict_keys.hpp"
 
@@ -36,11 +36,11 @@ bool FlushBuffered::populate() {
 
   // from_seq and from_ts may not be present
   // until_seq and until_ts should always be present
-  Racked::flush(                                      //
-      FlushRequest(rdict.uint({dk::FLUSH_FROM_SEQ}),  //
-                   rdict.uint({dk::FLUSH_FROM_TS}),   //
-                   rdict.uint({dk::FLUSH_UNTIL_SEQ}), //
-                   rdict.uint({dk::FLUSH_UNTIL_TS}))  //
+  Racked::flush(                                   //
+      FlushInfo(rdict.uint({dk::FLUSH_FROM_SEQ}),  //
+                rdict.uint({dk::FLUSH_FROM_TS}),   //
+                rdict.uint({dk::FLUSH_UNTIL_SEQ}), //
+                rdict.uint({dk::FLUSH_UNTIL_TS}))  //
   );
 
   responseCode(RespCode::OK);

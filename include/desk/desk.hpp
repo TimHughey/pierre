@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "base/flush_request.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
@@ -29,6 +28,7 @@
 #include "desk/session/ctrl.hpp"
 #include "desk/session/data.hpp"
 #include "desk/stats.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 

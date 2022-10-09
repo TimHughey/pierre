@@ -19,10 +19,10 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/flush_request.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "frame/flush_info.hpp"
 
 #include <array>
 #include <memory>
