@@ -49,7 +49,7 @@ void Pierre::run() {
   __LOG0(LCOL01 " {} {}\n", module_id, csv("RUN"), cfg->receiverName(), cfg->firmwareVersion());
 
   Service::init();
-  mDNS::init()->start();
+  mDNS::init();
   Frame::init();
   Desk::init();
 

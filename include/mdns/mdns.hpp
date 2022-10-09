@@ -26,27 +26,32 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace pierre {
 
 class mDNS;
-typedef std::shared_ptr<mDNS> shmDNS;
 
-class mDNS : public std::enable_shared_from_this<mDNS> {
+namespace shared {
+extern std::optional<mDNS> mdns;
+}
 
-private:
+class mDNS {
+
+public:
   mDNS() = default;
 
 public:
-  static shmDNS init();
-  static shmDNS ptr();
+  static void init() noexcept;
+
   static void reset();
 
 public:
-  static void browse(csv stype);
+  static void browse(csv &&stype) { shared::mdns->impl_browse(std::forward<csv>(stype)); }
   static auto port() { return PORT; }
   bool start();
-  void update();
+  static void update() { shared::mdns->impl_update(); };
   static shZeroConfService zservice(csv type);
 
-  // misc
-  static csv moduleID() { return module_id; }
+private:
+  void impl_browse(csv stype);
+  void impl_update();
+  void init_self();
 
 public:
   string _dacp_id;
@@ -60,7 +65,10 @@ public:
 private:
   string _service_base;
 
+public:
   static constexpr csv module_id = "mDNS";
+
+private:
   static constexpr auto PORT = 7000;
 };
 

@@ -112,6 +112,23 @@ void Control::msg_loop() {
   });
 }
 
+void Control::reset(const error_code ec) {
+  __LOG0(LCOL01 " reason={}\n", moduleID(), "RESET", ec.message());
+
+  if (data_session) {
+    data_session->shutdown();
+  }
+
+  if (socket) {
+    [[maybe_unused]] error_code ec;
+    socket->cancel(ec);
+    socket->close(ec);
+  }
+
+  socket.reset();
+  remote_endpoint.reset();
+}
+
 // misc debug
 void Control::log_connected(Elapsed &elapsed) {
   __LOG0(LCOL01 " {}:{} -> {}:{} elapsed={:0.2} handle={}\n", moduleID(), "CONNECT",
@@ -121,25 +138,26 @@ void Control::log_connected(Elapsed &elapsed) {
 }
 
 void Control::log_feedback(JsonDocument &doc) {
-  stats(desk::FEEDBACKS);
+  // run_stats(desk::FEEDBACKS);
 
-  Micros async_loop(doc["async_µs"]);
-  Micros jitter(doc["jitter_µs"]);
-  Micros remote_elapsed(doc["elapsed_µs"]);
+  run_stats(desk::REMOTE_ASYNC, Micros(doc["async_µs"]));
+  run_stats(desk::REMOTE_JITTER, Micros(doc["jitter_µs"]));
+  run_stats(desk::REMOTE_ELAPSED, Micros(doc["elapsed_µs"]));
 
   auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
+  run_stats(desk::REMOTE_LONG_ROUNDTRIP, roundtrip);
 
-  if (jitter > lead_time) {
-    __LOG0(LCOL01 " seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
-           moduleID(), "REMOTE",
-           doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
-           pet::as_millis_fp(jitter),     // sync_wait jitter
-           remote_elapsed,                // elapsed time of the async_loop
-           doc["fps"].as<float>(),        // frames per second
-           pet::as_millis_fp(roundtrip)   // roundtrip time
-
-    );
-  }
+  // if (jitter > lead_time) {
+  //   __LOG0(LCOL01 " seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
+  //          moduleID(), "REMOTE",
+  //          doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
+  //          pet::as_millis_fp(jitter),     // sync_wait jitter
+  //          remote_elapsed,                // elapsed time of the async_loop
+  //          doc["fps"].as<float>(),        // frames per second
+  //          pet::as_millis_fp(roundtrip)   // roundtrip time
+  //
+  //   );
+  // }
 }
 
 void Control::log_handshake(JsonDocument &doc) {

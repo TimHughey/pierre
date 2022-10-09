@@ -58,18 +58,66 @@ Desk::Desk() noexcept                               //
       handoff_strand(io_ctx),                       // serial Spooler frame collection
       frame_strand(io_ctx),                         // serialize spooler frame access
       frame_timer(io_ctx),                          // controls when frame is rendered
+      frame_late_timer(io_ctx),                     // handle late frames
+      frame_last{0},                                // last frame processed (steady clock)
       render_strand(io_ctx),                        // sync frame rendering
-      not_rendering_timer(io_ctx),                  //
       active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
       latency(500us),                               // ruth latency (default)
       guard(io_ctx.get_executor()),                 // prevent io_ctx from ending
-      stats(io_ctx, 10s)                            // create the stats object
+      run_stats(io_ctx)                             // create the stats object
 {}
 
 // general API
 
-void Desk::frame_render(frame_t frame) {
+// primary frame processing entry loop
+void Desk::frame_loop(const Nanos wait) {
 
+  if (pet::is_zero(wait)) {
+    frame_loop_safe();
+
+  } else if (wait > Nanos::zero()) {
+    frame_loop_delay(wait);
+  }
+}
+
+void Desk::frame_loop_delay(const Nanos wait) {
+  frame_timer.expires_after(wait);
+  frame_timer.async_wait([this](const error_code ec) {
+    if (log_frame_timer_error(ec, "FRAME_LOOP")) {
+      frame_loop_safe();
+    }
+  });
+}
+
+// if code is running in the same thread as frame_strand, avoid async::post
+void Desk::frame_loop_safe() {
+  if (frame_strand.running_in_this_thread()) {
+    frame_loop_unsafe();
+  } else {
+    asio::post(frame_strand, [this]() { frame_loop_unsafe(); });
+  }
+}
+
+// must ensure this function only runs on the same thread as frame_strand
+void Desk::frame_loop_unsafe() {
+  auto delay = Elapsed();
+  Racked::rendering_wait();
+  run_stats(desk::RENDER_DELAY, delay);
+
+  Elapsed elapsed;
+  auto frame = Racked::next_frame(InputInfo::lead_time()).get();
+  run_stats(desk::NEXT_FRAME, elapsed);
+
+  frame_render(frame);
+
+  auto wait = (frame) ? frame->sync_wait : InputInfo::lead_time();
+
+  run_stats(desk::SYNC_WAIT, wait);
+
+  frame_loop(wait);
+}
+
+void Desk::frame_render(frame_t frame) {
   if (!frame || !frame->state.ready()) {
     return;
   }
@@ -91,7 +139,7 @@ void Desk::frame_render(frame_t frame) {
 
         io::async_write_msg(control->data_socket(), std::move(data_msg),
                             [this](const error_code ec) {
-                              stats(desk::FRAMES);
+                              // run_stats(desk::FRAMES);
 
                               if (ec) {
                                 streams_deinit();
@@ -105,7 +153,7 @@ void Desk::frame_render(frame_t frame) {
         streams_deinit();
 
       } else { // control not ready, increment stats
-        stats(desk::NO_CONN);
+        run_stats(desk::NO_CONN);
       }
     } else { // control does not exist, initialize it
       streams_init();
@@ -141,47 +189,17 @@ void Desk::init_self() {
   latch.wait();
   __LOG0(LCOL01 " all threads started\n", module_id, "INIT");
 
-  streams_init();
-  run();
-  stats.start();
-}
-
-void Desk::run() {
-
-  if (Racked::rendering()) {
-    asio::post(frame_strand, [this]() mutable {
-      Elapsed elapsed;
-      auto frame = Racked::next_frame(InputInfo::lead_time()).get();
-
-      if (elapsed() > 5ms) {
-        __LOG0(LCOL01 "{} {}\n", module_id, "RUN", Frame::inspect_safe(frame), elapsed.humanize());
-      }
-
-      frame_render(frame);
-
-      auto sync_wait = (frame) ? frame->sync_wait : InputInfo::lead_time();
-
-      if (sync_wait > Nanos::zero()) {
-        sync_next_frame(sync_wait);
-      } else if (sync_wait == Nanos::zero()) {
-        stats(desk::SYNC_WAIT_ZERO);
-        __LOG0(LCOL01 " {}\n", module_id, "SYNC_WAIT_ZERO", Frame::inspect_safe(frame));
-        run();
-      } else {
-        __LOG0(LCOL01 " ABORTING {}\n", module_id, "SYNC_WAIT_MEG", Frame::inspect_safe(frame));
-      }
-    });
-
-  } else {
-    // not rendering
-    sync_next_frame();
-  }
+  // start frame loop, start on any thread, waits for rendering
+  asio::post(io_ctx, [this]() {
+    streams_init();
+    frame_loop();
+  });
 }
 
 void Desk::streams_deinit() {
   if (shared::desk->control) {
     asio::post(streams_strand, [this]() {
-      stats(desk::STREAMS_DEINIT);
+      run_stats(desk::STREAMS_DEINIT);
 
       shared::desk->control.reset();
     });
@@ -191,26 +209,17 @@ void Desk::streams_deinit() {
 void Desk::streams_init() {
   if (!shared::desk->control) {
     asio::post(streams_strand, [this]() {
-      stats(desk::STREAMS_INIT);
+      run_stats(desk::STREAMS_INIT);
 
       shared::desk->control.emplace( // create ctrl stream
           shared::desk->io_ctx,      // majority of rx/tx use io_ctx
           streams_strand,            // shared state/status protected by this strand
           ec_last_ctrl_tx,           // last error_code (updared vis streams_strand)
           InputInfo::lead_time(),    // default lead_time
-          stats                      // desk stats
+          run_stats                  // desk stats
       );
     });
   }
-}
-
-void Desk::sync_next_frame(const Nanos wait) noexcept {
-  frame_timer.expires_after(wait);
-  frame_timer.async_wait([this](const error_code ec) mutable {
-    if (log_frame_timer_error(ec, "SYNC_NEXT_FRAME")) {
-      run();
-    }
-  });
 }
 
 // misc debug and logging API

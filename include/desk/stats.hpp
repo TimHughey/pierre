@@ -22,93 +22,86 @@
 
 #pragma once
 
+#include "base/accum.hpp"
+#include "base/elapsed.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 
-#include <array>
+// #include <array>
+// #include <boost/accumulators/statistics/max.hpp>
+// #include <boost/accumulators/statistics/min.hpp>
+// #include <boost/accumulators/statistics/rolling_count.hpp>
+// #include <boost/accumulators/statistics/rolling_mean.hpp>
+// #include <boost/accumulators/statistics/rolling_sum.hpp>
+// #include <boost/accumulators/statistics/rolling_window.hpp>
 #include <map>
-#include <memory>
+// #include <memory>
 
 namespace pierre {
 namespace desk {
 
+using namespace boost::accumulators;
+
 enum stats_val {
-  FRAMES = 0,
-  FEEDBACKS,
+  FEEDBACKS = 0,
+  FRAMES,
+  NEXT_FRAME,
   NO_CONN,
+  REMOTE_ASYNC,
+  REMOTE_ELAPSED,
+  REMOTE_JITTER,
+  REMOTE_LONG_ROUNDTRIP,
+  RENDER,
+  RENDER_DELAY,
   STREAMS_DEINIT,
   STREAMS_INIT,
-  RENDER,
+  SYNC_WAIT,
+  SYNC_WAIT_NEG,
   SYNC_WAIT_ZERO
 };
 
-class stats {
+class Stats {
 public:
-  stats(io_context &io_ctx, Nanos interval) //
-      : io_ctx(io_ctx),                     // save a ref to the callers io_ctx
-        stats_strand(io_ctx),               // isolated strand for stats activities
-        interval(interval),                 // frequenxy of stats reports
-        timer(io_ctx),                      // timer for stats reporting
-        val_txt({                           // create map of stats val to text
-                 {FRAMES, "frames"},
+  Stats(io_context &io_ctx)
+      : db_uri("http://localhost:8086?db=pierre"), // where we save stats
+        stats_strand(io_ctx),                      // isolated strand for stats activities
+        val_txt({                                  // create map of stats val to text
                  {FEEDBACKS, "feedbacks"},
+                 {FRAMES, "frames"},
+                 {NEXT_FRAME, "next_frame"},
                  {NO_CONN, "no_conn"},
+                 {REMOTE_ASYNC, "remote_async"},
+                 {REMOTE_ELAPSED, "remote_elapsed"},
+                 {REMOTE_JITTER, "remote_jitter"},
+                 {REMOTE_LONG_ROUNDTRIP, "remote_log_roundtrip"},
+                 {RENDER, "render"},
+                 {RENDER_DELAY, "render_delay"},
                  {STREAMS_DEINIT, "streams_deinit"},
                  {STREAMS_INIT, "streams_init"},
-                 {RENDER, "render"},
+                 {SYNC_WAIT, "sync_wait"},
+                 {SYNC_WAIT_NEG, "sync_wait_neg"},
                  {SYNC_WAIT_ZERO, "sync_wait_zero"}}) {}
 
-  void cancel() noexcept {
-    asio::post(stats_strand, [this]() { timer.cancel(); });
-  }
+  void operator()(stats_val v, int32_t x = 1) noexcept;
+  void operator()(stats_val v, Elapsed &e) noexcept;
+  void operator()(stats_val v, const Nanos d) noexcept;
+  void operator()(stats_val v, const Micros d) noexcept;
 
-  void operator()(stats_val val, uint32_t inc = 1) noexcept {
-    asio::post(stats_strand, [=, this]() {
-      _map[val] += inc; // adds val to map if it does not exist
-    });
-  }
+  // void remote_async(uint32_t async_us) {
 
-  void start(const Nanos i = 10s) noexcept { async_report(i); }
+  // }
 
 private:
-  void async_report(const Nanos i) noexcept {
-    static const auto order = //
-        std::array{FRAMES,  RENDER,       FEEDBACKS,     SYNC_WAIT_ZERO,
-                   NO_CONN, STREAMS_INIT, STREAMS_DEINIT};
-
-    interval = i; // cache the interval
-
-    timer.expires_after(interval);
-    timer.async_wait( //
-        asio::bind_executor(stats_strand, [this](const error_code ec) {
-          if (!ec) {
-            string msg;
-            auto w = std::back_inserter(msg);
-
-            for (const auto &x : order) {
-              const auto &val = _map[x];
-
-              if (val > 0) fmt::format_to(w, "{}={:>7} ", val_txt[x], val);
-            }
-
-            if (!msg.empty()) __LOG0(LCOL01 " {}\n", module_id, "REPORT", msg);
-
-            async_report(interval);
-          }
-        }));
-  }
+  void flush_if_needed();
+  void init_db_if_needed();
+  // void raw_write_int64(stats_val v, int64_t x);
 
 private:
   // order dependent
-  io_context &io_ctx;
+  const string db_uri;
   strand stats_strand;
-  Nanos interval;
-  steady_timer timer;
   std::map<stats_val, string> val_txt;
-
-  // order independent
-  std::map<stats_val, uint64_t> _map;
 
 public:
   static constexpr csv module_id{"DESK_STATS"};

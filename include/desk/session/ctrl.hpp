@@ -43,12 +43,12 @@ public:
           strand &streams_strand, //
           error_code &ec_last,    //
           const Nanos lead_time,  //
-          desk::stats &stats)
+          desk::Stats &run_stats)
       : io_ctx(io_ctx),                    // use shared io_ctx
         streams_strand(streams_strand),    // syncronize shared status
         ec_last(ec_last),                  // shared state
         lead_time(lead_time),              // grab a local copy of lead time
-        stats(stats),                      // overall desk statistics
+        run_stats(run_stats),              // overall desk statistics
         retry_time(Nanos(lead_time * 44)), // duration to wait for reconnect, zservice available
         retry_timer(io_ctx, retry_time),   // timer for zservice and connect retry
         state(INITIALIZE)                  // decides which and how ctrl msgs are handled
@@ -79,22 +79,8 @@ private:
 
   void reset() { reset(io::make_error(errc::connection_reset)); }
   void reset(auto val) { reset(io::make_error(val)); }
-  void reset(const error_code ec) {
-    __LOG0(LCOL01 " reason={}\n", moduleID(), "RESET", ec.message());
+  void reset(const error_code ec);
 
-    if (data_session) {
-      data_session->shutdown();
-    }
-
-    if (socket) {
-      [[maybe_unused]] error_code ec;
-      socket->cancel(ec);
-      socket->close(ec);
-    }
-
-    socket.reset();
-    remote_endpoint.reset();
-  }
   void reset_if_needed(const error_code ec) {
     if (ec) {
       reset(ec);
@@ -139,7 +125,7 @@ private:
   strand &streams_strand;
   error_code &ec_last;
   Nanos lead_time;
-  desk::stats &stats;
+  desk::Stats &run_stats;
   const Nanos retry_time;
   steady_timer retry_timer;
   enum { INITIALIZE, RUN, SHUTDOWN } state;
@@ -159,6 +145,7 @@ private:
   static constexpr csv HANDSHAKE{"handshake"};
 
   // misc debug
+public:
   static constexpr csv module_id{"DESK_CONTROL"};
 };
 

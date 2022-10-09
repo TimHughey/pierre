@@ -39,7 +39,7 @@ using Seconds = std::chrono::seconds;
 using SecondsFP = std::chrono::duration<long double>;
 using steady_clock = std::chrono::steady_clock;
 using system_clock = std::chrono::system_clock;
-using TimePoint = std::chrono::time_point<steady_clock>;
+using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
 
 typedef uint64_t ClockID; // master clock id
 
@@ -56,7 +56,9 @@ struct pet {
     return Nanos{static_cast<uint64_t>(d.count()) + offset};
   }
 
-  template <typename TO> static constexpr TO as(auto x) { return std::chrono::duration_cast<TO>(Nanos(x)); }
+  template <typename TO> static constexpr TO as(auto x) {
+    return std::chrono::duration_cast<TO>(Nanos(x));
+  }
 
   template <typename FROM, typename TO> static constexpr TO as_duration(auto x) {
     return std::chrono::duration_cast<TO>(FROM(x));
@@ -74,13 +76,18 @@ struct pet {
     return std::chrono::duration_cast<TO>(FROM(x));
   }
 
-  template <typename T> static T diff_abs(const T &d1, const T &d2) { return std::chrono::abs(d1 - d2); }
+  template <typename T> static T diff_abs(const T &d1, const T &d2) {
+    return std::chrono::abs(d1 - d2);
+  }
 
   static string humanize(const Nanos d);
 
+  template <typename T> static constexpr bool is_zero(T val) { return val == Nanos::zero(); }
+
   static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) { return d2 - d1; }
 
-  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) {
+  template <typename T>
+  static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 

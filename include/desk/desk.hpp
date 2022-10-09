@@ -63,9 +63,13 @@ public:
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
 
 private:
+  void frame_loop(const Nanos wait = Nanos::zero());
+  void frame_loop_delay(const Nanos wait);
+  void frame_loop_safe();
+  void frame_loop_unsafe();
+
   void frame_render(frame_t frame);
   void init_self();
-  void run();
   void streams_deinit();
   void streams_init();
 
@@ -82,12 +86,13 @@ private:
   strand handoff_strand;
   strand frame_strand;
   steady_timer frame_timer;
+  steady_timer frame_late_timer;
+  Nanos frame_last;
   strand render_strand;
-  steady_timer not_rendering_timer;
   shFX active_fx;
   Nanos latency;
   work_guard guard;
-  desk::stats stats;
+  desk::Stats run_stats;
 
   // order independent
   Threads threads;

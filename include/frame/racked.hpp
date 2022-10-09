@@ -91,10 +91,7 @@ public:
   static bool rendering() noexcept { return shared::racked->_rendering.test(); }
 
   static bool rendering_wait() noexcept {
-
-    if (shared::racked->_rendering.test() == false) {
-      shared::racked->_rendering.wait(false);
-    }
+    shared::racked->_rendering.wait(false);
 
     return shared::racked->_rendering.test();
   }
@@ -108,6 +105,7 @@ private:
 
     if (render) {
       _rendering.test_and_set();
+      _rendering.notify_all();
     } else {
       _rendering.clear();
     }
@@ -132,6 +130,7 @@ private:
   bool racked_acquire(const Nanos max_wait = reel_max_wait) noexcept {
     return rack_access.try_acquire_for(max_wait);
   }
+
   void racked_release() noexcept { rack_access.release(); }
 
   void rack_wip() noexcept;

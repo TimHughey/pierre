@@ -22,6 +22,9 @@ add_library(${__target} SHARED
   # (head)units
   unit/pinspot.cpp
 
+  # stats
+  stats/stats.cpp
+
   ${HEADER_LIST}
 )
 
@@ -34,5 +37,6 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH}/${_target})
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
-  ArduinoJson base config frame io fader mdns
+  ArduinoJson InfluxData::InfluxDB
+  base config frame io fader mdns
 )

@@ -73,14 +73,12 @@ FetchContent_Declare(ArduinoJson
     GIT_TAG        v6.19.4
 )
 
-FetchContent_MakeAvailable(ArduinoJson)
-
 FetchContent_Declare(InfluxData
     GIT_REPOSITORY https://github.com/offa/influxdb-cxx
     GIT_TAG        v0.6.7
 )
 
-FetchContent_MakeAvailable(InfluxData)
+FetchContent_MakeAvailable(ArduinoJson InfluxData)
 
 add_subdirectory(src)
 

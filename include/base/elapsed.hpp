@@ -47,7 +47,11 @@ public:
   const string humanize() const { return pet::humanize(elapsed()); }
 
   Nanos operator()() const { return elapsed(); }
-  template <typename T> bool operator>=(const T &rhs) const { return elapsed() >= rhs; }
+
+  template <typename T> bool operator>(const T &rhs) const noexcept { return elapsed() > rhs; }
+  template <typename T> bool operator>=(const T &rhs) const noexcept { return elapsed() >= rhs; }
+  template <typename T> bool operator<(const T &rhs) const noexcept { return elapsed() < rhs; }
+  template <typename T> bool operator<=(const T &rhs) const noexcept { return elapsed() <= rhs; }
 
   void reset() { *this = Elapsed(); }
 

@@ -96,7 +96,7 @@ bool Setup::handleNoStreams() {
 
     // adjust Service system flags and request mDNS update
     Service::ptr()->receiverActive();
-    mDNS::ptr()->update();
+    mDNS::update();
 
     conn->save(stream);
     return true;
@@ -159,7 +159,7 @@ bool Setup::handleStreams() {
       conn->stream.buffered(); // this is a buffered audio stream
 
       // reply requires the type, audio data port and our buffer size
-      reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()}, // stream type
+      reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()},                     // stream type
                               {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
                               {dk::BUFF_SIZE, conn->bufferSize()}}); // our buffer size
 

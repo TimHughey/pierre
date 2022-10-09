@@ -53,7 +53,7 @@ bool Teardown::phase2() { // we've been asked to disconnect
   auto servers = Servers::ptr().get();
 
   Service::ptr()->receiverActive(false);
-  mDNS::ptr()->update();
+  mDNS::update();
 
   servers->teardown(ServerType::Event);
   servers->teardown(ServerType::Control);
