@@ -57,7 +57,7 @@ struct FlushInfo {
       active = item->seq_num <= until_seq;
 
       if (!active) {
-        __LOG0(LCOL01 "{}\n", "FLUSH_REQUEST", "COMPLETE", inspect());
+        __LOG0(LCOL01 " {}\n", "FLUSH_REQUEST", "COMPLETE", inspect());
       }
     }
 
@@ -68,8 +68,8 @@ struct FlushInfo {
     string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "seq_num={:>8}/{:<8}", from_seq, until_seq);
-    fmt::format_to(w, " timestamp={:>8}/{:<8}", from_ts, until_ts);
+    fmt::format_to(w, "seq_num={:<8}/{:>8}", from_seq, until_seq);
+    fmt::format_to(w, " timestamp={:<12}/{:>12}", from_ts, until_ts);
     fmt::format_to(w, " active={}", active);
 
     return msg;

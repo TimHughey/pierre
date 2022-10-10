@@ -59,19 +59,18 @@ private:
   const AnchorData &cdatum(Datum dat) const { return _datum.at(dat); }
   AnchorData &datum(Datum dat) { return _datum[dat]; }
 
-  void handle_new_data(const AnchorData &new_ad);
   void handle_quick_change(const AnchorData &ad);
 
   void save_impl(AnchorData ad); // object impl
 
-  // misc internal debug
+  // misc debug
+  void log_data_new(const AnchorData &ad, bool log = true) const;
 
 private:
   std::array<AnchorData, Datum::max_datum> _datum;
   std::optional<AnchorLast> _last;
   bool remote_valid = false;
   bool data_new = false;
-  const bool log_data_new = true;
 
   // misc debug
   static constexpr auto module_id = csv("ANCHOR");

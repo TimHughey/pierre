@@ -142,7 +142,7 @@ void Racked::impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept
     //  2.  master clock has changed and isn't stable
     auto clock_info = MasterClock::info().get();
 
-    wait_for_reel();
+    reel_wait();
 
     if (racked_acquire()) {
       if (!empty()) { // a flush request may have cleared all reels

@@ -55,15 +55,10 @@ private:
 public:
   static frame_t create(uint8v &packet) noexcept { return frame_t(new Frame(packet)); }
 
-  // Digital Signal Analysis (hidden in .cpp)
-  static void init();
-  static void shutdown();
-
   // Public API
-
-  state_now_result_t calc_sync_wait(AnchorLast &anchor);
-
   void find_peaks();
+
+  static void init(); // Digital Signal Analysis (hidden in .cpp)
 
   bool parse();   // parse the deciphered frame into pcm data
   void process(); // async find peaks via dsp
@@ -76,42 +71,34 @@ public:
     return Peaks::silence(left) && Peaks::silence(right);
   }
 
+  static void shutdown();
+
   //
   // state_now();
   //
   frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time());
 
-  bool sync_wait_ok() const { return sync_wait > Nanos::min(); }
+  Nanos sync_wait() const noexcept { return _sync_wait.value(); }
+  Nanos sync_wait_calc(AnchorLast &anchor) noexcept;
+  bool sync_wait_ok() const { return _sync_wait.has_value(); }
 
   // misc debug
   const string inspect(bool full = false);
   static const string inspect_safe(frame_t frame, bool full = false);
   void log_decipher() const;
-  static constexpr csv moduleID() { return module_id; }
 
 private:
-  void set_sync_wait(const Nanos &diff) noexcept {
-    if (diff != sync_wait) {
-      sync_wait = diff;
+  Nanos set_sync_wait(const Nanos &diff) noexcept {
+    if ((_sync_wait.has_value() == false) || (_sync_wait.value() != diff)) {
+      _sync_wait.emplace(diff);
     }
 
-    // update sync_wait if changed
-    // if (diff != sync_wait) {
-    //   if (sync_wait != Nanos::min()) {
-    //     __LOG0(LCOL01 " sync wait change, seq={} state={}/{} sync_wait={}/{}\n", module_id,
-    //            "STATE_NOW", seq_num, prev_state(), state(), pet::humanize(sync_wait),
-    //            pet::humanize(diff));
-    //   }
-    //   sync_wait = diff;
-    // }
-
-    //  __LOGX(LCOL01 " {}\n", module_id, csv("STATE_NOW"), inspect());
+    return _sync_wait.value();
   }
 
 public:
   // order dependent
   const Nanos created_at;
-  Nanos sync_wait;
   const Nanos lead_time;
   frame::state state;
 
@@ -136,12 +123,12 @@ public:
   // populated by DSP
   std::tuple<peaks_t, peaks_t> peaks;
 
+  // calculated by state_now() or recalculated by calc_sync_wait()
+  std::optional<Nanos> _sync_wait;
+
 private:
   // order independent
   AnchorLast _anchor;
-
-  // static string_view _render_mode;
-  // static std::binary_semaphore _render;
 
 public:
   static constexpr csv module_id{"FRAME"};

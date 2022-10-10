@@ -18,13 +18,13 @@
 
 #pragma once
 
+#include "base/anchor_data.hpp"
 #include "base/clock_info.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/typical.hpp"
 
-#include <any>
 #include <tuple>
 #include <utility>
 
@@ -42,7 +42,7 @@ public:
 
   AnchorLast() = default;
 
-  AnchorLast(ClockID id, uint32_t rtp_time, Nanos anchor_time, const ClockInfo &clock)
+  AnchorLast(ClockID id, uint32_t rtp_time, Nanos anchor_time, const ClockInfo &clock) noexcept
       : clock_id(id),                                                  //
         rtp_time(rtp_time),                                            //
         anchor_time(anchor_time),                                      //
@@ -50,18 +50,23 @@ public:
         valid(clock.master_for())                                      //
   {}
 
+  AnchorLast(const AnchorData &ad, const ClockInfo &clock) noexcept
+      : clock_id(ad.clock_id), rtp_time(ad.rtp_time), anchor_time(ad.anchor_time),
+        localized(pet::subtract_offset(anchor_time, clock.rawOffset)), valid(clock.master_for()) {}
+
   Nanos frame_local_time_diff(uint32_t timestamp) const {
     auto diff = Nanos::zero();
     auto now = pet::now_monotonic();
 
     auto frame_local_time = frame_to_local_time(timestamp);
     diff = frame_local_time - now;
+
+    /* DEBUG
     __LOGX(LCOL01 " localized={:^26} frame_local_time={:^26} now={:^26} diff={:^12}\n", module_id,
            "FRAME_DIFF", pet::humanize(localized), pet::humanize(frame_local_time),
            pet::humanize(now), pet::humanize(diff));
 
-    // __LOG0(LCOL01 " diff={}\n", module_id, "FRAME_DIFF", pet::humanize(diff));
-
+     __LOG0(LCOL01 " diff={}\n", module_id, "FRAME_DIFF", pet::humanize(diff)); */
     return diff;
   }
 
@@ -85,11 +90,37 @@ public:
     return result;
   } */
 
-  Nanos frame_to_local_time(uint32_t timestamp) const {
+  Nanos frame_to_local_time(timestamp_t timestamp) const noexcept {
     int32_t frame_diff = timestamp - rtp_time;
     Nanos time_diff = Nanos((frame_diff * pet::NS_FACTOR.count()) / InputInfo::rate);
 
     return localized + time_diff;
+  }
+
+  /* int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
+ int result = -1;
+ uint32_t anchor_rtptime = 0;
+ uint64_t anchor_local_time = 0;
+ if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
+   int64_t time_difference = time - anchor_local_time;
+   int64_t frame_difference = time_difference;
+   frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
+   frame_difference = frame_difference / 1000000000;
+   int32_t fd32 = frame_difference;
+   uint32_t lframe = anchor_rtptime + fd32;
+   *frame = lframe;
+   result = 0;
+ } else {
+   debug(3, "local_time_to_frame can't get anchor local time information");
+ }
+ return result;
+} */
+
+  timestamp_t local_to_frame_time() const noexcept {
+    Nanos time_diff = pet::now_monotonic() - localized;
+    Nanos frame_diff = time_diff * InputInfo::rate;
+
+    return rtp_time + (frame_diff.count() / pet::NS_FACTOR.count());
   }
 
   bool viable() const { return valid >= ClockInfo::AGE_MIN; }

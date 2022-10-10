@@ -175,9 +175,9 @@ AnchorLast Anchor::get_data(const ClockInfo clock) {
     live.set_master_for(clock);
 
     if (clock.is_stable() || (_last.has_value() == false)) {
-      // only establish last if clock is of minimum age
+      // establish last if clock is of minimum age
       if (clock.is_minimum_age()) {
-        _last.emplace(live.clock_id, live.rtp_time, live.anchor_time, clock);
+        _last.emplace(live, clock);
 
         live.log_new_master_if_needed(data_new);
       }
@@ -199,39 +199,6 @@ AnchorLast Anchor::get_data(const ClockInfo clock) {
   return _last.value_or(AnchorLast());
 }
 
-void Anchor::handle_new_data(const AnchorData &ad) {
-  const auto &live = cdatum(Datum::live);
-
-  if (ad.details_changed(live)) {
-    data_new = true;
-
-    if (log_data_new) {
-      string msg;
-      auto w = std::back_inserter(msg);
-      std::vector<string> lines;
-
-      auto clock_future = shared::master_clock->info(Nanos::zero());
-      const auto clock = clock_future.get();
-
-      lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "old",
-                                     live.clock_id, live.rtp_time,
-                                     pet::humanize(live.anchor_time)));
-
-      lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "new",
-                                     ad.clock_id, ad.rtp_time, pet::humanize(ad.anchor_time)));
-
-      lines.emplace_back(fmt::format("{:<7}: clock={:#018x} sample_time={}", "master",
-                                     clock.clock_id, pet::humanize(clock.sample_time())));
-
-      ranges::for_each(lines, [&w](const auto &line) { //
-        fmt::format_to(w, "{}{}\n", LOG_INDENT, line);
-      });
-
-      __LOG0(LCOL01 " parameters have changed data_new={}\n{}", module_id, "INFO", data_new, msg);
-    }
-  }
-}
-
 void Anchor::handle_quick_change(const AnchorData &ad) {
   const auto &live = cdatum(Datum::live);
 
@@ -246,9 +213,7 @@ void Anchor::handle_quick_change(const AnchorData &ad) {
   }
 }
 
-/*
-
-const AnchorData &Anchor::get_data() {
+/* const AnchorData &Anchor::get_data() {
   auto clock = shared::master_clock->info();
   auto &live = datum(Datum::live);
   auto &source = datum(Datum::source);
@@ -339,20 +304,28 @@ const AnchorData &Anchor::get_data() {
 */
 
 void Anchor::save_impl(AnchorData ad) {
-  handle_new_data(ad);
 
-  // empty clock info, reset Anchor and return
-  if (ad.empty()) {
+  if (ad.empty() == false) {
+    if (ad != cdatum(Datum::live)) {
+      data_new = true;
+      log_data_new(ad);
+    }
+
+    // empty clock info, reset Anchor and return
+    if (ad.empty()) {
+
+      return;
+    }
+
+    handle_quick_change(ad);
+
+    datum(Datum::live) = ad;
+    datum(Datum::source) = ad;
+    remote_valid = true;
+
+  } else {
     teardown();
-    return;
   }
-
-  handle_quick_change(ad);
-
-  remote_valid = true;
-
-  datum(Datum::live) = ad;
-  datum(Datum::source) = ad;
 }
 
 void Anchor::teardown() {
@@ -362,5 +335,33 @@ void Anchor::teardown() {
 }
 
 // logging and debug
+void Anchor::log_data_new(const AnchorData &ad, bool log) const {
+
+  if (log && data_new) {
+    const auto &live = cdatum(Datum::live);
+
+    string msg;
+    auto w = std::back_inserter(msg);
+    std::vector<string> lines;
+
+    auto clock_future = shared::master_clock->info(Nanos::zero());
+    const auto clock = clock_future.get();
+
+    lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "old",
+                                   live.clock_id, live.rtp_time, pet::humanize(live.anchor_time)));
+
+    lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "new",
+                                   ad.clock_id, ad.rtp_time, pet::humanize(ad.anchor_time)));
+
+    lines.emplace_back(fmt::format("{:<7}: clock={:#018x} sample_time={}", "master", clock.clock_id,
+                                   pet::humanize(clock.sample_time())));
+
+    ranges::for_each(lines, [&w](const auto &line) { //
+      fmt::format_to(w, "{}{}\n", LOG_INDENT, line);
+    });
+
+    __LOG0(LCOL01 " data_new={}\n{}", module_id, "INFO", data_new, msg);
+  }
+}
 
 } // namespace pierre

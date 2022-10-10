@@ -54,7 +54,7 @@ struct AnchorData {
         rtp_time(static_cast<uint32_t>(rtp_time)),      // rtp time is 32 bits
         anchor_time(Seconds(secs) + Nanos(fracs >> 32)) // combine secs and fracs
   {
-    __LOG0(LCOL01 " anchor_time={}\n", module_id, "DEBUG", pet::humanize(anchor_time));
+    __LOGX(LCOL01 " anchor_time={}\n", module_id, "DEBUG", pet::humanize(anchor_time));
   }
 
   AnchorData() = default;
@@ -81,17 +81,15 @@ struct AnchorData {
 
   bool not_viable() const { return !viable(); }
 
-  // friend bool operator==(const AnchorData &lhs, const ClockInfo &rhs) {
-  //   return lhs.clock_id == rhs.clock_id;
-  // }
-
   friend bool operator==(const AnchorData &lhs, const AnchorData &rhs) {
     return std::tie(lhs.clock_id, lhs.rtp_time, lhs.anchor_time) ==
            std::tie(rhs.clock_id, rhs.rtp_time, rhs.anchor_time);
   }
 
-  // csv render_mode() const { return rendering() ? RENDERING : NOT_RENDERING; }
-  // bool rendering() const { return rate & 0x01; }
+  friend bool operator!=(const AnchorData &lhs, const AnchorData &rhs) {
+    return std::tie(lhs.clock_id, lhs.rtp_time, lhs.anchor_time) !=
+           std::tie(rhs.clock_id, rhs.rtp_time, rhs.anchor_time);
+  }
 
   void reset() { *this = AnchorData(); }
 

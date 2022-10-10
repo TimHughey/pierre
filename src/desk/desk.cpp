@@ -110,7 +110,7 @@ void Desk::frame_loop_unsafe() {
 
   frame_render(frame);
 
-  auto wait = (frame) ? frame->sync_wait : InputInfo::lead_time();
+  auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time();
 
   run_stats(desk::SYNC_WAIT, wait);
 

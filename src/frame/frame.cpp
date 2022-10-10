@@ -98,7 +98,6 @@ static std::optional<Racked> _racked;
 // Frame API
 Frame::Frame(uint8v &packet) noexcept           //
     : created_at(pet::now_monotonic()),         // unique created time
-      sync_wait(Nanos::min()),                  // init sync_wait to invalid
       lead_time(InputInfo::lead_time()),        // lead time used to calc state
       state(frame::EMPTY),                      // frame begins life empty
       version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
@@ -150,33 +149,6 @@ Frame::Frame(uint8v &packet) noexcept           //
   log_decipher();
 }
 
-// Frame static functions for init and shutdown
-void Frame::init() {
-  MasterClock::init();
-  Anchor::init();
-  Racked::init();
-  dsp::init();
-}
-
-void Frame::shutdown() { dsp::shutdown(); }
-
-// Frame API and member functions
-
-state_now_result_t Frame::calc_sync_wait(AnchorLast &anchor) {
-  auto diff = anchor.frame_local_time_diff(timestamp);
-
-  // update sync_wait anything has changed
-  if (diff != sync_wait) {
-    // if (sync_wait != Nanos::min()) {
-    //   __LOG(LCOL01 " seq={:>8} sync_wait={}/{}\n", module_id, "CALC_SYNC_WAIT", seq_num,
-    //          pet::humanize(sync_wait), pet::humanize(diff));
-    // }
-    sync_wait = diff;
-  }
-
-  return std::make_tuple(sync_wait > Nanos::min(), sync_wait, state);
-}
-
 void Frame::find_peaks() {
   constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
 
@@ -214,6 +186,16 @@ void Frame::find_peaks() {
   state = frame::DSP_COMPLETE;
 }
 
+// Frame static functions for init and shutdown
+void Frame::init() {
+  MasterClock::init();
+  Anchor::init();
+  Racked::init();
+  dsp::init();
+
+  __LOG0(LCOL01 " frame sizeof={}\n", Frame::module_id, "INIT", sizeof(Frame));
+}
+
 bool Frame::parse() {
   auto rc = false;
 
@@ -231,36 +213,44 @@ void Frame::process() {
   }
 }
 
+void Frame::shutdown() { dsp::shutdown(); }
+
 frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
   _anchor = std::move(anchor); // cache the anchor used for this calculation
 
+  std::optional<frame::state> new_state;
   auto diff = _anchor.frame_local_time_diff(timestamp);
 
-  // first handle any outdated frames regardless of state
   if (diff < Nanos::zero()) {
-    // auto prev_state = state;
-    state = frame::OUTDATED;
-    sync_wait = Nanos::zero(); // set sync wait to zero so caller can optimize timers
+    // first handle any outdated frames regardless of state
+    new_state.emplace(frame::OUTDATED);
+    diff = Nanos::zero(); // set sync wait to zero so caller can optimize timers
 
-    // __LOG0(LCOL01 " CHANGED {} prev_state={} diff={}\n", //
-    //        module_id, "STATE_NOW", inspect(), prev_state(),
-    //        diff != Nanos::min() ? pet::humanize(diff) : "<min>");
+  } else if (!new_state.has_value() && state.updatable()) {
+
+    // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
+    if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
+
+      // in range
+      new_state.emplace(frame::READY);
+    } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
+
+      // future
+      new_state.emplace(frame::FUTURE);
+    }
   }
 
-  // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
-  if (state.updatable()) {
-    if ((diff >= Nanos::zero()) && (diff <= lead_time)) { // in range
-      state = frame::READY;
-
-    } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) { // future
-      state = frame::FUTURE;
-    }
-
+  // when a new state is determined, update the local state and sync_wait
+  if (new_state.has_value()) {
+    state = new_state.value();
     set_sync_wait(diff);
-
-  } // end frame state update
+  }
 
   return state;
+}
+
+Nanos Frame::sync_wait_calc(AnchorLast &anchor) noexcept {
+  return set_sync_wait(anchor.frame_local_time_diff(timestamp));
 }
 
 // misc debug
@@ -276,7 +266,7 @@ const string Frame::inspect(bool full) {
                  seq_num, timestamp, state(), state.ready());
 
   fmt::format_to(w, " sync_wait={}",
-                 sync_wait > Nanos::min() ? pet::humanize(sync_wait) : "<unset>");
+                 _sync_wait.has_value() ? pet::humanize(_sync_wait.value()) : "<no value>");
 
   // if (frame->silent()) {
   //   fmt::format_to(w, " silence=true");

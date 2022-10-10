@@ -61,8 +61,8 @@ public:
         wip_strand(io_ctx),           // guard work in progress reeel
         wip_timer(io_ctx),            // used to racked incomplete wip reels
         future_timer(io_ctx),         // used to wait for future frame
-        rack_access(1),               // held, guards racked container
-        reel_ready(1)                 // held, denotes at least one frame available
+        rack_access(1),               // acquired, guards racked container
+        reel_ready(1)                 // acquired, denotes at least one frame available
   {}
 
   static void adjust_render_mode(bool render) { shared::racked->impl_adjust_render_mode(render); }
@@ -91,9 +91,14 @@ public:
   static bool rendering() noexcept { return shared::racked->_rendering.test(); }
 
   static bool rendering_wait() noexcept {
-    shared::racked->_rendering.wait(false);
 
-    return shared::racked->_rendering.test();
+    auto &guard = shared::racked->_rendering;
+
+    if (guard.test() == false) {
+
+      guard.wait(false);
+    }
+    return guard.test();
   }
 
   static bool not_rendering() noexcept { return shared::racked->_rendering.test() == false; }
@@ -135,17 +140,17 @@ private:
 
   void rack_wip() noexcept;
 
+  void reel_wait() noexcept {
+    reel_ready.acquire();
+    reel_ready.release();
+  }
+
   auto update_racked_size() noexcept {
     _racked_size.store(std::ssize(racked));
     return _racked_size.load();
   }
 
   void update_reel_ready() noexcept;
-
-  void wait_for_reel() noexcept {
-    reel_ready.acquire();
-    reel_ready.release();
-  }
 
   // misc logging, debug
   void log_racked() const noexcept { return log_racked(string()); }
