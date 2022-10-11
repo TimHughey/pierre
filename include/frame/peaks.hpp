@@ -72,7 +72,7 @@ public:
     Peak peak;
 
     if (hasPeak(n)) {
-      const Peak check = _peaks.at(n - 1);
+      const Peak check = _peaks.at(n);
 
       if (check.magnitude() > Peak::mag_base.floor) {
         peak = check;

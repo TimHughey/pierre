@@ -24,14 +24,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <ranges>
+#include <typeinfo>
 
 namespace pierre {
 
 struct PeakMagBase {
-  Mag floor{36.4 * 1000};         // 36,400
-  Mag ceiling{2.1 * 1000 * 1000}; // 2.1 million
+  // Mag floor{36.4 * 1000};         // 36,400
+  Mag floor{3.65e4f};
+  // Mag ceiling{2.1 * 1000 * 1000}; // 2.1 million
+  Mag ceiling{1.8e6f};
   Mag strong{3.0};
 };
 
