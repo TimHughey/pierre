@@ -80,7 +80,7 @@ private:
 
   inline float sq(const float x) const { return x * x; }
 
-  /* Variables */
+private:
   Reals _real;
   Imaginary_t _imaginary;
   static WindowWeighingFactors_t _wwf;
@@ -91,7 +91,8 @@ private:
   bool _weighingFactorsWithCompensation = false;
   static bool _weighingFactorsComputed;
   uint_fast8_t _power = 0;
-  const size_t _max_num_peaks = _samples >> 1;
+
+  const size_t MAX_PEAKS = _samples >> 1;
 };
 
 } // namespace pierre

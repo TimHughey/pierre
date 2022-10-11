@@ -44,7 +44,7 @@ private:
   Peaks() = default;
 
 public:
-  void emplace_pack(Peak &&peak) { _peaks.emplace_back(peak); }
+  template <class... Args> void emplace_back(Args &&...args) { _peaks.emplace_back(args...); }
 
   bool hasPeak(peak_n_t n) const {
     // peak_n_t_t represents the peak of interest in the range of 1..max_peaks
@@ -52,8 +52,6 @@ public:
   }
 
   const Peak majorPeak() const { return peak_n(1); }
-
-  static constexpr csv moduleID() { return module_id; }
 
   // find the first peak greater than the floating point value
   // specified in operator[]
@@ -72,7 +70,7 @@ public:
     Peak peak;
 
     if (hasPeak(n)) {
-      const Peak check = _peaks.at(n);
+      const Peak check = _peaks.at(n - 1);
 
       if (check.magnitude() > Peak::mag_base.floor) {
         peak = check;
@@ -83,7 +81,7 @@ public:
   }
 
   static bool silence(peaks_t peaks) {
-    __LOGX(LCOL01 " use_count={} hasPeak={}\n", moduleID(), csv("SILENCE"), //
+    __LOGX(LCOL01 " use_count={} hasPeak={}\n", module_id, csv("SILENCE"), //
            peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : false);
 
     return (peaks && peaks->hasPeak(1)) == false;
@@ -96,6 +94,7 @@ public:
 private:
   std::vector<Peak> _peaks;
 
+public:
   static constexpr csv module_id = "PEAKS";
 };
 

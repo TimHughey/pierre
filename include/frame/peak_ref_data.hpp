@@ -33,7 +33,8 @@ namespace pierre {
 
 struct PeakMagBase {
   // Mag floor{36.4 * 1000};         // 36,400
-  Mag floor{3.65e4f};
+  // Mag floor{3.65e4f};
+  Mag floor{3.7e4f};
   // Mag ceiling{2.1 * 1000 * 1000}; // 2.1 million
   Mag ceiling{1.8e6f};
   Mag strong{3.0};
@@ -41,7 +42,9 @@ struct PeakMagBase {
 
 struct PeakMagScaled {
   PeakMagBase base; // copy of the base data used to create this scale
-  Mag factor{2.41};
+
+  // Mag factor{2.41};
+  Mag factor{2.3};
   Mag step{0.001};
   Mag floor{0.0};   // calculated by constructor
   Mag ceiling{0.0}; // calculated by constructor
