@@ -92,6 +92,7 @@ public:
     return rhs.contains(lhs._val);
   }
 
+  bool deciphered() const { return *this == DECIPHERED; };
   bool decoded() const { return *this == DECODED; }
   bool empty() const { return *this == EMPTY; }
   bool future() const { return *this == FUTURE; }

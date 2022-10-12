@@ -58,11 +58,10 @@ class Racked {
 public:
   Racked() noexcept
       : guard(io_ctx.get_executor()), // ensure io_ctx has work
+        handoff_strand(io_ctx),       // unprocessed frame 'queue'
         wip_strand(io_ctx),           // guard work in progress reeel
         wip_timer(io_ctx),            // used to racked incomplete wip reels
-        future_timer(io_ctx),         // used to wait for future frame
-        rack_access(1),               // acquired, guards racked container
-        reel_ready(1)                 // acquired, denotes at least one frame available
+        rack_access(1)                // acquired, guards racked container
   {}
 
   static void adjust_render_mode(bool render) { shared::racked->impl_adjust_render_mode(render); }
@@ -73,7 +72,13 @@ public:
   bool empty() const noexcept { return size() == 0; }
 
   static void flush(FlushInfo request) { shared::racked->impl_flush(std::move(request)); }
-  static void handoff(uint8v &packet) { shared::racked->impl_handoff(packet); }
+  static void handoff(uint8v &packet) {
+    frame_t frame = Frame::create(packet);
+
+    if (frame->state.deciphered()) {
+      asio::post(shared::racked->handoff_strand, [=]() { shared::racked->accept_frame(frame); });
+    }
+  }
 
   static void init();
   const string inspect() const noexcept;
@@ -91,13 +96,12 @@ public:
   static bool rendering() noexcept { return shared::racked->_rendering.test(); }
 
   static bool rendering_wait() noexcept {
-
     auto &guard = shared::racked->_rendering;
 
     if (guard.test() == false) {
-
       guard.wait(false);
     }
+
     return guard.test();
   }
 
@@ -105,25 +109,26 @@ public:
   int_fast64_t size() const noexcept { return _racked_size.load(); }
 
 private:
+  void accept_frame(frame_t frame) noexcept;
+  void add_frame(frame_t frame) noexcept;
   void impl_adjust_render_mode(bool render) noexcept {
     auto prev = _rendering.test();
 
-    if (render) {
-      _rendering.test_and_set();
-      _rendering.notify_all();
-    } else {
-      _rendering.clear();
-    }
+    if (render != prev) {
+      if (render) {
+        _rendering.test_and_set();
+        _rendering.notify_all();
+      } else {
+        _rendering.clear();
+      }
 
-    if (prev != _rendering.test()) {
-      __LOG0(LCOL01 " mode={} rendering={} previous={}\n", //
-             module_id, "ADJUST_RENDER", render, _rendering.test(), prev);
+      __LOG0(LCOL01 " was={} is={}\n", module_id, "ADJUST_RENDER", prev, render);
     }
   }
 
   void impl_anchor_save(bool render, AnchorData &&ad);
   void impl_flush(FlushInfo request);
-  void impl_handoff(uint8v &packet);
+
   void impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept;
 
   void init_self();
@@ -132,17 +137,18 @@ private:
 
   void pop_front_reel_if_empty() noexcept;
 
+  void rack_wip() noexcept;
+
   bool racked_acquire(const Nanos max_wait = reel_max_wait) noexcept {
     return rack_access.try_acquire_for(max_wait);
   }
 
   void racked_release() noexcept { rack_access.release(); }
 
-  void rack_wip() noexcept;
-
   void reel_wait() noexcept {
-    reel_ready.acquire();
-    reel_ready.release();
+    if (racked_size() == 0) {
+      std::atomic_wait(&_racked_size, 0);
+    }
   }
 
   auto update_racked_size() noexcept {
@@ -150,7 +156,11 @@ private:
     return _racked_size.load();
   }
 
-  void update_reel_ready() noexcept;
+  void update_reel_ready() noexcept {
+    if (size() > 0) {
+      std::atomic_notify_all(&_racked_size);
+    }
+  }
 
   // misc logging, debug
   void log_racked() const noexcept { return log_racked(string()); }
@@ -160,15 +170,14 @@ private:
   // order dependent
   io_context io_ctx;
   work_guard guard;
+  strand handoff_strand;
   strand wip_strand;
   steady_timer wip_timer;
-  steady_timer future_timer;
   std::binary_semaphore rack_access;
-  std::binary_semaphore reel_ready;
   std::atomic_flag _rendering;
   std::atomic_int_fast64_t _racked_size{0};
-  // order independent
 
+  // order independent
   FlushInfo flush_request;
 
   racked_reels racked;
@@ -179,7 +188,7 @@ private:
   stop_tokens _stop_tokens;
 
 private:
-  static constexpr int THREAD_COUNT{3};
+  static constexpr int THREAD_COUNT{3}; // handoff, wip, other (flush)
   static uint64_t REEL_SERIAL_NUM;
 
 public:

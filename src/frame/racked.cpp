@@ -48,6 +48,42 @@ std::optional<Racked> racked;
 
 uint64_t Racked::REEL_SERIAL_NUM{0x1000};
 
+void Racked::accept_frame(frame_t frame) noexcept {
+  // NOTE: frame state guaranteed to be DECIPHERED
+
+  asio::post(handoff_strand, [=, this]() {
+    // NOTE: FlushInfo::should_keep() will complete the flush request
+    //       when the seq_num is outside of the request
+    if (flush_request.should_keep(frame)) {
+
+      uint8v audio_data; // populated with decoded audio data
+      frame->parse(audio_data);
+
+      if (frame->state.decoded()) {
+        frame->process(std::move(audio_data)); // async, returns immediately
+        add_frame(std::move(frame));
+      }
+    }
+  });
+}
+
+void Racked::add_frame(frame_t frame) noexcept {
+  // NOTE: frame state guaranteed to be DECODED
+
+  asio::post(wip_strand, [=, this, frame = std::move(frame)]() mutable {
+    // create the wip reel, if needed
+    if (reel_wip.has_value() == false) reel_wip.emplace(++REEL_SERIAL_NUM);
+
+    reel_wip->add(frame);
+
+    if (reel_wip->full()) {
+      rack_wip();
+    } else if (reel_wip->size() == 1) {
+      monitor_wip();
+    }
+  });
+}
+
 void Racked::impl_anchor_save(bool render, AnchorData &&ad) {
   impl_adjust_render_mode(render);
 
@@ -104,36 +140,6 @@ void Racked::impl_flush(FlushInfo request) {
       }
     }
   });
-}
-
-void Racked::impl_handoff(uint8v &packet) {
-  frame_t frame = Frame::create(packet);
-  uint8v decoded;
-
-  // allow the calling thread to perform the av parsing
-  // decoded is populated with pcm data
-  frame->parse(decoded);
-
-  if (frame->state.decoded()) {
-    asio::post(wip_strand, [=, this, decoded = std::move(decoded)]() mutable {
-      // NOTE: FlushInfo::should_keep() will complete the flush request
-      //       when the seq_num is outside of the request
-      if (flush_request.should_keep(frame)) {
-
-        // create the wip reel, if needed
-        if (reel_wip.has_value() == false) reel_wip.emplace(++REEL_SERIAL_NUM);
-
-        frame->process(std::move(decoded));
-        reel_wip->add(frame);
-
-        if (reel_wip->full()) {
-          rack_wip();
-        } else if (reel_wip->size() == 1) {
-          monitor_wip();
-        }
-      }
-    });
-  }
 }
 
 void Racked::impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept {
@@ -255,21 +261,6 @@ void Racked::rack_wip() noexcept {
 
   } else {
     __LOG0(LCOL01 " TIMEOUT while racking {}\n", module_id, "RACK_WIP", reel_wip->inspect());
-  }
-}
-
-void Racked::update_reel_ready() noexcept {
-  if (size() == 0) {
-    if (reel_ready.try_acquire_for(1ms) == false) {
-      __LOG0(LCOL01 " forcing reel ready to acquired\n", module_id, "RACKED");
-
-      reel_ready.release();
-    }
-
-    reel_ready.acquire();
-
-  } else {
-    reel_ready.release();
   }
 }
 
