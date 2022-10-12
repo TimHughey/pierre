@@ -205,6 +205,7 @@ void parse(frame_t frame, uint8v &decoded) {
 
   if (ret != 0) {
     __LOG0("{:<18} avcodec_receive_frame={}\n", module_id, ret);
+    av_packet_free(&pkt);
     return;
   }
 
@@ -232,8 +233,13 @@ void parse(frame_t frame, uint8v &decoded) {
          AV_FORMAT_OUT,                           // desired format (see const above)
          0);                                      // default alignment
 
-    __LOGX(LCOL01 " ret={} channels={} samples/channel={:<5} dst_buffsize={:<5}\n", //
-           module_id, "INFO", ret, frame->channels, frame->samples_per_channel, dst_bufsize);
+    static bool reported = false;
+    if (!reported) {
+      __LOG0(LCOL01 " ret={} channels={} linesize={:<5} samples/channel={:<5} dst_buffsize={:<5}\n",
+             module_id, "INFO", ret, frame->channels, dst_linesize, frame->samples_per_channel,
+             dst_bufsize);
+      reported = true;
+    }
 
     if (dst_bufsize > 0) { // put PCM data into decoded
       decoded.reserve(dst_bufsize);
