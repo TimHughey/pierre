@@ -35,7 +35,9 @@ namespace ranges = std::ranges;
 
 enum state_now_t : size_t {
   DECIPHERED = 0,
+  DECIPHER_FAILURE,
   DECODED,
+  DECODE_FAILURE,
   DSP_IN_PROGRESS,
   DSP_COMPLETE,
   EMPTY,
@@ -58,7 +60,9 @@ public:
   template <typename T = string_view> const T operator()() const {
     static auto txt_map = //
         std::map<state_now_t, csv>{{DECIPHERED, "deciphered"},
+                                   {DECIPHER_FAILURE, "decipher falure"},
                                    {DECODED, "decoded"},
+                                   {DECODE_FAILURE, "decode failure"},
                                    {DSP_IN_PROGRESS, "dsp in progress"},
                                    {DSP_COMPLETE, "dsp complete"},
                                    {EMPTY, "empty"},

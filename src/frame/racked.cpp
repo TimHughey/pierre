@@ -108,12 +108,14 @@ void Racked::impl_flush(FlushInfo request) {
 
 void Racked::impl_handoff(uint8v &packet) {
   frame_t frame = Frame::create(packet);
+  uint8v decoded;
 
   // allow the calling thread to perform the av parsing
-  frame->parse();
+  // decoded is populated with pcm data
+  frame->parse(decoded);
 
   if (frame->state.decoded()) {
-    asio::post(wip_strand, [=, this]() {
+    asio::post(wip_strand, [=, this, decoded = std::move(decoded)]() mutable {
       // NOTE: FlushInfo::should_keep() will complete the flush request
       //       when the seq_num is outside of the request
       if (flush_request.should_keep(frame)) {
@@ -121,7 +123,7 @@ void Racked::impl_handoff(uint8v &packet) {
         // create the wip reel, if needed
         if (reel_wip.has_value() == false) reel_wip.emplace(++REEL_SERIAL_NUM);
 
-        frame->process();
+        frame->process(std::move(decoded));
         reel_wip->add(frame);
 
         if (reel_wip->full()) {

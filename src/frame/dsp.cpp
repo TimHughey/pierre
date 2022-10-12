@@ -86,8 +86,8 @@ void init() {
 }
 
 // perform digital signal analysis on a Frame
-void process(frame_t frame) {
-  asio::post(io_ctx, [=]() { frame->find_peaks(); });
+void process(frame_t frame, uint8v &&decoded) {
+  asio::post(io_ctx, [=, decoded = std::move(decoded)]() mutable { frame->find_peaks(decoded); });
 }
 
 // shutdown thread pool and wait for all threads to stop

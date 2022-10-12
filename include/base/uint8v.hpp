@@ -104,6 +104,7 @@ protected:
 
 private:
   size_t reserve_default = 0;
+
   static constexpr csv module_id_base{"UINT8V"};
 };
 

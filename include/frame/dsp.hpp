@@ -16,6 +16,7 @@
 //
 //  https://www.wisslanding.com
 
+#include "base/uint8v.hpp"
 #include "frame.hpp"
 #include "types.hpp"
 
@@ -23,7 +24,7 @@ namespace pierre {
 namespace dsp {
 
 void init();
-void process(frame_t frame);
+void process(frame_t frame, uint8v &&decoded);
 void watch_dog();
 void shutdown();
 

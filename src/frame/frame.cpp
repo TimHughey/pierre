@@ -149,7 +149,7 @@ Frame::Frame(uint8v &packet) noexcept           //
   log_decipher();
 }
 
-void Frame::find_peaks() {
+void Frame::find_peaks(uint8v &decoded) {
   constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
 
   FFT fft_left(samples_per_channel, InputInfo::rate);
@@ -168,9 +168,9 @@ void Frame::find_peaks() {
     sptr += SAMPLE_BYTES;                  // increment to next sample
 
     if ((idx % 2) == 0) { // left channel
-      real_left.emplace_back(static_cast<float>(val));
-    } else { // right channel
-      real_right.emplace_back(static_cast<float>(val));
+      real_left.emplace_back(val);
+    } else { // right channel0
+      real_right.emplace_back(val);
     }
   }
 
@@ -196,20 +196,20 @@ void Frame::init() {
   __LOG0(LCOL01 " frame sizeof={}\n", Frame::module_id, "INIT", sizeof(Frame));
 }
 
-bool Frame::parse() {
+bool Frame::parse(uint8v &decoded) {
   auto rc = false;
 
   if (state == frame::DECIPHERED) {
-    av::parse(shared_from_this());
+    av::parse(shared_from_this(), decoded);
     rc = true;
   }
 
   return rc;
 }
 
-void Frame::process() {
+void Frame::process(uint8v &&decoded) {
   if (state == frame::DECODED) {
-    dsp::process(shared_from_this());
+    dsp::process(shared_from_this(), std::forward<uint8v>(decoded));
   }
 }
 
@@ -297,8 +297,8 @@ void Frame::log_decipher() const {
   } else if (state == frame::NO_SHARED_KEY) {
     __LOG0(LCOL01 " decipher shared key empty\n", module_id, state());
   } else {
-    __LOG0(LCOL01 " decipher size={} cipher_rc={} decipher_len={}\n", //
-           module_id, state(), decoded.size(), cipher_rc, decipher_len);
+    __LOG0(LCOL01 " decipher cipher_rc={} decipher_len={}\n", //
+           module_id, state(), cipher_rc, decipher_len);
   }
 }
 

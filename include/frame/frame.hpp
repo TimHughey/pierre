@@ -56,12 +56,12 @@ public:
   static frame_t create(uint8v &packet) noexcept { return frame_t(new Frame(packet)); }
 
   // Public API
-  void find_peaks();
+  void find_peaks(uint8v &decoded);
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)
 
-  bool parse();   // parse the deciphered frame into pcm data
-  void process(); // async find peaks via dsp
+  bool parse(uint8v &decoded);    // parse the deciphered frame into pcm data
+  void process(uint8v &&decoded); // async find peaks via dsp (decoded is moved)
 
   void mark_rendered() { state = frame::RENDERED; }
 
@@ -118,7 +118,7 @@ public:
   // decode frame
   int samples_per_channel = 0;
   int channels = 0;
-  uint8v decoded;
+  // uint8v decoded;
 
   // populated by DSP
   std::tuple<peaks_t, peaks_t> peaks;

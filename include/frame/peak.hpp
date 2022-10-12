@@ -41,7 +41,9 @@ public: // Peak
   Peak() noexcept {};
   Peak(const size_t i, const Freq f, const Mag m) noexcept : index(i), freq(f), mag(m) {}
 
-  static MinMaxFloat magScaleRange() { return MinMaxFloat(0.0, mag_scaled.ceiling - mag_scaled.floor); }
+  static MinMaxFloat magScaleRange() {
+    return MinMaxFloat(0.0, mag_scaled.ceiling - mag_scaled.floor);
+  }
 
   Freq frequency() const { return freq; }
   Freq frequencyScaled() const { return scale_val(freq); }
@@ -58,23 +60,27 @@ public: // Peak
 
   bool magStrong() const { return mag >= (mag_base.floor * mag_base.strong); }
 
-  explicit operator bool() const { return (mag > mag_base.floor) && (mag < mag_base.ceiling) ? true : false; }
-
-  friend auto operator<=>(const auto &lhs, const auto &rhs) noexcept {
-    if (lhs.mag < rhs.mag) return std::strong_ordering::less;
-    if (lhs.mag > rhs.mag) return std::strong_ordering::greater;
-
-    return std::strong_ordering::equal;
+  explicit operator bool() const {
+    return (mag > mag_base.floor) && (mag < mag_base.ceiling) ? true : false;
   }
 
-  template <class T, class = typename std::enable_if<std::is_same<T, Mag>::value>::type> T scaled() const {
+  // friend auto operator<=>(const auto &lhs, const auto &rhs) noexcept {
+  //   if (lhs.mag < rhs.mag) return std::strong_ordering::less;
+  //   if (lhs.mag > rhs.mag) return std::strong_ordering::greater;
+  //
+  //   return std::strong_ordering::equal;
+  // }
+
+  template <class T, class = typename std::enable_if<std::is_same<T, Mag>::value>::type>
+  T scaled() const {
     auto x = scale_val(mag) - mag_scaled.floor;
 
     return x > 0 ? x : 0;
   }
 
   template <typename T> const T scaleMagToRange(const MinMaxPair<T> &range) const {
-    auto ret_val = static_cast<T>(mag_scaled.interpolate(mag) * (range.max() - range.min()) + range.min());
+    auto ret_val =
+        static_cast<T>(mag_scaled.interpolate(mag) * (range.max() - range.min()) + range.min());
 
     return ranges::clamp(ret_val, range.min(), range.max());
   }
