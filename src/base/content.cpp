@@ -20,6 +20,7 @@
 
 #include "base/content.hpp"
 #include "base/headers.hpp"
+#include "base/logger.hpp"
 
 #include <iomanip>
 
@@ -29,18 +30,17 @@ void Content::dump() const {
   string msg;
   auto w = std::back_inserter(msg);
 
-  pe_log::prepend(w, moduleId(), csv("DUMP"));
-  fmt::format_to(w, " type={} bytes={} ", _type, size());
+  fmt::format_to(w, "type={} bytes={} ", _type, size());
 
   if (Headers::valEquals(_type, hdr_val::TextParameters)) {
     fmt::format_to(w, "parameters='{}'", toSingleLineString());
   } else if (multiLineString()) {
-    fmt::format_to(w, "\n{}{}", __LOG_COL2_SV, inspect());
+    fmt::format_to(w, "\n{}{}", INFO_TAB, inspect());
   } else {
     fmt::format_to(w, "val='{}'", inspect()); // output inspect msg on the same line
   }
 
-  __LOG0("{}\n", msg);
+  INFO(moduleId(), "DUMP", "{}\n", msg);
 }
 
 } // namespace pierre

@@ -20,8 +20,9 @@
 
 #include "desk/fx/majorpeak.hpp"
 #include "base/elapsed.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/desk.hpp"
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
@@ -119,18 +120,20 @@ void MajorPeak::execute(peaks_t peaks) {
 
   _prev_peaks.push_back(peaks->majorPeak());
 
+  // INFO(module_id, "DEBUG", "peak_1: {}\n", peaks->majorPeak());
+
   // detect if FX is in suitable finished position (nothing is fading)
-  finished = !main->isFading() && !fill->isFading();
+  // finished = !main->isFading() && !fill->isFading();
+
+  finished = false;
 }
 
 void MajorPeak::handleElWire(peaks_t peaks) {
   const auto &soft = _freq.soft;
 
-  std::array<PulseWidth *, 2> elwires;
-  elwires[0] = el_dance_floor;
-  elwires[1] = el_entry;
+  std::array elwires{el_dance_floor, el_entry};
 
-  const auto freq_range = MinMaxFloat(log10(soft.floor), log10(soft.ceiling));
+  const auto freq_range = min_max_float(log10(soft.floor), log10(soft.ceiling));
   const auto &peak = peaks->majorPeak();
 
   if (!peak) {
@@ -293,12 +296,12 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
     auto const hue_min_cfg = hue_cfg.min;
     auto hue_max_cfg = hue_cfg.max;
 
-    auto freq_range = MinMaxFloat(soft_ceil, hard_ceil);
+    auto freq_range = min_max_float(soft_ceil, hard_ceil);
 
     const auto hue_step = _makecolor.above_soft_ceiling.hue.step;
     const auto hue_min = hue_min_cfg * (1.0f / hue_step);
     const auto hue_max = hue_max_cfg * (1.0f / hue_step);
-    auto hue_range = MinMaxFloat(hue_min, hue_max);
+    auto hue_range = min_max_float(hue_min, hue_max);
 
     const float freq_scaled = log10(peak.frequency());
     float degrees = freq_range.interpolate(hue_range, freq_scaled) * hue_step;
@@ -317,11 +320,11 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
 
   const auto &hue_cfg = _makecolor.generic.hue;
 
-  auto freq_range = MinMaxFloat(log10(soft_floor), log10(soft_ceil));
+  auto freq_range = min_max_float(log10(soft_floor), log10(soft_ceil));
 
   const auto hue_min = hue_cfg.min * (1.0f / hue_cfg.step);
   const auto hue_max = hue_cfg.max * (1.0f / hue_cfg.step);
-  auto hue_range = MinMaxFloat(hue_min, hue_max);
+  auto hue_range = min_max_float(hue_min, hue_max);
 
   const float freq_scaled = log10(peak.frequency());
   float degrees = freq_range.interpolate(hue_range, freq_scaled) * hue_cfg.step;

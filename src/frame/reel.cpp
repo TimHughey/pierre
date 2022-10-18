@@ -17,6 +17,7 @@
     https://www.wisslanding.com */
 
 #include "frame/reel.hpp"
+#include "base/logger.hpp"
 
 #include <tuple>
 
@@ -30,7 +31,7 @@ void Reel::consume() noexcept {
   if (!frames.empty()) {
     frames.erase(frames.begin());
   } else {
-    __LOG0(LCOL01 " consume() called on empty reel", module_id, "WARN");
+    INFO(module_id, "WARN", "consume() called on reel size={}\n", size());
   }
 }
 
@@ -44,10 +45,10 @@ Reel &Reel::flush(FlushInfo &flush) noexcept {
     auto [a, b] = first_and_last();
 
     if ((until_seq >= a->seq_num) && (until_seq >= b->seq_num)) {
-      __LOG0(LCOL01 " clearing ALL  {}\n", module_id, "FLUSH", inspect());
+      INFO(module_id, "FLUSH", "clearing ALL {}\n", inspect());
       frames.clear();
     } else if ((until_seq >= a->seq_num) && (until_seq <= b->seq_num)) {
-      __LOG0(LCOL01 " clearing SOME {}\n", module_id, "FLUSH", inspect());
+      INFO(module_id, "FLUSH", "clearing SOME {}\n", inspect());
       // partial match
       std::erase_if(frames, [&](const auto &item) {
         timestamp_t timestamp;
@@ -71,8 +72,8 @@ const string Reel::inspect() const noexcept {
   if (size_now) {
     auto [front, back] = first_and_last();
 
-    fmt::format_to(w, " seq a/b={:>8}/{:<8}", front->seq_num, back->seq_num);
-    fmt::format_to(w, " ts a/b={:>12}/{:<12}", front->timestamp, back->timestamp);
+    fmt::format_to(w, "seq a/b={:>8}/{:<8}", front->seq_num, back->seq_num);
+    fmt::format_to(w, "ts a/b={:>12}/{:<12}", front->timestamp, back->timestamp);
   }
 
   return msg;

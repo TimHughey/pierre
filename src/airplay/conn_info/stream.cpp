@@ -46,24 +46,23 @@ uint64_t Stream::typeVal() const {
   uint64_t type = 0;
 
   switch (_type) {
-    case stream::type::none:
-      type = 0;
-      break;
+  case stream::type::none:
+    type = 0;
+    break;
 
-    case stream::type::buffered:
-      type = 103;
-      break;
+  case stream::type::buffered:
+    type = 103;
+    break;
 
-    case stream::type::realtime:
-      type = 96;
-      break;
+  case stream::type::realtime:
+    type = 96;
+    break;
   }
 
   return type;
 }
 
 Stream::Stream(csv timing_protocol) {
-  __LOGX(LCOL0 LCOL1 "timing_protocol={}\n", moduleId, LBLANK, timing_protocol);
 
   if (timing_protocol == reply::dv::PTP) {
     _cat = cat::ptp_stream;

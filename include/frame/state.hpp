@@ -42,11 +42,14 @@ enum state_now_t : size_t {
   DSP_COMPLETE,
   EMPTY,
   ERROR,
+  FLUSHED,
   FUTURE,
+  HEADER_PARSED,
   INVALID,
   NO_SHARED_KEY,
   NONE,
   OUTDATED,
+  PARSE_FAILURE,
   RAW,
   READY,
   RENDERED
@@ -67,11 +70,14 @@ public:
                                    {DSP_COMPLETE, "dsp complete"},
                                    {EMPTY, "empty"},
                                    {ERROR, "error"},
+                                   {FLUSHED, "flushed"},
                                    {FUTURE, "future"},
+                                   {HEADER_PARSED, "header parsed"},
                                    {INVALID, "invalid"},
                                    {NO_SHARED_KEY, "no shared key"},
                                    {NONE, "none"},
                                    {OUTDATED, "outdated"},
+                                   {PARSE_FAILURE, "parse failure"},
                                    {RAW, "raw"},
                                    {READY, "ready"},
                                    {RENDERED, "rendered"}};
@@ -94,12 +100,16 @@ public:
 
   bool deciphered() const { return *this == DECIPHERED; };
   bool decoded() const { return *this == DECODED; }
-  bool empty() const { return *this == EMPTY; }
-  bool future() const { return *this == FUTURE; }
-  bool updatable() const {
-    static const auto want = std::set{DSP_COMPLETE, FUTURE, READY};
+
+  bool dsp_any() const {
+    static const auto want = std::set{DECODED, DSP_COMPLETE, DSP_IN_PROGRESS};
+
     return *this == want;
   }
+
+  bool empty() const { return *this == EMPTY; }
+  bool future() const { return *this == FUTURE; }
+  bool header_parsed() const { return *this == HEADER_PARSED; }
 
   auto now() const noexcept { return _val; }
 
@@ -109,6 +119,11 @@ public:
   bool ready_or_future() const noexcept {
     static const auto want = std::set{READY, FUTURE};
 
+    return *this == want;
+  }
+
+  bool updatable() const {
+    static const auto want = std::set{DSP_COMPLETE, FUTURE, READY};
     return *this == want;
   }
 

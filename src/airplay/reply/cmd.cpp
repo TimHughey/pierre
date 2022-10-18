@@ -29,7 +29,7 @@ bool Command::populate() {
   rdict = plist();
 
   if (false) { // debug
-    rdict.dump(fnName());
+    rdict.dump("Command::populate()");
   }
 
   // default to OK

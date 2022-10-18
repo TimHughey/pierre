@@ -19,14 +19,28 @@
 */
 
 #include "frame/peaks.hpp"
+#include "base/logger.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <functional>
 #include <ranges>
 
 namespace pierre {
 
+bool Peaks::emplace(Magnitude m, Frequency f) noexcept {
+
+  auto [element, inserted] = _peaks_map.emplace(m, Peak(m, f));
+
+  if (!inserted) {
+    INFO(module_id, "COLLISION", "mag={} freq={} collision, keeping {}\n", m, f, element->second);
+  }
+
+  return inserted;
+}
+
 peaks_t Peaks::sort() {
-  ranges::sort(_peaks, [](const Peak &lhs, const Peak &rhs) { // reverse order by magnitude
+  ranges::sort(_peaks, [](Peak &lhs, Peak &rhs) { // order by magnitude
     return lhs.magnitude() > rhs.magnitude();
   });
 

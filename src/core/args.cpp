@@ -70,8 +70,7 @@ ArgsMap Args::parse(int argc, char *argv[]) {
     }
 
   } catch (const error &ex) {
-    constexpr auto f = FMT_STRING("{} command line args error: {}\n");
-    fmt::print(f, fnName(), ex.what());
+    fmt::print(FMT_STRING("command line args error: {}\n"), ex.what());
   }
 
   return std::forward<ArgsMap>(args_map);

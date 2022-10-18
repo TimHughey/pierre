@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
@@ -34,9 +34,13 @@ class FX;
 typedef std::shared_ptr<FX> shFX;
 
 struct fx_factory {
-  template <typename T> static shFX create() { return std::static_pointer_cast<T>(std::make_shared<T>()); }
+  template <typename T> static shFX create() {
+    return std::static_pointer_cast<T>(std::make_shared<T>());
+  }
 
-  template <typename T> static std::shared_ptr<T> derive(shFX fx) { return std::static_pointer_cast<T>(fx); }
+  template <typename T> static std::shared_ptr<T> derive(shFX fx) {
+    return std::static_pointer_cast<T>(fx);
+  }
 };
 
 class FX {

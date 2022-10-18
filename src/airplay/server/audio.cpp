@@ -17,7 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "server/audio.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "session/audio.hpp"
 
 #include <fmt/format.h>
@@ -38,8 +39,8 @@ Audio::~Audio() {
   acceptor.close(ec); // use error_code overload to prevent throws
 
   if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} closed socket={} msg={}\n");
-    fmt::print(f, runTicks(), serverId(), acceptor.native_handle(), ec.message());
+    INFO("AIRPLAY", serverId(), "closed socket={} reason={}\n", acceptor.native_handle(),
+         ec.message());
   }
 }
 
@@ -50,8 +51,7 @@ void Audio::asyncLoop(const error_code ec_last) {
     // don't highlight "normal" shutdown
     if ((ec_last.value() != errc::operation_canceled) &&
         (ec_last.value() != errc::resource_unavailable_try_again)) {
-      constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
-      fmt::print(f, runTicks(), serverId(), ec_last.message());
+      INFO("AIRPLAY", serverId(), "accept failed, error={}\n", ec_last.message());
     }
     // some kind of error occurred, simply close the socket
     [[maybe_unused]] error_code __ec;

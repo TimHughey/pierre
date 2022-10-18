@@ -22,7 +22,7 @@
 
 #include "base/input_info.hpp"
 #include "base/minmax.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/unit.hpp"
 
 #include <array>
@@ -60,10 +60,10 @@ public:
   virtual bool isBusy() const { return _mode == FIXED; }
   virtual void leave() override { fixed(config.leave); }
 
-  const MinMaxPair<DutyVal> minMaxDuty() { return MinMaxPair(config.min, config.max); }
+  const min_max_pair<DutyVal> minMaxDuty() { return min_max_pair(config.min, config.max); }
 
-  template <typename T> const MinMaxPair<T> minMaxDuty() {
-    return MinMaxPair<T>(config.min, config.max);
+  template <typename T> const min_max_pair<T> minMaxDuty() {
+    return min_max_pair<T>(config.min, config.max);
   }
 
   void stop() { fixed(config.min); }

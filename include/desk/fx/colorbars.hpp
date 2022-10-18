@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/fx.hpp"
 #include "fader/toblack.hpp"
 #include "frame/peaks.hpp"

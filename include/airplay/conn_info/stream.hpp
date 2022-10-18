@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 namespace pierre {
 namespace airplay {

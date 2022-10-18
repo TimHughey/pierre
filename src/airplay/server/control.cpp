@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "server/control.hpp"
+#include "base/logger.hpp"
 
 #include <fmt/format.h>
 
@@ -41,18 +42,17 @@ void hdr::loaded(size_t rx_bytes) {
     full.length = ntohs(full.length);
 
     if (true) { // debug
-      constexpr auto f = FMT_STRING("{} length={}\n");
-      fmt::print(f, fnName(), length());
+      INFO("AIRPLAY SERVER", "CONTROL", "length={}\n", length());
     } else {
-      constexpr auto f = FMT_STRING("{} bad length={}\n");
-      fmt::print(f, fnName(), length());
+
+      INFO("AIRPLAY SERVER", "CONTROL", "bad length={}\n", length());
     }
   }
 }
 
-void hdr::dump(csrc_loc loc) const {
-  constexpr auto f = FMT_STRING("{} vsn={:#04x} padding={:5} marker={:5}");
-  fmt::print(f, fnName(loc), version(), marker(), padding());
+void hdr::dump() const {
+  INFO("AIRPLAY SERVER", "CONTROL", "vsn={:#04x} padding={:5} marker={:5}", version(), marker(),
+       padding());
 }
 
 void Packet::loaded([[maybe_unused]] size_t rx_bytes) {
@@ -77,11 +77,6 @@ Control::Control(const Inject &di)
 }
 
 Control::~Control() {
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} shutdown handle={}\n");
-    fmt::print(f, runTicks(), serverId(), socket.native_handle());
-  }
-
   [[maybe_unused]] error_code ec; // must use error_code overload to prevent throws
 
   socket.shutdown(udp_socket::shutdown_both, ec);
@@ -105,8 +100,6 @@ void Control::asyncLoop(const error_code ec_last) {
     // don't highlight "normal" shutdown
     // if ((ec_last.value() != errc::operation_canceled) &&
     //     (ec_last.value() != errc::resource_unavailable_try_again)) {
-    constexpr auto f = FMT_STRING("{} {} asyncLoop failed, error={}\n");
-    fmt::print(f, runTicks(), serverId(), ec_last.message());
     // }
     // some kind of error occurred, simply close the socket
     [[maybe_unused]] error_code __ec;
@@ -116,11 +109,6 @@ void Control::asyncLoop(const error_code ec_last) {
   }
 
   auto buff_hdr = asio::buffer(hdrData(), hdrSize());
-
-  if (false) { // debug
-    constexpr auto f = FMT_STRING("{} {} socket open handle={}\n");
-    fmt::print(f, runTicks(), serverId(), socket.native_handle());
-  }
 
   socket.async_receive_from(buff_hdr, remote_endpoint, [&](error_code ec, size_t rx_bytes) {
     if (isReady(ec)) {
@@ -141,37 +129,28 @@ void Control::asyncRestOfPacket() {
   // the length specified in the header denotes the entire packet size
 
   auto buff_rest = asio::buffer(_wire.data(), _hdr.moreBytes());
-  socket.async_receive_from(buff_rest, remote_endpoint, [&](error_code ec, size_t rx_bytes) {
-    if (isReady(ec)) { // debug
+  socket.async_receive_from( //
+      buff_rest, remote_endpoint, [&](error_code ec, [[maybe_unused]] size_t rx_bytes) {
+        if (isReady(ec)) { // debug
 
-      if (true) {
-        constexpr auto f = FMT_STRING("{} rx_bytes={}\n");
-        fmt::print(f, fnName(), rx_bytes);
-      }
-
-      nextBlock();
-      asyncLoop(ec); // schedule more work
-    }
-  });
+          nextBlock();
+          asyncLoop(ec); // schedule more work
+        }
+      });
 }
 
-bool Control::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
+bool Control::isReady(const error_code &ec) {
   [[maybe_unused]] error_code __ec;
   auto rc = isReady();
 
   if (rc) {
     switch (ec.value()) {
-      case errc::success:
-        break;
+    case errc::success:
+      break;
 
-      default:
-        if (false) { // debug
-          constexpr auto f = FMT_STRING("{} {} SHUTDOWN socket={} msg={}\n");
-          fmt::print(f, runTicks(), serverId(), socket.native_handle(), ec.message());
-        }
-
-        socket.shutdown(udp_socket::shutdown_both, __ec);
-        rc = false;
+    default:
+      socket.shutdown(udp_socket::shutdown_both, __ec);
+      rc = false;
     }
   }
 
@@ -179,11 +158,6 @@ bool Control::isReady(const error_code &ec, [[maybe_unused]] csrc_loc loc) {
 }
 
 void Control::nextBlock() {
-  if (true) { // debug
-    constexpr auto f = FMT_STRING("{} {} wire_bytes={}\n");
-    fmt::print(f, runTicks(), serverId(), _wire.size());
-  }
-
   // reset all buffers and state
   _hdr.clear();
   _wire.clear();
@@ -197,8 +171,6 @@ void Control::teardown() {
   [[maybe_unused]] auto handle = socket.native_handle();
   [[maybe_unused]] error_code ec;
   socket.cancel(ec);
-
-  __LOGX("{} teardown socket={} error={}\n", serverId(), handle, ec.message());
 }
 
 } // namespace server

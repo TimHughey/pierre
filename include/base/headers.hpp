@@ -19,8 +19,9 @@
 #pragma once
 
 #include "base/content.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
+#include "fmt/format.h"
 #include <algorithm>
 #include <limits>
 #include <map>

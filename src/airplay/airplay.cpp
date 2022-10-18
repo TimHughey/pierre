@@ -18,6 +18,7 @@
 
 #include "airplay/airplay.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "common/ss_inject.hpp"
 #include "config/config.hpp"
 #include "conn_info/conn_info.hpp"
@@ -37,7 +38,7 @@ std::optional<shAirplay> __airplay;
 
 shAirplay Airplay::init() { // static
   auto self = shared::__airplay.emplace(new Airplay());
-  __LOG0(LCOL01 " features={:#x}\n", moduleID(), csv("INIT"), Features().ap2Default());
+  INFO(module_id, "INIT", "features={:#x}\n", Features().ap2Default());
 
   // executed by caller thread
   airplay::ConnInfo::init();
@@ -87,7 +88,7 @@ void Airplay::watch_dog() {
         self->watch_dog();
       }
     } else {
-      __LOG0(LCOL01 " going out of scope reason={}\n", moduleID(), csv("WATCH_DOG"), ec.message());
+      INFO(module_id, "WATCH DOG", "going out of scope reason={}\n", ec.message());
     }
   });
 }

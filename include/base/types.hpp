@@ -40,7 +40,7 @@ typedef const char *ccs;
 typedef std::jthread Thread;
 
 // Vector of Floats
-typedef std::vector<float> Reals;
+typedef std::vector<float> reals_t;
 
 // Frequency, magnitude, scaled values
 typedef float Freq;

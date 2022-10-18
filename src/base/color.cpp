@@ -20,11 +20,12 @@
 
 #include "base/color.hpp"
 #include "base/minmax.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <ctgmath>
+#include <fmt/format.h>
 
 namespace pierre {
 bool Hsb::operator==(const Hsb &rhs) const {
@@ -57,15 +58,13 @@ Hsb Hsb::fromRgb(uint8_t red_val, uint8_t grn_val, uint8_t blu_val) {
     else if (chroma_max == blu)
       hue = 60.0f * (((red - grn) / chroma_delta) + 4.0f);
 
-    if (chroma_max > 0)
-      sat = chroma_delta / chroma_max;
+    if (chroma_max > 0) sat = chroma_delta / chroma_max;
 
     bri = chroma_max;
   } else
     bri = chroma_max;
 
-  if (hue < 0)
-    hue += 360.0f;
+  if (hue < 0) hue += 360.0f;
 
   return Hsb{.hue = hue, .sat = sat, .bri = bri};
 }
@@ -219,8 +218,8 @@ Color &Color::setHue(float hue) {
   return *this;
 }
 
-Color &Color::setBrightness(const MinMaxFloat &range, const float val) {
-  MinMaxFloat brightness_range(0.0f, brightness());
+Color &Color::setBrightness(const min_max_float &range, const float val) {
+  min_max_float brightness_range(0.0f, brightness());
 
   const auto x = range.interpolate(brightness_range, val);
 
@@ -256,8 +255,8 @@ Color &Color::setSaturation(const Color &rhs) {
   return *this;
 }
 
-Color &Color::setSaturation(const MinMaxFloat &range, const float val) {
-  MinMaxFloat saturation_range(0.0f, saturation());
+Color &Color::setSaturation(const min_max_float &range, const float val) {
+  min_max_float saturation_range(0.0f, saturation());
 
   const auto x = range.interpolate(saturation_range, val);
 

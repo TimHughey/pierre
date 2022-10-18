@@ -19,8 +19,9 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <future>
 #include <memory>
@@ -70,7 +71,8 @@ struct ClockInfo {
   bool is_stable() const { return master_for_at_least(AGE_STABLE); }
 
   Nanos master_for(Nanos ref = pet::now_monotonic()) const {
-    return pet::not_zero(mastershipStartTime) ? pet::elapsed(mastershipStartTime, ref) : Nanos::zero();
+    return pet::not_zero(mastershipStartTime) ? pet::elapsed(mastershipStartTime, ref)
+                                              : Nanos::zero();
   }
 
   bool master_for_at_least(const Nanos min, Nanos ref = pet::now_monotonic()) const {
@@ -83,8 +85,8 @@ struct ClockInfo {
     bool rc = clock_id && pet::not_zero(mastershipStartTime);
 
     if (!rc) { // no master clock or too young
-      __LOG0(LCOL01 " no clock info, clock={:#02x} master_ship_time={}\n", module_id, csv("NOTICE"), clock_id,
-             pet::not_zero(mastershipStartTime));
+      INFO(module_id, "NOTiCE", "no clock info, clock={:#02x} master_ship_time={}\n", clock_id,
+           pet::not_zero(mastershipStartTime));
     }
 
     return rc;
@@ -116,26 +118,25 @@ struct ClockInfo {
 
 private:
   bool log_age_issue(csv msg, const Nanos &diff) const {
-    __LOG0(LCOL01 " clock_id={:#x} sampleTime={} age={}\n", //
-           module_id, msg, clock_id, pet::as<MillisFP>(sample_time()), pet::as_secs(diff));
+    INFO(module_id, msg, "clock_id={:#x} sampleTime={} age={}\n", //
+         clock_id, pet::as<MillisFP>(sample_time()), pet::as_secs(diff));
 
     return true; // return false, final rc is inverted
   }
 
   void log_clock_time([[maybe_unused]] csv category, [[maybe_unused]] Nanos actual) const {
-
-    __LOGX(LCOL01 " clock_id={:#x} now={:02.3}\n", //
-           module_id, category, clock_id, pet::humanize(actual));
+    INFOX(module_id, category, "clock_id={:#x} now={:02.3}\n", //
+          clock_id, pet::humanize(actual));
   }
 
   void log_clock_status() const {
-    __LOGX(LCOL01 " clock_id={:#x} is_minimum_age={} is_stable={} master_for={}\n", //
-           module_id, "STATUS", clock_id, is_stable(), is_minimum_age(), pet::humanize(master_for()));
+    INFOX(module_id, "STATUS", "clock_id={:#x} is_minimum_age={} is_stable={} master_for={}\n", //
+          clock_id, is_stable(), is_minimum_age(), pet::humanize(master_for()));
   }
 
   void log_timeout() const {
-    __LOGX(LCOL01 " waiting for clock_id={:#x} master_for={}\n", //
-           module_id, "TIMEOUT", clock_id, pet::humanize(master_for()));
+    INFOX(module_id, "TIMEOUT", "waiting for clock_id={:#x} master_for={}\n", //
+          clock_id, pet::humanize(master_for()));
   }
 
   static constexpr csv module_id{"CLOCK_INFO"};

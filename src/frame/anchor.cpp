@@ -21,7 +21,7 @@
 #include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "master_clock.hpp"
 
 #include <chrono>
@@ -188,8 +188,8 @@ AnchorLast Anchor::get_data(const ClockInfo clock) {
     ++not_handled;
 
     if ((not_handled == 1) || (last_report() > 500ms)) {
-      __LOG0(LCOL01 " not handled, clocks -> live={:#016x} master={:#016x}\n", //
-             module_id, "WARN", live.clock_id, clock.clock_id);
+      INFO(module_id, "WARN", "not handled, clocks -> live={:#016x} master={:#016x}\n", //
+           live.clock_id, clock.clock_id);
       last_report.reset();
     }
   }
@@ -205,103 +205,13 @@ void Anchor::handle_quick_change(const AnchorData &ad) {
   if (live.match_clock_id(ad) && !live.match_details(ad) && _last.has_value()) {
 
     if (const auto valid_for = _last->valid; valid_for < ClockInfo::AGE_STABLE) {
-      __LOG0(LCOL01 " parameters changed before clock={:#016x} stabilized, valid_for={}\n",
-             module_id, "INFO", _last->clock_id, valid_for);
+      INFO(module_id, "INFO", "parameters changed before clock={:#016x} stabilized, valid_for={}\n",
+           _last->clock_id, valid_for);
 
       _last.reset(); // last is no longer valid
     }
   }
 }
-
-/* const AnchorData &Anchor::get_data() {
-  auto clock = shared::master_clock->info();
-  auto &live = datum(Datum::live);
-  auto &source = datum(Datum::source);
-
-  if (clock.ok()) {
-
-    auto &last = datum(Datum::last);
-
-    if (live.valid()) { // live is valid
-      // the master clock and the source clock are the same
-      if (live == clock) {
-        if (live.is_new) {
-          __LOG0(LCOL01 " clock_id match, is_new={}\n", module_id, "GET_DATA", live.is_new);
-        }
-
-        if (clock.not_minimum_age()) {
-          __LOG0(LCOL01 " master clock too young age={}\n", module_id, "GET_DATA",
-                 clock.master_for());
-          // do nothing, handle which anchor to return below
-        } else if (clock.is_stable() || live.not_valid()) {
-
-          // master clock can be used if master for at least 1.5s when no other option
-          // is available
-
-          last.rtp_time = live.rtp_time;
-          last.anchor_time = live.anchor_time;
-          last.localized = pet::subtract_offset(live.anchor_time, clock.rawOffset);
-
-          if (last.valid_at == Nanos::zero()) {
-            last.valid_at = clock.mastershipStartTime;
-
-            last.localized_elapsed.reset();
-          }
-
-          if (live.is_new) {
-            __LOG(LCOL01 " clock={:#x} is now master and anchor_new={}\n", //
-                  module_id, "NEW_CLOCK", live.clock_id, live.is_new);
-            live.is_new = false;
-          }
-        }
-      } else {
-        if (live.is_new) {
-          __LOG(LCOL01 " clock={:#x} is now master _new={}\n", //
-                module_id, "NEW_CLOCK", live.clock_id, live.is_new);
-        }
-
-        // NOTE:
-        //  1. live will not be new if master clock has changed
-        //  2. Anchor::save() decides if live is new
-        if (live.valid_for_at_least(ClockInfo::AGE_STABLE) && live.not_new()) {
-          live.anchor_time = pet::datd_offset(last.anchor_time, clock.rawOffset);
-
-          // we can check how much of a deviation there was going from clock to clock and back
-          // around to the master clock
-
-          if (source == clock) {
-            auto cumulative_deviation = live.anchor_time - source.anchor_time;
-            __LOG0(LCOL01
-                   " master clock has become equal to the anchor clock. The estimated clock time "
-                   "was {} ahedat(+) or behind (-) the real clock time.",
-                   module_id, "SOURCE_CLOCK", pet::humanize(cumulative_deviation));
-            live.anchor_time = source.anchor_time;
-            live.clock_id = source.clock_id;
-            live.rtp_time = source.rtp_time;
-          } else {
-            // conn->anchor_time = conn->last_anchor_local_time + actual_offset; // alredaty done
-            live.change_clock_id(clock);
-          }
-          live.is_new = false;
-
-          // only allow live anchor change after 5s
-
-          if (source == clock) { // source clock has become master
-            live = source;
-
-          } else { // this is a new master anchor clock, just update live clock_id
-            live.change_clock_id(clock);
-          }
-        }
-      } // end of master compare to source
-
-    } // end live valid
-  }   // end clock ok
-
-  return datum(Datum::last).valid() ? datum(Datum::last) : datum(Datum::invalid);
-}
-
-*/
 
 void Anchor::save_impl(AnchorData ad) {
 
@@ -342,25 +252,22 @@ void Anchor::log_data_new(const AnchorData &ad, bool log) const {
 
     string msg;
     auto w = std::back_inserter(msg);
-    std::vector<string> lines;
 
     auto clock_future = shared::master_clock->info(Nanos::zero());
     const auto clock = clock_future.get();
 
-    lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "old",
-                                   live.clock_id, live.rtp_time, pet::humanize(live.anchor_time)));
+    fmt::format_to(w, "{:<7}: clock={:#018x} rtp_time={} anchor={}\n", "old", live.clock_id,
+                   live.rtp_time, pet::humanize(live.anchor_time));
 
-    lines.emplace_back(fmt::format("{:<7}: clock={:#018x} rtp_time={} anchor={}", "new",
-                                   ad.clock_id, ad.rtp_time, pet::humanize(ad.anchor_time)));
+    fmt::format_to(w, "{:<7}: clock={:#018x} rtp_time={} anchor={}\n", "new", ad.clock_id,
+                   ad.rtp_time, pet::humanize(ad.anchor_time));
 
-    lines.emplace_back(fmt::format("{:<7}: clock={:#018x} sample_time={}", "master", clock.clock_id,
-                                   pet::humanize(clock.sample_time())));
+    fmt::format_to(w, "{:<7}: clock={:#018x} sample_time={}\n", "master", clock.clock_id,
+                   pet::humanize(clock.sample_time()));
 
-    ranges::for_each(lines, [&w](const auto &line) { //
-      fmt::format_to(w, "{}{}\n", LOG_INDENT, line);
-    });
+    const auto chunk = INFO_FORMAT_CHUNK(msg.data(), msg.size());
 
-    __LOG0(LCOL01 " data_new={}\n{}", module_id, "INFO", data_new, msg);
+    INFO_WITH_CHUNK(module_id, "INFO", msg, "data_new={}\n", data_new);
   }
 }
 

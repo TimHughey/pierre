@@ -1,23 +1,22 @@
-/*
-Pierre - Custom audio processing for light shows at Wiss Landing
-Copyright (C) 2022  Tim Hughey
+/* Pierre - Custom audio processing for light shows at Wiss Landing
+   Copyright (C) 2022  Tim Hughey
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+   You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 #include "mdns.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "core/host.hpp"
 #include "core/service.hpp"
 #include "zservice.hpp"
@@ -105,7 +104,7 @@ void cb_client(AvahiClient *client, AvahiClientState state, [[maybe_unused]] voi
 
   switch (state) {
   case AVAHI_CLIENT_CONNECTING:
-    __LOGX(LCOL01 " connecting\n", mDNS::module_id, fn_id);
+    INFO(mDNS::module_id, fn_id, "connecting, thread={:#x}\n", pthread_self());
     break;
 
   case AVAHI_CLIENT_S_REGISTERING:
@@ -118,11 +117,11 @@ void cb_client(AvahiClient *client, AvahiClientState state, [[maybe_unused]] voi
     break;
 
   case AVAHI_CLIENT_FAILURE:
-    __LOG0(LCOL01 " client failure reason={}\n", mDNS::module_id, fn_id, error_string(_client));
+    INFO(mDNS::module_id, fn_id, "client failure reason={}\n", error_string(_client));
     break;
 
   case AVAHI_CLIENT_S_COLLISION:
-    __LOG0(LCOL01 " client name collison\n", mDNS::module_id, fn_id);
+    INFO(mDNS::module_id, fn_id, "client name collison reason={}\n", error_string(_client));
     break;
   }
 }
@@ -139,12 +138,12 @@ void cb_browse([[maybe_unused]] AvahiServiceBrowser *b, [[maybe_unused]] AvahiIf
 
   switch (event) {
   case AVAHI_BROWSER_FAILURE:
-    __LOG0(LCOL01 " error={}\n", mDNS::module_id, fn_id, error_string(b));
+    INFO(mDNS::module_id, fn_id, "error={}\n", error_string(b));
     avahi_threaded_poll_quit(_tpoll);
     break;
 
   case AVAHI_BROWSER_NEW:
-    __LOGX(LCOL01 " NEW host={} type={} domain={}\n", mDNS::module_id, fn_id, name, type, domain);
+    INFOX(mDNS::module_id, fn_id, "NEW host={} type={} domain={}\n", name, type, domain);
 
     /* We ignore the returned resolver object. In the callback
           function we free it. If the server is terminated before
@@ -163,23 +162,22 @@ void cb_browse([[maybe_unused]] AvahiServiceBrowser *b, [[maybe_unused]] AvahiIf
                                    mdns::cb_resolve,    //
                                    d);
         r == nullptr) {
-      __LOG0(LCOL01 " failed to create resolver service={} error={}\n", mDNS::module_id, fn_id,
-             type, mdns.error);
+      INFO(mDNS::module_id, fn_id, "failed to create resolver service={} error={}\n", type,
+           mdns.error);
     }
 
     break;
 
   case AVAHI_BROWSER_REMOVE:
-    __LOGX(LCOL01 " REMOVE service={} type={} domain={}\n", mDNS::module_id, fn_id, //
-           name, type, domain);
+    INFOX(mDNS::module_id, fn_id, "REMOVE service={} type={} domain={}\n", name, type, domain);
     break;
 
   case AVAHI_BROWSER_ALL_FOR_NOW:
-    __LOGX(LCOL01 " all for now\n", mDNS::module_id, fn_id);
+    INFOX(mDNS::module_id, fn_id, "all for now, name={}\n", name);
     break;
 
   case AVAHI_BROWSER_CACHE_EXHAUSTED:
-    __LOGX(LCOL01 " cache exhausted\n", mDNS::module_id, fn_id);
+    INFOX(mDNS::module_id, fn_id, "cache exhausted, name={}\n", name);
 
     break;
   }
@@ -227,7 +225,7 @@ void cb_resolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface
     mdns.found = false;
     mdns.error = error_string(avahi_service_resolver_get_client(r));
 
-    __LOG0(LCOL01 " failed reason={}\n", mDNS::module_id, fn_id, mdns.error);
+    INFO(mDNS::module_id, fn_id, "failed reason={}\n", mdns.error);
 
     break;
 
@@ -244,7 +242,7 @@ void cb_resolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface
          .protocol = avahi_proto_to_string(protocol),                                 //
          .txt_list = make_txt_list(txt)});
 
-    __LOGX(LCOL01 " {}\n", mDNS::module_id, fn_id, zcs->inspect());
+    INFOX(mDNS::module_id, fn_id, "{}\n", zcs->inspect());
 
     zcs_list.push_back(zcs);
   }
@@ -279,7 +277,7 @@ void advertise(AvahiClient *client) {
     }
 
     if (auto rc = avahi_entry_group_commit(group); rc != AVAHI_OK) {
-      __LOG0(LCOL01 " unhandled error={}\n", mDNS::module_id, fn_id, avahi_strerror(rc));
+      INFO(mDNS::module_id, fn_id, "unhandled error={}\n", avahi_strerror(rc));
     }
   }
 }
@@ -302,10 +300,10 @@ bool group_add_service(AvahiEntryGroup *group, service::Type stype, const Entrie
                                                  NULL, NULL, mDNS::port(), sl);
 
   if (rc == AVAHI_ERR_COLLISION) {
-    __LOG0(LCOL01 " AirPlay2 name in use\n", mDNS::module_id, fn_id);
+    INFO(mDNS::module_id, fn_id, "AirPlay2 name in use, name={}\n", name);
     avahi_string_list_free(sl);
   } else if (rc != AVAHI_OK) {
-    __LOG0(LCOL01 " unhandled error={}\n", mDNS::module_id, fn_id, avahi_strerror(rc));
+    INFO(mDNS::module_id, fn_id, "unhandled error={}\n", avahi_strerror(rc));
   }
 
   return (rc == AVAHI_OK) ? true : false;
@@ -320,11 +318,11 @@ bool group_reset_if_needed() {
     auto group = _groups.front();
 
     [[maybe_unused]] const auto state = avahi_entry_group_get_state(group);
-    __LOG0(LCOL01 " reset count={} front={} state={}\n", mDNS::module_id, fn_id, //
-           _groups.size(), fmt::ptr(group), state);
+    INFO(mDNS::module_id, fn_id, "reset count={} front={} state={}\n", //
+         _groups.size(), fmt::ptr(group), state);
 
     if (auto ac = avahi_entry_group_reset(group); ac != 0) {
-      __LOG0(LCOL01 " failed={}\n", mDNS::module_id, fn_id, ac);
+      INFO(mDNS::module_id, fn_id, "failed={}\n", ac);
       rc = false;
     }
   }
@@ -337,8 +335,7 @@ void group_save(AvahiEntryGroup *group) {
 
   if (_groups.size() > 0) {
     [[maybe_unused]] const auto state = avahi_entry_group_get_state(group);
-    __LOG0(LCOL01 " exists state-{} same={}\n", mDNS::module_id, //
-           fn_id, state, (_groups.front() == group));
+    INFO(mDNS::module_id, fn_id, "exists state-{} same={}\n", state, (_groups.front() == group));
     return;
   }
 
@@ -383,8 +380,7 @@ void mDNS::impl_browse(csv stype) { // static
                                           mdns::cb_browse,     // callback
                                           mdns::_client);      // userdata
       sb == nullptr) {
-    __LOG0(LCOL01 " create failed reason={}\n", mDNS::module_id, fn_id,
-           mdns::error_string(mdns::_client));
+    INFO(mDNS::module_id, fn_id, "create failed reason={}\n", mdns::error_string(mdns::_client));
   }
 }
 
@@ -413,7 +409,7 @@ void mDNS::init_self() {
 
 void mDNS::impl_update() {
   [[maybe_unused]] static constexpr csv fn_id = "UPDATE";
-  __LOGX(LCOL01, " groups={}\n", mDNS::module_id, fn_id, mdns::_groups.size());
+  INFOX(mDNS::module_id, fn_id, "groups={}\n", mdns::_groups.size());
 
   avahi_threaded_poll_lock(mdns::_tpoll); // lock the thread poll
 
@@ -421,7 +417,7 @@ void mDNS::impl_update() {
 
   const auto kvmap = Service::ptr()->keyValList(service::Type::AirPlayTCP);
   for (const auto &[key, val] : *kvmap) {
-    __LOGX(LCOL01 " {:<18}={}\n", mDNS::module_id, fn_id, key, val);
+    INFOX(mDNS::module_id, fn_id, "{:>18}={}\n", key, val);
 
     sl = avahi_string_list_add_pair(sl, key, val);
   }
@@ -441,7 +437,7 @@ void mDNS::impl_update() {
           sl                                       // string list to apply to the group
       );
       rc != 0) {
-    __LOG0(LCOL01 " failed rc={}\n", mDNS::module_id, fn_id, rc);
+    INFO(mDNS::module_id, fn_id, "failed rc={}\n", rc);
   }
 
   avahi_threaded_poll_unlock(mdns::_tpoll); // resume thread poll

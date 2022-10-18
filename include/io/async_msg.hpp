@@ -20,7 +20,8 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 
 #include <array>
 #include <functional>
@@ -35,7 +36,8 @@ namespace io {
 // async_read_msg(): reads a message, prefixed by length
 //
 
-template <typename CompletionToken> auto async_read_msg(tcp_socket &socket, CompletionToken &&token) {
+template <typename CompletionToken>
+auto async_read_msg(tcp_socket &socket, CompletionToken &&token) {
   auto initiation = [](auto &&completion_handler, tcp_socket &socket, Msg msg) {
     struct intermediate_completion_handler {
       tcp_socket &socket; // for the second async_read() and obtaining the I/O executor
@@ -48,7 +50,7 @@ template <typename CompletionToken> auto async_read_msg(tcp_socket &socket, Comp
 
         if (!ec_local) {
 
-          __LOGX(LCOL01 " state={} bytes={} reason={}\n", "ASYNC_READ_MSG", "DEBUG", state, n, ec.message());
+          INFOX("ASYNC_READ_MSG", "DEBUG", "state={} bytes={} reason={}\n", state, n, ec.message());
 
           switch (state) {
           case msg_content: {
@@ -56,7 +58,8 @@ template <typename CompletionToken> auto async_read_msg(tcp_socket &socket, Comp
 
             auto packed = msg.buff_packed();
 
-            asio::async_read(socket, packed, asio::transfer_exactly(packed.size()), std::move(*this));
+            asio::async_read(socket, packed, asio::transfer_exactly(packed.size()),
+                             std::move(*this));
 
             return; // async operation not complete yet
           }
@@ -98,9 +101,9 @@ template <typename CompletionToken> auto async_read_msg(tcp_socket &socket, Comp
     auto msg_len = msg.buff_msg_len();
     asio::async_read(socket, msg_len, asio::transfer_exactly(MSG_LEN_SIZE),
                      intermediate_completion_handler{
-                         socket,                                                        // the socket
-                         std::move(msg),                                                // the msg
-                         intermediate_completion_handler::msg_content,                  // initial state
+                         socket,                                       // the socket
+                         std::move(msg),                               // the msg
+                         intermediate_completion_handler::msg_content, // initial state
                          std::forward<decltype(completion_handler)>(completion_handler) // handler
                      });
   };
@@ -154,12 +157,13 @@ auto async_write_msg(tcp_socket &socket, M msg, CompletionToken &&token) {
     auto tx_len = msg.tx_len;
 
     // initiate the actual async operation
-    asio::async_write(socket, buff_seq, asio::transfer_exactly(tx_len),
-                      intermediate_completion_handler{
-                          socket,         // pass the socket along
-                          std::move(msg), // move the msg along
-                          std::forward<decltype(completion_handler)>(completion_handler) // forward token
-                      });
+    asio::async_write(
+        socket, buff_seq, asio::transfer_exactly(tx_len),
+        intermediate_completion_handler{
+            socket,                                                        // pass the socket along
+            std::move(msg),                                                // move the msg along
+            std::forward<decltype(completion_handler)>(completion_handler) // forward token
+        });
   };
 
   msg.serialize();

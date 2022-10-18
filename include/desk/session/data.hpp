@@ -22,8 +22,9 @@
 
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/frame.hpp"
 
@@ -47,7 +48,7 @@ public:
     _socket.emplace(io_ctx); // create the socket for new connection
     acceptor.async_accept(*_socket, [this](const error_code ec) {
       if (!ec) {
-        __LOG0(LCOL01 " handle={}\n", moduleID(), "ACCEPTED", _socket->native_handle());
+        INFO(module_id, "ACCEPTED", "handle={}\n", _socket->native_handle());
         _socket->set_option(ip_tcp::no_delay(true));
       } else {
         disconnect(ec);
@@ -71,12 +72,9 @@ public:
     });
   }
 
-  // misc debug
-  static constexpr csv moduleID() { return module_id; }
-
 private:
   void disconnect(const error_code ec) {
-    __LOG0(LCOL01 " handle={} reason={}\n", moduleID(), "DISCONNECT", _socket->native_handle(), ec.message());
+    INFO(module_id, "DISCONNECT", "handle={} reason={}\n", _socket->native_handle(), ec.message());
 
     acceptor.close();
     _socket.reset();
@@ -94,6 +92,7 @@ private:
   std::optional<tcp_socket> _socket;
 
   // misc debug
+public:
   static constexpr csv module_id{"DESK_DATA"};
 };
 

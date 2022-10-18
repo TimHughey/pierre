@@ -1,5 +1,4 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
+/*  Pierre - Custom Light Show for Wiss Landing
     Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -15,8 +14,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    https://www.wisslanding.com
-*/
+    https://www.wisslanding.com */
 
 #include "config/config.hpp"
 #include "embed/embed.hpp"
@@ -29,6 +27,10 @@
 #include <ranges>
 
 namespace pierre {
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace shared {
 std::optional<shConfig> __config;
@@ -68,7 +70,7 @@ Config::Config(const Inject &di)
   std::error_code ec;
   auto cwd = fs::current_path(ec);
 
-  __LOG0(LCOL01 " cwd={} reason={}\n", moduleID(), "CONSTRUCT", cwd.c_str(), ec.message());
+  INFO(moduleID(), "CONSTRUCT", "cwd={} reason={}\n", cwd.c_str(), ec.message());
 
   const auto file = string(CFG_FILE).append(SUFFIX);
 
@@ -91,8 +93,8 @@ Config::Config(const Inject &di)
       rc = fs::exists(stat);
     }
 
-    __LOGX(LCOL01 " {} {}\n", moduleID(), rc ? csv("FOUND") : csv("NOT FOUND"), ptf.c_str(),
-           ec ? ec.message() : csv(""));
+    INFOX(moduleID(), rc ? "FOUND" : "NOT FOUND", "{} {}\n", ptf.c_str(),
+          ec ? ec.message() : csv(""));
 
     return rc;
   };
@@ -104,7 +106,7 @@ Config::Config(const Inject &di)
 
     if (cfg_fstream.is_open()) {
       if (auto err = deserializeJson(doc, cfg_fstream); err) {
-        __LOGX(LCOL01 " failed reason={}\n", moduleID(), category, err.c_str());
+        INFO(moduleID(), category, "failed reason={}\n", err.c_str());
 
         doc.clear();
       }
@@ -112,23 +114,22 @@ Config::Config(const Inject &di)
   }
 
   if (doc.isNull()) {
-    __LOGX(LCOL01 " using fallback config\n", moduleID(), csv("CONSTRUCT"));
+    INFOX(moduleID(), "CONSTRUCT", "using fallback config\n");
     if (auto err = deserializeJson(doc, cfg::fallback()); err) {
-      __LOG0(LCOL01 " err={}\n", moduleID(), csv("FALLBACK"), err.c_str());
+      INFO(moduleID(), csv("FALLBACK"), "err={}\n", err.c_str());
     }
   }
 
   receiver_name = receiver();
 
-  __LOGX(LCOL01 " doc_used={}\n", moduleID(), csv("CONSTRUCT"), doc.memoryUsage());
+  INFOX(moduleID(), "CONSTRUCT", "doc_used={}\n", doc.memoryUsage());
 }
 
 void Config::test(const char *setting, const char *key) {
   JsonObject root = doc.as<JsonObject>();
   const char *val = root[setting][key];
 
-  __LOG0(LCOL01 " setting={} key={} val={}\n", moduleID(), csv("TEST"), //
-         setting, key, val);
+  INFO(moduleID(), "TEST", "setting={} key={} val={}\n", setting, key, val);
 }
 
 } // namespace pierre

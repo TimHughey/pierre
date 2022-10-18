@@ -18,8 +18,9 @@
 
 #include "base/anchor_data.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "frame/master_clock.hpp"
 
 #include <chrono>
@@ -69,15 +70,15 @@ string AnchorData::inspect() const {
 
 void AnchorData::log_new(const AnchorData &old, const ClockInfo &clock) const {
 
-  __LOG0(LCOL01 " new={:#016x} old={:#016x} master={:#016x}\n", module_id, "FROM_SOURCE", //
-         clock_id, old.clock_id, clock.clock_id);
+  INFO(module_id, "FROM_SOURCE", "new={:#016x} old={:#016x} master={:#016x}\n", //
+       clock_id, old.clock_id, clock.clock_id);
 }
 
 void AnchorData::log_new_master_if_needed(bool &data_new) const {
 
   if (data_new) {
-    __LOG0(LCOL01 " clock={:#016x} now master and anchor, master_for={}\n", //
-           module_id, "INFO", clock_id, pet::humanize(master_for));
+    INFO(module_id, "INFO", "clock={:#016x} now master and anchor, master_for={}\n", //
+         clock_id, pet::humanize(master_for));
 
     data_new = false;
   }

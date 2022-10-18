@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/unit.hpp"
 

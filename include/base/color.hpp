@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/minmax.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -77,13 +77,13 @@ public:
 
   Color &setBrightness(float val);
   Color &setBrightness(const Color &rhs);
-  Color &setBrightness(const MinMaxFloat &range, const float val);
+  Color &setBrightness(const min_max_float &range, const float val);
 
   Color &setHue(float val);
 
   Color &setSaturation(float val);
   Color &setSaturation(const Color &rhs);
-  Color &setSaturation(const MinMaxFloat &range, const float val);
+  Color &setSaturation(const min_max_float &range, const float val);
 
   // useful static colors
   static Color full() {

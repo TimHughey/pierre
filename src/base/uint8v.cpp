@@ -1,5 +1,4 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
+/*  Pierre - Custom Light Show for Wiss Landing
     Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -15,11 +14,11 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    https://www.wisslanding.com
-*/
+    https://www.wisslanding.com */
 
 #include "base/uint8v.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 
 #include <ranges>
 #include <string_view>
@@ -30,8 +29,7 @@ using namespace std::literals::string_view_literals;
 namespace pierre {
 
 void uint8v::dump() const {
-  __LOG0(LCOL01 " size={}\n{}{}\n", moduleId(), //
-         csv("<unspecified>"), size(), __LOG_COL2, inspect());
+  INFO(module_id_base, moduleId(), "size={}\n{}{}\n", size(), INFO_TAB, inspect());
 }
 
 string uint8v::inspect() const { // virtual
@@ -45,11 +43,10 @@ string uint8v::inspect() const { // virtual
 }
 
 string &uint8v::toByteArrayString(string &msg) const {
-  const auto filler = fmt::format(LCOL01, LBLANK, LBLANK);
 
   ranges::for_each(*this, [&, w = std::back_inserter(msg), num = 1](const auto byte) {
     if (auto last_nl = msg.find_last_of('\n'); (last_nl != string::npos) && (last_nl > 100)) {
-      fmt::format_to(w, "\n{} ", filler);
+      fmt::format_to(w, "\n{} ", INFO_TAB);
 
     } else {
       fmt::format_to(w, "{:03}[0x{:02x}] ", num, byte);

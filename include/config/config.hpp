@@ -1,5 +1,4 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
+/*  Pierre - Custom Light Show for Wiss Landing
     Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -15,12 +14,12 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    https://www.wisslanding.com
-*/
+    https://www.wisslanding.com */
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 
 #include <ArduinoJson.h>
 #include <array>
@@ -68,7 +67,7 @@ public:
 private:
   const string receiver() const {
     if (auto r = doc["pierre"]["receiver_name"].as<string_view>(); r.size()) {
-      __LOGX(LCOL01 " receiver config={}\n", moduleID(), "CONFIG", r);
+      INFOX(moduleID(), "CONFIG", "receiver config={}\n", r);
 
       if (r == csv("%h")) {
         return string(di.hostname);
@@ -92,7 +91,7 @@ private:
   // doc is guarenteed to be valid (either from a file on disk or the fallback config)
   StaticJsonDocument<MAX_DOC_SIZE> doc;
 
-  static constexpr csv module_id = "PE_CONFIG";
+  static constexpr csv module_id{"PE_CONFIG"};
 };
 
 } // namespace pierre

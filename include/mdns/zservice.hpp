@@ -18,14 +18,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
+#include "fmt/format.h"
+#include <algorithm>
 #include <any>
+#include <iterator>
 #include <memory>
 #include <ranges>
 #include <vector>
 
 namespace pierre {
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace zc {
 class Txt;

@@ -22,7 +22,7 @@
 
 #include "base/color.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <memory>
 

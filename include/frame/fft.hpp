@@ -24,11 +24,9 @@ https://www.wisslanding.com
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "peaks.hpp"
 
-#include <algorithm>
-#include <functional>
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -36,9 +34,9 @@ https://www.wisslanding.com
 
 namespace pierre {
 
-enum class FFTDirection { Reverse, Forward };
-
-enum class FFTWindow {
+namespace fft {
+enum class direction { Reverse, Forward };
+enum class window {
   Rectangle,        // rectangle (Box car)
   Hamming,          // hamming
   Hann,             // hann
@@ -51,48 +49,38 @@ enum class FFTWindow {
   Welch             // welch
 };
 
-typedef Reals Imaginary_t;
-typedef Reals WindowWeighingFactors_t;
+} // namespace fft
 
 class FFT {
 public:
-  FFT(size_t samples, float samplingFrequency);
-  ~FFT() = default;
+  FFT(const float *reals, size_t samples, const float frequency);
+
+  void compute(fft::direction dir); // computes in-place complex-to-complex FFT
+  peaks_t find_peaks();
 
   static void init();
 
-  // Computes in-place complex-to-complex FFT
-  void compute(FFTDirection dir);
-  void complexToMagnitude();
-
-  void dcRemoval(const float mean);
-
-  peaks_t find_peaks();
-  Freq freqAtIndex(size_t y);
-  Mag magAtIndex(const size_t i) const;
   void process();
-  Reals &real() { return _real; }
-
-  void windowing(FFTWindow windowType, FFTDirection dir, bool withCompensation = false);
 
 private:
-  static const float _winCompensationFactors[10];
-
-  inline float sq(const float x) const { return x * x; }
+  void complex_to_magnitude();
+  void dc_removal() noexcept;
+  Freq freq_at_index(size_t y);
+  Mag mag_at_index(const size_t i) const;
+  void windowing(fft::direction dir);
 
 private:
-  Reals _real;
-  Imaginary_t _imaginary;
-  static WindowWeighingFactors_t _wwf;
-  size_t _samples;
-  float _samplingFrequency;
+  static constexpr float sq(const float x) { return x * x; }
 
-  FFTWindow _weighingFactorsFFTWindow;
-  bool _weighingFactorsWithCompensation = false;
-  static bool _weighingFactorsComputed;
-  uint_fast8_t _power = 0;
+private:
+  // order dependent
+  const float _sampling_freq;
 
-  const size_t MAX_PEAKS = _samples >> 1;
+  const size_t _max_peaks;
+  reals_t _imaginary;
+  uint_fast8_t _power;
+
+  reals_t _reals;
 };
 
 } // namespace pierre

@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/shk.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 
 #include <cstdint>
@@ -74,7 +74,7 @@ public:
   void teardown();
 
   // utility
-  void dump(csrc_loc loc = src_loc::current());
+  void dump();
 
 private:
   StreamData _data;

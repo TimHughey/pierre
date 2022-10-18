@@ -21,6 +21,7 @@
 
 #include "desk/stats.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 
 #include <InfluxDBFactory.h>
 #include <memory>
@@ -33,7 +34,8 @@ static std::unique_ptr<influxdb::InfluxDB> db;
 void Stats::init_db_if_needed() {
   if (!db) {
     db = influxdb::InfluxDBFactory::Get(db_uri);
-    db->batchOf();
+
+    INFO(module_id, "INIT_DB", "success db={}\n", fmt::ptr(db.get()));
   }
 }
 
@@ -51,8 +53,8 @@ void Stats::operator()(stats_val v, int32_t x) noexcept {
 void Stats::operator()(stats_val v, Elapsed &e) noexcept {
 
   // filter out normal durations
-  if ((v == NEXT_FRAME) && (e < 500us)) return;
-  if ((v == RENDER_DELAY) && (e < 1s)) return;
+  // if ((v == NEXT_FRAME) && (e < 500us)) return;
+  // if ((v == RENDER_DELAY) && (e < 1s)) return;
 
   asio::post(stats_strand, [=, this, count = e().count()]() {
     init_db_if_needed();
@@ -85,7 +87,7 @@ void Stats::operator()(stats_val v, const Micros d) noexcept {
 void Stats::operator()(stats_val v, const Nanos d) noexcept {
 
   // filter out normal durations
-  if ((v == SYNC_WAIT) && (d < InputInfo::lead_time())) return;
+  // if ((v == SYNC_WAIT) && (d < InputInfo::lead_time())) return;
 
   asio::post(stats_strand, [=, this]() {
     init_db_if_needed();
@@ -96,12 +98,6 @@ void Stats::operator()(stats_val v, const Nanos d) noexcept {
                   .addTag("type", "duration")); //
   });
 }
-
-// void Stats::raw_write_int64(stats_val v, int64_t x) {
-//   init_db_if_needed()
-//
-//
-// }
 
 } // namespace desk
 } // namespace pierre

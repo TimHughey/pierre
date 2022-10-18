@@ -45,7 +45,7 @@ bool Setup::populate() {
 
   const auto has_streams = (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
 
-  __LOGX(LCOL01 " has_streams={}\n", baseID(), moduleID(), has_streams);
+  INFOX(baseID(), moduleID(), "has_streams={}\n", has_streams);
 
   if (rc && has_streams) { // followup SETUP (contains streams data)
     rc = handleStreams();
@@ -61,7 +61,7 @@ bool Setup::populate() {
     headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
     responseCode(RespCode::OK);
   } else {
-    __LOG0(LCOL01 " implementation missing for control_type=1\n", moduleID(), "WARN");
+    INFO(moduleID(), "WARN", "implementation missing for control_type={}\n", 1);
     // rHeaders().dump();
     // rdict.dump();
   }
@@ -103,7 +103,7 @@ bool Setup::handleNoStreams() {
   }
 
   if (stream.isNtpStream()) {
-    __LOG0(LCOL01 " NTP timing requested!", baseID(), moduleID());
+    INFO(baseID(), moduleID(), "NTP timing requeste, supported={}\n", false);
     return false;
   }
 
@@ -151,7 +151,7 @@ bool Setup::handleStreams() {
     // get the stream type that is starting
     auto stream_type = rdict.uint({dk::STREAMS, dk::IDX0, dk::TYPE});
 
-    __LOGX(LCOL01 " stream_type={}\n", baseID(), moduleID(), stream_type);
+    INFOX(baseID(), moduleID(), "stream_type={}\n", stream_type);
 
     // now handle the specific stream type
     switch (stream_type) {

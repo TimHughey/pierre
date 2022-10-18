@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "session/event.hpp"
+#include "base/logger.hpp"
 
 #include <algorithm>
 #include <fmt/format.h>
@@ -88,7 +89,7 @@ void Event::asyncLoop() {
 }
 
 void Event::handleEvent(size_t rx_bytes) {
-  fmt::print("{} bytes={}\n", fnName(), rx_bytes);
+  INFO("AIRPLAY SESSION", "EVENT", "bytes={}\n", rx_bytes);
 
   // the following function calls do not contain async_* calls
   accumulate(RX, rx_bytes);

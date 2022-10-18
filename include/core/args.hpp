@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 namespace pierre {
 
@@ -40,8 +40,9 @@ public:
   ArgsMap parse(int argc, char *argv[]);
 
 private:
-  ccs help_description = "Pierre is your light guy for any dance party.\n\n"
-                         "Options";
+  ccs help_description =
+      "Pierre is your light guy for any dance party.\n\n"
+      "Options";
 
   ccs daemon_arg = "daemon,b";
   ccs daemon_help = "daemon mode\nrun in background";
@@ -55,8 +56,9 @@ private:
   ccs help = "help";
   ccs help_help = "help";
   ccs pid_file = "pid-file";
-  ccs pid_file_help = R"(path
-full path to write pid file when running as daemon
-)";
+  ccs pid_file_help =
+      R"(path
+      full path to write pid file when running as daemon
+      )";
 };
 } // namespace pierre

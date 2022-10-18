@@ -19,9 +19,9 @@
 #pragma once
 
 #include "aes/aes_ctx.hpp"
-#include "base/typical.hpp"
-#include "common/ss_inject.hpp"
 #include "base/headers.hpp"
+#include "base/types.hpp"
+#include "common/ss_inject.hpp"
 
 namespace pierre {
 namespace airplay {

@@ -19,6 +19,7 @@
 */
 
 #include "reply/set_peers.hpp"
+#include "base/logger.hpp"
 #include "frame/master_clock.hpp"
 #include "reply/dict_keys.hpp"
 
@@ -29,7 +30,7 @@ namespace reply {
 bool SetPeers::populate() {
   rdict = plist();
 
-  __LOGX(LCOL01 " {}\n", REPLY_TYPE, csv("RDICT"), rdict.inspect());
+  INFOX(REPLY_TYPE, "RDICT", "{}\n", rdict.inspect());
 
   auto peers = rdict.stringArray({dk::ROOT});
   if (peers.empty()) {

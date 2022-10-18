@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "common/ss_inject.hpp"
 
 #include <memory>

@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <cstdint>
 #include <memory>

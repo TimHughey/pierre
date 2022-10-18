@@ -20,7 +20,7 @@
 
 #include "base/helpers.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -30,7 +30,7 @@
 namespace pierre {
 
 class InputInfo {
-  public:
+public:
   static constexpr uint32_t rate = 44100; // max available at the moment
   static constexpr uint8_t channels = 2;
   static constexpr uint8_t bit_depth = 16;

@@ -23,7 +23,7 @@
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/fx.hpp"
 #include "desk/session/ctrl.hpp"
 #include "desk/session/data.hpp"

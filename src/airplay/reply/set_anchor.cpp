@@ -28,7 +28,7 @@ namespace reply {
 bool SetAnchor::populate() {
   rdict = plist();
 
-  __LOGX(LCOL01 "\n{}\n", moduleID(), "DICT DUMP", rdict.inspect());
+  INFOX(moduleID(), "DICT DUMP", "\n{}\n", rdict.inspect());
 
   auto render = static_cast<bool>(rdict.uint({dk::RATE}) & 0x01);
 

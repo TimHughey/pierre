@@ -22,8 +22,9 @@
 
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/frame.hpp"
 
@@ -114,15 +115,13 @@ public:
     packed.reserve(PACKED_DEFAULT_MAX_SIZE);
 
     packed_len = serializeMsgPack(doc, packed.data(), packed.capacity());
-
-    __LOGX(LCOL01 "{}\n", module_id, "INSPECT", inspect());
   }
 
   // misc logging, debug
   virtual string inspect() const {
     string msg;
 
-    fmt::format_to(std::back_inserter(msg), " packed_len={}\n", //
+    fmt::format_to(std::back_inserter(msg), "packed_len={}\n", //
                    measureMsgPack(doc));
 
     serializeJsonPretty(doc, msg);
@@ -132,8 +131,8 @@ public:
 
   error_code log_rx(const error_code ec, const size_t bytes, const auto err) {
     if (ec || (packed_len != bytes) || err) {
-      __LOG0(LCOL01 " failed, bytes={}/{} reason={} deserialize={}\n", module_id, type, bytes, tx_len,
-             ec.message(), err.c_str());
+      INFO(module_id, type, "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
+           ec.message(), err.c_str());
     }
 
     return ec;
@@ -141,7 +140,7 @@ public:
 
   error_code log_tx(const error_code ec, const size_t bytes) {
     if (ec || (tx_len != bytes)) {
-      __LOG0(LCOL01 " failed, bytes={}/{} reason={}\n", module_id, type, bytes, tx_len, ec.message());
+      INFO(module_id, type, "failed, bytes={}/{} reason={}\n", bytes, tx_len, ec.message());
     }
 
     return ec;

@@ -24,6 +24,7 @@
 #include "ArduinoJson.hpp"
 #include "base/anchor_last.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "core/host.hpp"
@@ -122,43 +123,41 @@ void Desk::frame_render(frame_t frame) {
     return;
   }
 
-  asio::post(render_strand, [=, this]() {
-    desk::DataMsg data_msg(frame, InputInfo::lead_time());
+  // asio::post(render_strand, [=, this]() {
+  desk::DataMsg data_msg(frame, InputInfo::lead_time());
 
-    // frame->mark_rendered(); // frame is consumed, even when no connection
+  // frame->mark_rendered(); // frame is consumed, even when no connection
 
-    if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
-      active_fx = fx_factory::create<fx::MajorPeak>();
+  if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
+    active_fx = fx_factory::create<fx::MajorPeak>();
+  }
+
+  active_fx->render(frame, data_msg);
+  data_msg.finalize();
+
+  if (control) {                       // control exists
+    if (control->ready()) [[likely]] { // control is ready
+
+      io::async_write_msg(control->data_socket(), std::move(data_msg), [this](const error_code ec) {
+        // run_stats(desk::FRAMES);
+
+        if (ec) {
+          streams_deinit();
+        }
+      });
+
+    } else if (ec_last_ctrl_tx) {
+      INFO(module_id, "ERROR", "shutting down streams, ctrl={}\n", ec_last_ctrl_tx.message());
+
+      streams_deinit();
+
+    } else { // control not ready, increment stats
+      run_stats(desk::NO_CONN);
     }
-
-    active_fx->render(frame, data_msg);
-    data_msg.finalize();
-
-    if (control) {                       // control exists
-      if (control->ready()) [[likely]] { // control is ready
-
-        io::async_write_msg(control->data_socket(), std::move(data_msg),
-                            [this](const error_code ec) {
-                              // run_stats(desk::FRAMES);
-
-                              if (ec) {
-                                streams_deinit();
-                              }
-                            });
-
-      } else if (ec_last_ctrl_tx) {
-        __LOG0(LCOL01 " shutting down streams, ctrl={}\n", module_id, "ERROR",
-               ec_last_ctrl_tx.message());
-
-        streams_deinit();
-
-      } else { // control not ready, increment stats
-        run_stats(desk::NO_CONN);
-      }
-    } else { // control does not exist, initialize it
-      streams_init();
-    }
-  });
+  } else { // control does not exist, initialize it
+    streams_init();
+  }
+  // });
 }
 
 void Desk::init() { // static instance creation
@@ -172,7 +171,7 @@ void Desk::init_self() {
 
   shared::desk.emplace();
 
-  __LOG0(LCOL01 " sizeof={}\n", module_id, "INIT", sizeof(Desk));
+  INFO(module_id, "INIT", "sizeof={}\n", sizeof(Desk));
 
   std::latch latch(DESK_THREADS);
 
@@ -187,7 +186,7 @@ void Desk::init_self() {
 
   // caller thread waits until all tasks are started
   latch.wait();
-  __LOG0(LCOL01 " all threads started\n", module_id, "INIT");
+  INFO(module_id, "INIT", "threads started={}\n", shared::desk->threads.size());
 
   // start frame loop, start on any thread, waits for rendering
   asio::post(io_ctx, [this]() {
@@ -241,9 +240,7 @@ bool Desk::log_frame_timer_error(const error_code &ec, csv fn_id) const {
                       Racked::rendering());
   }
 
-  if (msg.empty() == false) {
-    __LOG0(LCOL01 " {}\n", module_id, fn_id, msg);
-  }
+  if (msg.empty() == false) INFO(module_id, fn_id, "{}\n", msg);
 
   return rc;
 }

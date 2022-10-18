@@ -21,7 +21,8 @@
 #include "aes/aes_ctx.hpp"
 #include "base/content.hpp"
 #include "base/headers.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
 #include "core/host.hpp"
@@ -66,7 +67,7 @@ private:
       : Base(di, csv("RTSP SESSION")),   // Base holds the newly connected socket
         aes_ctx(Host::ptr()->deviceID()) // create aes ctx
   {
-    __LOG0(LCOL01 " handle={}\n", moduleID(), "NEW", socket.native_handle());
+    INFO(moduleID(), "NEW", "handle={}\n", socket.native_handle());
   }
 
 public:

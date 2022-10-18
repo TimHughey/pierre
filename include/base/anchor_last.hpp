@@ -23,7 +23,7 @@
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <tuple>
 #include <utility>
@@ -59,15 +59,7 @@ public:
     auto now = pet::now_monotonic();
 
     auto frame_local_time = frame_to_local_time(timestamp);
-    diff = frame_local_time - now;
-
-    /* DEBUG
-    __LOGX(LCOL01 " localized={:^26} frame_local_time={:^26} now={:^26} diff={:^12}\n", module_id,
-           "FRAME_DIFF", pet::humanize(localized), pet::humanize(frame_local_time),
-           pet::humanize(now), pet::humanize(diff));
-
-     __LOG0(LCOL01 " diff={}\n", module_id, "FRAME_DIFF", pet::humanize(diff)); */
-    return diff;
+    return frame_local_time - now;
   }
 
   /* int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {

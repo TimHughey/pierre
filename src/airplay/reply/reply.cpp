@@ -20,8 +20,9 @@
 
 #include "reply/reply.hpp"
 #include "base/headers.hpp"
+#include "base/logger.hpp"
 #include "base/resp_code.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 
 #include <algorithm>
@@ -85,9 +86,8 @@ void Reply::log_reply(csv resp_text) {
 
   if (di.has_value()) {
     if (ranges::none_of(no_log, [&](csv m) { return di->method == m; })) {
-      __LOG0(LCOL01 " cseq={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
-             moduleID(), "REPLY", headers.getValInt(hdr_type::CSeq), _packet.size(), resp_text,
-             di->method, di->path);
+      INFO(moduleID(), "REPLY", "cseq={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
+           headers.getValInt(hdr_type::CSeq), _packet.size(), resp_text, di->method, di->path);
     }
   }
 }

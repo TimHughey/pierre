@@ -19,8 +19,8 @@ find_library(rt         NAMES rt          REQUIRED)
 find_package(fmt REQUIRED)
 
 add_library(${__target} SHARED
-  # logging
-  log.cpp 
+  # logging (threaded)
+  logger.cpp
 
   # common thread typedefs and helpers
   threads.cpp

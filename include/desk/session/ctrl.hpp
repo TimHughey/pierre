@@ -22,8 +22,9 @@
 
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/session/data.hpp"
 #include "desk/stats.hpp"
@@ -94,7 +95,7 @@ private:
   }
 
   void schedule_retry(const error_code retry_ec) {
-    __LOG0(LCOL01 " reason={}\n", moduleID(), "RETRY", retry_ec.message());
+    INFO(module_id, "RETRY", "reason={}\n", retry_ec.message());
 
     if (retry_ec != errc::operation_canceled) {
       reset(retry_ec);

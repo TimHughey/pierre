@@ -17,7 +17,7 @@
 */
 
 #include "desk/unit/pinspot.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 namespace pierre {
 

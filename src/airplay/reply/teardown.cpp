@@ -18,8 +18,9 @@
 
 #include "reply/teardown.hpp"
 #include "base/headers.hpp"
+#include "base/logger.hpp"
 #include "base/shk.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
 #include "frame/racked.hpp"
@@ -41,7 +42,6 @@ bool Teardown::populate() {
 }
 
 bool Teardown::phase1() {
-  __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 1"));
   SharedKey::clear();
   Racked::adjust_render_mode(false);
 
@@ -49,7 +49,6 @@ bool Teardown::phase1() {
 }
 
 bool Teardown::phase2() { // we've been asked to disconnect
-  __LOGX(LCOL01 " {}\n", moduleID(), csv("PHASE 2"));
   auto servers = Servers::ptr().get();
 
   Service::ptr()->receiverActive(false);

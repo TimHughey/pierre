@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/color.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
 

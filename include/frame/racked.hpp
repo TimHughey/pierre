@@ -24,9 +24,10 @@
 #include "base/anchor_last.hpp"
 #include "base/input_info.hpp"
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
@@ -72,13 +73,7 @@ public:
   bool empty() const noexcept { return size() == 0; }
 
   static void flush(FlushInfo request) { shared::racked->impl_flush(std::move(request)); }
-  static void handoff(uint8v &packet) {
-    frame_t frame = Frame::create(packet);
-
-    if (frame->state.deciphered()) {
-      asio::post(shared::racked->handoff_strand, [=]() { shared::racked->accept_frame(frame); });
-    }
-  }
+  static void handoff(uint8v &packet) { shared::racked->impl_handoff(packet); }
 
   static void init();
   const string inspect() const noexcept;
@@ -120,15 +115,16 @@ private:
         _rendering.notify_all();
       } else {
         _rendering.clear();
+        _rendering.notify_all();
       }
 
-      __LOG0(LCOL01 " was={} is={}\n", module_id, "ADJUST_RENDER", prev, render);
+      INFO(module_id, "ADJUST_RENDER", "was={} is={}\n", prev, render);
     }
   }
 
   void impl_anchor_save(bool render, AnchorData &&ad);
   void impl_flush(FlushInfo request);
-
+  void impl_handoff(uint8v &packet) noexcept;
   void impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept;
 
   void init_self();
@@ -147,6 +143,7 @@ private:
 
   void reel_wait() noexcept {
     if (racked_size() == 0) {
+      INFO(module_id, "REEL_WAIT", "waiting for a reel reels={}\n", racked_size());
       std::atomic_wait(&_racked_size, 0);
     }
   }

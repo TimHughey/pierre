@@ -21,7 +21,7 @@
 #include "base/content.hpp"
 #include "base/headers.hpp"
 #include "base/resp_code.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "core/pair/pair.h"
 

@@ -1,5 +1,4 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
+/*  Pierre - Custom Light Show for Wiss Landing
     Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -15,13 +14,13 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    https://www.wisslanding.com
-*/
+    https://www.wisslanding.com */
 
 #include "base/headers.hpp"
 #include "base/content.hpp"
+#include "base/logger.hpp"
 #include "base/resp_code.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <array>
@@ -92,8 +91,7 @@ const string_view Headers::getVal(csv want_type) const {
     return csv(search->second);
   }
 
-  __LOG0(LCOL01 " type={} not found (returning empty string)\n", moduleId, //
-         csv("GET VAL"), want_type);
+  INFO(moduleId, "GET VAL", "type={} not found (returning empty string)\n", want_type);
 
   return __EMPTY;
 }
@@ -103,8 +101,7 @@ size_t Headers::getValInt(csv want_type) const {
     return static_cast<size_t>(std::atoi(search->second.data()));
   }
 
-  __LOG0(LCOL01, " type={} not found (returning 0)\n", moduleId, //
-         csv("GETVAL INT"), want_type);
+  INFO(moduleId, "GETVAL INT", "type={} not found (returning 0)\n", want_type);
 
   return 0;
 }
@@ -134,7 +131,7 @@ size_t Headers::loadMore(const string_view view, Content &content) {
 
     ++count;
     if ((count == 0) || (count % 20)) {
-      fmt::print("{} separators not found count={}\n", fnName(), count);
+      INFO(moduleId, "LOAD_MORE", "separators not found count={}\n", count);
     }
 
     return 1;
@@ -168,9 +165,10 @@ size_t Headers::loadMore(const string_view view, Content &content) {
 
   // byte diff is negative indicating we need more data
   if (byte_diff < 0) {
-    __LOGX(LCOL01, " method={} path={} content_type={} have={} content_len={} diff={}\n", //
-           moduleId, csv("LOAD MORE"), method(),                                          //
-           path(), contentType(), view_size, contentLength(), byte_diff);
+    INFOX(moduleId, "LOAD MORE",
+          "method={} path={} content_type={} have={} content_len={} diff={}\n",
+          method(), //
+          path(), contentType(), view_size, contentLength(), byte_diff);
 
     _more_bytes = std::abs(byte_diff);
 
@@ -186,8 +184,8 @@ size_t Headers::loadMore(const string_view view, Content &content) {
   content.assign(copy_begin, copy_end);
 
   // if we've reached here then everything is as it should be
-  __LOGX(LCOL01, "complete method={} path={} content_type={} content_len={}\n", //
-         moduleId, csv("LOAD MORE"), method(), path(), contentType(), content.size());
+  INFOX(moduleId, "LOAD MORE", "complete method={} path={} content_type={} content_len={}\n", //
+        method(), path(), contentType(), content.size());
 
   return 0;
 }
@@ -219,12 +217,12 @@ void Headers::parseHeaderBlock(const string_view &view) {
       colon_pos++;                                    // skip space after the colon
       auto val = view.substr(++colon_pos, view.npos); // to eol
 
-      __LOGX(LCOL01, " key={} val={}\n", moduleId, csv("PARSE"), key, val);
+      INFOX("key={} val={}\n", moduleId, csv("PARSE"), key, val);
 
       add(key, val);
 
     } else {
-      __LOG0(LCOL01, " ignored={}\n", moduleId, csv("PARSE"), line);
+      INFO(moduleId, "PARSE", "ignored={}\n", line);
     }
   }
 }

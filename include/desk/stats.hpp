@@ -26,7 +26,7 @@
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 // #include <array>
 // #include <boost/accumulators/statistics/max.hpp>
@@ -87,10 +87,6 @@ public:
   void operator()(stats_val v, Elapsed &e) noexcept;
   void operator()(stats_val v, const Nanos d) noexcept;
   void operator()(stats_val v, const Micros d) noexcept;
-
-  // void remote_async(uint32_t async_us) {
-
-  // }
 
 private:
   void flush_if_needed();

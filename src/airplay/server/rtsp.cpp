@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "server/rtsp.hpp"
+#include "base/logger.hpp"
 #include "session/rtsp.hpp"
 
 #include <fmt/format.h>
@@ -36,8 +37,7 @@ void Rtsp::asyncLoop(const error_code ec_last) {
     // don't highlight "normal" shutdown
     if ((ec_last.value() != errc::operation_canceled) &&
         (ec_last.value() != errc::resource_unavailable_try_again)) {
-      constexpr auto f = FMT_STRING("{} {} accept failed, error={}\n");
-      fmt::print(f, runTicks(), serverId(), ec_last.message());
+      INFO("AIRPLAY", "SERVER", "accept failed, reason={}\n", ec_last.message());
     }
     // some kind of error occurred, simply close the socket
     [[maybe_unused]] error_code __ec;

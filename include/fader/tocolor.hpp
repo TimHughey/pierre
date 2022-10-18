@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/color.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "fader/color_travel.hpp"
 #include "fader/easings.hpp"
 #include "fader/fader.hpp"

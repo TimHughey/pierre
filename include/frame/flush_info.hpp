@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <fmt/format.h>
@@ -43,7 +44,9 @@ struct FlushInfo {
         from_ts(from_ts),     // since this is not an aggregate class
         until_seq(until_seq), // flush everything <=
         until_ts(until_ts)    //
-  {}
+  {
+    INFO("FLUSH_REQUEST", "RECEIVED", "{}\n", inspect());
+  }
 
   bool operator!() const noexcept { return !active; }
 
@@ -51,26 +54,25 @@ struct FlushInfo {
     return ranges::all_of(items, [this](auto x) { return x->seq_num <= until_seq; });
   }
 
-  template <typename T> bool should_keep(T item) noexcept {
+  template <typename T> bool should_flush(T item) noexcept {
     if (active) {
       // use the compare result to flip active.
       active = item->seq_num <= until_seq;
 
       if (!active) {
-        __LOG0(LCOL01 " {}\n", "FLUSH_REQUEST", "COMPLETE", inspect());
+        INFO("FLUSH_REQUEST", "COMPLETE", "{}\n", inspect());
       }
     }
 
-    return !active;
+    return active;
   }
 
   const string inspect() const {
     string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "seq_num={:<8}/{:>8}", from_seq, until_seq);
-    fmt::format_to(w, " timestamp={:<12}/{:>12}", from_ts, until_ts);
-    fmt::format_to(w, " active={}", active);
+    fmt::format_to(w, "until seq_num={:<8} timestamp={:<12} active={:<5}", //
+                   until_seq, until_ts, active);
 
     return msg;
   }

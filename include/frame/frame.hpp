@@ -23,7 +23,7 @@
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/peaks.hpp"
@@ -31,6 +31,7 @@
 #include "frame/types.hpp"
 
 #include <compare>
+#include <exception>
 #include <future>
 #include <memory>
 #include <optional>
@@ -56,12 +57,10 @@ public:
   static frame_t create(uint8v &packet) noexcept { return frame_t(new Frame(packet)); }
 
   // Public API
-  void find_peaks(uint8v &decoded);
+  void decipher(uint8v &packet, FlushInfo &flush) noexcept;
+  bool decode();
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)
-
-  bool parse(uint8v &decoded);    // parse the deciphered frame into pcm data
-  void process(uint8v &&decoded); // async find peaks via dsp (decoded is moved)
 
   void mark_rendered() { state = frame::RENDERED; }
 
@@ -71,16 +70,14 @@ public:
     return Peaks::silence(left) && Peaks::silence(right);
   }
 
-  static void shutdown();
-
   //
   // state_now();
   //
   frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time());
 
   Nanos sync_wait() const noexcept { return _sync_wait.value(); }
-  Nanos sync_wait_calc(AnchorLast &anchor) noexcept;
-  bool sync_wait_ok() const { return _sync_wait.has_value(); }
+  bool sync_wait_ok() const noexcept { return _sync_wait.has_value(); }
+  Nanos sync_wait_recalc(); // can throw if no anchor
 
   // misc debug
   const string inspect(bool full = false);
@@ -128,7 +125,7 @@ public:
 
 private:
   // order independent
-  AnchorLast _anchor;
+  std::optional<AnchorLast> _anchor;
 
 public:
   static constexpr csv module_id{"FRAME"};

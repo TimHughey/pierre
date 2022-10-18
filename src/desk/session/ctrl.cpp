@@ -19,6 +19,7 @@
 */
 
 #include "desk/session/ctrl.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "io/async_msg.hpp"
@@ -34,7 +35,7 @@ namespace desk {
 
 // general API
 void Control::connect(const error_code ec) {
-  __LOG0(LCOL01 " reason={}\n", moduleID(), "CONNECT", ec.message());
+  INFO(moduleID(), "CONNECT", "reason={}\n", ec.message());
 
   if (ec == errc::operation_canceled) { // break out when canceled
     return;
@@ -113,7 +114,7 @@ void Control::msg_loop() {
 }
 
 void Control::reset(const error_code ec) {
-  __LOG0(LCOL01 " reason={}\n", moduleID(), "RESET", ec.message());
+  INFO(moduleID(), "RESET", "reason={}\n", ec.message());
 
   if (data_session) {
     data_session->shutdown();
@@ -131,10 +132,10 @@ void Control::reset(const error_code ec) {
 
 // misc debug
 void Control::log_connected(Elapsed &elapsed) {
-  __LOG0(LCOL01 " {}:{} -> {}:{} elapsed={:0.2} handle={}\n", moduleID(), "CONNECT",
-         socket->local_endpoint().address().to_string(), socket->local_endpoint().port(),
-         remote_endpoint->address().to_string(), remote_endpoint->port(), elapsed.as<MillisFP>(),
-         socket->native_handle());
+  INFO(moduleID(), "CONNECT", "{}:{} -> {}:{} elapsed={:0.2} handle={}\n",
+       socket->local_endpoint().address().to_string(), socket->local_endpoint().port(),
+       remote_endpoint->address().to_string(), remote_endpoint->port(), elapsed.as<MillisFP>(),
+       socket->native_handle());
 }
 
 void Control::log_feedback(JsonDocument &doc) {
@@ -148,7 +149,7 @@ void Control::log_feedback(JsonDocument &doc) {
   run_stats(desk::REMOTE_LONG_ROUNDTRIP, roundtrip);
 
   // if (jitter > lead_time) {
-  //   __LOG0(LCOL01 " seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
+  //   INFO(  "seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
   //          moduleID(), "REMOTE",
   //          doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
   //          pet::as_millis_fp(jitter),     // sync_wait jitter
@@ -165,7 +166,7 @@ void Control::log_handshake(JsonDocument &doc) {
   remote_time_skew = pet::abs(remote_now - pet::now_epoch<Micros>());
   remote_ref_time = Micros(doc["ref_µs"].as<int64_t>());
 
-  __LOG0(LCOL01 " clock diff={:0.3}\n", moduleID(), "REMOTE", pet::as_millis_fp(remote_time_skew));
+  INFO(moduleID(), "REMOTE", "clock diff={:0.3}\n", pet::as_millis_fp(remote_time_skew));
 }
 
 } // namespace desk

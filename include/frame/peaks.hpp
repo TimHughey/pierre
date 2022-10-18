@@ -20,10 +20,12 @@
 
 #pragma once
 
-#include "base/typical.hpp"
-
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "frame/peak.hpp"
 
+#include <functional>
+#include <map>
 #include <memory>
 #include <type_traits>
 #include <vector>
@@ -44,10 +46,12 @@ private:
   Peaks() = default;
 
 public:
+  bool emplace(Magnitude m, Frequency) noexcept;
+
   template <class... Args> void emplace_back(Args &&...args) { _peaks.emplace_back(args...); }
 
   bool hasPeak(peak_n_t n) const {
-    // peak_n_t_t represents the peak of interest in the range of 1..max_peaks
+    // peak_n_t represents the peak of interest in the range of 1..max_peaks
     return _peaks.size() > n ? true : false;
   }
 
@@ -59,7 +63,7 @@ public:
   const Peak operator[](T freq) {
 
     // only interested in the first five peaks
-    auto found = ranges::find_if(ranges::take_view{_peaks, 5}, [freq = freq](Peak &peak) {
+    auto found = ranges::find_if(ranges::take_view{_peaks, 5}, [=](const Peak &peak) {
       return peak.greaterThanFreq(freq) ? true : false;
     });
 
@@ -67,22 +71,21 @@ public:
   }
 
   const Peak peak_n(const peak_n_t n) const {
-    Peak peak;
 
     if (hasPeak(n)) {
       const Peak check = _peaks.at(n - 1);
 
       if (check.magnitude() > Peak::mag_base.floor) {
-        peak = check;
+        return check;
       }
     }
 
-    return peak;
+    return Peak::zero();
   }
 
   static bool silence(peaks_t peaks) {
-    __LOGX(LCOL01 " use_count={} hasPeak={}\n", module_id, csv("SILENCE"), //
-           peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : false);
+    INFOX(module_id, "SILENCE", "use_count={} hasPeak={}\n", //
+          peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : false);
 
     return (peaks && peaks->hasPeak(1)) == false;
   }
@@ -91,7 +94,10 @@ public:
 
   peaks_t sort();
 
+  std::tuple<Freq, Mag> inspect() noexcept;
+
 private:
+  std::map<Magnitude, Peak, std::greater<Magnitude>> _peaks_map;
   std::vector<Peak> _peaks;
 
 public:

@@ -16,7 +16,8 @@
 //
 //  https://www.wisslanding.com
 
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "reply/all.hpp"
 
 #include <algorithm>
@@ -35,8 +36,8 @@ namespace reply {
   csv method = di.method;
   csv path = di.path;
 
-  __LOGX(LCOL01 " cseq={} method={} path={}\n", moduleId, csv("CREATE"),
-         di.headers.getVal(hdr_type::CSeq), method, path);
+  INFOX(moduleId, "CREATE", "cseq={} method={} path={}\n", di.headers.getVal(hdr_type::CSeq),
+        method, path);
 
   if (method.starts_with("CONTINUE")) {
     reply = std::make_shared<LoadMore>();
@@ -54,8 +55,7 @@ namespace reply {
       if (ranges::any_of(pair_paths, [&path = path](csv p) { return p == path; })) {
         reply = std::make_shared<Pairing>();
       } else {
-        __LOG0(LCOL01 "unhandled pairing path={}\n", moduleId, //
-               csv("CREATE"), path);
+        INFO(moduleId, "CREATE", "unhandled pairing path={}\n", path);
       }
     }
   } else if (method == csv("OPTIONS") && (path == csv("*"))) {
@@ -78,8 +78,8 @@ namespace reply {
     reply = std::make_shared<FlushBuffered>();
   } else if (reply.use_count() == 0) {
 
-    __LOG0(LCOL01 "method={} path={}]\n", moduleId, csv("FAILED"), //
-           method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
+    INFO(moduleId, "FAILED", "method={} path={}]\n", //
+         method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
 
     reply = std::make_shared<Unhandled>();
   }

@@ -1,5 +1,4 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
+/* Pierre - Custom Light Show for Wiss Landing
     Copyright (C) 2022  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
@@ -15,8 +14,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-    https://www.wisslanding.com
-*/
+    https://www.wisslanding.co */
 
 #pragma once
 

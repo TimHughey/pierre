@@ -21,6 +21,7 @@
 #include "desk/session/data.hpp"
 #include "ArduinoJson.hpp"
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "desk/data_msg.hpp"
 #include "io/async_msg.hpp"
@@ -32,10 +33,10 @@ namespace pierre {
 namespace desk {
 
 void Data::log_connected() {
-  __LOG0(LCOL01 " {}:{} -> {}:{} established, handle={}\n", moduleID(), "CONNECT",
-         _socket->remote_endpoint().address().to_string(), _socket->remote_endpoint().port(),
-         _socket->local_endpoint().address().to_string(), _socket->local_endpoint().port(),
-         _socket->native_handle());
+  INFO(module_id, "CONECT", "{}:{} -> {}:{} established, handle={}\n",
+       _socket->remote_endpoint().address().to_string(), _socket->remote_endpoint().port(),
+       _socket->local_endpoint().address().to_string(), _socket->local_endpoint().port(),
+       _socket->native_handle());
 }
 
 } // namespace desk

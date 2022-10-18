@@ -19,6 +19,7 @@
 */
 
 #include "aplist/aplist.hpp"
+#include "base/logger.hpp"
 
 #include <algorithm>
 #include <array>
@@ -201,9 +202,6 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
     return _plist;
   }
 
-  __LOGX(LCOL01 " want_type={} steps={}\n", moduleId, //
-         csv("FETCH NODE"), type, fmt::join(steps, ", "));
-
   plist_t node = _plist; // start at the root
 
   ranges::for_each(steps, [&](csv step) {
@@ -214,9 +212,6 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
       node = plist_access_path(node, 1, step.data());
     }
   });
-
-  __LOGX(LCOL01 " node={} type={}\n", moduleId, //
-         csv("FETCH NODE"), fmt::ptr(node), node ? plist_get_node_type(node) : PLIST_NONE);
 
   return (node && (type == plist_get_node_type(node))) ? node : nullptr;
 }
@@ -428,14 +423,10 @@ void Aplist::dump(csv prefix) const { dump(nullptr, prefix); }
 void Aplist::dump(plist_t sub_dict, csv prefix) const {
   auto dump_dict = (sub_dict) ? sub_dict : _plist;
 
-  if (prefix.size()) {
-    fmt::print("{}\n", prefix);
-  } else {
-    fmt::print("\n");
-  }
+  auto const prefix_str = prefix.size() ? string(prefix.data(), prefix.size()) : "DUMP";
 
   if (dump_dict == nullptr) {
-    fmt::print("DICT DUMP dict={} is empty\n", fmt::ptr(dump_dict));
+    INFO(moduleId, prefix_str, "DICT DUMP dict={}\n", fmt::ptr(dump_dict));
     return;
   }
 
@@ -447,9 +438,11 @@ void Aplist::dump(plist_t sub_dict, csv prefix) const {
   plist_to_xml(dump_dict, &buf, &bytes);
 
   if (bytes > 0) {
-    fmt::print("buf={} bytes={}\n", fmt::ptr(buf), bytes);
-    fmt::print("{}\n", buf);
+    const auto chunk = INFO_FORMAT_CHUNK(buf, bytes);
+    INFO(moduleId, prefix, "DICT DUMP dict={} bytes={}\n{}", buf, bytes, chunk);
+
   } else {
+    INFO(moduleId, prefix, "DICT DUMP FAILED dict={}\n", fmt::ptr(buf));
     fmt::print("DUMP FAILED\n");
   }
 
@@ -457,21 +450,15 @@ void Aplist::dump(plist_t sub_dict, csv prefix) const {
 }
 
 const string Aplist::inspect(plist_t what_dict) const {
-  string msg;
-  auto w = std::back_inserter(msg);
-
   auto dict = what_dict ? what_dict : _plist;
 
   char *buf = nullptr;
   uint32_t bytes = 0;
 
   plist_to_xml(dict, &buf, &bytes);
+  const auto msg = INFO_FORMAT_CHUNK(buf, bytes);
 
-  fmt::format_to(w, "dict={} bytes={}\n", fmt::ptr(dict), bytes);
-  pe_log::indent2(msg, csv(buf, bytes));
   plist_to_xml_free(buf);
-
-  // fmt::format_to(w, "{}", csv(buf, bytes));
 
   return msg;
 }

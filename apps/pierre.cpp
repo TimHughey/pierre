@@ -20,7 +20,8 @@
 
 #include "pierre.hpp"
 #include "airplay/airplay.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "config/config.hpp"
 #include "core/args.hpp"
 #include "core/host.hpp"
@@ -38,6 +39,8 @@ Pierre::Pierre(const Inject &di)
 
 // create and run all threads
 void Pierre::run() {
+  Logger::init();
+
   auto host = Host::init();
 
   auto cfg = Config::init(                   //
@@ -46,7 +49,7 @@ void Pierre::run() {
        .hostname = host->hostname()}         //
   );
 
-  __LOG0(LCOL01 " {} {}\n", module_id, csv("RUN"), cfg->receiverName(), cfg->firmwareVersion());
+  INFO(module_id, "RUN", "{} {}\n", cfg->receiverName(), cfg->firmwareVersion());
 
   Service::init();
   mDNS::init();

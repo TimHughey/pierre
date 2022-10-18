@@ -93,13 +93,13 @@ notes:
      are zeroed */
 
 // Frame Class Data
-static std::optional<Racked> _racked;
+// static std::optional<Racked> _racked;
 
 // Frame API
 Frame::Frame(uint8v &packet) noexcept           //
     : created_at(pet::now_monotonic()),         // unique created time
       lead_time(InputInfo::lead_time()),        // lead time used to calc state
-      state(frame::EMPTY),                      // frame begins life empty
+      state(frame::HEADER_PARSED),              // frame header parsed
       version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
       padding((packet[0] & 0b00100000) >> 5),   // has padding
       extension((packet[0] & 0b00010000) >> 4), // has extension
@@ -108,7 +108,15 @@ Frame::Frame(uint8v &packet) noexcept           //
       timestamp(packet.to_uint32(4, 4)),        // RTP timestamp
       ssrc(packet.to_uint32(8, 4)),             // source system record count
       m(new cipher_buff_t)                      // unique_ptr for deciphered data
-{
+{}
+
+void Frame::decipher(uint8v &packet, FlushInfo &flush) noexcept {
+  // first things first, should this Frame be processed?
+  if (flush.should_flush(shared_from_this())) {
+    state = frame::FLUSHED;
+    return;
+  }
+
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the 12 byte nonce
   // mini nonce end - 8; copy 8 bytes total
@@ -137,6 +145,7 @@ Frame::Frame(uint8v &packet) noexcept           //
 
     if ((cipher_rc >= 0) && decipher_len) {
       state = frame::DECIPHERED;
+
     } else if (decipher_len == 0) {
       state = frame::EMPTY;
     } else {
@@ -149,77 +158,30 @@ Frame::Frame(uint8v &packet) noexcept           //
   log_decipher();
 }
 
-void Frame::find_peaks(uint8v &decoded) {
-  constexpr size_t SAMPLE_BYTES = sizeof(uint16_t); // bytes per sample
+bool Frame::decode() {
+  // NOTE:  this function is only called when the frame has been deciphered
+  av::parse(shared_from_this());
 
-  FFT fft_left(samples_per_channel, InputInfo::rate);
-  FFT fft_right(samples_per_channel, InputInfo::rate);
-
-  // first things first, deinterlace the raw *uint8_t) payload into left/right reals (floats)
-  auto &real_left = fft_left.real();
-  auto &real_right = fft_right.real();
-
-  uint8_t *sptr = decoded.data(); // ptr to next sample
-  const auto interleaved_samples = std::size(decoded) / SAMPLE_BYTES;
-
-  for (size_t idx = 0; idx < interleaved_samples; ++idx) {
-    uint16_t val;
-    std::memcpy(&val, sptr, SAMPLE_BYTES); // memcpy to avoid strict aliasing rules
-    sptr += SAMPLE_BYTES;                  // increment to next sample
-
-    if ((idx % 2) == 0) { // left channel
-      real_left.emplace_back(val);
-    } else { // right channel0
-      real_right.emplace_back(val);
-    }
-  }
-
-  // now process each channel then save the peaks
-  fft_left.process();
-  fft_right.process();
-
-  peaks = std::make_tuple(fft_left.find_peaks(), fft_right.find_peaks());
-
-  uint8v empty;
-  std::swap(decoded, empty); // indirectly free decoded
-
-  state = frame::DSP_COMPLETE;
+  return state.dsp_any();
 }
 
-// Frame static functions for init and shutdown
+// Frame static functions for init
 void Frame::init() {
+  av::init();
   MasterClock::init();
   Anchor::init();
   Racked::init();
   dsp::init();
 
-  __LOG0(LCOL01 " frame sizeof={}\n", Frame::module_id, "INIT", sizeof(Frame));
+  INFO(Frame::module_id, "INIT", "frame sizeof={} lead_time={}\n", sizeof(Frame),
+       pet::humanize(InputInfo::lead_time()));
 }
-
-bool Frame::parse(uint8v &decoded) {
-  auto rc = false;
-
-  if (state == frame::DECIPHERED) {
-    av::parse(shared_from_this(), decoded);
-    rc = true;
-  }
-
-  return rc;
-}
-
-void Frame::process(uint8v &&decoded) {
-  if (state == frame::DECODED) {
-    dsp::process(shared_from_this(), std::forward<uint8v>(decoded));
-  }
-}
-
-void Frame::shutdown() { dsp::shutdown(); }
 
 frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
-  _anchor = std::move(anchor); // cache the anchor used for this calculation
+  _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
 
   std::optional<frame::state> new_state;
-  auto diff = _anchor.frame_local_time_diff(timestamp);
+  auto diff = _anchor->frame_local_time_diff(timestamp);
 
   if (diff < Nanos::zero()) {
     // first handle any outdated frames regardless of state
@@ -249,8 +211,12 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
   return state;
 }
 
-Nanos Frame::sync_wait_calc(AnchorLast &anchor) noexcept {
-  return set_sync_wait(anchor.frame_local_time_diff(timestamp));
+Nanos Frame::sync_wait_recalc() {
+  if (_anchor.has_value()) {
+    return set_sync_wait(_anchor->frame_local_time_diff(timestamp));
+  }
+
+  throw std::runtime_error("Frame::sync_wait_recalc() - no anchor\n");
 }
 
 // misc debug
@@ -262,14 +228,12 @@ const string Frame::inspect(bool full) {
     fmt::format_to(w, "vsn={} pad={} ext={} ssrc={} ", version, padding, extension, ssrc_count);
   }
 
-  fmt::format_to(w, "seq_num={:<8} ts={:<12} state={:<10} ready={}", //
-                 seq_num, timestamp, state(), state.ready());
-
-  fmt::format_to(w, " sync_wait={}",
+  fmt::format_to(w, "seq_num={:<8} ts={:<12} state={:<10} ready={:<5} sync_wait={}", //
+                 seq_num, timestamp, state(), state.ready(),
                  _sync_wait.has_value() ? pet::humanize(_sync_wait.value()) : "<no value>");
 
   // if (frame->silent()) {
-  //   fmt::format_to(w, " silence=true");
+  //   fmt::format_to(w, "silence=true");
   // }
 
   return msg;
@@ -279,10 +243,9 @@ const string Frame::inspect_safe(frame_t frame, bool full) { // static
   string msg;
   auto w = std::back_inserter(msg);
 
-  if (frame.use_count() == 0) { // shared ptr is empty
-    fmt::format_to(w, "use_count={:02}", frame.use_count());
-  } else {
-    fmt::format_to(w, "use_count={:02}", frame.use_count());
+  fmt::format_to(w, "use_count={:02}", frame.use_count());
+
+  if (frame.use_count() > 0) { // shared ptr not empty
     fmt::format_to(w, " {}", frame->inspect(full));
   }
 
@@ -290,15 +253,15 @@ const string Frame::inspect_safe(frame_t frame, bool full) { // static
 }
 
 void Frame::log_decipher() const {
-  if (state == frame::DECIPHERED) {
-    __LOGX(LCOL01 " decipher/cipher{:>6}/{:>6}\n", module_id, state(), decipher_len,
-           decoded.size());
+  if (state.deciphered()) {
+    INFOX(module_id, "DECIPHER", "decipher/cipher{:>6} / {:<6} state={}\n", module_id, decipher_len,
+          decoded.size(), state());
 
   } else if (state == frame::NO_SHARED_KEY) {
-    __LOG0(LCOL01 " decipher shared key empty\n", module_id, state());
+    INFO(module_id, "DECIPHER", "decipher shared key empty state={}\n", state());
   } else {
-    __LOG0(LCOL01 " decipher cipher_rc={} decipher_len={}\n", //
-           module_id, state(), cipher_rc, decipher_len);
+    INFO(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} state={}\n", //
+         state(), cipher_rc, decipher_len);
   }
 }
 

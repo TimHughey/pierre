@@ -18,7 +18,7 @@
 
 #include "master_clock.hpp"
 #include "base/io.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "core/host.hpp"
@@ -47,8 +47,8 @@ MasterClock::MasterClock() noexcept
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
       shm_name(make_shm_name())                                      // make shm_name
 {
-  __LOG0(LCOL01 " shm_name={} dest={}:{}\n", module_id, "CONSTRUCT", //
-         shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
+  INFO(module_id, "CONSTRUCT", "shm_name={} dest={}:{}\n", //
+       shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
 }
 
 void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_promise_ptr prom) {
@@ -87,7 +87,7 @@ void MasterClock::init_self() noexcept {
     threads.emplace_back([=, this, &latch](std::stop_token token) {
       tokens.add(std::move(token));
 
-      name_thread(module_id, n);
+      name_thread("Master Clock", n);
       latch.arrive_and_wait();
       io_ctx.run();
     });
@@ -103,7 +103,7 @@ bool MasterClock::is_mapped() const {
 
   if (!ok && attempts) {
     ++attempts;
-    __LOG0(LCOL01 " nqptp data not mapped attempts={}\n", module_id, "CLOCK_MAPPED", attempts);
+    INFO(module_id, "CLOCK_MAPPED", "nqptp data not mapped attempts={}\n", attempts);
   }
 
   return ok;
@@ -131,7 +131,7 @@ const ClockInfo MasterClock::load_info_from_mapped() {
   if (data.version != NQPTP_VERSION) {
     static string msg;
     fmt::format_to(std::back_inserter(msg), "nqptp version mismatch vsn={}", data.version);
-    __LOG0(LCOL01 " {}\n", module_id, "FATAL", msg);
+    INFO("{}\n", module_id, "FATAL", msg);
     throw(std::runtime_error(msg.c_str()));
   }
 
@@ -173,9 +173,9 @@ bool MasterClock::map_shm() {
 
       close(shm_fd); // done with the shm memory fd
 
-      __LOG0(LCOL01 " complete={}\n", module_id, "CLOCK_MAPPING", is_mapped());
+      INFO(module_id, "CLOCK_MAPPING", "complete={}\n", is_mapped());
     } else {
-      __LOG0(LCOL01 " clock shm_open failed, error={}\n", module_id, "FATAL", errno);
+      INFO(module_id, "FATAL", "clock shm_open failed, error={}\n", errno);
     }
 
     pthread_setcancelstate(prev_state, nullptr);
@@ -185,7 +185,7 @@ bool MasterClock::map_shm() {
 }
 
 void MasterClock::peers_update(const Peers &new_peers) {
-  __LOGX(LCOL01 " count={}\n", module_id, csv("NEW PEERS"), new_peers.size());
+  INFOX(module_id, "NEW PEERS", "count={}\n", new_peers.size());
 
   // queue the update to prevent collisions
   asio::post( //
@@ -203,14 +203,14 @@ void MasterClock::peers_update(const Peers &new_peers) {
 
         msg.push_back(0x00); // must be null terminated
 
-        __LOGX(LCOL01 " peers={}\n", module_id, csv("PEERS UPDATE"), msg.view());
+        INFOX(module_id, "PEERS UPDATE", "peers={}\n", msg.view());
 
         error_code ec;
         auto bytes = socket.send_to(asio::buffer(msg), remote_endpoint, 0, ec);
 
         if (ec) {
-          __LOG0(LCOL01 " send msg failed, reason={} bytes={}\n", //
-                 module_id, "PEERS_UPDATE", ec.message(), bytes);
+          INFO(module_id, "PEERS_UPDATE", "send msg failed, reason={} bytes={}\n", //
+               ec.message(), bytes);
         }
       });
 }
@@ -233,7 +233,7 @@ void MasterClock::unMap() {
 
 // misc debug
 void MasterClock::dump() {
-  __LOG0(LCOL01 " inspect info\n{}\n", module_id, "DUMP", load_info_from_mapped().inspect());
+  INFO(module_id, "DUMP", "inspect info\n{}\n", load_info_from_mapped().inspect());
 }
 
 } // namespace pierre

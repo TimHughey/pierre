@@ -19,10 +19,11 @@
 
 #pragma once
 
+#include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/types.hpp"
@@ -43,7 +44,7 @@ using Frames = std::map<timestamp_t, frame_t>;
 /// @brief Container of Frames
 class Reel {
 public:
-  static constexpr ssize_t MAX_FRAMES = 42;
+  static constexpr ssize_t MAX_FRAMES = InputInfo::fps() / 2;
 
 public:
   Reel(uint64_t serial_num) noexcept

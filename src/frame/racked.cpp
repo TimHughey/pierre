@@ -24,7 +24,7 @@
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
 #include "master_clock.hpp"
@@ -49,20 +49,9 @@ std::optional<Racked> racked;
 uint64_t Racked::REEL_SERIAL_NUM{0x1000};
 
 void Racked::accept_frame(frame_t frame) noexcept {
-  // NOTE: frame state guaranteed to be DECIPHERED
-
   asio::post(handoff_strand, [=, this]() {
-    // NOTE: FlushInfo::should_keep() will complete the flush request
-    //       when the seq_num is outside of the request
-    if (flush_request.should_keep(frame)) {
-
-      uint8v audio_data; // populated with decoded audio data
-      frame->parse(audio_data);
-
-      if (frame->state.decoded()) {
-        frame->process(std::move(audio_data)); // async, returns immediately
-        add_frame(std::move(frame));
-      }
+    if (frame->decode()) {
+      add_frame(std::move(frame));
     }
   });
 }
@@ -72,7 +61,9 @@ void Racked::add_frame(frame_t frame) noexcept {
 
   asio::post(wip_strand, [=, this, frame = std::move(frame)]() mutable {
     // create the wip reel, if needed
-    if (reel_wip.has_value() == false) reel_wip.emplace(++REEL_SERIAL_NUM);
+    if (reel_wip.has_value() == false) {
+      reel_wip.emplace(++REEL_SERIAL_NUM);
+    }
 
     reel_wip->add(frame);
 
@@ -95,7 +86,7 @@ void Racked::impl_flush(FlushInfo request) {
   // execute this on the wip strand
   asio::post(wip_strand, [=, this]() mutable {
     flush_request = request; // record the flush request
-    __LOG0(LCOL01 " REQUEST {}\n", module_id, "FLUSH", request.inspect());
+    INFO(module_id, "FLUSH", "REQUEST {}\n", request.inspect());
 
     // now, to optimize the flush let's first check if everything racked
     // is within the request.  if so, we can simply clear all racked reels
@@ -105,12 +96,12 @@ void Racked::impl_flush(FlushInfo request) {
       auto first = racked.front().peek_first();
       auto last = racked.back().peek_last();
 
-      __LOG0(LCOL01 " rack contains seq_num {:<8}/{:>8}\n", module_id, "FLUSH", first->seq_num,
-             last->seq_num);
+      INFO(module_id, "FLUSH", "rack contains seq_num {:<8}/{:>8}\n", first->seq_num,
+           last->seq_num);
 
       if (flush_request.matches<frame_t>({first, last})) {
         // yes, all racked reels are included in the flush request
-        __LOG0(LCOL01 " clearing all\n", module_id, "FLUSH");
+        INFO(module_id, "FLUSH", "clearing all reels={}\n", racked_size());
         racked.clear();
       } else {
         // ok, at least some reels contain frames to flush.
@@ -123,7 +114,7 @@ void Racked::impl_flush(FlushInfo request) {
             it++;
             racked.pop_front();
           } else {
-            __LOG0(LCOL01 " keeping {}\n", module_id, "FLUSH", reel_info);
+            INFO(module_id, "FLUSH", "keeping {}\n", reel_info);
           }
         }
       }
@@ -142,21 +133,36 @@ void Racked::impl_flush(FlushInfo request) {
   });
 }
 
+void Racked::impl_handoff(uint8v &packet) noexcept {
+  frame_t frame = Frame::create(packet);
+
+  if (frame->state.header_parsed()) {
+    frame->decipher(packet, flush_request);
+
+    if (frame->state.deciphered()) {
+      asio::post(handoff_strand, [this, frame = std::move(frame)]() { accept_frame(frame); });
+    }
+  } else {
+    INFO(module_id, "HANDOFF", "frame={}\n", frame->inspect());
+  }
+}
+
 void Racked::impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept {
   asio::post(io_ctx, [=, this, prom = std::move(prom)]() mutable {
+    reel_wait();
+
     // wait for clock to become available.
     // only a delay when:
     //  1.  at startup before first set anchor
     //  2.  master clock has changed and isn't stable
     auto clock_info = MasterClock::info().get();
 
-    reel_wait();
-
     if (racked_acquire()) {
       if (!empty()) { // a flush request may have cleared all reels
         auto frame = racked.front().peek_first();
 
         // get anchor data, hopefully clock is ready by this point
+        clock_info = MasterClock::info().get();
         auto anchor = shared::anchor->get_data(clock_info);
 
         // calc the frame state (Frame caches the anchor)
@@ -175,7 +181,7 @@ void Racked::impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept
 
       racked_release(); // we're done with the rack
     } else {
-      __LOG0(LCOL01 " waiting for racked reels\n", module_id, "TIMEOUT");
+      INFO(module_id, "TIMEOUT", "waiting for racked reels={}\n", racked_size());
       prom.set_value(frame_t());
     }
   });
@@ -196,7 +202,7 @@ void Racked::init_self() {
     _threads.emplace_back([=, this, &latch](std::stop_token token) {
       _stop_tokens.add(std::move(token));
 
-      name_thread(module_id, n);
+      name_thread("Racked", n);
       latch.arrive_and_wait();
       io_ctx.run();
     });
@@ -213,12 +219,12 @@ void Racked::monitor_wip() noexcept {
   wip_timer.async_wait( // must run on wip_strand to protect containers
       asio::bind_executor(wip_strand, [=, this](const error_code ec) {
         if (!ec && (reel_wip == serial_num)) {
-          __LOG0(LCOL01 " INCOMPLETE {}\n", module_id, "MONITOR_WIP", reel_wip->inspect());
+          INFO(module_id, "MONITOR_WIP", "INCOMPLETE {}\n", reel_wip->inspect());
           // not a timer error and reel is the same
           rack_wip();
         } else if (!ec) {
-          __LOG0(LCOL01 " expected reel={:#4x}, have reel={:#4x}\n", module_id, "MONITOR_WIP",
-                 reel_wip->_serial, serial_num);
+          INFO(module_id, "MONITOR_WIP", "expected reel={:#4x}, have reel={:#4x}\n",
+               reel_wip->_serial, serial_num);
         }
       }));
 }
@@ -260,7 +266,7 @@ void Racked::rack_wip() noexcept {
     }
 
   } else {
-    __LOG0(LCOL01 " TIMEOUT while racking {}\n", module_id, "RACK_WIP", reel_wip->inspect());
+    INFO(module_id, "RACK_WIP", "TIMEOUT while racking {}\n", reel_wip->inspect());
   }
 }
 
@@ -276,7 +282,7 @@ void Racked::log_racked(const string &wip_info) const noexcept {
 
   if ((reel_count < 3) && wip_info.empty()) {
     fmt::format_to(w, "LOW REELS   reels={:<3} wip_reel=<empty>", reel_count);
-  } else if ((reel_count >= 130) && ((reel_count % 10) == 0) && !wip_info.empty()) {
+  } else if ((reel_count >= 400) && ((reel_count % 10) == 0) && !wip_info.empty()) {
     fmt::format_to(w, "HIGH REELS  reels={:<3} wip_reel={}", reel_count, wip_info);
   } else if ((reel_count == 1) && !wip_info.empty()) {
     fmt::format_to(w, "FIRST REEL  reels={:<3} wip_reel={}", 1, wip_info);
@@ -284,7 +290,7 @@ void Racked::log_racked(const string &wip_info) const noexcept {
     fmt::format_to(w, "RACKED      reels={:<3} wip_reel={}", reel_count, wip_info);
   }
 
-  if (!msg.empty()) __LOG0(LCOL01 " {}\n", module_id, "LOG_RACKED", msg);
+  if (!msg.empty()) INFO(module_id, "LOG_RACKED", "{}\n", msg);
 }
 
 } // namespace pierre

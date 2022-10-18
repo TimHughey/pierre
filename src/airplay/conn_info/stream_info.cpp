@@ -87,11 +87,9 @@ void StreamInfo::teardown() {
   _data.dacp_id.clear();
 }
 
-void StreamInfo::dump(csrc_loc loc) {
-  const auto prefix = loc.function_name();
+void StreamInfo::dump() {
   const auto fmt_str = FMT_STRING("{:>15}={}\n");
 
-  fmt::print("{}\n", prefix);
   fmt::print(fmt_str, "shk", (_data.key.size() > 0));
   fmt::print(fmt_str, "Active-Remote", _data.active_remote);
   fmt::print(fmt_str, "DACP-ID", _data.dacp_id);

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "common/ops_mode.hpp"
 #include "conn_info/stream.hpp"
 #include "conn_info/stream_info.hpp"
@@ -53,12 +53,8 @@ private:
   using CondV = std::condition_variable;
 
 public:
-  static shConnInfo init() {
-    return shared::connInfo().emplace(new ConnInfo());
-  }
-  static shConnInfo ptr() {
-    return shared::connInfo().value()->shared_from_this();
-  }
+  static shConnInfo init() { return shared::connInfo().emplace(new ConnInfo()); }
+  static shConnInfo ptr() { return shared::connInfo().value()->shared_from_this(); }
   static void reset() { shared::connInfo().reset(); }
 
 private:

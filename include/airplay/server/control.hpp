@@ -54,8 +54,7 @@ struct hdr {
   uint8_t version() const { return (full.vpm & 0x0c) >> 6; }
 
   // misc debug
-  void dump(csrc_loc loc = src_loc::current()) const;
-  static ccs fnName(csrc_loc loc = src_loc::current()) { return loc.function_name(); }
+  void dump() const;
 };
 
 class Packet {
@@ -76,9 +75,6 @@ public:
 
   bool valid() const { return _valid; }
   const csv view() const { return csv(raw(), size()); }
-
-  // misc debug
-  static ccs fnName(src_loc loc = src_loc::current()) { return loc.function_name(); }
 
 private:
   Raw _raw;
@@ -112,7 +108,7 @@ private:
   void asyncRestOfPacket();
 
   bool isReady() const { return socket.is_open(); };
-  bool isReady(const error_code &ec, src_loc loc = src_loc::current());
+  bool isReady(const error_code &ec);
 
   void nextBlock();
 

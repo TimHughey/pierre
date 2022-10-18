@@ -31,7 +31,7 @@ bool FlushBuffered::populate() {
 
   if (false) { // debug
     rHeaders().dump();
-    rdict.dump(fnName());
+    rdict.dump("FlushBuffered::populate");
   }
 
   // from_seq and from_ts may not be present

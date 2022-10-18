@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "common/ss_inject.hpp"
 
 namespace pierre {
@@ -46,7 +47,7 @@ public:
 protected:
   void __infoAccept(const auto handle, bool log = LOG_FALSE) {
     if (log) { // log accepted connection
-      __LOG0("{} accepted connection, handle={}\n", server_id, handle);
+      INFO(server_id, "CONNECTION", "accepted handle={}\n", handle);
     }
   }
 

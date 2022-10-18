@@ -20,7 +20,7 @@
 
 #include "base/io.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -29,6 +29,9 @@
 #include <stop_token>
 
 namespace pierre {
+namespace {
+namespace ranges = std::ranges;
+}
 
 class Airplay;
 typedef std::shared_ptr<Airplay> shAirplay;

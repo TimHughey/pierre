@@ -22,7 +22,7 @@
 
 #include "base/color.hpp"
 #include "base/elapsed.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
 
@@ -91,11 +91,17 @@ public:
 
   struct MakeColor {
     struct ColorControl above_soft_ceiling {
-      .hue = {.min = 345.0, .max = 355.0, .step = 0.0001}, .brightness = {.max = 50.0, .mag_scaled = true }
+      .hue = {.min = 345.0, .max = 355.0, .step = 0.0001}, .brightness = {
+        .max = 50.0,
+        .mag_scaled = true
+      }
     };
 
     struct ColorControl generic {
-      .hue = {.min = 30.0, .max = 360.0, .step = 0.0001}, .brightness = {.max = 100.0, .mag_scaled = true }
+      .hue = {.min = 30.0, .max = 360.0, .step = 0.0001}, .brightness = {
+        .max = 100.0,
+        .mag_scaled = true
+      }
     };
   };
 
@@ -196,6 +202,9 @@ private:
   circular_buffer _prev_peaks;
   circular_buffer _main_history;
   circular_buffer _fill_history;
+
+public:
+  static constexpr csv module_id{"MAJOR_PEAK"};
 };
 
 } // namespace fx

@@ -21,8 +21,9 @@
 #include "base/anchor_data.hpp"
 #include "base/anchor_last.hpp"
 #include "base/clock_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <array>
 #include <memory>
@@ -52,7 +53,7 @@ public:
 
   // misc debug
   static void dump(Datum dat = Datum::live) {
-    __LOG0(LCOL01 " dat={}\n{}\n", module_id, "DUMP", dat, shared::anchor->cdatum(dat).inspect());
+    INFO(module_id, "DUMP", "dat={}\n{}\n", dat, shared::anchor->cdatum(dat).inspect());
   }
 
 private:

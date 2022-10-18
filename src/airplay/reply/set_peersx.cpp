@@ -24,7 +24,9 @@
 
 #include <ranges>
 
+namespace {
 namespace ranges = std::ranges;
+}
 
 namespace pierre {
 namespace airplay {
@@ -35,7 +37,7 @@ bool SetPeersX::populate() {
 
   MasterClock::Peers peer_list;
   const auto count = rdict.arrayItemCount({dk::ROOT});
-  __LOGX(LCOL01 " count={}\n", moduleId, csv("POPULATE"), count);
+  INFOX(moduleId(), "POPULATE", "count={}\n", count);
 
   for (uint32_t idx = 0; idx < count; idx++) {
     auto idxs = fmt::format("{}", idx);

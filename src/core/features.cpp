@@ -18,20 +18,23 @@
 
 #include "features.hpp"
 
+#include "algorithm"
 #include <ranges>
 #include <vector>
 
 namespace pierre {
 
 using namespace ft;
+namespace {
 namespace ranges = std::ranges;
+}
 
 Features::Features() {
-  auto set_bits = std::vector{
-      b48TransientPairing, b47PeerManagement,         b46HomeKitPairing,   b41PTPClock,
-      b40BufferedAudio,    b30UnifiedAdvertisingInfo, b22AudioUnencrypted, b20ReceiveAudioAAC_LC,
-      b19ReceiveAudioALAC, b18ReceiveAudioPCM,        b17AudioMetaTxtDAAP, b16AudioMetaProgress,
-      b15AudioMetaCovers,  b14MFiSoft_FairPlay,       b09AirPlayAudio};
+  auto set_bits = std::vector{b48TransientPairing, b47PeerManagement,     b46HomeKitPairing,
+                              b41PTPClock,         b40BufferedAudio,      b30UnifiedAdvertisingInfo,
+                              b22AudioUnencrypted, b20ReceiveAudioAAC_LC, b19ReceiveAudioALAC,
+                              b18ReceiveAudioPCM,  b17AudioMetaTxtDAAP,   b16AudioMetaProgress,
+                              b15AudioMetaCovers,  b14MFiSoft_FairPlay,   b09AirPlayAudio};
 
   ranges::for_each(set_bits, [&](const auto bit) { ap2_default.set(bit); });
 

@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <bitset>
 

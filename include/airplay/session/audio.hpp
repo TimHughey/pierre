@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
 #include "session/base.hpp"
@@ -38,7 +38,7 @@ class Audio; // forward decl for shared_ptr def
 typedef std::shared_ptr<Audio> shAudio;
 
 class Audio : public Base, public std::enable_shared_from_this<Audio> {
-  public:
+public:
   static shAudio start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
@@ -50,25 +50,28 @@ class Audio : public Base, public std::enable_shared_from_this<Audio> {
     return session;
   }
 
-  private:
+private:
   Audio(const Inject &di) noexcept;
 
-  public:
+public:
   // initiates async audio buffer loop
   void asyncLoop() override; // see .cpp file for critical function details
   void teardown() override;
 
-  private:
+private:
   void asyncRxPacket();
   uint16_t packetLength();
   void stats();
 
-  private:
+private:
   // order dependent
   steady_timer timer;
 
   uint8v packet_len_buffer;
   uint8v packet_buffer;
+
+public:
+  static constexpr csv moduie_id{"AUDIO_SESSION"};
 };
 
 } // namespace session

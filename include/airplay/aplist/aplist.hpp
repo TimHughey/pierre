@@ -19,12 +19,13 @@
 #pragma once
 
 #include "base/content.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 
 #include <array>
 #include <cstdarg>
 #include <exception>
+#include <fmt/format.h>
 #include <list>
 #include <memory>
 #include <plist/plist++.h>

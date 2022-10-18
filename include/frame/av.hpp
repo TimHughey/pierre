@@ -27,7 +27,7 @@ namespace av {
 
 extern void init(); // throws on alloc failures
 extern uint8_t *m_buffer(cipher_buff_ptr &m);
-extern void parse(frame_t frame, uint8v &decoded);
+extern void parse(frame_t frame);
 
 } // namespace av
 } // namespace pierre

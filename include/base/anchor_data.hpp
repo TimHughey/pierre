@@ -21,8 +21,9 @@
 #include "base/clock_info.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <any>
 #include <tuple>
@@ -54,7 +55,7 @@ struct AnchorData {
         rtp_time(static_cast<uint32_t>(rtp_time)),      // rtp time is 32 bits
         anchor_time(Seconds(secs) + Nanos(fracs >> 32)) // combine secs and fracs
   {
-    __LOGX(LCOL01 " anchor_time={}\n", module_id, "DEBUG", pet::humanize(anchor_time));
+    INFOX(module_id, "DEBUG", "anchor_time={}\n", pet::humanize(anchor_time));
   }
 
   AnchorData() = default;

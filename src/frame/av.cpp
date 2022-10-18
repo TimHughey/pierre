@@ -20,9 +20,10 @@
 #include "base/io.hpp"
 #include "base/shk.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
+#include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
 #include "libav.hpp"
@@ -50,7 +51,6 @@ AVCodec *codec = nullptr;
 AVCodecContext *codec_ctx = nullptr;
 int codec_open_rc = -1;
 AVCodecParserContext *parser_ctx = nullptr;
-
 SwrContext *swr = nullptr;
 
 constexpr std::ptrdiff_t ADTS_HEADER_SIZE = 7;
@@ -66,7 +66,7 @@ constexpr auto AV_CH_LAYOUT = AV_CH_LAYOUT_STEREO;
 void debug_dump();
 void log_discard(cipher_buff_t *m, size_t decipher_len, int used, AVPacket *pkt);
 
-template <typename T> constexpr T *check_nullptr(T *ptr) {
+template <typename T> static constexpr T *check_nullptr(T *ptr) {
   if (ptr == nullptr) {
     debug_dump();
     throw std::runtime_error("allocate failed");
@@ -86,7 +86,7 @@ void debug_dump() {
   fmt::format_to(w, f, "AVCodecParserContext", fmt::ptr(parser_ctx));
   fmt::format_to(w, f, "SwrContext", fmt::ptr(swr));
 
-  __LOG0(LCOL01 "\n {}\n", module_id, csv("DEBUG DUMP"), msg);
+  INFO(module_id, "DEBUG DUMP", "\n {}\n", msg);
 }
 
 void init() {
@@ -98,6 +98,9 @@ void init() {
 
     codec_ctx = avcodec_alloc_context3(codec);
     check_nullptr(codec_ctx);
+
+    // codec_ctx->thread_count = 3;
+    // codec_ctx->thread_type = FF_THREAD_FRAME;
 
     codec_open_rc = avcodec_open2(codec_ctx, codec, nullptr);
     if (codec_open_rc < 0) {
@@ -130,34 +133,32 @@ void log_discard(frame_t frame, int used, AVPacket *pkt) {
   auto w = std::back_inserter(msg);
 
   if ((used < 0) || (used != enc_size)) {
-    frame->state = frame::DECIPHER_FAILURE;
+    frame->state = frame::PARSE_FAILURE;
 
     fmt::format_to(w, "used={:<6} size={:<6} diff={:+6}", used, enc_size, enc_size - used);
 
-  } else if (pkt->size == 0) {
-    frame->state = frame::DECODE_FAILURE;
+    if (pkt->size == 0) {
+      auto m = frame->m->data();
+      for (auto idx = 0; idx < enc_size; idx++) {
+        if ((idx % 5) || (idx == 0)) { // new bytes row
+          fmt::format_to(w, "\n");
+        }
 
-    auto m = frame->m->data();
-    for (auto idx = 0; idx < enc_size; idx++) {
-      if ((idx % 5) || (idx == 0)) { // new bytes row
-        fmt::format_to(w, "\n{} ", __LOG_PREFIX);
+        fmt::format_to(w, "[{:<02}]0x{:<02x} ", idx, m[idx]);
       }
-
-      fmt::format_to(w, "[{:<02}]0x{:<02x} ", idx, m[idx]);
     }
   }
 
-  __LOG0(LCOL01 " {} {}\n", module_id, "DISCARD", frame->state(), msg);
+  const auto chunk = INFO_FORMAT_CHUNK(msg.data(), msg.size());
+  INFO(module_id, "DISCARD", "{}\n{}", frame->state(), msg);
 }
 
 // leave space for ADTS header
 
 uint8_t *m_buffer(cipher_buff_ptr &m) { return m->data() + ADTS_HEADER_SIZE; }
 
-void parse(frame_t frame, uint8v &decoded) {
+void parse(frame_t frame) {
   auto pkt = check_nullptr(av_packet_alloc());
-  uint8_t *pcm_audio;
-  int dst_linesize = 0;
 
   auto decipher_len = frame->decipher_len;
 
@@ -175,15 +176,15 @@ void parse(frame_t frame, uint8v &decoded) {
   m[5] = ((encoded_size & 7) << 5) + 0x1F;
   m[6] = 0xFC;
 
-  auto used = av_parser_parse2(parser_ctx,     // parser ctx
-                               codec_ctx,      // codex ctx
-                               &pkt->data,     // ptr to the pkt (parsed data)
-                               &pkt->size,     // ptr size of the pkt (parsed data)
-                               m,              // deciphered (unchanged by parsing)
-                               encoded_size,   // deciphered size + ADTS header
-                               AV_NOPTS_VALUE, // pts
-                               AV_NOPTS_VALUE, // dts
-                               0);             // pos
+  auto used = av_parser_parse2(parser_ctx,      // parser ctx
+                               codec_ctx,       // codex ctx
+                               &pkt->data,      // ptr to the pkt (parsed data)
+                               &pkt->size,      // ptr size of the pkt (parsed data)
+                               m,               // deciphered (unchanged by parsing)
+                               encoded_size,    // deciphered size + ADTS header
+                               AV_NOPTS_VALUE,  // pts
+                               AV_NOPTS_VALUE,  // dts
+                               AV_NOPTS_VALUE); // pos
 
   if ((used < 0) || std::cmp_not_equal(used, encoded_size) || (pkt->size == 0)) {
     log_discard(frame, used, pkt);
@@ -191,74 +192,73 @@ void parse(frame_t frame, uint8v &decoded) {
     return;
   }
 
-  int ret = 0; // re-used for av* calls
-  ret = avcodec_send_packet(codec_ctx, pkt);
-
-  if (ret < 0) {
-    __LOG0("{:<18} AV send packet failed decipher_len={} size={} flags={:#b} rc=0x{:x}\n", //
-           module_id, decipher_len, pkt->size, pkt->flags, ret);
+  if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
+    INFO(module_id, "SEND_PACKET", "FAILED decipher_len={} size={} flags={:#b} rc={}\n", //
+         decipher_len, pkt->size, pkt->flags, rc);
+    frame->state = frame::DECODE_FAILURE;
+    av_packet_free(&pkt);
     return;
   }
 
-  auto decoded_frame = check_nullptr(av_frame_alloc());
-  ret = avcodec_receive_frame(codec_ctx, decoded_frame);
-
-  if (ret != 0) {
-    __LOG0("{:<18} avcodec_receive_frame={}\n", module_id, ret);
+  auto audio_frame = check_nullptr(av_frame_alloc());
+  if (auto rc = avcodec_receive_frame(codec_ctx, audio_frame); rc != 0) {
+    INFO("FAILED rc={}\n", module_id, "RECV_FRAME", rc);
     av_packet_free(&pkt);
     return;
   }
 
   frame->channels = codec_ctx->channels;
+  frame->samples_per_channel = audio_frame->nb_samples;
 
-  int err = av_samples_alloc(&pcm_audio,                // pointer to PCM samples
-                             &dst_linesize,             // pointer to calculated linesize ?
-                             frame->channels,           // num of channels
-                             decoded_frame->nb_samples, // num of samples
-                             AV_FORMAT_OUT,             // desired format (see const above)
-                             0);                        // default alignment
+  // int err = av_samples_alloc(&pcm_audio,              // pointer to PCM samples
+  //                            &dst_linesize,           // pointer to calculated linesize ?
+  //                            frame->channels,         // num of channels
+  //                            audio_frame->nb_samples, // num of samples
+  //                            AV_FORMAT_OUT,           // desired format (see const above)
+  //                            0);                      // default alignment
+  //
+  // if (err >= 0) {
+  //   frame->samples_per_channel = swr_convert(         // perform the software resample
+  //       swr,                                          // software resample ctx
+  //       &pcm_audio,                                   // put processed samples here
+  //       audio_frame->nb_samples,                      // output this many samples
+  //       (const uint8_t **)audio_frame->extended_data, // process data at this ptr
+  //       audio_frame->nb_samples);                     // process this many samples
+  //
+  //   auto dst_bufsize = av_samples_get_buffer_size // determine required buffer
+  //       (&dst_linesize,                           // calc'ed linesize
+  //        frame->channels,                         // num of channels
+  //        frame->samples_per_channel,              // num of samples/channel (from swr_convert)
+  //        AV_FORMAT_OUT,                           // desired format (see const above)
+  //        0);                                      // default alignment
 
-  if (err >= 0) {
-    frame->samples_per_channel = swr_convert(           // perform the software resample
-        swr,                                            // software resample ctx
-        &pcm_audio,                                     // put processed samples here
-        decoded_frame->nb_samples,                      // output this many samples
-        (const uint8_t **)decoded_frame->extended_data, // process data at this ptr
-        decoded_frame->nb_samples);                     // process this many samples
+  static bool reported = false;
+  if (!reported) {
+    // INFO(  "err={} ch={} linesize={:<5} samples/ch={:<5} dst_buffsize={:<5}\n", //
+    //        module_id, "INFO", err, frame->channels, dst_linesize, frame->samples_per_channel,
+    //        dst_bufsize);
 
-    auto dst_bufsize = av_samples_get_buffer_size // determine required buffer
-        (&dst_linesize,                           // calc'ed linesize
-         frame->channels,                         // num of channels
-         frame->samples_per_channel,              // num of samples/channel (from swr_convert)
-         AV_FORMAT_OUT,                           // desired format (see const above)
-         0);                                      // default alignment
+    const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-    static bool reported = false;
-    if (!reported) {
-      __LOG0(LCOL01 " ret={} channels={} linesize={:<5} samples/channel={:<5} dst_buffsize={:<5}\n",
-             module_id, "INFO", ret, frame->channels, dst_linesize, frame->samples_per_channel,
-             dst_bufsize);
-      reported = true;
-    }
-
-    if (dst_bufsize > 0) { // put PCM data into decoded
-      decoded.reserve(dst_bufsize);
-      ranges::copy_n(pcm_audio, dst_bufsize, std::back_inserter(decoded));
-
-      frame->state = frame::DECODED;
-    } else {
-    }
-  } else {
-    std::array<char, AV_ERROR_MAX_STRING_SIZE> err_str{0};
-    av_make_error_string(err_str.data(), err_str.size(), err);
-
-    __LOG0(LCOL01 " av_samples_alloc() error={}\n", module_id, "PARSE", err_str.data());
+    INFO(module_id, "INFO",
+         "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}\n",
+         fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
+         audio_frame->nb_samples, audio_frame->format, audio_frame->flags);
+    reported = true;
   }
 
-  av_frame_free(&decoded_frame);
-  av_free(pcm_audio);
+  if (audio_frame->flags == 0) {
+    frame->state = frame::DECODED;
+    const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-  // we're done with m, reset (free) it
+    FFT left(data[0], frame->samples_per_channel, audio_frame->sample_rate);
+    FFT right(data[1], frame->samples_per_channel, audio_frame->sample_rate);
+
+    // this goes async
+    dsp::process(frame, std::move(left), std::move(right));
+  }
+
+  av_frame_free(&audio_frame);
   frame->m.reset();
 }
 

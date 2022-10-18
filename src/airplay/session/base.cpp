@@ -18,7 +18,8 @@
 
 #include "session/base.hpp"
 #include "base/io.hpp"
-#include "base/typical.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -30,7 +31,7 @@ namespace airplay {
 namespace session {
 
 Base::~Base() {
-  __LOGX(LCOL01 "shutdown handle={}\n", moduleID(), socket.native_handle());
+  INFOX(moduleID(), "DESTRUCT", "shutdown handle={}\n", socket.native_handle());
 
   [[maybe_unused]] error_code ec; // must use error_code overload to prevent throws
   socket.shutdown(tcp_socket::shutdown_both, ec);
@@ -52,8 +53,7 @@ bool Base::isReady(const error_code &ec) {
       break;
 
     default:
-      __LOG0(LCOL01, " socket={} reason={}\n", moduleID(), csv("NOT READY"), socket.native_handle(),
-             ec.message());
+      INFO(moduleID(), "NOT READY", "socket={} reason={}\n", socket.native_handle(), ec.message());
 
       socket.shutdown(tcp_socket::shutdown_both);
       socket.close();

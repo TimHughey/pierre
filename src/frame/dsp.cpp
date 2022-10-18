@@ -17,18 +17,20 @@
 //  https://www.wisslanding.com
 
 #include "dsp.hpp"
-#include "av.hpp"
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "config/config.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
 #include "peaks.hpp"
 #include "types.hpp"
 
+#include <algorithm>
 #include <latch>
-#include <mutex>
+#include <ranges>
+#include <vector>
 
 namespace pierre {
 
@@ -54,8 +56,7 @@ static constexpr csv module_id{"DSP"};
 // order independent
 static Thread thread_main;
 static Threads threads;
-static std::stop_token stop_token;
-static std::once_flag once_flag;
+static std::vector<std::stop_token> stop_tokens;
 
 // initialize the thread pool for digital signal analysis
 void init() {
@@ -65,15 +66,19 @@ void init() {
   std::latch latch{thread_count};
 
   for (auto n = 0; n < thread_count; n++) {
+    static bool fft_initialized = false;
     // notes:
     //  1. start DSP processing threads
-    threads.emplace_back([=, &latch](std::stop_token token) {
-      std::call_once(once_flag, [&token]() mutable {
-        av::init();
-        stop_token = token;
-      });
-
+    threads.emplace_back([=, &latch](std::stop_token token) mutable {
       name_thread(thread_prefix, n);
+
+      stop_tokens.emplace_back(token);
+
+      if (fft_initialized == false) {
+        fft_initialized = true;
+        asio::post(io_ctx, []() { FFT::init(); });
+      }
+
       latch.count_down();
       io_ctx.run(); // dsp (frame) io_ctx
     });
@@ -86,8 +91,17 @@ void init() {
 }
 
 // perform digital signal analysis on a Frame
-void process(frame_t frame, uint8v &&decoded) {
-  asio::post(io_ctx, [=, decoded = std::move(decoded)]() mutable { frame->find_peaks(decoded); });
+void process(frame_t frame, FFT left, FFT right) {
+
+  asio::post(io_ctx, [=, left = std::move(left), right = std::move(right)]() mutable {
+    frame->state = frame::DSP_IN_PROGRESS;
+
+    left.process();
+    right.process();
+
+    frame->peaks = std::make_tuple(left.find_peaks(), right.find_peaks());
+    frame->state = frame::DSP_COMPLETE;
+  });
 }
 
 // shutdown thread pool and wait for all threads to stop
@@ -106,13 +120,13 @@ void watch_dog() {
     if (ec == errc::success) { // unless success, fall out of scape
 
       // check if any thread has received a stop request
-      if (stop_token.stop_requested()) {
+      if (ranges::any_of(stop_tokens, [](auto &token) { return token.stop_requested(); })) {
         io_ctx.stop();
       } else {
         watch_dog();
       }
     } else {
-      __LOG0(LCOL01 " going out of scope reason={}\n", module_id, "WATCH_DOG", ec.message());
+      INFO(module_id, "WATCH_DOG", "going out of scope reason={}\n", ec.message());
     }
   });
 }

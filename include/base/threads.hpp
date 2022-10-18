@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "base/typical.hpp"
+#include "base/types.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -32,6 +32,10 @@
 #include <vector>
 
 namespace pierre {
+namespace {
+namespace ranges = std::ranges;
+}
+
 using Threads = std::vector<Thread>;
 
 void name_thread(csv name);

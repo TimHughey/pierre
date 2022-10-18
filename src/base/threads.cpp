@@ -17,13 +17,14 @@
 //  https://www.wisslanding.com
 
 #include "threads.hpp"
+#include "base/logger.hpp"
 
 namespace pierre {
 
 void name_thread(csv name) {
   const auto handle = pthread_self();
 
-  __LOGX(LCOL01 " {:<16} handle={:#x}\n", "BASE", "NAME THREAD", name, handle);
+  INFOX("THREADS", "NAME_THREAD", "{:<16} handle={:#x}\n", name, handle);
 
   pthread_setname_np(handle, name.data());
 }

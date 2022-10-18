@@ -22,7 +22,7 @@
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 
 #include <array>

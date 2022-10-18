@@ -21,7 +21,7 @@
 #pragma once
 
 #include "base/color.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "fader/tocolor.hpp"
 
 namespace pierre {

@@ -22,7 +22,7 @@
 
 #include "base/elapsed.hpp"
 #include "base/pet.hpp"
-#include "base/typical.hpp"
+#include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/frame.hpp"
 #include "io/msg.hpp"
