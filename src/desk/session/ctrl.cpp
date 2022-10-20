@@ -92,7 +92,7 @@ void Control::handshake_reply(Port port) {
 
   ctrl_msg.add_kv("idle_shutdown_ms", 30000);
   ctrl_msg.add_kv("lead_tims_us", lead_time.count());
-  ctrl_msg.add_kv("ref_µs", pet::reference<Micros>().count());
+  ctrl_msg.add_kv("ref_µs", pet::now_monotonic<Micros>().count());
   ctrl_msg.add_kv("data_port", port);
 
   io::async_write_msg(*socket, std::move(ctrl_msg),
@@ -145,7 +145,7 @@ void Control::log_feedback(JsonDocument &doc) {
   run_stats(desk::REMOTE_JITTER, Micros(doc["jitter_µs"]));
   run_stats(desk::REMOTE_ELAPSED, Micros(doc["elapsed_µs"]));
 
-  auto roundtrip = pet::reference<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
+  auto roundtrip = pet::now_realtime<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
   run_stats(desk::REMOTE_LONG_ROUNDTRIP, roundtrip);
 
   // if (jitter > lead_time) {
@@ -163,10 +163,10 @@ void Control::log_feedback(JsonDocument &doc) {
 
 void Control::log_handshake(JsonDocument &doc) {
   auto remote_now = Micros(doc["now_µs"].as<int64_t>());
-  remote_time_skew = pet::abs(remote_now - pet::now_epoch<Micros>());
+  remote_time_skew = pet::abs(remote_now - pet::now_realtime<Micros>());
   remote_ref_time = Micros(doc["ref_µs"].as<int64_t>());
 
-  INFO(moduleID(), "REMOTE", "clock diff={:0.3}\n", pet::as_millis_fp(remote_time_skew));
+  INFO(moduleID(), "REMOTE", "clock diff={:0.3}\n", pet::as<MillisFP, Micros>(remote_time_skew));
 }
 
 } // namespace desk

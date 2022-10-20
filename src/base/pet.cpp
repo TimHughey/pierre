@@ -46,20 +46,24 @@ string pet::humanize(Nanos d) {
     d -= as<Nanos>(x);
   }
 
-  auto ms = as_millis_fp(d);
+  auto ms = as<MillisFP>(d);
   fmt::format_to(w, "{:0.2}", ms);
 
   return msg;
 }
 
-Nanos pet::now_nanos() {
+static Nanos __clock_now(int clock_type) { // .cpp static function
   struct timespec tn;
-  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+  clock_gettime(clock_type, &tn);
 
-  uint64_t secs_part = tn.tv_sec * NS_FACTOR.count();
+  uint64_t secs_part = tn.tv_sec * pet::NS_FACTOR.count();
   uint64_t ns_part = tn.tv_nsec;
 
   return Nanos(secs_part + ns_part);
 }
+
+Nanos pet::_monotonic() { return __clock_now(CLOCK_MONOTONIC_RAW); } // static
+Nanos pet::_realtime() { return __clock_now(CLOCK_REALTIME); }       // static
+Nanos pet::_boottime() { return __clock_now(CLOCK_BOOTTIME); }       // static
 
 } // namespace pierre

@@ -27,7 +27,9 @@
 #include "base/pet.hpp"
 
 #include <chrono>
+#include <compare>
 #include <cstdint>
+#include <type_traits>
 
 namespace pierre {
 
@@ -35,12 +37,11 @@ class Elapsed {
 public:
   Elapsed(void) noexcept : nanos(pet::now_monotonic()) {}
 
-  template <typename T> T as() const { return pet::as_duration<Nanos, T>(elapsed()); }
-  SecondsFP asSecs() const { return pet::as_secs(elapsed()); }
+  template <typename TO> TO as() const { return pet::as<TO>(elapsed()); }
 
   Elapsed &freeze() {
+    nanos = elapsed();
     frozen = true;
-    nanos = pet::elapsed_abs(nanos);
     return *this;
   }
 
@@ -48,22 +49,29 @@ public:
 
   Nanos operator()() const { return elapsed(); }
 
-  template <typename T> bool operator>(const T &rhs) const noexcept { return elapsed() > rhs; }
-  template <typename T> bool operator>=(const T &rhs) const noexcept { return elapsed() >= rhs; }
-  template <typename T> bool operator<(const T &rhs) const noexcept { return elapsed() < rhs; }
-  template <typename T> bool operator<=(const T &rhs) const noexcept { return elapsed() <= rhs; }
+  std::strong_ordering operator<=>(auto rhs) const noexcept {
+    if (elapsed() < rhs) return std::strong_ordering::less;
+    if (elapsed() > rhs) return std::strong_ordering::greater;
+
+    return std::strong_ordering::equal;
+  }
+
+  // template <typename T> bool operator>(const T &rhs) const noexcept { return elapsed() > rhs; }
+  // template <typename T> bool operator>=(const T &rhs) const noexcept { return elapsed() >= rhs; }
+  // template <typename T> bool operator<(const T &rhs) const noexcept { return elapsed() < rhs; }
+  // template <typename T> bool operator<=(const T &rhs) const noexcept { return elapsed() <= rhs; }
 
   void reset() { *this = Elapsed(); }
 
 private:
-  Nanos elapsed() const { return frozen ? nanos : pet::elapsed_abs(nanos); }
+  Nanos elapsed() const { return frozen ? nanos : pet::now_monotonic() - nanos; }
 
 private:
   Nanos nanos;
   bool frozen = false;
 };
 
-class elapsedMillis {
+/* class elapsedMillis {
 public:
   elapsedMillis(void) { _ms = millis(); }
   elapsedMillis(const elapsedMillis &orig) : _ms(orig._ms), _frozen(orig._frozen) {}
@@ -112,11 +120,11 @@ private:
   uint32_t _ms;
   bool _frozen = false;
 
-  uint32_t millis() const { return pet::now_steady<Millis>().count(); }
+  uint32_t millis() const { return pet::now_monotonic<Millis>().count(); }
   inline uint32_t val() const { return (_frozen) ? (_ms) : (millis() - _ms); }
-};
+}; */
 
-class elapsedMicros {
+/* class elapsedMicros {
 public:
   elapsedMicros(void) : _us(micros()) {}
   elapsedMicros(const elapsedMicros &rhs) : _us(rhs._us), _frozen(rhs._frozen) {}
@@ -188,6 +196,6 @@ private:
   uint64_t micros() const { return pet::now_steady<Micros>().count(); }
 
   inline uint32_t val() const { return (_frozen) ? (_us) : (micros() - _us); }
-};
+}; */
 
 } // namespace pierre

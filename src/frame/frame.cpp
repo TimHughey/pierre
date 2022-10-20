@@ -92,13 +92,10 @@ notes:
  3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
      are zeroed */
 
-// Frame Class Data
-// static std::optional<Racked> _racked;
-
 // Frame API
 Frame::Frame(uint8v &packet) noexcept           //
     : created_at(pet::now_monotonic()),         // unique created time
-      lead_time(InputInfo::lead_time()),        // lead time used to calc state
+      lead_time(InputInfo::lead_time),          // lead time used to calc state
       state(frame::HEADER_PARSED),              // frame header parsed
       version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
       padding((packet[0] & 0b00100000) >> 5),   // has padding
@@ -118,7 +115,7 @@ void Frame::decipher(uint8v &packet, FlushInfo &flush) noexcept {
   }
 
   // the nonce for libsodium is 12 bytes however the packet only provides 8
-  uint8v nonce(4, 0x00); // pad the 12 byte nonce
+  uint8v nonce(4, 0x00); // pad the nonce for libsodium
   // mini nonce end - 8; copy 8 bytes total
   ranges::copy_n(packet.from_end(8), 8, std::back_inserter(nonce));
 
@@ -173,8 +170,8 @@ void Frame::init() {
   Racked::init();
   dsp::init();
 
-  INFO(Frame::module_id, "INIT", "frame sizeof={} lead_time={}\n", sizeof(Frame),
-       pet::humanize(InputInfo::lead_time()));
+  INFO(Frame::module_id, "INIT", "frame sizeof={} lead_time={} fps={}\n", sizeof(Frame),
+       pet::humanize(InputInfo::lead_time), InputInfo::fps);
 }
 
 frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
@@ -188,8 +185,7 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
     new_state.emplace(frame::OUTDATED);
     diff = Nanos::zero(); // set sync wait to zero so caller can optimize timers
 
-  } else if (!new_state.has_value() && state.updatable()) {
-
+  } else if (state.updatable()) {
     // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
     if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
 
@@ -200,6 +196,11 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
       // future
       new_state.emplace(frame::FUTURE);
     }
+  } else if (state.dsp_incomplete()) {
+    // dsp not finished, set reduced sync wait
+    set_sync_wait(pet::percent(InputInfo::lead_time, 33));
+  } else {
+    INFO(module_id, "STATE_NOW", "unhandled state frame={}\n", inspect());
   }
 
   // when a new state is determined, update the local state and sync_wait
@@ -212,8 +213,10 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
 }
 
 Nanos Frame::sync_wait_recalc() {
-  if (_anchor.has_value()) {
+  if (_anchor.has_value() && state.updatable()) {
     return set_sync_wait(_anchor->frame_local_time_diff(timestamp));
+  } else if (_anchor.has_value()) {
+    return sync_wait();
   }
 
   throw std::runtime_error("Frame::sync_wait_recalc() - no anchor\n");
@@ -229,7 +232,7 @@ const string Frame::inspect(bool full) {
   }
 
   fmt::format_to(w, "seq_num={:<8} ts={:<12} state={:<10} ready={:<5} sync_wait={}", //
-                 seq_num, timestamp, state(), state.ready(),
+                 seq_num, timestamp, state, state.ready(),
                  _sync_wait.has_value() ? pet::humanize(_sync_wait.value()) : "<no value>");
 
   // if (frame->silent()) {
@@ -255,13 +258,13 @@ const string Frame::inspect_safe(frame_t frame, bool full) { // static
 void Frame::log_decipher() const {
   if (state.deciphered()) {
     INFOX(module_id, "DECIPHER", "decipher/cipher{:>6} / {:<6} state={}\n", module_id, decipher_len,
-          decoded.size(), state());
+          decoded.size(), state);
 
   } else if (state == frame::NO_SHARED_KEY) {
-    INFO(module_id, "DECIPHER", "decipher shared key empty state={}\n", state());
+    INFO(module_id, "DECIPHER", "decipher shared key empty state={}\n", state);
   } else {
     INFO(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} state={}\n", //
-         state(), cipher_rc, decipher_len);
+         state, cipher_rc, decipher_len);
   }
 }
 

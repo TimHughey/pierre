@@ -34,6 +34,7 @@ static std::unique_ptr<influxdb::InfluxDB> db;
 void Stats::init_db_if_needed() {
   if (!db) {
     db = influxdb::InfluxDBFactory::Get(db_uri);
+    db->batchOf();
 
     INFO(module_id, "INIT_DB", "success db={}\n", fmt::ptr(db.get()));
   }
@@ -69,10 +70,10 @@ void Stats::operator()(stats_val v, Elapsed &e) noexcept {
 void Stats::operator()(stats_val v, const Micros d) noexcept {
 
   // filter out normal durations
-  if ((v == REMOTE_ASYNC) && (d < 2ms)) return;
-  if ((v == REMOTE_ELAPSED) && (d < InputInfo::lead_time())) return;
-  if ((v == REMOTE_JITTER) && (d < InputInfo::lead_time())) return;
-  if ((v == REMOTE_LONG_ROUNDTRIP) && (d < InputInfo::lead_time())) return;
+  // if ((v == REMOTE_ASYNC) && (d < 2ms)) return;
+  // if ((v == REMOTE_ELAPSED) && (d < InputInfo::lead_time)) return;
+  if ((v == REMOTE_JITTER) && (d < InputInfo::lead_time)) return;
+  if ((v == REMOTE_LONG_ROUNDTRIP) && (d < InputInfo::lead_time)) return;
 
   asio::post(stats_strand, [=, this]() {
     init_db_if_needed();
@@ -87,7 +88,7 @@ void Stats::operator()(stats_val v, const Micros d) noexcept {
 void Stats::operator()(stats_val v, const Nanos d) noexcept {
 
   // filter out normal durations
-  // if ((v == SYNC_WAIT) && (d < InputInfo::lead_time())) return;
+  // if ((v == SYNC_WAIT) && (d < InputInfo::lead_time)) return;
 
   asio::post(stats_strand, [=, this]() {
     init_db_if_needed();

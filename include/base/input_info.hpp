@@ -29,19 +29,15 @@
 
 namespace pierre {
 
-class InputInfo {
-public:
+struct InputInfo {
   static constexpr uint32_t rate = 44100; // max available at the moment
   static constexpr uint8_t channels = 2;
   static constexpr uint8_t bit_depth = 16;
   static constexpr uint8_t bytes_per_frame = 4;
 
-  typedef std::chrono::duration<double, std::ratio<1, rate / 1024>> InputFPS;
-
-  static constexpr double fps() { return rate / 1024.0; }
-  static constexpr MillisFP frame_ms() { return MillisFP(1000.0 / fps()); }
-  template <typename T> static constexpr T frame() { return pet::cast<MillisFP, T>(frame_ms()); }
-  static constexpr Nanos lead_time() { return frame<Nanos>(); }
+  static constexpr Nanos frame = pet::from_ns(1e+9 / rate);
+  static constexpr Nanos lead_time = frame * 1024;
+  static constexpr int fps = Millis(1000) / pet::as<Millis>(lead_time);
 };
 
 } // namespace pierre

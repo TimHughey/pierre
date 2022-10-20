@@ -66,7 +66,7 @@ class MasterClock {
 private:
   static constexpr uint16_t CTRL_PORT = 9000; // see note
   static constexpr auto LOCALHOST = "127.0.0.1";
-  static constexpr uint16_t NQPTP_VERSION = 7;
+  static constexpr uint16_t NQPTP_VERSION = 8;
 
 public:
   typedef std::vector<string> Peers;
@@ -85,21 +85,9 @@ public:
 public:
   MasterClock() noexcept;
 
+  static clock_info_future info(Nanos max_wait = ClockInfo::AGE_STABLE);
+
   static void init();
-  static clock_info_future info(Nanos max_wait = ClockInfo::AGE_STABLE) {
-    auto prom = std::make_shared<std::promise<ClockInfo>>();
-    auto clock_info = shared::master_clock->load_info_from_mapped();
-
-    if (clock_info.useable()) {
-      // clock info is good, immediately set the future to ready
-      prom->set_value(clock_info);
-    } else {
-      // clock info not ready yet, retry
-      shared::master_clock->info_retry(clock_info, max_wait, prom);
-    }
-
-    return prom->get_future();
-  }
 
   void peers(const Peers &peer_list) { peers_update(peer_list); }
   void peers_reset() { peers_update(Peers()); }

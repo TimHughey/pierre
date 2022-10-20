@@ -26,21 +26,13 @@
 #include "base/types.hpp"
 #include "desk/fx.hpp"
 #include "desk/session/ctrl.hpp"
-#include "desk/session/data.hpp"
 #include "desk/stats.hpp"
-#include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 
-#include <algorithm>
-#include <array>
 #include <atomic>
 #include <memory>
 #include <optional>
-#include <ranges>
-#include <set>
-#include <stop_token>
-#include <vector>
 
 namespace pierre {
 
@@ -77,7 +69,7 @@ private:
 
   // log_frome_timer_error: return true if ec == success
   bool log_frame_timer_error(const error_code &ec, csv fn_id) const;
-  void sync_next_frame(const Nanos wait = InputInfo::lead_time()) noexcept;
+  void sync_next_frame(const Nanos wait = InputInfo::lead_time) noexcept;
 
 private:
   // order dependent

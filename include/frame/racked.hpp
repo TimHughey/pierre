@@ -1,23 +1,20 @@
-
-/*
-    Possible
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre - Custom Light Show for Wiss Landing
+// Copyright (C) 2021  Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #pragma once
 
@@ -28,7 +25,6 @@
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "base/uint8v.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/reel.hpp"
@@ -109,17 +105,15 @@ private:
   void impl_adjust_render_mode(bool render) noexcept {
     auto prev = _rendering.test();
 
-    if (render != prev) {
-      if (render) {
-        _rendering.test_and_set();
-        _rendering.notify_all();
-      } else {
-        _rendering.clear();
-        _rendering.notify_all();
-      }
-
-      INFO(module_id, "ADJUST_RENDER", "was={} is={}\n", prev, render);
+    if (render) {
+      _rendering.test_and_set();
+      _rendering.notify_all();
+    } else {
+      _rendering.clear();
+      _rendering.notify_all();
     }
+
+    INFO(module_id, "ADJUST_RENDER", "was={} is={}\n", prev, render);
   }
 
   void impl_anchor_save(bool render, AnchorData &&ad);
@@ -179,6 +173,8 @@ private:
 
   racked_reels racked;
   std::optional<Reel> reel_wip;
+  std::optional<timestamp_t> first_timestamp;
+  std::optional<seq_num_t> first_seqnum;
 
   // threads
   Threads _threads;
@@ -189,7 +185,7 @@ private:
   static uint64_t REEL_SERIAL_NUM;
 
 public:
-  static constexpr Nanos reel_max_wait = InputInfo::lead_time();
+  static constexpr Nanos reel_max_wait = InputInfo::lead_time;
   static constexpr csv module_id{"RACKED"};
 
 }; // Racked

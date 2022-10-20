@@ -190,8 +190,7 @@ private:
   random_engine _random;
 
   Color _color;
-  elapsedMillis color_elapsed;
-
+  Elapsed color_elapsed;
   static ReferenceColors _ref_colors;
 
   struct {

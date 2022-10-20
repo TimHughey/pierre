@@ -30,7 +30,7 @@ add_library(${__target} SHARED
   av.cpp dsp.cpp fft.cpp peak.cpp peaks.cpp
 
   # the frame (from raw to dsp complete)
-  frame.cpp
+  frame.cpp state.cpp
 
   # racks and reels of frames
   racked.cpp reel.cpp

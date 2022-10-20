@@ -108,7 +108,7 @@ MajorPeak::~MajorPeak() {
 
 void MajorPeak::execute(peaks_t peaks) {
   if (_color_config.rotate.enable) {
-    if (color_elapsed > _color_config.rotate.ms) {
+    if (color_elapsed.as<Millis>().count() > _color_config.rotate.ms) {
       _color.rotateHue(randomRotation());
       color_elapsed.reset();
     }
@@ -213,7 +213,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
 
   if (start_fader) {
     fill->activate<FillFader>(
-        {.origin = color, .duration = pet::as_duration<Millis, Nanos>(_fill_spot_cfg.fade_max_ms)});
+        {.origin = color, .duration = pet::from_ms(_fill_spot_cfg.fade_max_ms)});
     _fill_history.push_front(peak);
   }
 }
@@ -262,7 +262,7 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
 
   if (start_fader) {
     main->activate<MainFader>(
-        {.origin = color, .duration = pet::as_duration<Millis, Nanos>(_main_spot_cfg.fade_max_ms)});
+        {.origin = color, .duration = pet::from_ms(_main_spot_cfg.fade_max_ms)});
     _main_history.push_front(peak);
   }
 }

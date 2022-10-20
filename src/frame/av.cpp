@@ -150,7 +150,7 @@ void log_discard(frame_t frame, int used, AVPacket *pkt) {
   }
 
   const auto chunk = INFO_FORMAT_CHUNK(msg.data(), msg.size());
-  INFO(module_id, "DISCARD", "{}\n{}", frame->state(), msg);
+  INFO(module_id, "DISCARD", "{}\n{}", frame->state, msg);
 }
 
 // leave space for ADTS header

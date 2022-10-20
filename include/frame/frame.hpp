@@ -73,9 +73,9 @@ public:
   //
   // state_now();
   //
-  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time());
+  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time);
 
-  Nanos sync_wait() const noexcept { return _sync_wait.value(); }
+  Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time); }
   bool sync_wait_ok() const noexcept { return _sync_wait.has_value(); }
   Nanos sync_wait_recalc(); // can throw if no anchor
 
@@ -85,7 +85,7 @@ public:
   void log_decipher() const;
 
 private:
-  Nanos set_sync_wait(const Nanos &diff) noexcept {
+  Nanos set_sync_wait(const Nanos diff) noexcept {
     if ((_sync_wait.has_value() == false) || (_sync_wait.value() != diff)) {
       _sync_wait.emplace(diff);
     }

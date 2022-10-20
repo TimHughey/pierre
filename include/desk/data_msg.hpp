@@ -42,8 +42,8 @@ public:
     add_kv("timestamp", frame->timestamp); // RTSP timestamp
     add_kv("silence", silence);
     // add_kv("nettime_µs", frame->nettime<Micros>().count());
-    add_kv("lead_time_µs", pet::as_duration<Nanos, Micros>(lead_time).count());
-    add_kv("sync_wait_µs", pet::as_duration<Nanos, Micros>(frame->sync_wait()).count());
+    add_kv("lead_time_µs", pet::as<Micros>(lead_time).count());
+    add_kv("sync_wait_µs", pet::as<Micros>(frame->sync_wait()).count());
   }
 
   DataMsg(Msg &m) = delete;

@@ -44,7 +44,7 @@ using Frames = std::map<timestamp_t, frame_t>;
 /// @brief Container of Frames
 class Reel {
 public:
-  static constexpr ssize_t MAX_FRAMES = InputInfo::fps() / 2;
+  static constexpr ssize_t MAX_FRAMES = InputInfo::fps / 2;
 
 public:
   Reel(uint64_t serial_num) noexcept

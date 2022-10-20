@@ -1,39 +1,30 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2021  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre - Custom Light Show for Wiss Landing
+// Copyright (C) 2021  Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #include "desk/desk.hpp"
-// #include "desk/fx/colorbars.hpp"
-// #include "desk/fx/leave.hpp"
-#include "ArduinoJson.hpp"
 #include "base/anchor_last.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/uint8v.hpp"
 #include "config/config.hpp"
-#include "core/host.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"
 #include "desk/fx/silence.hpp"
-#include "desk/unit/all.hpp"
-#include "desk/unit/opts.hpp"
 #include "frame/anchor.hpp"
 #include "frame/frame.hpp"
 #include "frame/master_clock.hpp"
@@ -106,12 +97,14 @@ void Desk::frame_loop_unsafe() {
   run_stats(desk::RENDER_DELAY, delay);
 
   Elapsed elapsed;
-  auto frame = Racked::next_frame(InputInfo::lead_time()).get();
+  auto frame = Racked::next_frame(InputInfo::lead_time).get();
   run_stats(desk::NEXT_FRAME, elapsed);
+
+  // INFO(module_id, "FRAME_LOOP2", "frame={}\n", Frame::inspect_safe(frame));
 
   frame_render(frame);
 
-  auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time();
+  auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time;
 
   run_stats(desk::SYNC_WAIT, wait);
 
@@ -124,7 +117,7 @@ void Desk::frame_render(frame_t frame) {
   }
 
   // asio::post(render_strand, [=, this]() {
-  desk::DataMsg data_msg(frame, InputInfo::lead_time());
+  desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
   // frame->mark_rendered(); // frame is consumed, even when no connection
 
@@ -214,7 +207,7 @@ void Desk::streams_init() {
           shared::desk->io_ctx,      // majority of rx/tx use io_ctx
           streams_strand,            // shared state/status protected by this strand
           ec_last_ctrl_tx,           // last error_code (updared vis streams_strand)
-          InputInfo::lead_time(),    // default lead_time
+          InputInfo::lead_time,      // default lead_time
           run_stats                  // desk stats
       );
     });

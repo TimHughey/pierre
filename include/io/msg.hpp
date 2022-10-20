@@ -109,7 +109,7 @@ public:
   auto serialize() {
     finalize();
 
-    doc[NOW_US] = pet::reference<Micros>().count();
+    doc[NOW_US] = pet::now_realtime<Micros>().count();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
     packed.reserve(PACKED_DEFAULT_MAX_SIZE);

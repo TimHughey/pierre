@@ -250,7 +250,7 @@ void Racked::rack_wip() noexcept {
 
   // when this is the first reel we do not racked_require() because it
   // is initialized to held
-  if (empty() || racked_acquire(InputInfo::lead_time())) {
+  if (empty() || racked_acquire(InputInfo::lead_time)) {
     const auto wip_info = reel_wip->inspect();
 
     if (!reel_wip->empty()) {

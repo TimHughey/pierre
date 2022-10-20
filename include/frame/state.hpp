@@ -22,16 +22,16 @@
 #include "base/types.hpp"
 
 #include <algorithm>
-#include <array>
-#include <map>
+#include <fmt/format.h>
 #include <memory>
-#include <ranges>
 #include <set>
 
 namespace pierre {
 namespace frame {
 
-namespace ranges = std::ranges;
+// namespace {
+// namespace ranges = std::ranges;
+// }
 
 enum state_now_t : size_t {
   DECIPHERED = 0,
@@ -57,33 +57,8 @@ enum state_now_t : size_t {
 
 class state {
 public:
-  state() noexcept : _val{state_now_t::NONE} {}
+  state() = default;
   state(state_now_t val) noexcept : _val(val) {}
-
-  template <typename T = string_view> const T operator()() const {
-    static auto txt_map = //
-        std::map<state_now_t, csv>{{DECIPHERED, "deciphered"},
-                                   {DECIPHER_FAILURE, "decipher falure"},
-                                   {DECODED, "decoded"},
-                                   {DECODE_FAILURE, "decode failure"},
-                                   {DSP_IN_PROGRESS, "dsp in progress"},
-                                   {DSP_COMPLETE, "dsp complete"},
-                                   {EMPTY, "empty"},
-                                   {ERROR, "error"},
-                                   {FLUSHED, "flushed"},
-                                   {FUTURE, "future"},
-                                   {HEADER_PARSED, "header parsed"},
-                                   {INVALID, "invalid"},
-                                   {NO_SHARED_KEY, "no shared key"},
-                                   {NONE, "none"},
-                                   {OUTDATED, "outdated"},
-                                   {PARSE_FAILURE, "parse failure"},
-                                   {RAW, "raw"},
-                                   {READY, "ready"},
-                                   {RENDERED, "rendered"}};
-
-    return T(txt_map[_val]);
-  }
 
   auto &&operator=(state_now_t val) noexcept {
     this->_val = val;
@@ -107,9 +82,17 @@ public:
     return *this == want;
   }
 
+  bool dsp_incomplete() const {
+    static const auto want = std::set{DECODED, DSP_IN_PROGRESS};
+
+    return *this == want;
+  }
+
   bool empty() const { return *this == EMPTY; }
   bool future() const { return *this == FUTURE; }
   bool header_parsed() const { return *this == HEADER_PARSED; }
+
+  csv inspect() const noexcept;
 
   auto now() const noexcept { return _val; }
 
@@ -128,8 +111,21 @@ public:
   }
 
 private:
-  state_now_t _val;
+  state_now_t _val = state_now_t::NONE;
 };
 
 } // namespace frame
 } // namespace pierre
+
+//
+// Custom Formatter for state
+//
+template <> struct fmt::formatter<pierre::frame::state> : formatter<std::string> {
+
+  // parse is inherited from formatter<string_view>.
+  template <typename FormatContext>
+  auto format(const pierre::frame::state &val, FormatContext &ctx) const {
+
+    return formatter<std::string>::format(fmt::format("state={}", val.inspect()), ctx);
+  }
+};

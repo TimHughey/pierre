@@ -51,6 +51,21 @@ MasterClock::MasterClock() noexcept
        shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
 }
 
+clock_info_future MasterClock::info(Nanos max_wait) { // static
+  auto prom = std::make_shared<std::promise<ClockInfo>>();
+  auto clock_info = shared::master_clock->load_info_from_mapped();
+
+  if (clock_info.useable()) {
+    // clock info is good, immediately set the future to ready
+    prom->set_value(clock_info);
+  } else {
+    // clock info not ready yet, retry
+    shared::master_clock->info_retry(clock_info, max_wait, prom);
+  }
+
+  return prom->get_future();
+}
+
 void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_promise_ptr prom) {
 
   // perform the retries on the MasterClock io_ctx enabling caller to continue other work
@@ -161,7 +176,7 @@ bool MasterClock::map_shm() {
     // prevent thread cancellation while mapping
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
 
-    auto shm_fd = shm_open(shm_name.c_str(), O_RDWR, 0);
+    auto shm_fd = shm_open("/nqptp", O_RDWR, 0);
 
     if (shm_fd >= 0) {
       // flags must be PROT_READ | PROT_WRITE to allow writes

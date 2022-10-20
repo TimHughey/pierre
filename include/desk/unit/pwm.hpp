@@ -122,7 +122,7 @@ public:
     _dest = config.pulse_end;
 
     // compute change per frame required to reach dark within requested secs
-    _velocity = (start - _dest) / (InputInfo::fps() * secs);
+    _velocity = (start - _dest) / (InputInfo::fps * secs);
 
     _mode = PULSE_INIT;
   }

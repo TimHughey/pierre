@@ -119,7 +119,7 @@ struct ClockInfo {
 private:
   bool log_age_issue(csv msg, const Nanos &diff) const {
     INFO(module_id, msg, "clock_id={:#x} sampleTime={} age={}\n", //
-         clock_id, pet::as<MillisFP>(sample_time()), pet::as_secs(diff));
+         clock_id, pet::as<MillisFP>(sample_time()), pet::humanize(diff));
 
     return true; // return false, final rc is inverted
   }

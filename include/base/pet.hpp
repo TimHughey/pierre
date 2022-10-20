@@ -22,6 +22,8 @@
 #include "base/types.hpp"
 
 #include <chrono>
+#include <numeric>
+#include <type_traits>
 
 namespace pierre {
 
@@ -48,31 +50,14 @@ struct pet {
 
   static constexpr auto abs(const auto &d1) { return std::chrono::abs(d1); }
 
-  static constexpr Nanos add_offset(const Nanos &d, uint64_t offset) {
-    return Nanos{to_uint64_t(d) + offset};
-  }
-
   static constexpr Nanos apply_offset(const Nanos &d, uint64_t offset) {
     return Nanos{static_cast<uint64_t>(d.count()) + offset};
   }
 
-  template <typename TO> static constexpr TO as(auto x) {
-    return std::chrono::duration_cast<TO>(Nanos(x));
-  }
+  template <typename TO, typename FROM = Nanos> static constexpr TO as(FROM x) {
+    if constexpr (std::is_same_v<TO, FROM>) return x;
+    if constexpr (std::is_convertible_v<FROM, TO>) return std::chrono::duration_cast<TO>(x);
 
-  template <typename FROM, typename TO> static constexpr TO as_duration(auto x) {
-    return std::chrono::duration_cast<TO>(FROM(x));
-  }
-
-  template <typename T> static MillisFP as_millis_fp(const T &d) {
-    return std::chrono::duration_cast<MillisFP>(d);
-  }
-
-  template <typename T> static SecondsFP as_secs(const T &d) {
-    return std::chrono::duration_cast<SecondsFP>(d);
-  }
-
-  template <typename FROM, typename TO> static constexpr TO cast(auto x) {
     return std::chrono::duration_cast<TO>(FROM(x));
   }
 
@@ -84,14 +69,13 @@ struct pet {
 
   template <typename T> static constexpr bool is_zero(T val) { return val == Nanos::zero(); }
 
-  static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) { return d2 - d1; }
+  static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::_monotonic()) { return d2 - d1; }
 
-  template <typename T>
-  static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) {
+  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::_monotonic()) {
     return std::chrono::duration_cast<T>(d2 - d1);
   }
 
-  static Nanos elapsed_abs(const Nanos &d1, const Nanos d2 = pet::now_monotonic()) { //
+  static Nanos elapsed_abs(const Nanos &d1, const Nanos d2 = pet::_monotonic()) {
     return diff_abs(d2, d1);
   }
 
@@ -105,24 +89,22 @@ struct pet {
 
   template <typename T> static constexpr bool not_zero(const T &d) { return d != T::zero(); }
 
-  static Nanos now_monotonic() { return now_nanos(); }
+  template <typename T = Nanos> static T now_realtime() { return as<T, Nanos>(_realtime()); }
+  template <typename T = Nanos> static T now_monotonic() { return as<T>(_monotonic()); }
 
-  template <typename T = Nanos> static T now_monotonic() {
-    return std::chrono::duration_cast<T>(now_nanos());
-  }
+  template <typename T = Nanos, typename V = int> static constexpr T percent(T x, V val) {
+    double percent{1};
 
-  template <typename T = Nanos> static T now_epoch() {
-    return std::chrono::duration_cast<T>(system_clock::now().time_since_epoch());
-  }
+    // accept either an integer or float
+    if constexpr (std::is_same_v<V, int>) {
+      percent = val / 100.0;
+    } else if constexpr ((std::is_same_v<V, float>) || (std::is_same_v<V, double>)) {
+      percent = val;
+    } else {
+      percent = static_cast<double>(val);
+    }
 
-  template <typename T> static T now_steady() { return as_duration<Nanos, T>(now_monotonic()); }
-
-  template <typename T = Nanos> static constexpr T percent(T x, int percent) {
-    float _percent = percent / 100.0;
-    Nanos base = std::chrono::duration_cast<Nanos>(x);
-    auto val = Nanos(static_cast<int64_t>(base.count() * _percent));
-
-    return std::chrono::duration_cast<T>(val);
+    return T(static_cast<int64_t>(x.count() * percent));
   }
 
   static constexpr Nanos &reduce(Nanos &val, const Nanos by, const Nanos floor = Nanos::zero()) {
@@ -150,7 +132,9 @@ struct pet {
   static constexpr uint64_t to_uint64_t(const Nanos &d) { return static_cast<uint64_t>(d.count()); }
 
 private:
-  static Nanos now_nanos();
+  static Nanos _monotonic();
+  static Nanos _realtime();
+  static Nanos _boottime();
 };
 
 } // namespace pierre
