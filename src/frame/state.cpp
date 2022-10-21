@@ -41,7 +41,6 @@ csv state::inspect() const noexcept {
                         {NONE, "none"},
                         {OUTDATED, "outdated"},
                         {PARSE_FAILURE, "parse failure"},
-                        {RAW, "raw"},
                         {READY, "ready"},
                         {RENDERED, "rendered"}};
 

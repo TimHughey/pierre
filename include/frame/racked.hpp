@@ -44,11 +44,6 @@
 
 namespace pierre {
 
-class Racked;
-namespace shared {
-extern std::optional<Racked> racked;
-}
-
 using racked_reels = std::list<Reel>;
 
 class Racked {
@@ -61,65 +56,35 @@ public:
         rack_access(1)                // acquired, guards racked container
   {}
 
-  static void adjust_render_mode(bool render) { shared::racked->impl_adjust_render_mode(render); }
-  static void anchor_save(bool render, AnchorData &&ad) {
-    shared::racked->impl_anchor_save(render, std::forward<AnchorData>(ad));
-  }
+  static void adjust_render_mode(bool render);
+  static void anchor_save(bool render, AnchorData &&ad);
 
   bool empty() const noexcept { return size() == 0; }
 
-  static void flush(FlushInfo request) { shared::racked->impl_flush(std::move(request)); }
-  static void handoff(uint8v &packet) { shared::racked->impl_handoff(packet); }
+  static void flush(FlushInfo request);
+  static void handoff(uint8v &packet);
 
   static void init();
   const string inspect() const noexcept;
 
-  static frame_future next_frame(const Nanos lead_time) noexcept {
-    auto prom = frame_promise();
-    auto fut = prom.get_future().share();
+  static frame_future next_frame(const Nanos lead_time) noexcept;
 
-    shared::racked->impl_next_frame(lead_time, std::move(prom));
+  static bool rendering() noexcept;
 
-    return fut;
-  }
+  static bool rendering_wait() noexcept;
 
-  static auto racked_size() noexcept { return shared::racked->_racked_size.load(); }
-  static bool rendering() noexcept { return shared::racked->_rendering.test(); }
-
-  static bool rendering_wait() noexcept {
-    auto &guard = shared::racked->_rendering;
-
-    if (guard.test() == false) {
-      guard.wait(false);
-    }
-
-    return guard.test();
-  }
-
-  static bool not_rendering() noexcept { return shared::racked->_rendering.test() == false; }
+  static bool not_rendering() noexcept;
   int_fast64_t size() const noexcept { return _racked_size.load(); }
 
 private:
   void accept_frame(frame_t frame) noexcept;
   void add_frame(frame_t frame) noexcept;
-  void impl_adjust_render_mode(bool render) noexcept {
-    auto prev = _rendering.test();
+  void adjust_render_mode_impl(bool render) noexcept;
 
-    if (render) {
-      _rendering.test_and_set();
-      _rendering.notify_all();
-    } else {
-      _rendering.clear();
-      _rendering.notify_all();
-    }
-
-    INFO(module_id, "ADJUST_RENDER", "was={} is={}\n", prev, render);
-  }
-
-  void impl_anchor_save(bool render, AnchorData &&ad);
-  void impl_flush(FlushInfo request);
-  void impl_handoff(uint8v &packet) noexcept;
-  void impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept;
+  void anchor_save_impl(bool render, AnchorData &&ad);
+  void flush_impl(FlushInfo request);
+  void handoff_impl(uint8v &packet) noexcept;
+  void next_frame_impl(const Nanos lead_time, frame_promise prom) noexcept;
 
   void init_self();
 
@@ -136,8 +101,8 @@ private:
   void racked_release() noexcept { rack_access.release(); }
 
   void reel_wait() noexcept {
-    if (racked_size() == 0) {
-      INFO(module_id, "REEL_WAIT", "waiting for a reel reels={}\n", racked_size());
+    if (size() == 0) {
+      INFO(module_id, "REEL_WAIT", "waiting for a reel reels={}\n", size());
       std::atomic_wait(&_racked_size, 0);
     }
   }
@@ -153,6 +118,17 @@ private:
     }
   }
 
+  void update_wip_size() noexcept {
+    if (reel_wip.has_value()) {
+      _wip_size.store(std::ssize(*reel_wip));
+    } else {
+      _wip_size.store(0);
+    }
+  }
+
+  bool wip_empty() const noexcept { return _wip_size.load() == 0; }
+  bool wip_contains_one_frame() const noexcept { return _wip_size.load() == 1; }
+
   // misc logging, debug
   void log_racked() const noexcept { return log_racked(string()); }
   void log_racked(const string &wip_info) const noexcept;
@@ -165,16 +141,18 @@ private:
   strand wip_strand;
   steady_timer wip_timer;
   std::binary_semaphore rack_access;
-  std::atomic_flag _rendering;
-  std::atomic_int_fast64_t _racked_size{0};
 
   // order independent
+  std::atomic_flag _rendering;
+  std::atomic_int_fast64_t _racked_size{0};
+  std::atomic_int_fast64_t _wip_size{0};
   FlushInfo flush_request;
 
   racked_reels racked;
   std::optional<Reel> reel_wip;
   std::optional<timestamp_t> first_timestamp;
   std::optional<seq_num_t> first_seqnum;
+  std::optional<Nanos> render_start_at;
 
   // threads
   Threads _threads;

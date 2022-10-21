@@ -28,6 +28,8 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 
+#include <concepts>
+
 // #include <array>
 // #include <boost/accumulators/statistics/max.hpp>
 // #include <boost/accumulators/statistics/min.hpp>
@@ -41,11 +43,11 @@
 namespace pierre {
 namespace desk {
 
-using namespace boost::accumulators;
-
 enum stats_val {
   FEEDBACKS = 0,
   FRAMES,
+  FREQUENCY,
+  MAGNITUDE,
   NEXT_FRAME,
   NO_CONN,
   REMOTE_ASYNC,
@@ -69,6 +71,8 @@ public:
         val_txt({                                  // create map of stats val to text
                  {FEEDBACKS, "feedbacks"},
                  {FRAMES, "frames"},
+                 {FREQUENCY, "frequency"},
+                 {MAGNITUDE, "magnitude"},
                  {NEXT_FRAME, "next_frame"},
                  {NO_CONN, "no_conn"},
                  {REMOTE_ASYNC, "remote_async"},
@@ -83,6 +87,8 @@ public:
                  {SYNC_WAIT_NEG, "sync_wait_neg"},
                  {SYNC_WAIT_ZERO, "sync_wait_zero"}}) {}
 
+  void operator()(stats_val v, std::floating_point auto fp) { write(v, fp); }
+
   void operator()(stats_val v, int32_t x = 1) noexcept;
   void operator()(stats_val v, Elapsed &e) noexcept;
   void operator()(stats_val v, const Nanos d) noexcept;
@@ -91,6 +97,7 @@ public:
 private:
   void flush_if_needed();
   void init_db_if_needed();
+  void write(stats_val v, float fp);
   // void raw_write_int64(stats_val v, int64_t x);
 
 private:

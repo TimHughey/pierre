@@ -29,11 +29,6 @@
 
 namespace pierre {
 
-using frame_ready_t = bool;
-using renderable_t = bool;
-using sync_wait_time_t = Nanos;
-using sync_wait_valid_t = bool;
-
 using cipher_buff_t = std::array<uint8_t, 16 * 1024>;
 using cipher_buff_ptr = std::unique_ptr<cipher_buff_t>;
 

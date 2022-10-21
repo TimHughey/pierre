@@ -131,7 +131,7 @@ public:
 
   error_code log_rx(const error_code ec, const size_t bytes, const auto err) {
     if (ec || (packed_len != bytes) || err) {
-      INFO(module_id, type, "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
+      INFO(module_id, "LOG_RX", "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
            ec.message(), err.c_str());
     }
 
@@ -140,7 +140,9 @@ public:
 
   error_code log_tx(const error_code ec, const size_t bytes) {
     if (ec || (tx_len != bytes)) {
-      INFO(module_id, type, "failed, bytes={}/{} reason={}\n", bytes, tx_len, ec.message());
+      if (ec != errc::operation_canceled) {
+        INFO(module_id, "LOG_TX", "failed, bytes={}/{} reason={}\n", bytes, tx_len, ec.message());
+      }
     }
 
     return ec;

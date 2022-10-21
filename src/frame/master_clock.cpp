@@ -230,6 +230,10 @@ void MasterClock::peers_update(const Peers &new_peers) {
       });
 }
 
+bool MasterClock::ready() { // static
+  return shared::master_clock->load_info_from_mapped().useable();
+}
+
 void MasterClock::reset() { // static
   shared::master_clock->unMap();
   shared::master_clock.reset();

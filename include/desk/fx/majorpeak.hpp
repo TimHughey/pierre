@@ -154,7 +154,7 @@ public:
   };
 
 public:
-  MajorPeak();
+  MajorPeak(pierre::desk::Stats &stats);
   ~MajorPeak();
 
   void execute(peaks_t peaks) override;
@@ -197,6 +197,8 @@ private:
     Peak main = Peak::zero();
     Peak fill = Peak::zero();
   } _last_peak;
+
+  pierre::desk::Stats &stats;
 
   circular_buffer _prev_peaks;
   circular_buffer _main_history;

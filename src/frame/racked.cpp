@@ -59,30 +59,60 @@ void Racked::accept_frame(frame_t frame) noexcept {
 void Racked::add_frame(frame_t frame) noexcept {
   // NOTE: frame state guaranteed to be DECODED
 
-  asio::post(wip_strand, [=, this, frame = std::move(frame)]() mutable {
+  asio::post(wip_strand, [=, this, frame = frame->shared_from_this()]() mutable {
     // create the wip reel, if needed
     if (reel_wip.has_value() == false) {
       reel_wip.emplace(++REEL_SERIAL_NUM);
     }
 
     reel_wip->add(frame);
+    update_wip_size();
 
-    if (reel_wip->full()) {
+    if (reel_wip->full() || (empty() && MasterClock::ready())) {
       rack_wip();
-    } else if (reel_wip->size() == 1) {
+    }
+
+    if (wip_contains_one_frame()) {
       monitor_wip();
     }
   });
 }
 
-void Racked::impl_anchor_save(bool render, AnchorData &&ad) {
-  impl_adjust_render_mode(render);
+void Racked::adjust_render_mode(bool render) { // static
+  shared::racked->adjust_render_mode_impl(render);
+}
+
+void Racked::adjust_render_mode_impl(bool render) noexcept {
+  auto prev = _rendering.test();
+
+  if (render) {
+    _rendering.test_and_set();
+    _rendering.notify_all();
+  } else {
+    _rendering.clear();
+    _rendering.notify_all();
+  }
+
+  if (prev != render) {
+    INFO(module_id, "ADJUST_RENDER", "{} -> {}\n", prev, render);
+  }
+}
+
+void Racked::anchor_save(bool render, AnchorData &&ad) { // static
+  shared::racked->anchor_save_impl(render, std::forward<AnchorData>(ad));
+}
+
+void Racked::anchor_save_impl(bool render, AnchorData &&ad) {
+  adjust_render_mode_impl(render);
 
   Anchor::save(std::forward<AnchorData>(ad));
 }
 
-void Racked::impl_flush(FlushInfo request) {
+void Racked::flush(FlushInfo request) { // static
+  shared::racked->flush_impl(std::move(request));
+}
 
+void Racked::flush_impl(FlushInfo request) {
   // execute this on the wip strand
   asio::post(wip_strand, [=, this]() mutable {
     flush_request = request; // record the flush request
@@ -101,7 +131,7 @@ void Racked::impl_flush(FlushInfo request) {
 
       if (flush_request.matches<frame_t>({first, last})) {
         // yes, all racked reels are included in the flush request
-        INFO(module_id, "FLUSH", "clearing all reels={}\n", racked_size());
+        INFO(module_id, "FLUSH", "clearing all reels={}\n", size());
         racked.clear();
       } else {
         // ok, at least some reels contain frames to flush.
@@ -129,62 +159,32 @@ void Racked::impl_flush(FlushInfo request) {
           reel_wip.reset();
         }
       }
+
+      update_wip_size();
     }
   });
 }
 
-void Racked::impl_handoff(uint8v &packet) noexcept {
+void Racked::handoff(uint8v &packet) { // static
+  shared::racked->handoff_impl(packet);
+}
+
+void Racked::handoff_impl(uint8v &packet) noexcept {
   frame_t frame = Frame::create(packet);
 
   if (frame->state.header_parsed()) {
-    frame->decipher(packet, flush_request);
-
-    if (frame->state.deciphered()) {
-      asio::post(handoff_strand, [this, frame = std::move(frame)]() { accept_frame(frame); });
-    }
-  } else {
-    INFO(module_id, "HANDOFF", "frame={}\n", frame->inspect());
-  }
-}
-
-void Racked::impl_next_frame(const Nanos lead_time, frame_promise prom) noexcept {
-  asio::post(io_ctx, [=, this, prom = std::move(prom)]() mutable {
-    reel_wait();
-
-    // wait for clock to become available.
-    // only a delay when:
-    //  1.  at startup before first set anchor
-    //  2.  master clock has changed and isn't stable
-    auto clock_info = MasterClock::info().get();
-
-    if (racked_acquire()) {
-      if (!empty()) { // a flush request may have cleared all reels
-        auto frame = racked.front().peek_first();
-
-        // get anchor data, hopefully clock is ready by this point
-        clock_info = MasterClock::info().get();
-        auto anchor = shared::anchor->get_data(clock_info);
-
-        // calc the frame state (Frame caches the anchor)
-        auto state = frame->state_now(anchor, lead_time);
-        prom.set_value(frame);
-        frame.reset(); // done with this frame
-
-        if (state.ready() || state.outdated()) {
-          // consume the ready or outdated frame (rack access is still acquired)
-          racked.front().consume();
-          pop_front_reel_if_empty();
-        }
-      } else {
-        prom.set_value(frame_t());
+    if (flush_request.should_flush(frame)) {
+      frame->flushed();
+    } else { // potential keeper
+      if (frame->decipher(packet)) {
+        asio::post(handoff_strand, [=, this]() { accept_frame(frame); });
       }
-
-      racked_release(); // we're done with the rack
-    } else {
-      INFO(module_id, "TIMEOUT", "waiting for racked reels={}\n", racked_size());
-      prom.set_value(frame_t());
     }
-  });
+  }
+
+  if (!frame->deciphered()) {
+    INFO(module_id, "HANDOFF", "DISCARDING frame={}\n", frame->inspect());
+  }
 }
 
 void Racked::init() { // static
@@ -229,6 +229,60 @@ void Racked::monitor_wip() noexcept {
       }));
 }
 
+frame_future Racked::next_frame(const Nanos lead_time) noexcept { // static
+  auto prom = frame_promise();
+  auto fut = prom.get_future().share();
+
+  shared::racked->next_frame_impl(lead_time, std::move(prom));
+
+  return fut;
+}
+
+void Racked::next_frame_impl(const Nanos lead_time, frame_promise prom) noexcept {
+  asio::post(io_ctx, [=, this, prom = std::move(prom)]() mutable {
+    auto clock_future = MasterClock::info();
+    reel_wait();
+
+    // wait for clock to become available.
+    // only a delay when:
+    //  1.  at startup before first set anchor
+    //  2.  master clock has changed and isn't stable
+    auto clock_info = clock_future.get();
+
+    if (racked_acquire()) {
+      if (!empty()) { // a flush request may have cleared all reels
+        auto frame = racked.front().peek_first();
+
+        // get anchor data, hopefully clock is ready by this point
+        clock_info = MasterClock::info().get();
+        auto anchor = shared::anchor->get_data(clock_info);
+
+        // calc the frame state (Frame caches the anchor)
+        auto state = frame->state_now(anchor, lead_time);
+        prom.set_value(frame);
+        frame.reset(); // done with this frame
+
+        if (state.ready() || state.outdated()) {
+          // consume the ready or outdated frame (rack access is still acquired)
+          racked.front().consume();
+          pop_front_reel_if_empty();
+        }
+      } else {
+        prom.set_value(frame_t());
+      }
+
+      racked_release(); // we're done with the rack
+    } else {
+      INFO(module_id, "TIMEOUT", "waiting for racked reels={}\n", size());
+      prom.set_value(frame_t());
+    }
+  });
+}
+
+bool Racked::not_rendering() noexcept { //
+  return shared::racked->_rendering.test() == false;
+}
+
 // NOTE: this function assumes are locked
 void Racked::pop_front_reel_if_empty() noexcept {
   // if the reel is empty, pop it from racked
@@ -263,6 +317,7 @@ void Racked::rack_wip() noexcept {
       update_reel_ready();
 
       reel_wip.reset();
+      update_wip_size();
     }
 
   } else {
@@ -270,6 +325,19 @@ void Racked::rack_wip() noexcept {
   }
 }
 
+bool Racked::rendering() noexcept { // static
+  return shared::racked->_rendering.test();
+}
+
+bool Racked::rendering_wait() noexcept { // static
+  auto &guard = shared::racked->_rendering;
+
+  if (guard.test() == false) {
+    guard.wait(false);
+  }
+
+  return guard.test();
+}
 //
 // misc logging and debug
 //

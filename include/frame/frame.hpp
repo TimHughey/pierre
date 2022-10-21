@@ -25,7 +25,6 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "frame/flush_info.hpp"
 #include "frame/peaks.hpp"
 #include "frame/state.hpp"
 #include "frame/types.hpp"
@@ -42,8 +41,6 @@
 
 namespace pierre {
 
-using state_now_result_t = std::tuple<sync_wait_valid_t, sync_wait_time_t, frame::state>;
-
 class Frame;
 using frame_t = std::shared_ptr<Frame>;
 using frame_future = std::shared_future<frame_t>;
@@ -57,8 +54,10 @@ public:
   static frame_t create(uint8v &packet) noexcept { return frame_t(new Frame(packet)); }
 
   // Public API
-  void decipher(uint8v &packet, FlushInfo &flush) noexcept;
+  bool decipher(uint8v &packet) noexcept;
+  bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
   bool decode();
+  void flushed() noexcept { state = frame::FLUSHED; }
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)
 
@@ -75,7 +74,7 @@ public:
   //
   frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time);
 
-  Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time); }
+  Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
   bool sync_wait_ok() const noexcept { return _sync_wait.has_value(); }
   Nanos sync_wait_recalc(); // can throw if no anchor
 

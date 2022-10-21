@@ -19,6 +19,7 @@
 */
 
 #include "frame/fft.hpp"
+#include "base/logger.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -75,9 +76,8 @@ FFT::FFT(const float *reals, size_t samples, const float frequency)
   // }
 
   _reals.reserve(samples);
-  auto w = std::back_inserter(_reals);
   for (size_t i = 0; i < samples; i++) {
-    w = reals[i];
+    _reals.emplace_back(reals[i]);
   }
 
   // _weighing_factors_computed.wait(false); // false is the old value
@@ -148,7 +148,7 @@ void FFT::compute(direction dir) {
 }
 
 void FFT::dc_removal() noexcept {
-  double sum = std::accumulate(_reals.begin(), _reals.end(), 0, std::plus<float>());
+  double sum = std::accumulate(_reals.begin(), _reals.end(), 0.0);
   double mean = sum / _samples;
 
   for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
@@ -169,9 +169,9 @@ peaks_t FFT::find_peaks() {
     const float c = _reals[i + 1];
 
     if ((a < b) && (b > c)) {
-      if (peaks->size() == (_max_peaks - 1)) {
-        break;
-      }
+      // if (peaks->size() == (_max_peaks - 1)) {
+      //   break;
+      // }
 
       // mag_min = std::min(mag, mag_min);
       // mag_max = std::max(mag, mag_max);
@@ -246,16 +246,15 @@ void FFT::init() { // static
   // _weighing_factors_computed.notify_all();
 }
 
-Mag FFT::mag_at_index(const size_t i) const {
+Magnitude FFT::mag_at_index(const size_t i) const {
   const float a = _reals[i - 1];
   const float b = _reals[i];
   const float c = _reals[i + 1];
 
-  const Mag x = abs(a - (2.0f * b) + c);
-  return x;
+  return Magnitude(abs(a - (2.0f * b) + c));
 }
 
-float FFT::freq_at_index(size_t y) {
+Frequency FFT::freq_at_index(size_t y) {
   const float a = _reals[y - 1];
   const float b = _reals[y];
   const float c = _reals[y + 1];
@@ -267,7 +266,7 @@ float FFT::freq_at_index(size_t y) {
     frequency = ((y + delta) * _sampling_freq) / _samples;
   }
 
-  return frequency;
+  return Frequency(frequency);
 }
 
 void FFT::process() {

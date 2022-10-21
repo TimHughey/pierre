@@ -22,6 +22,7 @@
 
 #include "base/types.hpp"
 #include "desk/data_msg.hpp"
+#include "desk/stats.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
 #include "fx/names.hpp"
@@ -40,6 +41,10 @@ struct fx_factory {
 
   template <typename T> static std::shared_ptr<T> derive(shFX fx) {
     return std::static_pointer_cast<T>(fx);
+  }
+
+  template <typename T> static shFX create(desk::Stats &stats) {
+    return std::static_pointer_cast<T>(std::make_shared<T>(stats));
   }
 };
 

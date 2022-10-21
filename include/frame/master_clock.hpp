@@ -92,6 +92,7 @@ public:
   void peers(const Peers &peer_list) { peers_update(peer_list); }
   void peers_reset() { peers_update(Peers()); }
 
+  static bool ready();
   static void reset();
 
   void teardown() { peers_reset(); }

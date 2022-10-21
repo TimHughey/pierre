@@ -24,6 +24,7 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
+#include "desk/stats.hpp"
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
@@ -50,7 +51,8 @@ static PulseWidth *el_dance_floor;
 static shPulseWidth sh_el_entry;
 static PulseWidth *el_entry;
 
-MajorPeak::MajorPeak() : FX(), _prev_peaks(88), _main_history(88), _fill_history(88) {
+MajorPeak::MajorPeak(pierre::desk::Stats &stats)
+    : FX(), stats(stats), _prev_peaks(88), _main_history(88), _fill_history(88) {
   std::random_device r;
   _random.seed(r());
 
@@ -119,6 +121,9 @@ void MajorPeak::execute(peaks_t peaks) {
   handleFillPinspot(peaks);
 
   _prev_peaks.push_back(peaks->majorPeak());
+
+  stats(pierre::desk::FREQUENCY, peaks->majorPeak().frequency());
+  stats(pierre::desk::MAGNITUDE, peaks->majorPeak().magnitude());
 
   // INFO(module_id, "DEBUG", "peak_1: {}\n", peaks->majorPeak());
 

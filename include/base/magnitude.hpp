@@ -46,8 +46,8 @@ public:
   operator auto() const noexcept { return val; }
 
   std::strong_ordering operator<=>(auto rhs) const noexcept {
-    if (rhs < val) return std::strong_ordering::less;
-    if (rhs > val) return std::strong_ordering::greater;
+    if (val < rhs) return std::strong_ordering::less;
+    if (val > rhs) return std::strong_ordering::greater;
 
     return std::strong_ordering::equal;
   }

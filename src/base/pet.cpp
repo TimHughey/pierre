@@ -56,10 +56,7 @@ static Nanos __clock_now(int clock_type) { // .cpp static function
   struct timespec tn;
   clock_gettime(clock_type, &tn);
 
-  uint64_t secs_part = tn.tv_sec * pet::NS_FACTOR.count();
-  uint64_t ns_part = tn.tv_nsec;
-
-  return Nanos(secs_part + ns_part);
+  return Nanos(tn.tv_sec * pet::NS_FACTOR.count() + tn.tv_nsec);
 }
 
 Nanos pet::_monotonic() { return __clock_now(CLOCK_MONOTONIC_RAW); } // static

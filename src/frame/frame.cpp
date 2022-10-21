@@ -26,7 +26,7 @@
 #include "base/shk.hpp"
 #include "base/threads.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+// #include "config/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "master_clock.hpp"
@@ -107,13 +107,7 @@ Frame::Frame(uint8v &packet) noexcept           //
       m(new cipher_buff_t)                      // unique_ptr for deciphered data
 {}
 
-void Frame::decipher(uint8v &packet, FlushInfo &flush) noexcept {
-  // first things first, should this Frame be processed?
-  if (flush.should_flush(shared_from_this())) {
-    state = frame::FLUSHED;
-    return;
-  }
-
+bool Frame::decipher(uint8v &packet) noexcept {
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
   // mini nonce end - 8; copy 8 bytes total
@@ -153,6 +147,8 @@ void Frame::decipher(uint8v &packet, FlushInfo &flush) noexcept {
   }
 
   log_decipher();
+
+  return state == frame::DECIPHERED;
 }
 
 bool Frame::decode() {

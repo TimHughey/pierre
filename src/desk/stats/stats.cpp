@@ -100,5 +100,16 @@ void Stats::operator()(stats_val v, const Nanos d) noexcept {
   });
 }
 
+void Stats::write(stats_val v, float fp) {
+  asio::post(stats_strand, [=, this]() {
+    init_db_if_needed();
+
+    db->write(influxdb::Point{module_id.data()} //
+                  .addField("val", fp)          //
+                  .addTag("metric", val_txt[v]) //
+                  .addTag("type", "float"));    //
+  });
+}
+
 } // namespace desk
 } // namespace pierre

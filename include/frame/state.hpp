@@ -34,23 +34,22 @@ namespace frame {
 // }
 
 enum state_now_t : size_t {
-  DECIPHERED = 0,
+  EMPTY = 0,
+  NONE,
+  ERROR,
+  INVALID,
+  HEADER_PARSED,
+  NO_SHARED_KEY,
   DECIPHER_FAILURE,
-  DECODED,
+  FLUSHED,
+  DECIPHERED,
+  PARSE_FAILURE,
   DECODE_FAILURE,
+  DECODED,
   DSP_IN_PROGRESS,
   DSP_COMPLETE,
-  EMPTY,
-  ERROR,
-  FLUSHED,
   FUTURE,
-  HEADER_PARSED,
-  INVALID,
-  NO_SHARED_KEY,
-  NONE,
   OUTDATED,
-  PARSE_FAILURE,
-  RAW,
   READY,
   RENDERED
 };
@@ -68,9 +67,13 @@ public:
   inline friend bool operator==(const state &lhs, const state_now_t &rhs) {
     return lhs._val == rhs;
   }
-  inline friend bool operator==(const state &lhs, const state &rhs) { return lhs._val == rhs._val; }
+
   inline friend bool operator==(const state &lhs, const std::set<state_now_t> &rhs) {
     return rhs.contains(lhs._val);
+  }
+
+  friend std::strong_ordering operator<=>(const state &lhs, const state &rhs) noexcept {
+    return lhs._val <=> rhs._val;
   }
 
   bool deciphered() const { return *this == DECIPHERED; };

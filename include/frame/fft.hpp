@@ -65,8 +65,8 @@ public:
 private:
   void complex_to_magnitude();
   void dc_removal() noexcept;
-  Freq freq_at_index(size_t y);
-  Mag mag_at_index(const size_t i) const;
+  Frequency freq_at_index(size_t y);
+  Magnitude mag_at_index(const size_t i) const;
   void windowing(fft::direction dir);
 
 private:
@@ -81,6 +81,9 @@ private:
   uint_fast8_t _power;
 
   reals_t _reals;
+
+public:
+  static constexpr csv module_id{"FFT"};
 };
 
 } // namespace pierre
