@@ -227,7 +227,7 @@ const string Frame::inspect(bool full) {
     fmt::format_to(w, "vsn={} pad={} ext={} ssrc={} ", version, padding, extension, ssrc_count);
   }
 
-  fmt::format_to(w, "seq_num={:<8} ts={:<12} state={:<10} ready={:<5} sync_wait={}", //
+  fmt::format_to(w, "seq_num={:<8} ts={:<12} {:<10} ready={:<5} sync_wait={}", //
                  seq_num, timestamp, state, state.ready(),
                  _sync_wait.has_value() ? pet::humanize(_sync_wait.value()) : "<no value>");
 
@@ -253,13 +253,13 @@ const string Frame::inspect_safe(frame_t frame, bool full) { // static
 
 void Frame::log_decipher() const {
   if (state.deciphered()) {
-    INFOX(module_id, "DECIPHER", "decipher/cipher{:>6} / {:<6} state={}\n", module_id, decipher_len,
+    INFOX(module_id, "DECIPHER", "decipher/cipher{:>6} / {:<6} {}\n", module_id, decipher_len,
           decoded.size(), state);
 
   } else if (state == frame::NO_SHARED_KEY) {
-    INFO(module_id, "DECIPHER", "decipher shared key empty state={}\n", state);
+    INFO(module_id, "DECIPHER", "decipher shared key empty {}\n", state);
   } else {
-    INFO(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} state={}\n", //
+    INFO(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} {}\n", //
          state, cipher_rc, decipher_len);
   }
 }

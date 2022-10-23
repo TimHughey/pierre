@@ -19,11 +19,11 @@
 #include "reply/teardown.hpp"
 #include "base/headers.hpp"
 #include "base/logger.hpp"
+#include "base/render.hpp"
 #include "base/shk.hpp"
 #include "base/types.hpp"
 #include "conn_info/conn_info.hpp"
 #include "core/service.hpp"
-#include "frame/racked.hpp"
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
@@ -43,7 +43,7 @@ bool Teardown::populate() {
 
 bool Teardown::phase1() {
   SharedKey::clear();
-  Racked::adjust_render_mode(false);
+  Render::set(false);
 
   return true;
 }

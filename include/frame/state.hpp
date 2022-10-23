@@ -125,7 +125,7 @@ private:
 //
 template <> struct fmt::formatter<pierre::frame::state> : formatter<std::string> {
 
-  // parse is inherited from formatter<string_view>.
+  // parse is inherited from formatter<string>.
   template <typename FormatContext>
   auto format(const pierre::frame::state &val, FormatContext &ctx) const {
 

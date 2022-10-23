@@ -56,6 +56,7 @@ public:
 
   void add(frame_t frame) noexcept;
   void consume() noexcept;
+  bool contains(timestamp_t timestamp) noexcept;
 
   bool empty() const noexcept { return frames.empty(); }
 
@@ -85,7 +86,7 @@ protected:
   const uint64_t _serial;
   string module_id;
 
-  Frames frames; // friends have direct access
+  Frames frames;
 };
 
 } // namespace pierre

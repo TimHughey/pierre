@@ -30,29 +30,20 @@
 
 namespace pierre {
 
-using frame_local_time_result_t = std::pair<bool, Nanos>;
-
 class AnchorLast {
 public:
   ClockID clock_id{0}; // senders network timeline id (aka clock id)
   uint32_t rtp_time{0};
   Nanos anchor_time{0};
   Nanos localized{0};
-  Nanos valid;
+  Elapsed since_update;
+  Nanos master_at{0};
 
   AnchorLast() = default;
 
-  AnchorLast(ClockID id, uint32_t rtp_time, Nanos anchor_time, const ClockInfo &clock) noexcept
-      : clock_id(id),                                                  //
-        rtp_time(rtp_time),                                            //
-        anchor_time(anchor_time),                                      //
-        localized(pet::subtract_offset(anchor_time, clock.rawOffset)), //
-        valid(clock.master_for())                                      //
-  {}
-
-  AnchorLast(const AnchorData &ad, const ClockInfo &clock) noexcept
-      : clock_id(ad.clock_id), rtp_time(ad.rtp_time), anchor_time(ad.anchor_time),
-        localized(pet::subtract_offset(anchor_time, clock.rawOffset)), valid(clock.master_for()) {}
+  bool age_check(const auto age_min) const noexcept {
+    return ready() && (since_update() > age_min);
+  }
 
   Nanos frame_local_time_diff(uint32_t timestamp) const {
     auto diff = Nanos::zero();
@@ -108,14 +99,28 @@ public:
  return result;
 } */
 
-  timestamp_t local_to_frame_time() const noexcept {
-    Nanos time_diff = pet::now_monotonic() - localized;
+  timestamp_t local_to_frame_time(const Nanos local_time = pet::now_monotonic()) const noexcept {
+    Nanos time_diff = local_time - localized;
     Nanos frame_diff = time_diff * InputInfo::rate;
 
     return rtp_time + (frame_diff.count() / pet::NS_FACTOR.count());
   }
 
-  bool viable() const { return valid >= ClockInfo::AGE_MIN; }
+  bool ready() const noexcept { return clock_id != 0; }
+  void reset() noexcept { *this = AnchorLast(); }
+
+  void update(const AnchorData &ad, const ClockInfo &clock) noexcept {
+
+    rtp_time = ad.rtp_time;
+    anchor_time = ad.anchor_time;
+    localized = pet::subtract_offset(anchor_time, clock.rawOffset);
+    since_update.reset();
+
+    if (clock_id == 0x00) { // only update master when AnchorLast isn't ready
+      master_at = clock.mastershipStartTime;
+      clock_id = ad.clock_id; // denotes AnchorLast is ready
+    }
+  }
 
 public:
   static constexpr csv module_id{"ANCHOR_LAST"};

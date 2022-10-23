@@ -31,50 +31,33 @@
 
 namespace pierre {
 
-class Anchor;
-namespace shared {
-extern std::optional<Anchor> anchor;
-}
+// class Anchor;
+// namespace shared {
+// extern std::optional<Anchor> anchor;
+// }
 
 class Anchor {
-private:
-  enum Datum { source = 0, live, last, invalid, max_datum };
-
 public:
   Anchor() = default;
   static void init(); // create shared Anchor
 
-  AnchorLast get_data(const ClockInfo clock_info);
-  static void save(AnchorData ad) { return shared::anchor->save_impl(ad); }
+  static AnchorLast get_data(const ClockInfo &clock) noexcept;
+  static void save(AnchorData ad) noexcept;
 
-  void teardown();
-
-  bool viable() const { return _last.has_value(); }
-
-  // misc debug
-  static void dump(Datum dat = Datum::live) {
-    INFO(module_id, "DUMP", "dat={}\n{}\n", dat, shared::anchor->cdatum(dat).inspect());
-  }
+  static void reset() noexcept;
 
 private:
-  const AnchorData &cdatum(Datum dat) const { return _datum.at(dat); }
-  AnchorData &datum(Datum dat) { return _datum[dat]; }
-
-  void handle_quick_change(const AnchorData &ad);
-
-  void save_impl(AnchorData ad); // object impl
+  AnchorLast get_data_impl(const ClockInfo &clock) noexcept;
 
   // misc debug
-  void log_data_new(const AnchorData &ad, bool log = true) const;
+  void log_new_data(const AnchorData &ad, bool log = true) const;
 
 private:
-  std::array<AnchorData, Datum::max_datum> _datum;
-  std::optional<AnchorLast> _last;
-  bool remote_valid = false;
-  bool data_new = false;
+  std::optional<AnchorData> source;
+  AnchorLast last;
 
-  // misc debug
-  static constexpr auto module_id = csv("ANCHOR");
+public:
+  static constexpr auto module_id{"ANCHOR"};
 
 public:
   Anchor(const Anchor &) = delete;            // no copy

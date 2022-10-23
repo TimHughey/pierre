@@ -85,7 +85,7 @@ public:
 public:
   MasterClock() noexcept;
 
-  static clock_info_future info(Nanos max_wait = ClockInfo::AGE_STABLE);
+  static clock_info_future info(Nanos max_wait = ClockInfo::INFO_MAX_WAIT);
 
   static void init();
 

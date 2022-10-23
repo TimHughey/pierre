@@ -42,8 +42,9 @@ struct ClockInfo {
   Nanos mastershipStartTime{0}; // when the master clock became master
   enum { EMPTY, READ, MIN_AGE, STABLE } status{EMPTY};
 
-  static constexpr Nanos AGE_MIN = 1500ms;
+  static constexpr Nanos AGE_MIN = 15ms;
   static constexpr Nanos AGE_STABLE = 5s;
+  static constexpr Nanos INFO_MAX_WAIT = 3ms;
   static constexpr Nanos SAMPLE_AGE_MAX = 10s;
 
   ClockInfo() = default;
@@ -106,7 +107,6 @@ struct ClockInfo {
     return false;
   }
 
-  bool useable() const { return ((status == STABLE) || (status == MIN_AGE)); }
   Nanos until_min_age() const {
     Nanos until = ClockInfo::AGE_MIN - master_for();
 

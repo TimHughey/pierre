@@ -59,7 +59,7 @@ private:
 } // namespace pierre
 
 template <> struct fmt::formatter<pierre::Magnitude> : formatter<float> {
-  // parse is inherited from formatter<string_view>.
+  // parse is inherited from formatter<float>.
   template <typename FormatContext>
   auto format(const pierre::Magnitude &val, FormatContext &ctx) const {
     return formatter<float>::format(val, ctx);

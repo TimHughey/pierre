@@ -18,7 +18,8 @@
 
 #include "reply/set_anchor.hpp"
 #include "base/anchor_data.hpp"
-#include "frame/racked.hpp"
+#include "base/render.hpp"
+#include "frame/anchor.hpp"
 #include "reply/dict_keys.hpp"
 
 namespace pierre {
@@ -30,7 +31,7 @@ bool SetAnchor::populate() {
 
   INFOX(moduleID(), "DICT DUMP", "\n{}\n", rdict.inspect());
 
-  auto render = static_cast<bool>(rdict.uint({dk::RATE}) & 0x01);
+  Render::set(rdict.uint({dk::RATE}));
 
   // a complete anchor message contains these keys
   const Aplist::KeyList keys{dk::NET_TIMELINE_ID, dk::NET_TIME_SECS, dk::NET_TIME_FRAC,
@@ -38,8 +39,7 @@ bool SetAnchor::populate() {
 
   if (rdict.existsAll(keys)) {
     // this is a complete anchor data set
-    Racked::anchor_save(                              // submit the new anchor data
-        render,                                       // rate: 1==render, 0==not render
+    Anchor::save(                                     // submit the new anchor data
         AnchorData(rdict.uint({dk::NET_TIMELINE_ID}), // network timeline id (aka source clk)
                    rdict.uint({dk::NET_TIME_SECS}),   // source clock seconds
                    rdict.uint({dk::NET_TIME_FRAC}),   // source clock fractional nanos
@@ -47,7 +47,7 @@ bool SetAnchor::populate() {
                    rdict.uint({dk::NET_TIME_FLAGS})   // flags (from source)
                    ));
   } else {
-    Racked::anchor_save(render, AnchorData());
+    Anchor::reset();
   }
 
   responseCode(RespCode::OK);

@@ -55,8 +55,8 @@ clock_info_future MasterClock::info(Nanos max_wait) { // static
   auto prom = std::make_shared<std::promise<ClockInfo>>();
   auto clock_info = shared::master_clock->load_info_from_mapped();
 
-  if (clock_info.useable()) {
-    // clock info is good, immediately set the future to ready
+  if (clock_info.ok()) {
+    // clock info is good, immediately set the future
     prom->set_value(clock_info);
   } else {
     // clock info not ready yet, retry
@@ -71,7 +71,7 @@ void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_pr
   // perform the retries on the MasterClock io_ctx enabling caller to continue other work
   // while the clock becomes useable and the future is set to ready
   asio::post(io_ctx, [=, this]() mutable {
-    while (!clock_info.useable() && (max_wait > Nanos::zero())) {
+    while (!clock_info.ok() && (max_wait > Nanos::zero())) {
 
       // reduce max wait so this loop eventually breaks out
       auto remaining_wait = clock_info.until_min_age();
@@ -166,7 +166,8 @@ const ClockInfo MasterClock::load_info_from_mapped() {
 }
 
 const string MasterClock::make_shm_name() noexcept { // static
-  return fmt::format("/{}-{}", Config::receiverName(), Host::ptr()->deviceID());
+  // return fmt::format("/{}-{}", Config::receiverName(), Host::ptr()->deviceID());
+  return string("/nqptp");
 }
 
 bool MasterClock::map_shm() {
@@ -176,7 +177,7 @@ bool MasterClock::map_shm() {
     // prevent thread cancellation while mapping
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
 
-    auto shm_fd = shm_open("/nqptp", O_RDWR, 0);
+    auto shm_fd = shm_open(shm_name.data(), O_RDWR, 0);
 
     if (shm_fd >= 0) {
       // flags must be PROT_READ | PROT_WRITE to allow writes
@@ -231,7 +232,7 @@ void MasterClock::peers_update(const Peers &new_peers) {
 }
 
 bool MasterClock::ready() { // static
-  return shared::master_clock->load_info_from_mapped().useable();
+  return shared::master_clock->load_info_from_mapped().ok();
 }
 
 void MasterClock::reset() { // static

@@ -114,12 +114,11 @@ public:
   // decode frame
   int samples_per_channel = 0;
   int channels = 0;
-  // uint8v decoded;
 
   // populated by DSP
   std::tuple<peaks_t, peaks_t> peaks;
 
-  // calculated by state_now() or recalculated by calc_sync_wait()
+  // calculated by state_now() or recalculated by sync_wait_recalc()
   std::optional<Nanos> _sync_wait;
 
 private:

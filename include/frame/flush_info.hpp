@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/logger.hpp"
+#include "base/render.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
@@ -34,6 +35,7 @@ struct FlushInfo {
   timestamp_t from_ts = 0;
   seq_num_t until_seq = 0;
   timestamp_t until_ts = 0;
+  bool deferred = false;
 
   FlushInfo() = default;
 
@@ -42,9 +44,18 @@ struct FlushInfo {
       : active(true),         // enable this flush request
         from_seq(from_seq),   // set the various fields
         from_ts(from_ts),     // since this is not an aggregate class
-        until_seq(until_seq), // flush everything <=
-        until_ts(until_ts)    //
+        until_seq(until_seq), // flush everything <= seq_num
+        until_ts(until_ts)    // flush everything <= timestamp
   {
+
+    // a flush with from[seq|ts] will not be followed by a setanchor (i.e. render)
+    // if it's a flush that will be followed by a setanchor then stop render now.
+    if (from_seq == 0) {
+      Render::set(false);
+    } else {
+      deferred = true;
+    }
+
     INFO("FLUSH_REQUEST", "RECEIVED", "{}\n", inspect());
   }
 
@@ -70,9 +81,15 @@ struct FlushInfo {
   const string inspect() const {
     string msg;
     auto w = std::back_inserter(msg);
+    fmt::format_to(w, "{} ", active ? "ACTIVE" : "INACTIVE");
 
-    fmt::format_to(w, "until seq_num={:<8} timestamp={:<12} active={:<5}", //
-                   until_seq, until_ts, active);
+    if (from_seq || from_ts) {
+      fmt::format_to(w, "from seq_num={:<8} timestamp={:<12} ", from_seq, from_ts);
+    }
+
+    fmt::format_to(w, "until seq_num={:<8} timestamp={:<12}", until_seq, until_ts);
+
+    if (deferred) fmt::format_to(w, "DEFERRED");
 
     return msg;
   }

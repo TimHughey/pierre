@@ -56,9 +56,6 @@ public:
         rack_access(1)                // acquired, guards racked container
   {}
 
-  static void adjust_render_mode(bool render);
-  static void anchor_save(bool render, AnchorData &&ad);
-
   bool empty() const noexcept { return size() == 0; }
 
   static void flush(FlushInfo request);
@@ -67,24 +64,17 @@ public:
   static void init();
   const string inspect() const noexcept;
 
-  static frame_future next_frame(const Nanos lead_time) noexcept;
+  static frame_future next_frame() noexcept;
 
-  static bool rendering() noexcept;
-
-  static bool rendering_wait() noexcept;
-
-  static bool not_rendering() noexcept;
   int_fast64_t size() const noexcept { return _racked_size.load(); }
 
 private:
   void accept_frame(frame_t frame) noexcept;
   void add_frame(frame_t frame) noexcept;
-  void adjust_render_mode_impl(bool render) noexcept;
 
-  void anchor_save_impl(bool render, AnchorData &&ad);
   void flush_impl(FlushInfo request);
   void handoff_impl(uint8v &packet) noexcept;
-  void next_frame_impl(const Nanos lead_time, frame_promise prom) noexcept;
+  void next_frame_impl(frame_promise prom) noexcept;
 
   void init_self();
 
@@ -143,16 +133,16 @@ private:
   std::binary_semaphore rack_access;
 
   // order independent
-  std::atomic_flag _rendering;
+  // std::atomic_flag _rendering;
   std::atomic_int_fast64_t _racked_size{0};
   std::atomic_int_fast64_t _wip_size{0};
   FlushInfo flush_request;
 
   racked_reels racked;
   std::optional<Reel> reel_wip;
-  std::optional<timestamp_t> first_timestamp;
-  std::optional<seq_num_t> first_seqnum;
   std::optional<Nanos> render_start_at;
+  frame_t first_frame;
+  bool synced = false;
 
   // threads
   Threads _threads;

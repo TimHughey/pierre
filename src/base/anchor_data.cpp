@@ -61,26 +61,23 @@ string AnchorData::inspect() const {
   fmt::format_to(w, gen_fmt_str, "rtp_time", rtp_time);
   fmt::format_to(w, gen_fmt_str, "anchor_time", pet::humanize(anchor_time));
   fmt::format_to(w, gen_fmt_str, "localized", pet::humanize(localized));
-  fmt::format_to(w, gen_fmt_str, "viable", viable());
   fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for));
   fmt::format_to(w, gen_fmt_str, "now_monotonic", pet::humanize(pet::now_monotonic()));
 
   return msg;
 }
 
-void AnchorData::log_new(const AnchorData &old, const ClockInfo &clock) const {
+void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
+  if ((clock_id != 0) && match_clock_id(ad)) {
+    auto time_diff = ad.anchor_time.count() - anchor_time.count();
+    auto frame_diff = ad.rtp_time - rtp_time;
 
-  INFO(module_id, "FROM_SOURCE", "new={:#016x} old={:#016x} master={:#016x}\n", //
-       clock_id, old.clock_id, clock.clock_id);
-}
+    double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / pet::NS_FACTOR.count();
+    double frame_change = frame_diff - time_diff_in_frames;
 
-void AnchorData::log_new_master_if_needed(bool &data_new) const {
-
-  if (data_new) {
-    INFO(module_id, "INFO", "clock={:#016x} now master and anchor, master_for={}\n", //
-         clock_id, pet::humanize(master_for));
-
-    data_new = false;
+    INFO(module_id, "TIMING_CHANGE",                                       //
+         "clock={:#x} rtp_time={} anchor_time={} frame_adjustment={:f}\n", //
+         clock_id, ad.rtp_time, pet::humanize(ad.anchor_time), frame_change);
   }
 }
 

@@ -20,6 +20,7 @@
 #include "base/anchor_last.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
+#include "base/render.hpp"
 #include "config/config.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/fx.hpp"
@@ -66,8 +67,10 @@ void Desk::frame_loop(const Nanos wait) {
 
   if (pet::is_zero(wait)) {
     frame_loop_safe();
-
   } else if (wait > Nanos::zero()) {
+    frame_loop_delay(wait);
+  } else if (wait < Nanos::zero()) {
+    INFO(module_id, "FRAME_LOOP", "crazy wait {}\n", pet::humanize(wait));
     frame_loop_delay(wait);
   }
 }
@@ -93,18 +96,18 @@ void Desk::frame_loop_safe() {
 // must ensure this function only runs on the same thread as frame_strand
 void Desk::frame_loop_unsafe() {
   auto delay = Elapsed();
-  Racked::rendering_wait();
+  Render::enabled(/* wait */ true);
   run_stats(desk::RENDER_DELAY, delay);
 
   Elapsed elapsed;
-  auto frame = Racked::next_frame(InputInfo::lead_time_desired).get();
+  auto frame = Racked::next_frame().get();
   run_stats(desk::NEXT_FRAME, elapsed);
 
   // INFO(module_id, "FRAME_LOOP2", "frame={}\n", Frame::inspect_safe(frame));
 
   frame_render(frame);
 
-  auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time;
+  auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time_min;
 
   run_stats(desk::SYNC_WAIT, wait);
 
@@ -112,12 +115,16 @@ void Desk::frame_loop_unsafe() {
 }
 
 void Desk::frame_render(frame_t frame) {
-  if (!frame || !frame->state.ready()) {
-    INFO(module_id, "FRAME_RENDER", "DROP frame={}\n", Frame::inspect_safe(frame));
+  if (frame.use_count() == 0) return;
+
+  if (!frame->state.ready()) {
+    if (!frame->state.outdated()) {
+      INFO(module_id, "FRAME_RENDER", "DROP frame={}\n", Frame::inspect_safe(frame));
+    }
+
     return;
   }
 
-  // asio::post(render_strand, [=, this]() {
   desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
   // frame->mark_rendered(); // frame is consumed, even when no connection
@@ -226,12 +233,12 @@ bool Desk::log_frame_timer_error(const error_code &ec, csv fn_id) const {
     break;
 
   case errc::operation_canceled:
-    msg = fmt::format("frame timer canceled, rendering={}\n", Racked::rendering());
+    msg = fmt::format("frame timer canceled, rendering={}\n", Render::enabled());
     break;
 
   default:
-    msg = fmt::format("frame timer error, reason={} rendering={}\n", ec.message(),
-                      Racked::rendering());
+    msg = fmt::format("frame timer error, reason={} rendering={}\n", //
+                      ec.message(), Render::enabled());
   }
 
   if (msg.empty() == false) INFO(module_id, fn_id, "{}\n", msg);

@@ -35,6 +35,12 @@ void Reel::consume() noexcept {
   }
 }
 
+bool Reel::contains(timestamp_t timestamp) noexcept {
+  auto it = frames.lower_bound(timestamp);
+
+  return it != frames.end();
+}
+
 Reel &Reel::flush(FlushInfo &flush) noexcept {
   if (frames.empty() == false) { // nothing to flush
 

@@ -34,12 +34,14 @@ namespace pierre {
 struct PeakMagBase {
   // Mag floor{36.4 * 1000};         // 36,400
   // Mag floor{3.65e4f};
-  // Mag floor{3.7e4f};
-  Mag floor{1.0f};
+  // Mag floor{3.7e4f};  // old pierre
+  Magnitude floor{2.1};
   // Mag ceiling{2.1 * 1000 * 1000}; // 2.1 million
   // Mag ceiling{1.8e6f};
-  Mag ceiling{15.0f};
-  Mag strong{3.0};
+  // Mag ceiling{15.0f};  // old pierre
+  Magnitude ceiling{28.0};
+  // Magnitude strong{3.0}; // old pierre
+  Magnitude strong{6.0};
 };
 
 struct PeakMagScaled {
@@ -56,9 +58,9 @@ struct PeakMagScaled {
   }
 
   PeakMagScaled(const PeakMagBase &base) noexcept
-      : base(base), // the base scaled
-        //  factor(2.41),                               //
-        factor(1.0), step(0.001),                   //
+      : base(base),                                 // the base scaled
+        factor(1.0),                                //  factor(2.41) old pierre
+        step(0.001),                                //
         floor(scale_val<Mag>(base.floor * factor)), //
         ceiling(scale_val<Mag>(base.ceiling))       //
   {}
