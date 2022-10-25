@@ -19,7 +19,7 @@
 */
 
 #include "reply/pairing.hpp"
-#include "aes/aes_ctx.hpp"
+#include "base/aes/ctx.hpp"
 
 namespace pierre {
 namespace airplay {

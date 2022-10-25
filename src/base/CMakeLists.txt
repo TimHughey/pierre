@@ -6,17 +6,22 @@ set(__target base)
 
 set(HEADER_PATH                         ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL                   ${HEADER_PATH}/${__target})
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
+set(HEADER_PATH_PAIR                    ${HEADER_PATH_LOCAL}/pair)
+set(HEADER_PATH_AES                     ${HEADER_PATH_LOCAL}/aes)
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/**/*.h*")
+
 
 set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
 set(Boost_USE_MULTITHREADED          ON)
 set(Boost_THREADAPI             pthread)
 
-find_package(Boost 1.79 COMPONENTS system REQUIRED)
-find_library(rt         NAMES rt          REQUIRED)
-
-find_package(fmt REQUIRED)
+find_library(rt           NAMES rt          REQUIRED)
+find_library(libUUID      NAMES uuid        REQUIRED)
+find_package(Boost 1.79   COMPONENTS system REQUIRED)
+find_package(fmt                            REQUIRED)
+find_package(GCRYPT                         REQUIRED)
+find_package(Sodium                         REQUIRED)
 
 add_library(${__target} SHARED
   # logging (threaded)
@@ -27,6 +32,18 @@ add_library(${__target} SHARED
   
   # connection shared key
   shk.cpp
+
+  # pairing
+  pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
+
+  # aes
+  aes/ctx.cpp
+
+  # host info
+  host.cpp
+
+  # airplay feature bits
+  features.cpp
 
   # generic vector of uint8_t (as a base class or standalone)
   uint8v.cpp
@@ -47,7 +64,7 @@ add_library(${__target} SHARED
 # source files compiled for the library can include headers
 # without using the full path
 target_include_directories(${__target} PRIVATE
-  ${HEADER_PATH_LOCAL} ${HEADER_PATH_PAIR}
+  ${HEADER_PATH_LOCAL} ${HEADER_PATH_PAIR} ${HEADER_PATH_AES}
 )
 
 # external users of this library include headers relative to
@@ -56,5 +73,8 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PUBLIC 
   ${Boost_LIBRARIES}
+  ${libUUID}
+  sodium
+  gcrypt
   fmt::fmt
 )

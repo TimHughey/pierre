@@ -146,7 +146,7 @@ void Audio::asyncRxPacket() {
                 uint8v handoff;                          // handoff this packet
                 std::swap(handoff, self->packet_buffer); // by swapping local buffer
 
-                Racked::handoff(handoff);
+                Racked::handoff(std::move(handoff));
               } else {
                 const auto len = self->packetLength();
                 INFO(self->moduleID(), "RX_PACKET", "rx_bytes/packet_len mismatch {} != {}\n",

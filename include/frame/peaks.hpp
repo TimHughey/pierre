@@ -28,7 +28,6 @@
 #include <map>
 #include <memory>
 #include <type_traits>
-#include <vector>
 
 namespace pierre {
 
@@ -46,62 +45,43 @@ private:
   Peaks() = default;
 
 public:
-  bool emplace(Magnitude m, Frequency) noexcept;
-
-  template <class... Args> void emplace_back(Args &&...args) { _peaks.emplace_back(args...); }
+  bool emplace(Magnitude m, Frequency f) noexcept;
+  auto size() const noexcept { return std::ssize(peaks_map); } // define early for auto
 
   bool hasPeak(peak_n_t n) const {
+    Magnitude low{0.0};
     // peak_n_t represents the peak of interest in the range of 1..max_peaks
-    return _peaks.size() > n ? true : false;
+    return peaks_map.size() > n ? true : false;
   }
 
-  const Peak majorPeak() const { return peak_n(1); }
+  const Peak majorPeak() const { return !peaks_map.empty() ? peaks_map.begin()->second : Peak(); }
 
   // find the first peak greater than the floating point value
   // specified in operator[]
   template <class T, class = typename std::enable_if<std::is_floating_point<T>::value>::type>
   const Peak operator[](T freq) {
 
-    // only interested in the first five peaks
-    auto found = ranges::find_if(ranges::take_view{_peaks, 5}, [=](const Peak &peak) {
-      return peak.greaterThanFreq(freq) ? true : false;
-    });
+    for (auto it = std::counted_iterator{peaks_map.begin(), 5}; it != std::default_sentinel; it++) {
+      const auto &[mag, peak] = *it;
 
-    return found != _peaks.end() ? *found : Peak::zero();
-  }
-
-  const Peak peak_n(const peak_n_t n) const {
-
-    if (hasPeak(n)) {
-      const Peak check = _peaks.at(n - 1);
-
-      if (check.magnitude() > Peak::mag_base.floor) {
-        return check;
-      }
+      if (freq > peak.frequency()) return peak;
     }
 
     return Peak::zero();
   }
 
   static bool silence(peaks_t peaks) {
-    INFOX(module_id, "SILENCE", "use_count={} hasPeak={}\n", //
-          peaks.use_count(), peaks.use_count() ? peaks->hasPeak(1) : false);
+    INFOX(module_id, "SILENCE", "use_count={} size={}\n", //
+          peaks.use_count(), peaks.use_count() ? peaks->size() : false);
 
-    return (peaks && peaks->hasPeak(1)) == false;
+    return (peaks && !peaks->size()) == false;
   }
 
-  auto size() const { return _peaks.size(); }
-
-  peaks_t sort();
-
-  std::tuple<Freq, Mag> inspect() noexcept;
-
 private:
-  std::map<Magnitude, Peak, std::greater<Magnitude>> _peaks_map;
-  std::vector<Peak> _peaks;
+  std::map<Magnitude, Peak, std::greater<Magnitude>> peaks_map;
 
 public:
-  static constexpr csv module_id = "PEAKS";
+  static constexpr csv module_id{"PEAKS"};
 };
 
 } // namespace pierre

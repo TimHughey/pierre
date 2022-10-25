@@ -17,9 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "core/service.hpp"
+#include "base/features.hpp"
+#include "base/host.hpp"
 #include "config/config.hpp"
-#include "core/features.hpp"
-#include "core/host.hpp"
 
 #include <exception>
 #include <fmt/format.h>

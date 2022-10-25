@@ -30,21 +30,20 @@ namespace pierre {
 
 bool Peaks::emplace(Magnitude m, Frequency f) noexcept {
 
-  auto [element, inserted] = _peaks_map.emplace(m, Peak(m, f));
+  auto rc = false;
 
-  if (!inserted) {
-    INFO(module_id, "COLLISION", "mag={} freq={} collision, keeping {}\n", m, f, element->second);
+  if (m >= 1.0) {
+    auto node = peaks_map.try_emplace(m, f, m);
+
+    rc = node.second; // was the peak inserted?
+
+    if (!rc) {
+      const auto &peak = node.first->second;
+      INFO(module_id, "COLLISION", "keeping {} alt freq={:0.2f}\n", peak, f);
+    }
   }
 
-  return inserted;
-}
-
-peaks_t Peaks::sort() {
-  ranges::sort(_peaks, [](Peak &lhs, Peak &rhs) { // order by magnitude
-    return lhs.magnitude() > rhs.magnitude();
-  });
-
-  return shared_from_this();
+  return rc;
 }
 
 } // namespace pierre

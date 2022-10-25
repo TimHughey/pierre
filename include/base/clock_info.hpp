@@ -40,11 +40,11 @@ struct ClockInfo {
   uint64_t sampleTime{0};       // time when the offset was calculated
   uint64_t rawOffset{0};        // master clock time = sampleTime + rawOffset
   Nanos mastershipStartTime{0}; // when the master clock became master
-  enum { EMPTY, READ, MIN_AGE, STABLE } status{EMPTY};
+  enum { EMPTY, READ, OK, STABLE } status{EMPTY};
 
   static constexpr Nanos AGE_MIN = 15ms;
   static constexpr Nanos AGE_STABLE = 5s;
-  static constexpr Nanos INFO_MAX_WAIT = 3ms;
+  static constexpr Nanos INFO_MAX_WAIT = 133ms; // typical sample refresh ~122ms
   static constexpr Nanos SAMPLE_AGE_MAX = 10s;
 
   ClockInfo() = default;
@@ -63,12 +63,11 @@ struct ClockInfo {
   {
     if (is_stable()) {
       status = ClockInfo::STABLE;
-    } else if (is_minimum_age()) {
-      status = ClockInfo::MIN_AGE;
+    } else if (ok()) {
+      status = ClockInfo::OK;
     }
   }
 
-  bool is_minimum_age() const { return master_for_at_least(AGE_MIN); }
   bool is_stable() const { return master_for_at_least(AGE_STABLE); }
 
   Nanos master_for(Nanos ref = pet::now_monotonic()) const {
@@ -82,16 +81,7 @@ struct ClockInfo {
 
   bool match_clock_id(const ClockID id) const { return id == clock_id; }
 
-  bool ok() const {
-    bool rc = clock_id && pet::not_zero(mastershipStartTime);
-
-    if (!rc) { // no master clock or too young
-      INFO(module_id, "NOTiCE", "no clock info, clock={:#02x} master_ship_time={}\n", clock_id,
-           pet::not_zero(mastershipStartTime));
-    }
-
-    return rc;
-  }
+  bool ok() const { return clock_id && pet::not_zero(mastershipStartTime); }
 
   Nanos sample_age(Nanos now = pet::now_monotonic()) const {
     return ok() ? pet::elapsed_as<Nanos>(sample_time(), now) : Nanos::zero();
@@ -130,8 +120,8 @@ private:
   }
 
   void log_clock_status() const {
-    INFOX(module_id, "STATUS", "clock_id={:#x} is_minimum_age={} is_stable={} master_for={}\n", //
-          clock_id, is_stable(), is_minimum_age(), pet::humanize(master_for()));
+    INFOX(module_id, "STATUS", "clock_id={:#x} ok={} is_stable={} master_for={}\n", //
+          clock_id, is_stable(), ok(), pet::humanize(master_for()));
   }
 
   void log_timeout() const {

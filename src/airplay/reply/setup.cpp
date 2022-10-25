@@ -19,8 +19,8 @@
 */
 
 #include "reply/setup.hpp"
+#include "base/host.hpp"
 #include "conn_info/conn_info.hpp"
-#include "core/host.hpp"
 #include "core/service.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"

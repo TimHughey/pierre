@@ -22,20 +22,6 @@
 
 #include <compare>
 #include <fmt/format.h>
-#include <type_traits>
-
-// #include <algorithm>
-// #include <cctype>
-// #include <cstddef>
-// #include <cstdint>
-// #include <iterator>
-// #include <memory>
-// #include <ranges>
-// #include <vector>
-
-// namespace {
-// namespace ranges = std::ranges;
-// } // namespace
 
 namespace pierre {
 
@@ -46,23 +32,23 @@ public:
 
   operator auto() const noexcept { return val; }
 
-  std::strong_ordering operator<=>(auto rhs) const noexcept {
-    if (val < rhs) return std::strong_ordering::less;
-    if (val > rhs) return std::strong_ordering::greater;
+  std::partial_ordering operator<=>(auto rhs) const noexcept {
+    if (val < rhs) return std::partial_ordering::less;
+    if (val > rhs) return std::partial_ordering::greater;
 
-    return std::strong_ordering::equal;
+    return std::partial_ordering::equivalent;
   }
 
 private:
-  float val{0};
+  double val{0};
 };
 
 } // namespace pierre
 
-template <> struct fmt::formatter<pierre::Frequency> : formatter<float> {
-  // parse is inherited from formatter<string_view>.
+template <> struct fmt::formatter<pierre::Frequency> : formatter<double> {
+  // parse is inherited from formatter<double>.
   template <typename FormatContext>
   auto format(const pierre::Frequency &val, FormatContext &ctx) const {
-    return formatter<float>::format(val, ctx);
+    return formatter<double>::format(val, ctx);
   }
 };

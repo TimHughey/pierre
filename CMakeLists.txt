@@ -4,7 +4,7 @@
 # Top-level Cmake configuration
 #
 
-cmake_minimum_required(VERSION 3.22.0)
+cmake_minimum_required(VERSION 3.23.0)
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
@@ -32,10 +32,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   set(CMAKE_C_STANDARD_REQUIRED       TRUE)
 
   add_compile_options(-Wall -Wextra -pedantic -Werror)
-
-  # Let's nicely support folders in IDEs
-  # not supported by Vscode
-  # set_property(GLOBAL PROPERTY USE_FOLDERS ON) 
 endif()
 
 # find pthreads
@@ -78,7 +74,12 @@ FetchContent_Declare(InfluxData
     GIT_TAG        v0.6.7
 )
 
-FetchContent_MakeAvailable(ArduinoJson InfluxData)
+FetchContent_Declare(tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.2.0
+)
+
+FetchContent_MakeAvailable(ArduinoJson InfluxData tomlplusplus)
 
 add_subdirectory(src)
 

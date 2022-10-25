@@ -42,7 +42,7 @@ KeyValMap Service::_kvm{{apAccessControlLevel, KeyVal{"acl", "0"}},
                         {apProtocolVsn, KeyVal{"protovers", "1.1"}},
                         {apRequiredSenderFeatures, KeyVal{"rsf", "0x0"}},
                         {apSerialNumber, KeyVal{"serialNumber", __calc}},
-                        {apStatusFlags, KeyVal{"statusFlas", __calc}},
+                        {apStatusFlags, KeyVal{"statusFlags", __calc}},
                         {apSystemFlags, KeyVal{"flags", __calc}},
                         {mdAirPlayVsn, KeyVal{"vs", "366.0"}},
                         {mdAirTunesProtocolVsn, KeyVal{"vn", "1.1"}},
@@ -66,8 +66,8 @@ KeySequences Service::_key_sequences{
            apProtocolVsn, apSerialNumber, apManufacturer, apModel, apSystemFlags,
            apRequiredSenderFeatures, apDeviceID, apAccessControlLevel},
 
-    KeySeq{PublicKey, mdAirPlayVsn, mdAirTunesProtocolVsn, mdTransportTypes, mdSystemFlags,
-           mdModel, mdMetadataTypes, mdEncryptTypes, mdDigestAuthKey, mdCompressionTypes}};
+    KeySeq{PublicKey, mdAirPlayVsn, mdAirTunesProtocolVsn, mdTransportTypes, mdSystemFlags, mdModel,
+           mdMetadataTypes, mdEncryptTypes, mdDigestAuthKey, mdCompressionTypes}};
 
 KeyValMapCalc Service::_kvm_calc;
 

@@ -141,11 +141,11 @@ void Racked::flush_impl(FlushInfo request) {
   });
 }
 
-void Racked::handoff(uint8v &packet) { // static
-  shared::racked->handoff_impl(packet);
+void Racked::handoff(uint8v packet) { // static
+  shared::racked->handoff_impl(std::move(packet));
 }
 
-void Racked::handoff_impl(uint8v &packet) noexcept {
+void Racked::handoff_impl(uint8v packet) noexcept {
   frame_t frame = Frame::create(packet);
 
   if (frame->state.header_parsed()) {
@@ -224,7 +224,7 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
     //  2.  master clock has changed and isn't stable
     auto clock_info = clock_future.get();
 
-    if (racked_acquire()) {
+    if (clock_info.ok() && racked_acquire()) {
       if (!empty()) { // a flush request may have cleared all reels
         auto frame = racked.front().peek_first();
 
@@ -247,6 +247,9 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
       }
 
       racked_release(); // we're done with the rack
+    } else if (!clock_info.ok()) {
+      INFO(module_id, "NEXT_FRAME", "WARN clock ok={}\n", clock_info.ok());
+
     } else {
       INFO(module_id, "TIMEOUT", "waiting for racked reels={}\n", size());
       prom.set_value(frame_t());
@@ -307,13 +310,13 @@ void Racked::log_racked(const string &wip_info) const noexcept {
   auto reel_count = size();
 
   if ((reel_count < 3) && wip_info.empty()) {
-    fmt::format_to(w, "LOW REELS   reels={:<3} wip_reel=<empty>", reel_count);
+    fmt::format_to(w, "LOW REELS  reels={:<3} wip_reel=<empty>", reel_count);
   } else if ((reel_count >= 400) && ((reel_count % 10) == 0) && !wip_info.empty()) {
-    fmt::format_to(w, "HIGH REELS  reels={:<3} wip_reel={}", reel_count, wip_info);
+    fmt::format_to(w, "HIGH REELS reels={:<3} wip_reel={}", reel_count, wip_info);
   } else if ((reel_count == 1) && !wip_info.empty()) {
-    fmt::format_to(w, "FIRST REEL  reels={:<3} wip_reel={}", 1, wip_info);
+    fmt::format_to(w, "FIRST REEL reels={:<3} wip_reel={}", 1, wip_info);
   } else if ((reel_count == 2) && !wip_info.empty()) {
-    fmt::format_to(w, "RACKED      reels={:<3} wip_reel={}", reel_count, wip_info);
+    fmt::format_to(w, "RACKED     reels={:<3} wip_reel={}", reel_count, wip_info);
   }
 
   if (!msg.empty()) INFO(module_id, "LOG_RACKED", "{}\n", msg);

@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "aes_ctx.hpp"
+#include "ctx.hpp"
 #include "base/uint8v.hpp"
 
 #include <algorithm>
@@ -29,10 +29,7 @@
 #include <memory>
 #include <string>
 
-using namespace std;
-
 namespace pierre {
-namespace airplay {
 
 AesCtx::AesCtx(csv device_id) {
   // allocate the setup and verify contexts
@@ -41,14 +38,14 @@ AesCtx::AesCtx(csv device_id) {
   if (_setup == nullptr) {
     static const char *msg = "pair_setup_new() failed";
     fmt::print("{}\n", msg);
-    throw(runtime_error(msg));
+    throw(std::runtime_error(msg));
   }
 
   _verify = pair_verify_new(_pair_type, NULL, NULL, NULL, device_id.data());
   if (_verify == nullptr) {
     static const char *msg = "pair_verify_new() failed";
     fmt::print("{}\n", msg);
-    throw(runtime_error(msg));
+    throw(std::runtime_error(msg));
   }
 }
 
@@ -79,7 +76,7 @@ size_t AesCtx::encrypt(uint8v &packet) {
 
     auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(), packet.size(), _cipher);
 
-    auto __ciphered_data = make_unique<uint8_t *>(ciphered_data);
+    auto __ciphered_data = std::make_unique<uint8_t *>(ciphered_data);
 
     if (rc >= 0) { // success
       packet.clear();
@@ -111,7 +108,7 @@ size_t AesCtx::decrypt(uint8v &packet, uint8v &ciphered) {
     size_t len = 0;
 
     auto consumed = pair_decrypt(&data, &len, ciphered.data(), ciphered.size(), cipher());
-    auto __data = make_unique<uint8_t *>(data);
+    auto __data = std::make_unique<uint8_t *>(data);
 
     if (consumed > 0) {
       std::copy(data, data + len, to);
@@ -187,5 +184,4 @@ AesResult AesCtx::setup(const Content &in, Content &out) {
   return aes_result;
 }
 
-} // namespace airplay
 } // namespace pierre

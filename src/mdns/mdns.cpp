@@ -15,9 +15,9 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 #include "mdns.hpp"
+#include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
-#include "core/host.hpp"
 #include "core/service.hpp"
 #include "zservice.hpp"
 

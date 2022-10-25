@@ -41,7 +41,7 @@ static const float PI4 = std::numbers::pi * 4;
 static const float PI6 = std::numbers::pi * 6;
 
 static const size_t _samples{1024};
-static const window _window_type{window::Blackman_Harris};
+static const window _window_type{window::Hann};
 static bool _with_compensation = false;
 static const float _win_compensation_factors[] = {
     1.0000000000 * 2.0, // rectangle (Box car)
@@ -69,24 +69,16 @@ FFT::FFT(const float *reals, size_t samples, const float frequency)
     throw std::runtime_error("unsupported number of samples");
   }
 
-  // Calculates the base 2 logarithm of sample count
-  // _power = 0;
-  // while (((samples >> _power) & 1) != 1) {
-  //   _power++;
-  // }
-
   _reals.reserve(samples);
   for (size_t i = 0; i < samples; i++) {
     _reals.emplace_back(reals[i]);
   }
-
-  // _weighing_factors_computed.wait(false); // false is the old value
 }
 
 void FFT::complex_to_magnitude() {
   // vM is half the size of vReal and vImag
   for (size_t i = 0; i < _samples; i++) {
-    _reals[i] = std::sqrt(sq(_reals[i]) + sq(_imaginary[i]));
+    _reals[i] = std::hypot(_reals[i], _imaginary[i]);
   }
 }
 
@@ -176,11 +168,10 @@ peaks_t FFT::find_peaks() {
       // mag_min = std::min(mag, mag_min);
       // mag_max = std::max(mag, mag_max);
 
-      peaks->emplace_back(freq_at_index(i), mag_at_index(i));
+      // peaks->emplace_back(freq_at_index(i), mag_at_index(i));
+      peaks->emplace(mag_at_index(i), freq_at_index(i));
     }
   }
-
-  peaks->sort();
 
   return peaks;
 }

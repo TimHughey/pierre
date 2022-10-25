@@ -44,7 +44,7 @@ constexpr uint64_t upow(uint64_t base, uint64_t exp) {
 }
 
 template <typename T> constexpr T scale_val(T val) { //
-  return (val <= 0.0) ? 0.0 : std::log10(val);
+  return (val <= 0.0) ? 0.0 : 10.0 * std::log10(val);
 }
 
 } // namespace pierre

@@ -20,10 +20,10 @@
 
 #include "base/content.hpp"
 #include "base/headers.hpp"
+#include "base/pair/pair.h"
 #include "base/resp_code.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "core/pair/pair.h"
 
 #include <array>
 #include <cstdint>
@@ -31,12 +31,6 @@
 #include <string_view>
 
 namespace pierre {
-namespace airplay {
-
-typedef struct pair_setup_context *PairCtx;
-typedef struct pair_verify_context *VerifyCtx;
-typedef struct pair_cipher_context *CipherCtx;
-typedef struct pair_result *PairResult;
 
 struct AesResult {
   bool ok = true;
@@ -62,22 +56,21 @@ public:
   AesResult setup(const Content &in, Content &out);
 
 private:
-  inline CipherCtx cipher() { return _cipher; }
+  auto cipher() { return _cipher; }
 
   Content &copyBodyTo(Content &out, const uint8_t *data, size_t bytes) const;
 
 private:
   bool _decrypt_in = false;
   bool _encrypt_out = false;
-  PairCtx _setup = nullptr;
-  PairResult _result = nullptr;
-  VerifyCtx _verify = nullptr;
-  CipherCtx _cipher = nullptr;
+  pair_setup_context *_setup = nullptr;
+  pair_result *_result = nullptr;
+  pair_verify_context *_verify = nullptr;
+  pair_cipher_context *_cipher = nullptr;
 
   char *_pin = nullptr;
 
   static constexpr pair_type _pair_type = PAIR_SERVER_HOMEKIT;
 };
 
-} // namespace airplay
 } // namespace pierre

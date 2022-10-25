@@ -17,11 +17,11 @@
 //  https://www.wisslanding.com
 
 #include "master_clock.hpp"
+#include "base/host.hpp"
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
-#include "core/host.hpp"
 
 #include <algorithm>
 #include <errno.h>
@@ -71,16 +71,18 @@ void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_pr
   // perform the retries on the MasterClock io_ctx enabling caller to continue other work
   // while the clock becomes useable and the future is set to ready
   asio::post(io_ctx, [=, this]() mutable {
-    while (!clock_info.ok() && (max_wait > Nanos::zero())) {
+    Elapsed elapsed;
+
+    while (!clock_info.ok() && (elapsed < max_wait)) {
 
       // reduce max wait so this loop eventually breaks out
-      auto remaining_wait = clock_info.until_min_age();
-      std::this_thread::sleep_for(remaining_wait);
-
-      max_wait -= remaining_wait;
+      auto poll_wait = pet::percent(max_wait, 10);
+      std::this_thread::sleep_for(poll_wait);
 
       clock_info = load_info_from_mapped();
     }
+
+    INFO(module_id, "GET_INFO", "no clock after {}\n", elapsed.humanize());
 
     // set the promise with whatever the outcome of above
     prom->set_value(clock_info);

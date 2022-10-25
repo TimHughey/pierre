@@ -64,8 +64,6 @@ public: // Peak
     return scaled > 0 ? scaled : 0;
   }
 
-  bool magStrong() const { return mag >= (mag_base.floor * mag_base.strong); }
-
   explicit operator bool() const {
     return (mag > mag_base.floor) && (mag < mag_base.ceiling) ? true : false;
   }

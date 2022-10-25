@@ -18,14 +18,14 @@
 
 #pragma once
 
-#include "aes/aes_ctx.hpp"
+#include "base/aes/ctx.hpp"
 #include "base/content.hpp"
 #include "base/headers.hpp"
+#include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "common/ss_inject.hpp"
-#include "core/host.hpp"
 #include "reply/inject.hpp"
 #include "session/base.hpp"
 
