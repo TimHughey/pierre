@@ -20,11 +20,11 @@
 
 #include "pierre.hpp"
 #include "airplay/airplay.hpp"
+#include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "core/args.hpp"
-#include "core/host.hpp"
 #include "core/service.hpp"
 #include "desk/desk.hpp"
 #include "frame/frame.hpp"
