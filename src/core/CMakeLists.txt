@@ -8,11 +8,6 @@ set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target})
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 
-# find_library(libConfig NAMES config++   REQUIRED)
-# find_library(libUUID   NAMES uuid       REQUIRED)
-# find_package(GCRYPT                     REQUIRED)
-# find_package(Sodium                     REQUIRED)
-
 set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
 set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
 set(Boost_USE_MULTITHREADED      ON)
@@ -20,7 +15,7 @@ find_package(Boost 1.78 COMPONENTS program_options)
 
 add_library(${__target} SHARED
   args.cpp
-  status_flags.cpp service.cpp static.cpp
+   service.cpp static.cpp
   ${HEADER_LIST}
 )
 

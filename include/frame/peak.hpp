@@ -32,10 +32,6 @@
 #include <memory>
 #include <ranges>
 
-namespace {
-namespace ranges = std::ranges;
-}
-
 namespace pierre {
 
 struct Peak {
@@ -87,7 +83,7 @@ public: // Peak
     auto ret_val =
         static_cast<T>(mag_scaled.interpolate(mag) * (range.max() - range.min()) + range.min());
 
-    return ranges::clamp(ret_val, range.min(), range.max());
+    return std::ranges::clamp(ret_val, range.min(), range.max());
   }
 
   static const Peak zero() { return Peak(); }
