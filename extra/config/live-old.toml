@@ -1,0 +1,76 @@
+[pierre]
+title = "Pierre Live Config"
+version = 1
+use_home = true
+working_dir = ".pierre"
+log_dir = "/tmp/pierre/log"
+
+[dmx]
+host = "test-with-devs.ruth"
+port = "48005"
+
+[dsp]
+fft = {samples = 1024, rate = 48000}
+logging = {file = "dsp.log", enable = false, truncate = true}
+
+[lightdesk]
+colorbars = false
+
+[lightdesk.silence]
+min_ms = 13_000
+suspend_after_ms = 600_000
+
+[lightdesk.majorpeak.logging]
+file = "majorpeak.log"
+truncate = true
+peaks = false
+colors = false
+
+[lightdesk.majorpeak.color]
+reference = { hue = 0.0, sat = 100.0, bri = 100.0}
+random_start = false
+rotate = {enable = false, ms = 7000}
+
+[lightdesk.majorpeak.frequencies]
+hard = {ceiling = 10000.0, floor = 40.0}
+soft = {ceiling = 1500.0, floor = 110.0}
+
+[lightdesk.majorpeak.pinspot.fill]
+name = 'fill'
+frequency_max = 1000.0
+fade_max_ms = 800
+
+[lightdesk.majorpeak.pinspot.fill.when_greater]
+frequency = 180.0
+brightness_min = 3.0
+higher_frequency = {brightness_min = 80.0}
+
+[lightdesk.majorpeak.pinspot.fill.when_lessthan]
+frequency = 180.0
+brightness_min = 27.0
+
+[lightdesk.majorpeak.pinspot.main]
+name = 'main'
+fade_max_ms = 700
+frequency_min = 180.0
+when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
+
+[lightdesk.majorpeak.makecolor.above_soft_ceiling]
+hue = {min = 345.0, max = 355.0, step = 0.0001}
+brightness = {max = 50.0, mag_scaled = true}
+
+[lightdesk.majorpeak.makecolor.generic]
+hue = {min = 30.0, max = 360.0, step = 0.0001}
+brightness = {max = 100.0, mag_scaled = true}
+
+[pcm.logging]
+file = "pcm.log"
+init = false
+truncate = true
+
+[pcm.alsa]
+device = 'hw:CARD=sndrpihifiberry,DEV=0'
+format = "S16_LE"
+channels = 2
+rate = 48000
+avail_min = 128

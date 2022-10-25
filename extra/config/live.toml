@@ -1,76 +1,48 @@
 [pierre]
-title = "Pierre Live Config"
-version = 1
-use_home = true
+title = "Pierre Live"
+version = 2
 working_dir = ".pierre"
-log_dir = "/tmp/pierre/log"
 
-[dmx]
-host = "test-with-devs.ruth"
-port = "48005"
+[mdns]
+receiver = "%h"           # use hostname
+dmx_service = "_ruth.tcp"
 
-[dsp]
-fft = {samples = 1024, rate = 48000}
-logging = {file = "dsp.log", enable = false, truncate = true}
+[frame]
+dsp = { concurrency_factor = 0.4 }
+clock = { shm_name = "/nqptp" }
 
-[lightdesk]
-colorbars = false
+[desk]
+service = "_ruth._tcp"
+colorbars = true
 
-[lightdesk.silence]
-min_ms = 13_000
-suspend_after_ms = 600_000
+[fx.majorpeak.color]
+reference = { hue = 0.0, sat = 100.0, bri = 100.0 }
 
-[lightdesk.majorpeak.logging]
-file = "majorpeak.log"
-truncate = true
-peaks = false
-colors = false
+[fx.majorpeak.frequencies]
+hard = { floor = 40.0, ceiling = 10000.0 }
+soft = { floor = 110.0, ceiling = 11500.0 }
 
-[lightdesk.majorpeak.color]
-reference = { hue = 0.0, sat = 100.0, bri = 100.0}
-random_start = false
-rotate = {enable = false, ms = 7000}
+[fx.majorpeak.makecolors.above_soft_ceiling]
+hue = { min = 345.0, max = 355.0, step = 0.0001 }
+bri = { max = 50.0, mag_scaled = true }
 
-[lightdesk.majorpeak.frequencies]
-hard = {ceiling = 10000.0, floor = 40.0}
-soft = {ceiling = 1500.0, floor = 110.0}
+[fx.majorpeak.makecolors.generic]
+hue = { min = 30.0, max = 360.0, step = 0.0001 }
+bri = { max = 100.0, mag_scaled = true }
 
-[lightdesk.majorpeak.pinspot.fill]
-name = 'fill'
-frequency_max = 1000.0
+[[fx.majorpeak.pinspots]]
+name = "fill"
+freq_max = 1000.0
 fade_max_ms = 800
+when_greater = { freq = 180.0, bri_min = 3.0, when_higher_freq = { bri_min = 80.0 } }
+when_lessthan = { freq = 180.0, bri_min = 27.0 }
 
-[lightdesk.majorpeak.pinspot.fill.when_greater]
-frequency = 180.0
-brightness_min = 3.0
-higher_frequency = {brightness_min = 80.0}
-
-[lightdesk.majorpeak.pinspot.fill.when_lessthan]
-frequency = 180.0
-brightness_min = 27.0
-
-[lightdesk.majorpeak.pinspot.main]
-name = 'main'
+[[fx.majorpeak.pinspots]]
+name = "main"
+freq_min = 180.0
 fade_max_ms = 700
-frequency_min = 180.0
-when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
+when_fading = { bri_min = 5.0, when_freq_greater = { bri_min = 69.0 } }
 
-[lightdesk.majorpeak.makecolor.above_soft_ceiling]
-hue = {min = 345.0, max = 355.0, step = 0.0001}
-brightness = {max = 50.0, mag_scaled = true}
-
-[lightdesk.majorpeak.makecolor.generic]
-hue = {min = 30.0, max = 360.0, step = 0.0001}
-brightness = {max = 100.0, mag_scaled = true}
-
-[pcm.logging]
-file = "pcm.log"
-init = false
-truncate = true
-
-[pcm.alsa]
-device = 'hw:CARD=sndrpihifiberry,DEV=0'
-format = "S16_LE"
-channels = 2
-rate = 48000
-avail_min = 128
+[peaks.magnitudes]
+floor = 2.0
+ceiling = 32.0

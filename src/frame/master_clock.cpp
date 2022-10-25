@@ -21,7 +21,6 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
 
 #include <algorithm>
 #include <errno.h>
@@ -168,7 +167,6 @@ const ClockInfo MasterClock::load_info_from_mapped() {
 }
 
 const string MasterClock::make_shm_name() noexcept { // static
-  // return fmt::format("/{}-{}", Config::receiverName(), Host::ptr()->deviceID());
   return string("/nqptp");
 }
 

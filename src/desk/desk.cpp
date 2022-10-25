@@ -21,7 +21,6 @@
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/render.hpp"
-#include "config/config.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"

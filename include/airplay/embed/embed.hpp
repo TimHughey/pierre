@@ -24,12 +24,11 @@
 
 namespace pierre {
 namespace airplay {
+namespace ple {
+enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
 
-struct ple {
-  enum Embedded : uint8_t { GetInfoRespStage1 = 0 };
-
-  static csv binary(const Embedded &embedded);
-};
+csv binary(const Embedded &embedded);
+} // namespace ple
 
 } // namespace airplay
 } // namespace pierre

@@ -19,8 +19,8 @@
 */
 
 #include "reply/info.hpp"
+#include "airplay/embed/embed.hpp"
 #include "core/service.hpp"
-#include "embed/embed.hpp"
 #include "reply/dict_keys.hpp"
 
 #include <array>

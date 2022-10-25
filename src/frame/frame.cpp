@@ -26,7 +26,6 @@
 #include "base/shk.hpp"
 #include "base/threads.hpp"
 #include "base/uint8v.hpp"
-// #include "config/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "master_clock.hpp"
