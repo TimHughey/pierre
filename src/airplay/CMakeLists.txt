@@ -12,6 +12,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/*.h*"
   "${HEADER_PATH_LOCAL}/aplist/*.h*"
   "${HEADER_PATH_LOCAL}/common/*.h*"
+  "${HEADER_PATH_LOCAL}/embed/*.h*"
   "${HEADER_PATH_LOCAL}/reply/*.h*"
   "${HEADER_PATH_LOCAL}/server/*.h*"
   "${HEADER_PATH_LOCAL}/session/*.h*"

@@ -17,7 +17,7 @@
     https://www.wisslanding.com */
 
 #include "config/config.hpp"
-#include "embed/embed.hpp"
+#include "embed.hpp"
 #include "version.h"
 
 #include <algorithm>

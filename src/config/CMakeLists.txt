@@ -8,8 +8,9 @@ set(__target config)
 
 set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target})
+set(HEADER_PATH_EMBED         ${HEADER_PATH_LOCAL}/embed)
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS 
-  "${HEADER_PATH_LOCAL}/*.h*"
+  "${HEADER_PATH_LOCAL}/**/*.h*"
 )
 
 add_library(${__target} SHARED 
@@ -27,7 +28,10 @@ target_include_directories(${__target} PRIVATE
 
 # external users of this library include headers relative to
 # the based include directory
-target_include_directories(${__target} PRIVATE ${HEADER_PATH_LOCAL})
+target_include_directories(${__target} PRIVATE 
+  ${HEADER_PATH_LOCAL} ${HEADER_PATH_EMBED}
+)
+
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE base stdc++fs fallback)

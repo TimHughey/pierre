@@ -19,6 +19,7 @@
 */
 
 #include "embed/embed.hpp"
+#include "base/types.hpp"
 
 // embedded binary data via ld (see ple/CMakeLists.txt)
 extern uint8_t _binary_get_info_resp_plist_start[];
@@ -28,15 +29,15 @@ extern uint8_t _binary_get_info_resp_plist_size;
 namespace pierre {
 namespace airplay {
 
-const csv ple::binary(const Embedded &embedded) { // static
+csv ple::binary(const ple::Embedded &embedded) { // static
   const char *begin = nullptr;
   const char *end = nullptr;
 
   switch (embedded) {
-    case GetInfoRespStage1:
-      begin = (const char *)&_binary_get_info_resp_plist_start;
-      end = (const char *)&_binary_get_info_resp_plist_end;
-      break;
+  case GetInfoRespStage1:
+    begin = (const char *)&_binary_get_info_resp_plist_start;
+    end = (const char *)&_binary_get_info_resp_plist_end;
+    break;
   }
 
   return csv(begin, end - begin);

@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "embed/embed.hpp"
+#include "embed.hpp"
 #include "base/types.hpp"
 
 #include <memory>
