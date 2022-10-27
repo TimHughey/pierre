@@ -1,22 +1,20 @@
-/*
-    Pierre - Custom Light Show via DMX for Wiss Landing
-    Copyright (C) 2021  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre
+// Copyright (C) 2022 Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #pragma once
 
@@ -24,14 +22,22 @@
 #include "base/types.hpp"
 #include "frame/peak.hpp"
 
+#include <algorithm>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <memory>
+#include <ranges>
 #include <type_traits>
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace pierre {
 
 using peak_n_t = size_t; // represents peak of interest 1..max_peaks
+using sentinel = std::default_sentinel_t;
 
 class Peaks;
 using peaks_t = std::shared_ptr<Peaks>;
@@ -54,20 +60,27 @@ public:
     return peaks_map.size() > n ? true : false;
   }
 
-  const Peak majorPeak() const { return !peaks_map.empty() ? peaks_map.begin()->second : Peak(); }
+  const Peak majorPeak() const noexcept {
+    return !std::empty(peaks_map) ? std::begin(peaks_map)->second : Peak();
+  }
 
   // find the first peak greater than the floating point value
   // specified in operator[]
   template <class T, class = typename std::enable_if<std::is_floating_point<T>::value>::type>
   const Peak operator[](T freq) {
 
-    for (auto it = std::counted_iterator{peaks_map.begin(), 5}; it != std::default_sentinel; it++) {
-      const auto &[mag, peak] = *it;
+    Peak found_peak;
 
-      if (freq > peak.frequency()) return peak;
+    if (!std::empty(peaks_map)) {
+      for (auto it = std::counted_iterator{std::begin(peaks_map), 5};
+           (it != std::default_sentinel) && !found_peak; ++it) {
+        const auto &[mag, peak] = *it;
+
+        if (freq > peak.frequency()) found_peak = peak;
+      }
     }
 
-    return Peak::zero();
+    return found_peak;
   }
 
   static bool silence(peaks_t peaks) {

@@ -109,12 +109,6 @@ MajorPeak::~MajorPeak() {
 }
 
 void MajorPeak::execute(peaks_t peaks) {
-  if (_color_config.rotate.enable) {
-    if (color_elapsed.as<Millis>().count() > _color_config.rotate.ms) {
-      _color.rotateHue(randomRotation());
-      color_elapsed.reset();
-    }
-  }
 
   handleElWire(peaks);
   handleMainPinspot(peaks);

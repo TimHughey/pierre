@@ -72,8 +72,7 @@ void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_pr
   asio::post(io_ctx, [=, this]() mutable {
     Elapsed elapsed;
 
-    while (!clock_info.ok() && (elapsed < max_wait)) {
-
+    while (!clock_info.ok() && (elapsed() < max_wait)) {
       // reduce max wait so this loop eventually breaks out
       auto poll_wait = pet::percent(max_wait, 10);
       std::this_thread::sleep_for(poll_wait);
@@ -100,11 +99,11 @@ void MasterClock::init_self() noexcept {
   for (auto n = 0; n < THREAD_COUNT; n++) {
     // notes:
     //  1. start DSP processing threads
-    threads.emplace_back([=, this, &latch](std::stop_token token) {
+    threads.emplace_back([=, this, &latch](std::stop_token token) mutable {
       tokens.add(std::move(token));
 
       name_thread("Master Clock", n);
-      latch.arrive_and_wait();
+      latch.count_down();
       io_ctx.run();
     });
   }

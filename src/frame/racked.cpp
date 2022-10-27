@@ -50,11 +50,10 @@ std::optional<Racked> racked;
 uint64_t Racked::REEL_SERIAL_NUM{0x1000};
 
 void Racked::accept_frame(frame_t frame) noexcept {
-  asio::post(handoff_strand, [=, this]() {
-    if (frame->decode()) {
-      add_frame(std::move(frame));
-    }
-  });
+
+  if (frame->decode()) {
+    add_frame(std::move(frame));
+  }
 }
 
 void Racked::add_frame(frame_t frame) noexcept {
@@ -175,7 +174,7 @@ void Racked::init_self() {
   for (auto n = 0; n < THREAD_COUNT; n++) {
     // notes:
     //  1. start DSP processing threads
-    _threads.emplace_back([=, this, &latch](std::stop_token token) {
+    _threads.emplace_back([=, this, &latch](std::stop_token token) mutable {
       _stop_tokens.add(std::move(token));
 
       name_thread("Racked", n);

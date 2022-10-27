@@ -24,13 +24,6 @@
 namespace pierre {
 namespace airplay {
 
-namespace server {
-// server dependency injection
-struct Inject {
-  io_context &io_ctx;
-};
-} // namespace server
-
 namespace session {
 // session dependency injection
 struct Inject {

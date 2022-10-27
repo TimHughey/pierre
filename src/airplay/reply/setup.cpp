@@ -86,7 +86,7 @@ bool Setup::handleNoStreams() {
 
     Aplist peer_info;
 
-    auto ip_addrs = Host::ptr()->ipAddrs();
+    auto ip_addrs = Host().ip_addresses();
     peer_info.setArray(dk::ADDRESSES, ip_addrs);
     peer_info.setString(dk::ID, ip_addrs[0]);
 

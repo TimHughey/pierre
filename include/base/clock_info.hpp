@@ -42,7 +42,6 @@ struct ClockInfo {
   Nanos mastershipStartTime{0}; // when the master clock became master
   enum { EMPTY, READ, OK, STABLE } status{EMPTY};
 
-  static constexpr Nanos AGE_MIN = 15ms;
   static constexpr Nanos AGE_STABLE = 5s;
   static constexpr Nanos INFO_MAX_WAIT = 133ms; // typical sample refresh ~122ms
   static constexpr Nanos SAMPLE_AGE_MAX = 10s;
@@ -95,12 +94,6 @@ struct ClockInfo {
     }
 
     return false;
-  }
-
-  Nanos until_min_age() const {
-    Nanos until = ClockInfo::AGE_MIN - master_for();
-
-    return (until > Nanos::zero()) ? until : Nanos::zero();
   }
 
   // misc debug

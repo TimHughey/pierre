@@ -18,70 +18,64 @@
 
 #include "airplay/airplay.hpp"
 #include "base/features.hpp"
-#include "base/host.hpp"
-#include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "common/ss_inject.hpp"
 #include "conn_info/conn_info.hpp"
-#include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
 #include "server/servers.hpp"
 
+#include <algorithm>
 #include <latch>
+#include <ranges>
 
 namespace pierre {
 
+namespace {
+namespace ranges = std::ranges;
+}
+
 namespace shared {
-std::optional<shAirplay> __airplay;
+std::shared_ptr<Airplay> airplay;
 } // namespace shared
 
-shAirplay Airplay::init() { // static
-  auto self = shared::__airplay.emplace(new Airplay());
+shAirplay Airplay::init_self() {
   INFO(module_id, "INIT", "features={:#x}\n", Features().ap2Default());
 
   // executed by caller thread
   airplay::ConnInfo::init();
-  airplay::Servers::init({.io_ctx = self->io_ctx});
+  airplay::Servers::init(io_ctx);
 
-  std::latch threads_latch(AIRPLAY_THREADS);
-  self->thread_main = Thread([=, &threads_latch](std::stop_token token) {
-    name_thread("Airplay", 0); // main thread
-    self->stop_token = token;
+  std::latch latch(AIRPLAY_THREADS);
 
-    // add some work to io_ctx so threads don't exit immediately
-    self->watch_dog();
+  watch_dog(); // add some work so threads don't exit immediately
 
-    // start remaining threads
-    for (auto n = 1; n < AIRPLAY_THREADS; n++) {
-      self->threads.emplace_back([=, &threads_latch] {
-        name_thread("Airplay", n);
-        threads_latch.count_down();
-        self->io_ctx.run();
-      });
-    }
+  for (auto n = 0; n < AIRPLAY_THREADS; n++) {
+    threads.emplace_back([=, &latch, self = shared_from_this()](std::stop_token token) mutable {
+      name_thread("Airplay", n);
+      self->tokens.add(std::move(token));
 
-    threads_latch.count_down();
-    self->io_ctx.run(); // run io_ctx on main airplay thread
-  });
+      latch.arrive_and_wait();
+      self->io_ctx.run();
+    });
+  }
 
-  threads_latch.wait();                // wait for all threads to start
+  latch.wait();                        // wait for all threads to start
   shared::master_clock->peers_reset(); // reset timing peers
 
   // start listening for Rtsp messages
   airplay::Servers::ptr()->localPort(ServerType::Rtsp);
 
-  return self->shared_from_this();
+  return shared_from_this();
 }
 
 void Airplay::watch_dog() {
   // cancels any running timers
   [[maybe_unused]] auto timers_cancelled = watchdog_timer.expires_after(250ms);
 
-  watchdog_timer.async_wait([&, self = shared_from_this()](const error_code ec) {
+  watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
     if (ec == errc::success) { // unless success, fall out of scape
 
-      // check if any thread has received a stop request
-      if (self->stop_token.stop_requested()) {
+      if (self->tokens.any_requested()) {
         self->io_ctx.stop();
       } else {
         self->watch_dog();

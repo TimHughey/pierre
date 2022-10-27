@@ -84,10 +84,10 @@ void init() {
     });
   }
 
-  watch_dog(); // watch for shutdown
-
   // caller thread waits until all threads are started
   latch.wait();
+
+  watch_dog(); // watch for shutdown
 }
 
 // perform digital signal analysis on a Frame

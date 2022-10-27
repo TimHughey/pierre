@@ -20,6 +20,7 @@
 
 #include "pierre.hpp"
 #include "airplay/airplay.hpp"
+#include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
@@ -39,14 +40,13 @@ Pierre::Pierre(const Inject &di)
 
 // create and run all threads
 void Pierre::run() {
-  Logger::init();
-
-  auto host = Host::init();
+  crypto::init(); // initialize sodium and gcrypt
+  Logger::init(); // start logging
 
   auto cfg = Config::init(                   //
       {.app_name = di.app_name,              //
        .cli_cfg_file = di.args_map.cfg_file, //
-       .hostname = host->hostname()}         //
+       .hostname = Host().hostname()}        //
   );
 
   INFO(module_id, "RUN", "{} {}\n", cfg->receiverName(), cfg->firmwareVersion());

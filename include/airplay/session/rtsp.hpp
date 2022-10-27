@@ -64,8 +64,8 @@ public:
 
 private:
   Rtsp(const Inject &di)
-      : Base(di, csv("RTSP SESSION")),   // Base holds the newly connected socket
-        aes_ctx(Host::ptr()->deviceID()) // create aes ctx
+      : Base(di, csv("RTSP SESSION")), // Base holds the newly connected socket
+        aes_ctx(Host().device_id())    // create aes ctx
   {
     INFO(moduleID(), "NEW", "handle={}\n", socket.native_handle());
   }

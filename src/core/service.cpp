@@ -35,19 +35,19 @@ using namespace service;
 using enum service::Key;
 
 Service::Service() {
-  auto host = Host::ptr();
+  const auto host = Host();
 
   // stora calculated key/vals available from Host
-  saveCalcVal(apAirPlayPairingIdentity, host->hwAddr());
-  saveCalcVal(apDeviceID, host->deviceID());
+  saveCalcVal(apAirPlayPairingIdentity, host.hw_address());
+  saveCalcVal(apDeviceID, host.device_id());
 
-  saveCalcVal(apGroupUUID, host->uuid());
-  saveCalcVal(apSerialNumber, host->serialNum());
+  saveCalcVal(apGroupUUID, host.uuid());
+  saveCalcVal(apSerialNumber, host.serial_num());
 
   saveCalcVal(ServiceName, string(Config::receiverName()));
   saveCalcVal(FirmwareVsn, Config::firmwareVersion());
 
-  saveCalcVal(PublicKey, host->pk());
+  saveCalcVal(PublicKey, host.pk());
 
   addRegAndName();
   addSystemFlags();

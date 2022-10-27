@@ -18,10 +18,10 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
-#include <boost/asio.hpp>
 #include <future>
 #include <map>
 #include <memory>
@@ -39,14 +39,10 @@ constexpr csv RTP("rtp");
 constexpr csv PCM("pcm");
 } // namespace strands
 
-namespace {
-using strand = boost::asio::io_context::strand;
-}
-
 enum TeardownPhase : uint8_t { None = 0, One, Two };
-typedef std::future<TeardownPhase> TeardownBarrier;
-typedef std::promise<TeardownPhase> Teardown;
-typedef std::vector<ServerType> TeardownList;
+using TeardownBarrier = std::future<TeardownPhase>;
+using Teardown = std::promise<TeardownPhase>;
+using TeardownList = std::vector<ServerType>;
 
 class Servers;
 typedef std::shared_ptr<Servers> shServers;
@@ -61,7 +57,9 @@ private:
   typedef std::map<ServerType, ServerPtr> ServerMap;
 
 public:
-  static shServers init(server::Inject di) { return shared::servers().emplace(new Servers(di)); }
+  static shServers init(io_context &io_ctx) {
+    return shared::servers().emplace(new Servers(io_ctx));
+  }
   static shServers ptr() { return shared::servers().value()->shared_from_this(); }
   static void reset() { shared::servers().reset(); }
 
@@ -73,9 +71,7 @@ public:
   void teardown(ServerType type);
 
 private:
-  Servers(server::Inject di)
-      : di(di) // save inject
-  {}
+  Servers(io_context &io_ctx) : io_ctx(io_ctx) {}
 
   ServerPtr fetch(ServerType type);
 
@@ -83,7 +79,7 @@ private:
 
 private:
   // order dependent based on constructor
-  server::Inject di;
+  io_context &io_ctx;
 
   // order independent
   ServerMap map;

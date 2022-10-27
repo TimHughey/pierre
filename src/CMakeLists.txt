@@ -12,6 +12,9 @@ add_subdirectory(core)
 # config
 add_subdirectory(config)
 
+# config new
+add_subdirectory(config2)
+
 # asio wrapper
 add_subdirectory(io)
 

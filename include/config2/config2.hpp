@@ -19,57 +19,27 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "mdns/zservice.hpp"
 
-#include <memory>
+#include <optional>
+
+#define TOML_ENABLE_FORMATTERS 0 // don't need formatters
+#define TOML_HEADER_ONLY 0       // reduces compile times
+#include <toml++/toml.h>
 
 namespace pierre {
 
-class mDNS;
-
-namespace shared {
-extern std::optional<mDNS> mdns;
-}
-
-class mDNS {
-
+class C2onfig {
 public:
-  mDNS() = default;
+  C2onfig(csv file = csv{"live.toml"});
 
-public:
-  static void init() noexcept;
-
-  static void reset();
-
-public:
-  static void browse(csv stype) { shared::mdns->impl_browse(stype); }
-  static auto port() { return PORT; }
-  bool start();
-  static void update() { shared::mdns->impl_update(); };
-  static shZeroConfService zservice(csv type);
+  const auto node_at(csv p) const { return _table.at_path(p); }
+  const toml::table &table() const { return _table; }
 
 private:
-  void impl_browse(csv stype);
-  void impl_update();
-  void init_self();
+  toml::table _table;
 
 public:
-  string _dacp_id;
-
-  bool found = false;
-  string type;
-  string domain;
-  string host_name;
-  string error;
-
-private:
-  string _service_base;
-
-public:
-  static constexpr csv module_id = "mDNS";
-
-private:
-  static constexpr auto PORT = 7000;
+  static constexpr csv module_id{"CONFIG2"};
 };
 
 } // namespace pierre

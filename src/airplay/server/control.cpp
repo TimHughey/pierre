@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "server/control.hpp"
+#include "base/io.hpp"
 #include "base/logger.hpp"
 
 #include <fmt/format.h>
@@ -64,13 +65,9 @@ void Packet::loaded([[maybe_unused]] size_t rx_bytes) {
 
 // back to namespace server
 
-using namespace boost;
-using namespace boost::system;
-using namespace asio;
-
-Control::Control(const Inject &di)
+Control::Control(io_context &io_ctx)
     : Base("CONTROL SERVER"),                              // server name
-      io_ctx(di.io_ctx),                                   // io_ctx
+      io_ctx(io_ctx),                                      // io_ctx
       socket(io_ctx, udp_endpoint(ip_udp::v4(), ANY_PORT)) // create socket and endpoint
 {
   _wire.clear();

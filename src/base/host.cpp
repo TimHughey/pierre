@@ -19,93 +19,80 @@
 */
 
 #include "host.hpp"
+#include "logger.hpp"
 #include "pair.h"
 
-#include <algorithm>
+// #include <algorithm>
 #include <arpa/inet.h>
 #include <array>
 #include <cstdlib>
-#include <cstring>
+// #include <cstring>
 #include <exception>
-#include <filesystem>
-#include <fmt/format.h>
-#include <gcrypt.h>
+// #include <filesystem>
 #include <ifaddrs.h>
-#include <iomanip>
-#include <iterator>
+// #include <iomanip>
+// #include <iterator>
+// #include <linux/if_packet.h>
+// #include <net/ethernet.h> /* the L2 protocols */
+// #include <net/if.h>
+// #include <netinet/in.h>
+// #include <sys/ioctl.h>
+// #include <sys/socket.h>
+#include <sys/types.h>
+// #include <unistd.h>
 #include <linux/if_packet.h>
 #include <net/ethernet.h> /* the L2 protocols */
-#include <net/if.h>
-#include <netinet/in.h>
-#include <sodium.h>
-#include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <uuid/uuid.h>
-#include <vector>
 
 namespace pierre {
 
-namespace shared {
-std::optional<shHost> __host;
-std::optional<shHost> &host() { return shared::__host; }
-} // namespace shared
+Host::Host() noexcept : name(255, 0x00) {
+  discover_ip_addrs();
 
-Host::Host() : _hostname(255, 0x00) {
-  initCrypto();
-
-  // find the mac addr, store a binary and text representation
-  createHostIdentifiers();
-
-  // create UUID to represent this host
-  createUUID();
-  createPublicKey();
-
-  discoverIPs();
-}
-
-void Host::createHostIdentifiers() {
-
-  if (findHardwareAddr(_hw_addr_bytes)) {
+  // create the various representations of this host
+  if (_hw_addr_bytes[0] != 0x00) {
     // build the various representations of hw address needed
 
     // device_id is the hwaddr bytes concatenated
-    _device_id = fmt::format("{:02X}", fmt::join(_hw_addr_bytes, ""));
+    id = fmt::format("{:02X}", fmt::join(_hw_addr_bytes, ""));
 
     // hw_addr is the traditional colon separated hex bytes
-    _hw_addr = fmt::format("{:02X}", fmt::join(_hw_addr_bytes, ":"));
+    hw_addr = fmt::format("{:02X}", fmt::join(_hw_addr_bytes, ":"));
 
     // serial num is the dash separated hex bytes with a trailing colon + number
-    _serial_num = fmt::format("{:02X}:5", fmt::join(_hw_addr_bytes, "-"));
+    serial = fmt::format("{:02X}:5", fmt::join(_hw_addr_bytes, "-"));
   }
 
-  if (gethostname(_hostname.data(), _hostname.size()) != 0) {
+  if (gethostname(name.data(), name.size()) != 0) {
     // gethostname() has failed, fallback to device_id
-    _hostname = _device_id;
+    name = id;
   }
 
-  _hostname.shrink_to_fit();
+  // create UUID for this host (only once)
+  if (host_uuid.empty()) {
+    uuid_t binuuid;
+    uuid_generate_random(binuuid);
+
+    std::array<char, 37> tu{0};
+    uuid_unparse_lower(binuuid, tu.data());
+
+    host_uuid = string(tu.data(), tu.size());
+    INFO(module_id, "CREATED", "host_uuid={}\n", host_uuid);
+  }
+
+  // create the public key (only once)
+  if (pk_bytes[0] == 0x00) {
+    auto *dest = pk_bytes.data();
+    auto *secret = hw_address().data();
+
+    pair_public_key_get(PAIR_SERVER_HOMEKIT, dest, secret);
+
+    INFO(module_id, "CREATED", "public key={}\n", fmt::format("{:0x}", fmt::join(pk_bytes, "")));
+  }
 }
 
-void Host::createPublicKey() {
-  auto *dest = _pk_bytes.data();
-  auto *secret = hwAddr().data();
-
-  pair_public_key_get(PAIR_SERVER_HOMEKIT, dest, secret);
-}
-
-void Host::createUUID() {
-  uuid_t binuuid;
-  uuid_generate_random(binuuid);
-
-  std::array<char, 37> tu = {0};
-  uuid_unparse_lower(binuuid, tu.data());
-
-  _uuid = string(tu.data(), tu.size());
-}
-
-void Host::discoverIPs() {
+void Host::discover_ip_addrs() {
   struct ifaddrs *addrs, *iap;
 
   if (getifaddrs(&addrs) < 0) {
@@ -113,8 +100,7 @@ void Host::discoverIPs() {
   }
 
   for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
-    // debug(1, "Interface index %d, name:
-    // \"%s\"",if_nametoindex(iap->ifa_name), iap->ifa_name);
+
     if (iap->ifa_addr                              // an actual address
         && iap->ifa_netmask                        // non-zero netmask
         && (iap->ifa_flags & IFF_UP)               // iterface is up
@@ -135,59 +121,24 @@ void Host::discoverIPs() {
       }
 
       if (buf[0] != 0) {
-        _ip_addrs.emplace_back(IpAddr{buf.data()});
+        ip_addrs.emplace_back(buf.data());
+
+        // grab the interface mac addr if we don't have one yet
+        if (_hw_addr_bytes[0] == 0x00) {
+          // auto *s = (struct sockaddr_ll *)iap->ifa_addr;
+
+          std::memcpy(_hw_addr_bytes.data(), iap->ifa_addr, _hw_addr_bytes.size());
+        }
       }
     }
   }
+
   freeifaddrs(addrs);
 }
 
-bool Host::findHardwareAddr(HwAddrBytes &dest) {
-  auto found = false;
-  struct ifaddrs *ifaddr = NULL;
-  constexpr auto exclude_lo = "lo";
+// class static members
 
-  if (getifaddrs(&ifaddr) < 0) {
-    return found;
-  }
-
-  for (auto ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
-    if (ifa->ifa_addr->sa_family == AF_PACKET) {
-      if (strcmp(ifa->ifa_name, exclude_lo) != 0) {
-        auto *s = (struct sockaddr_ll *)ifa->ifa_addr;
-
-        // only copy bytes that fit into the destination
-        for (size_t idx = 0; idx < dest.size(); idx++) {
-          dest.at(idx) = s->sll_addr[idx];
-        }
-
-        found = true;
-        break;
-      }
-    }
-  }
-
-  freeifaddrs(ifaddr);
-  return found;
-}
-
-void Host::initCrypto() {
-  // initialize crypo libs
-  if (sodium_init() < 0) {
-    throw(std::runtime_error{"sodium_init() failed"});
-  }
-
-  if (gcry_check_version(_gcrypt_vsn) == nullptr) {
-    static string buff;
-    fmt::format_to(std::back_inserter(buff), "outdated libcrypt, need {}\n", _gcrypt_vsn);
-    const char *msg = buff.data();
-    throw(std::runtime_error(msg));
-  }
-
-  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
-  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-}
-
-const string Host::pk() const { return fmt::format("{:02x}", fmt::join(_pk_bytes, "")); }
+string Host::host_uuid;
+PkBytes Host::pk_bytes{0};
 
 } // namespace pierre

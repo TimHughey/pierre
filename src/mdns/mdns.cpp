@@ -242,7 +242,7 @@ void cb_resolve(AvahiServiceResolver *r, [[maybe_unused]] AvahiIfIndex interface
          .protocol = avahi_proto_to_string(protocol),                                 //
          .txt_list = make_txt_list(txt)});
 
-    INFOX(mDNS::module_id, fn_id, "{}\n", zcs->inspect());
+    INFO(mDNS::module_id, fn_id, "{}\n", zcs->inspect());
 
     zcs_list.push_back(zcs);
   }

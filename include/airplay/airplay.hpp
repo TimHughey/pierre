@@ -34,11 +34,10 @@ namespace ranges = std::ranges;
 }
 
 class Airplay;
-typedef std::shared_ptr<Airplay> shAirplay;
+using shAirplay = std::shared_ptr<Airplay>;
 
 namespace shared {
-extern std::optional<shAirplay> __airplay;
-std::optional<shAirplay> &airplay() { return shared::__airplay; };
+extern std::shared_ptr<Airplay> airplay;
 } // namespace shared
 
 class Airplay : public std::enable_shared_from_this<Airplay> {
@@ -50,22 +49,24 @@ private:
 
 public:
   // shared instance management
-  static shAirplay init(); // create and start threads, dependencies
-  static shAirplay ptr() { return shared::airplay().value()->shared_from_this(); }
-  static void reset() { shared::airplay().reset(); }
-
-  void join() { thread_main.join(); }
-
-  void shutdown() {
-    thread_main.request_stop();
-    ranges::for_each(threads, [](Thread &t) { t.join(); });
-    thread_main.join();
+  static shAirplay init() {
+    shared::airplay = std::shared_ptr<Airplay>(new Airplay());
+    return shared::airplay->init_self();
   }
 
-  // misc debug
-  static constexpr csv moduleID() { return module_id; }
+  static shAirplay ptr() { return shared::airplay->shared_from_this(); }
+  static void reset() { shared::airplay.reset(); }
+
+  // void join() { thread_main.join(); }
+
+  // void shutdown() {
+  //   thread_main.request_stop();
+  //   ranges::for_each(threads, [](Thread &t) { t.join(); });
+  //   thread_main.join();
+  // }
 
 private:
+  std::shared_ptr<Airplay> init_self();
   void watch_dog();
 
 private:
@@ -74,11 +75,11 @@ private:
   steady_timer watchdog_timer;
 
   // order independent
-  Thread thread_main;
   Threads threads;
-  std::stop_token stop_token;
+  stop_tokens tokens;
 
-  static constexpr csv module_id = "AIRPLAY";
+public:
+  static constexpr csv module_id{"AIRPLAY"};
 };
 
 } // namespace pierre

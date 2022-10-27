@@ -21,6 +21,7 @@
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/render.hpp"
+#include "config2/config2.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"
@@ -94,8 +95,8 @@ void Desk::frame_loop_safe() {
 
 // must ensure this function only runs on the same thread as frame_strand
 void Desk::frame_loop_unsafe() {
-  auto delay = Elapsed();
-  Render::enabled(/* wait */ true);
+  Elapsed delay;
+  Render::enabled(true /* wait */);
   run_stats(desk::RENDER_DELAY, delay);
 
   Elapsed elapsed;
@@ -167,11 +168,13 @@ void Desk::init() { // static instance creation
 }
 
 void Desk::init_self() {
-  mDNS::browse("_ruth._tcp");
+  C2onfig config;
 
-  shared::desk.emplace();
+  auto mdns_service = config.node_at("desk.service").value_or("_ruth._tcp"sv);
 
-  INFO(module_id, "INIT", "sizeof={}\n", sizeof(Desk));
+  mDNS::browse(mdns_service);
+
+  INFO(module_id, "INIT", "sizeof={} mdns_service={}\n", sizeof(Desk), mdns_service);
 
   std::latch latch(DESK_THREADS);
 

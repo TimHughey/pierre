@@ -3,9 +3,12 @@ title = "Pierre Live"
 version = 2
 working_dir = ".pierre"
 
+[dmx]
+controller = "test-with-devs"
+
 [mdns]
-receiver = "%h"           # use hostname
-dmx_service = "_ruth.tcp"
+receiver = "%h"        # use hostname
+service = "_ruth._tcp"
 
 [frame]
 dsp = { concurrency_factor = 0.4 }
@@ -14,6 +17,7 @@ clock = { shm_name = "/nqptp" }
 [desk]
 service = "_ruth._tcp"
 colorbars = true
+threads = 6
 
 [fx.majorpeak.color]
 reference = { hue = 0.0, sat = 100.0, bri = 100.0 }

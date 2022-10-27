@@ -32,7 +32,7 @@ bool Peaks::emplace(Magnitude m, Frequency f) noexcept {
 
   auto rc = false;
 
-  if (m >= 1.0) {
+  if (m >= 0.9) {
     auto node = peaks_map.try_emplace(m, f, m);
 
     rc = node.second; // was the peak inserted?

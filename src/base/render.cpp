@@ -27,7 +27,9 @@ Render render;
 
 bool Render::enabled(bool wait) noexcept {
   if (wait && !shared::render.mode()) {
-    shared::render.flag.wait(false);
+    if (shared::render.mode() == false) {
+      shared::render.flag.wait(false);
+    }
   }
 
   return shared::render.mode();
@@ -47,11 +49,11 @@ void Render::set(uint64_t v) noexcept {
     shared::render.flag.clear();
   }
 
-  shared::render.flag.notify_all();
-
   if (prev != next) {
     INFO(module_id, "SET", "{} => {}\n", prev, next);
   }
+
+  shared::render.flag.notify_all();
 }
 
 } // namespace pierre

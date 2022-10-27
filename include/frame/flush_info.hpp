@@ -47,14 +47,13 @@ struct FlushInfo {
         until_seq(until_seq), // flush everything <= seq_num
         until_ts(until_ts)    // flush everything <= timestamp
   {
-
     // a flush with from[seq|ts] will not be followed by a setanchor (i.e. render)
     // if it's a flush that will be followed by a setanchor then stop render now.
-    if (from_seq == 0) {
-      Render::set(false);
-    } else {
-      deferred = true;
-    }
+    // if (from_seq == 0) {
+    //   Render::set(false);
+    // } else {
+    //   deferred = true;
+    // }
 
     INFO("FLUSH_REQUEST", "RECEIVED", "{}\n", inspect());
   }

@@ -48,7 +48,7 @@ void Rtsp::asyncLoop(const error_code ec_last) {
 
   // this is the socket for the next accepted connection, store it in an
   // optional for the lamba
-  socket.emplace(di.io_ctx);
+  socket.emplace(io_ctx);
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
   // io_ctx we must deference or get the value of the optional
@@ -64,7 +64,7 @@ void Rtsp::asyncLoop(const error_code ec_last) {
       //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
-      const session::Inject inject{.io_ctx = di.io_ctx, // io_cty (used to create a local strand)
+      const session::Inject inject{.io_ctx = io_ctx, // io_cty (used to create a local strand)
                                    .socket = std::move(socket.value())};
 
       session::Rtsp::start(inject);

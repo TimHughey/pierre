@@ -1,22 +1,20 @@
-/*
-    lightdesk/headunits/discoball.hpp - Ruth LightDesk Headunit Disco Ball
-    Copyright (C) 2020  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre
+// Copyright (C) 2022 Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #pragma once
 
@@ -43,7 +41,7 @@ constexpr auto EL_DANCE = "el dance"sv;
 constexpr auto LED_FOREST = "led forest"sv;
 constexpr auto DISCO_BALL = "disco ball"sv;
 
-constexpr auto MAIN_SPOT_OPTS = Opts{.name = MAIN_SPOT, .address = 0};
+constexpr auto MAIN_SPOT_OPTS = Opts{.name = MAIN_SPOT, .address = 1};
 constexpr auto FILL_SPOT_OPTS = Opts{.name = FILL_SPOT, .address = 7};
 constexpr auto EL_ENTRY_OPTS = Opts{.name = EL_ENTRY, .address = 1};
 constexpr auto EL_DANCE_OPTS = Opts{.name = EL_DANCE, .address = 2};

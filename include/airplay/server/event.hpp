@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "server/base.hpp"
 
 #include <memory>
@@ -29,13 +30,10 @@ namespace server {
 
 class Event : public Base {
 public:
-  Event(const Inject &inject)
-      : Base(SERVER_ID),           // set the name of the server
-        di(inject),                // safe to save injected deps here
-        acceptor{di.io_ctx,        // use the injected io_ctx
-                 tcp_endpoint(     // create the acceptor
-                     ip_tcp::v4(), // ip version
-                     ANY_PORT)}    // select any port for endpoiint
+  Event(io_context &io_ctx)
+      : Base(SERVER_ID),                                       //
+        io_ctx(io_ctx),                                        //
+        acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)} //
   {}
 
   // asyncLoop is invoked to:
@@ -52,7 +50,7 @@ public:
 
 private:
   // order dependent
-  const Inject &di;
+  io_context &io_ctx;
   tcp_acceptor acceptor;
 
   // temporary holder of socket (io_ctx) while waiting for a connection

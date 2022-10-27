@@ -33,13 +33,9 @@ namespace server {
 
 class Rtsp : public Base {
 public:
-  Rtsp(const Inject &inject)
-      : Base(SERVER_ID),           // set the name of the server
-        di(inject),                // safe to save injected deps here
-        acceptor{di.io_ctx,        // accept connections as work for io_ctx
-                 tcp_endpoint(     // create the acceptor
-                     ip_tcp::v4(), // ip version
-                     LOCAL_PORT)}  // listen on a specific port
+  Rtsp(io_context &io_ctx)
+      : Base(SERVER_ID), // set the name of the server
+        io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)} //
 
   {}
 
@@ -56,7 +52,7 @@ public:
   void teardown() override;
 
 private:
-  const Inject &di;
+  io_context &io_ctx;
   tcp_acceptor acceptor;
 
   std::optional<tcp_socket> socket;

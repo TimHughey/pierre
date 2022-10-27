@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
@@ -31,14 +32,10 @@ namespace server {
 
 class Audio : public Base {
 public:
-  Audio(const Inject &inject)
-      : Base(SERVER_ID),           // set the name of the server
-        di(inject),                // safe to save injected deps here
-        acceptor{di.io_ctx,        // use the injected io_ctx
-                 tcp_endpoint(     // create the acceptor
-                     ip_tcp::v4(), // ip version
-                     ANY_PORT)}    // select any port for endpoiint
-  {}
+  Audio(io_context &io_ctx)
+      : Base(SERVER_ID), // set the name of the server
+        io_ctx(io_ctx),  //
+        acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)} {}
 
   ~Audio() final;
 
@@ -56,7 +53,7 @@ public:
 
 private:
   // order dependent
-  const Inject di; // make a copy
+  io_context &io_ctx;
   tcp_acceptor acceptor;
 
   std::optional<tcp_socket> socket;

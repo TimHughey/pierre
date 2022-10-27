@@ -57,7 +57,7 @@ void Logger::init_self() {
 
   std::latch latch{1};
 
-  thread = Thread([this, &latch](std::stop_token token) {
+  thread = Thread([this, &latch](std::stop_token token) mutable {
     name_thread("Logger");
 
     stop_token = token;

@@ -18,13 +18,12 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
 #include <array>
 #include <memory>
-
-// #include "rtp/udp/control/packet.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -90,7 +89,7 @@ private:
 class Control : public Base {
 public:
   // create the Control
-  Control(const Inject &di);
+  Control(io_context &io_ctx);
   ~Control();
 
   void asyncLoop(const error_code ec_last = error_code()) override;

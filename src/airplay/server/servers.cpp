@@ -17,12 +17,11 @@
 //  https://www.wisslanding.com
 
 #include "server/servers.hpp"
+#include "base/io.hpp"
 #include "server/audio.hpp"
 #include "server/control.hpp"
 #include "server/event.hpp"
 #include "server/rtsp.hpp"
-
-#include <array>
 
 namespace pierre {
 namespace airplay {
@@ -45,21 +44,21 @@ Port Servers::localPort(ServerType type) {
 
   if (svr.get() == nullptr) {
     switch (type) {
-      case ServerType::Audio:
-        map.emplace(type, new server::Audio(di));
-        break;
+    case ServerType::Audio:
+      map.emplace(type, new server::Audio(io_ctx));
+      break;
 
-      case ServerType::Event:
-        map.emplace(type, new server::Event(di));
-        break;
+    case ServerType::Event:
+      map.emplace(type, new server::Event(io_ctx));
+      break;
 
-      case ServerType::Control:
-        map.emplace(type, new server::Control(di));
-        break;
+    case ServerType::Control:
+      map.emplace(type, new server::Control(io_ctx));
+      break;
 
-      case ServerType::Rtsp:
-        map.emplace(type, new server::Rtsp(di));
-        break;
+    case ServerType::Rtsp:
+      map.emplace(type, new server::Rtsp(io_ctx));
+      break;
     }
 
     svr = map.at(type);

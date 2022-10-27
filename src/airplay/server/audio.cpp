@@ -62,7 +62,7 @@ void Audio::asyncLoop(const error_code ec_last) {
 
   // this is the socket for the next accepted connection, store it in an
   // optional for the lamba
-  socket.emplace(di.io_ctx);
+  socket.emplace(io_ctx);
 
   // since the io_ctx is wrapped in the optional and asyncLoop wants the actual
   // io_ctx we must deference or get the value of the optional
@@ -78,10 +78,8 @@ void Audio::asyncLoop(const error_code ec_last) {
       //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
-      const session::Inject inject{.io_ctx = di.io_ctx, // io_cty (used to create a local strand)
-                                   .socket = std::move(socket.value())};
 
-      auto new_session = session::Audio::start(inject);
+      auto new_session = session::Audio::start(session::Inject(io_ctx, std::move(socket.value())));
       _sessions.emplace_back(new_session);
 
       asyncLoop(ec); // schedule more work or gracefully exit
