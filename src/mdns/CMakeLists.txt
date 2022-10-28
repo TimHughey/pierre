@@ -10,7 +10,19 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.hpp")
 
 find_package(Avahi REQUIRED)
 
-add_library(${__target} SHARED mdns.cpp ${HEADER_LIST})
+add_library(${__target} SHARED 
+  # mdns functionality specific to this app
+  mdns.cpp 
+
+  # mdns client provider
+  provider.cpp
+
+  # consolidated view of an available service
+  zservice.cpp
+
+  # this libraries headers
+  ${HEADER_LIST}
+)
 
 # library specific files need Avahi privately
 target_include_directories(${__target} PRIVATE 

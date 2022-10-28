@@ -18,42 +18,51 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/types.hpp"
 #include "mdns/zservice.hpp"
 
+#include <future>
+#include <list>
+#include <map>
 #include <memory>
 
 namespace pierre {
 
-class mDNS;
+using ZeroConfMap = std::map<string, ZeroConf>;
+using ZeroConfFut = std::future<ZeroConf>;
+using ZeroConfProm = std::promise<ZeroConf>;
+using ZeroConfPromMap = std::map<string, ZeroConfProm>;
 
-namespace shared {
-extern std::optional<mDNS> mdns;
-}
+using ZeroConfServiceList = std::list<ZeroConf>;
 
 class mDNS {
 
 public:
-  mDNS() = default;
+  mDNS(io_context &io_ctx) noexcept : io_ctx(io_ctx) {}
 
 public:
-  static void init() noexcept;
+  static void init(io_context &io_ctx) noexcept;
 
   static void reset();
 
 public:
-  static void browse(csv stype) { shared::mdns->impl_browse(stype); }
-  static auto port() { return PORT; }
+  static void browse(csv stype);
+  static auto port() noexcept { return PORT; }
   bool start();
-  static void update() { shared::mdns->impl_update(); };
-  static shZeroConfService zservice(csv type);
+  static void update() noexcept;
+  static std::future<ZeroConf> zservice(csv name);
 
 private:
-  void impl_browse(csv stype);
-  void impl_update();
+  void browse_impl(csv stype);
   void init_self();
+  void update_impl();
 
 public:
+  // order dependent
+  io_context &io_ctx;
+
+  // order independent
   string _dacp_id;
 
   bool found = false;
@@ -64,12 +73,10 @@ public:
 
 private:
   string _service_base;
+  static constexpr auto PORT{7000};
 
 public:
-  static constexpr csv module_id = "mDNS";
-
-private:
-  static constexpr auto PORT = 7000;
+  static constexpr csv module_id{"mDNS"};
 };
 
 } // namespace pierre

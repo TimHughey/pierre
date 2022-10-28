@@ -65,9 +65,6 @@ public:
     asio::post(streams_strand, [this] { reset(io::make_error(errc::operation_canceled)); });
   }
 
-  // misc debug
-  static constexpr csv moduleID() { return module_id; }
-
 private:
   void connect() { connect(std::make_error_code(std::errc::not_connected)); }
   void connect(const error_code ec);

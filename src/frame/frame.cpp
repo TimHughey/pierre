@@ -259,7 +259,7 @@ void Frame::log_decipher() const {
     INFO(module_id, "DECIPHER", "decipher shared key empty {}\n", state);
   } else {
     INFO(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} {}\n", //
-         state, cipher_rc, decipher_len);
+         cipher_rc, decipher_len, state);
   }
 }
 

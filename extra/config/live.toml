@@ -1,21 +1,24 @@
 [pierre]
-title = "Pierre Live"
-version = 2
-working_dir = ".pierre"
+title = "Pierre Live"   # for identification purposes
+version = 2             # config file format
+working_dir = ".pierre" # cwd to this directory at startup
 
-[dmx]
-controller = "test-with-devs"
+# NOTE: cli table is not a source of config, rather it holds
+#       command line opts passed at startup
+[cli]
+app_name = "" # typically the basename of the executable
+cfg_file = "" # could be this file or another specified by cli opt
 
 [mdns]
-receiver = "%h"        # use hostname
-service = "_ruth._tcp"
+receiver = "%h"                   # use hostname
+service = "_ruth._tcp"            # service advertised by rendering devices
+dmx_controller = "test-with-devs" # rendering device to use
 
 [frame]
-dsp = { concurrency_factor = 0.4 }
+dsp = { concurrency_factor = 0.4 } # num threads (hw_concurrency * factor)
 clock = { shm_name = "/nqptp" }
 
 [desk]
-service = "_ruth._tcp"
 colorbars = true
 threads = 6
 

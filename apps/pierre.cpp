@@ -52,7 +52,7 @@ void Pierre::run() {
   INFO(module_id, "RUN", "{} {}\n", cfg->receiverName(), cfg->firmwareVersion());
 
   Service::init();
-  mDNS::init();
+  mDNS::init(io_ctx);
   Frame::init();
   Desk::init();
 

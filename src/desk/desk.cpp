@@ -168,13 +168,11 @@ void Desk::init() { // static instance creation
 }
 
 void Desk::init_self() {
-  C2onfig config;
 
-  auto mdns_service = config.node_at("desk.service").value_or("_ruth._tcp"sv);
+  string service = C2onfig().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
+  mDNS::browse(service);
 
-  mDNS::browse(mdns_service);
-
-  INFO(module_id, "INIT", "sizeof={} mdns_service={}\n", sizeof(Desk), mdns_service);
+  INFO(module_id, "INIT", "sizeof={} mdns_service={}\n", sizeof(Desk), service);
 
   std::latch latch(DESK_THREADS);
 

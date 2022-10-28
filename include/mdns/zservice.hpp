@@ -20,12 +20,12 @@
 
 #include "base/types.hpp"
 
-#include "fmt/format.h"
 #include <algorithm>
 #include <any>
 #include <iterator>
 #include <memory>
 #include <ranges>
+#include <string_view>
 #include <vector>
 
 namespace pierre {
@@ -36,7 +36,7 @@ namespace ranges = std::ranges;
 
 namespace zc {
 class Txt;
-typedef std::vector<Txt> TxtList;
+using TxtList = std::vector<Txt>;
 
 class Txt {
 public:
@@ -63,14 +63,11 @@ private:
 
 } // namespace zc
 
-class ZeroConfService;
-typedef std::shared_ptr<ZeroConfService> shZeroConfService;
-typedef std::vector<shZeroConfService> ZeroConfServiceList;
-
-class ZeroConfService : public std::enable_shared_from_this<ZeroConfService> {
-private:
+class ZeroConf {
+public:
   struct Details {
-    ccs name;
+    ccs hostname;
+    ccs name_net;
     ccs address;
     ccs type;
     uint16_t port;
@@ -78,32 +75,27 @@ private:
     zc::TxtList txt_list;
   };
 
-private: // access via create()
-  ZeroConfService(Details d)
-      : _name(d.name),         // hostname
-        _address(d.address),   // host address
-        _type(d.type),         // address family (IPv4 or IPv6)
-        _port(d.port),         // service port
-        _protocol(d.protocol), // protocol
-        _txt_list(d.txt_list)  // txt records
-  {}
+public:
+  ZeroConf(Details d) noexcept;
 
-private:
-  const auto findTxtByKey(csv key) const {
+  const auto findTxtByKey(csv key) const noexcept {
     return ranges::find_if(_txt_list, [=](auto &txt) { return txt.key() == key; });
   }
 
 public:
-  static shZeroConfService create(Details &&details) {
-    return shZeroConfService(new ZeroConfService(std::forward<Details>(details)));
+  const string &address() const noexcept { return _address; }
+  const string &name() const noexcept { return name_net; }
+  bool match_name(csv name) const noexcept {
+    constexpr string_view delim{"@"};
+
+    return ranges::any_of(ranges::views::split(csv{name_net}, delim),
+                          [=](auto r) { return csv(&*r.begin(), ranges::distance(r)) == name; });
   }
 
-  csr address() const { return _address; }
-  csr name() const { return _name; }
-  uint16_t port() const { return _port; }
-  csr protocol() const { return _protocol; }
-  csr type() const { return _type; }
-  bool txtKeyExists(csv key) { return findTxtByKey(key) != _txt_list.end(); }
+  uint16_t port() const noexcept { return _port; }
+  const string &protocol() const noexcept { return _protocol; }
+  const string &type() const noexcept { return _type; }
+  bool txtKeyExists(csv key) const noexcept { return findTxtByKey(key) != _txt_list.end(); }
 
   template <typename T = string> const T &txtVal(csv key) const {
     if (auto found = findTxtByKey(key); found != _txt_list.end()) {
@@ -114,32 +106,27 @@ public:
   }
 
   // misc debug
-  string inspect() const {
-    string msg;
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "{} name={} {} {}:{} TXT: ", _type, _name, _protocol, _address, _port);
-
-    ranges::for_each(_txt_list, [w = std::back_inserter(msg)](const zc::Txt &txt) {
-      fmt::format_to(w, "{}=", txt.key());
-
-      if (txt.number()) {
-        fmt::format_to(w, "{} (number) ", txt.val<uint32_t>());
-      } else {
-        fmt::format_to(w, "{} ", txt.val());
-      }
-    });
-
-    return msg;
-  }
+  string inspect() const noexcept;
 
 private:
-  string _name;
+  // order dependent
+  string hostname;
+  string name_net;
   string _address;
   string _type;
   uint16_t _port;
   string _protocol;
   zc::TxtList _txt_list;
+
+  // order independent
+  string name_mac;
+  string name_short;
+
+  std::any _browser;
+  std::any _resolver;
+
+public:
+  static constexpr csv module_id{"ZSERVICE"};
 };
 
 } // namespace pierre

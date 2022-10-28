@@ -21,7 +21,7 @@
 #include "base/logger.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "config/config.hpp"
+#include "config2/config2.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
 #include "peaks.hpp"
@@ -34,15 +34,13 @@
 
 namespace pierre {
 
-/*
- * Many thanks to:
- * https://stackoverflow.com/questions/18862715/how-to-generate-the-aac-adts-elementary-stream-with-android-mediacodec
- *
- * Add ADTS header at the beginning of each and every AAC packet.
- * This is needed as MediaCodec encoder generates a packet of raw AAC data.
- *
- * NOTE: the payload size must include the ADTS header size
- */
+//  Many thanks to:
+//  https://stackoverflow.com/questions/18862715/how-to-generate-the-aac-adts-elementary-stream-with-android-mediacodec
+//
+//  Add ADTS header at the beginning of each and every AAC packet.
+//  This is needed as MediaCodec encoder generates a packet of raw AAC data.
+//
+//  NOTE: the payload size must include the ADTS header size
 
 // Digital Signal Analysis Async Threads
 namespace dsp {
@@ -60,8 +58,8 @@ static std::vector<std::stop_token> stop_tokens;
 
 // initialize the thread pool for digital signal analysis
 void init() {
-  float dsp_hw_factor = Config::object("dsp")["concurrency_factor"];
-  int thread_count = std::jthread::hardware_concurrency() * dsp_hw_factor;
+  double factor = C2onfig().table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
+  int thread_count = std::jthread::hardware_concurrency() * factor;
 
   std::latch latch{thread_count};
 

@@ -21,7 +21,7 @@
 #include "desk/session/ctrl.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+#include "config2/config2.hpp"
 #include "io/async_msg.hpp"
 #include "io/msg.hpp"
 #include "mdns/mdns.hpp"
@@ -35,18 +35,20 @@ namespace desk {
 
 // general API
 void Control::connect(const error_code ec) {
-  INFO(moduleID(), "CONNECT", "reason={}\n", ec.message());
+  INFO(module_id, "CONNECT", "reason={}\n", ec.message());
 
   if (ec == errc::operation_canceled) { // break out when canceled
     return;
   }
 
-  auto name = Config::object("desk")["dmx_service"];
-  auto zservice = mDNS::zservice(name);
+  auto name =
+      C2onfig().table().at_path("mdns.dmx_controller"sv).value_or<string_view>("test-with-devs"sv);
+  auto zfuture = mDNS::zservice(name);
 
-  if (zservice) [[likely]] {
+  if (zfuture.valid() && (zfuture.wait_for(1ms) == std::future_status::ready)) [[likely]] {
     // zservice is available, attempt connect
-    const auto address = asio::ip::make_address_v4(zservice->address());
+    auto zservice = zfuture.get();
+    const auto address = asio::ip::make_address_v4(zservice.address());
 
     socket.emplace(io_ctx);
 
@@ -66,7 +68,7 @@ void Control::connect(const error_code ec) {
         };
 
     // initiate connection (see handler above)
-    const auto endpoint = tcp_endpoint(address, zservice->port());
+    const auto endpoint = tcp_endpoint(address, zservice.port());
     asio::async_connect(*socket, std::array{endpoint}, handler);
   } else {
     // zservice not available yet, schedule retry
@@ -114,7 +116,7 @@ void Control::msg_loop() {
 }
 
 void Control::reset(const error_code ec) {
-  INFO(moduleID(), "RESET", "reason={}\n", ec.message());
+  INFO(module_id, "RESET", "reason={}\n", ec.message());
 
   if (data_session) {
     data_session->shutdown();
@@ -132,7 +134,7 @@ void Control::reset(const error_code ec) {
 
 // misc debug
 void Control::log_connected(Elapsed &elapsed) {
-  INFO(moduleID(), "CONNECT", "{}:{} -> {}:{} elapsed={:0.2} handle={}\n",
+  INFO(module_id, "CONNECT", "{}:{} -> {}:{} elapsed={:0.2} handle={}\n",
        socket->local_endpoint().address().to_string(), socket->local_endpoint().port(),
        remote_endpoint->address().to_string(), remote_endpoint->port(), elapsed.as<MillisFP>(),
        socket->native_handle());
@@ -150,7 +152,7 @@ void Control::log_feedback(JsonDocument &doc) {
 
   // if (jitter > lead_time) {
   //   INFO(  "seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
-  //          moduleID(), "REMOTE",
+  //          module_id, "REMOTE",
   //          doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
   //          pet::as_millis_fp(jitter),     // sync_wait jitter
   //          remote_elapsed,                // elapsed time of the async_loop
@@ -166,7 +168,7 @@ void Control::log_handshake(JsonDocument &doc) {
   remote_time_skew = pet::abs(remote_now - pet::now_realtime<Micros>());
   remote_ref_time = Micros(doc["ref_µs"].as<int64_t>());
 
-  INFO(moduleID(), "REMOTE", "clock diff={:0.3}\n", pet::as<MillisFP, Micros>(remote_time_skew));
+  INFO(module_id, "REMOTE", "clock diff={:0.3}\n", pet::as<MillisFP, Micros>(remote_time_skew));
 }
 
 } // namespace desk
