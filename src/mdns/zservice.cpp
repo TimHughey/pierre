@@ -46,7 +46,7 @@ ZeroConf::ZeroConf(Details d) noexcept
     auto short_begin = name_net.begin();
     std::advance(short_begin, delim_pos + 1);
 
-    name_short.assign(short_begin, name_net.end());
+    _name_short.assign(short_begin, name_net.end());
   } else {
     INFO(module_id, "CONSTRUCT", "unable to find delim={} in name_net={}\n", at, name_net);
   }
@@ -56,8 +56,8 @@ string ZeroConf::inspect() const noexcept {
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "{} hostname={} name={} mac={} short={} {} {}:{} TXT: ", _type, hostname,
-                 name_net, name_mac, name_short, _protocol, _address, _port);
+  fmt::format_to(w, "{} hostname={} name={} short={} {} {}:{} TXT: ", _type, hostname, name_net,
+                 _name_short, _protocol, _address, _port);
 
   ranges::for_each(_txt_list, [w = std::back_inserter(msg)](const zc::Txt &txt) {
     fmt::format_to(w, "{}=", txt.key());

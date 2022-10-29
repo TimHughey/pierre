@@ -41,11 +41,14 @@ void Control::connect(const error_code ec) {
     return;
   }
 
-  auto name =
-      C2onfig().table().at_path("mdns.dmx_controller"sv).value_or<string_view>("test-with-devs"sv);
+  auto name = C2onfig() //
+                  .table()
+                  .at_path("mdns.dmx_controller"sv)
+                  .value_or<string_view>("test-with-devs"sv);
+
   auto zfuture = mDNS::zservice(name);
 
-  if (zfuture.valid() && (zfuture.wait_for(1ms) == std::future_status::ready)) [[likely]] {
+  if (zfuture.valid() && (zfuture.wait_for(1s) == std::future_status::ready)) [[likely]] {
     // zservice is available, attempt connect
     auto zservice = zfuture.get();
     const auto address = asio::ip::make_address_v4(zservice.address());

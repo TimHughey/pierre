@@ -168,12 +168,6 @@ void Desk::init() { // static instance creation
 }
 
 void Desk::init_self() {
-
-  string service = C2onfig().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
-  mDNS::browse(service);
-
-  INFO(module_id, "INIT", "sizeof={} mdns_service={}\n", sizeof(Desk), service);
-
   std::latch latch(DESK_THREADS);
 
   // note: work guard created by constructor p
@@ -187,7 +181,8 @@ void Desk::init_self() {
 
   // caller thread waits until all tasks are started
   latch.wait();
-  INFO(module_id, "INIT", "threads started={}\n", shared::desk->threads.size());
+  INFO(module_id, "INIT", "threads started={} sizeof={}\n", //
+       shared::desk->threads.size(), sizeof(Desk));
 
   // start frame loop, start on any thread, waits for rendering
   asio::post(io_ctx, [this]() {

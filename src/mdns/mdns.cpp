@@ -18,6 +18,7 @@
 
 #include "mdns.hpp"
 #include "base/logger.hpp"
+#include "config2/config2.hpp"
 #include "core/service.hpp"
 #include "provider.hpp"
 #include "zservice.hpp"
@@ -46,7 +47,19 @@ namespace shared {
 std::optional<mDNS> mdns;
 } // namespace shared
 
-// mDNS Class General API
+// mDNS general API
+
+void mDNS::all_for_now(bool next_val) noexcept {
+  auto prev = _all_for_now.test();
+
+  if (prev != next_val) {
+    if (next_val == true) _all_for_now.test_and_set();
+    if (next_val == false) _all_for_now.clear();
+  }
+
+  INFO(module_id, "ALL_FOR_NOW", "{} => {} zservices={}\n", prev, _all_for_now.test(),
+       std::ssize(zcs_map));
+}
 
 void mDNS::browse(csv stype) { // static
   shared::mdns->browse_impl(stype);
@@ -70,6 +83,19 @@ void mDNS::browse_impl(csv stype) { // static
   }
 }
 
+void mDNS::browser_remove(const string name) noexcept {
+  static constexpr csv cat{"BROWSE_REMOVE"};
+  avahi_threaded_poll_lock(mdns::_tpoll);
+
+  if (auto it = zcs_map.find(name); it != zcs_map.end()) {
+    INFO(module_id, cat, "removing name={}\n", name);
+
+    zcs_map.erase(it);
+  }
+
+  avahi_threaded_poll_unlock(mdns::_tpoll);
+}
+
 void mDNS::init(io_context &io_ctx) noexcept { // static
   if (shared::mdns.has_value() == false) {
     shared::mdns.emplace(io_ctx).init_self();
@@ -77,7 +103,6 @@ void mDNS::init(io_context &io_ctx) noexcept { // static
 }
 
 void mDNS::init_self() {
-
   mdns::_tpoll = avahi_threaded_poll_new();
   auto poll = avahi_threaded_poll_get(mdns::_tpoll);
 
@@ -88,14 +113,36 @@ void mDNS::init_self() {
     if (avahi_threaded_poll_start(mdns::_tpoll) < 0) {
       error = "avahi threaded poll failed to start";
     }
-  } else {
+  } else if (err) {
     error = avahi_strerror(err);
   }
 
-  if (!error.empty()) {
+  if (error.empty()) {
+    string service = C2onfig().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
+    mDNS::browse(service);
+  } else {
     INFO(module_id, "INIT", "error={}\n", error);
   }
 }
+
+void mDNS::resolver_found(const ZeroConf::Details zcd) noexcept {
+  static constexpr csv cat{"RESOLVE_FOUND"};
+
+  auto [zc_it, inserted] = zcs_map.try_emplace(zcd.name_net, ZeroConf(zcd));
+  const auto &zc = zc_it->second;
+
+  INFO(module_id, cat, "{} {}\n", inserted ? "resolved" : "already know", zc.inspect());
+
+  if (auto it = zcs_proms.find(zc.name_short()); it != zcs_proms.end()) {
+    INFO(mDNS::module_id, cat, "found promise for name={}\n", zc.name_short());
+
+    it->second.set_value(zc);
+
+    zcs_proms.erase(it);
+  }
+}
+
+void mDNS::reset() { shared::mdns.reset(); }
 
 void mDNS::update() noexcept { shared::mdns->update_impl(); };
 
@@ -136,31 +183,31 @@ void mDNS::update_impl() {
   avahi_string_list_free(sl);
 }
 
-void mDNS::reset() { shared::mdns.reset(); }
-
 std::future<ZeroConf> mDNS::zservice(csv name) {
+  auto &mdns = shared::mdns.value();
+
   ZeroConfProm prom;
-  ZeroConfFut future = prom.get_future();
+  ZeroConfFut fut = prom.get_future();
 
   avahi_threaded_poll_lock(mdns::_tpoll);
 
-  auto cmp = [=](const auto &zs) { return zs.match_name(name); };
+  auto cmp = [=](const auto it) { return it.second.match_name(name); };
 
-  if (auto it = ranges::find_if(mdns::zcs_list, cmp); it != mdns::zcs_list.end()) {
-    INFO(module_id, "ZSERVICE", "matched {}\n", it->inspect());
-    prom.set_value(*it);
+  if (auto it = ranges::find_if(mdns.zcs_map, cmp); it != mdns.zcs_map.end()) {
+    INFO(module_id, "ZSERVICE", "promise fulfilled name={}\n", it->second.name());
+    prom.set_value(it->second);
   } else {
 
-    auto [it_known, inserted] = mdns::zcs_proms.try_emplace(string(name.data()), std::move(prom));
+    auto [it_known, inserted] = mdns.zcs_proms.try_emplace(string(name.data()), std::move(prom));
 
     if (inserted) {
-      INFO(module_id, "ZSERVICE", "stored promise for {}\n", name);
+      INFO(module_id, "ZSERVICE", "promise stored name={}\n", name);
     }
   }
 
   avahi_threaded_poll_unlock(mdns::_tpoll);
 
-  return future;
+  return fut;
 }
 
 } // namespace pierre

@@ -66,6 +66,7 @@ private:
 class ZeroConf {
 public:
   struct Details {
+    ccs domain;
     ccs hostname;
     ccs name_net;
     ccs address;
@@ -85,6 +86,7 @@ public:
 public:
   const string &address() const noexcept { return _address; }
   const string &name() const noexcept { return name_net; }
+  const string &name_short() const noexcept { return _name_short; }
   bool match_name(csv name) const noexcept {
     constexpr string_view delim{"@"};
 
@@ -120,7 +122,7 @@ private:
 
   // order independent
   string name_mac;
-  string name_short;
+  string _name_short;
 
   std::any _browser;
   std::any _resolver;

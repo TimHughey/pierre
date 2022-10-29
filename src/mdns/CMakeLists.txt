@@ -33,5 +33,8 @@ target_include_directories(${__target} PRIVATE
 # the based include directory
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
-target_link_libraries(${__target} PRIVATE core ${AVAHI_LIBRARIES})
+target_link_libraries(${__target} PRIVATE 
+  core config2 ${AVAHI_LIBRARIES}
+)
+
 target_compile_definitions(${__target} PRIVATE ${AVAHI_DEFINITIONS})

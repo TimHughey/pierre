@@ -30,13 +30,14 @@ namespace pierre {
 
 class C2onfig {
 public:
-  C2onfig(csv file = csv{"live.toml"});
+  C2onfig() = default;
 
-  const auto node_at(csv p) const { return _table.at_path(p); }
+  static C2onfig init( csv file = csv{"live.toml"});
+
   const toml::table &table() const { return _table; }
 
 private:
-  toml::table _table;
+  static toml::table _table;
 
 public:
   static constexpr csv module_id{"CONFIG2"};

@@ -22,6 +22,7 @@
 #include "base/types.hpp"
 #include "mdns/zservice.hpp"
 
+#include <atomic>
 #include <future>
 #include <list>
 #include <map>
@@ -34,22 +35,20 @@ using ZeroConfFut = std::future<ZeroConf>;
 using ZeroConfProm = std::promise<ZeroConf>;
 using ZeroConfPromMap = std::map<string, ZeroConfProm>;
 
-using ZeroConfServiceList = std::list<ZeroConf>;
-
 class mDNS {
 
 public:
   mDNS(io_context &io_ctx) noexcept : io_ctx(io_ctx) {}
 
 public:
-  static void init(io_context &io_ctx) noexcept;
-
-  static void reset();
-
-public:
+  void all_for_now(bool next_val = true) noexcept;
   static void browse(csv stype);
+  void browser_remove(const string name_net) noexcept;
+  static void init(io_context &io_ctx) noexcept;
   static auto port() noexcept { return PORT; }
-  bool start();
+  static void reset();
+  void resolved_purge() noexcept;
+  void resolver_found(const ZeroConf::Details zcd) noexcept;
   static void update() noexcept;
   static std::future<ZeroConf> zservice(csv name);
 
@@ -65,7 +64,6 @@ public:
   // order independent
   string _dacp_id;
 
-  bool found = false;
   string type;
   string domain;
   string host_name;
@@ -73,10 +71,14 @@ public:
 
 private:
   string _service_base;
-  static constexpr auto PORT{7000};
+  std::atomic_flag _all_for_now;
+
+  ZeroConfMap zcs_map;
+  ZeroConfPromMap zcs_proms;
 
 public:
   static constexpr csv module_id{"mDNS"};
+  static constexpr auto PORT{7000};
 };
 
 } // namespace pierre

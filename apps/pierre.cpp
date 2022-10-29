@@ -23,8 +23,8 @@
 #include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
-#include "base/types.hpp"
 #include "config/config.hpp"
+#include "config2/config2.hpp"
 #include "core/args.hpp"
 #include "core/service.hpp"
 #include "desk/desk.hpp"
@@ -33,32 +33,52 @@
 
 namespace pierre {
 
-Pierre::Pierre(const Inject &di)
-    : di(di),                      //
-      guard(io_ctx.get_executor()) //
-{}
+Pierre &Pierre::init(int argc, char *argv[]) {
+
+  // parse args
+  Args args;
+  const auto args_map = args.parse(argc, argv);
+
+  if (args_map.ok()) {
+
+    if (args_map.daemon) {
+      fmt::print("main(): daemon requested\n");
+    }
+
+    crypto::init(); // initialize sodium and gcrypt
+    Logger::init(); // start logging
+
+    C2onfig::init();
+
+    auto cfg = Config::init(                    //
+        {.app_name = string(basename(argv[0])), //
+         .cli_cfg_file = args_map.cfg_file,     //
+         .hostname = Host().hostname()}         //
+    );
+
+    INFO(module_id, "CONSTRUCT", "{} {}\n", cfg->receiverName(), cfg->firmwareVersion());
+
+    args_ok = true;
+  }
+
+  return *this;
+}
 
 // create and run all threads
-void Pierre::run() {
-  crypto::init(); // initialize sodium and gcrypt
-  Logger::init(); // start logging
+bool Pierre::run() {
 
-  auto cfg = Config::init(                   //
-      {.app_name = di.app_name,              //
-       .cli_cfg_file = di.args_map.cfg_file, //
-       .hostname = Host().hostname()}        //
-  );
+  if (args_ok) {
+    Service::init();
+    mDNS::init(io_ctx);
+    Frame::init();
+    Desk::init();
 
-  INFO(module_id, "RUN", "{} {}\n", cfg->receiverName(), cfg->firmwareVersion());
+    // create and start Airplay
+    Airplay::init();
 
-  Service::init();
-  mDNS::init(io_ctx);
-  Frame::init();
-  Desk::init();
+    io_ctx.run();
+  }
 
-  // create and start Airplay
-  Airplay::init();
-
-  io_ctx.run();
+  return true;
 }
 } // namespace pierre

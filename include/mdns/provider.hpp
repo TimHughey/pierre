@@ -47,8 +47,6 @@ extern AvahiClient *_client;
 extern AvahiThreadedPoll *_tpoll;
 extern AvahiEntryGroupState _eg_state;
 extern Groups _groups;
-extern ZeroConfServiceList zcs_list;
-extern std::map<string, std::promise<ZeroConf>> zcs_proms;
 
 // local forward decls
 extern void advertise(AvahiClient *client);

@@ -30,7 +30,10 @@ namespace {
 namespace fs = std::filesystem;
 }
 
-C2onfig::C2onfig(csv file) {
+// class static member data
+toml::table C2onfig::_table;
+
+C2onfig C2onfig::init(csv file) { // static
   fs::path full_path{"/home/thughey/.pierre"};
 
   full_path /= file;
@@ -41,6 +44,8 @@ C2onfig::C2onfig(csv file) {
   } catch (const toml::parse_error &err) {
     INFO(module_id, "ERROR", "file={} parse failed={}\n", full_path.c_str(), err.description());
   }
+
+  return C2onfig();
 }
 
 } // namespace pierre

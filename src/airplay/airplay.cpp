@@ -46,20 +46,21 @@ shAirplay Airplay::init_self() {
   airplay::Servers::init(io_ctx);
 
   std::latch latch(AIRPLAY_THREADS);
-
   watch_dog(); // add some work so threads don't exit immediately
 
   for (auto n = 0; n < AIRPLAY_THREADS; n++) {
     threads.emplace_back([=, &latch, self = shared_from_this()](std::stop_token token) mutable {
-      name_thread("Airplay", n);
       self->tokens.add(std::move(token));
 
       latch.arrive_and_wait();
+      name_thread("Airplay", n);
+
       self->io_ctx.run();
     });
   }
 
-  latch.wait();                        // wait for all threads to start
+  latch.wait(); // wait for all threads to start
+
   shared::master_clock->peers_reset(); // reset timing peers
 
   // start listening for Rtsp messages
