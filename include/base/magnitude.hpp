@@ -39,6 +39,10 @@ public:
     return std::partial_ordering::equivalent;
   }
 
+  template <class T = Magnitude> T scaled() const noexcept {
+    return (val > 0) ? T(10.0 * std::log10(val)) : T{0};
+  }
+
 private:
   double val{0};
 };

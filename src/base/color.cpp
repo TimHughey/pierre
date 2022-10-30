@@ -40,15 +40,15 @@ Hsb Hsb::fromRgb(uint32_t rgb_val) {
 }
 
 Hsb Hsb::fromRgb(uint8_t red_val, uint8_t grn_val, uint8_t blu_val) {
-  const auto red = static_cast<float>(red_val) / 255.0f;
-  const auto grn = static_cast<float>(grn_val) / 255.0f;
-  const auto blu = static_cast<float>(blu_val) / 255.0f;
+  const auto red = red_val / 255.0;
+  const auto grn = grn_val / 255.0;
+  const auto blu = blu_val / 255.0;
 
-  float chroma_max = std::max(std::max(red, grn), blu);
-  float chroma_min = std::min(std::min(red, grn), blu);
-  float chroma_delta = chroma_max - chroma_min;
+  double chroma_max = std::max(std::max(red, grn), blu);
+  double chroma_min = std::min(std::min(red, grn), blu);
+  double chroma_delta = chroma_max - chroma_min;
 
-  float hue = 0, sat = 0, bri = 0;
+  double hue = 0, sat = 0, bri = 0;
 
   if (chroma_delta > 0) {
     if (chroma_max == red)
@@ -70,12 +70,12 @@ Hsb Hsb::fromRgb(uint8_t red_val, uint8_t grn_val, uint8_t blu_val) {
 }
 
 void Hsb::toRgb(uint8_t &red_val, uint8_t &grn_val, uint8_t &blu_val) const {
-  float chroma = bri * sat;
-  float hue_prime = std::fmod((360.0f * hue) / 60.0f, 6.0f);
-  float x = chroma * (1.0f - std::fabs(std::fmod(hue_prime, 2.0f) - 1.0f));
-  float m = bri - chroma;
+  double chroma = bri * sat;
+  double hue_prime = std::fmod((360.0f * hue) / 60.0f, 6.0f);
+  double x = chroma * (1.0f - std::fabs(std::fmod(hue_prime, 2.0f) - 1.0f));
+  double m = bri - chroma;
 
-  float red, grn, blu;
+  double red, grn, blu;
 
   if ((0 <= hue_prime) && (hue_prime < 1)) {
     red = chroma;
@@ -147,13 +147,13 @@ bool Color::isWhite() const {
   return false;
 }
 
-Color Color::interpolate(Color a, Color b, float t) {
+Color Color::interpolate(Color a, Color b, double t) {
   auto &a_hsb = a._hsb;
   auto &b_hsb = a._hsb;
 
   // Hue interpolation
-  float h;
-  float d = b_hsb.hue - a_hsb.hue;
+  double h;
+  double d = b_hsb.hue - a_hsb.hue;
   if (a_hsb.hue > b_hsb.hue) {
     // Swap (a.h, b.h)
     std::swap(a_hsb.hue, b_hsb.hue);
@@ -186,7 +186,7 @@ bool Color::operator==(const Color &rhs) const { return _hsb == rhs._hsb; }
 
 bool Color::operator!=(const Color &rhs) const { return !(*this == rhs); }
 
-Color &Color::rotateHue(const float step) {
+Color &Color::rotateHue(const double step) {
   auto next_hue = hue() + step;
 
   setHue(next_hue);
@@ -194,21 +194,7 @@ Color &Color::rotateHue(const float step) {
   return *this;
 }
 
-Color &Color::setBrightness(float val) {
-  auto x = val / 100.0;
-
-  _hsb.bri = x;
-
-  return *this;
-}
-
-Color &Color::setBrightness(const Color &rhs) {
-  setBrightness(rhs.brightness());
-
-  return *this;
-}
-
-Color &Color::setHue(float hue) {
+Color &Color::setHue(double hue) {
   if ((hue > 360.0f) || (hue < 0.0f)) {
     hue -= 360.0f;
   }
@@ -218,30 +204,14 @@ Color &Color::setHue(float hue) {
   return *this;
 }
 
-Color &Color::setBrightness(const min_max_float &range, const float val) {
-  min_max_float brightness_range(0.0f, brightness());
-
-  const auto x = range.interpolate(brightness_range, val);
-
-  // if (false) {
-  //   static uint seq = 0;
-  //   static ofstream log("/tmp/pierre/color.log", ios::trunc);
-
-  //   if (x >= brightness()) {
-  //     log << fmt::format("%05u range(%0.2f,%0.2f) val(%0.2f) brightness(%0.1f) "
-  //                          "=> %0.1f\n") %
-  //                seq++ % range.min() % range.max() % val % brightness() % x;
-
-  //     log.flush();
-  //   }
-  // }
-
-  setBrightness(x);
+Color &Color::setBrightness(const min_max_dbl &range, const double val) {
+  min_max_dbl brightness_range(0.0f, brightness());
+  setBrightness(range.interpolate(brightness_range, val));
 
   return *this;
 }
 
-Color &Color::setSaturation(float val) {
+Color &Color::setSaturation(double val) {
   auto x = val / 100.0;
 
   _hsb.sat = x;
@@ -255,8 +225,8 @@ Color &Color::setSaturation(const Color &rhs) {
   return *this;
 }
 
-Color &Color::setSaturation(const min_max_float &range, const float val) {
-  min_max_float saturation_range(0.0f, saturation());
+Color &Color::setSaturation(const min_max_dbl &range, const double val) {
+  min_max_dbl saturation_range(0.0f, saturation());
 
   const auto x = range.interpolate(saturation_range, val);
 

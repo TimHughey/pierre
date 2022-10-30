@@ -151,9 +151,6 @@ void FFT::dc_removal() noexcept {
 peaks_t FFT::find_peaks() {
   auto peaks = Peaks::create();
 
-  // Mag mag_min = std::numeric_limits<float>::max();
-  // Mag mag_max = 0;
-
   // result of fft is symmetrical, look at first half only
   for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
     const float a = _reals[i - 1];
@@ -161,14 +158,6 @@ peaks_t FFT::find_peaks() {
     const float c = _reals[i + 1];
 
     if ((a < b) && (b > c)) {
-      // if (peaks->size() == (_max_peaks - 1)) {
-      //   break;
-      // }
-
-      // mag_min = std::min(mag, mag_min);
-      // mag_max = std::max(mag, mag_max);
-
-      // peaks->emplace_back(freq_at_index(i), mag_at_index(i));
       peaks->emplace(mag_at_index(i), freq_at_index(i));
     }
   }

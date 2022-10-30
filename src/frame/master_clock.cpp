@@ -231,7 +231,9 @@ void MasterClock::peers_update(const Peers &new_peers) {
 }
 
 bool MasterClock::ready() { // static
-  return shared::master_clock->load_info_from_mapped().ok();
+  const auto &clock_info = shared::master_clock->load_info_from_mapped();
+
+  return clock_info.ok() && clock_info.master_for_at_least(333ms);
 }
 
 void MasterClock::reset() { // static

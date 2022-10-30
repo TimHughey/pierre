@@ -27,6 +27,7 @@
 #include <cmath>
 #include <ctgmath>
 #include <string>
+#include <type_traits>
 
 namespace pierre {
 
@@ -40,9 +41,9 @@ struct Hsb {
   void toRgb(uint8_t &red, uint8_t &grn, uint8_t &blu) const;
 
   // technically the default is unsaturated completely dark red
-  float hue = 0.0;
-  float sat = 0.0;
-  float bri = 0.0;
+  double hue = 0.0;
+  double sat = 0.0;
+  double bri = 0.0;
 };
 
 class Color {
@@ -60,11 +61,11 @@ public:
   void copyRgbToByteArray(uint8_t *array) const;
 
   // components
-  float brightness() const { return _hsb.bri * 100.0f; }
-  float hue() const { return _hsb.hue * 360.0f; }
-  float saturation() const { return _hsb.sat * 100.0f; }
+  double brightness() const { return _hsb.bri * 100.0f; }
+  double hue() const { return _hsb.hue * 360.0f; }
+  double saturation() const { return _hsb.sat * 100.0f; }
 
-  static Color interpolate(Color a, Color b, float t);
+  static Color interpolate(Color a, Color b, double t);
   bool isBlack() const;
   bool isWhite() const;
   bool notBlack() const { return isBlack() == false; }
@@ -73,17 +74,29 @@ public:
   bool operator==(const Color &rhs) const;
   bool operator!=(const Color &rhs) const;
 
-  Color &rotateHue(const float step = 1.0);
+  Color &rotateHue(const double step = 1.0);
 
-  Color &setBrightness(float val);
-  Color &setBrightness(const Color &rhs);
-  Color &setBrightness(const min_max_float &range, const float val);
+  template <class T> Color &setBrightness(T &&val) {
+    if constexpr (std::is_floating_point<T>::type::value) {
+      _hsb.bri = val / 100.0;
+    }
 
-  Color &setHue(float val);
+    if constexpr (std::is_same_v<T, Color>) {
+      _hsb.bri = val._hsb.bri;
+    }
 
-  Color &setSaturation(float val);
+    return *this;
+  }
+
+  // Color &setBrightness(double val);
+  // Color &setBrightness(const Color &rhs);
+  Color &setBrightness(const min_max_dbl &range, const double val);
+
+  Color &setHue(double val);
+
+  Color &setSaturation(double val);
   Color &setSaturation(const Color &rhs);
-  Color &setSaturation(const min_max_float &range, const float val);
+  Color &setSaturation(const min_max_dbl &range, const double val);
 
   // useful static colors
   static Color full() {

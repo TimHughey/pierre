@@ -42,17 +42,6 @@ typedef std::jthread Thread;
 // Vector of Floats
 typedef std::vector<float> reals_t;
 
-// Frequency, magnitude, scaled values
-typedef float Freq;
-typedef float Mag;
-typedef float MagScaled;
-typedef float Scaled;
-typedef float Unscaled;
-
-using render_mode_t = csv;
-constexpr csv NOT_RENDERING{"NOT RENDERING"};
-constexpr csv RENDERING{"RENDERING"};
-
 using seq_num_t = uint32_t;   // frame sequence num
 using timestamp_t = uint32_t; // frame timestamp
 

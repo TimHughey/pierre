@@ -1,6 +1,6 @@
 /*
-    lightdesk/headunits/pwm_base.hpp - Ruth LightDesk Head Unit Pwm Base
-    Copyright (C) 2021  Tim Hughey
+    lightdesk/headunits/discoball.hpp - Ruth LightDesk Headunit Disco Ball
+    Copyright (C) 2020  Tim Hughey
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,9 +20,26 @@
 
 #pragma once
 
-#include "desk/unit/ac_power.hpp"
-#include "desk/unit/discoball.hpp"
-#include "desk/unit/elwire.hpp"
-#include "desk/unit/ledforest.hpp"
-#include "desk/unit/opts.hpp"
-#include "desk/unit/pinspot.hpp"
+#include "desk/unit.hpp"
+#include <memory>
+
+namespace pierre {
+
+class AcPower : public Unit {
+public:
+  AcPower(const unit::Opts opts) noexcept : Unit(opts), powered{false} {}
+
+public: // effects
+  void dark() override { off(); }
+  void leave() override { on(); }
+  void prepare() override {}
+  void on() noexcept { powered = true; }
+  void off() noexcept { powered = false; }
+
+  void update_msg(desk::DataMsg &msg) override { msg.doc[unitName()] = powered; }
+
+private:
+  bool powered;
+};
+
+} // namespace pierre

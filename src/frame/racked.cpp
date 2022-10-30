@@ -256,10 +256,6 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
   });
 }
 
-// bool Racked::not_rendering() noexcept { //
-//   return shared::racked->_rendering.test() == false;
-// }
-
 // NOTE: this function assumes are locked
 void Racked::pop_front_reel_if_empty() noexcept {
   // if the reel is empty, pop it from racked

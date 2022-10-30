@@ -39,6 +39,10 @@ public:
     return std::partial_ordering::equivalent;
   }
 
+  template <class T = Frequency> T scaled() const noexcept {
+    return (val > 0) ? T(std::log10(val)) : T{0};
+  }
+
 private:
   double val{0};
 };

@@ -26,21 +26,19 @@
 #include "frame/peaks.hpp"
 
 #include <boost/circular_buffer.hpp>
-#include <deque>
-#include <random>
+#include <vector>
 
 namespace pierre {
 namespace fx {
 
 class MajorPeak : public FX {
 public:
-  using random_engine = std::mt19937;
   using circular_buffer = boost::circular_buffer<Peak>;
 
 public:
   struct FloorCeiling {
-    float floor;
-    float ceiling;
+    double floor;
+    double ceiling;
   };
 
   struct Frequencies {
@@ -52,38 +50,15 @@ public:
     };
   };
 
-  struct ColorRef {
-    float hue;
-    float sat;
-    float bri;
-  };
-
-  struct ColorRotate {
-    bool enable;
-    uint32_t ms;
-  };
-
-  struct ColorConfig {
-    bool random_start = false;
-
-    struct ColorRef reference {
-      .hue = 0.0, .sat = 100.0, .bri = 100
-    };
-
-    struct ColorRotate rotate {
-      .enable = false, .ms = 7000
-    };
-  };
-
   struct ColorControl {
     struct {
-      float min;
-      float max;
-      float step;
+      double min;
+      double max;
+      double step;
     } hue;
 
     struct {
-      float max;
+      double max;
       bool mag_scaled;
     } brightness;
   };
@@ -105,22 +80,22 @@ public:
   };
 
   struct WhenGreater {
-    float frequency;
-    float brightness_min;
+    Frequency frequency;
+    double brightness_min;
     struct {
-      float brightness_min;
+      double brightness_min;
     } higher_frequency;
   };
 
   struct WhenLessThan {
-    float frequency;
-    float brightness_min;
+    Frequency frequency;
+    double brightness_min;
   };
 
   struct FillPinspot {
-    string name{"fill"};
+    string name{"fill pinspot"};
     uint32_t fade_max_ms = 800;
-    float frequency_max = 1000.0;
+    Frequency frequency_max = 1000.0;
 
     struct WhenGreater when_greater {
       .frequency = 180.0, .brightness_min = 3.0, .higher_frequency = {.brightness_min = 80.0 }
@@ -132,16 +107,16 @@ public:
   };
 
   struct WhenFading {
-    float brightness_min;
+    double brightness_min;
     struct {
-      float brightness_min;
+      double brightness_min;
     } frequency_greater;
   };
 
   struct MainPinspot {
-    string name{"main"};
+    string name{"main pinspot"};
     uint32_t fade_max_ms = 700;
-    float frequency_min = 180.0;
+    Frequency frequency_min = 180.0;
 
     struct WhenFading when_fading {
       .brightness_min = 5.0, .frequency_greater = {.brightness_min = 69.0 }
@@ -162,7 +137,7 @@ public:
   void once() override;
 
 private:
-  typedef std::deque<Color> ReferenceColors;
+  typedef std::vector<Color> ReferenceColors;
 
 private:
   void handleElWire(peaks_t peaks);
@@ -171,33 +146,19 @@ private:
   void handleMainPinspot(peaks_t peaks);
 
   const Color makeColor(Color ref, const Peak &freq);
-  void makeRefColors();
-  double randomHue();
-  float randomRotation();
   Color &refColor(size_t index) const;
 
-  bool useablePeak(const Peak &peak);
-
 private:
-  ColorConfig _color_config;
+  Color _color;
+  pierre::desk::Stats &stats;
   Frequencies _freq;
   MakeColor _makecolor;
 
   MainPinspot _main_spot_cfg;
   FillPinspot _fill_spot_cfg;
 
-  random_engine _random;
-
-  Color _color;
   Elapsed color_elapsed;
   static ReferenceColors _ref_colors;
-
-  struct {
-    Peak main = Peak::zero();
-    Peak fill = Peak::zero();
-  } _last_peak;
-
-  pierre::desk::Stats &stats;
 
   circular_buffer _prev_peaks;
   circular_buffer _main_history;

@@ -20,12 +20,8 @@
 
 #include "base/types.hpp"
 
-#include <string>
-
 namespace pierre {
 namespace unit {
-
-using namespace std::literals::string_view_literals;
 
 struct Opts {
   csv name;
@@ -34,19 +30,21 @@ struct Opts {
 
 constexpr size_t NO_FRAME = 0;
 
-constexpr auto MAIN_SPOT = "main pinspot"sv;
-constexpr auto FILL_SPOT = "fill pinspot"sv;
-constexpr auto EL_ENTRY = "el entry"sv;
-constexpr auto EL_DANCE = "el dance"sv;
-constexpr auto LED_FOREST = "led forest"sv;
-constexpr auto DISCO_BALL = "disco ball"sv;
+constexpr csv AC_POWER{"ac power"};
+constexpr csv MAIN_SPOT{"main pinspot"};
+constexpr csv FILL_SPOT{"fill pinspot"};
+constexpr csv EL_ENTRY{"el entry"};
+constexpr csv EL_DANCE{"el dance"};
+constexpr csv LED_FOREST{"led forest"};
+constexpr csv DISCO_BALL{"disco ball"};
 
-constexpr auto MAIN_SPOT_OPTS = Opts{.name = MAIN_SPOT, .address = 1};
-constexpr auto FILL_SPOT_OPTS = Opts{.name = FILL_SPOT, .address = 7};
-constexpr auto EL_ENTRY_OPTS = Opts{.name = EL_ENTRY, .address = 1};
-constexpr auto EL_DANCE_OPTS = Opts{.name = EL_DANCE, .address = 2};
-constexpr auto LED_FOREST_OPTS = Opts{.name = LED_FOREST, .address = 3};
-constexpr auto DISCO_BALL_OPTS = Opts{.name = DISCO_BALL, .address = 4};
+constexpr Opts AC_POWER_OPTS{.name = AC_POWER, .address = 0};
+constexpr Opts MAIN_SPOT_OPTS{.name = MAIN_SPOT, .address = 1};
+constexpr Opts FILL_SPOT_OPTS{.name = FILL_SPOT, .address = 7};
+constexpr Opts EL_ENTRY_OPTS{.name = EL_ENTRY, .address = 1};
+constexpr Opts EL_DANCE_OPTS{.name = EL_DANCE, .address = 2};
+constexpr Opts LED_FOREST_OPTS{.name = LED_FOREST, .address = 3};
+constexpr Opts DISCO_BALL_OPTS{.name = DISCO_BALL, .address = 4};
 
 } // namespace unit
 } // namespace pierre

@@ -41,22 +41,15 @@ public: // Peak
   Peak() noexcept : freq(0), mag(0) {}
   Peak(const Frequency f, const Magnitude m) noexcept : freq(f), mag(m) {}
 
-  static min_max_float magScaleRange() {
-    return min_max_float(0.0, mag_scaled.ceiling - mag_scaled.floor);
+  static min_max_dbl magScaleRange() {
+    return min_max_dbl(0.0, mag_scaled.ceiling - mag_scaled.floor);
   }
 
   Frequency frequency() const { return freq; }
-  Frequency frequencyScaled() const { return scale_val(freq); }
-  bool greaterThanFloor() const { return mag_base.floor; }
-  bool greaterThanFreq(Freq want_freq) const { return freq > want_freq; }
 
-  auto magnitude() const { return mag; }
+  auto magnitude() const noexcept { return mag; }
 
-  MagScaled magScaled() const {
-    auto scaled = scale_val(mag) - mag_scaled.floor;
-
-    return scaled > 0 ? scaled : 0;
-  }
+  Magnitude magScaled() const noexcept { return mag.scaled(); }
 
   explicit operator bool() const {
     return (mag > mag_base.floor) && (mag < mag_base.ceiling) ? true : false;
@@ -72,20 +65,7 @@ public: // Peak
     return lhs.mag <=> mag;
   }
 
-  template <class T, class = typename std::enable_if<std::is_same<T, Mag>::value>::type>
-  T scaled() const {
-    auto x = scale_val(mag) - mag_scaled.floor;
-
-    return x > 0 ? x : 0;
-  }
-
-  template <typename T> const T scaleMagToRange(const min_max_pair<T> &range) const {
-    auto ret_val =
-        static_cast<T>(mag_scaled.interpolate(mag) * (range.max() - range.min()) + range.min());
-
-    return std::ranges::clamp(ret_val, range.min(), range.max());
-  }
-
+  bool useable() const noexcept { return ((mag >= mag_base.floor) && (mag <= mag_base.ceiling)); }
   static const Peak zero() { return Peak(); }
 
 private:

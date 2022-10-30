@@ -56,13 +56,15 @@ public:
     for (uint8_t byte : dmx_frame) {
       dframe.add(byte);
     }
+
+    // INFO_WITH_CHUNK(module_id, "FINALIZE", inspect(), "type={}\n", TYPE);
   }
 
   // misc debug
   string inspect() const override {
     string msg;
 
-    fmt::format_to(std::back_inserter(msg), " silence={} packed_len={} dmx_len={}\n", //
+    fmt::format_to(std::back_inserter(msg), "silence={} packed_len={} dmx_len={}\n", //
                    silence, measureMsgPack(doc), dmx_frame.size());
 
     serializeJsonPretty(doc, msg);
@@ -75,6 +77,8 @@ private:
   static constexpr csv TYPE{"data"};
   uint8v dmx_frame;
   bool silence;
+
+public:
   static constexpr csv module_id{"DATA_MSG"};
 };
 

@@ -29,12 +29,10 @@
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
 
-#include <random>
-
 namespace pierre {
 
-typedef fader::ToBlack<fader::SimpleLinear> FillFader;
-typedef fader::ToBlack<fader::SineDeceleratingToZero> MainFader;
+using FillFader = fader::ToBlack<fader::SimpleLinear>;
+using MainFader = fader::ToBlack<fader::SimpleLinear>;
 
 namespace fx {
 
@@ -46,15 +44,14 @@ static shPinSpot sh_fill;
 static PinSpot *fill;
 static shPulseWidth sh_led_forest;
 static PulseWidth *led_forest;
-static shPulseWidth sh_el_dance_floor;
-static PulseWidth *el_dance_floor;
-static shPulseWidth sh_el_entry;
-static PulseWidth *el_entry;
 
 MajorPeak::MajorPeak(pierre::desk::Stats &stats)
-    : FX(), stats(stats), _prev_peaks(88), _main_history(88), _fill_history(88) {
-  std::random_device r;
-  _random.seed(r());
+    : FX(),                     //
+      _color(Hsb{0, 100, 100}), //
+      stats(stats),             //
+      _prev_peaks(88),          //
+      _main_history(88),        //
+      _fill_history(88) {
 
   sh_main = units->derive<PinSpot>(unit::MAIN_SPOT);
   main = sh_main.get();
@@ -62,32 +59,21 @@ MajorPeak::MajorPeak(pierre::desk::Stats &stats)
   sh_fill = units->derive<PinSpot>(unit::FILL_SPOT);
   fill = sh_fill.get();
 
+  INFO(module_id, "CONSTRUCT", "main={} fill={}\n", fmt::ptr(main), fmt::ptr(fill));
+
   sh_led_forest = units->derive<LedForest>(unit::LED_FOREST);
   led_forest = sh_led_forest.get();
 
-  sh_el_dance_floor = units->derive<ElWire>(unit::EL_DANCE);
-  el_dance_floor = sh_el_dance_floor.get();
-
-  sh_el_entry = units->derive<ElWire>(unit::EL_ENTRY);
-  el_entry = sh_el_entry.get();
-
   // initialize static frequency to color mapping
   if (_ref_colors.size() == 0) {
-    makeRefColors();
-  }
-
-  auto start_hue = 0.0f;
-
-  if (_color_config.random_start) {
-    start_hue = randomHue();
-    _color = Color({.hue = start_hue, .sat = 100.0f, .bri = 100.0f});
-  } else {
-    const auto &ref = _color_config.reference;
-
-    _color = Color({.hue = ref.hue, .sat = ref.sat, .bri = ref.bri});
-
-    _last_peak.fill = Peak::zero();
-    _last_peak.main = Peak::zero();
+    _ref_colors.assign( //
+        {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
+         Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
+         Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
+         Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
+         Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
+         Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
+         Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
   }
 }
 
@@ -100,15 +86,12 @@ MajorPeak::~MajorPeak() {
 
   sh_led_forest.reset();
   led_forest = nullptr;
-
-  sh_el_dance_floor.reset();
-  el_dance_floor = nullptr;
-
-  sh_el_entry.reset();
-  el_entry = nullptr;
 }
 
 void MajorPeak::execute(peaks_t peaks) {
+
+  units->derive<AcPower>(unit::AC_POWER)->on();
+  units->derive<DiscoBall>(unit::DISCO_BALL)->dutyPercent(0.38);
 
   handleElWire(peaks);
   handleMainPinspot(peaks);
@@ -128,26 +111,22 @@ void MajorPeak::execute(peaks_t peaks) {
 }
 
 void MajorPeak::handleElWire(peaks_t peaks) {
-  const auto &soft = _freq.soft;
 
-  std::array elwires{el_dance_floor, el_entry};
-
-  const auto freq_range = min_max_float(log10(soft.floor), log10(soft.ceiling));
-  const auto &peak = peaks->majorPeak();
-
-  if (!peak) {
-    for (auto elwire : elwires) {
-      elwire->dim();
-    }
-
-    return;
-  }
+  std::array elwires{units->derive<ElWire>(unit::EL_DANCE), units->derive<ElWire>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
-    const auto range = elwire->minMaxDuty<float>();
-    const DutyVal x = freq_range.interpolate(range, log10(peak.frequency()));
+    if (const auto &peak = peaks->majorPeak(); peak.useable()) {
 
-    elwire->fixed(x);
+      const DutyVal x =                  //
+          min_max_dbl(                   //
+              log10(_freq.soft.floor),   //
+              log10(_freq.soft.ceiling)) //
+              .interpolate(elwire->minMaxDuty<double>(), log10(peak.frequency()));
+
+      elwire->fixed(x);
+    } else {
+      elwire->dim();
+    }
   }
 }
 
@@ -162,8 +141,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
   auto start_fader = false;
   bool fading = fill->isFading();
 
-  // when fading look for possible scenarios where the current color can
-  // be overriden
+  // when fading look for possible scenarios where the current color can be overriden
   if (fading) {
     auto freq = peak.frequency();
     auto brightness = fill->brightness();
@@ -221,7 +199,7 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
   auto freq_min = _main_spot_cfg.frequency_min;
   auto peak = (*peaks)[freq_min];
 
-  if (useablePeak(peak) == false) {
+  if (peak.useable() == false) {
     return;
   }
 
@@ -260,8 +238,9 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
   }
 
   if (start_fader) {
-    main->activate<MainFader>(
-        {.origin = color, .duration = pet::from_ms(_main_spot_cfg.fade_max_ms)});
+    main->activate<MainFader>({.origin = color, //
+                               .duration = pet::from_ms(_main_spot_cfg.fade_max_ms)});
+
     _main_history.push_front(peak);
   }
 }
@@ -273,106 +252,67 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   const auto soft_floor = _freq.soft.floor;
   const auto soft_ceil = _freq.soft.ceiling;
 
-  const Freq freq = peak.frequency();
-  bool reasonable =
-      (freq >= hard_floor) && (freq <= hard_ceil) && (peak.magnitude() > Peak::mag_base.floor);
+  auto color = ref; // initial color, may change below
+  bool reasonable = (peak.frequency() >= hard_floor) && (peak.frequency() <= hard_ceil) &&
+                    (peak.magnitude() >= Peak::mag_base.floor);
 
   // ensure frequency can be interpolated into a color
+
   if (!reasonable) {
-    return Color::black();
-  }
 
-  // frequency less than the soft
-  if (peak.frequency() < _freq.soft.floor) {
-    auto color = ref;
-    color.setBrightness(Peak::magScaleRange(), peak.magScaled());
-    return color;
-  }
+    color = Color::black();
 
-  if (peak.frequency() > _freq.soft.ceiling) {
+  } else if (peak.frequency() < _freq.soft.floor) {
+    // frequency less than the soft
+    color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
+
+  } else if (peak.frequency() > _freq.soft.ceiling) {
     auto const &hue_cfg = _makecolor.above_soft_ceiling.hue;
 
     auto const hue_min_cfg = hue_cfg.min;
     auto hue_max_cfg = hue_cfg.max;
 
-    auto freq_range = min_max_float(soft_ceil, hard_ceil);
+    auto freq_range = min_max_dbl(soft_ceil, hard_ceil);
 
     const auto hue_step = _makecolor.above_soft_ceiling.hue.step;
     const auto hue_min = hue_min_cfg * (1.0f / hue_step);
     const auto hue_max = hue_max_cfg * (1.0f / hue_step);
-    auto hue_range = min_max_float(hue_min, hue_max);
+    auto hue_range = min_max_dbl(hue_min, hue_max);
 
-    const float freq_scaled = log10(peak.frequency());
-    float degrees = freq_range.interpolate(hue_range, freq_scaled) * hue_step;
+    auto degrees = freq_range.interpolate(hue_range, peak.frequency().scaled()) * hue_step;
 
     auto const &brightness = _makecolor.above_soft_ceiling.brightness;
 
-    Color color = ref.rotateHue(degrees);
+    color = ref.rotateHue(degrees);
     color.setBrightness(brightness.max);
 
     if (brightness.mag_scaled) {
-      color.setBrightness(Peak::magScaleRange(), peak.magScaled());
+      color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
     }
+  } else {
+    const auto &hue_cfg = _makecolor.generic.hue;
 
-    return color;
+    auto freq_range = min_max_dbl(log10(soft_floor), log10(soft_ceil));
+
+    const auto hue_min = hue_cfg.min * (1.0f / hue_cfg.step);
+    const auto hue_max = hue_cfg.max * (1.0f / hue_cfg.step);
+    auto hue_range = min_max_dbl(hue_min, hue_max);
+
+    auto degrees = freq_range.interpolate(hue_range, peak.frequency().scaled()) * hue_cfg.step;
+
+    color = ref.rotateHue(degrees);
+    color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
   }
 
-  const auto &hue_cfg = _makecolor.generic.hue;
-
-  auto freq_range = min_max_float(log10(soft_floor), log10(soft_ceil));
-
-  const auto hue_min = hue_cfg.min * (1.0f / hue_cfg.step);
-  const auto hue_max = hue_cfg.max * (1.0f / hue_cfg.step);
-  auto hue_range = min_max_float(hue_min, hue_max);
-
-  const float freq_scaled = log10(peak.frequency());
-  float degrees = freq_range.interpolate(hue_range, freq_scaled) * hue_cfg.step;
-
-  Color color = ref.rotateHue(degrees);
-
-  color.setBrightness(Peak::magScaleRange(), peak.magScaled());
-
   return color;
-}
-
-void MajorPeak::makeRefColors() {
-  _ref_colors.assign( //
-      {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
-       Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
-       Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
-       Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
-       Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
-       Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
-       Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
 }
 
 // must be in .cpp to avoid including Desk in .hpp
 void MajorPeak::once() { units->dark(); }
 
-double MajorPeak::randomHue() {
-  auto hue = static_cast<double>(_random() % 360) / 360.0;
-
-  return hue;
-}
-
-float MajorPeak::randomRotation() {
-  auto r = static_cast<float>(_random() % 100);
-
-  return r / 100.0f;
-}
-
 Color &MajorPeak::refColor(size_t index) const { return _ref_colors.at(index); }
 
-bool MajorPeak::useablePeak(const Peak &peak) {
-  auto rc = false;
-
-  if (peak && (peak.magnitude() >= Peak::mag_base.floor)) {
-    rc = true;
-  }
-
-  return rc;
-}
-
+// static class members
 MajorPeak::ReferenceColors MajorPeak::_ref_colors;
 
 } // namespace fx

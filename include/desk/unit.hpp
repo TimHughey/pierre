@@ -48,10 +48,10 @@ public:
   virtual ~Unit() {}
 
   virtual void dark() = 0;
-  virtual void prepare() = 0;
-  virtual void update_msg(desk::DataMsg &msg) = 0;
   virtual void leave() = 0;
+  virtual void prepare() = 0;
   csv unitName() const { return csv(unit_name); }
+  virtual void update_msg(desk::DataMsg &msg) = 0;
 
 protected:
   // order dependent

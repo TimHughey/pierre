@@ -56,5 +56,6 @@ private:
 };
 
 using min_max_float = min_max_pair<float>;
+using min_max_dbl = min_max_pair<double>;
 
 } // namespace pierre

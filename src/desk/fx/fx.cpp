@@ -29,6 +29,7 @@ shUnits FX::units; // static class member
 FX::FX() {
   if (!units) { // create the units once
     units = std::make_shared<Units>();
+    units->add<AcPower>(unit::AC_POWER_OPTS);
     units->add<PinSpot>(unit::MAIN_SPOT_OPTS);
     units->add<PinSpot>(unit::FILL_SPOT_OPTS);
     units->add<DiscoBall>(unit::DISCO_BALL_OPTS);

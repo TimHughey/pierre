@@ -105,7 +105,11 @@ void Desk::frame_loop_unsafe() {
 
   // INFO(module_id, "FRAME_LOOP2", "frame={}\n", Frame::inspect_safe(frame));
 
-  frame_render(frame);
+  if (frame && frame->state.ready()) {
+    frame_render(frame);
+  } else {
+    INFO(module_id, "FRAME_LOOP", "DROP frame={}\n", Frame::inspect_safe(frame));
+  }
 
   auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time_min;
 
@@ -115,19 +119,10 @@ void Desk::frame_loop_unsafe() {
 }
 
 void Desk::frame_render(frame_t frame) {
-  if (frame.use_count() == 0) return;
-
-  if (!frame->state.ready()) {
-    if (!frame->state.outdated()) {
-      INFO(module_id, "FRAME_RENDER", "DROP frame={}\n", Frame::inspect_safe(frame));
-    }
-
-    return;
-  }
 
   desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
-  // frame->mark_rendered(); // frame is consumed, even when no connection
+  frame->mark_rendered(); // frame is consumed, even when no connection
 
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
     active_fx = fx_factory::create<fx::MajorPeak>(run_stats);

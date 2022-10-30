@@ -66,9 +66,7 @@ public:
 
   // find the first peak greater than the floating point value
   // specified in operator[]
-  template <class T, class = typename std::enable_if<std::is_floating_point<T>::value>::type>
-  const Peak operator[](T freq) {
-
+  const Peak operator[](Frequency freq) {
     Peak found_peak;
 
     if (!std::empty(peaks_map)) {
