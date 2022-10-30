@@ -42,26 +42,6 @@ IF(Threads_FOUND)
   message(VERBOSE "using threads: ${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
-message(VERBOSE "Resolving GIT Version")
-
-set(_build_version "unknown")
-
-find_package(Git)
-if(GIT_FOUND)
-  execute_process(
-    COMMAND ${GIT_EXECUTABLE} describe
-    WORKING_DIRECTORY ${pierre_SOURCE_DIR}
-    OUTPUT_VARIABLE _build_version
-    ERROR_QUIET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-  message(VERBOSE "GIT hash: ${_build_version}")
-else()
-  message(VERBOSE "GIT not found")
-endif()
-
-string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
-
 include(FetchContent)
 
 FetchContent_Declare(ArduinoJson
@@ -85,16 +65,13 @@ add_subdirectory(src)
 
 add_executable(${_target} apps/pierre.cpp apps/main.cpp)
 
-configure_file(cmake/version.h.in version.h @ONLY)
-
 target_include_directories(${_target} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(${_target} PUBLIC
-  Threads::Threads
-  base core config config2 frame desk airplay config2
-  
+  Threads::Threads 
+  base config frame desk airplay mdns
 )
 
 

@@ -1,135 +1,77 @@
-/*  Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
+// Pierre
+// Copyright (C) 2022 Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com */
-
-#include "config/config.hpp"
-#include "embed.hpp"
+#define TOML_IMPLEMENTATION // this translation unit compiles actual library
+#include "config.hpp"
+#include "args.hpp"
+#include "base/elapsed.hpp"
+#include "base/host.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
 #include "version.h"
 
-#include <algorithm>
-#include <array>
 #include <filesystem>
-#include <fstream>
-#include <ranges>
 
 namespace pierre {
 
 namespace {
-namespace ranges = std::ranges;
-}
-
-namespace shared {
-std::optional<shConfig> __config;
-std::optional<shConfig> &config() { return shared::__config; }
-} // namespace shared
-
 namespace fs = std::filesystem;
-
-const fs::path ETC{"/etc/pierre"};
-const fs::path LOCAL_ETC{"/usr/local/etc/pierre"};
-static constexpr csv HOME_CFG_DIR = ".pierre";
-static constexpr csv CFG_FILE = "live";
-static constexpr csv SUFFIX{".json"};
-static string HOME{getenv("HOME")};
-
-typedef std::vector<fs::path> paths;
-
-static fs::path ensureAbsolute(csr file_csr) {
-  if (auto f = csv(file_csr); f.ends_with(SUFFIX)) { // must have right suffix
-    auto fpath = fs::path(f);
-
-    if (fpath.is_relative()) {
-      return fs::path(fs::current_path()).append(file_csr).string();
-    } else {
-      return fpath.string();
-    }
-  }
-
-  return string();
 }
 
-Config::Config(const Inject &di)
-    : di(di),                    // store the injected dependencies
-      firmware_vsn(GIT_REVISION) // store the firmvsn (git describe)
-{
+// class static member data
+toml::table Config::_table;
+bool Config::initialized{false};
 
-  std::error_code ec;
-  auto cwd = fs::current_path(ec);
+void Config::init_self(int argc, char **argv) noexcept {
+  // parse args
+  Args args;
+  const auto am = args.parse(argc, argv);
 
-  INFO(moduleID(), "CONSTRUCT", "cwd={} reason={}\n", cwd.c_str(), ec.message());
+  if (am.ok()) {
 
-  const auto file = string(CFG_FILE).append(SUFFIX);
+    fs::path full_path{"/home/thughey/.pierre"};
 
-  paths search{
-      fs::path(HOME).append(HOME_CFG_DIR).append(file), // 1. home
-      fs::path(LOCAL_ETC).append(file),                 // 2. /usr/local/etc
-      fs::path(ETC).append(file)                        // 3. /etc
-  };
+    full_path /= am.cfg_file;
 
-  // was the config file specified via the cli?  if so, add to front of list
-  if (auto path = ensureAbsolute(di.cli_cfg_file); !path.empty()) {
-    search.emplace(search.begin(), path);
-  }
+    try {
+      _table = toml::parse_file(full_path.c_str());
 
-  auto exists = [](fs::path &ptf) {
-    auto rc = false;
-    std::error_code ec;
+      table_at("cli")->emplace<string>("app_name"sv, basename(argv[0]));
+      table_at("cli")->emplace("cfg_file"sv, am.cfg_file);
 
-    if (const auto stat = fs::status(ptf, ec); !ec) {
-      rc = fs::exists(stat);
-    }
+      table_at("base")->emplace<string>("build_vsn"sv, GIT_REVISION);
+      table_at("base")->emplace<string>("build_time"sv, BUILD_TIMESTAMP);
 
-    INFOX(moduleID(), rc ? "FOUND" : "NOT FOUND", "{} {}\n", ptf.c_str(),
-          ec ? ec.message() : csv(""));
+      initialized = true;
 
-    return rc;
-  };
-
-  if (auto found = ranges::find_if(search, exists); found != search.end()) {
-    [[maybe_unused]] csv category = "DESERIALIZE";
-    cfg_file = found->string();
-    std::ifstream cfg_fstream(cfg_file);
-
-    if (cfg_fstream.is_open()) {
-      if (auto err = deserializeJson(doc, cfg_fstream); err) {
-        INFO(moduleID(), category, "failed reason={}\n", err.c_str());
-
-        doc.clear();
-      }
+    } catch (const toml::parse_error &err) {
+      INFO(module_id, "ERROR", "file={} parse failed={}\n", full_path.c_str(), err.description());
     }
   }
-
-  if (doc.isNull()) {
-    INFOX(moduleID(), "CONSTRUCT", "using fallback config\n");
-    if (auto err = deserializeJson(doc, cfg::fallback()); err) {
-      INFO(moduleID(), csv("FALLBACK"), "err={}\n", err.c_str());
-    }
-  }
-
-  receiver_name = receiver();
-
-  INFOX(moduleID(), "CONSTRUCT", "doc_used={}\n", doc.memoryUsage());
 }
 
-void Config::test(const char *setting, const char *key) {
-  JsonObject root = doc.as<JsonObject>();
-  const char *val = root[setting][key];
+const string Config::receiver() const noexcept {
+  static constexpr csv fallback{"%h"};
+  auto val = _table.at_path("mdns.receiver").value_or(fallback);
 
-  INFO(moduleID(), "TEST", "setting={} key={} val={}\n", setting, key, val);
+  return (val == fallback ? string(Host().hostname()) : string(val));
 }
+
+toml::table *Config::table_at(csv path) { return _table.at_path(path).as_table(); }
 
 } // namespace pierre

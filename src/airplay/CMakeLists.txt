@@ -61,7 +61,7 @@ target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
   ple
-  base config core frame io mdns
+  base config frame io mdns
 )
 
 target_link_libraries(${__target} PUBLIC mdns)

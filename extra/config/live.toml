@@ -1,13 +1,18 @@
-[pierre]
+[base]
 title = "Pierre Live"   # for identification purposes
-version = 2             # config file format
+config_vsn = 2          # config file format
 working_dir = ".pierre" # cwd to this directory at startup
+# build_vsn = ""        # git version of executable populated at runtime
+# build_time = ""       # datetime of build
 
-# NOTE: cli table is not a source of config, rather it holds
-#       command line opts passed at startup
 [cli]
-app_name = "" # typically the basename of the executable
-cfg_file = "" # could be this file or another specified by cli opt
+# NOTE: cli table is not a source of config, rather it holds
+#       command line opts passed at startup and populated
+#       at runtime
+#
+# app_name = "" # typically basename() of the app
+# cfg_file = "" # could be this file or another specified by cli opt
+
 
 [mdns]
 receiver = "%h"                   # use hostname

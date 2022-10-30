@@ -1,97 +1,85 @@
-/*  Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com */
+// Pierre
+// Copyright (C) 2022 Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 
-#include <ArduinoJson.h>
-#include <array>
-#include <memory>
 #include <optional>
+
+#define TOML_ENABLE_FORMATTERS 0 // don't need formatters
+#define TOML_HEADER_ONLY 0       // reduces compile times
+#include <toml++/toml.h>
 
 namespace pierre {
 
-class Config;
-typedef std::shared_ptr<Config> shConfig;
-
-namespace shared {
-std::optional<shConfig> &config();
-} // namespace shared
-
-class Config : public std::enable_shared_from_this<Config> {
-private:
-  static constexpr auto MAX_DOC_SIZE = 10 * 1024;
-
+class Config {
 public:
-  struct Inject {
-    string app_name;
-    string cli_cfg_file;
-    csv hostname;
+  Config() = default;
+
+  // initialization and setup
+  static Config init(int argc, char **argv) noexcept {
+    auto cfg = Config();
+    cfg.init_self(argc, argv);
+
+    return cfg;
+  }
+
+  bool ready() const noexcept { return initialized; }
+
+  // raw, direct access
+  toml::table *table_at(csv path);
+  toml::table &table() { return _table; }
+
+  // specific accessors
+  const string app_name() const noexcept {
+    return _table.at_path("cli.app_name"sv).value_or(UNSET);
+  }
+
+  const string build_time() const noexcept {
+    return _table.at_path("base.build_time"sv).value_or(UNSET);
   };
 
-private:
-  Config(const Inject &di);
+  const string build_vsn() const noexcept {
+    return _table.at_path("base.build_vsn"sv).value_or(UNSET);
+  };
 
-public:
-  // create, access shared Config
-  static shConfig init(const Inject &di) { return shared::config().emplace(new Config(di)); }
-  static shConfig ptr() { return shared::config().value()->shared_from_this(); }
-  static void reset() { shared::config().reset(); }
+  const string config_vsn() const noexcept {
+    return _table.at_path("base.config_vsn"sv).value_or(UNSET);
+  }
 
-  // general API
-  static csr appName() { return ptr()->di.app_name; }
-  static csr firmwareVersion() { return ptr()->firmware_vsn; };
-  static csv moduleID() { return module_id; }
-  static JsonObject object(csv key) { return ptr()->doc[key].as<JsonObject>(); }
-  static csv receiverName() { return ptr()->receiver_name; }
+  const string receiver() const noexcept; // see .cpp, uses Host
 
-  void test(const char *setting, const char *key);
-
-private:
-  const string receiver() const {
-    if (auto r = doc["pierre"]["receiver_name"].as<string_view>(); r.size()) {
-      INFOX(moduleID(), "CONFIG", "receiver config={}\n", r);
-
-      if (r == csv("%h")) {
-        return string(di.hostname);
-      } else {
-        return string(r);
-      }
-    }
-
-    return string(di.hostname);
+  const string working_dir() const noexcept {
+    return _table.at_path("base.working_dir"sv).value_or(UNSET);
   }
 
 private:
-  // order dependent (initialized by constructor)
-  Inject di;
-  string firmware_vsn;
+  void init_self(int argc, char **argv) noexcept;
 
-  // order independent
-  string cfg_file; // will be an empty string if no on disk file was located
-  string receiver_name;
+private:
+  static toml::table _table;
+  static bool initialized;
 
-  // doc is guarenteed to be valid (either from a file on disk or the fallback config)
-  StaticJsonDocument<MAX_DOC_SIZE> doc;
+  static constexpr ccs UNSET{"?"};
 
-  static constexpr csv module_id{"PE_CONFIG"};
+public:
+  static constexpr csv module_id{"CONFIG2"};
 };
 
 } // namespace pierre

@@ -18,9 +18,9 @@
 
 #include "mdns.hpp"
 #include "base/logger.hpp"
-#include "config2/config2.hpp"
-#include "core/service.hpp"
+#include "config/config.hpp"
 #include "provider.hpp"
+#include "service.hpp"
 #include "zservice.hpp"
 
 #include <algorithm>
@@ -98,6 +98,7 @@ void mDNS::browser_remove(const string name) noexcept {
 
 void mDNS::init(io_context &io_ctx) noexcept { // static
   if (shared::mdns.has_value() == false) {
+    Service::init();
     shared::mdns.emplace(io_ctx).init_self();
   }
 }
@@ -118,7 +119,7 @@ void mDNS::init_self() {
   }
 
   if (error.empty()) {
-    string service = C2onfig().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
+    string service = Config().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
     mDNS::browse(service);
   } else {
     INFO(module_id, "INIT", "error={}\n", error);

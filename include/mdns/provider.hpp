@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "base/types.hpp"
-#include "core/service/types.hpp"
+#include "service.hpp"
 #include "zservice.hpp"
 
 #include <avahi-client/client.h>

@@ -21,7 +21,7 @@
 #include "base/logger.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "config2/config2.hpp"
+#include "config/config.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
 #include "peaks.hpp"
@@ -58,7 +58,7 @@ static std::vector<std::stop_token> stop_tokens;
 
 // initialize the thread pool for digital signal analysis
 void init() {
-  double factor = C2onfig().table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
+  double factor = Config().table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
   int thread_count = std::jthread::hardware_concurrency() * factor;
 
   std::latch latch{thread_count};

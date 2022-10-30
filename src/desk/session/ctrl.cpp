@@ -21,7 +21,7 @@
 #include "desk/session/ctrl.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
-#include "config2/config2.hpp"
+#include "config/config.hpp"
 #include "io/async_msg.hpp"
 #include "io/msg.hpp"
 #include "mdns/mdns.hpp"
@@ -41,7 +41,7 @@ void Control::connect(const error_code ec) {
     return;
   }
 
-  auto name = C2onfig() //
+  auto name = Config() //
                   .table()
                   .at_path("mdns.dmx_controller"sv)
                   .value_or<string_view>("test-with-devs"sv);

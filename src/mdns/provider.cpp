@@ -20,7 +20,6 @@
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
-#include "core/service.hpp"
 #include "mdns.hpp"
 #include "zservice.hpp"
 

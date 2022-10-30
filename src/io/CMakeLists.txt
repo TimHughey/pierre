@@ -13,5 +13,5 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 add_library(${__target} INTERFACE ${HEADER_LIST})
 
 # all includes are relative to base includes
-target_include_directories(${__target} PUBLIC INTERFACE ${HEADER_PATH})
+target_include_directories(${__target} INTERFACE ${HEADER_PATH})
 target_link_libraries(${__target} INTERFACE base ArduinoJson)

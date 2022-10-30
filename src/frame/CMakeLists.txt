@@ -53,6 +53,6 @@ target_link_libraries(${__target} PRIVATE
   PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
   base
-  config2
+  config
   io
 )

@@ -17,6 +17,9 @@ add_library(${__target} SHARED
   # mdns client provider
   provider.cpp
 
+  # service for airplay
+  service.cpp service/static_data.cpp
+
   # consolidated view of an available service
   zservice.cpp
 
@@ -34,7 +37,7 @@ target_include_directories(${__target} PRIVATE
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE 
-  core config2 ${AVAHI_LIBRARIES}
+  ${AVAHI_LIBRARIES} config
 )
 
 target_compile_definitions(${__target} PRIVATE ${AVAHI_DEFINITIONS})

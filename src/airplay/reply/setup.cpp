@@ -21,10 +21,10 @@
 #include "reply/setup.hpp"
 #include "base/host.hpp"
 #include "conn_info/conn_info.hpp"
-#include "core/service.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/mdns.hpp"
+#include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
 

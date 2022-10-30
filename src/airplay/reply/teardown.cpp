@@ -23,7 +23,7 @@
 #include "base/shk.hpp"
 #include "base/types.hpp"
 #include "conn_info/conn_info.hpp"
-#include "core/service.hpp"
+#include "mdns/service.hpp"
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"

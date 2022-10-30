@@ -16,36 +16,28 @@
 //
 // https://www.wisslanding.com
 
-#define TOML_IMPLEMENTATION // this translation unit compiles actual library
-#include "config2.hpp"
-#include "base/elapsed.hpp"
-#include "base/logger.hpp"
-#include "base/types.hpp"
+#pragma once
 
-#include <filesystem>
+#include "base/types.hpp"
 
 namespace pierre {
 
-namespace {
-namespace fs = std::filesystem;
-}
+struct ArgsMap {
+  bool parse_ok{false};
+  bool daemon{false};
+  string cfg_file{};
+  string dmx_host{};
+  string pid_file{};
+  bool colorbars{false};
 
-// class static member data
-toml::table C2onfig::_table;
+  // public api
+  bool ok() const { return parse_ok; }
+};
 
-C2onfig C2onfig::init(csv file) { // static
-  fs::path full_path{"/home/thughey/.pierre"};
+class Args {
+public:
+  Args() = default;
 
-  full_path /= file;
-
-  try {
-    _table = toml::parse_file(full_path.c_str());
-
-  } catch (const toml::parse_error &err) {
-    INFO(module_id, "ERROR", "file={} parse failed={}\n", full_path.c_str(), err.description());
-  }
-
-  return C2onfig();
-}
-
+  ArgsMap parse(int argc, char *argv[]);
+};
 } // namespace pierre
