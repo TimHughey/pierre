@@ -23,8 +23,8 @@ dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 clock = { shm_name = "/nqptp" }
 
 [frame.peaks.magnitudes] # only keep peaks in this range
-floor = 2.009
-ceiling = 64.0
+floor = 0.9
+ceiling = 128.0
 
 [desk]
 colorbars = true
@@ -36,6 +36,10 @@ reference = { hue = 0.0, sat = 100.0, bri = 100.0 }
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 10000.0 }
 soft = { floor = 110.0, ceiling = 11500.0 }
+
+[fx.majorpeak.magnitudes]
+floor = 2.009
+ceiling = 64.0
 
 [fx.majorpeak.makecolors.above_soft_ceiling]
 hue = { min = 345.0, max = 355.0, step = 0.0001 }

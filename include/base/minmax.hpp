@@ -28,12 +28,14 @@ namespace pierre {
 
 template <typename T> class min_max_pair {
 public:
-  min_max_pair() noexcept { set(0, 100); }
-  min_max_pair(const T a, const T b) noexcept { pair = std::minmax<T>(a, b); }
+  constexpr min_max_pair() noexcept : pair(T(0), T(100)) {}
+  constexpr min_max_pair(const T a, const T b) noexcept : pair(std::minmax<T>(a, b)) {}
 
-  static min_max_pair<T> defaults() noexcept { return min_max_pair<T>(0, 100); }
+  constexpr bool between(T val) const noexcept {
+    return (val >= pair.first) && (val <= pair.second);
+  }
 
-  const T interpolate(const min_max_pair<T> &bpair, const T val) const noexcept {
+  constexpr T interpolate(const min_max_pair<T> &bpair, const T val) const noexcept {
     // https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
     // OldRange = (OldMax - OldMin)
     // NewRange = (NewMax - NewMin)
@@ -45,23 +47,17 @@ public:
     return (((val - min()) * range_b) / range_a) + bpair.min();
   }
 
-  const T &max() const noexcept { return pair.second; }
-  const T &min() const noexcept { return pair.first; }
+  constexpr const T &max() const noexcept { return pair.second; }
+  constexpr const T &min() const noexcept { return pair.first; }
 
-  auto scaled() const noexcept {
+  constexpr auto scaled() const noexcept {
     return min_max_pair<T>(pair.first.scaled(), pair.second.scaled());
   }
 
-  min_max_pair &set(const T a, const T b) noexcept {
-    *this = min_max_pair(a, b);
-    return *this;
-  }
-
 private:
-  std::pair<T, T> pair;
+  const std::pair<T, T> pair;
 };
 
-using min_max_float = min_max_pair<float>;
 using min_max_dbl = min_max_pair<double>;
 
 } // namespace pierre
