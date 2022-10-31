@@ -31,7 +31,7 @@ public:
   constexpr min_max_pair() noexcept : pair(T(0), T(100)) {}
   constexpr min_max_pair(const T a, const T b) noexcept : pair(std::minmax<T>(a, b)) {}
 
-  constexpr bool between(T val) const noexcept {
+  constexpr bool inclusive(T val) const noexcept {
     return (val >= pair.first) && (val <= pair.second);
   }
 

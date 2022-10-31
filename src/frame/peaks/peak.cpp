@@ -31,10 +31,6 @@ namespace pierre {
 
 mag_min_max Peak::magScaleRange() noexcept { return PeakConfig::mag_limits().scaled(); }
 
-bool Peak::useable() const noexcept {
-  const auto ml = PeakConfig::mag_limits();
-
-  return ((mag >= ml.min()) && (mag <= ml.max()));
-}
+bool Peak::useable() const noexcept { return useable(PeakConfig::mag_limits()); }
 
 } // namespace pierre

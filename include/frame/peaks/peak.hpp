@@ -56,7 +56,8 @@ public:
     return lhs.mag <=> mag;
   }
 
-  bool useable() const noexcept; // see .cpp, uses PeakConfig
+  bool useable() const noexcept; // see .cpp, requires PeakConfig
+  bool useable(const mag_min_max &ml) const noexcept { return ml.inclusive(mag); }
 
   static const Peak zero() { return Peak(); }
 
@@ -74,24 +75,8 @@ template <> struct fmt::formatter<pierre::Peak> {
   bool freq = false;
   bool mag = false;
 
-  // Parses format specifications of the form ['f' | 'e'].
   constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
-    // [ctx.begin(), ctx.end()) is a character range that contains a part of
-    // the format string starting from the format specifications to be parsed,
-    // e.g. in
-    //
-    //   fmt::format("{:f} - point of interest", point{1, 2});
-    //
-    // the range will contain "f} - point of interest". The formatter should
-    // parse specifiers until '}' or the end of the range. In this example
-    // the formatter should parse the 'f' specifier and return an iterator
-    // pointing to '}'.
 
-    // Please also note that this character range may be empty, in case of
-    // the "{}" format string, so therefore you should check ctx.begin()
-    // for equality with ctx.end().
-
-    // Parse the presentation format and store it in the formatter:
     auto it = ctx.begin(), end = ctx.end();
 
     while ((it != end) && (*it != '}')) {

@@ -28,6 +28,7 @@
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
+#include "fx/majorpeak/config.hpp"
 
 namespace pierre {
 
@@ -91,7 +92,7 @@ MajorPeak::~MajorPeak() {
 void MajorPeak::execute(peaks_t peaks) {
 
   units->derive<AcPower>(unit::AC_POWER)->on();
-  units->derive<DiscoBall>(unit::DISCO_BALL)->dutyPercent(0.38);
+  units->derive<DiscoBall>(unit::DISCO_BALL)->dutyPercent(0.50);
 
   handleElWire(peaks);
   handleMainPinspot(peaks);
@@ -199,7 +200,9 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
   auto freq_min = _main_spot_cfg.frequency_min;
   auto peak = (*peaks)[freq_min];
 
-  if (peak.useable() == false) {
+  const auto mag_limits = major_peak_config::mag_limits();
+
+  if (peak.useable(mag_limits) == false) {
     return;
   }
 
@@ -252,8 +255,11 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   const auto soft_floor = _freq.soft.floor;
   const auto soft_ceil = _freq.soft.ceiling;
 
+  const auto mag_limits = major_peak_config::mag_limits();
+
   auto color = ref; // initial color, may change below
-  bool reasonable = (peak.frequency() >= hard_floor) && (peak.frequency() <= hard_ceil);
+  bool reasonable = peak.useable(mag_limits) &&
+                    ((peak.frequency() >= hard_floor) && (peak.frequency() <= hard_ceil));
 
   // ensure frequency can be interpolated into a color
 
