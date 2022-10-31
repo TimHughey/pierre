@@ -26,7 +26,7 @@
 #include "frame/peaks.hpp"
 
 #include <boost/circular_buffer.hpp>
-#include <vector>
+// #include <vector>
 
 namespace pierre {
 namespace fx {

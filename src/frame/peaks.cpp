@@ -20,6 +20,8 @@
 
 #include "frame/peaks.hpp"
 #include "base/logger.hpp"
+#include "config/config.hpp"
+#include "peaks/peak_config.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -28,11 +30,14 @@
 
 namespace pierre {
 
-bool Peaks::emplace(Magnitude m, Frequency f) noexcept {
+Peaks::Peaks() noexcept {}
 
+bool Peaks::emplace(Magnitude m, Frequency f) noexcept {
   auto rc = false;
 
-  if (m >= 0.9) {
+  const auto ml = PeakConfig::mag_limits();
+
+  if ((m >= ml.min()) && (m <= ml.max())) {
     auto node = peaks_map.try_emplace(m, f, m);
 
     rc = node.second; // was the peak inserted?

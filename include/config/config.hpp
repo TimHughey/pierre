@@ -32,6 +32,8 @@ class Config {
 public:
   Config() = default;
 
+  const auto at_path(csv path) const noexcept { return _table.at_path(path); }
+
   // initialization and setup
   static Config init(int argc, char **argv) noexcept {
     auto cfg = Config();
@@ -43,8 +45,8 @@ public:
   bool ready() const noexcept { return initialized; }
 
   // raw, direct access
-  toml::table *table_at(csv path);
   toml::table &table() { return _table; }
+  toml::table *table_at(csv path);
 
   // specific accessors
   const string app_name() const noexcept {

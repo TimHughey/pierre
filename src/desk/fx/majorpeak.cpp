@@ -253,8 +253,7 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   const auto soft_ceil = _freq.soft.ceiling;
 
   auto color = ref; // initial color, may change below
-  bool reasonable = (peak.frequency() >= hard_floor) && (peak.frequency() <= hard_ceil) &&
-                    (peak.magnitude() >= Peak::mag_base.floor);
+  bool reasonable = (peak.frequency() >= hard_floor) && (peak.frequency() <= hard_ceil);
 
   // ensure frequency can be interpolated into a color
 

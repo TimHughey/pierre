@@ -19,12 +19,14 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <tuple>
+#include <type_traits>
 
 namespace pierre {
 
-template <typename T = float> class min_max_pair {
+template <typename T> class min_max_pair {
 public:
   min_max_pair() noexcept { set(0, 100); }
   min_max_pair(const T a, const T b) noexcept { pair = std::minmax<T>(a, b); }
@@ -45,6 +47,10 @@ public:
 
   const T &max() const noexcept { return pair.second; }
   const T &min() const noexcept { return pair.first; }
+
+  auto scaled() const noexcept {
+    return min_max_pair<T>(pair.first.scaled(), pair.second.scaled());
+  }
 
   min_max_pair &set(const T a, const T b) noexcept {
     *this = min_max_pair(a, b);

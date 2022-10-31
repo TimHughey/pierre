@@ -88,9 +88,10 @@ public:
     return *this;
   }
 
-  // Color &setBrightness(double val);
-  // Color &setBrightness(const Color &rhs);
-  Color &setBrightness(const min_max_dbl &range, const double val);
+  template <class T> auto setBrightness(const T &range, const double val) -> Color & {
+    T brightness_range(0.0f, brightness());
+    return setBrightness(range.interpolate(brightness_range, val));
+  }
 
   Color &setHue(double val);
 

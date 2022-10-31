@@ -21,9 +21,8 @@
 #include "base/frequency.hpp"
 #include "base/helpers.hpp"
 #include "base/magnitude.hpp"
-#include "base/minmax.hpp"
 #include "base/types.hpp"
-#include "frame/peak_ref_data.hpp"
+#include "frame/peaks/types.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -34,16 +33,10 @@ namespace pierre {
 
 struct Peak {
 public:
-  static PeakMagBase mag_base;     // see peaks_ref_data.hpp and peaks.cpp
-  static PeakMagScaled mag_scaled; // see peaks_ref_data.hpp and peaks.cpp
-
-public: // Peak
   Peak() noexcept : freq(0), mag(0) {}
   Peak(const Frequency f, const Magnitude m) noexcept : freq(f), mag(m) {}
 
-  static min_max_dbl magScaleRange() {
-    return min_max_dbl(0.0, mag_scaled.ceiling - mag_scaled.floor);
-  }
+  static mag_min_max magScaleRange() noexcept;
 
   Frequency frequency() const { return freq; }
 
@@ -51,9 +44,7 @@ public: // Peak
 
   Magnitude magScaled() const noexcept { return mag.scaled(); }
 
-  explicit operator bool() const {
-    return (mag > mag_base.floor) && (mag < mag_base.ceiling) ? true : false;
-  }
+  // explicit operator bool() const noexcept; // see .cpp, uses PeakConfig
 
   bool operator!() const noexcept { return (freq == 0) && (mag == 0); }
 
@@ -65,7 +56,8 @@ public: // Peak
     return lhs.mag <=> mag;
   }
 
-  bool useable() const noexcept { return ((mag >= mag_base.floor) && (mag <= mag_base.ceiling)); }
+  bool useable() const noexcept; // see .cpp, uses PeakConfig
+
   static const Peak zero() { return Peak(); }
 
 private:

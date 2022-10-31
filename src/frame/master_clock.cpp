@@ -21,6 +21,7 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
 
 #include <algorithm>
 #include <errno.h>
@@ -44,8 +45,10 @@ MasterClock::MasterClock() noexcept
     : guard(io_ctx.get_executor()),                                  // syncronize clock io
       socket(io_ctx, ip_udp::v4()),                                  // construct and open
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
-      shm_name(make_shm_name())                                      // make shm_name
-{
+      shm_name(Config()                                              // make shm_name
+                   .at_path("frame.clock.shm_name"sv)
+                   .value_or<string>("/nqptp")) {
+
   INFO(module_id, "CONSTRUCT", "shm_name={} dest={}:{}\n", //
        shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
 }
@@ -163,10 +166,6 @@ const ClockInfo MasterClock::load_info_from_mapped() {
                    data.local_time,                  // aka sample time
                    data.local_to_master_time_offset, // aka raw offset
                    pet::from_ns(data.master_clock_start_time));
-}
-
-const string MasterClock::make_shm_name() noexcept { // static
-  return string("/nqptp");
 }
 
 bool MasterClock::map_shm() {

@@ -13,15 +13,18 @@ working_dir = ".pierre" # cwd to this directory at startup
 # app_name = "" # typically basename() of the app
 # cfg_file = "" # could be this file or another specified by cli opt
 
-
 [mdns]
 receiver = "%h"                   # use hostname
 service = "_ruth._tcp"            # service advertised by rendering devices
 dmx_controller = "test-with-devs" # rendering device to use
 
 [frame]
-dsp = { concurrency_factor = 0.4 } # num threads (hw_concurrency * factor)
+dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 clock = { shm_name = "/nqptp" }
+
+[frame.peaks.magnitudes] # only keep peaks in this range
+floor = 2.009
+ceiling = 64.0
 
 [desk]
 colorbars = true
@@ -43,18 +46,14 @@ hue = { min = 30.0, max = 360.0, step = 0.0001 }
 bri = { max = 100.0, mag_scaled = true }
 
 [[fx.majorpeak.pinspots]]
-name = "fill"
+name = "fill pinspot"
 freq_max = 1000.0
 fade_max_ms = 800
 when_greater = { freq = 180.0, bri_min = 3.0, when_higher_freq = { bri_min = 80.0 } }
 when_lessthan = { freq = 180.0, bri_min = 27.0 }
 
 [[fx.majorpeak.pinspots]]
-name = "main"
+name = "main pinspot"
 freq_min = 180.0
 fade_max_ms = 700
 when_fading = { bri_min = 5.0, when_freq_greater = { bri_min = 69.0 } }
-
-[peaks.magnitudes]
-floor = 2.0
-ceiling = 32.0

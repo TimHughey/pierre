@@ -204,13 +204,6 @@ Color &Color::setHue(double hue) {
   return *this;
 }
 
-Color &Color::setBrightness(const min_max_dbl &range, const double val) {
-  min_max_dbl brightness_range(0.0f, brightness());
-  setBrightness(range.interpolate(brightness_range, val));
-
-  return *this;
-}
-
 Color &Color::setSaturation(double val) {
   auto x = val / 100.0;
 

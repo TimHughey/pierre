@@ -105,7 +105,6 @@ private:
   bool is_mapped() const;
   void init_self() noexcept;
   const ClockInfo load_info_from_mapped();
-  static const string make_shm_name() noexcept;
   bool map_shm();
   void unMap();
   void peers_update(const Peers &peers);

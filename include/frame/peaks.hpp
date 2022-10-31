@@ -20,7 +20,7 @@
 
 #include "base/logger.hpp"
 #include "base/types.hpp"
-#include "frame/peak.hpp"
+#include "frame/peaks/peak.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -48,14 +48,13 @@ public:
   ~Peaks() = default;
 
 private:
-  Peaks() = default;
+  Peaks() noexcept;
 
 public:
   bool emplace(Magnitude m, Frequency f) noexcept;
   auto size() const noexcept { return std::ssize(peaks_map); } // define early for auto
 
   bool hasPeak(peak_n_t n) const {
-    Magnitude low{0.0};
     // peak_n_t represents the peak of interest in the range of 1..max_peaks
     return peaks_map.size() > n ? true : false;
   }
