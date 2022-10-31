@@ -22,6 +22,7 @@
 #include "base/types.hpp"
 
 #include <chrono>
+#include <concepts>
 #include <numeric>
 #include <type_traits>
 
@@ -44,6 +45,9 @@ using system_clock = std::chrono::system_clock;
 using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
 
 typedef uint64_t ClockID; // master clock id
+
+template <typename T>
+concept Integer = std::is_integral<int>::value;
 
 struct pet {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
@@ -92,19 +96,12 @@ struct pet {
   template <typename T = Nanos> static T now_realtime() { return as<T, Nanos>(_realtime()); }
   template <typename T = Nanos> static T now_monotonic() { return as<T>(_monotonic()); }
 
-  template <typename T = Nanos, typename V = int> static constexpr T percent(T x, V val) {
-    double percent{1};
+  template <typename T = Nanos> static constexpr T percent(T x, int val) {
+    return percent(x, val / 100.0);
+  }
 
-    // accept either an integer or float
-    if constexpr (std::is_same_v<V, int>) {
-      percent = val / 100.0;
-    } else if constexpr ((std::is_same_v<V, float>) || (std::is_same_v<V, double>)) {
-      percent = val;
-    } else {
-      percent = static_cast<double>(val);
-    }
-
-    return T(static_cast<int64_t>(x.count() * percent));
+  template <typename T = Nanos> static constexpr T percent(T x, std::floating_point auto val) {
+    return T(static_cast<int64_t>(x.count() * val));
   }
 
   static constexpr Nanos &reduce(Nanos &val, const Nanos by, const Nanos floor = Nanos::zero()) {

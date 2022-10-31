@@ -77,7 +77,7 @@ void init() {
         asio::post(io_ctx, []() { FFT::init(); });
       }
 
-      latch.count_down();
+      latch.arrive_and_wait();
       io_ctx.run(); // dsp (frame) io_ctx
     });
   }

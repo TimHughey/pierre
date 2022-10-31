@@ -85,7 +85,7 @@ public:
 
 private:
   Nanos set_sync_wait(const Nanos diff) noexcept {
-    if ((_sync_wait.has_value() == false) || (_sync_wait.value() != diff)) {
+    if ((_sync_wait.has_value() == false) || (_sync_wait.value_or(0ms) != diff)) {
       _sync_wait.emplace(diff);
     }
 

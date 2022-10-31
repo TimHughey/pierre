@@ -192,8 +192,8 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
       new_state.emplace(frame::FUTURE);
     }
   } else if (state.dsp_incomplete()) {
-    // dsp not finished, set reduced sync wait
-    set_sync_wait(pet::percent(InputInfo::lead_time, 33));
+    // dsp not finished, skip this frame
+    set_sync_wait(Nanos::zero());
   } else {
     INFO(module_id, "STATE_NOW", "unhandled state frame={}\n", inspect());
   }
