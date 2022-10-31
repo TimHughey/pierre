@@ -115,14 +115,14 @@ void MajorPeak::handleElWire(peaks_t peaks) {
 
   std::array elwires{units->derive<ElWire>(unit::EL_DANCE), units->derive<ElWire>(unit::EL_ENTRY)};
 
+  const auto freq_limits = major_peak_config::freq_limits();
+
   for (auto elwire : elwires) {
     if (const auto &peak = peaks->majorPeak(); peak.useable()) {
 
-      const DutyVal x =                  //
-          min_max_dbl(                   //
-              log10(_freq.soft.floor),   //
-              log10(_freq.soft.ceiling)) //
-              .interpolate(elwire->minMaxDuty<double>(), log10(peak.frequency()));
+      // TODO:  figure out how to
+      const DutyVal x = freq_limits.scaled_soft().interpolate(elwire->minMaxDuty<double>(),
+                                                              peak.frequency().scaled());
 
       elwire->fixed(x);
     } else {
@@ -249,17 +249,12 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
 }
 
 const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
-  const auto hard_floor = _freq.hard.floor;
-  const auto hard_ceil = _freq.hard.ceiling;
 
-  const auto soft_floor = _freq.soft.floor;
-  const auto soft_ceil = _freq.soft.ceiling;
-
+  const auto freq_limits = major_peak_config::freq_limits();
   const auto mag_limits = major_peak_config::mag_limits();
 
   auto color = ref; // initial color, may change below
-  bool reasonable = peak.useable(mag_limits) &&
-                    ((peak.frequency() >= hard_floor) && (peak.frequency() <= hard_ceil));
+  bool reasonable = peak.useable(mag_limits, freq_limits.hard());
 
   // ensure frequency can be interpolated into a color
 
@@ -267,22 +262,22 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
 
     color = Color::black();
 
-  } else if (peak.frequency() < _freq.soft.floor) {
+  } else if (peak.frequency() < freq_limits.soft().min()) {
     // frequency less than the soft
     color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
 
-  } else if (peak.frequency() > _freq.soft.ceiling) {
+  } else if (peak.frequency() > freq_limits.soft().max()) {
     auto const &hue_cfg = _makecolor.above_soft_ceiling.hue;
 
     auto const hue_min_cfg = hue_cfg.min;
     auto hue_max_cfg = hue_cfg.max;
 
-    auto freq_range = min_max_dbl(soft_ceil, hard_ceil);
+    auto freq_range = freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
 
     const auto hue_step = _makecolor.above_soft_ceiling.hue.step;
     const auto hue_min = hue_min_cfg * (1.0f / hue_step);
     const auto hue_max = hue_max_cfg * (1.0f / hue_step);
-    auto hue_range = min_max_dbl(hue_min, hue_max);
+    auto hue_range = min_max(hue_min, hue_max);
 
     auto degrees = freq_range.interpolate(hue_range, peak.frequency().scaled()) * hue_step;
 
@@ -297,11 +292,11 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   } else {
     const auto &hue_cfg = _makecolor.generic.hue;
 
-    auto freq_range = min_max_dbl(log10(soft_floor), log10(soft_ceil));
+    const auto freq_range = freq_limits.scaled_soft();
 
     const auto hue_min = hue_cfg.min * (1.0f / hue_cfg.step);
     const auto hue_max = hue_cfg.max * (1.0f / hue_cfg.step);
-    auto hue_range = min_max_dbl(hue_min, hue_max);
+    auto hue_range = min_max(hue_min, hue_max);
 
     auto degrees = freq_range.interpolate(hue_range, peak.frequency().scaled()) * hue_cfg.step;
 

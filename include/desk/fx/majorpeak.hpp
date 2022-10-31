@@ -35,20 +35,6 @@ public:
   using circular_buffer = boost::circular_buffer<Peak>;
 
 public:
-  struct FloorCeiling {
-    double floor;
-    double ceiling;
-  };
-
-  struct Frequencies {
-    struct FloorCeiling hard {
-      .floor = 40.0, .ceiling = 10000.0
-    };
-    struct FloorCeiling soft {
-      .floor = 110.0, .ceiling = 1500.0
-    };
-  };
-
   struct ColorControl {
     struct {
       double min;
@@ -150,7 +136,6 @@ private:
 private:
   Color _color;
   pierre::desk::Stats &stats;
-  Frequencies _freq;
   MakeColor _makecolor;
 
   MainPinspot _main_spot_cfg;

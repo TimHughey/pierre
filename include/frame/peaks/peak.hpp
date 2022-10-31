@@ -58,6 +58,9 @@ public:
 
   bool useable() const noexcept; // see .cpp, requires PeakConfig
   bool useable(const mag_min_max &ml) const noexcept { return ml.inclusive(mag); }
+  bool useable(const mag_min_max &ml, const freq_min_max &fl) const noexcept {
+    return ml.inclusive(mag) && fl.inclusive(freq);
+  }
 
   static const Peak zero() { return Peak(); }
 

@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "base/hard_soft.hpp"
+#include "base/minmax.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "frame/peaks.hpp"
@@ -32,6 +34,15 @@ struct major_peak_config {
 
     return mag_min_max(mags.at_path("floor").value_or(2.009),
                        mags.at_path("ceiling").value_or(64.0));
+  }
+
+  static hard_soft<Frequency> freq_limits() noexcept {
+    auto freqs = Config().at_path("fx.majorpeak.frequencies"sv);
+
+    return hard_soft<Frequency>(freqs.at_path("hard.floor"sv).value_or(40.0),
+                                freqs.at_path("hard.ceiling"sv).value_or(11500.0),
+                                freqs.at_path("soft.floor"sv).value_or(110.0),
+                                freqs.at_path("soft.ceiling"sv).value_or(10000.0));
   }
 };
 

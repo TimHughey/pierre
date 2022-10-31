@@ -30,12 +30,12 @@ ceiling = 128.0
 colorbars = true
 threads = 6
 
-[fx.majorpeak.color]
-reference = { hue = 0.0, sat = 100.0, bri = 100.0 }
+# [fx.majorpeak.color]
+# reference = { hue = 0.0, sat = 100.0, bri = 100.0 }
 
 [fx.majorpeak.frequencies]
-hard = { floor = 40.0, ceiling = 10000.0 }
-soft = { floor = 110.0, ceiling = 11500.0 }
+hard = { floor = 40.0, ceiling = 11500.0 }
+soft = { floor = 110.0, ceiling = 10000.0 }
 
 [fx.majorpeak.magnitudes]
 floor = 2.009

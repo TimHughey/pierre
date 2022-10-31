@@ -218,8 +218,8 @@ Color &Color::setSaturation(const Color &rhs) {
   return *this;
 }
 
-Color &Color::setSaturation(const min_max_dbl &range, const double val) {
-  min_max_dbl saturation_range(0.0f, saturation());
+Color &Color::setSaturation(const min_max<double> &range, const double val) {
+  min_max<double> saturation_range(0.0f, saturation());
 
   const auto x = range.interpolate(saturation_range, val);
 

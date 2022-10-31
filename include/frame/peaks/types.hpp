@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/frequency.hpp"
 #include "base/magnitude.hpp"
 #include "base/minmax.hpp"
 
@@ -28,7 +29,8 @@
 
 namespace pierre {
 
-using mag_min_max = min_max_pair<Magnitude>;
+using freq_min_max = min_max<Frequency>;
+using mag_min_max = min_max<Magnitude>;
 
 /*
 class mag_min_max {
