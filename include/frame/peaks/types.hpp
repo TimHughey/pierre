@@ -29,45 +29,7 @@
 
 namespace pierre {
 
-using freq_min_max = min_max<Frequency>;
-using mag_min_max = min_max<Magnitude>;
+using freq_min_max = min_max_pair<Frequency>;
+using mag_min_max = min_max_pair<Magnitude>;
 
-/*
-class mag_min_max {
-public:
-  mag_min_max() noexcept { set(0, 100); }
-  mag_min_max(const Magnitude a, const Magnitude b) noexcept {
-
-    mag_set.emplace(a);
-    mag_set.emplace(b);
-  }
-
-  Magnitude interpolate(const mag_min_max &b, const double val) const noexcept {
-    //
-https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-range-maintaining-ratio
-    // OldRange = (OldMax - OldMin)
-    // NewRange = (NewMax - NewMin)
-    // NewValue = (((OldValue - OldMin) * NewRange) / OldRange) + NewMin
-
-    const Magnitude range_a = max() - min();
-    const Magnitude range_b = b.max() - b.min();
-
-    return (((val - min()) * range_b) / range_a) + b.min();
-  }
-
-  const Magnitude &max() const noexcept { return *mag_set.rbegin(); }
-  const Magnitude &min() const noexcept { return *mag_set.begin(); }
-
-  mag_min_max scaled() const noexcept { return mag_min_max(min().scaled(), max().scaled()); }
-
-  mag_min_max &set(const Magnitude a, const Magnitude b) noexcept {
-    *this = mag_min_max(a, b);
-    return *this;
-  }
-
-private:
-  std::set<Magnitude> mag_set;
-};
-
-*/
 } // namespace pierre

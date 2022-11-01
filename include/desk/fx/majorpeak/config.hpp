@@ -45,8 +45,8 @@ struct major_peak_config {
     constexpr const Frequency min() const noexcept { return hue.min * (1.0 / hue.step); }
     constexpr const Frequency max() const noexcept { return hue.max * (1.0 / hue.step); }
 
-    constexpr const min_max<Frequency> hue_minmax() const noexcept {
-      return min_max<Frequency>(min(), max());
+    constexpr const min_max_pair<Frequency> hue_minmax() const noexcept {
+      return min_max_pair<Frequency>(min(), max());
     }
   };
 

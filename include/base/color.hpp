@@ -97,7 +97,7 @@ public:
 
   Color &setSaturation(double val);
   Color &setSaturation(const Color &rhs);
-  Color &setSaturation(const min_max<double> &range, const double val);
+  Color &setSaturation(const min_max_pair<double> &range, const double val);
 
   // useful static colors
   static Color full() {

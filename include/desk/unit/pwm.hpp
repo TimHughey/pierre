@@ -60,8 +60,8 @@ public:
   virtual bool isBusy() const { return _mode == FIXED; }
   virtual void leave() override { fixed(config.leave); }
 
-  template <typename T = double> const min_max<T> minMaxDuty() {
-    return min_max<T>(config.min, config.max);
+  template <typename T = double> const min_max_pair<T> minMaxDuty() {
+    return min_max_pair<T>(config.min, config.max);
   }
 
   void stop() { fixed(config.min); }

@@ -36,7 +36,7 @@ public:
     sort();
   }
 
-  constexpr min_max<T> hard() const noexcept { return min_max<T>(vals[0], vals[3]); }
+  constexpr min_max_pair<T> hard() const noexcept { return min_max_pair<T>(vals[0], vals[3]); }
 
   constexpr bool inclusive(const T v) const noexcept { return (v >= vals[0]) && (v <= vals[3]); }
   constexpr bool inclusive_hard(const T v) const noexcept { return inclusive(v); }
@@ -52,7 +52,7 @@ public:
   constexpr auto scaled_hard() const noexcept { return scaled(); }
   constexpr auto scaled_soft() const noexcept { return soft().scaled(); }
 
-  constexpr min_max<T> soft() const noexcept { return min_max<T>(vals[1], vals[2]); }
+  constexpr min_max_pair<T> soft() const noexcept { return min_max_pair<T>(vals[1], vals[2]); }
 
 private:
   void sort() noexcept { std::sort(vals.begin(), vals.end()); }
