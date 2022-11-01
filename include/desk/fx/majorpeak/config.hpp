@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/hard_soft.hpp"
-#include "base/minmax.hpp"
+#include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 #include "frame/peaks.hpp"
 

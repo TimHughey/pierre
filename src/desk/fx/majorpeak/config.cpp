@@ -18,7 +18,7 @@
 
 #include "fx/majorpeak/config.hpp"
 #include "base/hard_soft.hpp"
-#include "base/minmax.hpp"
+#include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "frame/peaks.hpp"

@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "base/minmax.hpp"
+#include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>

@@ -20,7 +20,7 @@
 
 #include "base/frequency.hpp"
 #include "base/magnitude.hpp"
-#include "base/minmax.hpp"
+#include "base/min_max_pair.hpp"
 
 #include <algorithm>
 #include <cmath>
