@@ -27,19 +27,19 @@ namespace pierre {
 
 class Frequency {
 public:
-  Frequency() = default;
-  Frequency(auto v) noexcept : val(v) {}
+  constexpr Frequency() = default;
+  constexpr Frequency(auto v) noexcept : val(v) {}
 
-  operator auto() const noexcept { return val; }
+  constexpr operator auto() const noexcept { return val; }
 
-  std::partial_ordering operator<=>(auto rhs) const noexcept {
+  constexpr std::partial_ordering operator<=>(auto rhs) const noexcept {
     if (val < rhs) return std::partial_ordering::less;
     if (val > rhs) return std::partial_ordering::greater;
 
     return std::partial_ordering::equivalent;
   }
 
-  template <class T = Frequency> T scaled() const noexcept {
+  template <class T = Frequency> constexpr T scaled() const noexcept {
     return (val > 0) ? T(std::log10(val)) : T{0};
   }
 

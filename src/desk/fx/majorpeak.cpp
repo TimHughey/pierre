@@ -254,54 +254,40 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   const auto mag_limits = major_peak_config::mag_limits();
 
   auto color = ref; // initial color, may change below
-  bool reasonable = peak.useable(mag_limits, freq_limits.hard());
 
   // ensure frequency can be interpolated into a color
 
-  if (!reasonable) {
-
+  if (peak.useable(mag_limits, freq_limits.hard()) == false) {
     color = Color::black();
 
   } else if (peak.frequency() < freq_limits.soft().min()) {
     // frequency less than the soft
-    color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
+    color.setBrightness(mag_limits, peak.magnitude().scaled());
 
   } else if (peak.frequency() > freq_limits.soft().max()) {
-    auto const &hue_cfg = _makecolor.above_soft_ceiling.hue;
+    auto const hue_cfg = major_peak_config::make_colors("above_soft_ceiling");
 
-    auto const hue_min_cfg = hue_cfg.min;
-    auto hue_max_cfg = hue_cfg.max;
-
-    auto freq_range = freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
-
-    const auto hue_step = _makecolor.above_soft_ceiling.hue.step;
-    const auto hue_min = hue_min_cfg * (1.0f / hue_step);
-    const auto hue_max = hue_max_cfg * (1.0f / hue_step);
-    auto hue_range = min_max(hue_min, hue_max);
-
-    auto degrees = freq_range.interpolate(hue_range, peak.frequency().scaled()) * hue_step;
-
-    auto const &brightness = _makecolor.above_soft_ceiling.brightness;
+    auto fl_custom = freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
+    auto hue_minmax = hue_cfg.hue_minmax();
+    auto degrees = fl_custom.interpolate(hue_minmax, peak.frequency().scaled()) * hue_cfg.hue.step;
 
     color = ref.rotateHue(degrees);
-    color.setBrightness(brightness.max);
-
-    if (brightness.mag_scaled) {
-      color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
+    if (hue_cfg.brightness.mag_scaled) {
+      color.setBrightness(mag_limits, peak.magnitude().scaled());
+    } else {
+      color.setBrightness(hue_cfg.brightness.max);
     }
+
   } else {
-    const auto &hue_cfg = _makecolor.generic.hue;
+    const auto hue_cfg = major_peak_config::make_colors("generic"sv);
 
-    const auto freq_range = freq_limits.scaled_soft();
+    const auto fl_soft = freq_limits.scaled_soft();
+    const auto hue_min_max = hue_cfg.hue_minmax();
 
-    const auto hue_min = hue_cfg.min * (1.0f / hue_cfg.step);
-    const auto hue_max = hue_cfg.max * (1.0f / hue_cfg.step);
-    auto hue_range = min_max(hue_min, hue_max);
-
-    auto degrees = freq_range.interpolate(hue_range, peak.frequency().scaled()) * hue_cfg.step;
+    auto degrees = fl_soft.interpolate(hue_min_max, peak.frequency().scaled()) * hue_cfg.hue.step;
 
     color = ref.rotateHue(degrees);
-    color.setBrightness(Peak::magScaleRange(), peak.magnitude().scaled());
+    color.setBrightness(mag_limits, peak.magnitude().scaled());
   }
 
   return color;

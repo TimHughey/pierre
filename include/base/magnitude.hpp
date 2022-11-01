@@ -27,19 +27,19 @@ namespace pierre {
 
 class Magnitude {
 public:
-  Magnitude() = default;
-  Magnitude(auto v) noexcept : val(v) {}
+  constexpr Magnitude() = default;
+  constexpr Magnitude(auto v) noexcept : val(v) {}
 
-  operator auto() const noexcept { return val; }
+  constexpr operator auto() const noexcept { return val; }
 
-  std::partial_ordering operator<=>(auto rhs) const noexcept {
+  constexpr std::partial_ordering operator<=>(auto rhs) const noexcept {
     if (val < rhs) return std::partial_ordering::less;
     if (val > rhs) return std::partial_ordering::greater;
 
     return std::partial_ordering::equivalent;
   }
 
-  template <class T = Magnitude> T scaled() const noexcept {
+  template <class T = Magnitude> constexpr T scaled() const noexcept {
     return (val > 0) ? T(10.0 * std::log10(val)) : T{0};
   }
 

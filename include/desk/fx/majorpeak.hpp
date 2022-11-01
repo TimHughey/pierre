@@ -35,35 +35,6 @@ public:
   using circular_buffer = boost::circular_buffer<Peak>;
 
 public:
-  struct ColorControl {
-    struct {
-      double min;
-      double max;
-      double step;
-    } hue;
-
-    struct {
-      double max;
-      bool mag_scaled;
-    } brightness;
-  };
-
-  struct MakeColor {
-    struct ColorControl above_soft_ceiling {
-      .hue = {.min = 345.0, .max = 355.0, .step = 0.0001}, .brightness = {
-        .max = 50.0,
-        .mag_scaled = true
-      }
-    };
-
-    struct ColorControl generic {
-      .hue = {.min = 30.0, .max = 360.0, .step = 0.0001}, .brightness = {
-        .max = 100.0,
-        .mag_scaled = true
-      }
-    };
-  };
-
   struct WhenGreater {
     Frequency frequency;
     double brightness_min;
@@ -136,7 +107,6 @@ private:
 private:
   Color _color;
   pierre::desk::Stats &stats;
-  MakeColor _makecolor;
 
   MainPinspot _main_spot_cfg;
   FillPinspot _fill_spot_cfg;
