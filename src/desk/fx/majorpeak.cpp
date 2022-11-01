@@ -92,7 +92,7 @@ MajorPeak::~MajorPeak() {
 void MajorPeak::execute(peaks_t peaks) {
 
   units->derive<AcPower>(unit::AC_POWER)->on();
-  units->derive<DiscoBall>(unit::DISCO_BALL)->dutyPercent(0.50);
+  units->derive<DiscoBall>(unit::DISCO_BALL)->dutyPercent(0.75);
 
   handleElWire(peaks);
   handleMainPinspot(peaks);
