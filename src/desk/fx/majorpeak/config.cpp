@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "fx/majorpeak/config.hpp"
-#include "base/hard_soft.hpp"
+#include "base/hard_soft_limit.hpp"
 #include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
@@ -29,13 +29,13 @@
 namespace pierre {
 namespace fx {
 
-hard_soft<Frequency> major_peak_config::freq_limits() noexcept { // static
+hard_soft_limit<Frequency> major_peak_config::freq_limits() noexcept { // static
   auto freqs = Config().at_path("fx.majorpeak.frequencies"sv);
 
-  return hard_soft<Frequency>(freqs.at_path("hard.floor"sv).value_or(40.0),
-                              freqs.at_path("hard.ceiling"sv).value_or(11500.0),
-                              freqs.at_path("soft.floor"sv).value_or(110.0),
-                              freqs.at_path("soft.ceiling"sv).value_or(10000.0));
+  return hard_soft_limit<Frequency>(freqs.at_path("hard.floor"sv).value_or(40.0),
+                                    freqs.at_path("hard.ceiling"sv).value_or(11500.0),
+                                    freqs.at_path("soft.floor"sv).value_or(110.0),
+                                    freqs.at_path("soft.ceiling"sv).value_or(10000.0));
 }
 
 major_peak_config::hue_cfg major_peak_config::make_colors(csv cat) noexcept { // static

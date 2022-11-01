@@ -28,11 +28,12 @@
 
 namespace pierre {
 
-template <typename T> class hard_soft {
+template <typename T> class hard_soft_limit {
 public:
-  constexpr hard_soft() noexcept : vals{0, 0, 100, 100} {}
-  constexpr hard_soft(std::initializer_list<T> initial_vals) : vals(initial_vals) { sort(); }
-  constexpr hard_soft(const T a, const T b, const T c, const T d) noexcept : vals{a, b, c, d} {
+  constexpr hard_soft_limit() noexcept : vals{0, 0, 100, 100} {}
+  constexpr hard_soft_limit(std::initializer_list<T> initial_vals) : vals(initial_vals) { sort(); }
+  constexpr hard_soft_limit(const T a, const T b, const T c, const T d) noexcept
+      : vals{a, b, c, d} {
     sort();
   }
 

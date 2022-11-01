@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/hard_soft.hpp"
+#include "base/hard_soft_limit.hpp"
 #include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 #include "frame/peaks.hpp"
@@ -50,7 +50,7 @@ struct major_peak_config {
     }
   };
 
-  static hard_soft<Frequency> freq_limits() noexcept;
+  static hard_soft_limit<Frequency> freq_limits() noexcept;
   static hue_cfg make_colors(csv cat) noexcept;
   static mag_min_max mag_limits() noexcept;
 };
