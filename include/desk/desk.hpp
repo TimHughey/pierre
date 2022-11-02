@@ -54,7 +54,6 @@ public:
 
 private:
   void frame_loop(const Nanos wait = Nanos::zero());
-  void frame_loop_delay(const Nanos wait);
   void frame_loop_safe();
   void frame_loop_unsafe();
 
@@ -80,14 +79,12 @@ private:
   Nanos frame_last;
   strand render_strand;
   shFX active_fx;
-  Nanos latency;
-  work_guard guard;
+  work_guard_t guard;
   desk::Stats run_stats;
 
   // order independent
-  size_t num_threads;
   Threads threads;
-  std::stop_token stop_token;
+  stop_tokens tokens;
   std::optional<desk::Control> control;
 
   // last error tracking
@@ -96,7 +93,6 @@ private:
 private:
   // static thread info
   static constexpr auto TASK_NAME = "Desk";
-  static constexpr auto DESK_THREADS = 6;
 
 public:
   static constexpr csv module_id = "DESK";

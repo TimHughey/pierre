@@ -50,6 +50,32 @@ public:
     return std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
   }
 
+  template <typename S, typename F> bool any_requested(S &&stoppable, F &&func) {
+    auto should_stop = std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
+
+    if (should_stop) {
+      stoppable.stop();
+    } else {
+      func();
+    }
+
+    return should_stop;
+  }
+
+  template <typename S, typename G, typename F>
+  bool any_requested(S &&stoppable, G &&guard, F &&func) {
+    auto should_stop = std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
+
+    if (should_stop) {
+      guard.reset();
+      stoppable.stop();
+    } else {
+      func();
+    }
+
+    return should_stop;
+  }
+
 private:
   std::vector<std::stop_token> _tokens;
 };

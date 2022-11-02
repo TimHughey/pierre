@@ -29,7 +29,7 @@ ceiling = 128.0
 
 [desk]
 colorbars = true
-threads = 6
+threads = 3
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

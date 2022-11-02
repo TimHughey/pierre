@@ -55,8 +55,7 @@ Desk::Desk() noexcept                               //
       frame_last{0},                                // last frame processed (steady clock)
       render_strand(io_ctx),                        // sync frame rendering
       active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
-      latency(500us),                               // ruth latency (default)
-      guard(io_ctx.get_executor()),                 // prevent io_ctx from ending
+      guard(io::make_work_guard(io_ctx)),           // prevent io_ctx from ending
       run_stats(io_ctx)                             // create the stats object
 {}
 
@@ -64,6 +63,17 @@ Desk::Desk() noexcept                               //
 
 // primary frame processing entry loop
 void Desk::frame_loop(const Nanos wait) {
+
+  // lambda for performing loop delays
+  auto frame_loop_delay = [this](const Nanos wait) {
+    frame_timer.expires_after(wait);
+
+    frame_timer.async_wait([](const error_code ec) {
+      if (shared::desk->log_frame_timer_error(ec, "FRAME_LOOP")) {
+        shared::desk->frame_loop_safe();
+      }
+    });
+  };
 
   if (pet::is_zero(wait)) {
     frame_loop_safe();
@@ -73,15 +83,6 @@ void Desk::frame_loop(const Nanos wait) {
     INFO(module_id, "FRAME_LOOP", "crazy wait {}\n", pet::humanize(wait));
     frame_loop_delay(wait);
   }
-}
-
-void Desk::frame_loop_delay(const Nanos wait) {
-  frame_timer.expires_after(wait);
-  frame_timer.async_wait([this](const error_code ec) {
-    if (log_frame_timer_error(ec, "FRAME_LOOP")) {
-      frame_loop_safe();
-    }
-  });
 }
 
 // if code is running in the same thread as frame_strand, avoid async::post
@@ -115,11 +116,12 @@ void Desk::frame_loop_unsafe() {
 
   run_stats(desk::SYNC_WAIT, wait);
 
+  frame_last = pet::now_monotonic();
   frame_loop(wait);
 }
 
 void Desk::frame_render(frame_t frame) {
-
+  Elapsed elapsed;
   desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
   frame->mark_rendered(); // frame is consumed, even when no connection
@@ -153,7 +155,8 @@ void Desk::frame_render(frame_t frame) {
   } else { // control does not exist, initialize it
     streams_init();
   }
-  // });
+
+  run_stats(desk::REMOTE_ELAPSED, elapsed());
 }
 
 void Desk::init() { // static instance creation
@@ -163,12 +166,15 @@ void Desk::init() { // static instance creation
 }
 
 void Desk::init_self() {
-  std::latch latch(DESK_THREADS);
+  const auto num_threads = Config().at_path("desk.threads"sv).value_or(3);
+  std::latch latch(num_threads);
 
   // note: work guard created by constructor p
-  for (auto n = 0; n < DESK_THREADS; n++) { // main thread is 0s
-    shared::desk->threads.emplace_back([=, &latch]() mutable {
+  for (auto n = 0; n < num_threads; n++) { // main thread is 0s
+    shared::desk->threads.emplace_back([=, &latch](std::stop_token token) mutable {
       name_thread(TASK_NAME, n);
+      shared::desk->tokens.add(std::move(token));
+
       latch.arrive_and_wait();
       shared::desk->io_ctx.run();
     });
@@ -176,8 +182,9 @@ void Desk::init_self() {
 
   // caller thread waits until all tasks are started
   latch.wait();
-  INFO(module_id, "INIT", "threads started={} sizeof={}\n", //
-       shared::desk->threads.size(), sizeof(Desk));
+  INFO(module_id, "INIT", "sizeof={} lead_time_min={} threads={}/{}\n", //
+       sizeof(Desk), pet::humanize(InputInfo::lead_time_min), num_threads,
+       shared::desk->threads.size());
 
   // start frame loop, start on any thread, waits for rendering
   asio::post(io_ctx, [this]() {

@@ -57,8 +57,8 @@ void mDNS::all_for_now(bool next_val) noexcept {
     if (next_val == false) _all_for_now.clear();
   }
 
-  INFO(module_id, "ALL_FOR_NOW", "{} => {} zservices={}\n", prev, _all_for_now.test(),
-       std::ssize(zcs_map));
+  INFOX(module_id, "ALL_FOR_NOW", "{} => {} zservices={}\n", prev, _all_for_now.test(),
+        std::ssize(zcs_map));
 }
 
 void mDNS::browse(csv stype) { // static
@@ -79,7 +79,7 @@ void mDNS::browse_impl(csv stype) { // static
       sb == nullptr) {
     INFO(module_id, fn_id, "create failed reason={}\n", mdns::error_string(mdns::_client));
   } else {
-    INFO(module_id, fn_id, "initiated browse for stype={}\n", stype);
+    INFOX(module_id, fn_id, "initiated browse for stype={}\n", stype);
   }
 }
 

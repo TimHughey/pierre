@@ -69,7 +69,8 @@ void Config::init_self(int argc, char **argv) noexcept {
       initialized = true;
 
     } catch (const toml::parse_error &err) {
-      INFO(module_id, "ERROR", "file={} parse failed={}\n", full_path.c_str(), err.description());
+      INFO(module_id, "ERROR", "parse failed file={} reason={}\n", full_path.c_str(),
+           err.description());
     }
 
     if (initialized) {
@@ -89,8 +90,8 @@ void Config::init_self(int argc, char **argv) noexcept {
 
       // caller thread waits until all tasks are started
       latch.wait();
-      INFO(module_id, "INIT", "threads started={} sizeof={}\n", //
-           threads.size(), sizeof(Config));
+      INFO(module_id, "INIT", "sizeof={} threads={}\n", //
+           sizeof(Config), threads.size());
     }
   }
 }

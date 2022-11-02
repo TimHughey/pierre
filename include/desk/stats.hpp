@@ -55,6 +55,7 @@ enum stats_val {
   REMOTE_JITTER,
   REMOTE_LONG_ROUNDTRIP,
   RENDER,
+  RENDER_ELAPSED,
   RENDER_DELAY,
   STREAMS_DEINIT,
   STREAMS_INIT,
@@ -80,6 +81,7 @@ public:
                  {REMOTE_JITTER, "remote_jitter"},
                  {REMOTE_LONG_ROUNDTRIP, "remote_log_roundtrip"},
                  {RENDER, "render"},
+                 {RENDER, "render_elapsed"},
                  {RENDER_DELAY, "render_delay"},
                  {STREAMS_DEINIT, "streams_deinit"},
                  {STREAMS_INIT, "streams_init"},
@@ -98,7 +100,6 @@ private:
   void flush_if_needed();
   void init_db_if_needed();
   void write(stats_val v, float fp);
-  // void raw_write_int64(stats_val v, int64_t x);
 
 private:
   // order dependent

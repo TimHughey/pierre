@@ -46,20 +46,21 @@ shAirplay Airplay::init_self() {
   airplay::Servers::init(io_ctx);
 
   std::latch latch(AIRPLAY_THREADS);
-  watch_dog(); // add some work so threads don't exit immediately
 
   for (auto n = 0; n < AIRPLAY_THREADS; n++) {
     threads.emplace_back([=, &latch, self = shared_from_this()](std::stop_token token) mutable {
       self->tokens.add(std::move(token));
 
-      latch.arrive_and_wait();
       name_thread("Airplay", n);
 
+      // we want all airplay threads to start at once
+      latch.arrive_and_wait();
       self->io_ctx.run();
     });
   }
 
   latch.wait(); // wait for all threads to start
+  watch_dog();  // start the watchdog once all threads are started
 
   shared::master_clock->peers_reset(); // reset timing peers
 
@@ -75,12 +76,8 @@ void Airplay::watch_dog() {
 
   watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
     if (ec == errc::success) { // unless success, fall out of scape
+      self->tokens.any_requested(self->io_ctx, self->guard, [=]() { self->watch_dog(); });
 
-      if (self->tokens.any_requested()) {
-        self->io_ctx.stop();
-      } else {
-        self->watch_dog();
-      }
     } else {
       INFO(module_id, "WATCH DOG", "going out of scope reason={}\n", ec.message());
     }

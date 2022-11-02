@@ -45,7 +45,7 @@ private:
   static constexpr int AIRPLAY_THREADS = 3;
 
 private:
-  Airplay() : watchdog_timer(io_ctx) {}
+  Airplay() : watchdog_timer(io_ctx), guard(io::make_work_guard(io_ctx)) {}
 
 public:
   // shared instance management
@@ -73,6 +73,7 @@ private:
   // order depdendent
   io_context io_ctx; // run by multiple threads
   steady_timer watchdog_timer;
+  work_guard_t guard;
 
   // order independent
   Threads threads;

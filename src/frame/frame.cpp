@@ -24,7 +24,6 @@
 #include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/shk.hpp"
-#include "base/threads.hpp"
 #include "base/uint8v.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"

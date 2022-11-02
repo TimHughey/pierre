@@ -50,6 +50,7 @@ using tcp_socket = boost::asio::ip::tcp::socket;
 using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
+using work_guard_t = std::unique_ptr<work_guard>;
 
 static constexpr uint16_t ANY_PORT = 0;
 typedef uint16_t Port;
@@ -65,6 +66,10 @@ static constexpr error_code make_error(errc::errc_t val = errc::success) {
 
 template <class T> static constexpr steady_timer_ptr make_steady_timer(T &ctx_or_strand) {
   return std::make_shared<steady_timer>(asio::get_associated_executor(ctx_or_strand));
+}
+
+inline work_guard_t make_work_guard(io_context &io_ctx) {
+  return std::make_unique<work_guard>(io_ctx.get_executor());
 }
 } // namespace io
 

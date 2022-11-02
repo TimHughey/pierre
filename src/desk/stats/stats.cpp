@@ -36,7 +36,7 @@ void Stats::init_db_if_needed() {
     db = influxdb::InfluxDBFactory::Get(db_uri);
     db->batchOf();
 
-    INFO(module_id, "INIT_DB", "success db={}\n", fmt::ptr(db.get()));
+    INFOX(module_id, "INIT_DB", "success db={}\n", fmt::ptr(db.get()));
   }
 }
 

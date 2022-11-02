@@ -47,14 +47,14 @@ namespace dsp {
 // order dependent
 static io_context io_ctx;                   // digital signal analysis io_ctx
 static steady_timer watchdog_timer(io_ctx); // watch for shutdown
-static work_guard guard(io_ctx.get_executor());
+static work_guard_t guard(io::make_work_guard(io_ctx));
 static constexpr ccs thread_prefix{"FRAME DSP"};
 static constexpr csv module_id{"DSP"};
 
 // order independent
 static Thread thread_main;
 static Threads threads;
-static std::vector<std::stop_token> stop_tokens;
+static stop_tokens tokens;
 
 // initialize the thread pool for digital signal analysis
 void init() {
@@ -70,15 +70,16 @@ void init() {
     threads.emplace_back([=, &latch](std::stop_token token) mutable {
       name_thread(thread_prefix, n);
 
-      stop_tokens.emplace_back(token);
+      tokens.add(std::move(token));
 
       if (fft_initialized == false) {
         fft_initialized = true;
         asio::post(io_ctx, []() { FFT::init(); });
       }
 
-      latch.arrive_and_wait();
-      io_ctx.run(); // dsp (frame) io_ctx
+      // allow DSP threads to start immediately so FFT is initialized
+      latch.count_down();
+      io_ctx.run();
     });
   }
 
@@ -118,11 +119,7 @@ void watch_dog() {
     if (ec == errc::success) { // unless success, fall out of scape
 
       // check if any thread has received a stop request
-      if (ranges::any_of(stop_tokens, [](auto &token) { return token.stop_requested(); })) {
-        io_ctx.stop();
-      } else {
-        watch_dog();
-      }
+      tokens.any_requested(io_ctx, &watch_dog);
     } else {
       INFO(module_id, "WATCH_DOG", "going out of scope reason={}\n", ec.message());
     }
