@@ -107,6 +107,10 @@ Frame::Frame(uint8v &packet) noexcept           //
 {}
 
 bool Frame::decipher(uint8v &packet) noexcept {
+  // a short frame is sometimes sent for an unknown purpose
+  // detect those frames and don't send for further processing
+  static constexpr size_t SHORT_LEN{13};
+
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
   // mini nonce end - 8; copy 8 bytes total
@@ -133,11 +137,12 @@ bool Frame::decipher(uint8v &packet) noexcept {
         nonce.data(),                                      // the nonce
         SharedKey::key());                                 // shared key (from SETUP message)
 
-    if ((cipher_rc >= 0) && decipher_len) {
+    if ((cipher_rc >= 0) && (decipher_len > SHORT_LEN)) {
       state = frame::DECIPHERED;
-
     } else if (decipher_len == 0) {
       state = frame::EMPTY;
+    } else if (decipher_len <= SHORT_LEN) { // a short frame (purpose unknown)
+      state = frame::SHORT_FRAME;
     } else {
       state = frame::ERROR;
     }
@@ -258,8 +263,8 @@ void Frame::log_decipher() const {
   } else if (state == frame::NO_SHARED_KEY) {
     INFO(module_id, "DECIPHER", "decipher shared key empty {}\n", state);
   } else {
-    INFO(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} {}\n", //
-         cipher_rc, decipher_len, state);
+    INFOX(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} {}\n", //
+          cipher_rc, decipher_len, state);
   }
 }
 

@@ -187,9 +187,9 @@ bool MasterClock::map_shm() {
 
       close(shm_fd); // done with the shm memory fd
 
-      INFO(module_id, "CLOCK_MAPPING", "complete={}\n", is_mapped());
+      INFOX(module_id, "CLOCK_MAPPING", "complete={}\n", is_mapped());
     } else {
-      INFO(module_id, "FATAL", "clock shm_open failed, error={}\n", errno);
+      INFO(module_id, "FATAL", "clock map failed shm={} error={}\n", shm_name, errno);
     }
 
     pthread_setcancelstate(prev_state, nullptr);

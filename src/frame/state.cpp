@@ -42,7 +42,8 @@ csv state::inspect() const noexcept {
                         {OUTDATED, "outdated"},
                         {PARSE_FAILURE, "parse failure"},
                         {READY, "ready"},
-                        {RENDERED, "rendered"}};
+                        {RENDERED, "rendered"},
+                        {SHORT_FRAME, "short frame"}};
 
   return csv(val_to_txt_map[_val]);
 }

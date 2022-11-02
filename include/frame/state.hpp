@@ -29,10 +29,6 @@
 namespace pierre {
 namespace frame {
 
-// namespace {
-// namespace ranges = std::ranges;
-// }
-
 enum state_now_t : size_t {
   EMPTY = 0,
   NONE,
@@ -41,6 +37,7 @@ enum state_now_t : size_t {
   HEADER_PARSED,
   NO_SHARED_KEY,
   DECIPHER_FAILURE,
+  SHORT_FRAME,
   FLUSHED,
   DECIPHERED,
   PARSE_FAILURE,
