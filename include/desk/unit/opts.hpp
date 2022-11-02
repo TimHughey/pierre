@@ -41,10 +41,10 @@ constexpr csv DISCO_BALL{"disco ball"};
 constexpr Opts AC_POWER_OPTS{.name = AC_POWER, .address = 0};
 constexpr Opts MAIN_SPOT_OPTS{.name = MAIN_SPOT, .address = 1};
 constexpr Opts FILL_SPOT_OPTS{.name = FILL_SPOT, .address = 7};
-constexpr Opts EL_ENTRY_OPTS{.name = EL_ENTRY, .address = 1};
+constexpr Opts EL_ENTRY_OPTS{.name = EL_ENTRY, .address = 3};
 constexpr Opts EL_DANCE_OPTS{.name = EL_DANCE, .address = 2};
-constexpr Opts LED_FOREST_OPTS{.name = LED_FOREST, .address = 3};
-constexpr Opts DISCO_BALL_OPTS{.name = DISCO_BALL, .address = 4};
+constexpr Opts LED_FOREST_OPTS{.name = LED_FOREST, .address = 4};
+constexpr Opts DISCO_BALL_OPTS{.name = DISCO_BALL, .address = 1};
 
 } // namespace unit
 } // namespace pierre

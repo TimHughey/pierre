@@ -36,8 +36,7 @@ Pierre &Pierre::init(int argc, char *argv[]) {
   auto cfg = Config::init(argc, argv);
 
   if (cfg.ready()) {
-    INFO(module_id, "CONSTRUCT", "{} {} {}\n", //
-         cfg.receiver(), cfg.build_vsn(), cfg.build_time());
+    INFO(module_id, "CONSTRUCT", "{} {} {}\n", cfg.receiver(), cfg.build_vsn(), cfg.build_time());
 
     args_ok = true;
   }

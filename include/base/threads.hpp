@@ -32,9 +32,6 @@
 #include <vector>
 
 namespace pierre {
-namespace {
-namespace ranges = std::ranges;
-}
 
 using Threads = std::vector<Thread>;
 
@@ -50,7 +47,7 @@ public:
   void add(std::stop_token &&tok) { _tokens.emplace_back(tok); }
 
   bool any_requested() {
-    return ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
+    return std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
   }
 
 private:

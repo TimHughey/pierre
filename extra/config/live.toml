@@ -14,9 +14,10 @@ working_dir = ".pierre" # cwd to this directory at startup
 # cfg_file = "" # could be this file or another specified by cli opt
 
 [mdns]
-receiver = "%h"                   # use hostname
-service = "_ruth._tcp"            # service advertised by rendering devices
-dmx_controller = "test-with-devs" # rendering device to use
+receiver = "%h"        # use hostname
+service = "_ruth._tcp" # service advertised by rendering devices
+# dmx_controller = "dmx"
+dmx_controller = "test-with-devs"
 
 [frame]
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)

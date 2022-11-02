@@ -61,7 +61,7 @@ struct FlushInfo {
   bool operator!() const noexcept { return !active; }
 
   template <typename T> bool matches(std::vector<T> items) const {
-    return ranges::all_of(items, [this](auto x) { return x->seq_num <= until_seq; });
+    return std::ranges::all_of(items, [this](auto x) { return x->seq_num <= until_seq; });
   }
 
   template <typename T> bool should_flush(T item) noexcept {

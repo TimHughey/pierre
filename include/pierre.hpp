@@ -19,11 +19,13 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 
+#include <memory>
+
 namespace pierre {
 
 class Pierre {
 public:
-  Pierre() noexcept : guard(io_ctx.get_executor()) {}
+  Pierre() noexcept : guard(std::make_unique<work_guard>(io_ctx.get_executor())) {}
 
   Pierre &init(int argc, char *argv[]);
   bool run();
@@ -31,7 +33,7 @@ public:
 private:
   // order dependent
   io_context io_ctx;
-  work_guard guard;
+  std::unique_ptr<work_guard> guard;
 
   // order independent
   bool args_ok{false};

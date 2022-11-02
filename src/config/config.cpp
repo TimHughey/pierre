@@ -17,15 +17,18 @@
 // https://www.wisslanding.com
 
 #define TOML_IMPLEMENTATION // this translation unit compiles actual library
-#include "config.hpp"
-#include "args.hpp"
+#include "config/config.hpp"
 #include "base/elapsed.hpp"
 #include "base/host.hpp"
+#include "base/io.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
+#include "config/args.hpp"
 #include "version.h"
 
 #include <filesystem>
+#include <latch>
+#include <memory>
 
 namespace pierre {
 
@@ -33,17 +36,23 @@ namespace {
 namespace fs = std::filesystem;
 }
 
+// static data outside of class
+static io_context io_ctx;
+static std::shared_ptr<work_guard> guard;
+
 // class static member data
 toml::table Config::_table;
 bool Config::initialized{false};
+Threads Config::threads;
+stop_tokens Config::tokens;
 
+// initialize static data
 void Config::init_self(int argc, char **argv) noexcept {
   // parse args
   Args args;
   const auto am = args.parse(argc, argv);
 
   if (am.ok()) {
-
     fs::path full_path{"/home/thughey/.pierre"};
 
     full_path /= am.cfg_file;
@@ -61,6 +70,27 @@ void Config::init_self(int argc, char **argv) noexcept {
 
     } catch (const toml::parse_error &err) {
       INFO(module_id, "ERROR", "file={} parse failed={}\n", full_path.c_str(), err.description());
+    }
+
+    if (initialized) {
+      guard = std::make_shared<work_guard>(io_ctx.get_executor());
+
+      std::latch latch(CONFIG_THREADS);
+
+      // note: work guard created by constructor p
+      for (auto n = 0; n < CONFIG_THREADS; n++) { // main thread is 0s
+        threads.emplace_back([=, &latch](std::stop_token token) mutable {
+          tokens.add(std::move(token));
+          name_thread(TASK_NAME, n);
+          latch.arrive_and_wait();
+          io_ctx.run();
+        });
+      }
+
+      // caller thread waits until all tasks are started
+      latch.wait();
+      INFO(module_id, "INIT", "threads started={} sizeof={}\n", //
+           threads.size(), sizeof(Config));
     }
   }
 }

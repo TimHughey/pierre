@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/threads.hpp"
 #include "base/types.hpp"
 
 #include <optional>
@@ -77,11 +78,15 @@ private:
 private:
   static toml::table _table;
   static bool initialized;
+  static constexpr int CONFIG_THREADS{1};
+  static Threads threads;
+  static stop_tokens tokens;
 
   static constexpr ccs UNSET{"?"};
 
 public:
-  static constexpr csv module_id{"CONFIG2"};
+  static constexpr csv TASK_NAME{"Config"};
+  static constexpr csv module_id{"CONFIG"};
 };
 
 } // namespace pierre
