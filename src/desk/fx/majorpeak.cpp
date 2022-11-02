@@ -37,33 +37,13 @@ using MainFader = fader::ToBlack<fader::SimpleLinear>;
 
 namespace fx {
 
-// store the shared_ptr to all the units here AND get a copy of the direct pointer
-// to avoid the tax of accessing the shared_ptr
-static shPinSpot sh_main;
-static PinSpot *main;
-static shPinSpot sh_fill;
-static PinSpot *fill;
-static shPulseWidth sh_led_forest;
-static PulseWidth *led_forest;
-
-MajorPeak::MajorPeak(pierre::desk::Stats &stats)
+MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
     : FX(),                     //
       _color(Hsb{0, 100, 100}), //
       stats(stats),             //
       _prev_peaks(88),          //
       _main_history(88),        //
       _fill_history(88) {
-
-  sh_main = units->derive<PinSpot>(unit::MAIN_SPOT);
-  main = sh_main.get();
-
-  sh_fill = units->derive<PinSpot>(unit::FILL_SPOT);
-  fill = sh_fill.get();
-
-  INFO(module_id, "CONSTRUCT", "main={} fill={}\n", fmt::ptr(main), fmt::ptr(fill));
-
-  sh_led_forest = units->derive<LedForest>(unit::LED_FOREST);
-  led_forest = sh_led_forest.get();
 
   // initialize static frequency to color mapping
   if (_ref_colors.size() == 0) {
@@ -76,17 +56,8 @@ MajorPeak::MajorPeak(pierre::desk::Stats &stats)
          Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
          Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
   }
-}
 
-MajorPeak::~MajorPeak() {
-  sh_main.reset();
-  main = nullptr;
-
-  sh_fill.reset();
-  fill = nullptr;
-
-  sh_led_forest.reset();
-  led_forest = nullptr;
+  INFO(module_id, "CONSTRUCT", "ref_colors={} [UNUSED]\n", std::ssize(_ref_colors));
 }
 
 void MajorPeak::execute(peaks_t peaks) {
@@ -98,14 +69,12 @@ void MajorPeak::execute(peaks_t peaks) {
   handleMainPinspot(peaks);
   handleFillPinspot(peaks);
 
-  _prev_peaks.push_back(peaks->majorPeak());
+  _prev_peaks.push_back(peaks->major_peak());
 
-  stats(pierre::desk::FREQUENCY, peaks->majorPeak().frequency());
-  stats(pierre::desk::MAGNITUDE, peaks->majorPeak().magnitude());
+  stats(pierre::desk::FREQUENCY, peaks->major_peak().frequency());
+  stats(pierre::desk::MAGNITUDE, peaks->major_peak().magnitude());
 
-  // INFO(module_id, "DEBUG", "peak_1: {}\n", peaks->majorPeak());
-
-  // detect if FX is in suitable finished position (nothing is fading)
+  // detect if FX is in finished position (nothing is fading)
   // finished = !main->isFading() && !fill->isFading();
 
   finished = false;
@@ -118,9 +87,8 @@ void MajorPeak::handleElWire(peaks_t peaks) {
   const auto freq_limits = major_peak_config::freq_limits();
 
   for (auto elwire : elwires) {
-    if (const auto &peak = peaks->majorPeak(); peak.useable()) {
+    if (const auto &peak = peaks->major_peak(); peak.useable()) {
 
-      // TODO:  figure out how to
       const DutyVal x = freq_limits.scaled_soft().interpolate(elwire->minMaxDuty<double>(),
                                                               peak.frequency().scaled());
 
@@ -132,8 +100,11 @@ void MajorPeak::handleElWire(peaks_t peaks) {
 }
 
 void MajorPeak::handleFillPinspot(peaks_t peaks) {
-  const auto peak = peaks->majorPeak();
-  if (peak.frequency() > _fill_spot_cfg.frequency_max) {
+  auto fill = units->derive<PinSpot>(unit::FILL_SPOT);
+  auto cfg = major_peak_config::pspot("fill pinspot");
+
+  const auto peak = peaks->major_peak();
+  if (peak.frequency() > cfg.freq_max) {
     return;
   }
 
@@ -149,7 +120,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
 
     const auto &last_peak = _fill_history.front();
 
-    const auto greater_freq = _fill_spot_cfg.when_greater.frequency;
+    const auto greater_freq = cfg.when_greater.freq;
     if (freq >= greater_freq) {
       // peaks above upper bass and have a greater magnitude take priority
       // regardless of pinspot brightness
@@ -158,7 +129,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
       }
 
       if (last_peak.frequency() <= greater_freq) {
-        const auto bri_min = _fill_spot_cfg.when_greater.higher_frequency.brightness_min;
+        const auto bri_min = cfg.when_greater.when_higher_freq.bri_min;
 
         if (brightness <= bri_min) {
           start_fader = true;
@@ -167,18 +138,18 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
 
       // anytime the pinspots brightness is low the upper bass peaks
       // take priority
-      if (brightness < _fill_spot_cfg.when_greater.brightness_min) {
+      if (brightness < cfg.when_greater.bri_min) {
         start_fader = true;
       }
     }
 
-    const auto &when_lessthan = _fill_spot_cfg.when_lessthan;
-    const auto lessthan_freq = when_lessthan.frequency;
+    const auto &when_less_than = cfg.when_less_than;
+    const auto lessthan_freq = when_less_than.freq;
 
     // bass frequencies only take priority when the pinspot's brightness has
     // reached a relatively low level
     if (freq <= lessthan_freq) {
-      auto bri_min = when_lessthan.brightness_min;
+      auto bri_min = when_less_than.bri_min;
       if (brightness <= bri_min) {
         if (color.brightness() >= brightness) {
           start_fader = true;
@@ -190,15 +161,17 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
   }
 
   if (start_fader) {
-    fill->activate<FillFader>(
-        {.origin = color, .duration = pet::from_ms(_fill_spot_cfg.fade_max_ms)});
+    fill->activate<FillFader>({.origin = color, .duration = cfg.fade_max});
     _fill_history.push_front(peak);
   }
 }
 
 void MajorPeak::handleMainPinspot(peaks_t peaks) {
-  auto freq_min = _main_spot_cfg.frequency_min;
-  auto peak = (*peaks)[freq_min];
+  auto main = units->derive<PinSpot>(unit::MAIN_SPOT);
+  auto cfg = major_peak_config::pspot("main pinspot");
+
+  const auto freq_min = cfg.freq_min;
+  const auto peak = (*peaks)[freq_min];
 
   const auto mag_limits = major_peak_config::mag_limits();
 
@@ -220,7 +193,7 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
   }
 
   if (fading) {
-    const auto &when_fading = _main_spot_cfg.when_fading;
+    const auto &when_fading = cfg.when_fading;
 
     const auto &last_peak = _main_history.front();
     auto brightness = main->brightness();
@@ -230,20 +203,18 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
     }
 
     if (last_peak.frequency() < peak.frequency()) {
-      if (brightness < when_fading.frequency_greater.brightness_min) {
+      if (brightness < when_fading.when_freq_greater.bri_min) {
         start_fader = true;
       }
     }
 
-    if (brightness < when_fading.brightness_min) {
+    if (brightness < when_fading.bri_min) {
       start_fader = true;
     }
   }
 
   if (start_fader) {
-    main->activate<MainFader>({.origin = color, //
-                               .duration = pet::from_ms(_main_spot_cfg.fade_max_ms)});
-
+    main->activate<MainFader>({.origin = color, .duration = cfg.fade_max});
     _main_history.push_front(peak);
   }
 }
@@ -256,7 +227,6 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
   auto color = ref; // initial color, may change below
 
   // ensure frequency can be interpolated into a color
-
   if (peak.useable(mag_limits, freq_limits.hard()) == false) {
     color = Color::black();
 

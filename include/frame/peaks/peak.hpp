@@ -36,15 +36,8 @@ public:
   Peak() noexcept : freq(0), mag(0) {}
   Peak(const Frequency f, const Magnitude m) noexcept : freq(f), mag(m) {}
 
-  static mag_min_max magScaleRange() noexcept;
-
-  Frequency frequency() const { return freq; }
-
+  auto frequency() const noexcept { return freq; }
   auto magnitude() const noexcept { return mag; }
-
-  Magnitude magScaled() const noexcept { return mag.scaled(); }
-
-  // explicit operator bool() const noexcept; // see .cpp, uses PeakConfig
 
   bool operator!() const noexcept { return (freq == 0) && (mag == 0); }
 
@@ -62,7 +55,7 @@ public:
     return ml.inclusive(mag) && fl.inclusive(freq);
   }
 
-  static const Peak zero() { return Peak(); }
+  static Peak zero() noexcept { return Peak(); }
 
 private:
   Frequency freq{0};

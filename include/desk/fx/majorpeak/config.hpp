@@ -24,6 +24,7 @@
 #include "frame/peaks.hpp"
 
 #include <fmt/format.h>
+#include <map>
 
 namespace pierre {
 namespace fx {
@@ -50,11 +51,48 @@ struct major_peak_config {
     }
   };
 
+  struct pspot_cfg {
+    string name;           // common for all pinspots
+    string type;           // type of config (fill or main)
+    Nanos fade_max{0};     // common for all pinspots
+    Frequency freq_min{0}; // main pinspot
+    Frequency freq_max{0}; // fill pinspot
+
+    struct {
+      Frequency freq{0};
+      double bri_min{0};
+    } when_less_than{0}; // main or fill
+
+    struct {
+      Frequency freq{0};
+      double bri_min{0};
+      struct {
+        double bri_min{0};
+      } when_higher_freq{0};
+    } when_greater; // fill
+
+    struct {
+      double bri_min{0};
+      struct {
+        double bri_min{0};
+      } when_freq_greater;
+    } when_fading; // main
+
+    pspot_cfg() = default;
+    pspot_cfg(csv name, csv type, const Nanos &fade_max, const Frequency freq_min,
+              const Frequency freq_max) noexcept
+        : name(name), type(type), fade_max(fade_max), freq_min(freq_min), freq_max(freq_max) {}
+  };
+
+  using pspot_map = std::map<string, pspot_cfg>;
+
   static hard_soft_limit<Frequency> freq_limits() noexcept;
   static hue_cfg make_colors(csv cat) noexcept;
   static mag_min_max mag_limits() noexcept;
+  static pspot_cfg pspot(const string &name) noexcept;
+
+  static constexpr csv module_id{"MAJOR_PEAK_CFG"};
 };
 
 } // namespace fx
-
 } // namespace pierre

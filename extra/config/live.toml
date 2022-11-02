@@ -48,13 +48,16 @@ bri = { max = 100.0, mag_scaled = true }
 
 [[fx.majorpeak.pinspots]]
 name = "fill pinspot"
-freq_max = 1000.0
+type = "fill"
 fade_max_ms = 800
+freq_max = 1000.0
 when_greater = { freq = 180.0, bri_min = 3.0, when_higher_freq = { bri_min = 80.0 } }
-when_lessthan = { freq = 180.0, bri_min = 27.0 }
+when_less_than = { freq = 180.0, bri_min = 27.0 }
 
 [[fx.majorpeak.pinspots]]
 name = "main pinspot"
-freq_min = 180.0
+type = "main"
 fade_max_ms = 700
+freq_min = 180.0
 when_fading = { bri_min = 5.0, when_freq_greater = { bri_min = 69.0 } }
+when_less_than = { freq = 180.0, bri_min = 27.0 }

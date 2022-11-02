@@ -37,14 +37,13 @@ namespace ranges = std::ranges;
 namespace pierre {
 
 using peak_n_t = size_t; // represents peak of interest 1..max_peaks
-using sentinel = std::default_sentinel_t;
 
 class Peaks;
 using peaks_t = std::shared_ptr<Peaks>;
 
 class Peaks : public std::enable_shared_from_this<Peaks> {
 public:
-  static peaks_t create() { return std::shared_ptr<Peaks>(new Peaks()); }
+  static peaks_t create() noexcept { return std::shared_ptr<Peaks>(new Peaks()); }
   ~Peaks() = default;
 
 private:
@@ -54,18 +53,14 @@ public:
   bool emplace(Magnitude m, Frequency f) noexcept;
   auto size() const noexcept { return std::ssize(peaks_map); } // define early for auto
 
-  bool hasPeak(peak_n_t n) const {
-    // peak_n_t represents the peak of interest in the range of 1..max_peaks
-    return peaks_map.size() > n ? true : false;
-  }
+  bool has_peak(peak_n_t n) const noexcept { return peaks_map.size() > n ? true : false; }
 
-  const Peak majorPeak() const noexcept {
+  const Peak major_peak() const noexcept {
     return !std::empty(peaks_map) ? std::begin(peaks_map)->second : Peak();
   }
 
-  // find the first peak greater than the floating point value
-  // specified in operator[]
-  const Peak operator[](Frequency freq) {
+  // find the first peak greater than the Frequency
+  const Peak operator[](const Frequency freq) const noexcept {
     Peak found_peak;
 
     if (!std::empty(peaks_map)) {
@@ -80,7 +75,7 @@ public:
     return found_peak;
   }
 
-  static bool silence(peaks_t peaks) {
+  static bool silence(peaks_t peaks) noexcept {
     INFOX(module_id, "SILENCE", "use_count={} size={}\n", //
           peaks.use_count(), peaks.use_count() ? peaks->size() : false);
 
@@ -88,6 +83,7 @@ public:
   }
 
 private:
+  // sorted descending
   std::map<Magnitude, Peak, std::greater<Magnitude>> peaks_map;
 
 public:

@@ -21,16 +21,6 @@
 
 namespace pierre {
 
-// static Peak reference data
-// PeakMagScaled Peak::mag_scaled(Peak::mag_base);
-
-// explicit Peak::operator bool() const noexcept {
-//   const auto ml = PeakConfig::mag_limits();
-//   return (mag > ml.min()) && (mag < ml.max()) ? true : false;
-// }
-
-mag_min_max Peak::magScaleRange() noexcept { return PeakConfig::mag_limits().scaled(); }
-
 bool Peak::useable() const noexcept { return useable(PeakConfig::mag_limits()); }
 
 } // namespace pierre

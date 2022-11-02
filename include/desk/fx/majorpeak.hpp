@@ -35,57 +35,7 @@ public:
   using circular_buffer = boost::circular_buffer<Peak>;
 
 public:
-  struct WhenGreater {
-    Frequency frequency;
-    double brightness_min;
-    struct {
-      double brightness_min;
-    } higher_frequency;
-  };
-
-  struct WhenLessThan {
-    Frequency frequency;
-    double brightness_min;
-  };
-
-  struct FillPinspot {
-    string name{"fill pinspot"};
-    uint32_t fade_max_ms = 800;
-    Frequency frequency_max = 1000.0;
-
-    struct WhenGreater when_greater {
-      .frequency = 180.0, .brightness_min = 3.0, .higher_frequency = {.brightness_min = 80.0 }
-    };
-
-    struct WhenLessThan when_lessthan {
-      .frequency = 180.0, .brightness_min = 27.0
-    };
-  };
-
-  struct WhenFading {
-    double brightness_min;
-    struct {
-      double brightness_min;
-    } frequency_greater;
-  };
-
-  struct MainPinspot {
-    string name{"main pinspot"};
-    uint32_t fade_max_ms = 700;
-    Frequency frequency_min = 180.0;
-
-    struct WhenFading when_fading {
-      .brightness_min = 5.0, .frequency_greater = {.brightness_min = 69.0 }
-    };
-
-    struct WhenLessThan when_lessthan {
-      .frequency = 180.0, .brightness_min = 27.0
-    };
-  };
-
-public:
-  MajorPeak(pierre::desk::Stats &stats);
-  ~MajorPeak();
+  MajorPeak(pierre::desk::Stats &stats) noexcept;
 
   void execute(peaks_t peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
@@ -101,15 +51,12 @@ private:
   void handleFillPinspot(peaks_t peaks);
   void handleMainPinspot(peaks_t peaks);
 
-  const Color makeColor(Color ref, const Peak &freq);
+  const Color makeColor(Color ref, const Peak &peak);
   Color &refColor(size_t index) const;
 
 private:
   Color _color;
   pierre::desk::Stats &stats;
-
-  MainPinspot _main_spot_cfg;
-  FillPinspot _fill_spot_cfg;
 
   Elapsed color_elapsed;
   static ReferenceColors _ref_colors;

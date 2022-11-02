@@ -18,13 +18,16 @@
 
 #include "fx/majorpeak/config.hpp"
 #include "base/hard_soft_limit.hpp"
+#include "base/logger.hpp"
 #include "base/min_max_pair.hpp"
+#include "base/pet.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "frame/peaks.hpp"
 #include "fx/majorpeak/config.hpp"
 
 #include <fmt/format.h>
+#include <map>
 
 namespace pierre {
 namespace fx {
@@ -55,6 +58,68 @@ mag_min_max major_peak_config::mag_limits() noexcept { // static
 
   return mag_min_max(mags.at_path("floor").value_or(2.009), mags.at_path("ceiling").value_or(64.0));
 }
-}; // namespace fx
 
+major_peak_config::pspot_cfg major_peak_config::pspot(const string &name) noexcept { // static
+  static constexpr csv BRI_MIN{"bri_min"};
+  pspot_map map;
+
+  auto mp = Config().table().at_path("fx.majorpeak"sv);
+  // auto mp_pspots = toml::path("fx.majorpeak.pinspots");
+
+  toml::array *pspots = mp["pinspots"sv].as_array();
+
+  for (auto &&el : *pspots) {
+    // for (auto el = pspots->begin(); el != pspots->end(); el++) {
+
+    auto tbl = el.as_table();
+
+    auto entry_name = (*tbl)["name"sv].value_or(string("unnamed"));
+
+    auto [it, inserted] = map.try_emplace(                   //
+        entry_name,                                          //
+        entry_name,                                          //
+        (*tbl)["type"sv].value_or(string("unknown")),        //
+        pet::from_ms((*tbl)["fade_max_ms"sv].value_or(100)), //
+        (*tbl)["freq_min"sv].value_or(0.0),                  //
+        (*tbl)["freq_max"sv].value_or(0.0));
+
+    if (inserted) {
+      auto &cfg = it->second;
+
+      // populate 'when_less_than' (common for main and fill)
+      auto wltt = (*tbl)["when_less_than"sv];
+      auto &wlt = cfg.when_less_than;
+
+      wlt.freq = wltt["freq"sv].value_or(0.0);
+      wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
+
+      if (csv{cfg.type} == csv{"fill"}) { // fill specific
+        auto wgt = (*tbl)["when_greater"sv];
+
+        auto &wg = cfg.when_greater;
+        wg.freq = wgt["freq"sv].value_or(0.0);
+        wg.bri_min = wgt[BRI_MIN].value_or(0.0);
+
+        auto whft = wgt["when_higher_freq"sv];
+        auto &whf = wg.when_higher_freq;
+        whf.bri_min = whft[BRI_MIN].value_or(0.0);
+
+      } else if (csv(cfg.type) == csv{"main"}) { // main specific
+        auto wft = (*tbl)["when_fading"sv];
+
+        auto &wf = cfg.when_fading;
+        wf.bri_min = wft[BRI_MIN].value_or(0.0);
+
+        auto &wffg = wf.when_freq_greater;
+        auto wffgt = wft["when_freq_greater"sv];
+        wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
+      } else {
+        INFO(module_id, "PSPOT", "unrecognized type={}\n", cfg.type);
+      }
+    }
+  }
+  return map[string(name)];
+}
+
+} // namespace fx
 } // namespace pierre
