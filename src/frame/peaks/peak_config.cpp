@@ -30,9 +30,11 @@ mag_min_max PeakConfig::mag_limits() noexcept {
   static const Magnitude floor(2.1);
   static const Magnitude ceiling(32.0);
 
-  if (auto mags = Config().table_at("frame.peaks.magnitudes"); mags) {
-    return mag_min_max(mags->at("floor").value_or<double>(floor), //
-                       mags->at("ceiling").value_or<double>(ceiling));
+  static const toml::path path{"frame.peaks.magnitudes"sv};
+
+  if (const auto mags = Config().table()[path]; mags) {
+    return mag_min_max(mags["floor"sv].value_or<double>(floor), //
+                       mags["ceiling"sv].value_or<double>(ceiling));
   }
 
   return mag_min_max(floor, ceiling);

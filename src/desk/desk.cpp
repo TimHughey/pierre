@@ -166,7 +166,7 @@ void Desk::init() { // static instance creation
 }
 
 void Desk::init_self() {
-  const auto num_threads = Config().at_path("desk.threads"sv).value_or(3);
+  const auto num_threads = Config().at("desk.threads"sv).value_or(3);
   std::latch latch(num_threads);
 
   // note: work guard created by constructor p

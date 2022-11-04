@@ -29,6 +29,7 @@ struct ArgsMap {
   string dmx_host{};
   string pid_file{};
   bool colorbars{false};
+  string app_name;
 
   // public api
   bool ok() const { return parse_ok; }

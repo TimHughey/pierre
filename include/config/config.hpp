@@ -21,7 +21,12 @@
 #include "base/threads.hpp"
 #include "base/types.hpp"
 
+#include <filesystem>
+#include <future>
+#include <list>
 #include <optional>
+#include <shared_mutex>
+#include <type_traits>
 
 #define TOML_ENABLE_FORMATTERS 0 // don't need formatters
 #define TOML_HEADER_ONLY 0       // reduces compile times
@@ -29,11 +34,13 @@
 
 namespace pierre {
 
+namespace {
+namespace fs = std::filesystem;
+}
+
 class Config {
 public:
   Config() = default;
-
-  const auto at_path(csv path) const noexcept { return _table.at_path(path); }
 
   // initialization and setup
   static Config init(int argc, char **argv) noexcept {
@@ -46,42 +53,75 @@ public:
   bool ready() const noexcept { return initialized; }
 
   // raw, direct access
-  toml::table &table() { return _table; }
-  toml::table *table_at(csv path);
+
+  template <typename P> const auto at(P p) const noexcept {
+    std::shared_lock slk(mtx, std::defer_lock);
+    slk.lock();
+
+    if constexpr (std::is_same_v<P, toml::path>) return table()[p];
+    if constexpr (std::is_same_v<P, string_view> || std::is_same_v<P, string>) {
+      const toml::path path{p};
+
+      return table()[path];
+    }
+  }
+
+  const toml::table &table() const noexcept {
+    std::shared_lock slk(mtx, std::defer_lock);
+    slk.lock();
+
+    return tables.front();
+  }
+
+  template <typename P> const auto table_at(P p) const noexcept {
+    std::shared_lock slk(mtx, std::defer_lock);
+    slk.lock();
+
+    if constexpr (std::is_same_v<P, toml::path>) return table()[p];
+    if constexpr (std::is_same_v<P, string_view> || std::is_same_v<P, string>) {
+      const toml::path path{p};
+
+      return table()[path];
+    }
+  }
 
   // specific accessors
-  const string app_name() const noexcept {
-    return _table.at_path("cli.app_name"sv).value_or(UNSET);
-  }
+  const string app_name() const noexcept { return at(cli("app_name"sv)).value_or(UNSET); }
+  const string build_time() const noexcept { return at(base(BUILD_TIME)).value_or(UNSET); };
+  const string build_vsn() const noexcept { return at("base.build_vsn"sv).value_or(UNSET); };
+  const string config_vsn() const noexcept { return at("base.config_vsn"sv).value_or(UNSET); }
 
-  const string build_time() const noexcept {
-    return _table.at_path("base.build_time"sv).value_or(UNSET);
-  };
-
-  const string build_vsn() const noexcept {
-    return _table.at_path("base.build_vsn"sv).value_or(UNSET);
-  };
-
-  const string config_vsn() const noexcept {
-    return _table.at_path("base.config_vsn"sv).value_or(UNSET);
-  }
+  static bool has_changed(std::shared_future<bool> &fut) noexcept;
 
   const string receiver() const noexcept; // see .cpp, uses Host
 
-  const string working_dir() const noexcept {
-    return _table.at_path("base.working_dir"sv).value_or(UNSET);
-  }
+  static std::shared_future<bool> want_changes() noexcept;
+  const string working_dir() noexcept { return table_at("base.working_dir"sv).value_or(UNSET); }
 
 private:
+  // path builders
+  const toml::path cli(auto key) const noexcept { return toml::path(CLI).append(key); }
+  const toml::path base(csv key) const noexcept { return toml::path{"base"sv}.append(key); }
+
   void init_self(int argc, char **argv) noexcept;
+  static bool parse() noexcept;
+  static void monitor_file() noexcept;
 
 private:
-  static toml::table _table;
+  static fs::path full_path;
+  static std::shared_mutex mtx;
+  static std::list<toml::table> tables;
   static bool initialized;
   static constexpr int CONFIG_THREADS{1};
   static Threads threads;
   static stop_tokens tokens;
+  static std::filesystem::file_time_type last_write;
+  static std::optional<std::promise<bool>> change_proms;
+  static std::optional<std::shared_future<bool>> change_fut;
 
+  static constexpr csv BASE{"base"};
+  static constexpr csv BUILD_TIME{"build_time"};
+  static constexpr csv CLI{"cli"};
   static constexpr ccs UNSET{"?"};
 
 public:

@@ -33,7 +33,7 @@ namespace pierre {
 namespace fx {
 
 hard_soft_limit<Frequency> major_peak_config::freq_limits() noexcept { // static
-  auto freqs = Config().at_path("fx.majorpeak.frequencies"sv);
+  auto freqs = Config().at("fx.majorpeak.frequencies"sv);
 
   return hard_soft_limit<Frequency>(freqs.at_path("hard.floor"sv).value_or(40.0),
                                     freqs.at_path("hard.ceiling"sv).value_or(11500.0),
@@ -44,7 +44,7 @@ hard_soft_limit<Frequency> major_peak_config::freq_limits() noexcept { // static
 major_peak_config::hue_cfg major_peak_config::make_colors(csv cat) noexcept { // static
   const string full_path = fmt::format("fx.majorpeak.makecolors.{}", cat);
 
-  auto cc = Config().at_path(full_path);
+  auto cc = Config().at(full_path);
 
   return hue_cfg{.hue = {.min = cc.at_path("hue.min"sv).value_or(0.0),
                          .max = cc.at_path("hue.max"sv).value_or(0.0),
@@ -54,7 +54,7 @@ major_peak_config::hue_cfg major_peak_config::make_colors(csv cat) noexcept { //
 }
 
 mag_min_max major_peak_config::mag_limits() noexcept { // static
-  auto mags = Config().at_path("fx.majorpeak.magnitudes"sv);
+  auto mags = Config().at("fx.majorpeak.magnitudes"sv);
 
   return mag_min_max(mags.at_path("floor").value_or(2.009), mags.at_path("ceiling").value_or(64.0));
 }
@@ -63,13 +63,12 @@ major_peak_config::pspot_cfg major_peak_config::pspot(const string &name) noexce
   static constexpr csv BRI_MIN{"bri_min"};
   pspot_map map;
 
-  auto mp = Config().table().at_path("fx.majorpeak"sv);
+  auto mp = Config().at("fx.majorpeak"sv);
   // auto mp_pspots = toml::path("fx.majorpeak.pinspots");
 
-  toml::array *pspots = mp["pinspots"sv].as_array();
+  const toml::array *pspots = mp["pinspots"sv].as_array();
 
   for (auto &&el : *pspots) {
-    // for (auto el = pspots->begin(); el != pspots->end(); el++) {
 
     auto tbl = el.as_table();
 

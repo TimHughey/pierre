@@ -46,7 +46,7 @@ MasterClock::MasterClock() noexcept
       socket(io_ctx, ip_udp::v4()),                                  // construct and open
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
       shm_name(Config()                                              // make shm_name
-                   .at_path("frame.clock.shm_name"sv)
+                   .at("frame.clock.shm_name"sv)
                    .value_or<string>("/nqptp")) {
 
   INFO(module_id, "CONSTRUCT", "shm_name={} dest={}:{}\n", //

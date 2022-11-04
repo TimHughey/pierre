@@ -92,6 +92,8 @@ ArgsMap Args::parse(int argc, char *argv[]) {
     fmt::print(FMT_STRING("command line args error: {}\n"), ex.what());
   }
 
+  am.app_name.assign(basename(argv[0]));
+
   return am;
 }
 
