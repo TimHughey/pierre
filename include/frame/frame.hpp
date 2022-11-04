@@ -125,6 +125,10 @@ private:
   // order independent
   std::optional<AnchorLast> _anchor;
 
+  // a short frame is sometimes sent for an unknown purpose
+  // detect those frames and don't send for further processing
+  static constexpr size_t SHORT_LEN{6};
+
 public:
   static constexpr csv module_id{"FRAME"};
 };

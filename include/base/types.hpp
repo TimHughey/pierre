@@ -40,7 +40,7 @@ typedef const char *ccs;
 typedef std::jthread Thread;
 
 // Vector of Floats
-typedef std::vector<float> reals_t;
+typedef std::vector<double> reals_t;
 
 using seq_num_t = uint32_t;   // frame sequence num
 using timestamp_t = uint32_t; // frame timestamp

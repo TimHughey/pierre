@@ -26,6 +26,7 @@
 #include <cmath>
 #include <exception>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <numbers>
 #include <numeric>
@@ -60,18 +61,18 @@ static reals_t _wwf;
 static std::atomic_flag _weighing_factors_computed;
 
 FFT::FFT(const float *reals, size_t samples, const float frequency)
-    : _sampling_freq(frequency),  //
-      _max_peaks(samples >> 1),   //
-      _imaginary(samples, 0),     //
-      _power(std::log2f(samples)) //
+    : _reals(_samples, 0),         //
+      _sampling_freq(frequency),   //
+      _max_peaks(_samples >> 1),   //
+      _imaginary(_samples, 0),     //
+      _power(std::log2f(_samples)) //
 {
   if (samples != _samples) {
     throw std::runtime_error("unsupported number of samples");
   }
 
-  _reals.reserve(samples);
   for (size_t i = 0; i < samples; i++) {
-    _reals.emplace_back(reals[i]);
+    _reals[i] = reals[i];
   }
 }
 

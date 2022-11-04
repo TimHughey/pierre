@@ -42,10 +42,10 @@ bool Peaks::emplace(Magnitude m, Frequency f) noexcept {
 
     rc = node.second; // was the peak inserted?
 
-    if (!rc) {
-      const auto &peak = node.first->second;
-      INFO(module_id, "COLLISION", "keeping {} alt freq={:0.2f}\n", peak, f);
-    }
+    // if (!rc) {
+    //   const auto &peak = node.first->second;
+    //   INFO(module_id, "COLLISION", "keeping {} alt freq={:0.2f}\n", peak, f);
+    // }
   }
 
   return rc;

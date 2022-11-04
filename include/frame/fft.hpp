@@ -74,13 +74,12 @@ private:
 
 private:
   // order dependent
+  reals_t _reals;
   const float _sampling_freq;
 
   const size_t _max_peaks;
   reals_t _imaginary;
   uint_fast8_t _power;
-
-  reals_t _reals;
 
 public:
   static constexpr csv module_id{"FFT"};

@@ -106,9 +106,6 @@ Frame::Frame(uint8v &packet) noexcept           //
 {}
 
 bool Frame::decipher(uint8v &packet) noexcept {
-  // a short frame is sometimes sent for an unknown purpose
-  // detect those frames and don't send for further processing
-  static constexpr size_t SHORT_LEN{13};
 
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
@@ -138,10 +135,25 @@ bool Frame::decipher(uint8v &packet) noexcept {
 
     if ((cipher_rc >= 0) && (decipher_len > SHORT_LEN)) {
       state = frame::DECIPHERED;
-    } else if (decipher_len == 0) {
+
+    } else if (cipher_rc < 0) {
+      state = frame::DECIPHER_FAILURE;
+
+    } else if (decipher_len <= 0) {
       state = frame::EMPTY;
+
     } else if (decipher_len <= SHORT_LEN) { // a short frame (purpose unknown)
       state = frame::SHORT_FRAME;
+
+      // string msg;
+      // auto w = std::back_inserter(msg);
+
+      // for (int i = 0; i < static_cast<int>(decipher_len); i++) {
+      //   fmt::format_to(w, "{:#02x} ", ciphered[i]);
+      // }
+
+      // INFO(module_id, "DEBUG", "SHORT FRAME {} {}\n", inspect(), msg);
+
     } else {
       state = frame::ERROR;
     }
@@ -230,9 +242,15 @@ const string Frame::inspect(bool full) {
     fmt::format_to(w, "vsn={} pad={} ext={} ssrc={} ", version, padding, extension, ssrc_count);
   }
 
-  fmt::format_to(w, "seq_num={:<8} ts={:<12} {:<10} ready={:<5} sync_wait={}", //
-                 seq_num, timestamp, state, state.ready(),
-                 _sync_wait.has_value() ? pet::humanize(_sync_wait.value()) : "<no value>");
+  fmt::format_to(w, "seq_num={:<8} ts={:<12} {:<10}", seq_num, timestamp, state);
+
+  if (sync_wait_ok()) {
+    fmt::format_to(w, " sync_wait={}", pet::humanize(sync_wait()));
+  }
+
+  if (decipher_len < SHORT_LEN) {
+    fmt::format_to(w, " decipher_len={}", decipher_len);
+  }
 
   // if (frame->silent()) {
   //   fmt::format_to(w, "silence=true");

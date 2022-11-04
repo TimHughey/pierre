@@ -132,7 +132,7 @@ void mDNS::resolver_found(const ZeroConf::Details zcd) noexcept {
   auto [zc_it, inserted] = zcs_map.try_emplace(zcd.name_net, ZeroConf(zcd));
   const auto &zc = zc_it->second;
 
-  INFO(module_id, cat, "{} {}\n", inserted ? "resolved" : "already know", zc.inspect());
+  INFOX(module_id, cat, "{} {}\n", inserted ? "resolved" : "already know", zc.inspect());
 
   if (auto it = zcs_proms.find(zc.name_short()); it != zcs_proms.end()) {
     INFO(mDNS::module_id, cat, "found promise for name={}\n", zc.name_short());

@@ -26,24 +26,24 @@ namespace frame {
 csv state::inspect() const noexcept {
   static std::map<state_now_t, ccs> //
       val_to_txt_map = {{DECIPHERED, "deciphered"},
-                        {DECIPHER_FAILURE, "decipher falure"},
+                        {DECIPHER_FAILURE, "decipher_falure"},
                         {DECODED, "decoded"},
-                        {DECODE_FAILURE, "decode failure"},
-                        {DSP_IN_PROGRESS, "dsp in progress"},
-                        {DSP_COMPLETE, "dsp complete"},
+                        {DECODE_FAILURE, "decode_failure"},
+                        {DSP_IN_PROGRESS, "dsp_in_progress"},
+                        {DSP_COMPLETE, "dsp_complete"},
                         {EMPTY, "empty"},
                         {ERROR, "error"},
                         {FLUSHED, "flushed"},
                         {FUTURE, "future"},
-                        {HEADER_PARSED, "header parsed"},
+                        {HEADER_PARSED, "header_parsed"},
                         {INVALID, "invalid"},
-                        {NO_SHARED_KEY, "no shared key"},
+                        {NO_SHARED_KEY, "no_shared_key"},
                         {NONE, "none"},
                         {OUTDATED, "outdated"},
-                        {PARSE_FAILURE, "parse failure"},
+                        {PARSE_FAILURE, "parse_failure"},
                         {READY, "ready"},
                         {RENDERED, "rendered"},
-                        {SHORT_FRAME, "short frame"}};
+                        {SHORT_FRAME, "short_frame"}};
 
   return csv(val_to_txt_map[_val]);
 }

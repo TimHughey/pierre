@@ -111,7 +111,7 @@ public:
   }
 
 private:
-  state_now_t _val = state_now_t::NONE;
+  state_now_t _val{state_now_t::NONE};
 };
 
 } // namespace frame
