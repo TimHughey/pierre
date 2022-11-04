@@ -38,13 +38,12 @@ using MainFader = fader::ToBlack<fader::SimpleLinear>;
 namespace fx {
 
 MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
-    : FX(),                     //
-      _color(Hsb{0, 100, 100}), //
-      stats(stats),             //
-      _prev_peaks(88),          //
-      _main_history(88),        //
-      _fill_history(88) {
-
+    : FX(),                         //
+      base_color(Hsb{0, 100, 100}), //
+      stats(stats),                 //
+      _main_last_peak(),            //
+      _fill_last_peak()             //
+{
   // initialize static frequency to color mapping
   if (_ref_colors.size() == 0) {
     _ref_colors.assign( //
@@ -68,8 +67,6 @@ void MajorPeak::execute(peaks_t peaks) {
   handleElWire(peaks);
   handleMainPinspot(peaks);
   handleFillPinspot(peaks);
-
-  _prev_peaks.push_back(peaks->major_peak());
 
   stats(pierre::desk::FREQUENCY, peaks->major_peak().frequency());
   stats(pierre::desk::MAGNITUDE, peaks->major_peak().magnitude());
@@ -108,7 +105,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
     return;
   }
 
-  Color color = makeColor(_color, peak);
+  Color color = make_color(peak);
 
   auto start_fader = false;
   bool fading = fill->isFading();
@@ -118,7 +115,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
     auto freq = peak.frequency();
     auto brightness = fill->brightness();
 
-    const auto &last_peak = _fill_history.front();
+    const auto &last_peak = _fill_last_peak;
 
     const auto greater_freq = cfg.when_greater.freq;
     if (freq >= greater_freq) {
@@ -162,7 +159,7 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
 
   if (start_fader) {
     fill->activate<FillFader>({.origin = color, .duration = cfg.fade_max});
-    _fill_history.push_front(peak);
+    _fill_last_peak = peak;
   }
 }
 
@@ -179,7 +176,7 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
     return;
   }
 
-  Color color = makeColor(_color, peak);
+  Color color = make_color(peak);
 
   if (color.isBlack()) {
     return;
@@ -195,8 +192,8 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
   if (fading) {
     const auto &when_fading = cfg.when_fading;
 
-    const auto &last_peak = _main_history.front();
     auto brightness = main->brightness();
+    auto &last_peak = _main_last_peak;
 
     if (peak.magnitude() >= last_peak.magnitude()) {
       start_fader = true;
@@ -215,11 +212,11 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
 
   if (start_fader) {
     main->activate<MainFader>({.origin = color, .duration = cfg.fade_max});
-    _main_history.push_front(peak);
+    _main_last_peak = peak;
   }
 }
 
-const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
+const Color MajorPeak::make_color(const Peak &peak, const Color &ref) const noexcept {
 
   const auto freq_limits = major_peak_config::freq_limits();
   const auto mag_limits = major_peak_config::mag_limits();
@@ -241,7 +238,7 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
     auto hue_minmax = hue_cfg.hue_minmax();
     auto degrees = fl_custom.interpolate(hue_minmax, peak.frequency().scaled()) * hue_cfg.hue.step;
 
-    color = ref.rotateHue(degrees);
+    color.rotateHue(degrees);
     if (hue_cfg.brightness.mag_scaled) {
       color.setBrightness(mag_limits, peak.magnitude().scaled());
     } else {
@@ -256,7 +253,7 @@ const Color MajorPeak::makeColor(Color ref, const Peak &peak) {
 
     auto degrees = fl_soft.interpolate(hue_min_max, peak.frequency().scaled()) * hue_cfg.hue.step;
 
-    color = ref.rotateHue(degrees);
+    color.rotateHue(degrees);
     color.setBrightness(mag_limits, peak.magnitude().scaled());
   }
 

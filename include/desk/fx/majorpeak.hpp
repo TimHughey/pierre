@@ -25,15 +25,10 @@
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
 
-#include <boost/circular_buffer.hpp>
-
 namespace pierre {
 namespace fx {
 
 class MajorPeak : public FX {
-public:
-  using circular_buffer = boost::circular_buffer<Peak>;
-
 public:
   MajorPeak(pierre::desk::Stats &stats) noexcept;
 
@@ -51,19 +46,20 @@ private:
   void handleFillPinspot(peaks_t peaks);
   void handleMainPinspot(peaks_t peaks);
 
-  const Color makeColor(Color ref, const Peak &peak);
+  const Color make_color(const Peak &peak) const noexcept { return make_color(peak, base_color); }
+  const Color make_color(const Peak &peak, const Color &ref) const noexcept;
   Color &refColor(size_t index) const;
 
 private:
-  Color _color;
+  // order dependent
+  const Color base_color;
   pierre::desk::Stats &stats;
+  Peak _main_last_peak;
+  Peak _fill_last_peak;
 
+  // order independent
   Elapsed color_elapsed;
   static ReferenceColors _ref_colors;
-
-  circular_buffer _prev_peaks;
-  circular_buffer _main_history;
-  circular_buffer _fill_history;
 
 public:
   static constexpr csv module_id{"MAJOR_PEAK"};
