@@ -228,17 +228,4 @@ Color &Color::setSaturation(const min_max_pair<double> &range, const double val)
   return *this;
 }
 
-string Color::asString() const {
-  uint8_t red, grn, blu = 0;
-  _hsb.toRgb(red, grn, blu);
-
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  fmt::format_to(w, "hsb({:7.2}, {:5.1}, {:5.1}) ", hue(), saturation(), brightness());
-  fmt::format_to(w, "rgb({:4}, {:4}, {:4})", red, grn, blu);
-
-  return msg;
-}
-
 } // namespace pierre

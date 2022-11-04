@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <ctgmath>
+#include <fmt/format.h>
 #include <string>
 #include <type_traits>
 
@@ -64,6 +65,9 @@ public:
   double brightness() const { return _hsb.bri * 100.0f; }
   double hue() const { return _hsb.hue * 360.0f; }
   double saturation() const { return _hsb.sat * 100.0f; }
+
+  // colorspace
+  const Hsb &hsb() const noexcept { return _hsb; }
 
   static Color interpolate(Color a, Color b, double t);
   bool isBlack() const;
@@ -109,7 +113,7 @@ public:
   static constexpr Color black() { return std::move(Color()); }
   static constexpr Color none() { return std::move(Color()); }
 
-  string asString() const;
+  // string asString() const;
 
 private:
   Hsb _hsb;
@@ -121,3 +125,50 @@ constexpr Color NONE = Color::none();
 }
 
 } // namespace pierre
+
+template <> struct fmt::formatter<pierre::Color> {
+  // Presentation format: h=hsb, r=rgb, empty=both
+  bool hsb = false;
+  bool rgb = false;
+
+  constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
+
+    auto it = ctx.begin(), end = ctx.end();
+
+    while ((it != end) && (*it != '}')) {
+      if (*it == 'h') hsb = true;
+      if (*it == 'r') rgb = true;
+      it++;
+    }
+
+    if (!hsb && !rgb) {
+      hsb = rgb = true;
+    }
+
+    // Return an iterator past the end of the parsed range:
+    return it;
+  }
+
+  // Formats the point p using the parsed format specification (presentation)
+  // stored in this formatter.
+  template <typename FormatContext>
+  auto format(const pierre::Color &c, FormatContext &ctx) const -> decltype(ctx.out()) {
+
+    std::string msg;
+    auto w = std::back_inserter(msg);
+
+    if (hsb) {
+      fmt::format_to(w, "hsb({:7.02f} {:5.1f} {:5.1f})", c.hue(), c.saturation(), c.brightness());
+    }
+
+    if (rgb) {
+      uint8_t red, grn, blu = 0;
+      c.hsb().toRgb(red, grn, blu);
+
+      fmt::format_to(w, "{}rgb({:02x} {:02x} {:02x})", hsb ? " " : "", red, grn, blu);
+    }
+
+    // ctx.out() is an output iterator to write to.
+    return fmt::format_to(ctx.out(), "{}", msg);
+  }
+};

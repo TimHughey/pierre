@@ -56,7 +56,7 @@ MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
          Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
   }
 
-  INFO(module_id, "CONSTRUCT", "ref_colors={} [UNUSED]\n", std::ssize(_ref_colors));
+  INFO(module_id, "CONSTRUCT", "base_color={:h}\n", base_color);
 }
 
 void MajorPeak::execute(peaks_t peaks) {
