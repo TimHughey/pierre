@@ -49,11 +49,11 @@ using racked_reels = std::list<Reel>;
 class Racked {
 public:
   Racked() noexcept
-      : guard(io_ctx.get_executor()), // ensure io_ctx has work
-        handoff_strand(io_ctx),       // unprocessed frame 'queue'
-        wip_strand(io_ctx),           // guard work in progress reeel
-        wip_timer(io_ctx),            // used to racked incomplete wip reels
-        rack_access(1)                // acquired, guards racked container
+      : guard(io::make_work_guard(io_ctx)), // ensure io_ctx has work
+        handoff_strand(io_ctx),             // unprocessed frame 'queue'
+        wip_strand(io_ctx),                 // guard work in progress reeel
+        wip_timer(io_ctx),                  // used to racked incomplete wip reels
+        rack_access(1)                      // acquired, guards racked container
   {}
 
   bool empty() const noexcept { return size() == 0; }
@@ -79,8 +79,6 @@ private:
   void init_self();
 
   void monitor_wip() noexcept;
-
-  void pop_front_reel_if_empty() noexcept;
 
   void rack_wip() noexcept;
 
@@ -126,7 +124,7 @@ private:
 private:
   // order dependent
   io_context io_ctx;
-  work_guard guard;
+  work_guard_t guard;
   strand handoff_strand;
   strand wip_strand;
   steady_timer wip_timer;
@@ -153,7 +151,7 @@ private:
   static uint64_t REEL_SERIAL_NUM;
 
 public:
-  static constexpr Nanos reel_max_wait = InputInfo::lead_time;
+  static constexpr Nanos reel_max_wait = InputInfo::lead_time_min;
   static constexpr csv module_id{"RACKED"};
 
 }; // Racked

@@ -53,9 +53,7 @@ public:
   bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
 
 private:
-  void frame_loop(const Nanos wait = Nanos::zero());
-  void frame_loop_safe();
-  void frame_loop_unsafe();
+  void frame_loop(Nanos wait = Nanos::zero()) noexcept;
 
   void frame_render(frame_t frame);
   void init_self();
@@ -66,6 +64,7 @@ private:
 
   // log_frome_timer_error: return true if ec == success
   bool log_frame_timer_error(const error_code &ec, csv fn_id) const;
+  void log_init(int num_threads) const noexcept;
   void sync_next_frame(const Nanos wait = InputInfo::lead_time) noexcept;
 
 private:

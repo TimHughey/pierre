@@ -75,7 +75,8 @@ public:
   frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time);
 
   Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
-  bool sync_wait_ok() const noexcept { return _sync_wait.has_value(); }
+  static bool sync_wait_ok(frame_t f) noexcept { return f && f->sync_wait_ok_safe(); }
+  bool sync_wait_ok_safe() const noexcept { return _sync_wait.has_value(); }
   Nanos sync_wait_recalc(); // can throw if no anchor
 
   // misc debug
@@ -127,7 +128,7 @@ private:
 
   // a short frame is sometimes sent for an unknown purpose
   // detect those frames and don't send for further processing
-  static constexpr size_t SHORT_LEN{6};
+  static constexpr size_t SHORT_LEN{0};
 
 public:
   static constexpr csv module_id{"FRAME"};

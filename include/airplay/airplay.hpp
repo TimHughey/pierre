@@ -42,7 +42,7 @@ extern std::shared_ptr<Airplay> airplay;
 
 class Airplay : public std::enable_shared_from_this<Airplay> {
 private:
-  static constexpr int AIRPLAY_THREADS = 3;
+  static constexpr int AIRPLAY_THREADS = 4;
 
 private:
   Airplay() : watchdog_timer(io_ctx), guard(io::make_work_guard(io_ctx)) {}

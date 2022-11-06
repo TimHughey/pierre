@@ -181,7 +181,7 @@ void Frame::init() {
   Racked::init();
   dsp::init();
 
-  INFO(Frame::module_id, "INIT", "frame sizeof={} lead_time={} fps={}\n", sizeof(Frame),
+  INFO(Frame::module_id, "INIT", "sizeof={} lead_time={} fps={}\n", sizeof(Frame),
        pet::humanize(InputInfo::lead_time), InputInfo::fps);
 }
 
@@ -244,11 +244,11 @@ const string Frame::inspect(bool full) {
 
   fmt::format_to(w, "seq_num={:<8} ts={:<12} {:<10}", seq_num, timestamp, state);
 
-  if (sync_wait_ok()) {
+  if (sync_wait_ok_safe()) {
     fmt::format_to(w, " sync_wait={}", pet::humanize(sync_wait()));
   }
 
-  if (decipher_len < SHORT_LEN) {
+  if (decipher_len <= SHORT_LEN) {
     fmt::format_to(w, " decipher_len={}", decipher_len);
   }
 

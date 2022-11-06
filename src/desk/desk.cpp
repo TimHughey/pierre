@@ -60,74 +60,67 @@ Desk::Desk() noexcept                               //
 {}
 
 // general API
+void Desk::frame_loop(const Nanos wait) noexcept {
+  Nanos sync_wait = wait;
+  error_code ec;
 
-// primary frame processing entry loop
-void Desk::frame_loop(const Nanos wait) {
-
-  // lambda for performing loop delays
-  auto frame_loop_delay = [this](const Nanos wait) {
-    frame_timer.expires_after(wait);
-
-    frame_timer.async_wait([](const error_code ec) {
-      if (shared::desk->log_frame_timer_error(ec, "FRAME_LOOP")) {
-        shared::desk->frame_loop_safe();
-      }
-    });
-  };
-
-  if (pet::is_zero(wait)) {
-    frame_loop_safe();
-  } else if (wait > Nanos::zero()) {
-    frame_loop_delay(wait);
-  } else if (wait < Nanos::zero()) {
-    INFO(module_id, "FRAME_LOOP", "crazy wait {}\n", pet::humanize(wait));
-    frame_loop_delay(wait);
-  }
-}
-
-// if code is running in the same thread as frame_strand, avoid async::post
-void Desk::frame_loop_safe() {
+  // ensure we are running in the correct strand
   if (frame_strand.running_in_this_thread()) {
-    frame_loop_unsafe();
+    Elapsed delay;
+
+    while (!ec) {    // loop until error returned by frame_timer
+      delay.reset(); // measure render delay
+
+      if (Render::enabled() == false) {
+        sync_wait = InputInfo::lead_time_min;
+
+      } else {
+        run_stats(desk::RENDER_DELAY, delay);
+
+        Elapsed elapsed_next;
+        auto frame = Racked::next_frame().get();
+        run_stats(desk::NEXT_FRAME, elapsed_next);
+
+        if (frame) { // we have an actual frame
+          if (frame->state.ready()) {
+            frame_render(frame);
+            frame_last = pet::now_monotonic();
+          } else {
+            INFO(module_id, "FRAME_LOOP", "DROP frame={}\n", frame->inspect());
+          }
+        }
+
+        // if we have an actual frame use it's sync_wait
+        sync_wait = Frame::sync_wait_ok(frame) ? frame->sync_wait() : InputInfo::lead_time_min;
+      }
+
+      run_stats(desk::SYNC_WAIT, sync_wait); // log sync_wait
+
+      ec = error_code(); // reset ec (we may not need to wait)
+      if (Nanos::zero() != sync_wait) {
+        frame_timer.expires_after(sync_wait);
+        frame_timer.wait(ec); // loop runs in frame_strand, no async necessary
+      }
+    } // while loop
+
+  } else if (!frame_strand.running_in_this_thread()) { // get us to the frame strand
+    asio::post(frame_strand, [=, &desk = shared::desk]() { desk->frame_loop(wait); });
   } else {
-    asio::post(frame_strand, [this]() { frame_loop_unsafe(); });
+    INFO(module_id, "FRAME_LOOP", "falling through reason={}\n", ec.message());
   }
-}
-
-// must ensure this function only runs on the same thread as frame_strand
-void Desk::frame_loop_unsafe() {
-  Elapsed delay;
-  Render::enabled(true /* wait */);
-  run_stats(desk::RENDER_DELAY, delay);
-
-  Elapsed elapsed;
-  auto frame = Racked::next_frame().get();
-  run_stats(desk::NEXT_FRAME, elapsed);
-
-  // INFO(module_id, "FRAME_LOOP2", "frame={}\n", Frame::inspect_safe(frame));
-
-  if (frame && frame->state.ready()) {
-    frame_render(frame);
-  } else {
-    INFO(module_id, "FRAME_LOOP", "DROP frame={}\n", Frame::inspect_safe(frame));
-  }
-
-  auto wait = (frame && frame->sync_wait_ok()) ? frame->sync_wait() : InputInfo::lead_time_min;
-
-  run_stats(desk::SYNC_WAIT, wait);
-
-  frame_last = pet::now_monotonic();
-  frame_loop(wait);
 }
 
 void Desk::frame_render(frame_t frame) {
-  Elapsed elapsed;
-  desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
+  desk::DataMsg data_msg(frame, InputInfo::lead_time);
   frame->mark_rendered(); // frame is consumed, even when no connection
 
   if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
     active_fx = fx_factory::create<fx::MajorPeak>(run_stats);
+  } else if (frame->silent()) {
+    run_stats(desk::FRAMES_SILENT);
+  } else {
+    run_stats(desk::FRAMES_RENDERED);
   }
 
   active_fx->render(frame, data_msg);
@@ -136,13 +129,15 @@ void Desk::frame_render(frame_t frame) {
   if (control) {                       // control exists
     if (control->ready()) [[likely]] { // control is ready
 
-      io::async_write_msg(control->data_socket(), std::move(data_msg), [this](const error_code ec) {
-        // run_stats(desk::FRAMES);
+      io::async_write_msg(        //
+          control->data_socket(), //
+          std::move(data_msg),    //
+          [&desk = shared::desk, elapsed = Elapsed()](const error_code ec) {
+            desk->run_stats(desk::REMOTE_ELAPSED, elapsed());
+            desk->run_stats(desk::FRAMES);
 
-        if (ec) {
-          streams_deinit();
-        }
-      });
+            if (ec) desk->streams_deinit();
+          });
 
     } else if (ec_last_ctrl_tx) {
       INFO(module_id, "ERROR", "shutting down streams, ctrl={}\n", ec_last_ctrl_tx.message());
@@ -155,8 +150,6 @@ void Desk::frame_render(frame_t frame) {
   } else { // control does not exist, initialize it
     streams_init();
   }
-
-  run_stats(desk::REMOTE_ELAPSED, elapsed());
 }
 
 void Desk::init() { // static instance creation
@@ -171,49 +164,45 @@ void Desk::init_self() {
 
   // note: work guard created by constructor p
   for (auto n = 0; n < num_threads; n++) { // main thread is 0s
-    shared::desk->threads.emplace_back([=, &latch](std::stop_token token) mutable {
-      name_thread(TASK_NAME, n);
-      shared::desk->tokens.add(std::move(token));
+    shared::desk->threads.emplace_back(
+        [&n = n, &desk = shared::desk, &latch](std::stop_token token) {
+          name_thread(TASK_NAME, n);
+          desk->tokens.add(std::move(token));
 
-      latch.arrive_and_wait();
-      shared::desk->io_ctx.run();
-    });
+          latch.count_down();
+          desk->io_ctx.run();
+        });
   }
 
   // caller thread waits until all tasks are started
   latch.wait();
-  INFO(module_id, "INIT", "sizeof={} lead_time_min={} threads={}/{}\n", //
-       sizeof(Desk), pet::humanize(InputInfo::lead_time_min), num_threads,
-       shared::desk->threads.size());
+  log_init(num_threads);
 
-  // start frame loop, start on any thread, waits for rendering
-  asio::post(io_ctx, [this]() {
-    streams_init();
-    frame_loop();
-  });
+  asio::post(io_ctx, [this]() { streams_init(); });     // stream init on any thread
+  asio::post(frame_strand, [this]() { frame_loop(); }); // frame loop on frame thread
 }
 
 void Desk::streams_deinit() {
-  if (shared::desk->control) {
-    asio::post(streams_strand, [this]() {
-      run_stats(desk::STREAMS_DEINIT);
+  if (control) {
+    asio::post(streams_strand, [&desk = shared::desk]() {
+      desk->run_stats(desk::STREAMS_DEINIT);
 
-      shared::desk->control.reset();
+      desk->control.reset();
     });
   }
 }
 
 void Desk::streams_init() {
-  if (!shared::desk->control) {
-    asio::post(streams_strand, [this]() {
-      run_stats(desk::STREAMS_INIT);
+  if (!control) {
+    asio::post(streams_strand, [&desk = shared::desk]() {
+      desk->run_stats(desk::STREAMS_INIT);
 
-      shared::desk->control.emplace( // create ctrl stream
-          shared::desk->io_ctx,      // majority of rx/tx use io_ctx
-          streams_strand,            // shared state/status protected by this strand
-          ec_last_ctrl_tx,           // last error_code (updared vis streams_strand)
-          InputInfo::lead_time,      // default lead_time
-          run_stats                  // desk stats
+      desk->control.emplace(     // create ctrl stream
+          desk->io_ctx,          // majority of rx/tx use io_ctx
+          desk->streams_strand,  // shared state/status protected by this strand
+          desk->ec_last_ctrl_tx, // last error_code (updared vis streams_strand)
+          InputInfo::lead_time,  // default lead_time
+          desk->run_stats        // desk stats
       );
     });
   }
@@ -221,26 +210,38 @@ void Desk::streams_init() {
 
 // misc debug and logging API
 bool Desk::log_frame_timer_error(const error_code &ec, csv fn_id) const {
-  auto rc = false;
-  string msg;
+  auto rc = true;
 
-  switch (ec.value()) {
-  case errc::success:
-    rc = true;
-    break;
+  if (!ec) {
+    string msg;
+    auto w = std::back_inserter(msg);
 
-  case errc::operation_canceled:
-    msg = fmt::format("frame timer canceled, rendering={}\n", Render::enabled());
-    break;
+    fmt::format_to(w, "frame timer ");
 
-  default:
-    msg = fmt::format("frame timer error, reason={} rendering={}\n", //
-                      ec.message(), Render::enabled());
+    switch (ec.value()) {
+
+    case errc::operation_canceled:
+      fmt::format_to(w, "CANCELED");
+      break;
+
+    default:
+      fmt::format_to(w, "ERROR reason={}", ec.message());
+    }
+
+    INFO(module_id, fn_id, "{} rendering={}\n", msg, Render::enabled());
+
+    rc = false;
   }
 
-  if (msg.empty() == false) INFO(module_id, fn_id, "{}\n", msg);
-
   return rc;
+}
+
+void Desk::log_init(int num_threads) const noexcept {
+  INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
+       sizeof(Desk),                                                    //
+       num_threads,                                                     //
+       threads.size(),                                                  //
+       pet::humanize(InputInfo::lead_time_min));
 }
 
 } // namespace pierre

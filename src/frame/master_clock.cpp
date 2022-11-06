@@ -81,6 +81,8 @@ void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_pr
       std::this_thread::sleep_for(poll_wait);
 
       clock_info = load_info_from_mapped();
+
+      INFO(module_id, "INFO_RETRY", "waiting for clock, wait={}\n", pet::humanize(max_wait));
     }
 
     INFO(module_id, "GET_INFO", "no clock after {}\n", elapsed.humanize());

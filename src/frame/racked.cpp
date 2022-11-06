@@ -234,12 +234,25 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
         // calc the frame state (Frame caches the anchor)
         auto state = frame->state_now(anchor, InputInfo::lead_time);
         prom.set_value(frame);
-        frame.reset(); // done with this frame
 
         if (state.ready() || state.outdated() || state.future()) {
           // consume the ready or outdated frame (rack access is still acquired)
           racked.front().consume();
-          pop_front_reel_if_empty();
+
+          // if the reel is empty, pop it from racked
+          if (size() > 0) {
+
+            if (racked.front().empty()) {
+              const auto reel_num = racked.front().serial_num();
+              racked.pop_front();
+              update_racked_size();
+
+              log_racked();
+            }
+          }
+
+        } else {
+          INFO(module_id, "NEXT_FRAME", "did not pop frame={}\n", Frame::inspect_safe(frame));
         }
       } else {
         prom.set_value(frame_t());
@@ -248,27 +261,13 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
       racked_release(); // we're done with the rack
     } else if (!clock_info.ok()) {
       INFO(module_id, "NEXT_FRAME", "WARN clock ok={}\n", clock_info.ok());
+      prom.set_value(frame_t());
 
     } else {
       INFO(module_id, "TIMEOUT", "waiting for racked reels={}\n", size());
       prom.set_value(frame_t());
     }
   });
-}
-
-// NOTE: this function assumes are locked
-void Racked::pop_front_reel_if_empty() noexcept {
-  // if the reel is empty, pop it from racked
-  if (size() > 0) {
-
-    if (racked.front().empty()) {
-      const auto reel_num = racked.front().serial_num();
-      racked.pop_front();
-      update_racked_size();
-
-      log_racked();
-    }
-  }
 }
 
 void Racked::rack_wip() noexcept {
