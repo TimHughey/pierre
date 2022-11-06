@@ -1,0 +1,64 @@
+[base]
+title = "Pierre Live"   # for identification purposes
+config_vsn = 2          # config file format
+working_dir = ".pierre" # cwd to this directory at startup
+# build_vsn = ""        # (runtime) git version of executable
+# build_time = ""       # (runtime) datetime of build
+
+[cli]
+# NOTE: cli table is not a source of config, rather it holds
+#       command line opts passed at startup and populated
+#       at runtime
+#
+# app_name = "" # typically basename() of the app
+# cfg_file = "" # could be this file or another specified by cli opt
+
+[mdns]
+receiver = "%h"        # use hostname
+service = "_ruth._tcp" # service advertised by rendering devices
+dmx_controller = "dmx"
+# dmx_controller = "test-with-devs"
+
+[frame]
+dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
+clock = { shm_name = "/nqptp" }
+
+[frame.peaks.magnitudes] # only keep peaks in this range
+floor = 0.9
+ceiling = 128.0
+
+[desk]
+colorbars = true
+threads = 5
+
+[fx.majorpeak.frequencies]
+hard = { floor = 40.0, ceiling = 11500.0 }
+soft = { floor = 110.0, ceiling = 5000.0 }
+
+[fx.majorpeak.magnitudes]
+floor = 2.09
+ceiling = 80.0
+
+[fx.majorpeak.makecolors.above_soft_ceiling]
+hue = { min = 225.0, max = 355.0, step = 0.0001 }
+bri = { max = 55.0, mag_scaled = true }
+
+[fx.majorpeak.makecolors.generic]
+hue = { min = 0.0, max = 360.0, step = 0.0001 }
+bri = { max = 100.0, mag_scaled = true }
+
+[[fx.majorpeak.pinspots]]
+name = "fill pinspot"
+type = "fill"
+fade_max_ms = 1199
+freq_max = 5000.0
+when_greater = { freq = 180.0, bri_min = 27.0, when_higher_freq = { bri_min = 85.0 } }
+when_less_than = { freq = 180.0, bri_min = 13.0 }
+
+[[fx.majorpeak.pinspots]]
+name = "main pinspot"
+type = "main"
+fade_max_ms = 900
+freq_min = 180.0
+when_fading = { bri_min = 5.0, when_freq_greater = { bri_min = 27.0 } }
+when_less_than = { freq = 180.0, bri_min = 17.0 }
