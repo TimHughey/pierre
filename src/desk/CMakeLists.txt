@@ -20,9 +20,6 @@ add_library(${__target} SHARED
   # FX
   fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp
 
-  # FX configs
-  fx/majorpeak/config.cpp
-
   # (head)units
   unit/pinspot.cpp
 

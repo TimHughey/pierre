@@ -1,22 +1,20 @@
-/*
-    lightdesk/lightdesk.cpp - Ruth Light Desk
-    Copyright (C) 2020  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre
+// Copyright (C) 2022 Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #include "desk/fx/majorpeak.hpp"
 #include "base/elapsed.hpp"
@@ -56,17 +54,27 @@ MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
          Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
   }
 
+  // cache config
+  load_config();
+
   INFO(module_id, "CONSTRUCT", "base_color={:h}\n", base_color);
 }
 
 void MajorPeak::execute(peaks_t peaks) {
 
+  if (_cfg_changed.has_value() && Config::has_changed(_cfg_changed)) {
+    load_config();
+    Config::want_changes(_cfg_changed);
+
+    INFO(module_id, "EXECUTE", "config reloaded want_changes={}\n", _cfg_changed.has_value());
+  }
+
   units->derive<AcPower>(unit::AC_POWER)->on();
   units->derive<DiscoBall>(unit::DISCO_BALL)->spin();
 
-  handleElWire(peaks);
-  handleMainPinspot(peaks);
-  handleFillPinspot(peaks);
+  handle_el_wire(peaks);
+  handle_main_pinspot(peaks);
+  handle_fill_pinspot(peaks);
 
   stats(pierre::desk::FREQUENCY, peaks->major_peak().frequency());
   stats(pierre::desk::MAGNITUDE, peaks->major_peak().magnitude());
@@ -77,17 +85,16 @@ void MajorPeak::execute(peaks_t peaks) {
   finished = false;
 }
 
-void MajorPeak::handleElWire(peaks_t peaks) {
+void MajorPeak::handle_el_wire(peaks_t peaks) {
 
+  // create handy array of all elwire units
   std::array elwires{units->derive<ElWire>(unit::EL_DANCE), units->derive<ElWire>(unit::EL_ENTRY)};
-
-  const auto freq_limits = major_peak_config::freq_limits();
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks->major_peak(); peak.useable()) {
 
-      const DutyVal x = freq_limits.scaled_soft().interpolate(elwire->minMaxDuty<double>(),
-                                                              peak.frequency().scaled());
+      const DutyVal x = _freq_limits.scaled_soft().interpolate(elwire->minMaxDuty<double>(),
+                                                               peak.frequency().scaled());
 
       elwire->fixed(x);
     } else {
@@ -96,9 +103,9 @@ void MajorPeak::handleElWire(peaks_t peaks) {
   }
 }
 
-void MajorPeak::handleFillPinspot(peaks_t peaks) {
+void MajorPeak::handle_fill_pinspot(peaks_t peaks) {
   auto fill = units->derive<PinSpot>(unit::FILL_SPOT);
-  auto cfg = major_peak_config::pspot("fill pinspot");
+  auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "fill pinspot");
 
   const auto peak = peaks->major_peak();
   if (peak.frequency() > cfg.freq_max) {
@@ -163,16 +170,14 @@ void MajorPeak::handleFillPinspot(peaks_t peaks) {
   }
 }
 
-void MajorPeak::handleMainPinspot(peaks_t peaks) {
+void MajorPeak::handle_main_pinspot(peaks_t peaks) {
   auto main = units->derive<PinSpot>(unit::MAIN_SPOT);
-  auto cfg = major_peak_config::pspot("main pinspot");
+  auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "main pinspot");
 
   const auto freq_min = cfg.freq_min;
   const auto peak = (*peaks)[freq_min];
 
-  const auto mag_limits = major_peak_config::mag_limits();
-
-  if (peak.useable(mag_limits) == false) {
+  if (peak.useable(_mag_limits) == false) {
     return;
   }
 
@@ -216,45 +221,52 @@ void MajorPeak::handleMainPinspot(peaks_t peaks) {
   }
 }
 
-const Color MajorPeak::make_color(const Peak &peak, const Color &ref) const noexcept {
+void MajorPeak::load_config() noexcept {
+  // cache the config
+  _freq_limits = major_peak::cfg_freq_limits();
+  _hue_cfg_map = major_peak::cfg_hue_map();
+  _mag_limits = major_peak::cfg_mag_limits();
+  _pspot_cfg_map = major_peak::cfg_pspot_map();
 
-  const auto freq_limits = major_peak_config::freq_limits();
-  const auto mag_limits = major_peak_config::mag_limits();
+  // register for changes
+  Config::want_changes(_cfg_changed);
+}
 
+const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   auto color = ref; // initial color, may change below
 
   // ensure frequency can be interpolated into a color
-  if (peak.useable(mag_limits, freq_limits.hard()) == false) {
+  if (peak.useable(_mag_limits, _freq_limits.hard()) == false) {
     color = Color::black();
 
-  } else if (peak.frequency() < freq_limits.soft().min()) {
+  } else if (peak.frequency() < _freq_limits.soft().min()) {
     // frequency less than the soft
-    color.setBrightness(mag_limits, peak.magnitude().scaled());
+    color.setBrightness(_mag_limits, peak.magnitude().scaled());
 
-  } else if (peak.frequency() > freq_limits.soft().max()) {
-    auto const hue_cfg = major_peak_config::make_colors("above_soft_ceiling");
+  } else if (peak.frequency() > _freq_limits.soft().max()) {
+    auto const &hue_cfg = major_peak::find_hue_cfg(_hue_cfg_map, "above_soft_ceiling");
 
-    auto fl_custom = freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
+    auto fl_custom = freq_min_max(_freq_limits.soft().max(), _freq_limits.hard().max());
     auto hue_minmax = hue_cfg.hue_minmax();
     auto degrees = fl_custom.interpolate(hue_minmax, peak.frequency().scaled()) * hue_cfg.hue.step;
 
     color.rotateHue(degrees);
     if (hue_cfg.brightness.mag_scaled) {
-      color.setBrightness(mag_limits, peak.magnitude().scaled());
+      color.setBrightness(_mag_limits, peak.magnitude().scaled());
     } else {
       color.setBrightness(hue_cfg.brightness.max);
     }
 
   } else {
-    const auto hue_cfg = major_peak_config::make_colors("generic"sv);
+    const auto &hue_cfg = major_peak::find_hue_cfg(_hue_cfg_map, "generic");
 
-    const auto fl_soft = freq_limits.scaled_soft();
+    const auto fl_soft = _freq_limits.scaled_soft();
     const auto hue_min_max = hue_cfg.hue_minmax();
 
     auto degrees = fl_soft.interpolate(hue_min_max, peak.frequency().scaled()) * hue_cfg.hue.step;
 
     color.rotateHue(degrees);
-    color.setBrightness(mag_limits, peak.magnitude().scaled());
+    color.setBrightness(_mag_limits, peak.magnitude().scaled());
   }
 
   return color;
@@ -263,7 +275,7 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) const noex
 // must be in .cpp to avoid including Desk in .hpp
 void MajorPeak::once() { units->dark(); }
 
-Color &MajorPeak::refColor(size_t index) const { return _ref_colors.at(index); }
+const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_colors.at(index); }
 
 // static class members
 MajorPeak::ReferenceColors MajorPeak::_ref_colors;

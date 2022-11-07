@@ -20,6 +20,7 @@
 
 #include "base/threads.hpp"
 #include "base/types.hpp"
+#include "config/types.hpp"
 
 #include <filesystem>
 #include <future>
@@ -91,11 +92,11 @@ public:
   const string build_vsn() const noexcept { return at("base.build_vsn"sv).value_or(UNSET); };
   const string config_vsn() const noexcept { return at("base.config_vsn"sv).value_or(UNSET); }
 
-  static bool has_changed(std::shared_future<bool> &fut) noexcept;
+  static bool has_changed(cfg_future &fut) noexcept;
 
   const string receiver() const noexcept; // see .cpp, uses Host
 
-  static std::shared_future<bool> want_changes() noexcept;
+  static void want_changes(cfg_future &fut) noexcept;
   const string working_dir() noexcept { return table_at("base.working_dir"sv).value_or(UNSET); }
 
 private:
@@ -117,7 +118,7 @@ private:
   static stop_tokens tokens;
   static std::filesystem::file_time_type last_write;
   static std::optional<std::promise<bool>> change_proms;
-  static std::optional<std::shared_future<bool>> change_fut;
+  static cfg_future change_fut;
 
   static constexpr csv BASE{"base"};
   static constexpr csv BUILD_TIME{"build_time"};

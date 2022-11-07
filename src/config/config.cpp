@@ -54,7 +54,7 @@ Threads Config::threads;
 stop_tokens Config::tokens;
 fs::file_time_type Config::last_write;
 std::optional<std::promise<bool>> Config::change_proms;
-std::optional<std::shared_future<bool>> Config::change_fut;
+cfg_future Config::change_fut;
 
 // Config API
 
@@ -95,12 +95,13 @@ void Config::init_self(int argc, char **argv) noexcept {
   }
 }
 
-bool Config::has_changed(std::shared_future<bool> &fut) noexcept {
+bool Config::has_changed(std::optional<std::shared_future<bool>> &fut) noexcept {
   auto rc = false;
 
-  if (fut.valid()) {
-    if (auto status = fut.wait_for(0ms); status == std::future_status::ready) {
-      rc = fut.get();
+  if (fut.has_value() && fut->valid()) {
+    if (auto status = fut->wait_for(0ms); status == std::future_status::ready) {
+      rc = fut->get();
+      fut.reset();
     }
   }
 
@@ -181,14 +182,14 @@ const string Config::receiver() const noexcept {
   return (val == fallback ? string(Host().hostname()) : string(val));
 }
 
-std::shared_future<bool> Config::want_changes() noexcept {
+void Config::want_changes(cfg_future &fut) noexcept {
 
   if (!change_proms.has_value() && !change_fut.has_value()) {
     change_proms.emplace();
     change_fut.emplace(change_proms->get_future());
   }
 
-  return *change_fut;
+  fut.emplace(change_fut.value());
 }
 
 } // namespace pierre

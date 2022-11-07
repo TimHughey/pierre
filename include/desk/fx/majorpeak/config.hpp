@@ -19,80 +19,141 @@
 #pragma once
 
 #include "base/hard_soft_limit.hpp"
+#include "base/logger.hpp"
 #include "base/min_max_pair.hpp"
 #include "base/types.hpp"
+#include "config/config.hpp"
 #include "frame/peaks.hpp"
+#include "fx/majorpeak/types.hpp"
 
 #include <fmt/format.h>
-#include <map>
+#include <future>
 
 namespace pierre {
 namespace fx {
 
-struct major_peak_config {
+namespace major_peak {
 
-  struct hue_cfg {
-    struct {
-      Frequency min;
-      Frequency max;
-      double step;
-    } hue;
+inline freq_limits_t cfg_freq_limits() noexcept {
+  auto freqs = Config().at("fx.majorpeak.frequencies"sv);
 
-    struct {
-      double max;
-      bool mag_scaled;
-    } brightness;
+  return hard_soft_limit<Frequency>(freqs.at_path("hard.floor"sv).value_or(40.0),
+                                    freqs.at_path("hard.ceiling"sv).value_or(11500.0),
+                                    freqs.at_path("soft.floor"sv).value_or(110.0),
+                                    freqs.at_path("soft.ceiling"sv).value_or(10000.0));
+}
 
-    constexpr const Frequency min() const noexcept { return hue.min * (1.0 / hue.step); }
-    constexpr const Frequency max() const noexcept { return hue.max * (1.0 / hue.step); }
+inline mag_min_max cfg_mag_limits() noexcept { // static
+  auto mags = Config().at("fx.majorpeak.magnitudes"sv);
 
-    constexpr const min_max_pair<Frequency> hue_minmax() const noexcept {
-      return min_max_pair<Frequency>(min(), max());
+  return mag_min_max(mags.at_path("floor").value_or(2.009), mags.at_path("ceiling").value_or(64.0));
+}
+
+inline hue_cfg_map cfg_hue_map() noexcept {
+  static constexpr std::array categories{csv{"generic"}, csv{"above_soft_ceiling"}};
+  hue_cfg_map map;
+
+  for (auto cat : categories) {
+    const string full_path = fmt::format("fx.majorpeak.makecolors.{}", cat);
+
+    auto cc = Config().at(full_path);
+
+    map.try_emplace(
+        string(cat),
+        hue_cfg{.hue = {.min = cc.at_path("hue.min"sv).value_or(0.0),
+                        .max = cc.at_path("hue.max"sv).value_or(0.0),
+                        .step = cc.at_path("hue.step"sv).value_or(0.001)},
+                .brightness = {.max = cc.at_path("bri.max"sv).value_or(0.0),
+                               .mag_scaled = cc.at_path("hue.mag_scaled"sv).value_or(true)}});
+  }
+
+  return map;
+}
+
+inline pspot_cfg_map cfg_pspot_map() noexcept {
+  static constexpr csv BRI_MIN{"bri_min"};
+  major_peak::pspot_cfg_map map;
+
+  auto mp = Config().at("fx.majorpeak"sv);
+  // auto mp_pspots = toml::path("fx.majorpeak.pinspots");
+
+  const toml::array *pspots = mp["pinspots"sv].as_array();
+
+  for (auto &&el : *pspots) {
+
+    auto tbl = el.as_table();
+
+    auto entry_name = (*tbl)["name"sv].value_or(string("unnamed"));
+
+    auto [it, inserted] = map.try_emplace(                   //
+        entry_name,                                          //
+        entry_name,                                          //
+        (*tbl)["type"sv].value_or(string("unknown")),        //
+        pet::from_ms((*tbl)["fade_max_ms"sv].value_or(100)), //
+        (*tbl)["freq_min"sv].value_or(0.0),                  //
+        (*tbl)["freq_max"sv].value_or(0.0));
+
+    if (inserted) {
+      auto &cfg = it->second;
+
+      // populate 'when_less_than' (common for main and fill)
+      auto wltt = (*tbl)["when_less_than"sv];
+      auto &wlt = cfg.when_less_than;
+
+      wlt.freq = wltt["freq"sv].value_or(0.0);
+      wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
+
+      if (csv{cfg.type} == csv{"fill"}) { // fill specific
+        auto wgt = (*tbl)["when_greater"sv];
+
+        auto &wg = cfg.when_greater;
+        wg.freq = wgt["freq"sv].value_or(0.0);
+        wg.bri_min = wgt[BRI_MIN].value_or(0.0);
+
+        auto whft = wgt["when_higher_freq"sv];
+        auto &whf = wg.when_higher_freq;
+        whf.bri_min = whft[BRI_MIN].value_or(0.0);
+
+      } else if (csv(cfg.type) == csv{"main"}) { // main specific
+        auto wft = (*tbl)["when_fading"sv];
+
+        auto &wf = cfg.when_fading;
+        wf.bri_min = wft[BRI_MIN].value_or(0.0);
+
+        auto &wffg = wf.when_freq_greater;
+        auto wffgt = wft["when_freq_greater"sv];
+        wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
+      } else {
+        INFO("MAJOR_PEAK", "PINSPOT", "unrecognized type={}\n", cfg.type);
+      }
     }
-  };
+  }
 
-  struct pspot_cfg {
-    string name;           // common for all pinspots
-    string type;           // type of config (fill or main)
-    Nanos fade_max{0};     // common for all pinspots
-    Frequency freq_min{0}; // main pinspot
-    Frequency freq_max{0}; // fill pinspot
+  return map;
+}
 
-    struct {
-      Frequency freq{0};
-      double bri_min{0};
-    } when_less_than{0}; // main or fill
+inline const hue_cfg &find_hue_cfg(hue_cfg_map &map, const string cat) noexcept {
+  return map.at(cat);
+}
 
-    struct {
-      Frequency freq{0};
-      double bri_min{0};
-      struct {
-        double bri_min{0};
-      } when_higher_freq{0};
-    } when_greater; // fill
+inline const pspot_cfg &find_pspot_cfg(pspot_cfg_map &map, const string name) noexcept {
+  return map.at(name);
+}
 
-    struct {
-      double bri_min{0};
-      struct {
-        double bri_min{0};
-      } when_freq_greater;
-    } when_fading; // main
+} // namespace major_peak
 
-    pspot_cfg() = default;
-    pspot_cfg(csv name, csv type, const Nanos &fade_max, const Frequency freq_min,
-              const Frequency freq_max) noexcept
-        : name(name), type(type), fade_max(fade_max), freq_min(freq_min), freq_max(freq_max) {}
-  };
+/* struct major_peak_config {
 
-  using pspot_map = std::map<string, pspot_cfg>;
-
-  static hard_soft_limit<Frequency> freq_limits() noexcept;
-  static hue_cfg make_colors(csv cat) noexcept;
+  // static major_peak::freq_limits_t freq_limits() noexcept;
+  static major_peak::hue_cfg_map hue_cfg_map() noexcept;
+  static major_peak::hue_cfg make_colors(csv cat) noexcept;
   static mag_min_max mag_limits() noexcept;
-  static pspot_cfg pspot(const string &name) noexcept;
+  static major_peak::pspot_cfg pspot(const string &name) noexcept;
+  static major_peak::pspot_cfg_map pspot_map() noexcept;
+  static std::shared_future<bool> want_changes() noexcept;
 
   static constexpr csv module_id{"MAJOR_PEAK_CFG"};
-};
+}; */
 
 } // namespace fx
 } // namespace pierre
