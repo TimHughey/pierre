@@ -29,55 +29,43 @@ namespace airplay {
 // goal is to have at least well-formed user object copy/assignment example
 
 // construct with StreamData (copy)
-StreamInfo::StreamInfo(const StreamData &sd) : _data(sd) { __init(); }
+StreamInfo::StreamInfo(const StreamData &sd) noexcept : _data(sd) {}
 
 // construct with StreamData (move)
-StreamInfo::StreamInfo(const StreamData &&sd) : _data(std::move(sd)) { __init(); }
+StreamInfo::StreamInfo(const StreamData &&sd) noexcept : _data(std::move(sd)) {}
 
 // construct from StreamInfo (copy)
-StreamInfo::StreamInfo(const StreamInfo &si) : _data(si._data) { __init(); }
+StreamInfo::StreamInfo(const StreamInfo &si) noexcept : _data(si._data) {}
 
 // construct from StreamInfo (move)
-StreamInfo::StreamInfo(StreamInfo &&si) : _data(std::move(si._data)) { __init(); }
+StreamInfo::StreamInfo(StreamInfo &&si) noexcept : _data(std::move(si._data)) {}
 
 // assignment (copy)
-StreamInfo &StreamInfo::operator=(const StreamData &sd) {
+StreamInfo &StreamInfo::operator=(const StreamData &sd) noexcept {
   _data = sd;
 
-  __init();
-
   return *this;
 }
 
 // assignment (move)
-StreamInfo &StreamInfo::operator=(StreamData &&sd) {
+StreamInfo &StreamInfo::operator=(StreamData &&sd) noexcept {
   _data = std::move(sd);
-
-  __init();
 
   return *this;
 }
 
 // assignment (copy)
-StreamInfo &StreamInfo::operator=(const StreamInfo &si) {
+StreamInfo &StreamInfo::operator=(const StreamInfo &si) noexcept {
   _data = si._data;
-
-  __init();
 
   return *this;
 }
 
 // assignment (move)
-StreamInfo &StreamInfo::operator=(StreamInfo &&si) {
+StreamInfo &StreamInfo::operator=(StreamInfo &&si) noexcept {
   _data = std::move(si._data);
 
-  __init();
-
   return *this;
-}
-
-void StreamInfo::__init() {
-  // nothing to init at the moment, might be later
 }
 
 void StreamInfo::teardown() {

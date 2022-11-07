@@ -20,7 +20,6 @@
 //  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
 #include "conn_info/conn_info.hpp"
-#include "base/shk.hpp"
 
 #include <chrono>
 #include <fmt/format.h>

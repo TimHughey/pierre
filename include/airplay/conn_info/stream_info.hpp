@@ -50,26 +50,26 @@ public:
   StreamInfo() = default;
 
   // copy/move constructors (from StreamData)
-  StreamInfo(const StreamData &ad);
-  StreamInfo(const StreamData &&ad);
+  StreamInfo(const StreamData &ad) noexcept;
+  StreamInfo(const StreamData &&ad) noexcept;
 
   // copy/move constructors (from StreamInfo)
-  StreamInfo(const StreamInfo &ai);
-  StreamInfo(StreamInfo &&ai);
+  StreamInfo(const StreamInfo &ai) noexcept;
+  StreamInfo(StreamInfo &&ainoexcept) noexcept;
 
   // copy/move assignment (from StreamData)
-  StreamInfo &operator=(const StreamData &ad);
-  StreamInfo &operator=(StreamData &&ad);
+  StreamInfo &operator=(const StreamData &ad) noexcept;
+  StreamInfo &operator=(StreamData &&ad) noexcept;
 
   // copy/move assignment (from StreamInfo)
-  StreamInfo &operator=(const StreamInfo &ai);
-  StreamInfo &operator=(StreamInfo &&ai);
+  StreamInfo &operator=(const StreamInfo &ai) noexcept;
+  StreamInfo &operator=(StreamInfo &&ai) noexcept;
 
-  const StreamData &data() const { return _data; }
+  const StreamData &data() const noexcept { return _data; }
 
   // access the SessionData
-  const csv key() const { return _data.key.view(); }
-  void keyClear() { _data.key.clear(); }
+  const csv key() const noexcept { return _data.key.view(); }
+  void keyClear() noexcept { _data.key.clear(); }
 
   void teardown();
 
@@ -78,9 +78,6 @@ public:
 
 private:
   StreamData _data;
-
-private:
-  void __init();
 };
 
 } // namespace airplay

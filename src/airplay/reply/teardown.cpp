@@ -18,13 +18,12 @@
 
 #include "reply/teardown.hpp"
 #include "base/headers.hpp"
-#include "base/logger.hpp"
 #include "base/render.hpp"
 #include "base/shk.hpp"
 #include "base/types.hpp"
 #include "conn_info/conn_info.hpp"
-#include "mdns/service.hpp"
 #include "mdns/mdns.hpp"
+#include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 #include "server/servers.hpp"
 
@@ -63,7 +62,7 @@ bool Teardown::phase2() { // we've been asked to disconnect
   }
 
   ConnInfo::ptr()->groupContainsGroupLeader = false;
-  ConnInfo::ptr()->dacp_active_remote.clear();
+  // ConnInfo::ptr()->dacp_active_remote.clear();
 
   return true;
 }
