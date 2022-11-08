@@ -18,20 +18,4 @@
 
 #pragma once
 
-#include "base/elapsed.hpp"
-#include "base/input_info.hpp"
-#include "base/pet.hpp"
-#include "base/types.hpp"
-#include "frame/flush_info.hpp"
-
-#include <array>
-#include <memory>
-
-namespace pierre {
-
-using cipher_buff_t = std::array<uint8_t, 16 * 1024>;
-using cipher_buff_ptr = std::unique_ptr<cipher_buff_t>;
-
-typedef unsigned long long ullong_t; // required by libsodium
-
-} // namespace pierre
+namespace pierre {} // namespace pierre

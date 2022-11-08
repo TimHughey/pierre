@@ -27,8 +27,8 @@
 #include "base/uint8v.hpp"
 #include "frame/peaks.hpp"
 #include "frame/state.hpp"
-#include "frame/types.hpp"
 
+#include <array>
 #include <compare>
 #include <exception>
 #include <future>
@@ -40,6 +40,9 @@
 #include <tuple>
 
 namespace pierre {
+
+using cipher_buff_t = std::array<uint8_t, 16 * 1024>;
+using cipher_buff_ptr = std::unique_ptr<cipher_buff_t>;
 
 class Frame;
 using frame_t = std::shared_ptr<Frame>;
@@ -110,7 +113,7 @@ public:
 
   // decipher support
   int cipher_rc{0};
-  ullong_t decipher_len{0};
+  unsigned long long decipher_len{0}; // type dictated by libsodium
 
   // decode frame
   int samples_per_channel = 0;

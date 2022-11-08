@@ -28,7 +28,6 @@
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/reel.hpp"
-#include "frame/types.hpp"
 
 #include <algorithm>
 #include <atomic>
