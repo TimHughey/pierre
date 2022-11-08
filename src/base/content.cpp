@@ -36,6 +36,8 @@ void Content::dump() const {
     fmt::format_to(w, "parameters='{}'", toSingleLineString());
   } else if (multiLineString()) {
     fmt::format_to(w, "\n{}{}", INFO_TAB, inspect());
+  } else if (size() == 0) {
+    fmt::format_to(w, "CONTENT EMPTY");
   } else {
     fmt::format_to(w, "val='{}'", inspect()); // output inspect msg on the same line
   }

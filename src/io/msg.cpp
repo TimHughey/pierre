@@ -1,5 +1,5 @@
 // Pierre
-// Copyright (C) 2022 Tim Hughey
+// Copyright (C) 2022  Tim Hughey
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,10 +16,32 @@
 //
 // https://www.wisslanding.com
 
-#ifndef pierre_version_h
-#define pierre_version_h
+#include "io/msg.hpp"
 
-#define GIT_REVISION "@_build_version@"
-#define BUILD_TIMESTAMP "@_time_stamp@"
+namespace pierre {
+namespace io {
 
-#endif
+// misc logging, debug
+string Msg::inspect() const noexcept {
+  string msg;
+
+  fmt::format_to(std::back_inserter(msg), "packed_len={}\n", //
+                 measureMsgPack(doc));
+
+  serializeJsonPretty(doc, msg);
+
+  return msg;
+}
+
+error_code Msg::log_tx(const error_code ec, const size_t bytes) noexcept {
+  if (ec || (tx_len != bytes)) {
+    if (ec != errc::operation_canceled) {
+      INFO(module_id, "LOG_TX", "failed, bytes={}/{} reason={}\n", bytes, tx_len, ec.message());
+    }
+  }
+
+  return ec;
+}
+
+} // namespace io
+} // namespace pierre

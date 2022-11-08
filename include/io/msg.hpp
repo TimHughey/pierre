@@ -1,22 +1,21 @@
-/*
-    Pierre
-    Copyright (C) 2022  Tim Hughey
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre
+// Copyright (C) 2022  Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #pragma once
 
@@ -26,10 +25,8 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "frame/frame.hpp"
 
 #include <ArduinoJson.h>
-#include <arpa/inet.h>
 #include <array>
 #include <future>
 #include <memory>
@@ -54,10 +51,8 @@ static constexpr csv TYPE{"type"};
 class Msg {
 public:
   // outbound messages
-  Msg(csv type, size_t max_size = DOC_DEFAULT_MAX_SIZE)
-      : type(type.data(), type.size()), //
-        doc(max_size)                   //
-  {
+  Msg(csv type, size_t max_size = DOC_DEFAULT_MAX_SIZE) noexcept
+      : type(type.data(), type.size()), doc(max_size) {
     doc[TYPE] = type;
   }
 
@@ -118,18 +113,9 @@ public:
   }
 
   // misc logging, debug
-  virtual string inspect() const {
-    string msg;
+  virtual string inspect() const noexcept;
 
-    fmt::format_to(std::back_inserter(msg), "packed_len={}\n", //
-                   measureMsgPack(doc));
-
-    serializeJsonPretty(doc, msg);
-
-    return msg;
-  }
-
-  error_code log_rx(const error_code ec, const size_t bytes, const auto err) {
+  error_code log_rx(const error_code ec, const size_t bytes, const auto err) noexcept {
     if (ec || (packed_len != bytes) || err) {
       INFO(module_id, "LOG_RX", "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
            ec.message(), err.c_str());
@@ -138,15 +124,7 @@ public:
     return ec;
   }
 
-  error_code log_tx(const error_code ec, const size_t bytes) {
-    if (ec || (tx_len != bytes)) {
-      if (ec != errc::operation_canceled) {
-        INFO(module_id, "LOG_TX", "failed, bytes={}/{} reason={}\n", bytes, tx_len, ec.message());
-      }
-    }
-
-    return ec;
-  }
+  error_code log_tx(const error_code ec, const size_t bytes) noexcept;
 
   // order dependent
   string type;

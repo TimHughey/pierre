@@ -133,7 +133,7 @@ private:
   std::stop_token stop_token;
   static constexpr fmt::string_view line_format{"{:>{}.{}} {:<{}} {:<{}} {}"};
   static constexpr csv SPACE{" "};
-  static constexpr int width_ts{11};
+  static constexpr int width_ts{13};
   static constexpr int width_ts_precision{1};
   static constexpr int width_mod{18};
   static constexpr int width_cat{15};

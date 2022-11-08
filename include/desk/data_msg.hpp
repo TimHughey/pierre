@@ -61,7 +61,7 @@ public:
   }
 
   // misc debug
-  string inspect() const override {
+  string inspect() const noexcept override {
     string msg;
 
     fmt::format_to(std::back_inserter(msg), "silence={} packed_len={} dmx_len={}\n", //

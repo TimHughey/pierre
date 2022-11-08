@@ -26,6 +26,11 @@
 #include "frame/frame.hpp"
 #include "mdns/mdns.hpp"
 
+int main(int argc, char *argv[]) {
+  pierre::Pierre().init(argc, argv).run();
+  exit(0);
+}
+
 namespace pierre {
 
 Pierre &Pierre::init(int argc, char *argv[]) {

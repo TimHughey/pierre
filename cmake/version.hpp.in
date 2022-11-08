@@ -1,5 +1,5 @@
 // Pierre
-// Copyright (C) 2021  Tim Hughey
+// Copyright (C) 2022 Tim Hughey
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,13 +12,19 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
-#include "pierre.hpp"
+#pragma once
 
-int main(int argc, char *argv[]) {
+#include <string>
 
-  pierre::Pierre().init(argc, argv).run();
+namespace pierre {
+namespace build {
 
-  exit(0);
-}
+const std::string vsn("@_build_version_@");
+const std::string timestamp("@_build_timestamp_@");
+} // namespace build
+
+} // namespace pierre

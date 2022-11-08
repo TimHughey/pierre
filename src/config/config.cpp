@@ -25,7 +25,7 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "config/args.hpp"
-#include "version.h"
+#include "version.hpp"
 
 #include <filesystem>
 #include <fmt/chrono.h>
@@ -151,8 +151,8 @@ bool Config::parse() noexcept { // static
 
     // populate static build info
     auto base = table[BASE].as_table();
-    base->emplace("build_vsn"sv, string(GIT_REVISION));
-    base->emplace("build_time"sv, string(BUILD_TIMESTAMP));
+    base->emplace("build_vsn"sv, build::vsn);
+    base->emplace("build_time"sv, build::timestamp);
 
     auto cli = table[CLI].as_table();
     cli->emplace("app_name"sv, args_map.app_name);

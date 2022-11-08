@@ -60,6 +60,9 @@ namespace reply {
     std::copy(_content.begin(), _content.end(), where);
   }
 
+  // INFO(module_id, "REPLY", "path={} method={}\n", path(), method());
+  // _content.dump();
+
   log_reply(resp_text);
 
   return _packet;

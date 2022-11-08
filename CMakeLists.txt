@@ -5,9 +5,16 @@
 #
 
 cmake_minimum_required(VERSION 3.23.0)
+
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+
+set(Boost_USE_DEBUG_LIBS        OFF) # ignore debug libs
+set(Boost_USE_RELEASE_LIBS      ON)  # only find release libs
+set(Boost_USE_MULTITHREADED     ON)
+set(Boost_THREADAPI             pthread)
+set(THREADS_PREFER_PTHREAD_FLAG true)
 
 # set the project name and version
 project(pierre
@@ -38,32 +45,9 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG true)
 find_package(Threads REQUIRED)
 
-IF(Threads_FOUND) 
-  message(VERBOSE "using threads: ${CMAKE_THREAD_LIBS_INIT}")
-endif()
-
-include(FetchContent)
-
-FetchContent_Declare(ArduinoJson
-    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
-    GIT_TAG        v6.19.4
-)
-
-FetchContent_Declare(InfluxData
-    GIT_REPOSITORY https://github.com/offa/influxdb-cxx
-    GIT_TAG        v0.6.7
-)
-
-FetchContent_Declare(tomlplusplus
-    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
-    GIT_TAG        v3.2.0
-)
-
-FetchContent_MakeAvailable(ArduinoJson InfluxData tomlplusplus)
-
 add_subdirectory(src)
 
-add_executable(${_target} apps/pierre.cpp apps/main.cpp)
+add_executable(${_target} apps/pierre.cpp)
 
 target_include_directories(${_target} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include

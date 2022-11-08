@@ -4,32 +4,33 @@
 
 set(__target config)
 
+find_package(Boost 1.79 QUIET REQUIRED COMPONENTS program_options)
+
 message(VERBOSE "Resolving GIT Version")
-set(_build_version "unknown")
+set(_build_version_ "unknown")
 
 find_package(Git)
 if(GIT_FOUND)
   execute_process(
     COMMAND ${GIT_EXECUTABLE} describe
     WORKING_DIRECTORY ${pierre_SOURCE_DIR}
-    OUTPUT_VARIABLE _build_version
+    OUTPUT_VARIABLE _build_version_
     ERROR_QUIET
     OUTPUT_STRIP_TRAILING_WHITESPACE
   )
-  message(VERBOSE "GIT hash: ${_build_version}")
+  message(STATUS "GIT hash: ${_build_version_}")
 else()
   message(VERBOSE "GIT not found")
 endif()
 
 # string(TIMESTAMP _time_stamp "%Y.%m.%d %H%M")
-string(TIMESTAMP _time_stamp)
+string(TIMESTAMP _build_timestamp_)
+message(STATUS "Build timestamp: ${_build_timestamp_}")
 
-set(Boost_USE_DEBUG_LIBS        OFF)  # ignore debug libs and
-set(Boost_USE_RELEASE_LIBS       ON)  # only find release libs
-set(Boost_USE_MULTITHREADED      ON)
-find_package(Boost 1.79 COMPONENTS program_options)
+configure_file(
+  ${pierre_SOURCE_DIR}/cmake/version.hpp.in 
+  ${pierre_BINARY_DIR}/version.hpp @ONLY)
 
-configure_file(${pierre_SOURCE_DIR}/cmake/version.h.in ${pierre_BINARY_DIR}/version.h @ONLY)
 
 set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target} ${pierre_BINARY_DIR})

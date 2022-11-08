@@ -38,7 +38,7 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH_LOCAL} ${HEADER_PAT
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
-  ArduinoJson InfluxData::InfluxDB
+  InfluxData::InfluxDB
   base config frame io fader mdns
 )
 

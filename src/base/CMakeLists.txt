@@ -10,18 +10,14 @@ set(HEADER_PATH_PAIR                    ${HEADER_PATH_LOCAL}/pair)
 set(HEADER_PATH_AES                     ${HEADER_PATH_LOCAL}/aes)
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/**/*.h*")
 
+find_library(libUUID      NAMES uuid       REQUIRED)
+find_package(Boost 1.79   QUIET COMPONENTS REQUIRED system)
+find_package(fmt                           REQUIRED)
+find_package(GCRYPT                        REQUIRED)
+find_package(Sodium                        REQUIRED)
+find_package(Threads                       REQUIRED)
 
-set(Boost_USE_DEBUG_LIBS             ON)  # ignore debug libs and
-set(Boost_USE_RELEASE_LIBS           ON)  # only find release libs
-set(Boost_USE_MULTITHREADED          ON)
-set(Boost_THREADAPI             pthread)
-
-find_library(rt           NAMES rt          REQUIRED)
-find_library(libUUID      NAMES uuid        REQUIRED)
-find_package(Boost 1.79   COMPONENTS system REQUIRED)
-find_package(fmt                            REQUIRED)
-find_package(GCRYPT                         REQUIRED)
-find_package(Sodium                         REQUIRED)
+add_subdirectory(pair)
 
 add_library(${__target} SHARED
   # logging (threaded)
@@ -32,9 +28,6 @@ add_library(${__target} SHARED
   
   # connection shared key
   shk.cpp
-
-  # pairing
-  pair/pair_fruit.c pair/pair_homekit.c pair/pair-tlv.c pair/pair.c
 
   # aes
   aes/ctx.cpp
@@ -72,8 +65,10 @@ target_include_directories(${__target} PRIVATE
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PUBLIC 
+  Threads::Threads 
   ${Boost_LIBRARIES}
   ${libUUID}
+  libpairing
   sodium
   gcrypt
   fmt::fmt

@@ -3,6 +3,25 @@
 # Source Directories
 #
 
+include(FetchContent)
+
+FetchContent_Declare(ArduinoJson
+    GIT_REPOSITORY https://github.com/bblanchon/ArduinoJson.git
+    GIT_TAG        v6.19.4
+)
+
+FetchContent_Declare(InfluxData
+    GIT_REPOSITORY https://github.com/offa/influxdb-cxx
+    GIT_TAG        v0.6.7
+)
+
+FetchContent_Declare(tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.2.0
+)
+
+FetchContent_MakeAvailable(ArduinoJson InfluxData tomlplusplus)
+
 # common types, logging, helpers and shared session key
 add_subdirectory(base)
 
