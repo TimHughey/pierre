@@ -21,13 +21,12 @@
 #include "base/shk.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "base/uint8v.hpp"
+// #include "base/uint8v.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
 #include "libav.hpp"
 #include "peaks.hpp"
-#include "types.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -209,34 +208,8 @@ void parse(frame_t frame) {
   frame->channels = codec_ctx->channels;
   frame->samples_per_channel = audio_frame->nb_samples;
 
-  // int err = av_samples_alloc(&pcm_audio,              // pointer to PCM samples
-  //                            &dst_linesize,           // pointer to calculated linesize ?
-  //                            frame->channels,         // num of channels
-  //                            audio_frame->nb_samples, // num of samples
-  //                            AV_FORMAT_OUT,           // desired format (see const above)
-  //                            0);                      // default alignment
-  //
-  // if (err >= 0) {
-  //   frame->samples_per_channel = swr_convert(         // perform the software resample
-  //       swr,                                          // software resample ctx
-  //       &pcm_audio,                                   // put processed samples here
-  //       audio_frame->nb_samples,                      // output this many samples
-  //       (const uint8_t **)audio_frame->extended_data, // process data at this ptr
-  //       audio_frame->nb_samples);                     // process this many samples
-  //
-  //   auto dst_bufsize = av_samples_get_buffer_size // determine required buffer
-  //       (&dst_linesize,                           // calc'ed linesize
-  //        frame->channels,                         // num of channels
-  //        frame->samples_per_channel,              // num of samples/channel (from swr_convert)
-  //        AV_FORMAT_OUT,                           // desired format (see const above)
-  //        0);                                      // default alignment
-
   static bool reported = false;
   if (!reported) {
-    // INFO(  "err={} ch={} linesize={:<5} samples/ch={:<5} dst_buffsize={:<5}\n", //
-    //        module_id, "INFO", err, frame->channels, dst_linesize, frame->samples_per_channel,
-    //        dst_bufsize);
-
     const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
     INFO(module_id, "INFO",

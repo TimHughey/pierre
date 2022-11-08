@@ -116,8 +116,8 @@ public:
   unsigned long long decipher_len{0}; // type dictated by libsodium
 
   // decode frame
-  int samples_per_channel = 0;
-  int channels = 0;
+  int samples_per_channel{0};
+  int channels{0};
 
   // populated by DSP
   std::tuple<peaks_t, peaks_t> peaks;

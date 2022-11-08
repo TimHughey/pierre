@@ -18,9 +18,7 @@
 
 #pragma once
 
-#include "base/uint8v.hpp"
 #include "frame.hpp"
-#include "types.hpp"
 
 namespace pierre {
 namespace av {

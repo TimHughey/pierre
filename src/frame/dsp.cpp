@@ -25,7 +25,6 @@
 #include "fft.hpp"
 #include "frame.hpp"
 #include "peaks.hpp"
-#include "types.hpp"
 
 #include <algorithm>
 #include <latch>

@@ -19,7 +19,6 @@
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
-#include "types.hpp"
 
 namespace pierre {
 namespace dsp {
