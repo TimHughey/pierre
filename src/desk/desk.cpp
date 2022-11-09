@@ -163,14 +163,13 @@ void Desk::init_self() {
 
   // note: work guard created by constructor p
   for (auto n = 0; n < num_threads; n++) { // main thread is 0s
-    shared::desk->threads.emplace_back(
-        [&n = n, &desk = shared::desk, &latch](std::stop_token token) {
-          name_thread(TASK_NAME, n);
-          desk->tokens.add(std::move(token));
+    shared::desk->threads.emplace_back([=, &desk = shared::desk, &latch](std::stop_token token) {
+      name_thread(TASK_NAME, n);
+      desk->tokens.add(std::move(token));
 
-          latch.count_down();
-          desk->io_ctx.run();
-        });
+      latch.count_down();
+      desk->io_ctx.run();
+    });
   }
 
   // caller thread waits until all tasks are started
