@@ -24,7 +24,6 @@
 #include "config/config.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
-#include "peaks.hpp"
 
 #include <algorithm>
 #include <latch>
@@ -108,7 +107,11 @@ void process(frame_t frame, FFT left, FFT right) {
 
       // check again since thr right channel also required processing time
       if (frame->state == frame::DSP_IN_PROGRESS) {
-        frame->peaks = std::make_tuple(left.find_peaks(), right.find_peaks());
+        left.find_peaks(frame->peaks, Peaks::CHANNEL::LEFT);
+
+        if (frame->state == frame::DSP_IN_PROGRESS) {
+          right.find_peaks(frame->peaks, Peaks::CHANNEL::RIGHT);
+        }
       }
 
       // finding the peaks requires processing so only change the state if

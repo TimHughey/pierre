@@ -60,7 +60,7 @@ MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
   INFO(module_id, "CONSTRUCT", "base_color={:h}\n", base_color);
 }
 
-void MajorPeak::execute(peaks_t peaks) {
+void MajorPeak::execute(Peaks &peaks) {
 
   if (_cfg_changed.has_value() && Config::has_changed(_cfg_changed)) {
     load_config();
@@ -76,8 +76,8 @@ void MajorPeak::execute(peaks_t peaks) {
   handle_main_pinspot(peaks);
   handle_fill_pinspot(peaks);
 
-  stats(pierre::desk::FREQUENCY, peaks->major_peak().frequency());
-  stats(pierre::desk::MAGNITUDE, peaks->major_peak().magnitude());
+  stats(pierre::desk::FREQUENCY, peaks.major_peak().frequency());
+  stats(pierre::desk::MAGNITUDE, peaks.major_peak().magnitude());
 
   // detect if FX is in finished position (nothing is fading)
   // finished = !main->isFading() && !fill->isFading();
@@ -85,13 +85,13 @@ void MajorPeak::execute(peaks_t peaks) {
   finished = false;
 }
 
-void MajorPeak::handle_el_wire(peaks_t peaks) {
+void MajorPeak::handle_el_wire(Peaks &peaks) {
 
   // create handy array of all elwire units
   std::array elwires{units->derive<ElWire>(unit::EL_DANCE), units->derive<ElWire>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
-    if (const auto &peak = peaks->major_peak(); peak.useable()) {
+    if (const auto &peak = peaks.major_peak(); peak.useable()) {
 
       const DutyVal x = _freq_limits.scaled_soft().interpolate(elwire->minMaxDuty<double>(),
                                                                peak.frequency().scaled());
@@ -103,11 +103,11 @@ void MajorPeak::handle_el_wire(peaks_t peaks) {
   }
 }
 
-void MajorPeak::handle_fill_pinspot(peaks_t peaks) {
+void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
   auto fill = units->derive<PinSpot>(unit::FILL_SPOT);
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "fill pinspot");
 
-  const auto peak = peaks->major_peak();
+  const auto peak = peaks.major_peak();
   if (peak.frequency() > cfg.freq_max) {
     return;
   }
@@ -170,12 +170,12 @@ void MajorPeak::handle_fill_pinspot(peaks_t peaks) {
   }
 }
 
-void MajorPeak::handle_main_pinspot(peaks_t peaks) {
+void MajorPeak::handle_main_pinspot(Peaks &peaks) {
   auto main = units->derive<PinSpot>(unit::MAIN_SPOT);
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "main pinspot");
 
   const auto freq_min = cfg.freq_min;
-  const auto peak = (*peaks)[freq_min];
+  const auto peak = peaks[freq_min];
 
   if (peak.useable(_mag_limits) == false) {
     return;

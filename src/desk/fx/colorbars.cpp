@@ -1,34 +1,35 @@
-/*
-    lightdesk/fx/colorbars.hpp -- LightDesk Effect PinSpot with White Fade
-    Copyright (C) 2021  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+//  Pierre - Custom Light Show for Wiss Landing
+//  Copyright (C) 2022  Tim Hughey
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  https://www.wisslanding.com
 
 #include "desk/fx/colorbars.hpp"
 #include "base/color.hpp"
 #include "desk/desk.hpp"
 #include "desk/unit/pinspot.hpp"
+#include "fader/toblack.hpp"
 
 #include <chrono>
 
 namespace pierre {
 namespace fx {
 
-void ColorBars::execute([[maybe_unused]] peaks_t peaks) {
+using Fader = fader::ToBlack<fader::Circular>;
+
+void ColorBars::execute([[maybe_unused]] Peaks &peaks) {
   Fader::Opts opts{.origin = Color(), .duration = pet::as<Millis>(BAR_MS)};
 
   shPinSpot main = units->derive<PinSpot>(unit::MAIN_SPOT);

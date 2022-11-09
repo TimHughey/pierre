@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // https://www.wisslanding.com
+
 #include "desk/fx.hpp"
 #include "base/logger.hpp"
 #include "desk/data_msg.hpp"
@@ -49,8 +50,7 @@ void FX::render(frame_t frame, desk::DataMsg &msg) {
     units->prepare();
 
     // frame n is passed to execute
-    auto [left, right] = frame->peaks;
-    execute(left);
+    execute(frame->peaks);
 
     units->update_msg(msg);
   }

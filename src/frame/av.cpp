@@ -25,7 +25,6 @@
 #include "fft.hpp"
 #include "frame.hpp"
 #include "libav.hpp"
-#include "peaks.hpp"
 
 #include <cstdint>
 #include <cstring>

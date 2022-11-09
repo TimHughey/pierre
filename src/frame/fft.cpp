@@ -148,8 +148,7 @@ void FFT::dc_removal() noexcept {
   }
 }
 
-peaks_t FFT::find_peaks() {
-  auto peaks = Peaks::create();
+void FFT::find_peaks(Peaks &peaks, Peaks::CHANNEL channel) noexcept {
 
   // result of fft is symmetrical, look at first half only
   for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
@@ -158,11 +157,9 @@ peaks_t FFT::find_peaks() {
     const float c = _reals[i + 1];
 
     if ((a < b) && (b > c)) {
-      peaks->emplace(mag_at_index(i), freq_at_index(i));
+      peaks.emplace(mag_at_index(i), freq_at_index(i), channel);
     }
   }
-
-  return peaks;
 }
 
 void FFT::init() { // static

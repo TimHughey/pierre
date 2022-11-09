@@ -26,9 +26,11 @@ namespace pierre {
 namespace fx {
 
 Leave::Leave(const float hue_step, const float brightness)
-    : hue_step(hue_step), brightness(brightness), next_color({.hue = 0, .sat = 100, .bri = brightness}) {}
+    : hue_step(hue_step),     //
+      brightness(brightness), //
+      next_color({.hue = 0, .sat = 100, .bri = brightness}) {}
 
-void Leave::execute([[maybe_unused]] peaks_t peaks) {
+void Leave::execute([[maybe_unused]] Peaks &peaks) {
   if (next_brightness < 50.0) {
     next_brightness++;
     next_color.setBrightness(next_brightness);

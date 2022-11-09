@@ -24,7 +24,6 @@
 #include "base/types.hpp"
 #include "config/types.hpp"
 #include "desk/fx.hpp"
-#include "frame/peaks.hpp"
 #include "majorpeak/types.hpp"
 
 #include <optional>
@@ -36,7 +35,7 @@ class MajorPeak : public FX {
 public:
   MajorPeak(pierre::desk::Stats &stats) noexcept;
 
-  void execute(peaks_t peaks) override;
+  void execute(Peaks &peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
 
   void once() override;
@@ -45,10 +44,10 @@ private:
   typedef std::vector<Color> ReferenceColors;
 
 private:
-  void handle_el_wire(peaks_t peaks);
-  void handle_led_forest(peaks_t peaks);
-  void handle_fill_pinspot(peaks_t peaks);
-  void handle_main_pinspot(peaks_t peaks);
+  void handle_el_wire(Peaks &peaks);
+  void handle_led_forest(Peaks &peaks);
+  void handle_fill_pinspot(Peaks &peaks);
+  void handle_main_pinspot(Peaks &peaks);
 
   void load_config() noexcept;
 

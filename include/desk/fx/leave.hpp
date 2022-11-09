@@ -21,7 +21,6 @@
 #include "base/color.hpp"
 #include "base/types.hpp"
 #include "desk/fx.hpp"
-#include "frame/peaks.hpp"
 
 namespace pierre {
 namespace fx {
@@ -31,7 +30,7 @@ public:
   Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
   ~Leave() = default;
 
-  void execute(peaks_t peaks) override;
+  void execute(Peaks &peaks) override;
   csv name() const override { return fx::LEAVING; };
 
   void once() override;

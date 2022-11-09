@@ -87,7 +87,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
           }
 
           // we have an actual frame, use it's sync wait
-          sync_wait = frame->sync_wait();
+          sync_wait = frame->sync_wait_recalc();
 
         } else { // not rendering
           sync_wait = InputInfo::lead_time_min;

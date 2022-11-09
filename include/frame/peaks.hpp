@@ -23,68 +23,61 @@
 #include "frame/peaks/peak.hpp"
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <iterator>
 #include <map>
 #include <memory>
-#include <ranges>
 #include <type_traits>
-
-namespace {
-namespace ranges = std::ranges;
-}
 
 namespace pierre {
 
-using peak_n_t = size_t; // represents peak of interest 1..max_peaks
-
-class Peaks;
-using peaks_t = std::shared_ptr<Peaks>;
-
-class Peaks : public std::enable_shared_from_this<Peaks> {
+class Peaks {
 public:
-  static peaks_t create() noexcept { return std::shared_ptr<Peaks>(new Peaks()); }
-  ~Peaks() = default;
+  enum CHANNEL : size_t { LEFT = 0, RIGHT };
 
 private:
-  Peaks() noexcept;
+  // sorted descending
+  using peak_map_t = std::map<Magnitude, Peak, std::greater<Magnitude>>;
 
 public:
-  bool emplace(Magnitude m, Frequency f) noexcept;
-  auto size() const noexcept { return std::ssize(peaks_map); } // define early for auto
+  Peaks() = default;
 
-  bool has_peak(peak_n_t n) const noexcept { return peaks_map.size() > n ? true : false; }
+public:
+  bool emplace(Magnitude m, Frequency f, CHANNEL channel = LEFT) noexcept;
+  size_t size(CHANNEL channel = LEFT) const noexcept { return std::ssize(peaks_map[channel]); }
 
-  const Peak major_peak() const noexcept {
-    return !std::empty(peaks_map) ? std::begin(peaks_map)->second : Peak();
+  bool has_peak(size_t n, CHANNEL channel = LEFT) const noexcept {
+    return peaks_map[channel].size() > n ? true : false;
+  }
+
+  const Peak major_peak(CHANNEL channel = LEFT) const noexcept {
+    const auto &map = peaks_map[channel];
+
+    return !std::empty(map) ? std::begin(map)->second : Peak();
   }
 
   // find the first peak greater than the Frequency
   const Peak operator[](const Frequency freq) const noexcept {
-    Peak found_peak;
+    Peak found;
+    const auto &map = peaks_map[LEFT];
 
-    if (!std::empty(peaks_map)) {
-      for (auto it = std::counted_iterator{std::begin(peaks_map), 5};
-           (it != std::default_sentinel) && !found_peak; ++it) {
+    if (!std::empty(map)) {
+      for (auto it = std::counted_iterator{std::begin(map), 5};
+           (it != std::default_sentinel) && !found; ++it) {
         const auto &[mag, peak] = *it;
 
-        if (freq > peak.frequency()) found_peak = peak;
+        if (freq > peak.frequency()) found = peak;
       }
     }
 
-    return found_peak;
+    return found;
   }
 
-  static bool silence(peaks_t peaks) noexcept {
-    INFOX(module_id, "SILENCE", "use_count={} size={}\n", //
-          peaks.use_count(), peaks.use_count() ? peaks->size() : false);
-
-    return (peaks && !peaks->size()) == false;
-  }
+  bool silence() const noexcept { return peaks_map[LEFT].empty() && peaks_map[RIGHT].empty(); }
 
 private:
-  // sorted descending
-  std::map<Magnitude, Peak, std::greater<Magnitude>> peaks_map;
+  std::array<peak_map_t, 2> peaks_map{peak_map_t(), peak_map_t()};
 
 public:
   static constexpr csv module_id{"PEAKS"};

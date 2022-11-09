@@ -28,7 +28,6 @@
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "master_clock.hpp"
-#include "peaks.hpp"
 #include "racked.hpp"
 
 #include <cstdint>
@@ -92,7 +91,6 @@ notes:
 // Frame API
 Frame::Frame(uint8v &packet) noexcept           //
     : created_at(pet::now_monotonic()),         // unique created time
-      lead_time(InputInfo::lead_time),          // lead time used to calc state
       state(frame::HEADER_PARSED),              // frame header parsed
       version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
       padding((packet[0] & 0b00100000) >> 5),   // has padding
@@ -120,19 +118,24 @@ bool Frame::decipher(uint8v &packet) noexcept {
   // ciphered data begin + 12, end - 8
   std::span<uint8_t> ciphered(packet.from_begin(12), packet.from_end(8));
 
-  if (SharedKey::empty() == false) {
-    cipher_rc = crypto_aead_chacha20poly1305_ietf_decrypt( // -1 == failure
-        av::m_buffer(m),                                   // m (av leaves room for ADTS)
-        &decipher_len,                                     // bytes deciphered
-        nullptr,                                           // nanoseconds (unused, must be nullptr)
-        ciphered.data(),                                   // ciphered data
-        ciphered.size(),                                   // ciphered length
-        aad.data(),                                        // authenticated additional data
-        aad.size(),                                        // authenticated additional data length
-        nonce.data(),                                      // the nonce
-        SharedKey::key());                                 // shared key (from SETUP message)
+  if (SharedKey::empty()) {
+    state = frame::NO_SHARED_KEY;
 
-    if ((cipher_rc >= 0) && (decipher_len > SHORT_LEN)) {
+  } else [[likely]] {
+
+    cipher_rc =                                    //
+        crypto_aead_chacha20poly1305_ietf_decrypt( // -1 == failure
+            av::m_buffer(m),                       // m (av leaves room for ADTS)
+            &decipher_len,                         // bytes deciphered
+            nullptr,                               // nanoseconds (unused, must be nullptr)
+            ciphered.data(),                       // ciphered data
+            ciphered.size(),                       // ciphered length
+            aad.data(),                            // authenticated additional data
+            aad.size(),                            // authenticated additional data length
+            nonce.data(),                          // the nonce
+            SharedKey::key());                     // shared key (from SETUP message)
+
+    if ((cipher_rc >= 0) && (decipher_len > 0)) {
       state = frame::DECIPHERED;
 
     } else if (cipher_rc < 0) {
@@ -141,23 +144,9 @@ bool Frame::decipher(uint8v &packet) noexcept {
     } else if (decipher_len <= 0) {
       state = frame::EMPTY;
 
-    } else if (decipher_len <= SHORT_LEN) { // a short frame (purpose unknown)
-      state = frame::SHORT_FRAME;
-
-      // string msg;
-      // auto w = std::back_inserter(msg);
-
-      // for (int i = 0; i < static_cast<int>(decipher_len); i++) {
-      //   fmt::format_to(w, "{:#02x} ", ciphered[i]);
-      // }
-
-      // INFO(module_id, "DEBUG", "SHORT FRAME {} {}\n", inspect(), msg);
-
     } else {
       state = frame::ERROR;
     }
-  } else {
-    state = frame::NO_SHARED_KEY;
   }
 
   log_decipher();
@@ -166,10 +155,6 @@ bool Frame::decipher(uint8v &packet) noexcept {
 }
 
 bool Frame::decode() noexcept {
-
-  // av::parse(shared_from_this());
-  // return state.dsp_any();
-
   return state.deciphered() && av::parse(shared_from_this()) && state.dsp_any();
 }
 
@@ -242,13 +227,13 @@ const string Frame::inspect(bool full) const noexcept {
     fmt::format_to(w, " sync_wait={}", pet::humanize(sync_wait()));
   }
 
-  if (decipher_len <= SHORT_LEN) {
+  if (decipher_len <= 0) {
     fmt::format_to(w, " decipher_len={}", decipher_len);
   }
 
-  // if (frame->silent()) {
-  //   fmt::format_to(w, "silence=true");
-  // }
+  if (silent()) {
+    fmt::format_to(w, "silence={}", true);
+  }
 
   return msg;
 }

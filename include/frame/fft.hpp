@@ -56,7 +56,7 @@ public:
   FFT(const float *reals, size_t samples, const float frequency);
 
   void compute(fft::direction dir); // computes in-place complex-to-complex FFT
-  peaks_t find_peaks();
+  void find_peaks(Peaks &peaks, Peaks::CHANNEL channel = Peaks::CHANNEL::LEFT) noexcept;
 
   static void init();
 

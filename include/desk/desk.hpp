@@ -41,9 +41,6 @@ extern std::optional<Desk> desk;
 
 class Desk {
 public:
-  using anchor_timer = std::unique_ptr<steady_timer>;
-
-public:
   Desk() noexcept; // must be defined in .cpp to hide FX includes
 
   void halt() {}

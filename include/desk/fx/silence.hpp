@@ -22,7 +22,6 @@
 #include "base/types.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/names.hpp"
-#include "frame/peaks.hpp"
 
 #include <memory>
 
@@ -33,10 +32,8 @@ class Silence : public FX {
 public:
   Silence() = default;
 
-  void execute(peaks_t peaks) override {
-    peaks.reset();
-    // do nothing, enjoy the silence
-  };
+  // do nothing, enjoy the silence
+  void execute([[maybe_unused]] Peaks &peaks) override {}
 
   csv name() const override { return fx::SILENCE; }
 };

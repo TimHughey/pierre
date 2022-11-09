@@ -21,19 +21,15 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "desk/fx.hpp"
-#include "fader/toblack.hpp"
-#include "frame/peaks.hpp"
 
 namespace pierre {
 namespace fx {
-
-typedef fader::ToBlack<fader::Circular> Fader;
 
 class ColorBars : public FX {
 public:
   ColorBars() = default;
 
-  void execute(peaks_t peaks) override;
+  void execute(Peaks &peaks) override;
   csv name() const override { return fx::COLOR_BARS; }
 
 private:

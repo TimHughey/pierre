@@ -62,7 +62,7 @@ public:
   virtual void once() {} // subclasses should override once() to run setup code one time
 
 protected:
-  virtual void execute(peaks_t peaks) = 0;
+  virtual void execute(Peaks &peaks) = 0;
 
 protected:
   static shUnits units;

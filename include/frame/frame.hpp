@@ -66,11 +66,7 @@ public:
 
   void mark_rendered() noexcept { state = frame::RENDERED; }
 
-  bool silent() const noexcept {
-    auto [left, right] = peaks;
-
-    return Peaks::silence(left) && Peaks::silence(right);
-  }
+  bool silent() const noexcept { return peaks.silence(); }
 
   frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time) noexcept;
 
@@ -96,7 +92,6 @@ private:
 public:
   // order dependent
   const Nanos created_at;
-  const Nanos lead_time;
   frame::state state;
 
   uint8_t version{0x00};
@@ -117,7 +112,8 @@ public:
   int channels{0};
 
   // populated by DSP
-  std::tuple<peaks_t, peaks_t> peaks;
+  // std::tuple<peaks_t, peaks_t> peaks;
+  Peaks peaks;
 
   // calculated by state_now() or recalculated by sync_wait_recalc()
   std::optional<Nanos> _sync_wait;
@@ -125,10 +121,6 @@ public:
 private:
   // order independent
   std::optional<AnchorLast> _anchor;
-
-  // a short frame is sometimes sent for an unknown purpose
-  // detect those frames and don't send for further processing
-  static constexpr size_t SHORT_LEN{0};
 
 public:
   static constexpr csv module_id{"FRAME"};
