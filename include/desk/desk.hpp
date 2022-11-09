@@ -63,7 +63,7 @@ private:
   // misc debug
 
   // log_frome_timer_error: return true if ec == success
-  bool log_frame_timer_error(const error_code &ec, csv fn_id) const;
+  bool log_frame_timer(const error_code &ec, csv fn_id) const;
   void log_init(int num_threads) const noexcept;
   void sync_next_frame(const Nanos wait = InputInfo::lead_time) noexcept;
 
@@ -91,10 +91,10 @@ private:
 
 private:
   // static thread info
-  static constexpr auto TASK_NAME = "Desk";
+  static constexpr auto TASK_NAME{"Desk"};
 
 public:
-  static constexpr csv module_id = "DESK";
+  static constexpr csv module_id{"DESK"};
 };
 
 } // namespace pierre

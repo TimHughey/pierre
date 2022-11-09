@@ -21,7 +21,6 @@
 #include "base/shk.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-// #include "base/uint8v.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
@@ -42,22 +41,20 @@
 namespace pierre {
 namespace av { // encapsulation of libav*
 
-constexpr auto module_id = csv("av::FRAME");
+constexpr auto module_id{"av::FRAME"};
 
 // namespace globals
-AVCodec *codec = nullptr;
-AVCodecContext *codec_ctx = nullptr;
-int codec_open_rc = -1;
-AVCodecParserContext *parser_ctx = nullptr;
-SwrContext *swr = nullptr;
+AVCodec *codec{nullptr};
+AVCodecContext *codec_ctx{nullptr};
+int codec_open_rc{-1};
+AVCodecParserContext *parser_ctx{nullptr};
 
-constexpr std::ptrdiff_t ADTS_HEADER_SIZE = 7;
-constexpr int ADTS_PROFILE = 2;     // AAC LC
-constexpr int ADTS_FREQ_IDX = 4;    // 44.1 KHz
-constexpr int ADTS_CHANNEL_CFG = 2; // CPE
+constexpr std::ptrdiff_t ADTS_HEADER_SIZE{7};
+constexpr int ADTS_PROFILE{2};     // AAC LC
+constexpr int ADTS_FREQ_IDX{4};    // 44.1 KHz
+constexpr int ADTS_CHANNEL_CFG{2}; // CPE
 
-constexpr auto AV_FORMAT_IN = AV_SAMPLE_FMT_FLTP;
-constexpr auto AV_FORMAT_OUT = AV_SAMPLE_FMT_S16;
+constexpr auto AV_FORMAT_IN{AV_SAMPLE_FMT_FLTP};
 constexpr auto AV_CH_LAYOUT = AV_CH_LAYOUT_STEREO;
 
 // forward decls
@@ -82,7 +79,6 @@ void debug_dump() {
   fmt::format_to(w, f, "AVCodecContext", fmt::ptr(codec_ctx));
   fmt::format_to(w, f, "codec_open_rc", codec_open_rc);
   fmt::format_to(w, f, "AVCodecParserContext", fmt::ptr(parser_ctx));
-  fmt::format_to(w, f, "SwrContext", fmt::ptr(swr));
 
   INFO(module_id, "DEBUG DUMP", "\n {}\n", msg);
 }
@@ -97,9 +93,6 @@ void init() {
     codec_ctx = avcodec_alloc_context3(codec);
     check_nullptr(codec_ctx);
 
-    // codec_ctx->thread_count = 3;
-    // codec_ctx->thread_type = FF_THREAD_FRAME;
-
     codec_open_rc = avcodec_open2(codec_ctx, codec, nullptr);
     if (codec_open_rc < 0) {
       debug_dump();
@@ -108,17 +101,6 @@ void init() {
 
     parser_ctx = av_parser_init(codec->id);
     check_nullptr(parser_ctx);
-
-    swr = swr_alloc();
-    check_nullptr(swr);
-
-    av_opt_set_channel_layout(swr, "in_channel_layout", AV_CH_LAYOUT, 0);
-    av_opt_set_channel_layout(swr, "out_channel_layout", AV_CH_LAYOUT, 0);
-    av_opt_set_int(swr, "in_sample_rate", InputInfo::rate, 0);
-    av_opt_set_int(swr, "out_sample_rate", InputInfo::rate, 0); // must match for timing
-    av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_FORMAT_IN, 0);
-    av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_FORMAT_OUT, 0);
-    swr_init(swr);
 
     _initialized = true;
   }
@@ -155,7 +137,8 @@ void log_discard(frame_t frame, int used, AVPacket *pkt) {
 
 uint8_t *m_buffer(cipher_buff_ptr &m) { return m->data() + ADTS_HEADER_SIZE; }
 
-void parse(frame_t frame) {
+bool parse(frame_t frame) {
+  auto rc = false;
   auto pkt = check_nullptr(av_packet_alloc());
 
   auto decipher_len = frame->decipher_len;
@@ -187,7 +170,7 @@ void parse(frame_t frame) {
   if ((used < 0) || std::cmp_not_equal(used, encoded_size) || (pkt->size == 0)) {
     log_discard(frame, used, pkt);
     av_packet_free(&pkt);
-    return;
+    return rc;
   }
 
   if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
@@ -195,14 +178,14 @@ void parse(frame_t frame) {
          decipher_len, pkt->size, pkt->flags, rc);
     frame->state = frame::DECODE_FAILURE;
     av_packet_free(&pkt);
-    return;
+    return rc;
   }
 
   auto audio_frame = check_nullptr(av_frame_alloc());
   if (auto rc = avcodec_receive_frame(codec_ctx, audio_frame); rc != 0) {
     INFO("FAILED rc={}\n", module_id, "RECV_FRAME", rc);
     av_packet_free(&pkt);
-    return;
+    return rc;
   }
 
   frame->channels = codec_ctx->channels;
@@ -228,10 +211,13 @@ void parse(frame_t frame) {
 
     // this goes async
     dsp::process(frame, std::move(left), std::move(right));
+    rc = true;
   }
 
   av_frame_free(&audio_frame);
   frame->m.reset();
+
+  return rc;
 }
 
 } // namespace av

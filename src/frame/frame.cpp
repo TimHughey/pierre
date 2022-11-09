@@ -165,11 +165,12 @@ bool Frame::decipher(uint8v &packet) noexcept {
   return state == frame::DECIPHERED;
 }
 
-bool Frame::decode() {
-  // NOTE:  this function is only called when the frame has been deciphered
-  av::parse(shared_from_this());
+bool Frame::decode() noexcept {
 
-  return state.dsp_any();
+  // av::parse(shared_from_this());
+  // return state.dsp_any();
+
+  return state.deciphered() && av::parse(shared_from_this()) && state.dsp_any();
 }
 
 // Frame static functions for init
@@ -184,16 +185,18 @@ void Frame::init() {
        pet::humanize(InputInfo::lead_time), InputInfo::fps);
 }
 
-frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
+frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) noexcept {
   _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
 
+  // save the initial value of the state to confirm we don't conflict with another
+  // thread (e.g. dsp processing)
+  auto initial_state = state.now();
   std::optional<frame::state> new_state;
   auto diff = _anchor->frame_local_time_diff(timestamp);
 
   if (diff < Nanos::zero()) {
     // first handle any outdated frames regardless of state
     new_state.emplace(frame::OUTDATED);
-    diff = Nanos::zero(); // set sync wait to zero so caller can optimize timers
 
   } else if (state.updatable()) {
     // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
@@ -206,34 +209,26 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) {
       // future
       new_state.emplace(frame::FUTURE);
     }
-  } else if (state.dsp_incomplete()) {
-    // dsp not finished, skip this frame
-    set_sync_wait(Nanos::zero());
-  } else {
-    INFO(module_id, "STATE_NOW", "unhandled state frame={}\n", inspect());
   }
 
-  // when a new state is determined, update the local state and sync_wait
-  if (new_state.has_value()) {
-    state = new_state.value();
-    set_sync_wait(diff);
-  }
+  // if the new state was calculated apply it only if the initial state hasn't changed
+  // this is necessary because we are now running in a thread environment
+  state.update_if(initial_state, new_state);
+  set_sync_wait(diff);
 
   return state;
 }
 
 Nanos Frame::sync_wait_recalc() {
-  if (_anchor.has_value() && state.updatable()) {
+  if (_anchor.has_value()) {
     return set_sync_wait(_anchor->frame_local_time_diff(timestamp));
-  } else if (_anchor.has_value()) {
-    return sync_wait();
   }
 
   throw std::runtime_error("Frame::sync_wait_recalc() - no anchor\n");
 }
 
 // misc debug
-const string Frame::inspect(bool full) {
+const string Frame::inspect(bool full) const noexcept {
   string msg;
   auto w = std::back_inserter(msg);
 
@@ -258,7 +253,7 @@ const string Frame::inspect(bool full) {
   return msg;
 }
 
-const string Frame::inspect_safe(frame_t frame, bool full) { // static
+const string Frame::inspect_safe(frame_t frame, bool full) noexcept { // static
   string msg;
   auto w = std::back_inserter(msg);
 
@@ -271,7 +266,7 @@ const string Frame::inspect_safe(frame_t frame, bool full) { // static
   return msg;
 }
 
-void Frame::log_decipher() const {
+void Frame::log_decipher() const noexcept {
   if (state.deciphered()) {
     INFOX(module_id, "DECIPHER", "decipher/cipher{:>6} / {:<6} {}\n", module_id, decipher_len,
           decoded.size(), state);

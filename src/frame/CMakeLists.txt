@@ -8,8 +8,6 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavfilter
     libavformat
     libavcodec
-    libswresample
-    libswscale
     libavutil
 )
 
@@ -54,8 +52,8 @@ target_include_directories(${__target} PRIVATE
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
-  PkgConfig::LIBAV
   ${sodium_LIBRARY_RELEASE}
+  PkgConfig::LIBAV
   base
   config
   io

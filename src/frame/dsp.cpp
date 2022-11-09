@@ -91,14 +91,30 @@ void init() {
 // perform digital signal analysis on a Frame
 void process(frame_t frame, FFT left, FFT right) {
 
+  // the caller sets the state to avoid a race condition with async processing
+  frame->state = frame::DSP_IN_PROGRESS;
+
   asio::post(io_ctx, [=, left = std::move(left), right = std::move(right)]() mutable {
-    frame->state = frame::DSP_IN_PROGRESS;
+    // due to limited threads processing of frames will queue (e.g. at start of play)
+    // it is possible that one or more of the queued frames could be marked as out of date
+    // by Racked. if the frame is anything other than decoded we skip peak detection.
 
-    left.process();
-    right.process();
+    if (frame->state == frame::DSP_IN_PROGRESS) {
+      // the frame state changed so we can proceed with the left channel
+      left.process();
 
-    frame->peaks = std::make_tuple(left.find_peaks(), right.find_peaks());
-    frame->state = frame::DSP_COMPLETE;
+      // check before starting the right channel (left required processing time)
+      if (frame->state == frame::DSP_IN_PROGRESS) right.process();
+
+      // check again since thr right channel also required processing time
+      if (frame->state == frame::DSP_IN_PROGRESS) {
+        frame->peaks = std::make_tuple(left.find_peaks(), right.find_peaks());
+      }
+
+      // finding the peaks requires processing so only change the state if
+      // it is still DSP_IN_PROGRESS
+      frame->state.store_if_equal(frame::DSP_IN_PROGRESS, frame::DSP_COMPLETE);
+    }
   });
 }
 

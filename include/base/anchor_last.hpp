@@ -53,51 +53,12 @@ public:
     return frame_local_time - now;
   }
 
-  /* int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-    int result = -1;
-    uint32_t anchor_rtptime = 0;
-    uint64_t anchor_local_time = 0;
-    if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
-      int32_t frame_difference = timestamp - anchor_rtptime;
-      int64_t time_difference = frame_difference;
-      time_difference = time_difference * 1000000000;
-      if (conn->input_rate == 0)
-        die("conn->input_rate is zero!");
-      time_difference = time_difference / conn->input_rate;
-      uint64_t ltime = anchor_local_time + time_difference;
-      *time = ltime;
-      result = 0;
-    } else {
-      debug(3, "frame_to_local_time can't get anchor local time information");
-    }
-    return result;
-  } */
-
   Nanos frame_to_local_time(timestamp_t timestamp) const noexcept {
     int32_t frame_diff = timestamp - rtp_time;
     Nanos time_diff = Nanos((frame_diff * pet::NS_FACTOR.count()) / InputInfo::rate);
 
     return localized + time_diff;
   }
-
-  /* int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
- int result = -1;
- uint32_t anchor_rtptime = 0;
- uint64_t anchor_local_time = 0;
- if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
-   int64_t time_difference = time - anchor_local_time;
-   int64_t frame_difference = time_difference;
-   frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
-   frame_difference = frame_difference / 1000000000;
-   int32_t fd32 = frame_difference;
-   uint32_t lframe = anchor_rtptime + fd32;
-   *frame = lframe;
-   result = 0;
- } else {
-   debug(3, "local_time_to_frame can't get anchor local time information");
- }
- return result;
-} */
 
   timestamp_t local_to_frame_time(const Nanos local_time = pet::now_monotonic()) const noexcept {
     Nanos time_diff = local_time - localized;

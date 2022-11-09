@@ -24,7 +24,9 @@
 namespace pierre {
 
 void Reel::add(frame_t frame) noexcept {
-  frames.emplace_hint(frames.end(), std::make_pair(frame->timestamp, frame));
+  if (frame->state.dsp_any()) {
+    frames.emplace_hint(frames.end(), std::make_pair(frame->timestamp, frame));
+  }
 }
 
 void Reel::consume() noexcept {

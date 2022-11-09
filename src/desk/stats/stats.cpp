@@ -15,9 +15,6 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
-//
-//  This work based on and inspired by
-//  https://github.com/mikebrady/nqptp Copyright (c) 2021--2022 Mike Brady.
 
 #include "desk/stats.hpp"
 #include "base/input_info.hpp"
@@ -36,7 +33,7 @@ void Stats::init_db_if_needed() {
     db = influxdb::InfluxDBFactory::Get(db_uri);
     db->batchOf();
 
-    INFOX(module_id, "INIT_DB", "success db={}\n", fmt::ptr(db.get()));
+    INFO(module_id, "INIT_DB", "success db={}\n", fmt::ptr(db.get()));
   }
 }
 

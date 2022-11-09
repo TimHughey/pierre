@@ -83,6 +83,10 @@ struct pet {
     return diff_abs(d2, d1);
   }
 
+  template <typename T = Nanos> static T floor(const T &d, const T min = T::zero()) noexcept {
+    return d >= min ? d : min;
+  }
+
   static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
 
   template <typename S> static constexpr auto from_now(S amount) noexcept {

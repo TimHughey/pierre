@@ -39,15 +39,15 @@ public:
 
   template <typename TO> TO as() const { return pet::as<TO>(elapsed()); }
 
-  Elapsed &freeze() {
+  Elapsed &freeze() noexcept {
     nanos = elapsed();
     frozen = true;
     return *this;
   }
 
-  const string humanize() const { return pet::humanize(elapsed()); }
+  const string humanize() const noexcept { return pet::humanize(elapsed()); }
 
-  Nanos operator()() const { return elapsed(); }
+  Nanos operator()() const noexcept { return elapsed(); }
 
   std::strong_ordering operator<=>(auto rhs) const noexcept {
     if (elapsed() < rhs) return std::strong_ordering::less;
@@ -56,10 +56,15 @@ public:
     return std::strong_ordering::equal;
   }
 
-  void reset() { *this = Elapsed(); }
+  // returns true to enable use within if statements to improve precision of elapsed time
+  // i.e.  if (elapsed.reset() && <something that waits>) {}
+  bool reset() noexcept {
+    *this = Elapsed();
+    return true;
+  }
 
 private:
-  Nanos elapsed() const { return frozen ? nanos : pet::now_monotonic() - nanos; }
+  Nanos elapsed() const noexcept { return frozen ? nanos : pet::now_monotonic() - nanos; }
 
 private:
   Nanos nanos;

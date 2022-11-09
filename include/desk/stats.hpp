@@ -26,16 +26,7 @@
 #include "base/types.hpp"
 
 #include <concepts>
-
-// #include <array>
-// #include <boost/accumulators/statistics/max.hpp>
-// #include <boost/accumulators/statistics/min.hpp>
-// #include <boost/accumulators/statistics/rolling_count.hpp>
-// #include <boost/accumulators/statistics/rolling_mean.hpp>
-// #include <boost/accumulators/statistics/rolling_sum.hpp>
-// #include <boost/accumulators/statistics/rolling_window.hpp>
 #include <map>
-// #include <memory>
 
 namespace pierre {
 namespace desk {

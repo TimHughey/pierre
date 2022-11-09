@@ -66,20 +66,17 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
   // ensure we are running in the correct strand
   if (frame_strand.running_in_this_thread()) {
-    Elapsed delay;
+    Elapsed render_wait;
 
-    while (!ec) {    // loop until error returned by frame_timer
-      delay.reset(); // measure render delay
+    while (!ec) { // loop until error returned by frame_timer
 
-      if (Render::enabled() == false) {
-        sync_wait = InputInfo::lead_time_min;
-
-      } else {
-        run_stats(desk::RENDER_DELAY, delay);
+      // note: reset render_wait to get best possible measurement
+      if (render_wait.reset() && Render::enabled()) {
+        run_stats(desk::RENDER_DELAY, render_wait.freeze());
 
         Elapsed elapsed_next;
         auto frame = Racked::next_frame().get();
-        run_stats(desk::NEXT_FRAME, elapsed_next);
+        run_stats(desk::NEXT_FRAME, elapsed_next.freeze());
 
         if (frame) { // we have an actual frame
           if (frame->state.ready()) {
@@ -88,16 +85,19 @@ void Desk::frame_loop(const Nanos wait) noexcept {
           } else {
             INFO(module_id, "FRAME_LOOP", "DROP frame={}\n", frame->inspect());
           }
+
+          // we have an actual frame, use it's sync wait
+          sync_wait = frame->sync_wait();
+
+        } else { // not rendering
+          sync_wait = InputInfo::lead_time_min;
         }
 
-        // if we have an actual frame use it's sync_wait
-        sync_wait = Frame::sync_wait_ok(frame) ? frame->sync_wait() : InputInfo::lead_time_min;
+        run_stats(desk::SYNC_WAIT, pet::floor(sync_wait)); // log sync_wait
       }
 
-      run_stats(desk::SYNC_WAIT, sync_wait); // log sync_wait
-
       ec = error_code(); // reset ec (we may not need to wait)
-      if (Nanos::zero() != sync_wait) {
+      if (sync_wait > Nanos::zero()) {
         frame_timer.expires_after(sync_wait);
         frame_timer.wait(ec); // loop runs in frame_strand, no async necessary
       }
@@ -111,7 +111,6 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 }
 
 void Desk::frame_render(frame_t frame) {
-
   desk::DataMsg data_msg(frame, InputInfo::lead_time);
   frame->mark_rendered(); // frame is consumed, even when no connection
 
@@ -200,7 +199,7 @@ void Desk::streams_init() {
       desk->control.emplace(     // create ctrl stream
           desk->io_ctx,          // majority of rx/tx use io_ctx
           desk->streams_strand,  // shared state/status protected by this strand
-          desk->ec_last_ctrl_tx, // last error_code (updared vis streams_strand)
+          desk->ec_last_ctrl_tx, // last error_code (updated via streams_strand)
           InputInfo::lead_time,  // default lead_time
           desk->run_stats        // desk stats
       );
@@ -209,7 +208,7 @@ void Desk::streams_init() {
 }
 
 // misc debug and logging API
-bool Desk::log_frame_timer_error(const error_code &ec, csv fn_id) const {
+bool Desk::log_frame_timer(const error_code &ec, csv fn_id) const {
   auto rc = true;
 
   if (!ec) {
@@ -219,7 +218,6 @@ bool Desk::log_frame_timer_error(const error_code &ec, csv fn_id) const {
     fmt::format_to(w, "frame timer ");
 
     switch (ec.value()) {
-
     case errc::operation_canceled:
       fmt::format_to(w, "CANCELED");
       break;

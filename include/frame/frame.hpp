@@ -59,12 +59,12 @@ public:
   // Public API
   bool decipher(uint8v &packet) noexcept;
   bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
-  bool decode();
+  bool decode() noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)
 
-  void mark_rendered() { state = frame::RENDERED; }
+  void mark_rendered() noexcept { state = frame::RENDERED; }
 
   bool silent() const noexcept {
     auto [left, right] = peaks;
@@ -72,24 +72,21 @@ public:
     return Peaks::silence(left) && Peaks::silence(right);
   }
 
-  //
-  // state_now();
-  //
-  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time);
+  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time) noexcept;
 
   Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
   static bool sync_wait_ok(frame_t f) noexcept { return f && f->sync_wait_ok_safe(); }
   bool sync_wait_ok_safe() const noexcept { return _sync_wait.has_value(); }
-  Nanos sync_wait_recalc(); // can throw if no anchor
+  Nanos sync_wait_recalc(); // can throw if no anchor, in .cpp to limit exception include
 
   // misc debug
-  const string inspect(bool full = false);
-  static const string inspect_safe(frame_t frame, bool full = false);
-  void log_decipher() const;
+  const string inspect(bool full = false) const noexcept;
+  static const string inspect_safe(frame_t frame, bool full = false) noexcept;
+  void log_decipher() const noexcept;
 
 private:
   Nanos set_sync_wait(const Nanos diff) noexcept {
-    if ((_sync_wait.has_value() == false) || (_sync_wait.value_or(0ms) != diff)) {
+    if ((_sync_wait.has_value() == false) || (_sync_wait.value() != diff)) {
       _sync_wait.emplace(diff);
     }
 

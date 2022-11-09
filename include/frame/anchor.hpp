@@ -31,11 +31,6 @@
 
 namespace pierre {
 
-// class Anchor;
-// namespace shared {
-// extern std::optional<Anchor> anchor;
-// }
-
 class Anchor {
 public:
   Anchor() = default;
@@ -43,7 +38,6 @@ public:
 
   static AnchorLast get_data(const ClockInfo &clock) noexcept;
   static void save(AnchorData ad) noexcept;
-
   static void reset() noexcept;
 
 private:

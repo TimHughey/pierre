@@ -150,10 +150,8 @@ void Racked::handoff_impl(uint8v packet) noexcept {
   if (frame->state.header_parsed()) {
     if (flush_request.should_flush(frame)) {
       frame->flushed();
-    } else { // potential keeper
-      if (frame->decipher(packet)) {
-        asio::post(handoff_strand, [=, this]() { accept_frame(frame); });
-      }
+    } else if (frame->decipher(packet)) { // true ensures frame is deciphered
+      asio::post(handoff_strand, [=, this]() { accept_frame(frame); });
     }
   }
 
