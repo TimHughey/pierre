@@ -48,6 +48,9 @@ private:
   Frame();
   Frame(uint8v &packet) noexcept;
 
+protected:
+  Frame(Nanos wait) noexcept;
+
 public:
   static frame_t create(uint8v &packet) noexcept { return frame_t(new Frame(packet)); }
 
@@ -63,10 +66,10 @@ public:
 
   bool silent() const noexcept { return peaks.silence(); }
 
-  // state_now(), sync_wait() and related functions can be overriden by subclasses
-  virtual frame::state state_now(AnchorLast anchor = AnchorLast(),
-                                 const Nanos &lead_time = InputInfo::lead_time) noexcept;
+  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time) noexcept;
+  frame::state state_now(const Nanos diff, const Nanos &lead_time = InputInfo::lead_time) noexcept;
 
+  // sync_wait() and related functions can be overriden by subclasses
   virtual Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
   static bool sync_wait_ok(frame_t f) noexcept { return f && f->sync_wait_ok_safe(); }
   bool sync_wait_ok_safe() const noexcept { return _sync_wait.has_value(); }

@@ -100,6 +100,8 @@ Frame::Frame(uint8v &packet) noexcept           //
       m(new cipher_buff_t)                      // unique_ptr for deciphered data
 {}
 
+Frame::Frame(Nanos wait) noexcept : created_at(pet::now_monotonic()) { set_sync_wait(wait); }
+
 bool Frame::decipher(uint8v &packet) noexcept {
 
   // the nonce for libsodium is 12 bytes however the packet only provides 8
@@ -175,34 +177,42 @@ frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) noexcep
   if (anchor.ready()) {
     _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
 
-    // save the initial value of the state to confirm we don't conflict with another
-    // thread (e.g. dsp processing)
-    auto initial_state = state.now();
-    std::optional<frame::state> new_state;
     auto diff = _anchor->frame_local_time_diff(timestamp);
 
-    if (diff < Nanos::zero()) {
-      // first handle any outdated frames regardless of state
-      new_state.emplace(frame::OUTDATED);
-
-    } else if (state.updatable()) {
-      // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
-      if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
-
-        // in range
-        new_state.emplace(frame::READY);
-      } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
-
-        // future
-        new_state.emplace(frame::FUTURE);
-      }
-    }
-
-    // if the new state was calculated apply it only if the initial state hasn't changed
-    // this is necessary because we are now running in a thread environment
-    state.update_if(initial_state, new_state);
-    set_sync_wait(diff);
+    state = state_now(diff, lead_time);
   }
+
+  return state;
+}
+
+frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept {
+
+  // save the initial value of the state to confirm we don't conflict with another
+  // thread (e.g. dsp processing) that may also change the state
+  auto initial_state = state.now();
+  std::optional<frame::state> new_state;
+
+  if (diff < Nanos::zero()) {
+    // first handle any outdated frames regardless of state
+    new_state.emplace(frame::OUTDATED);
+
+  } else if (state.updatable()) {
+    // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
+    if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
+
+      // in range
+      new_state.emplace(frame::READY);
+    } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
+
+      // future
+      new_state.emplace(frame::FUTURE);
+    }
+  }
+
+  // if the new state was calculated apply it only if the initial state hasn't changed
+  // this is necessary because we are now running in a thread environment
+  state.update_if(initial_state, new_state);
+  set_sync_wait(diff);
 
   return state;
 }

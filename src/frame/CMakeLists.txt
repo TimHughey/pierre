@@ -31,7 +31,7 @@ add_library(${__target} SHARED
   peaks.cpp peaks/peak.cpp peaks/peak_config.cpp
 
   # the frame (from raw to dsp complete)
-  frame.cpp state.cpp
+  frame.cpp silent_frame.cpp state.cpp
 
   # racks and reels of frames
   racked.cpp reel.cpp
