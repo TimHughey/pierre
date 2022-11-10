@@ -34,12 +34,9 @@
 #include <cstring>
 #include <exception>
 #include <iterator>
-#include <latch>
-#include <mutex>
 #include <ranges>
 #include <sodium.h>
 #include <span>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -89,6 +86,11 @@ notes:
      are zeroed */
 
 // Frame API
+Frame::Frame()
+    : created_at(pet::now_monotonic()), // unique created time
+      state(frame::EMPTY)               // flag frame as empty
+{}
+
 Frame::Frame(uint8v &packet) noexcept           //
     : created_at(pet::now_monotonic()),         // unique created time
       state(frame::HEADER_PARSED),              // frame header parsed
@@ -96,9 +98,9 @@ Frame::Frame(uint8v &packet) noexcept           //
       padding((packet[0] & 0b00100000) >> 5),   // has padding
       extension((packet[0] & 0b00010000) >> 4), // has extension
       ssrc_count((packet[0] & 0b00001111)),     // source system record count
+      ssrc(packet.to_uint32(8, 4)),             // source system record count
       seq_num(packet.to_uint32(1, 3)),          // note: only three bytes
       timestamp(packet.to_uint32(4, 4)),        // RTP timestamp
-      ssrc(packet.to_uint32(8, 4)),             // source system record count
       m(new cipher_buff_t)                      // unique_ptr for deciphered data
 {}
 
@@ -120,6 +122,9 @@ bool Frame::decipher(uint8v &packet) noexcept {
 
   if (SharedKey::empty()) {
     state = frame::NO_SHARED_KEY;
+
+  } else if (version != RTPv2) {
+    state = frame::INVALID;
 
   } else [[likely]] {
 
@@ -144,7 +149,7 @@ bool Frame::decipher(uint8v &packet) noexcept {
     } else if (decipher_len <= 0) {
       state = frame::EMPTY;
 
-    } else {
+    } else { // catch all
       state = frame::ERROR;
     }
   }
@@ -171,45 +176,52 @@ void Frame::init() {
 }
 
 frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) noexcept {
-  _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
+  if (anchor.ready()) {
+    _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
 
-  // save the initial value of the state to confirm we don't conflict with another
-  // thread (e.g. dsp processing)
-  auto initial_state = state.now();
-  std::optional<frame::state> new_state;
-  auto diff = _anchor->frame_local_time_diff(timestamp);
+    // save the initial value of the state to confirm we don't conflict with another
+    // thread (e.g. dsp processing)
+    auto initial_state = state.now();
+    std::optional<frame::state> new_state;
+    auto diff = _anchor->frame_local_time_diff(timestamp);
 
-  if (diff < Nanos::zero()) {
-    // first handle any outdated frames regardless of state
-    new_state.emplace(frame::OUTDATED);
+    if (diff < Nanos::zero()) {
+      // first handle any outdated frames regardless of state
+      new_state.emplace(frame::OUTDATED);
 
-  } else if (state.updatable()) {
-    // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
-    if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
+    } else if (state.updatable()) {
+      // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
+      if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
 
-      // in range
-      new_state.emplace(frame::READY);
-    } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
+        // in range
+        new_state.emplace(frame::READY);
+      } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
 
-      // future
-      new_state.emplace(frame::FUTURE);
+        // future
+        new_state.emplace(frame::FUTURE);
+      }
     }
-  }
 
-  // if the new state was calculated apply it only if the initial state hasn't changed
-  // this is necessary because we are now running in a thread environment
-  state.update_if(initial_state, new_state);
-  set_sync_wait(diff);
+    // if the new state was calculated apply it only if the initial state hasn't changed
+    // this is necessary because we are now running in a thread environment
+    state.update_if(initial_state, new_state);
+    set_sync_wait(diff);
+  }
 
   return state;
 }
 
-Nanos Frame::sync_wait_recalc() {
+Nanos Frame::sync_wait_recalc() noexcept {
+  Nanos updated;
+
   if (_anchor.has_value()) {
-    return set_sync_wait(_anchor->frame_local_time_diff(timestamp));
+    updated = set_sync_wait(_anchor->frame_local_time_diff(timestamp));
+  } else {
+    INFO(module_id, "ERROR", "sync_wait not recalculated anchor={}\n", _anchor.has_value());
+    updated = sync_wait();
   }
 
-  throw std::runtime_error("Frame::sync_wait_recalc() - no anchor\n");
+  return updated;
 }
 
 // misc debug
@@ -231,9 +243,9 @@ const string Frame::inspect(bool full) const noexcept {
     fmt::format_to(w, " decipher_len={}", decipher_len);
   }
 
-  if (silent()) {
-    fmt::format_to(w, "silence={}", true);
-  }
+  // if (silent()) {
+  //   fmt::format_to(w, " silence={}", true);
+  // }
 
   return msg;
 }

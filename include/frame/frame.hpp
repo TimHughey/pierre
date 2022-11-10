@@ -51,6 +51,7 @@ using frame_promise = std::promise<frame_t>;
 
 class Frame : public std::enable_shared_from_this<Frame> {
 private:
+  Frame();
   Frame(uint8v &packet) noexcept;
 
 public:
@@ -68,19 +69,23 @@ public:
 
   bool silent() const noexcept { return peaks.silence(); }
 
-  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time) noexcept;
+  // state_now(), sync_wait() and related functions can be overriden by subclasses
+  virtual frame::state state_now(AnchorLast anchor = AnchorLast(),
+                                 const Nanos &lead_time = InputInfo::lead_time) noexcept;
 
-  Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
+  virtual Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
   static bool sync_wait_ok(frame_t f) noexcept { return f && f->sync_wait_ok_safe(); }
   bool sync_wait_ok_safe() const noexcept { return _sync_wait.has_value(); }
-  Nanos sync_wait_recalc(); // can throw if no anchor, in .cpp to limit exception include
+
+  // can throw if no anchor, in .cpp to limit exception include
+  virtual Nanos sync_wait_recalc() noexcept;
 
   // misc debug
   const string inspect(bool full = false) const noexcept;
   static const string inspect_safe(frame_t frame, bool full = false) noexcept;
   void log_decipher() const noexcept;
 
-private:
+protected:
   Nanos set_sync_wait(const Nanos diff) noexcept {
     if ((_sync_wait.has_value() == false) || (_sync_wait.value() != diff)) {
       _sync_wait.emplace(diff);
@@ -94,35 +99,40 @@ public:
   const Nanos created_at;
   frame::state state;
 
+private:
+  // order dependent (no need to expose publicly)
   uint8_t version{0x00};
   bool padding{false};
   bool extension{false};
   uint8_t ssrc_count{0};
+  uint32_t ssrc{0};
+
+public:
+  // order dependent (must expose publicly)
   seq_num_t seq_num{0};
   timestamp_t timestamp{0};
-  uint32_t ssrc{0};
-  cipher_buff_ptr m;
-
-  // decipher support
-  int cipher_rc{0};
+  cipher_buff_ptr m;                  // temporary buffer of ciphered data
   unsigned long long decipher_len{0}; // type dictated by libsodium
 
-  // decode frame
+  // decode frame (exposed publicly for av decode)
   int samples_per_channel{0};
   int channels{0};
 
-  // populated by DSP
-  // std::tuple<peaks_t, peaks_t> peaks;
+  // populated by DSP or empty (silent)
   Peaks peaks;
 
+protected:
   // calculated by state_now() or recalculated by sync_wait_recalc()
   std::optional<Nanos> _sync_wait;
 
 private:
   // order independent
+  int cipher_rc{0}; // decipher support
+
   std::optional<AnchorLast> _anchor;
 
 public:
+  static constexpr uint8_t RTPv2{0x02};
   static constexpr csv module_id{"FRAME"};
 };
 

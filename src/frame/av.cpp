@@ -133,7 +133,6 @@ void log_discard(frame_t frame, int used, AVPacket *pkt) {
 }
 
 // leave space for ADTS header
-
 uint8_t *m_buffer(cipher_buff_ptr &m) { return m->data() + ADTS_HEADER_SIZE; }
 
 bool parse(frame_t frame) {
