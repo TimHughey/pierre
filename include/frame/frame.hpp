@@ -29,15 +29,9 @@
 #include "frame/state.hpp"
 
 #include <array>
-#include <compare>
-#include <exception>
 #include <future>
 #include <memory>
 #include <optional>
-#include <ranges>
-#include <span>
-#include <string_view>
-#include <tuple>
 
 namespace pierre {
 
@@ -77,7 +71,7 @@ public:
   static bool sync_wait_ok(frame_t f) noexcept { return f && f->sync_wait_ok_safe(); }
   bool sync_wait_ok_safe() const noexcept { return _sync_wait.has_value(); }
 
-  // can throw if no anchor, in .cpp to limit exception include
+  // returns sync_wait unchanged if anchor is not available
   virtual Nanos sync_wait_recalc() noexcept;
 
   // misc debug
