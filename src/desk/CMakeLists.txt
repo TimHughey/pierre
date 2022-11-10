@@ -11,17 +11,17 @@ set(HEADER_PATH_LOCAL                             ${HEADER_PATH}/${__target})
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/*.h*")
 
 add_library(${__target} SHARED
-  # public API for (light)desk
-  desk.cpp
+  # public API for (light)desk and headunits
+  desk.cpp units.cpp
 
   # desk sessions (control and data)
   session/ctrl.cpp session/data.cpp
 
+  # headunits
+  unit/pinspot.cpp
+
   # FX
   fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp
-
-  # (head)units
-  unit/pinspot.cpp
 
   # stats
   stats/stats.cpp

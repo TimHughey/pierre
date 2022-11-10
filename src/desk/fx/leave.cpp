@@ -36,15 +36,15 @@ void Leave::execute([[maybe_unused]] Peaks &peaks) {
     next_color.setBrightness(next_brightness);
   }
 
-  units->derive<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
-  units->derive<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
+  units.get<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
+  units.get<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
 
   if (next_brightness >= 50.0) {
     next_color.rotateHue(hue_step);
   }
 }
 
-void Leave::once() { units->leave(); }
+void Leave::once() { units.leave(); }
 
 } // namespace fx
 } // namespace pierre

@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <compare>
 #include <fmt/format.h>
 #include <memory>
 #include <optional>

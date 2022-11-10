@@ -23,22 +23,25 @@
 #include "base/types.hpp"
 #include "desk/unit.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fmt/format.h>
 #include <memory>
+#include <ranges>
 
 namespace pierre {
 
-typedef uint32_t DutyVal;
-typedef float DutyPercent;
-
-class PulseWidth;
-typedef std::shared_ptr<PulseWidth> shPulseWidth;
+using DutyVal = uint32_t;
+using DutyPercent = float;
 
 class PulseWidth : public Unit {
+
+private:
+  enum mode_t : uint8_t { FIXED = 0, PULSE_INIT, PULSE_RUNNING };
+
 public:
-  PulseWidth(const unit::Opts opts) : Unit(opts, unit::NO_FRAME) {
+  PulseWidth(const auto opts) : Unit(opts, unit::NO_FRAME) {
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);
@@ -50,7 +53,7 @@ public:
     fixed(config.dim);
   }
 
-  virtual ~PulseWidth() { stop(); }
+  virtual ~PulseWidth() override { stop(); }
 
   DutyVal duty() const { return _duty; }
   DutyVal dutyPercent(DutyPercent percent) const { return config.max * percent; }
@@ -70,21 +73,21 @@ public:
   virtual void dim() { fixed(config.dim); }
 
   virtual void fixed(const DutyVal val) {
-    unitNext(val);
+    duty_next(val);
     _mode = FIXED;
   }
 
-  virtual void percent(const DutyPercent x) { fixed(unitPercent(x)); }
+  virtual void percent(const DutyPercent x) { fixed(duty_percent(x)); }
 
   virtual void prepare() override {
-    const uint32_t duty_now = duty();
+    const auto duty_now = duty();
 
     switch (_mode) {
     case FIXED:
       break;
 
     case PULSE_INIT:
-      // unitNext() has already been set by the call to pulse()
+      // duty_next() has already been set by the call to pulse()
       _mode = PULSE_RUNNING;
       break;
 
@@ -94,10 +97,10 @@ public:
 
       // we've reached or are close enough to the destination
       if ((duty_now <= fuzzy) || (next <= _dest)) {
-        unitNext(_dest);
+        duty_next(_dest);
         _mode = FIXED;
       } else {
-        unitNext(next);
+        duty_next(next);
       }
 
       break;
@@ -105,16 +108,16 @@ public:
   }
 
   virtual void update_msg(desk::DataMsg &msg) override {
-    _duty = _unit_next;
+    _duty = _duty_next;
 
-    msg.doc[unitName()] = _duty;
+    msg.doc[name] = _duty;
   }
 
   void pulse(float intensity = 1.0, float secs = 0.2) {
     // intensity is the percentage of max brightness for the pulse
     const float start = config.pulse_start * intensity;
 
-    unitNext(start);
+    duty_next(start);
     _dest = config.pulse_end;
 
     // compute change per frame required to reach dark within requested secs
@@ -135,25 +138,16 @@ protected:
   } config;
 
 protected:
-  virtual void unitNext(DutyVal duty) {
-    if (duty > config.max) {
-      duty = config.max;
-    } else if (duty < config.min) {
-      duty = config.min;
-    }
-
-    _unit_next = duty;
+  virtual void duty_next(DutyVal duty) noexcept {
+    _duty_next = std::ranges::clamp(duty, config.min, config.max);
   }
 
-  virtual DutyPercent unitPercent(float x) { return x * config.max; }
+  virtual DutyPercent duty_percent(float x) { return x * config.max; }
 
 private:
-  typedef enum { FIXED = 0, PULSE_INIT, PULSE_RUNNING } PulseWidth_t;
-
-private:
-  PulseWidth_t _mode = FIXED;
+  mode_t _mode{FIXED};
   DutyVal _duty = 0;
-  DutyVal _unit_next = 0;
+  DutyVal _duty_next = 0;
 
   DutyVal _dest = 0;     // destination duty when traveling
   float _velocity = 0.0; // change per frame when fx is active

@@ -62,3 +62,10 @@ fade_max_ms = 900
 freq_min = 180.0
 when_fading = { bri_min = 5.0, when_freq_greater = { bri_min = 27.0 } }
 when_less_than = { freq = 180.0, bri_min = 17.0 }
+
+[fx.units]
+power = [{ name = "ac power", address = 0 }]
+pinspots = [{ name = "main pinspot", address = 0 }, { name = "fill pinspot", address = 7 }]
+elwire = [{ name = "el entry", address = 3 }, { name = "el dance", address = 2 }]
+led_forest = [{ name = "led forest", address = 4 }]
+disco_ball = [{ name = "disco ball", address = 1 }]

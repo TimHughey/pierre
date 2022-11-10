@@ -65,7 +65,7 @@ protected:
   virtual void execute(Peaks &peaks) = 0;
 
 protected:
-  static shUnits units;
+  static Units units;
   bool finished = false;
 
 private:

@@ -32,8 +32,8 @@ using Fader = fader::ToBlack<fader::Circular>;
 void ColorBars::execute([[maybe_unused]] Peaks &peaks) {
   Fader::Opts opts{.origin = Color(), .duration = pet::as<Millis>(BAR_MS)};
 
-  shPinSpot main = units->derive<PinSpot>(unit::MAIN_SPOT);
-  shPinSpot fill = units->derive<PinSpot>(unit::FILL_SPOT);
+  auto main = units.get<PinSpot>(unit::MAIN_SPOT);
+  auto fill = units.get<PinSpot>(unit::FILL_SPOT);
 
   if (main->isFading() || fill->isFading()) {
     // this is a no op while the PinSpots are fading
@@ -41,7 +41,7 @@ void ColorBars::execute([[maybe_unused]] Peaks &peaks) {
   }
 
   // which pinspot should this call to execute() act upon?
-  auto pinspot = ((bar_count % 2) == 0) ? main : fill;
+  auto &pinspot = ((bar_count % 2) == 0) ? main : fill;
 
   switch (bar_count) {
   case 1:

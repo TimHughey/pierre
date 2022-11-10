@@ -16,45 +16,9 @@
 //
 // https://www.wisslanding.com
 
-#include "desk/unit/pinspot.hpp"
-#include "base/types.hpp"
+#include "desk/units.hpp"
 
 namespace pierre {
-
-void PinSpot::colorNow(const Color &color_now, float strobe_val) {
-  color = color_now;
-
-  if ((strobe_val >= 0.0) && (strobe_val <= 1.0)) {
-    strobe = (uint8_t)(strobe_max * strobe);
-  }
-
-  fx = FX::None;
-}
-
-void PinSpot::faderMove() {
-  if (isFading()) {
-    auto continue_traveling = fader->travel();
-    color = fader->position();
-    strobe = 0;
-
-    if (continue_traveling == false) {
-      fader.reset();
-    }
-  }
-}
-
-void PinSpot::update_msg(desk::DataMsg &msg) {
-  auto snippet = msg.dmxFrame() + address;
-
-  color.copyRgbToByteArray(snippet + 1);
-
-  if (strobe > 0) {
-    snippet[0] = strobe + 0x87;
-  } else {
-    snippet[0] = 0xF0;
-  }
-
-  snippet[5] = fx;
-}
+units_map Units::_units_map;
 
 } // namespace pierre

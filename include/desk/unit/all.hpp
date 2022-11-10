@@ -24,13 +24,3 @@
 #include "desk/unit/ledforest.hpp"
 #include "desk/unit/opts.hpp"
 #include "desk/unit/pinspot.hpp"
-
-#include <set>
-#include <variant>
-
-namespace pierre {
-
-using UnitVariant = std::variant<AcPower, DiscoBall, ElWire, LedForest>;
-using UnitSet = std::set<UnitVariant>;
-
-}

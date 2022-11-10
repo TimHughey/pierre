@@ -25,6 +25,8 @@
 #include "frame/frame.hpp"
 #include "io/msg.hpp"
 
+#include <iterator>
+
 namespace pierre {
 namespace desk {
 
@@ -76,7 +78,7 @@ private:
   // order dependent
   static constexpr csv TYPE{"data"};
   uint8v dmx_frame;
-  bool silence;
+  bool silence{false};
 
 public:
   static constexpr csv module_id{"DATA_MSG"};

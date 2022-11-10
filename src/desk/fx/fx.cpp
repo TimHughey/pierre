@@ -25,18 +25,18 @@
 
 namespace pierre {
 
-shUnits FX::units; // static class member
+Units FX::units; // static class member
 
 FX::FX() {
-  if (!units) { // create the units once
-    units = std::make_shared<Units>();
-    units->add<AcPower>(unit::AC_POWER_OPTS);
-    units->add<PinSpot>(unit::MAIN_SPOT_OPTS);
-    units->add<PinSpot>(unit::FILL_SPOT_OPTS);
-    units->add<DiscoBall>(unit::DISCO_BALL_OPTS);
-    units->add<ElWire>(unit::EL_DANCE_OPTS);
-    units->add<ElWire>(unit::EL_ENTRY_OPTS);
-    units->add<LedForest>(unit::LED_FOREST_OPTS);
+  if (units.empty()) { // create the units once
+    units.add<AcPower>(unit::AC_POWER_OPTS);
+    units.add<AcPower>(unit::AC_POWER_OPTS);
+    units.add<PinSpot>(unit::MAIN_SPOT_OPTS);
+    units.add<PinSpot>(unit::FILL_SPOT_OPTS);
+    units.add<DiscoBall>(unit::DISCO_BALL_OPTS);
+    units.add<ElWire>(unit::EL_DANCE_OPTS);
+    units.add<ElWire>(unit::EL_ENTRY_OPTS);
+    units.add<LedForest>(unit::LED_FOREST_OPTS);
   }
 }
 
@@ -47,12 +47,12 @@ void FX::render(frame_t frame, desk::DataMsg &msg) {
     once();
     called_once = true;
   } else {
-    units->prepare();
+    units.prepare();
 
     // frame n is passed to execute
     execute(frame->peaks);
 
-    units->update_msg(msg);
+    units.update_msg(msg);
   }
 }
 

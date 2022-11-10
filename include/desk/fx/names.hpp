@@ -23,8 +23,6 @@
 namespace pierre {
 namespace fx {
 
-using namespace std::literals::string_view_literals;
-
 constexpr auto COLOR_BARS = "ColorBars"sv;
 constexpr auto LEAVING = "Leaving"sv;
 constexpr auto MAJOR_PEAK = "MajorPeak"sv;

@@ -69,8 +69,8 @@ void MajorPeak::execute(Peaks &peaks) {
     INFO(module_id, "EXECUTE", "config reloaded want_changes={}\n", _cfg_changed.has_value());
   }
 
-  units->derive<AcPower>(unit::AC_POWER)->on();
-  units->derive<DiscoBall>(unit::DISCO_BALL)->spin();
+  units.get<AcPower>(unit::AC_POWER)->on();
+  units.get<DiscoBall>(unit::DISCO_BALL)->spin();
 
   handle_el_wire(peaks);
   handle_main_pinspot(peaks);
@@ -88,13 +88,13 @@ void MajorPeak::execute(Peaks &peaks) {
 void MajorPeak::handle_el_wire(Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{units->derive<ElWire>(unit::EL_DANCE), units->derive<ElWire>(unit::EL_ENTRY)};
+  std::array elwires{units.get<ElWire>(unit::EL_DANCE), units.get<ElWire>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
 
-      const DutyVal x = _freq_limits.scaled_soft().interpolate(elwire->minMaxDuty<double>(),
-                                                               peak.frequency().scaled());
+      const DutyVal x = _freq_limits.scaled_soft(). //
+                        interpolate(elwire->minMaxDuty<double>(), peak.frequency().scaled());
 
       elwire->fixed(x);
     } else {
@@ -104,7 +104,7 @@ void MajorPeak::handle_el_wire(Peaks &peaks) {
 }
 
 void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
-  auto fill = units->derive<PinSpot>(unit::FILL_SPOT);
+  auto fill = units.get<PinSpot>(unit::FILL_SPOT);
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "fill pinspot");
 
   const auto peak = peaks.major_peak();
@@ -171,7 +171,7 @@ void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
 }
 
 void MajorPeak::handle_main_pinspot(Peaks &peaks) {
-  auto main = units->derive<PinSpot>(unit::MAIN_SPOT);
+  auto main = units.get<PinSpot>(unit::MAIN_SPOT);
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "main pinspot");
 
   const auto freq_min = cfg.freq_min;
@@ -273,7 +273,7 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 }
 
 // must be in .cpp to avoid including Desk in .hpp
-void MajorPeak::once() { units->dark(); }
+void MajorPeak::once() { units.dark(); }
 
 const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_colors.at(index); }
 
