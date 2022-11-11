@@ -58,9 +58,9 @@ public:
   }
 
   // find the first peak greater than the Frequency
-  const Peak operator[](const Frequency freq) const noexcept {
+  const Peak operator()(const Frequency freq, CHANNEL channel = LEFT) const noexcept {
     Peak found;
-    const auto &map = peaks_map[LEFT];
+    const auto &map = peaks_map[channel];
 
     if (!std::empty(map)) {
       for (auto it = std::counted_iterator{std::begin(map), 5};

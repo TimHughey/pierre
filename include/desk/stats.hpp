@@ -33,6 +33,7 @@ namespace desk {
 
 enum stats_val {
   FEEDBACKS = 0,
+  FPS,
   FRAMES,
   FRAMES_RENDERED,
   FRAMES_SILENT,
@@ -43,8 +44,7 @@ enum stats_val {
   REELS_RACKED,
   REMOTE_ASYNC,
   REMOTE_ELAPSED,
-  REMOTE_JITTER,
-  REMOTE_LONG_ROUNDTRIP,
+  REMOTE_ROUNDTRIP,
   RENDER,
   RENDER_ELAPSED,
   RENDER_DELAY,
@@ -62,6 +62,7 @@ public:
         stats_strand(io_ctx),                      // isolated strand for stats activities
         val_txt({                                  // create map of stats val to text
                  {FEEDBACKS, "feedbacks"},
+                 {FPS, "fps"},
                  {FRAMES_RENDERED, "frames_rendered"},
                  {FRAMES_SILENT, "frames_silent"},
                  {FRAMES, "frames"},
@@ -72,8 +73,7 @@ public:
                  {REELS_RACKED, "reels_racked"},
                  {REMOTE_ASYNC, "remote_async"},
                  {REMOTE_ELAPSED, "remote_elapsed"},
-                 {REMOTE_JITTER, "remote_jitter"},
-                 {REMOTE_LONG_ROUNDTRIP, "remote_log_roundtrip"},
+                 {REMOTE_ROUNDTRIP, "remote_log_roundtrip"},
                  {RENDER, "render"},
                  {RENDER_DELAY, "render_delay"},
                  {RENDER_ELAPSED, "render_elapsed"},

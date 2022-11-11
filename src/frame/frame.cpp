@@ -223,7 +223,7 @@ Nanos Frame::sync_wait_recalc() noexcept {
   if (_anchor.has_value()) {
     updated = set_sync_wait(_anchor->frame_local_time_diff(timestamp));
   } else {
-    INFO(module_id, "ERROR", "sync_wait not recalculated anchor={}\n", _anchor.has_value());
+    INFO(module_id, "SYNC_WAIT", "not recalculated anchor={}\n", _anchor.has_value());
     updated = sync_wait();
   }
 

@@ -42,6 +42,7 @@ typedef std::jthread Thread;
 // Vector of Floats
 typedef std::vector<double> reals_t;
 
+using reel_serial_num_t = uint64_t;
 using seq_num_t = uint32_t;   // frame sequence num
 using timestamp_t = uint32_t; // frame timestamp
 

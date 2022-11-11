@@ -144,26 +144,13 @@ void Control::log_connected(Elapsed &elapsed) {
 }
 
 void Control::log_feedback(JsonDocument &doc) {
-  // run_stats(desk::FEEDBACKS);
 
   run_stats(desk::REMOTE_ASYNC, Micros(doc["async_µs"]));
-  run_stats(desk::REMOTE_JITTER, Micros(doc["jitter_µs"]));
   run_stats(desk::REMOTE_ELAPSED, Micros(doc["elapsed_µs"]));
+  run_stats(desk::FPS, doc["fps"].as<int32_t>());
 
   auto roundtrip = pet::now_realtime<Micros>() - Micros(doc["echoed_now_µs"].as<int64_t>());
-  run_stats(desk::REMOTE_LONG_ROUNDTRIP, roundtrip);
-
-  // if (jitter > lead_time) {
-  //   INFO(  "seq_num={:<8} jitter={:12} elapsed={:8} fps={:03.1f} rt={:03.1}\n", //
-  //          module_id, "REMOTE",
-  //          doc["seq_num"].as<uint32_t>(), // seq_num of the data msg
-  //          pet::as_millis_fp(jitter),     // sync_wait jitter
-  //          remote_elapsed,                // elapsed time of the async_loop
-  //          doc["fps"].as<float>(),        // frames per second
-  //          pet::as_millis_fp(roundtrip)   // roundtrip time
-  //
-  //   );
-  // }
+  run_stats(desk::REMOTE_ROUNDTRIP, roundtrip);
 }
 
 void Control::log_handshake(JsonDocument &doc) {

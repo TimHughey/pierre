@@ -32,12 +32,11 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <ranges>
+#include <type_traits>
 #include <utility>
 
 namespace pierre {
 
-using reel_serial_num_t = uint64_t;
 using Frames = std::map<timestamp_t, frame_t>;
 
 /// @brief Container of Frames
@@ -59,10 +58,6 @@ public:
 
   bool empty() const noexcept { return frames.empty(); }
 
-  auto first_and_last() const {
-    return std::make_pair(frames.begin()->second, frames.rbegin()->second);
-  }
-
   Reel &flush(FlushInfo &flush) noexcept;
 
   bool full() const noexcept { return std::ssize(frames) >= MAX_FRAMES; }
@@ -74,7 +69,12 @@ public:
   auto peek_first() const noexcept { return frames.begin()->second; }
   auto peek_last() const noexcept { return frames.rbegin()->second; }
 
-  const string serial_num() const noexcept { return fmt::format("{:#5x}", _serial); }
+  template <typename T = reel_serial_num_t> const T serial_num() const noexcept {
+    if constexpr (std::is_same_v<T, reel_serial_num_t>) return _serial;
+    if constexpr (std::is_same_v<T, string>) return fmt::format("{:#5x}", _serial);
+
+    static_assert("unhandled reel serial num type");
+  }
 
   auto size() const noexcept { return std::ssize(frames); }
 
@@ -82,7 +82,7 @@ public:
 
 protected:
   // order dependent
-  const uint64_t _serial;
+  const reel_serial_num_t _serial;
   string module_id;
 
   Frames frames;

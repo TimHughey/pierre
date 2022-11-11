@@ -58,16 +58,26 @@ struct FlushInfo {
     INFO("FLUSH_REQUEST", "RECEIVED", "{}\n", inspect());
   }
 
+  bool operator()(seq_num_t seq_num, timestamp_t ts) const noexcept {
+    return (seq_num <= until_seq) && (ts <= until_ts);
+  }
+
+  bool operator()(auto item) const noexcept {
+    return (item->seq_num <= until_seq) && (item->timestamp <= until_ts);
+  }
+
   bool operator!() const noexcept { return !active; }
 
   template <typename T> bool matches(std::vector<T> items) const {
-    return std::ranges::all_of(items, [this](auto x) { return x->seq_num <= until_seq; });
+    return std::ranges::all_of(items, [this](auto &x) { //
+      return (x->seq_num <= until_seq) && (x->timestamp <= until_ts);
+    });
   }
 
   template <typename T> bool should_flush(T item) noexcept {
     if (active) {
-      // use the compare result to flip active.
-      active = item->seq_num <= until_seq;
+
+      active = ((item->seq_num <= until_seq) && (item->timestamp <= until_ts));
 
       if (!active) {
         INFO("FLUSH_REQUEST", "COMPLETE", "{}\n", inspect());
@@ -86,7 +96,7 @@ struct FlushInfo {
       fmt::format_to(w, "from seq_num={:<8} timestamp={:<12} ", from_seq, from_ts);
     }
 
-    fmt::format_to(w, "until seq_num={:<8} timestamp={:<12}", until_seq, until_ts);
+    fmt::format_to(w, "seq_num={:<8} timestamp={:<12}", until_seq, until_ts);
 
     if (deferred) fmt::format_to(w, "DEFERRED");
 

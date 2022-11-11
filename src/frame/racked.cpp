@@ -1,23 +1,21 @@
 
-/*
-    Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre - Custom Light Show for Wiss Landing
+// Copyright (C) 2021  Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #include "racked.hpp"
 #include "anchor.hpp"
@@ -91,7 +89,10 @@ void Racked::flush_impl(FlushInfo request) {
     // now, to optimize the flush let's first check if everything racked
     // is within the request.  if so, we can simply clear all racked reels
     if (size() > 0) {
-      racked_acquire();
+
+      // acquire a unique lock to examine the racked reels
+      std::unique_lock lck{rack_mtx, std::defer_lock};
+      lck.lock();
 
       auto first = racked.front().peek_first();
       auto last = racked.back().peek_last();
@@ -121,7 +122,6 @@ void Racked::flush_impl(FlushInfo request) {
 
       update_racked_size();
       update_reel_ready();
-      racked_release();
 
       // finally, flush the wip reel
       if (reel_wip.has_value()) {
@@ -187,7 +187,7 @@ void Racked::init_self() {
 void Racked::monitor_wip() noexcept {
   wip_timer.expires_from_now(10s);
 
-  auto serial_num = reel_wip->_serial; // ensure the same wip reel is present when tieer fires
+  auto serial_num = reel_wip->serial_num(); // ensure the same wip reel is present when tieer fires
 
   wip_timer.async_wait( // must run on wip_strand to protect containers
       asio::bind_executor(wip_strand, [=, this](const error_code ec) {
@@ -197,7 +197,7 @@ void Racked::monitor_wip() noexcept {
           rack_wip();
         } else if (!ec) {
           INFO(module_id, "MONITOR_WIP", "expected reel={:#4x}, have reel={:#4x}\n",
-               reel_wip->_serial, serial_num);
+               reel_wip->serial_num(), serial_num);
         }
       }));
 }
@@ -221,9 +221,15 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
     //  2.  master clock has changed and isn't stable
     auto clock_info = clock_future.get();
 
-    if (clock_info.ok() && racked_acquire()) {
+    if (clock_info.ok()) {
+
       if (!empty()) { // a flush request may have cleared all reels
+
+        std::shared_lock shared_lck{rack_mtx, std::defer_lock};
+        shared_lck.lock();
+
         auto frame = racked.front().peek_first();
+        shared_lck.unlock();
 
         // get anchor data, hopefully clock is ready by this point
         clock_info = MasterClock::info().get();
@@ -234,6 +240,9 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
         prom.set_value(frame);
 
         if (state.ready() || state.outdated() || state.future()) {
+          std::unique_lock lck{rack_mtx, std::defer_lock};
+          lck.lock();
+
           // consume the ready or outdated frame (rack access is still acquired)
           racked.front().consume();
 
@@ -241,11 +250,11 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
           if (size() > 0) {
 
             if (racked.front().empty()) {
-              const auto reel_num = racked.front().serial_num();
+              const auto wip_info = racked.front().inspect();
               racked.pop_front();
               update_racked_size();
 
-              log_racked();
+              log_racked(wip_info);
             }
           }
 
@@ -256,13 +265,13 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
         prom.set_value(frame_t());
       }
 
-      racked_release(); // we're done with the rack
+      // racked_release(); // we're done with the rack
     } else if (!clock_info.ok()) {
       INFO(module_id, "NEXT_FRAME", "WARN clock ok={}\n", clock_info.ok());
       prom.set_value(frame_t());
 
     } else {
-      INFO(module_id, "TIMEOUT", "waiting for racked reels={}\n", size());
+      INFO(module_id, "TIMEOUT", "waiting for a racked reel\n");
       prom.set_value(frame_t());
     }
   });
@@ -272,26 +281,23 @@ void Racked::rack_wip() noexcept {
   [[maybe_unused]] error_code ec;
   wip_timer.cancel(ec); // wip reel is full, cancel the incomplete spool timer
 
-  // when this is the first reel we do not racked_require() because it
-  // is initialized to held
-  if (empty() || racked_acquire(InputInfo::lead_time)) {
-    const auto wip_info = reel_wip->inspect();
-
-    if (!reel_wip->empty()) {
-
-      racked.emplace_back(std::move(reel_wip.value()));
-      update_racked_size();
-      racked_release();
-
-      log_racked(wip_info);
-      update_reel_ready();
-
-      reel_wip.reset();
-      update_wip_size();
+  const auto wip_info = reel_wip->inspect(); //
+  if (!reel_wip->empty()) {
+    {
+      std::unique_lock lck{rack_mtx, std::defer_lock};
+      if (lck.try_lock_for(InputInfo::lead_time)) {
+        racked.emplace_back(std::move(reel_wip.value()));
+        update_racked_size();
+      } else {
+        INFO(module_id, "RACK_WIP", "TIMEOUT while racking {}\n", reel_wip->inspect());
+      }
     }
 
-  } else {
-    INFO(module_id, "RACK_WIP", "TIMEOUT while racking {}\n", reel_wip->inspect());
+    log_racked(wip_info);
+    update_reel_ready();
+
+    reel_wip.reset();
+    update_wip_size();
   }
 }
 

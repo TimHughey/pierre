@@ -49,21 +49,18 @@ Reel &Reel::flush(FlushInfo &flush) noexcept {
     // grab how many frames we currently have for debug stats (below)
     [[maybe_unused]] int64_t frames_before = std::ssize(frames);
 
-    const auto until_seq = flush.until_seq;
-    auto [a, b] = first_and_last();
+    auto a = frames.begin()->second;  // reel first frame
+    auto b = frames.rbegin()->second; // reel last frame
 
-    if ((until_seq >= a->seq_num) && (until_seq >= b->seq_num)) {
+    if (flush(a) && flush(b)) {
       INFO(module_id, "FLUSH", "clearing ALL {}\n", inspect());
       frames.clear();
-    } else if ((until_seq >= a->seq_num) && (until_seq <= b->seq_num)) {
-      INFO(module_id, "FLUSH", "clearing SOME {}\n", inspect());
-      // partial match
-      std::erase_if(frames, [&](const auto &item) {
-        timestamp_t timestamp;
 
-        std::tie(timestamp, std::ignore) = item;
-        return timestamp <= flush.until_ts;
-      });
+    } else if (flush.matches<frame_t>({a, b})) {
+      INFO(module_id, "FLUSH", "clearing SOME {}\n", inspect());
+
+      // partial match
+      std::erase_if(frames, [&](const auto &item) { return flush(item.second); });
     }
   }
 
@@ -78,10 +75,11 @@ const string Reel::inspect() const noexcept {
   fmt::format_to(w, "{} frames={:<3}", module_id, size_now);
 
   if (size_now) {
-    auto [front, back] = first_and_last();
+    auto a = frames.begin()->second;  // reel first frame
+    auto b = frames.rbegin()->second; // reel last frame
 
-    fmt::format_to(w, "seq a/b={:>8}/{:<8}", front->seq_num, back->seq_num);
-    fmt::format_to(w, "ts a/b={:>12}/{:<12}", front->timestamp, back->timestamp);
+    fmt::format_to(w, "seq a/b={:>8}/{:<8}", a->seq_num, b->seq_num);
+    fmt::format_to(w, "ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);
   }
 
   return msg;

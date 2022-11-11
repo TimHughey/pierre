@@ -38,7 +38,7 @@ extern std::optional<Logger> logger;
 }
 
 #define INFO(mod_id, cat, format, ...)                                                             \
-  pierre::shared::logger->info(mod_id, cat, FMT_STRING(format), __VA_ARGS__)
+  pierre::shared::logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFOX(mod_id, cat, format, ...)
 // #define DEBUG(mod_id, format, ...) Logger(mod_id, "DEBUG", format, _VA_ARGS__)
@@ -47,7 +47,7 @@ extern std::optional<Logger> logger;
 #define INFO_INDENT_CHUNK(chunk) pierre::shared::logger->indent_chunk(chunk)
 #define INFO_TAB pierre::shared::logger->tab()
 #define INFO_WITH_CHUNK(mod_id, cat, chunk, format, ...)                                           \
-  pierre::shared::logger->info_with_chunk(mod_id, cat, chunk, FMT_STRING(format), __VA_ARGS__)
+  pierre::shared::logger->info_with_chunk(mod_id, cat, chunk, FMT_STRING(format), ##__VA_ARGS__)
 
 class Logger {
 public:

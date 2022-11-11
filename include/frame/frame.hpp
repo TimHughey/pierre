@@ -118,6 +118,9 @@ public:
   // populated by DSP or empty (silent)
   Peaks peaks;
 
+  // populated by Reel
+  reel_serial_num_t reel_serial_num{0};
+
 protected:
   // calculated by state_now() or recalculated by sync_wait_recalc()
   std::optional<Nanos> _sync_wait;

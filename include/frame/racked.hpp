@@ -51,9 +51,10 @@ public:
       : guard(io::make_work_guard(io_ctx)), // ensure io_ctx has work
         handoff_strand(io_ctx),             // unprocessed frame 'queue'
         wip_strand(io_ctx),                 // guard work in progress reeel
-        wip_timer(io_ctx),                  // used to racked incomplete wip reels
-        rack_access(1)                      // acquired, guards racked container
+        wip_timer(io_ctx)                   // used to racked incomplete wip reels
   {}
+
+  auto size() const noexcept { return _racked_size.load(); } // defined early for auto
 
   bool empty() const noexcept { return size() == 0; }
 
@@ -64,8 +65,6 @@ public:
   const string inspect() const noexcept;
 
   static frame_future next_frame() noexcept;
-
-  int_fast64_t size() const noexcept { return _racked_size.load(); }
 
 private:
   void accept_frame(frame_t frame) noexcept;
@@ -80,12 +79,6 @@ private:
   void monitor_wip() noexcept;
 
   void rack_wip() noexcept;
-
-  bool racked_acquire(const Nanos max_wait = reel_max_wait) noexcept {
-    return rack_access.try_acquire_for(max_wait);
-  }
-
-  void racked_release() noexcept { rack_access.release(); }
 
   void reel_wait() noexcept {
     if (size() == 0) {
@@ -127,10 +120,9 @@ private:
   strand handoff_strand;
   strand wip_strand;
   steady_timer wip_timer;
-  std::binary_semaphore rack_access;
 
   // order independent
-  // std::atomic_flag _rendering;
+  std::shared_timed_mutex rack_mtx;
   std::atomic_int_fast64_t _racked_size{0};
   std::atomic_int_fast64_t _wip_size{0};
   FlushInfo flush_request;

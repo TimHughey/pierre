@@ -38,7 +38,7 @@ public:
   void execute(Peaks &peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
 
-  void once() override;
+  void once() override; // must be in .cpp to limit units include
 
 private:
   typedef std::vector<Color> ReferenceColors;

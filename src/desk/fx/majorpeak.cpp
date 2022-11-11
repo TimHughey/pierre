@@ -175,7 +175,7 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "main pinspot");
 
   const auto freq_min = cfg.freq_min;
-  const auto peak = peaks[freq_min];
+  const auto peak = peaks(freq_min, Peaks::CHANNEL::RIGHT);
 
   if (peak.useable(_mag_limits) == false) {
     return;
