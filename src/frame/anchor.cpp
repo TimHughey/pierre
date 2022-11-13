@@ -123,10 +123,10 @@ void Anchor::log_new_data(const AnchorData &ad, bool log) const {
   }
 
   fmt::format_to(w, "{:<7}: clock={:#018x} rtp_time={} anchor={}\n", "NEW", ad.clock_id,
-                 ad.rtp_time, pet::humanize(ad.anchor_time));
+                 ad.rtp_time, ad.anchor_time > Nanos::zero() ? "OK" : "ZERO");
 
   fmt::format_to(w, "{:<7}: clock={:#018x} sample_time={} master_for={}\n", "MASTER",
-                 clock.clock_id, pet::humanize(clock.sample_time()),
+                 clock.clock_id, clock.sample_time() > Nanos::zero() ? "OK" : "ZERO",
                  pet::humanize((clock.master_for())));
 
   const auto chunk = INFO_FORMAT_CHUNK(msg.data(), msg.size());

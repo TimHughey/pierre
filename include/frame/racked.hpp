@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <atomic>
 #include <future>
-#include <list>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -43,7 +43,7 @@
 
 namespace pierre {
 
-using racked_reels = std::list<Reel>;
+using racked_reels = std::map<reel_serial_num_t, Reel>;
 
 class Racked {
 public:
@@ -51,12 +51,10 @@ public:
       : guard(io::make_work_guard(io_ctx)), // ensure io_ctx has work
         handoff_strand(io_ctx),             // unprocessed frame 'queue'
         wip_strand(io_ctx),                 // guard work in progress reeel
+        frame_strand(io_ctx),               // used for next frame
+        flush_strand(io_ctx),               // used to isolate flush (and interrupt other strands)
         wip_timer(io_ctx)                   // used to racked incomplete wip reels
   {}
-
-  auto size() const noexcept { return _racked_size.load(); } // defined early for auto
-
-  bool empty() const noexcept { return size() == 0; }
 
   static void flush(FlushInfo request);
   static void handoff(uint8v packet);
@@ -65,6 +63,9 @@ public:
   const string inspect() const noexcept;
 
   static frame_future next_frame() noexcept;
+
+private:
+  enum log_racked_rc { NONE, RACKED, COLLISION, TIMEOUT };
 
 private:
   void accept_frame(frame_t frame) noexcept;
@@ -80,38 +81,9 @@ private:
 
   void rack_wip() noexcept;
 
-  void reel_wait() noexcept {
-    if (size() == 0) {
-      INFO(module_id, "REEL_WAIT", "waiting for a reel reels={}\n", size());
-      std::atomic_wait(&_racked_size, 0);
-    }
-  }
-
-  auto update_racked_size() noexcept {
-    _racked_size.store(std::ssize(racked));
-    return _racked_size.load();
-  }
-
-  void update_reel_ready() noexcept {
-    if (size() > 0) {
-      std::atomic_notify_all(&_racked_size);
-    }
-  }
-
-  void update_wip_size() noexcept {
-    if (reel_wip.has_value()) {
-      _wip_size.store(std::ssize(*reel_wip));
-    } else {
-      _wip_size.store(0);
-    }
-  }
-
-  bool wip_empty() const noexcept { return _wip_size.load() == 0; }
-  bool wip_contains_one_frame() const noexcept { return _wip_size.load() == 1; }
-
   // misc logging, debug
-  void log_racked() const noexcept { return log_racked(string()); }
-  void log_racked(const string &wip_info) const noexcept;
+  void log_racked() const noexcept { log_racked(string()); }
+  void log_racked(const string &wip_info, log_racked_rc rc = log_racked_rc::NONE) const noexcept;
 
 private:
   // order dependent
@@ -119,27 +91,25 @@ private:
   work_guard_t guard;
   strand handoff_strand;
   strand wip_strand;
+  strand frame_strand;
+  strand flush_strand;
   steady_timer wip_timer;
 
   // order independent
-  std::shared_timed_mutex rack_mtx;
-  std::atomic_int_fast64_t _racked_size{0};
-  std::atomic_int_fast64_t _wip_size{0};
   FlushInfo flush_request;
+  std::shared_timed_mutex rack_mtx;
+  std::shared_timed_mutex wip_mtx;
 
   racked_reels racked;
-  std::optional<Reel> reel_wip;
-  std::optional<Nanos> render_start_at;
+  std::optional<Reel> wip;
   frame_t first_frame;
-  bool synced = false;
 
   // threads
   Threads _threads;
   stop_tokens _stop_tokens;
 
 private:
-  static constexpr int THREAD_COUNT{3}; // handoff, wip, other (flush)
-  static uint64_t REEL_SERIAL_NUM;
+  static uint64_t REEL_SERIAL_NUM; // ever incrementing, no dups
 
 public:
   static constexpr Nanos reel_max_wait = InputInfo::lead_time_min;

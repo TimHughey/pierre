@@ -54,8 +54,6 @@ struct FlushInfo {
     // } else {
     //   deferred = true;
     // }
-
-    INFO("FLUSH_REQUEST", "RECEIVED", "{}\n", inspect());
   }
 
   bool operator()(seq_num_t seq_num, timestamp_t ts) const noexcept {

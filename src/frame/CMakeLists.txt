@@ -39,6 +39,9 @@ add_library(${__target} SHARED
   # master clock and anchor
   anchor.cpp master_clock.cpp
 
+  # stats
+  stats/stats.cpp
+
   ${HEADER_LIST}
 )
 
@@ -53,6 +56,7 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   ${sodium_LIBRARY_RELEASE}
+  InfluxData::InfluxDB
   PkgConfig::LIBAV
   base
   config

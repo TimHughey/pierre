@@ -28,7 +28,7 @@ class Render {
 public:
   Render() = default;
 
-  static bool enabled(bool wait = false) noexcept;
+  static bool enabled() noexcept;
   static csv inspect() noexcept;
   static void set(uint64_t v) noexcept;
 

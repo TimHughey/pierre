@@ -58,7 +58,7 @@ public:
 
   bool empty() const noexcept { return frames.empty(); }
 
-  Reel &flush(FlushInfo &flush) noexcept;
+  bool flush(FlushInfo &flush) noexcept; // returns true when reel empty
 
   bool full() const noexcept { return std::ssize(frames) >= MAX_FRAMES; }
 

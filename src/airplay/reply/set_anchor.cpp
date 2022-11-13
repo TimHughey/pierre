@@ -18,6 +18,7 @@
 
 #include "reply/set_anchor.hpp"
 #include "base/anchor_data.hpp"
+#include "base/logger.hpp"
 #include "base/render.hpp"
 #include "frame/anchor.hpp"
 #include "reply/dict_keys.hpp"
@@ -30,8 +31,6 @@ bool SetAnchor::populate() {
   rdict = plist();
 
   INFOX(moduleID(), "DICT DUMP", "\n{}\n", rdict.inspect());
-
-  Render::set(rdict.uint({dk::RATE}));
 
   // a complete anchor message contains these keys
   const Aplist::KeyList keys{dk::NET_TIMELINE_ID, dk::NET_TIME_SECS, dk::NET_TIME_FRAC,
@@ -48,6 +47,12 @@ bool SetAnchor::populate() {
                    ));
   } else {
     Anchor::reset();
+  }
+
+  if (rdict.exists(dk::RATE)) {
+    Render::set(rdict.uint({dk::RATE}));
+  } else {
+    INFO(module_id, "SET_ANCHOR", "rate not present\n");
   }
 
   responseCode(RespCode::OK);

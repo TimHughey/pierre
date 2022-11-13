@@ -20,16 +20,21 @@ service = "_ruth._tcp" # service advertised by rendering devices
 dmx_controller = "test-with-devs"
 
 [frame]
-dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
+dsp = { concurrency_factor = 0.5 }                     # num threads (hw_concurrency * factor)
 clock = { shm_name = "/nqptp" }
+stats = { db_uri = "http://localhost:8086?db=pierre" }
 
-[frame.peaks.magnitudes] # only keep peaks in this range
+[frame.racked]
+threads = 3 # stats runs on this io_ctx
+
+[frame.peaks.magnitudes] # only keep peaks in this rangethreads = 3
 floor = 0.9
 ceiling = 128.0
 
 [desk]
 colorbars = true
 threads = 5
+stats = { db_uri = "http://localhost:8086?db=pierre" }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

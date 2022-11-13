@@ -43,7 +43,7 @@ bool Reel::contains(timestamp_t timestamp) noexcept {
   return it != frames.end();
 }
 
-Reel &Reel::flush(FlushInfo &flush) noexcept {
+bool Reel::flush(FlushInfo &flush) noexcept {
   if (frames.empty() == false) { // nothing to flush
 
     // grab how many frames we currently have for debug stats (below)
@@ -64,7 +64,7 @@ Reel &Reel::flush(FlushInfo &flush) noexcept {
     }
   }
 
-  return *this;
+  return std::empty(frames);
 }
 
 const string Reel::inspect() const noexcept {
