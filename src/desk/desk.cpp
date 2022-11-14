@@ -168,7 +168,7 @@ void Desk::frame_render(frame_t frame) {
   }
 }
 
-void Desk::init() { // static instance creation
+void Desk::init() noexcept { // static instance creation
   if (shared::desk.has_value() == false) {
     shared::desk.emplace().init_self();
   }
