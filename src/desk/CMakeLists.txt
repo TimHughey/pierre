@@ -21,7 +21,7 @@ add_library(${__target} SHARED
   unit/pinspot.cpp
 
   # FX
-  fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp
+  fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp fx/silence.cpp
 
   # stats
   stats/stats.cpp

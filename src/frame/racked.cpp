@@ -28,6 +28,7 @@
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
 #include "master_clock.hpp"
+#include "silent_frame.hpp"
 #include "stats/stats.hpp"
 
 #include <algorithm>
@@ -226,20 +227,33 @@ frame_future Racked::next_frame() noexcept { // static
 
 void Racked::next_frame_impl(frame_promise prom) noexcept {
   asio::post(frame_strand, [=, this, prom = std::move(prom)]() mutable {
-    std::unique_lock lck{rack_mtx, std::defer_lock};
-    lck.lock();
-
     // wait for clock to become available, only a delay when:
     //  1.  before first set anchor
     //  2.  master clock has changed and isn't stable
-    auto clock_info = MasterClock::info().get();
+    auto clock_fut = MasterClock::info();
+    auto clock_fut_status = clock_fut.wait_for(InputInfo::lead_time_min);
 
-    if (clock_info.ok() && std::ssize(racked)) {
+    if (clock_fut_status != std::future_status::ready) {
+      INFO(module_id, "NEXT_FRAME", "clock future not ready\n");
+
+      prom.set_value(SilentFrame::create());
+
+      if (clock_fut_status == std::future_status::deferred) {
+        INFO(module_id, "NEXT_FRAME", "uh oh, future status is deferred\n");
+      }
+
+      return;
+    }
+
+    std::unique_lock lck{rack_mtx, std::defer_lock};
+    lck.lock();
+
+    if (auto clock_info = clock_fut.get(); clock_info.ok() && std::ssize(racked)) {
       // get a reference to the head reel to avoid multiple calls to begin()->second
       auto &reel = racked.begin()->second;
       auto frame = reel.peek_first();
 
-      // get anchor data, hopefully clock is ready by this point
+      // refresh clock info and get anchor info
       clock_info = MasterClock::info().get();
       auto anchor = Anchor::get_data(clock_info);
 
@@ -262,11 +276,11 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
 
     } else if (!clock_info.ok()) {
       INFO(module_id, "NEXT_FRAME", "WARN clock ok={}\n", clock_info.ok());
-      prom.set_value(frame_t());
+      prom.set_value(SilentFrame::create());
 
     } else {
       // INFO(module_id, "NEXT_FRAME", "racked is empty\n");
-      prom.set_value(frame_t());
+      prom.set_value(SilentFrame::create());
     }
   });
 }

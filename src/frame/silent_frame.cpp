@@ -18,14 +18,16 @@
 
 #include "frame/silent_frame.hpp"
 
+#include <optional>
+
 namespace pierre {
 
 // static class data
 
-// last_frame represents when the last frame was generated.  it is used to
+// since_frame represents when the last frame was generated.  it is used to
 // calculate the sync_wait for the next frame to simulate the correct
 // frame rate in absence of the master clock and/or anchor
 
-Nanos SilentFrame::last_frame;
+Elapsed SilentFrame::since_frame; // establish a reference time
 
 } // namespace pierre

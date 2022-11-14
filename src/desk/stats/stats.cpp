@@ -49,6 +49,7 @@ void Stats::operator()(stats_val v, int32_t x) noexcept {
 }
 
 void Stats::operator()(stats_val v, Elapsed &e) noexcept {
+  e.freeze(); // stop te clock to prevent measuring aync
 
   // filter out normal durations
   // if ((v == NEXT_FRAME) && (e < 500us)) return;

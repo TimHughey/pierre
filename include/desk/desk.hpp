@@ -45,12 +45,12 @@ public:
 
   void halt() {}
 
-  static void init();
+  static void init() noexcept;
 
-  bool silence() const { return active_fx && active_fx->matchName(fx::SILENCE); }
+  bool silence() const noexcept { return active_fx && active_fx->matchName(fx::SILENCE); }
 
 private:
-  void frame_loop(Nanos wait = Nanos::zero()) noexcept;
+  void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;
 
   void frame_render(frame_t frame);
   void init_self();
@@ -62,7 +62,6 @@ private:
   // log_frome_timer_error: return true if ec == success
   bool log_frame_timer(const error_code &ec, csv fn_id) const;
   void log_init(int num_threads) const noexcept;
-  void sync_next_frame(const Nanos wait = InputInfo::lead_time) noexcept;
 
 private:
   // order dependent
@@ -70,13 +69,12 @@ private:
   strand streams_strand;
   strand handoff_strand;
   strand frame_strand;
-  steady_timer frame_timer;
-  steady_timer frame_late_timer;
-  Nanos frame_last;
   strand render_strand;
+  Nanos frame_last;
   shFX active_fx;
   work_guard_t guard;
   desk::Stats run_stats;
+  std::atomic_bool loop_active;
 
   // order independent
   Threads threads;

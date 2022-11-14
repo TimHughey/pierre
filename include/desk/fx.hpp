@@ -57,7 +57,7 @@ public:
   virtual csv name() const = 0;
 
   // workhorse of FX
-  void render(frame_t frame, desk::DataMsg &msg);
+  bool render(frame_t frame, desk::DataMsg &msg) noexcept;
 
   virtual void once() {} // subclasses should override once() to run setup code one time
 

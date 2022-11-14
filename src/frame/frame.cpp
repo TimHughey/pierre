@@ -82,25 +82,6 @@ notes:
      are zeroed */
 
 // Frame API
-Frame::Frame()
-    : created_at(pet::now_monotonic()), // unique created time
-      state(frame::EMPTY)               // flag frame as empty
-{}
-
-Frame::Frame(uint8v &packet) noexcept           //
-    : created_at(pet::now_monotonic()),         // unique created time
-      state(frame::HEADER_PARSED),              // frame header parsed
-      version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
-      padding((packet[0] & 0b00100000) >> 5),   // has padding
-      extension((packet[0] & 0b00010000) >> 4), // has extension
-      ssrc_count((packet[0] & 0b00001111)),     // source system record count
-      ssrc(packet.to_uint32(8, 4)),             // source system record count
-      seq_num(packet.to_uint32(1, 3)),          // note: only three bytes
-      timestamp(packet.to_uint32(4, 4)),        // RTP timestamp
-      m(new cipher_buff_t)                      // unique_ptr for deciphered data
-{}
-
-Frame::Frame(Nanos wait) noexcept : created_at(pet::now_monotonic()) { set_sync_wait(wait); }
 
 bool Frame::decipher(uint8v &packet) noexcept {
 
@@ -249,9 +230,9 @@ const string Frame::inspect(bool full) const noexcept {
     fmt::format_to(w, " decipher_len={}", decipher_len);
   }
 
-  // if (silent()) {
-  //   fmt::format_to(w, " silence={}", true);
-  // }
+  if (state == frame::READY && silent()) {
+    fmt::format_to(w, " silence={}", true);
+  }
 
   return msg;
 }

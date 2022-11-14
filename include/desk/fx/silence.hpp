@@ -30,12 +30,17 @@ namespace fx {
 
 class Silence : public FX {
 public:
-  Silence() = default;
+  Silence() noexcept : FX() {}
 
   // do nothing, enjoy the silence
-  void execute([[maybe_unused]] Peaks &peaks) override {}
+  void execute([[maybe_unused]] Peaks &peaks) override { once(); };
 
   csv name() const override { return fx::SILENCE; }
+
+  void once() override; // must be in .cpp to limit units include
+
+public:
+  static constexpr csv module_id{"SILENCE"};
 };
 
 } // namespace fx

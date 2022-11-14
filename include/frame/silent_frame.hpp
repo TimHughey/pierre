@@ -19,20 +19,43 @@
 #pragma once
 
 #include "frame/frame.hpp"
+#include "frame/state.hpp"
+
+#include <optional>
 
 namespace pierre {
 
 class SilentFrame : public Frame {
 private:
-  SilentFrame() noexcept : Frame(Nanos::zero()) {}
+  SilentFrame() noexcept : Frame(frame::DSP_COMPLETE) {
+
+    // rationalize since_frame, more than InputInfo::lead_time
+    // has elapsed then reset it to create a READY frame immediately
+    if (since_frame() > InputInfo::lead_time) since_frame.reset();
+
+    // we want this frame to render at the correct frame rate
+    // so subtract since_frame() to ensure it falls within
+    // the lead time window
+    state_now(InputInfo::lead_time - since_frame());
+
+    // a frame was generated, reset since_frame
+    since_frame.reset();
+  }
 
 public:
-  static std::shared_ptr<SilentFrame> create() {
-    return std::shared_ptr<SilentFrame>(new SilentFrame());
+  static auto create() { return std::shared_ptr<SilentFrame>(new SilentFrame()); }
+
+public:
+  virtual Nanos sync_wait_recalc() noexcept override {
+
+    return set_sync_wait(sync_wait() - since_birth());
   }
 
 private:
-  static Nanos last_frame;
+  Elapsed since_birth; // elapsed time since frame creation, used for recalc
+
+private:
+  static Elapsed since_frame;
 };
 
 } // namespace pierre

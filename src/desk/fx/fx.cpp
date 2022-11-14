@@ -40,7 +40,7 @@ FX::FX() {
   }
 }
 
-void FX::render(frame_t frame, desk::DataMsg &msg) {
+bool FX::render(frame_t frame, desk::DataMsg &msg) noexcept {
 
   if (called_once == false) {
     // frame 0 is always consumed by the call to once()
@@ -54,6 +54,8 @@ void FX::render(frame_t frame, desk::DataMsg &msg) {
 
     units.update_msg(msg);
   }
+
+  return finished;
 }
 
 } // namespace pierre

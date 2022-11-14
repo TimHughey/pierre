@@ -25,6 +25,7 @@ namespace pierre {
 
 void Reel::add(frame_t frame) noexcept {
   if (frame->state.dsp_any()) {
+    frame->reel = serial_num();
     frames.emplace_hint(frames.end(), std::make_pair(frame->timestamp, frame));
   }
 }
