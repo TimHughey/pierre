@@ -135,10 +135,7 @@ void mDNS::resolver_found(const ZeroConf::Details zcd) noexcept {
   INFOX(module_id, cat, "{} {}\n", inserted ? "resolved" : "already know", zc.inspect());
 
   if (auto it = zcs_proms.find(zc.name_short()); it != zcs_proms.end()) {
-    INFO(mDNS::module_id, cat, "found promise for name={}\n", zc.name_short());
-
     it->second.set_value(zc);
-
     zcs_proms.erase(it);
   }
 }
@@ -195,14 +192,13 @@ std::future<ZeroConf> mDNS::zservice(csv name) {
   auto cmp = [=](const auto it) { return it.second.match_name(name); };
 
   if (auto it = ranges::find_if(mdns.zcs_map, cmp); it != mdns.zcs_map.end()) {
-    INFO(module_id, "ZSERVICE", "promise fulfilled name={}\n", it->second.name());
     prom.set_value(it->second);
   } else {
 
-    auto [it_known, inserted] = mdns.zcs_proms.try_emplace(string(name.data()), std::move(prom));
+    auto [it_known, found] = mdns.zcs_proms.try_emplace(name.data(), std::move(prom));
 
-    if (inserted) {
-      INFO(module_id, "ZSERVICE", "promise stored name={}\n", name);
+    if (!found) {
+      INFO(module_id, "ZSERVICE", "failed to find promise for name={}\n", name);
     }
   }
 

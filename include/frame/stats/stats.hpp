@@ -81,8 +81,6 @@ private:
     db = influxdb::InfluxDBFactory::Get(db_uri);
     db->batchOf();
 
-    INFO(module_id, "INIT_DB", "success uri={} db={}\n", db_uri, fmt::ptr(db.get()));
-
     return shared_from_this();
   }
 

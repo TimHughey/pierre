@@ -56,8 +56,6 @@ MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
 
   // cache config
   load_config();
-
-  INFO(module_id, "CONSTRUCT", "base_color={:h}\n", base_color);
 }
 
 void MajorPeak::execute(Peaks &peaks) {

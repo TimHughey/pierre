@@ -226,31 +226,18 @@ frame_future Racked::next_frame() noexcept { // static
 }
 
 void Racked::next_frame_impl(frame_promise prom) noexcept {
+
   asio::post(frame_strand, [=, this, prom = std::move(prom)]() mutable {
-    // wait for clock to become available, only a delay when:
-    //  1.  before first set anchor
-    //  2.  master clock has changed and isn't stable
-    auto clock_fut = MasterClock::info();
-    auto clock_fut_status = clock_fut.wait_for(InputInfo::lead_time_min);
+    std::unique_lock lck{rack_mtx, std::defer_lock}; // don't lock yet
 
-    if (clock_fut_status != std::future_status::ready) {
-      INFO(module_id, "NEXT_FRAME", "clock future not ready\n");
+    auto clock_info = MasterClock::info().get(); // wait for clock info BEFORE locking rack
+    lck.lock();                                  // need to lock here for std::empty()
 
+    if (!clock_info.ok() || std::empty(racked)) {
+      // this is code is here for clarity to avoid losing the plot
       prom.set_value(SilentFrame::create());
-
-      if (clock_fut_status == std::future_status::deferred) {
-        INFO(module_id, "NEXT_FRAME", "uh oh, future status is deferred\n");
-      }
-
-      return;
-    }
-
-    std::unique_lock lck{rack_mtx, std::defer_lock};
-    lck.lock();
-
-    if (auto clock_info = clock_fut.get(); clock_info.ok() && std::ssize(racked)) {
-      // get a reference to the head reel to avoid multiple calls to begin()->second
-      auto &reel = racked.begin()->second;
+    } else [[likely]] {
+      auto &reel = racked.begin()->second; // avoid multiple begin()->second and clarity
       auto frame = reel.peek_first();
 
       // refresh clock info and get anchor info
@@ -273,14 +260,6 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
       }
 
       log_racked();
-
-    } else if (!clock_info.ok()) {
-      INFO(module_id, "NEXT_FRAME", "WARN clock ok={}\n", clock_info.ok());
-      prom.set_value(SilentFrame::create());
-
-    } else {
-      // INFO(module_id, "NEXT_FRAME", "racked is empty\n");
-      prom.set_value(SilentFrame::create());
     }
   });
 }
