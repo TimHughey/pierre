@@ -16,21 +16,21 @@
 //
 // https://www.wisslanding.com
 
-#include "desk/desk.hpp"
+#include "desk.hpp"
 #include "base/anchor_last.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/render.hpp"
 #include "config/config.hpp"
-#include "desk/data_msg.hpp"
-#include "desk/fx/all.hpp"
-#include "desk/session/ctrl.hpp"
-#include "desk/stats.hpp"
+#include "ctrl.hpp"
+#include "data_msg.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
+#include "fx/all.hpp"
 #include "io/async_msg.hpp"
 #include "mdns/mdns.hpp"
+#include "stats.hpp"
 
 #include <exception>
 #include <functional>

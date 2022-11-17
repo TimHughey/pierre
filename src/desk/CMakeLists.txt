@@ -14,8 +14,8 @@ add_library(${__target} SHARED
   # public API for (light)desk and headunits
   desk.cpp units.cpp
 
-  # desk constrol sessions
-  session/ctrl.cpp
+  # desk DMX control session
+  ctrl.cpp
 
   # headunits
   unit/pinspot.cpp
