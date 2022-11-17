@@ -18,78 +18,55 @@
 
 #pragma once
 
+#include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "desk/fx.hpp"
-#include "desk/session/ctrl.hpp"
-#include "desk/stats.hpp"
-#include "frame/frame.hpp"
-#include "frame/racked.hpp"
 
 #include <atomic>
+#include <future>
 #include <memory>
 #include <optional>
 
 namespace pierre {
 
-class Desk;
-namespace shared {
-extern std::optional<Desk> desk;
-}
-
-class Desk {
-public:
+class Desk : public std::enable_shared_from_this<Desk> {
+private:
   Desk() noexcept; // must be defined in .cpp to hide FX includes
 
-  void halt() {}
-
+public:
   static void init() noexcept;
+  static void shutdown() noexcept;
 
-  bool silence() const noexcept { return active_fx && active_fx->matchName(fx::SILENCE); }
+  bool silence() const noexcept;
 
 private:
   void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;
-
-  void frame_render(frame_t frame);
-  void init_self();
-  void streams_deinit();
-  void streams_init();
+  void init_self() noexcept;
 
   // misc debug
 
-  // log_frome_timer_error: return true if ec == success
-  bool log_frame_timer(const error_code &ec, csv fn_id) const;
+  // log_frame_timer_error: return true if ec == success
+  bool log_frame_timer(const error_code &ec, csv fn_id) const noexcept;
   void log_init(int num_threads) const noexcept;
 
 private:
   // order dependent
   io_context io_ctx;
-  strand streams_strand;
-  strand handoff_strand;
   strand frame_strand;
-  strand render_strand;
   Nanos frame_last;
-  shFX active_fx;
   work_guard_t guard;
-  desk::Stats run_stats;
+
   std::atomic_bool loop_active;
 
   // order independent
   Threads threads;
   stop_tokens tokens;
-  std::optional<desk::Control> control;
-
-  // last error tracking
-  error_code ec_last_ctrl_tx;
-
-private:
-  // static thread info
-  static constexpr auto TASK_NAME{"Desk"};
 
 public:
   static constexpr csv module_id{"DESK"};
+  static constexpr auto TASK_NAME{"Desk"};
 };
 
 } // namespace pierre

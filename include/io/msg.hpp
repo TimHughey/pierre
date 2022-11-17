@@ -35,16 +35,16 @@
 namespace pierre {
 namespace io {
 
-static constexpr size_t DOC_DEFAULT_MAX_SIZE = 7 * 1024;
-static constexpr size_t MSG_LEN_SIZE = sizeof(uint16_t);
-static constexpr size_t PACKED_DEFAULT_MAX_SIZE = DOC_DEFAULT_MAX_SIZE / 2;
+static constexpr size_t DOC_DEFAULT_MAX_SIZE{7 * 1024};
+static constexpr size_t MSG_LEN_SIZE{sizeof(uint16_t)};
+static constexpr size_t PACKED_DEFAULT_MAX_SIZE{DOC_DEFAULT_MAX_SIZE / 2};
 
 typedef std::vector<char> Raw;
 typedef std::vector<char> Packed;
 using DynaDoc = DynamicJsonDocument;
 
 static constexpr csv MAGIC{"magic"};
-static constexpr uint16_t MAGIC_VAL = 0xc9d2;
+static constexpr uint16_t MAGIC_VAL{0xc9d2};
 static constexpr csv NOW_US{"now_µs"};
 static constexpr csv TYPE{"type"};
 
@@ -63,7 +63,17 @@ public:
   Msg(const Msg &m) = delete;
   Msg(Msg &&m) = default;
 
-  void add_kv(csv key, auto val) { doc[key] = val; }
+  void add_kv(csv key, auto val) noexcept {
+
+    if constexpr (std::is_same_v<decltype(val), Millis>    //
+                  || std::is_same_v<decltype(val), Micros> //
+                  || std::is_same_v<decltype(val), Nanos>) //
+    {
+      doc[key] = val.count(); // convert durations
+    } else {
+      doc[key] = val;
+    }
+  }
 
   // for Msg RX
   auto buff_msg_len() { return asio::buffer(len_buff.data(), len_buff.size()); }

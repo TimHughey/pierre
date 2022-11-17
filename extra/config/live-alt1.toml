@@ -13,16 +13,27 @@ working_dir = ".pierre" # cwd to this directory at startup
 # app_name = "" # typically basename() of the app
 # cfg_file = "" # could be this file or another specified by cli opt
 
+[stats]
+enabled = true
+db_uri = "http://localhost:8086?db=pierre"
+
+[dmx]
+# controller = "dmx"
+controller = "test-with-devs"
+
+[dmx.timeouts]
+connect_ms = 1000
+idle_ms = 60_000
+retry_ms = 500
+stalled_ms = 2000
+
 [mdns]
 receiver = "%h"        # use hostname
 service = "_ruth._tcp" # service advertised by rendering devices
-# dmx_controller = "dmx"
-dmx_controller = "test-with-devs"
 
 [frame]
-dsp = { concurrency_factor = 0.5 }                     # num threads (hw_concurrency * factor)
+dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 clock = { shm_name = "/nqptp" }
-stats = { db_uri = "http://localhost:8086?db=pierre" }
 
 [frame.racked]
 threads = 3 # stats runs on this io_ctx
@@ -33,8 +44,7 @@ ceiling = 128.0
 
 [desk]
 colorbars = true
-threads = 5
-stats = { db_uri = "http://localhost:8086?db=pierre" }
+threads = 5      # frame, dmx connect, dmx ctrl/data
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

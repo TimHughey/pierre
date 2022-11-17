@@ -39,7 +39,7 @@ const string ClockInfo::inspect() const {
   fmt::format_to(w, gen_fmt_str, "mastershipStart", mastershipStartTime);
   fmt::format_to(w, gen_fmt_str, "sampleTime", sampleTime);
   fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for(now)));
-  fmt::format_to(w, gen_fmt_str, "sample_age", pet::humanize(sample_age(now)));
+  fmt::format_to(w, gen_fmt_str, "sample_age", sample_age.humanize());
 
   return msg;
 };

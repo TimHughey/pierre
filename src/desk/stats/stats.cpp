@@ -27,82 +27,80 @@ namespace pierre {
 namespace desk {
 
 static std::unique_ptr<influxdb::InfluxDB> db;
+static std::shared_ptr<Stats> self;
 
-void Stats::init_db_if_needed() {
-  if (!db) {
-    db = influxdb::InfluxDBFactory::Get(db_uri);
-    db->batchOf();
+Stats::Stats(io_context &io_ctx, csv measure, const string db_uri) noexcept
+    : db_uri(db_uri),       // where we save stats
+      measurement(measure), // measurement
+      stats_strand(io_ctx), // isolated strand for stats activities
+      val_txt({             // create map of stats val to text
+               {CLOCKS_DIFF, "clocks_diff"},
+               {CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
+               {CTRL_CONNECT_TIMEOUT, "ctrl_connect_timeout"},
+               {CTRL_MSG_READ_ELAPSED, "ctrl_msg_read_elapsed"},
+               {CTRL_MSG_READ_ERROR, "ctrl_msg_read_error"},
+               {CTRL_MSG_WRITE_ELAPSED, "ctrl_msg_write_elapsed"},
+               {CTRL_MSG_WRITE_ERROR, "ctrl_msg_write_error"},
+               {DATA_MSG_WRITE_ELAPSED, "data_msg_write_elapsed"},
+               {DATA_MSG_WRITE_ERROR, "data_msg_write_error"},
+               {FPS, "fps"},
+               {FRAMES_RENDERED, "frames_rendered"},
+               {FRAMES_SILENT, "frames_silent"},
+               {FRAMES, "frames"},
+               {FREQUENCY, "frequency"},
+               {MAGNITUDE, "magnitude"},
+               {NEXT_FRAME, "next_frame"},
+               {NO_CONN, "no_conn"},
+               {REELS_RACKED, "reels_racked"},
+               {REMOTE_DATA_WAIT, "remote_data_wait"},
+               {REMOTE_ELAPSED, "remote_elapsed"},
+               {REMOTE_ROUNDTRIP, "remote_log_roundtrip"},
+               {RENDER, "render"},
+               {RENDER_DELAY, "render_delay"},
+               {RENDER_ELAPSED, "render_elapsed"},
+               {STREAMS_DEINIT, "streams_deinit"},
+               {STREAMS_INIT, "streams_init"},
+               {SYNC_WAIT, "sync_wait"}}) {}
+
+Stats::~Stats() noexcept {
+  if (db) db.reset();
+}
+
+std::shared_ptr<Stats> Stats::create(io_context &io_ctx, csv measure,
+                                     const string db_uri) noexcept {
+  if (self.use_count() == 0) {
+    self = std::shared_ptr<Stats>(new Stats(io_ctx, measure, db_uri));
   }
+
+  return self->shared_from_this();
 }
 
-void Stats::operator()(stats_val v, int32_t x) noexcept {
-  asio::post(stats_strand, [=, this]() {
-    init_db_if_needed();
+std::shared_ptr<Stats> Stats::init() noexcept {
+  INFO(module_id, "INIT", "db_uri={}\n", db_uri);
 
-    db->write(influxdb::Point{module_id.data()} //
-                  .addField("val", x)           //
-                  .addTag("metric", val_txt[v]) //
-                  .addTag("type", "counter"));  //
-  });
+  db = influxdb::InfluxDBFactory::Get(db_uri);
+  db->batchOf();
+
+  return shared_from_this();
 }
 
-void Stats::operator()(stats_val v, Elapsed &e) noexcept {
-  e.freeze(); // stop te clock to prevent measuring aync
+void Stats::shutdown() noexcept { self.reset(); }
 
-  // filter out normal durations
-  // if ((v == NEXT_FRAME) && (e < 500us)) return;
-  // if ((v == RENDER_DELAY) && (e < 1s)) return;
+template <class... Ts> struct overload : Ts... { using Ts::operator()...; };
 
-  asio::post(stats_strand, [=, this, count = e().count()]() {
-    init_db_if_needed();
+void Stats::write_stat(stats_v vt, stat_variant sv, csv type) noexcept {
+  asio::post(self->stats_strand, [=]() mutable {
+    auto pt = influxdb::Point(module_id.data());
 
-    db->write(influxdb::Point{module_id.data()} //
-                  .addField("val", count)       //
-                  .addTag("metric", val_txt[v]) //
-                  .addTag("type", "duration")); //
-  });
-}
+    std::visit(overload{[&](double v) mutable { pt.addField("val", v); }, //
+                        [&](int64_t v) mutable { pt.addField("val", v); },
+                        [&](int32_t v) mutable { pt.addField("val", v); }},
+               sv);
 
-void Stats::operator()(stats_val v, const Micros d) noexcept {
+    pt.addTag("metric", self->val_txt[vt]);
+    pt.addTag("type", type);
 
-  // filter out normal durations
-  // if ((v == REMOTE_ASYNC) && (d < 2ms)) return;
-  // if ((v == REMOTE_ELAPSED) && (d < InputInfo::lead_time)) return;
-  // if ((v == REMOTE_LONG_ROUNDTRIP) && (d < InputInfo::lead_time)) return;
-
-  asio::post(stats_strand, [=, this]() {
-    init_db_if_needed();
-
-    db->write(influxdb::Point{module_id.data()} //
-                  .addField("val", d.count())   //
-                  .addTag("metric", val_txt[v]) //
-                  .addTag("type", "duration")); //
-  });
-}
-
-void Stats::operator()(stats_val v, const Nanos d) noexcept {
-
-  // filter out normal durations
-  // if ((v == SYNC_WAIT) && (d < InputInfo::lead_time)) return;
-
-  asio::post(stats_strand, [=, this]() {
-    init_db_if_needed();
-
-    db->write(influxdb::Point{module_id.data()} //
-                  .addField("val", d.count())   //
-                  .addTag("metric", val_txt[v]) //
-                  .addTag("type", "duration")); //
-  });
-}
-
-void Stats::write(stats_val v, float fp) {
-  asio::post(stats_strand, [=, this]() {
-    init_db_if_needed();
-
-    db->write(influxdb::Point{module_id.data()} //
-                  .addField("val", fp)          //
-                  .addTag("metric", val_txt[v]) //
-                  .addTag("type", "float"));    //
+    db->write(std::move(pt));
   });
 }
 

@@ -26,6 +26,7 @@
 #include "desk/fx.hpp"
 #include "majorpeak/types.hpp"
 
+#include <memory>
 #include <optional>
 
 namespace pierre {
@@ -33,7 +34,7 @@ namespace fx {
 
 class MajorPeak : public FX {
 public:
-  MajorPeak(pierre::desk::Stats &stats) noexcept;
+  MajorPeak() noexcept;
 
   void execute(Peaks &peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
@@ -58,7 +59,6 @@ private:
 private:
   // order dependent
   const Color base_color;
-  pierre::desk::Stats &stats;
   Peak _main_last_peak;
   Peak _fill_last_peak;
 

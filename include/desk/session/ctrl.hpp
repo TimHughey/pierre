@@ -24,117 +24,80 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "desk/session/data.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/stats.hpp"
 #include "io/msg.hpp"
 
-#include <array>
+#include <atomic>
+#include <future>
 #include <memory>
 #include <optional>
-#include <ranges>
 
 namespace pierre {
 namespace desk {
 
-class Control {
+using ctrl_fut_ec_t = std::future<error_code>;
+
+class Ctrl : public std::enable_shared_from_this<Ctrl> {
+private:
+  Ctrl(io_context &io_ctx, std::shared_ptr<Stats> run_stats) noexcept;
+
 public:
-  Control(io_context &io_ctx,     //
-          strand &streams_strand, //
-          error_code &ec_last,    //
-          const Nanos lead_time,  //
-          desk::Stats &run_stats)
-      : io_ctx(io_ctx),                    // use shared io_ctx
-        streams_strand(streams_strand),    // syncronize shared status
-        ec_last(ec_last),                  // shared state
-        lead_time(lead_time),              // grab a local copy of lead time
-        run_stats(run_stats),              // overall desk statistics
-        retry_time(Nanos(lead_time * 44)), // duration to wait for reconnect, zservice available
-        retry_timer(io_ctx, retry_time),   // timer for zservice and connect retry
-        state(INITIALIZE)                  // decides which and how ctrl msgs are handled
-  {
-    connect(); // start connect sequence when constructed
+  ~Ctrl() noexcept;
+
+  static auto create(io_context &io_ctx, std::shared_ptr<Stats> run_stats) noexcept {
+    return std::shared_ptr<Ctrl>(new Ctrl(io_ctx, run_stats));
   }
 
-  tcp_socket &data_socket() { return data_session->socket(); }
+  auto ptr() noexcept { return shared_from_this(); }
 
-  bool ready() {
-    return socket && socket->is_open() && data_session && data_session->socket().is_open();
+  std::shared_ptr<Ctrl> init() noexcept;
+
+  bool ready() noexcept {
+    return ctrl_sock.has_value() && //
+           data_sock.has_value() && //
+           ctrl_sock->is_open() &&  //
+           data_sock->is_open();
   }
 
-  void shutdown(strand &streams_strand) {
-    asio::post(streams_strand, [this] { reset(io::make_error(errc::operation_canceled)); });
-  }
+  void send_data_msg(DataMsg data_msg) noexcept;
 
 private:
-  void connect() { connect(std::make_error_code(std::errc::not_connected)); }
-  void connect(const error_code ec);
+  // lookup dmx controller and establish control connection
+  void connect() noexcept;
 
   // wait for handshake message from remote endpoint
-  void handshake();
-  void handshake_reply(Port port);
+  void handshake() noexcept;
 
-  void reset() { reset(io::make_error(errc::connection_reset)); }
-  void reset(auto val) { reset(io::make_error(val)); }
-  void reset(const error_code ec);
+  void listen() noexcept;
 
-  void reset_if_needed(const error_code ec) {
-    if (ec) {
-      reset(ec);
-    }
-  }
+  void msg_loop() noexcept;
 
-  void msg_loop();
-
-  void schedule_retry(errc::errc_t errc_val) {
-    schedule_retry(error_code(errc_val, sys::generic_category()));
-  }
-
-  void schedule_retry(const error_code retry_ec) {
-    INFO(module_id, "RETRY", "reason={}\n", retry_ec.message());
-
-    if (retry_ec != errc::operation_canceled) {
-      reset(retry_ec);
-
-      retry_timer.expires_after(retry_time);
-      retry_timer.async_wait([=, this](const error_code timer_ec) {
-        if (!timer_ec) { // catch operation cancel
-          connect(retry_ec);
-        }
-      });
-    }
-  }
-
-  void store_ec_last(const error_code ec) {
-    asio::defer(streams_strand, [=, this]() { ec_last = ec; });
-  }
-
-  // watchdogs
+  void send_ctrl_msg(io::Msg msg) noexcept;
+  void stalled_watchdog() noexcept;
 
   // misc debug
-  void log_connected(Elapsed &elapsed);
-  void log_feedback(JsonDocument &doc);
+  const error_code log_accept(const error_code ec, Elapsed e) noexcept;
+  const error_code log_connect(const error_code ec, Elapsed &e, const tcp_endpoint &r) noexcept;
+  void log_feedback(JsonDocument &doc) noexcept;
   void log_handshake(JsonDocument &doc);
+  const error_code log_read_msg(const error_code ec, Elapsed e) noexcept;
+  const error_code log_send_ctrl_msg(const error_code ec, const size_t tx_want,
+                                     const size_t tx_actual, Elapsed e) noexcept;
+  const error_code log_send_data_msg(const error_code ec, Elapsed e) noexcept;
 
 private:
   // order dependent
   io_context &io_ctx;
-  strand &streams_strand;
-  error_code &ec_last;
-  Nanos lead_time;
-  desk::Stats &run_stats;
-  const Nanos retry_time;
-  steady_timer retry_timer;
-  enum { INITIALIZE, RUN, SHUTDOWN } state;
+  tcp_acceptor acceptor;
+  steady_timer stalled_timer;
+  std::shared_ptr<desk::Stats> run_stats;
 
   // order independent
-  std::optional<tcp_socket> socket;
-  std::optional<tcp_endpoint> remote_endpoint;
-  std::optional<Data> data_session;
-  std::future<bool> data_connected;
-
-  // remote time keeping
-  Micros remote_ref_time;
-  Micros remote_time_skew;
+  std::atomic_bool connected{false};
+  std::atomic_bool connecting{false};
+  std::optional<tcp_socket> ctrl_sock;
+  std::optional<tcp_socket> data_sock;
 
   // ctrl message types
   static constexpr csv FEEDBACK{"feedback"};

@@ -31,7 +31,7 @@
 namespace pierre {
 
 using ZeroConfMap = std::map<string, ZeroConf>;
-using ZeroConfFut = std::future<ZeroConf>;
+using ZeroConfFut = std::shared_future<ZeroConf>;
 using ZeroConfProm = std::promise<ZeroConf>;
 using ZeroConfPromMap = std::map<string, ZeroConfProm>;
 
@@ -50,7 +50,7 @@ public:
   void resolved_purge() noexcept;
   void resolver_found(const ZeroConf::Details zcd) noexcept;
   static void update() noexcept;
-  static std::future<ZeroConf> zservice(csv name);
+  static ZeroConfFut zservice(csv name);
 
 private:
   void browse_impl(csv stype);

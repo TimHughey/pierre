@@ -193,7 +193,7 @@ void Racked::init_self() {
     });
   }
 
-  const auto db_uri = Config().at("frame.stats.db_uri"sv).value_or("unset");
+  const auto db_uri = Config().at("stats.db_uri"sv).value_or("unset");
   stats = frame::Stats::init(io_ctx, "RACKED_STATS", db_uri);
 
   latch.wait(); // caller waits until all threads are started

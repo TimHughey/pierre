@@ -35,10 +35,9 @@ using MainFader = fader::ToBlack<fader::SimpleLinear>;
 
 namespace fx {
 
-MajorPeak::MajorPeak(pierre::desk::Stats &stats) noexcept
+MajorPeak::MajorPeak() noexcept
     : FX(),                         //
       base_color(Hsb{0, 100, 100}), //
-      stats(stats),                 //
       _main_last_peak(),            //
       _fill_last_peak()             //
 {
@@ -74,8 +73,8 @@ void MajorPeak::execute(Peaks &peaks) {
   handle_main_pinspot(peaks);
   handle_fill_pinspot(peaks);
 
-  stats(pierre::desk::FREQUENCY, peaks.major_peak().frequency());
-  stats(pierre::desk::MAGNITUDE, peaks.major_peak().magnitude());
+  desk::Stats::write(pierre::desk::FREQUENCY, peaks.major_peak().frequency());
+  desk::Stats::write(pierre::desk::MAGNITUDE, peaks.major_peak().magnitude());
 
   // detect if FX is in finished position (nothing is fading)
   // finished = !main->isFading() && !fill->isFading();

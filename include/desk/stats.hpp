@@ -27,79 +27,93 @@
 
 #include <concepts>
 #include <map>
+#include <memory>
+#include <type_traits>
+#include <variant>
 
 namespace pierre {
 namespace desk {
 
-enum stats_val {
-  FEEDBACKS = 0,
+enum stats_v {
+  CLOCKS_DIFF = 0,
+  CTRL_CONNECT_ELAPSED,
+  CTRL_CONNECT_TIMEOUT,
+  CTRL_MSG_READ_ELAPSED,
+  CTRL_MSG_READ_ERROR,
+  CTRL_MSG_WRITE_ELAPSED,
+  CTRL_MSG_WRITE_ERROR,
+  DATA_MSG_WRITE_ERROR,
+  DATA_MSG_WRITE_ELAPSED,
   FPS,
-  FRAMES,
   FRAMES_RENDERED,
   FRAMES_SILENT,
+  FRAMES,
   FREQUENCY,
   MAGNITUDE,
   NEXT_FRAME,
   NO_CONN,
   REELS_RACKED,
-  REMOTE_ASYNC,
+  REMOTE_DATA_WAIT,
   REMOTE_ELAPSED,
   REMOTE_ROUNDTRIP,
-  RENDER,
-  RENDER_ELAPSED,
   RENDER_DELAY,
+  RENDER_ELAPSED,
+  RENDER,
   STREAMS_DEINIT,
   STREAMS_INIT,
   SYNC_WAIT,
-  SYNC_WAIT_NEG,
-  SYNC_WAIT_ZERO
 };
 
-class Stats {
+class Stats : public std::enable_shared_from_this<Stats> {
+private:
+  Stats(io_context &io_ctx, csv measure, const string db_uri) noexcept;
+  using stat_variant = std::variant<int32_t, int64_t, double>;
+
 public:
-  Stats(io_context &io_ctx)
-      : db_uri("http://localhost:8086?db=pierre"), // where we save stats
-        stats_strand(io_ctx),                      // isolated strand for stats activities
-        val_txt({                                  // create map of stats val to text
-                 {FEEDBACKS, "feedbacks"},
-                 {FPS, "fps"},
-                 {FRAMES_RENDERED, "frames_rendered"},
-                 {FRAMES_SILENT, "frames_silent"},
-                 {FRAMES, "frames"},
-                 {FREQUENCY, "frequency"},
-                 {MAGNITUDE, "magnitude"},
-                 {NEXT_FRAME, "next_frame"},
-                 {NO_CONN, "no_conn"},
-                 {REELS_RACKED, "reels_racked"},
-                 {REMOTE_ASYNC, "remote_async"},
-                 {REMOTE_ELAPSED, "remote_elapsed"},
-                 {REMOTE_ROUNDTRIP, "remote_log_roundtrip"},
-                 {RENDER, "render"},
-                 {RENDER_DELAY, "render_delay"},
-                 {RENDER_ELAPSED, "render_elapsed"},
-                 {STREAMS_DEINIT, "streams_deinit"},
-                 {STREAMS_INIT, "streams_init"},
-                 {SYNC_WAIT, "sync_wait"},
-                 {SYNC_WAIT_NEG, "sync_wait_neg"},
-                 {SYNC_WAIT_ZERO, "sync_wait_zero"}}) {}
+  ~Stats() noexcept;
+  static std::shared_ptr<Stats> create(io_context &io_ctx, csv measure,
+                                       const string db_uri) noexcept;
+  std::shared_ptr<Stats> init() noexcept;
+  static void shutdown() noexcept;
 
-  void operator()(stats_val v, std::floating_point auto fp) { write(v, fp); }
+  static void write(stats_v vt, auto v) noexcept {
 
-  void operator()(stats_val v, int32_t x = 1) noexcept;
-  void operator()(stats_val v, Elapsed &e) noexcept;
-  void operator()(stats_val v, const Nanos d) noexcept;
-  void operator()(stats_val v, const Micros d) noexcept;
+    if constexpr (std::is_same_v<decltype(v), Elapsed>) v.freeze();
+
+    if constexpr (std::is_same_v<decltype(v), Elapsed>) {
+      write_stat(vt, stat_variant{v().count()}, "elapsed");
+
+    } else if constexpr (std::is_same_v<decltype(v), Nanos> ||
+                         std::is_same_v<decltype(v), Micros> ||
+                         std::is_same_v<decltype(v), Millis>) {
+      const auto d = pet::as<Nanos, decltype(v)>(v);
+      write_stat(vt, stat_variant{d.count()}, "nanos");
+
+    } else if constexpr (std::is_same_v<decltype(v), bool>) {
+      write_stat(vt, stat_variant{v == true ? 1 : 0}, "boolean");
+
+    } else if constexpr (std::is_same_v<decltype(v), int64_t> ||
+                         std::is_same_v<decltype(v), int32_t>) {
+      write_stat(vt, stat_variant{v}, "integer");
+
+    } else if constexpr (std::is_same_v<decltype(v), float> ||
+                         std::is_same_v<decltype(v), double> ||
+                         std::is_convertible_v<decltype(v), double>) {
+      write_stat(vt, stat_variant{v}, "floating_point");
+    } else {
+      write_stat(vt, stat_variant(v), "auto");
+    }
+  }
 
 private:
-  void flush_if_needed();
-  void init_db_if_needed();
-  void write(stats_val v, float fp);
+  static void write_stat(stats_v vt, stat_variant sv, csv type) noexcept;
 
 private:
   // order dependent
   const string db_uri;
+  const string measurement;
   strand stats_strand;
-  std::map<stats_val, string> val_txt;
+  std::map<stats_v, string> val_txt;
 
 public:
   static constexpr csv module_id{"DESK_STATS"};

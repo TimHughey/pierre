@@ -75,10 +75,6 @@ struct pet {
 
   static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::_monotonic()) { return d2 - d1; }
 
-  template <typename T> static T elapsed_as(const Nanos &d1, const Nanos d2 = pet::_monotonic()) {
-    return std::chrono::duration_cast<T>(d2 - d1);
-  }
-
   static Nanos elapsed_abs(const Nanos &d1, const Nanos d2 = pet::_monotonic()) {
     return diff_abs(d2, d1);
   }
@@ -89,11 +85,9 @@ struct pet {
 
   static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
 
-  template <typename S> static constexpr auto from_now(S amount) noexcept {
-    return steady_clock::now() + amount;
-  }
-
   static constexpr Nanos from_ns(uint64_t ns) { return Nanos(static_cast<int64_t>(ns)); }
+
+  static constexpr Micros from_us(const int64_t x) noexcept { return Micros(x); }
 
   template <typename T> static constexpr bool not_zero(const T &d) { return d != T::zero(); }
 
@@ -108,29 +102,9 @@ struct pet {
     return T(static_cast<int64_t>(x.count() * val));
   }
 
-  static constexpr Nanos &reduce(Nanos &val, const Nanos by, const Nanos floor = Nanos::zero()) {
-    Nanos rval = val - by;
-
-    val = (rval >= floor) ? rval : floor;
-
-    return val;
-  }
-
-  template <typename T = Nanos> static constexpr T reference() {
-    return std::chrono::duration_cast<T>(steady_clock::now().time_since_epoch());
-  }
-
-  template <typename T = Nanos> static constexpr void set_if_zero(T &to_set, const T val) {
-    if (to_set == Nanos::zero()) {
-      to_set = val;
-    }
-  }
-
   static constexpr Nanos subtract_offset(const Nanos &d, uint64_t offset) {
-    return Nanos(to_uint64_t(d) - offset);
+    return Nanos{static_cast<uint64_t>(d.count()) - offset};
   }
-
-  static constexpr uint64_t to_uint64_t(const Nanos &d) { return static_cast<uint64_t>(d.count()); }
 
 private:
   static Nanos _monotonic();

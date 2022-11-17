@@ -23,18 +23,17 @@
 #include "base/render.hpp"
 #include "config/config.hpp"
 #include "desk/data_msg.hpp"
-#include "desk/fx.hpp"
-#include "desk/fx/majorpeak.hpp"
-#include "desk/fx/silence.hpp"
-#include "frame/anchor.hpp"
+#include "desk/fx/all.hpp"
+#include "desk/session/ctrl.hpp"
+#include "desk/stats.hpp"
 #include "frame/frame.hpp"
-#include "frame/master_clock.hpp"
-#include "frame/reel.hpp"
+#include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
 #include "io/async_msg.hpp"
 #include "mdns/mdns.hpp"
 
 #include <exception>
+#include <functional>
 #include <future>
 #include <latch>
 #include <math.h>
@@ -42,20 +41,18 @@
 #include <ranges>
 
 namespace pierre {
-namespace shared {
-std::optional<Desk> desk;
-}
+
+// allow shorthand access to shared objects
+static std::shared_ptr<Desk> self;
+static shFX active_fx;
+static std::shared_ptr<desk::Ctrl> ctrl;
+static std::shared_ptr<desk::Stats> run_stats;
 
 // must be defined in .cpp to hide mdns
-Desk::Desk() noexcept                               //
-    : streams_strand(io_ctx),                       // serialize streams init/deinit
-      handoff_strand(io_ctx),                       // serial Spooler frame collection
-      frame_strand(io_ctx),                         // serialize spooler frame access
-      render_strand(io_ctx),                        // sync frame rendering
-      frame_last{0},                                // last frame processed (steady clock)
-      active_fx(fx_factory::create<fx::Silence>()), // active FX initializes to Silence
-      guard(io::make_work_guard(io_ctx)),           // prevent io_ctx from ending
-      run_stats(io_ctx)                             // create the stats object
+Desk::Desk() noexcept
+    : frame_strand(io_ctx),              // serialize spooler frame access
+      frame_last{0},                     // last frame processed (steady clock)
+      guard(io::make_work_guard(io_ctx)) // prevent io_ctx from ending
 {}
 
 // general API
@@ -63,10 +60,10 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
   // first things first, ensure we are running in the correct strand
   if (frame_strand.running_in_this_thread() == false) {
-    asio::post(frame_strand, [=, &desk = shared::desk]() {
+    asio::post(frame_strand, [=]() {
       INFO(module_id, "FRAME_LOOP", "moving self to frame_strand\n");
 
-      desk->frame_loop(wait);
+      self->frame_loop(wait);
     });
 
     return; // do not fall through to the frame procesing loop
@@ -84,13 +81,13 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // note: reset render_wait to get best possible measurement
     if (render_wait.reset() && Render::enabled()) {
-      run_stats(desk::RENDER_DELAY, render_wait);
+      run_stats->write(desk::RENDER_DELAY, render_wait);
 
       Elapsed elapsed_next;
 
       // Racked will always return either a racked or silent frame
       frame = Racked::next_frame().get();
-      run_stats(desk::NEXT_FRAME, elapsed_next);
+      run_stats->write(desk::NEXT_FRAME, elapsed_next);
     } else {
       // not rendering, generate a silent frame
       frame = SilentFrame::create();
@@ -100,8 +97,22 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     //  1. rendering = from Racked (peaks or silent)
     //  2. not rendering = generated SilentFrame
 
-    if (frame->state.ready()) {
-      frame_render(frame);
+    if (frame->state.ready()) { // render this frame and send to DMX controller
+      desk::DataMsg data_msg(frame, InputInfo::lead_time);
+
+      run_stats->write(frame->silent() ? desk::FRAMES_SILENT : desk::FRAMES_RENDERED, 1);
+
+      if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
+        active_fx = fx_factory::create<fx::MajorPeak>();
+        INFO(module_id, "FRAME_RENDER", "engaging fx={}\n", active_fx->name());
+      }
+
+      active_fx->render(frame, data_msg);
+      data_msg.finalize();
+
+      ctrl->send_data_msg(std::move(data_msg));
+
+      frame->mark_rendered();
       frame_last = pet::now_realtime();
     } else {
       INFO(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
@@ -109,7 +120,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // account for processing time thus far
     sync_wait = frame->sync_wait_recalc();
-    run_stats(desk::SYNC_WAIT, pet::floor(sync_wait)); // log sync_wait
+    run_stats->write(desk::SYNC_WAIT, pet::floor(sync_wait)); // log sync_wait
 
     if (sync_wait >= Nanos::zero()) {
       frame_timer.expires_after(sync_wait);
@@ -126,66 +137,32 @@ void Desk::frame_loop(const Nanos wait) noexcept {
   loop_active = false;
 }
 
-void Desk::frame_render(frame_t frame) {
-
-  desk::DataMsg data_msg(frame, InputInfo::lead_time);
-  frame->mark_rendered(); // frame is consumed, even when no connection
-
-  run_stats(frame->silent() ? desk::FRAMES_SILENT : desk::FRAMES_RENDERED);
-
-  if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
-
-    active_fx = fx_factory::create<fx::MajorPeak>(run_stats);
-    INFO(module_id, "FRAME_RENDER", "engaging fx={}\n", active_fx->name());
-  }
-
-  active_fx->render(frame, data_msg);
-  data_msg.finalize();
-
-  if (control) {                       // control exists
-    if (control->ready()) [[likely]] { // control is ready
-
-      io::async_write_msg(        //
-          control->data_socket(), //
-          std::move(data_msg),    //
-          [&desk = shared::desk, elapsed = Elapsed()](const error_code ec) {
-            desk->run_stats(desk::REMOTE_ELAPSED, elapsed());
-            desk->run_stats(desk::FRAMES);
-
-            if (ec) desk->streams_deinit();
-          });
-
-    } else if (ec_last_ctrl_tx) {
-      INFO(module_id, "ERROR", "shutting down streams, ctrl={}\n", ec_last_ctrl_tx.message());
-
-      streams_deinit();
-
-    } else { // control not ready, increment stats
-      run_stats(desk::NO_CONN);
-    }
-  } else { // control does not exist, initialize it
-    streams_init();
-  }
-}
-
 void Desk::init() noexcept { // static instance creation
-  if (shared::desk.has_value() == false) {
-    shared::desk.emplace().init_self();
+  if (self.use_count() == 0) {
+    self = std::shared_ptr<Desk>(new Desk());
+    self->init_self();
   }
 }
 
-void Desk::init_self() {
+void Desk::init_self() noexcept {
+
+  // initialize supporting objects
+  const auto db_uri = Config().at("stats.db_uri"sv).value_or(string());
+  run_stats = desk::Stats::create(io_ctx, module_id, db_uri)->init();
+
+  active_fx = fx_factory::create<fx::Silence>();
+
   const auto num_threads = Config().at("desk.threads"sv).value_or(3);
   std::latch latch(num_threads);
 
   // note: work guard created by constructor p
   for (auto n = 0; n < num_threads; n++) { // main thread is 0s
-    shared::desk->threads.emplace_back([=, &desk = shared::desk, &latch](std::stop_token token) {
+    self->threads.emplace_back([=, &s = self, &latch](std::stop_token token) {
       name_thread(TASK_NAME, n);
-      desk->tokens.add(std::move(token));
+      s->tokens.add(std::move(token));
 
-      latch.count_down();
-      desk->io_ctx.run();
+      latch.arrive_and_wait();
+      s->io_ctx.run();
     });
   }
 
@@ -193,38 +170,23 @@ void Desk::init_self() {
   latch.wait();
   log_init(num_threads);
 
-  asio::post(io_ctx, [this]() { streams_init(); }); // stream init on any thread
-  frame_loop(); // frame loop() will switch itself ot frame_strand
+  // all threads / strands are runing, fire up subsystems
+  asio::post(io_ctx, [this]() {
+    ctrl = desk::Ctrl::create(io_ctx, run_stats)->init();
+
+    frame_loop(); // start Desk frame processing
+  });
 }
 
-void Desk::streams_deinit() {
-  if (control) {
-    asio::post(streams_strand, [&desk = shared::desk]() {
-      desk->run_stats(desk::STREAMS_DEINIT);
+bool Desk::silence() const noexcept { return active_fx && active_fx->matchName(fx::SILENCE); }
 
-      desk->control.reset();
-    });
-  }
-}
-
-void Desk::streams_init() {
-  if (!control) {
-    asio::post(streams_strand, [&desk = shared::desk]() {
-      desk->run_stats(desk::STREAMS_INIT);
-
-      desk->control.emplace(     // create ctrl stream
-          desk->io_ctx,          // majority of rx/tx use io_ctx
-          desk->streams_strand,  // shared state/status protected by this strand
-          desk->ec_last_ctrl_tx, // last error_code (updated via streams_strand)
-          InputInfo::lead_time,  // default lead_time
-          desk->run_stats        // desk stats
-      );
-    });
-  }
+void Desk::shutdown() noexcept {
+  // stop all threads
+  // release static supporting objects
 }
 
 // misc debug and logging API
-bool Desk::log_frame_timer(const error_code &ec, csv fn_id) const {
+bool Desk::log_frame_timer(const error_code &ec, csv fn_id) const noexcept {
   auto rc = true;
 
   if (!ec) {

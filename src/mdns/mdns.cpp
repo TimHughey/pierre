@@ -181,11 +181,11 @@ void mDNS::update_impl() {
   avahi_string_list_free(sl);
 }
 
-std::future<ZeroConf> mDNS::zservice(csv name) {
+ZeroConfFut mDNS::zservice(csv name) {
   auto &mdns = shared::mdns.value();
 
   ZeroConfProm prom;
-  ZeroConfFut fut = prom.get_future();
+  ZeroConfFut fut{prom.get_future()};
 
   avahi_threaded_poll_lock(mdns::_tpoll);
 
