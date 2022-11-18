@@ -46,6 +46,10 @@ ceiling = 128.0
 colorbars = true
 threads = 5      # frame, dmx connect, dmx ctrl/data
 
+[fx.leave]
+color = { hue = 0.0, sat = 100.0, bri = 50.0 }
+hue_step = 0.65
+
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }
 soft = { floor = 110.0, ceiling = 5000.0 }

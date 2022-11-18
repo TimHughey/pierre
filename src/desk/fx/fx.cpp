@@ -23,6 +23,9 @@
 #include "desk/unit/opts.hpp"
 #include "frame/frame.hpp"
 
+#include <algorithm>
+#include <ranges>
+
 namespace pierre {
 
 Units FX::units; // static class member
@@ -40,10 +43,14 @@ FX::FX() {
   }
 }
 
+bool FX::match_name(const std::initializer_list<csv> names) const noexcept {
+  return std::ranges::any_of(names, [this](const auto &n) { return n == name(); });
+}
+
 bool FX::render(frame_t frame, desk::DataMsg &msg) noexcept {
 
   if (called_once == false) {
-    // frame 0 is always consumed by the call to once()
+    // frame 0 is always consumed by call to once()
     once();
     called_once = true;
   } else {

@@ -102,7 +102,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       run_stats->write(frame->silent() ? desk::FRAMES_SILENT : desk::FRAMES_RENDERED, 1);
 
-      if ((active_fx->matchName(fx::SILENCE)) && !frame->silent()) {
+      if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
         active_fx = fx_factory::create<fx::MajorPeak>();
         INFO(module_id, "FRAME_RENDER", "engaging fx={}\n", active_fx->name());
       }
@@ -150,7 +150,7 @@ void Desk::init_self() noexcept {
   const auto db_uri = Config().at("stats.db_uri"sv).value_or(string());
   run_stats = desk::Stats::create(io_ctx, module_id, db_uri)->init();
 
-  active_fx = fx_factory::create<fx::Silence>();
+  active_fx = fx_factory::create<fx::Leave>();
 
   const auto num_threads = Config().at("desk.threads"sv).value_or(3);
   std::latch latch(num_threads);
@@ -178,7 +178,7 @@ void Desk::init_self() noexcept {
   });
 }
 
-bool Desk::silence() const noexcept { return active_fx && active_fx->matchName(fx::SILENCE); }
+bool Desk::silence() const noexcept { return active_fx && active_fx->match_name(fx::SILENCE); }
 
 void Desk::shutdown() noexcept {
   // stop all threads

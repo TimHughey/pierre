@@ -24,6 +24,7 @@
 #include "frame/frame.hpp"
 #include "fx/names.hpp"
 
+#include <initializer_list>
 #include <memory>
 
 namespace pierre {
@@ -46,9 +47,10 @@ public:
   FX();
   virtual ~FX() = default;
 
-  virtual bool completed() { return finished; }
+  virtual bool completed() noexcept { return finished; }
 
-  bool matchName(csv &match) const { return match == name(); }
+  bool match_name(const std::initializer_list<csv> names) const noexcept;
+  bool match_name(csv n) const { return n == name(); }
   virtual csv name() const = 0;
 
   // workhorse of FX

@@ -23,10 +23,10 @@
 namespace pierre {
 namespace fx {
 
-constexpr auto COLOR_BARS = "ColorBars"sv;
-constexpr auto LEAVING = "Leaving"sv;
-constexpr auto MAJOR_PEAK = "MajorPeak"sv;
-constexpr auto SILENCE = "Silence"sv;
+constexpr csv COLOR_BARS{"ColorBars"};
+constexpr csv LEAVE{"Leaving"};
+constexpr csv MAJOR_PEAK{"MajorPeak"};
+constexpr csv SILENCE{"Silence"};
 
 } // namespace fx
 } // namespace pierre

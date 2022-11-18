@@ -27,19 +27,22 @@ namespace fx {
 
 class Leave : public FX {
 public:
-  Leave(const float hue_step = 0.25f, const float brightness = 100.0f);
-  ~Leave() = default;
+  Leave() = default;
+  ~Leave();
 
   void execute(Peaks &peaks) override;
-  csv name() const override { return fx::LEAVING; };
+  csv name() const override { return fx::LEAVE; };
 
   void once() override;
 
 private:
-  float hue_step = 0.25f;
-  float brightness = 100.0f;
+  void load_config() noexcept;
 
-  float next_brightness = 0;
+private:
+  // order independent
+  double hue_step{0.0};
+  double max_brightness{0};
+  double next_brightness{0};
   Color next_color;
 };
 
