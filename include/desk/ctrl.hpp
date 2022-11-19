@@ -25,7 +25,6 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/data_msg.hpp"
-#include "desk/stats.hpp"
 #include "io/msg.hpp"
 
 #include <atomic>
@@ -40,13 +39,13 @@ using ctrl_fut_ec_t = std::future<error_code>;
 
 class Ctrl : public std::enable_shared_from_this<Ctrl> {
 private:
-  Ctrl(io_context &io_ctx, std::shared_ptr<Stats> run_stats) noexcept;
+  Ctrl(io_context &io_ctx) noexcept;
 
 public:
   ~Ctrl() noexcept;
 
-  static auto create(io_context &io_ctx, std::shared_ptr<Stats> run_stats) noexcept {
-    return std::shared_ptr<Ctrl>(new Ctrl(io_ctx, run_stats));
+  static auto create(io_context &io_ctx) noexcept {
+    return std::shared_ptr<Ctrl>(new Ctrl(io_ctx));
   }
 
   auto ptr() noexcept { return shared_from_this(); }
@@ -91,7 +90,6 @@ private:
   io_context &io_ctx;
   tcp_acceptor acceptor;
   steady_timer stalled_timer;
-  std::shared_ptr<desk::Stats> run_stats;
 
   // order independent
   std::atomic_bool connected{false};

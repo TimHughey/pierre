@@ -2,24 +2,15 @@
 # Desk
 #
 
-set(__target desk)
+set(__target stats)
 
 set(HEADER_PATH                                   ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL                             ${HEADER_PATH}/${__target})
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/*.h*")
 
 add_library(${__target} SHARED
-  # public API for (light)desk and headunits
-  desk.cpp units.cpp
-
-  # desk DMX control session
-  ctrl.cpp
-
-  # headunits
-  unit/pinspot.cpp
-
-  # FX
-  fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp fx/silence.cpp
+  # public API for stats
+  stats.cpp
 
   ${HEADER_LIST}
 )
@@ -33,10 +24,9 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH_LOCAL} ${HEADER_PAT
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
-  InfluxData::InfluxDB
-  base config frame io fader mdns stats
+  base io config
 )
 
 target_link_libraries(${__target} PUBLIC
-  ArduinoJson
+  InfluxData::InfluxDB
 )

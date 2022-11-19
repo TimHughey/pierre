@@ -22,11 +22,11 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
-#include "desk/stats.hpp"
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
 #include "fx/majorpeak/config.hpp"
+#include "stats/stats.hpp"
 
 namespace pierre {
 
@@ -34,6 +34,10 @@ using FillFader = fader::ToBlack<fader::SimpleLinear>;
 using MainFader = fader::ToBlack<fader::SimpleLinear>;
 
 namespace fx {
+
+namespace {
+namespace stats = pierre::stats;
+}
 
 MajorPeak::MajorPeak() noexcept
     : FX(),                         //
@@ -73,8 +77,8 @@ void MajorPeak::execute(Peaks &peaks) {
   handle_main_pinspot(peaks);
   handle_fill_pinspot(peaks);
 
-  desk::Stats::write(pierre::desk::FREQUENCY, peaks.major_peak().frequency());
-  desk::Stats::write(pierre::desk::MAGNITUDE, peaks.major_peak().magnitude());
+  Stats::write(stats::MAX_PEAK_FREQUENCY, peaks.major_peak().frequency());
+  Stats::write(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
 
   // detect if FX is in finished position (nothing is fading)
   // finished = !main->isFading() && !fill->isFading();
@@ -270,7 +274,10 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 }
 
 // must be in .cpp to avoid including Desk in .hpp
-void MajorPeak::once() { units.dark(); }
+void MajorPeak::once() {
+  Stats::init(); // ensure Stats object is initialized
+  units.dark();
+}
 
 const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_colors.at(index); }
 

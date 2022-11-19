@@ -54,7 +54,11 @@ void Rtsp::asyncLoop(const error_code ec_last) {
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      __infoAccept(socket->native_handle(), LOG_FALSE);
+      const auto &l = socket->local_endpoint();
+      const auto &r = socket->remote_endpoint();
+
+      INFO("AIRPLAY", server_id, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
+           l.address().to_string(), l.port());
 
       // create the session passing all the options
       // notes

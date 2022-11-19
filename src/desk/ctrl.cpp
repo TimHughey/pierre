@@ -23,6 +23,7 @@
 #include "io/async_msg.hpp"
 #include "io/msg.hpp"
 #include "mdns/mdns.hpp"
+#include "stats/stats.hpp"
 
 #include <array>
 #include <iterator>
@@ -33,12 +34,15 @@
 namespace pierre {
 namespace desk {
 
+namespace {
+namespace stats = pierre::stats;
+}
+
 // general API
-Ctrl::Ctrl(io_context &io_ctx, std::shared_ptr<Stats> run_stats) noexcept
+Ctrl::Ctrl(io_context &io_ctx) noexcept
     : io_ctx(io_ctx), // use shared io_ctx
       acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),
-      stalled_timer(io_ctx), // detect stalled controllers
-      run_stats(run_stats)   // run stats
+      stalled_timer(io_ctx) // detect stalled controllers
 {}
 
 Ctrl::~Ctrl() noexcept { INFO(module_id, "DESTRUCT", "ready={}\n", ready()); }
@@ -208,7 +212,7 @@ const error_code Ctrl::log_accept(const error_code ec, Elapsed e) noexcept {
     INFO(module_id, "DATA", "accepted connection {}:{} {}\n", r.address().to_string(), r.port(),
          e.humanize());
 
-    run_stats->write(desk::CTRL_CONNECT_ELAPSED, e);
+    Stats::write(stats::CTRL_CONNECT_ELAPSED, e);
   }
 
   return ec;
@@ -241,21 +245,23 @@ const error_code Ctrl::log_connect(const error_code ec, Elapsed &e,
 void Ctrl::log_feedback(JsonDocument &doc) noexcept {
   const auto remote_now = Micros(doc["now_µs"].as<int64_t>());
   const auto clocks_diff = pet::abs(remote_now - pet::now_realtime<Micros>());
-  run_stats->write(desk::CLOCKS_DIFF, clocks_diff);
+  Stats::write(stats::CLOCK_DIFF, clocks_diff);
 
-  run_stats->write(desk::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
-  run_stats->write(desk::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
-  run_stats->write(desk::FPS, doc["fps"].as<int64_t>() | 0);
+  Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
+  Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
+
+  const int64_t fps = doc["fps"].as<int64_t>();
+  Stats::write(stats::FPS, fps);
 
   const auto roundtrip = pet::now_realtime() - pet::from_us(doc["echo_now_µs"]);
-  run_stats->write(desk::REMOTE_ROUNDTRIP, roundtrip);
+  Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
 }
 
 void Ctrl::log_handshake(JsonDocument &doc) {
   const auto remote_now = Micros(doc["now_µs"].as<int64_t>());
   const auto clocks_diff = pet::abs(remote_now - pet::now_realtime<Micros>());
 
-  run_stats->write(desk::CLOCKS_DIFF, clocks_diff);
+  Stats::write(stats::CLOCK_DIFF, clocks_diff);
 
   INFO(module_id, "REMOTE", "clocks_diff={} ctrl={} data={}\n", //
        pet::humanize(clocks_diff),                              //
@@ -264,19 +270,19 @@ void Ctrl::log_handshake(JsonDocument &doc) {
 }
 
 const error_code Ctrl::log_read_msg(const error_code ec, Elapsed e) noexcept {
-  run_stats->write(desk::CTRL_MSG_READ_ELAPSED, e);
+  Stats::write(stats::CTRL_MSG_READ_ELAPSED, e);
 
-  if (ec != errc::success) run_stats->write(desk::CTRL_MSG_READ_ERROR, true);
+  if (ec != errc::success) Stats::write(stats::CTRL_MSG_READ_ERROR, true);
 
   return ec;
 }
 
 const error_code Ctrl::log_send_ctrl_msg(const error_code ec, const size_t tx_want,
                                          const size_t tx_actual, Elapsed e) noexcept {
-  run_stats->write(desk::CTRL_MSG_WRITE_ELAPSED, e);
+  Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e);
 
   if ((ec != errc::success) && (tx_want != tx_actual)) {
-    run_stats->write(desk::CTRL_MSG_WRITE_ERROR, true);
+    Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
 
     INFO(module_id, "SEND_CTRL_MSG", "write failed, reason={} bytes={}/{}\n", //
          ec.message(), tx_actual, tx_want);
@@ -286,10 +292,10 @@ const error_code Ctrl::log_send_ctrl_msg(const error_code ec, const size_t tx_wa
 }
 
 const error_code Ctrl::log_send_data_msg(const error_code ec, Elapsed e) noexcept {
-  run_stats->write(desk::DATA_MSG_WRITE_ELAPSED, e);
-  run_stats->write(desk::FRAMES, 1);
+  Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e);
+  Stats::write(stats::FRAMES, 1);
 
-  if (ec != errc::success) run_stats->write(desk::DATA_MSG_WRITE_ERROR, true);
+  if (ec != errc::success) Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
 
   return ec;
 }

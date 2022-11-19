@@ -48,8 +48,6 @@ namespace shared {
 std::optional<Racked> racked;
 }
 
-static std::shared_ptr<frame::Stats> stats;
-
 uint64_t Racked::REEL_SERIAL_NUM{0x1000};
 
 void Racked::accept_frame(frame_t frame) noexcept {
@@ -133,7 +131,7 @@ void Racked::flush_impl(FlushInfo request) {
 
           if (reel.flush(flush_request)) { // true=reel empty
             it = racked.erase(it);         // returns it to next not erased entry
-            stats->write(frame::REELS_RACKED, std::ssize(racked));
+            Stats::write(stats::RACKED_REELS, std::ssize(racked));
           } else {
             INFO(module_id, "FLUSH", "KEEPING {}\n", reel_info);
           }
@@ -141,7 +139,7 @@ void Racked::flush_impl(FlushInfo request) {
       }
 
       if (auto flushed = initial_size - std::ssize(racked); flushed > 0) {
-        stats->write(frame::REELS_FLUSHED, flushed);
+        Stats::write(stats::FLUSHED_REELS, flushed);
       }
     }
 
@@ -179,6 +177,8 @@ void Racked::init() { // static
 }
 
 void Racked::init_self() {
+  Stats::init(); // ensure Stats object is initialized
+
   const int thread_count = Config().at("frame.racked.threads"sv).value_or(3);
 
   std::latch latch{thread_count};
@@ -192,9 +192,6 @@ void Racked::init_self() {
       io_ctx.run();
     });
   }
-
-  const auto db_uri = Config().at("stats.db_uri"sv).value_or("unset");
-  stats = frame::Stats::init(io_ctx, "RACKED_STATS", db_uri);
 
   latch.wait(); // caller waits until all threads are started
 }
@@ -255,7 +252,7 @@ void Racked::next_frame_impl(frame_promise prom) noexcept {
         // if the reel is empty, pop it from racked
         if (reel.empty()) {
           racked.erase(racked.begin());
-          stats->write(frame::REELS_RACKED, std::ssize(racked));
+          Stats::write(stats::RACKED_REELS, std::ssize(racked));
         }
       }
 
@@ -290,9 +287,9 @@ void Racked::rack_wip() noexcept {
       rc = TIMEOUT;
     }
 
-    if (rc == COLLISION) stats->write(frame::RACK_COLLISION, true);
-    if (rc == RACKED) stats->write(frame::REELS_RACKED, std::ssize(racked));
-    if (rc == TIMEOUT) stats->write(frame::RACK_WIP_TIMEOUT, true);
+    if (rc == COLLISION) Stats::write(stats::RACK_COLLISION, true);
+    if (rc == RACKED) Stats::write(stats::RACKED_REELS, std::ssize(racked));
+    if (rc == TIMEOUT) Stats::write(stats::RACK_WIP_TIMEOUT, true);
 
     log_racked(wip_info, rc);
 

@@ -23,7 +23,6 @@
 #include "common/ss_inject.hpp"
 #include "session/base.hpp"
 
-#include <fmt/format.h>
 #include <memory>
 #include <optional>
 
@@ -31,19 +30,13 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
-constexpr size_t PACKET_LEN_BYTES = sizeof(uint16_t);
-constexpr size_t STD_PACKET_SIZE = 2048;
-
-class Audio; // forward decl for shared_ptr def
-typedef std::shared_ptr<Audio> shAudio;
-
 class Audio : public Base, public std::enable_shared_from_this<Audio> {
 public:
-  static shAudio start(const Inject &di) {
+  static auto start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
     // socket is detected
-    auto session = shAudio(new Audio(di));
+    auto session = std::shared_ptr<Audio>(new Audio(di));
 
     session->asyncLoop();
 
@@ -51,12 +44,11 @@ public:
   }
 
 private:
-  Audio(const Inject &di) noexcept;
+  Audio(const Inject &di) noexcept : Base(di, module_id) {}
 
 public:
   // initiates async audio buffer loop
   void asyncLoop() override; // see .cpp file for critical function details
-  void teardown() override;
 
 private:
   void asyncRxPacket();
@@ -64,14 +56,12 @@ private:
   void stats();
 
 private:
-  // order dependent
-  steady_timer timer;
-
+  // order independent
   uint8v packet_len_buffer;
   uint8v packet_buffer;
 
 public:
-  static constexpr csv moduie_id{"AUDIO_SESSION"};
+  static constexpr csv module_id{"AUDIO_SESSION"};
 };
 
 } // namespace session

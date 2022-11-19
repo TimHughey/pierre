@@ -41,6 +41,9 @@ void name_thread(csv name, int num);
 const string thread_id_short();
 
 class stop_tokens {
+private:
+  static constexpr auto def_func = []() {};
+
 public:
   stop_tokens() = default;
 
@@ -50,7 +53,7 @@ public:
     return std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
   }
 
-  template <typename S, typename F> bool any_requested(S &&stoppable, F &&func) {
+  template <typename S, typename F> bool any_requested(S &&stoppable, F &&func = def_func) {
     auto should_stop = std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
 
     if (should_stop) {

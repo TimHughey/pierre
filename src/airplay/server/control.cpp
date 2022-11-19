@@ -125,33 +125,15 @@ void Control::asyncLoop(const error_code ec_last) {
 void Control::asyncRestOfPacket() {
   // the length specified in the header denotes the entire packet size
 
-  auto buff_rest = asio::buffer(_wire.data(), _hdr.moreBytes());
   socket.async_receive_from( //
-      buff_rest, remote_endpoint, [&](error_code ec, [[maybe_unused]] size_t rx_bytes) {
+      asio::buffer(_wire.data(), _hdr.moreBytes()), remote_endpoint,
+      [&](error_code ec, [[maybe_unused]] size_t rx_bytes) {
         if (isReady(ec)) { // debug
 
           nextBlock();
           asyncLoop(ec); // schedule more work
         }
       });
-}
-
-bool Control::isReady(const error_code &ec) {
-  [[maybe_unused]] error_code __ec;
-  auto rc = isReady();
-
-  if (rc) {
-    switch (ec.value()) {
-    case errc::success:
-      break;
-
-    default:
-      socket.shutdown(udp_socket::shutdown_both, __ec);
-      rc = false;
-    }
-  }
-
-  return rc;
 }
 
 void Control::nextBlock() {

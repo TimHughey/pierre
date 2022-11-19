@@ -21,28 +21,16 @@
 #include "base/types.hpp"
 #include "session/audio.hpp"
 
-#include <fmt/format.h>
 #include <ranges>
+#include <vector>
 
 namespace pierre {
 namespace airplay {
 namespace server {
 
-namespace ranges = std::ranges;
 namespace session = pierre::airplay::session;
 
-static std::list<session::shAudio> _sessions;
-
-Audio::~Audio() {
-  [[maybe_unused]] auto handle = acceptor.native_handle();
-  [[maybe_unused]] error_code ec;
-  acceptor.close(ec); // use error_code overload to prevent throws
-
-  if (false) { // debug
-    INFO("AIRPLAY", serverId(), "closed socket={} reason={}\n", acceptor.native_handle(),
-         ec.message());
-  }
-}
+static std::vector<std::shared_ptr<session::Audio>> _sessions;
 
 void Audio::asyncLoop(const error_code ec_last) {
   // first things first, check ec_last passed in, bail out if needed
@@ -51,7 +39,7 @@ void Audio::asyncLoop(const error_code ec_last) {
     // don't highlight "normal" shutdown
     if ((ec_last.value() != errc::operation_canceled) &&
         (ec_last.value() != errc::resource_unavailable_try_again)) {
-      INFO("AIRPLAY", serverId(), "accept failed, error={}\n", ec_last.message());
+      INFO("AIRPLAY", server_id, "accept failed, error={}\n", ec_last.message());
     }
     // some kind of error occurred, simply close the socket
     [[maybe_unused]] error_code __ec;
@@ -68,7 +56,11 @@ void Audio::asyncLoop(const error_code ec_last) {
   // io_ctx we must deference or get the value of the optional
   acceptor.async_accept(*socket, [&](error_code ec) {
     if (ec == errc::success) {
-      __infoAccept(socket->native_handle(), LOG_FALSE);
+      const auto &l = socket->local_endpoint();
+      const auto &r = socket->remote_endpoint();
+
+      INFO("AIRPLAY", server_id, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
+           l.address().to_string(), l.port());
 
       // create the session passing all the options
       // notes
@@ -79,20 +71,20 @@ void Audio::asyncLoop(const error_code ec_last) {
 
       // assemble the dependency injection and start the server
 
-      auto new_session = session::Audio::start(session::Inject(io_ctx, std::move(socket.value())));
-      _sessions.emplace_back(new_session);
+      _sessions.emplace_back(
+          session::Audio::start(session::Inject(io_ctx, std::move(socket.value()))));
 
       asyncLoop(ec); // schedule more work or gracefully exit
     }
   });
 }
 
-void Audio::teardown() {
+void Audio::teardown() noexcept {
   // here we only issue the cancel to the acceptor.
   // the closing of the acceptor will be handled when
   // the error is caught by asyncLoop
 
-  ranges::for_each(_sessions, [](auto audio_session) { audio_session->teardown(); });
+  std::ranges::for_each(_sessions, [](auto audio_session) { audio_session->teardown(); });
 
   _sessions.clear();
 

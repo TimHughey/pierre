@@ -36,26 +36,17 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
-namespace {
-namespace errc = boost::system::errc;
-}
-
-// forward decl for shared_ptr def
-class Rtsp;
-
-typedef std::shared_ptr<Rtsp> shRtsp;
-
 class Rtsp : public Base, public std::enable_shared_from_this<Rtsp> {
 public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
 
 public:
   ~Rtsp() { teardown(); }
-  static shRtsp start(const Inject &di) {
+  static auto start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
     // socket is detected
-    auto session = shRtsp(new Rtsp(di));
+    auto session = std::shared_ptr<Rtsp>(new Rtsp(di));
 
     session->asyncLoop();
 
@@ -63,11 +54,11 @@ public:
   }
 
 private:
-  Rtsp(const Inject &di)
+  Rtsp(const Inject &di) noexcept
       : Base(di, csv("RTSP SESSION")), // Base holds the newly connected socket
         aes_ctx(Host().device_id())    // create aes ctx
   {
-    INFO(moduleID(), "NEW", "handle={}\n", socket.native_handle());
+    INFO(module_id, "NEW", "handle={}\n", socket.native_handle());
   }
 
 public:
@@ -75,11 +66,11 @@ public:
   void asyncLoop() override; // see .cpp file for critical function details
 
   // Getters
-  const Content &content() const { return _content; }
-  const Headers &headers() const { return _headers; }
-  csv method() const { return _headers.method(); }
-  csv path() const { return _headers.path(); }
-  csv protocol() const { return _headers.protocol(); }
+  const Content &content() const noexcept { return _content; }
+  const Headers &headers() const noexcept { return _headers; }
+  csv method() const noexcept { return _headers.method(); }
+  csv path() const noexcept { return _headers.path(); }
+  csv protocol() const noexcept { return _headers.protocol(); }
 
 private:
   bool createAndSendReply();

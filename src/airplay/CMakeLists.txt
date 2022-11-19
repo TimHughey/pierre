@@ -44,7 +44,7 @@ add_library(${__target} SHARED
   server/servers.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp
 
   # sessions
-  session/base.cpp session/audio.cpp session/event.cpp session/rtsp.cpp
+  session/audio.cpp session/event.cpp session/rtsp.cpp
 
   ${HEADER_LIST}
 )

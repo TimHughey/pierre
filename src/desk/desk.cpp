@@ -30,7 +30,7 @@
 #include "fx/all.hpp"
 #include "io/async_msg.hpp"
 #include "mdns/mdns.hpp"
-#include "stats.hpp"
+#include "stats/stats.hpp"
 
 #include <exception>
 #include <functional>
@@ -46,7 +46,6 @@ namespace pierre {
 static std::shared_ptr<Desk> self;
 static shFX active_fx;
 static std::shared_ptr<desk::Ctrl> ctrl;
-static std::shared_ptr<desk::Stats> run_stats;
 
 // must be defined in .cpp to hide mdns
 Desk::Desk() noexcept
@@ -81,13 +80,13 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // note: reset render_wait to get best possible measurement
     if (render_wait.reset() && Render::enabled()) {
-      run_stats->write(desk::RENDER_DELAY, render_wait);
+      Stats::write(stats::RENDER_DELAY, render_wait);
 
       Elapsed elapsed_next;
 
       // Racked will always return either a racked or silent frame
       frame = Racked::next_frame().get();
-      run_stats->write(desk::NEXT_FRAME, elapsed_next);
+      Stats::write(stats::NEXT_FRAME_WAIT, elapsed_next);
     } else {
       // not rendering, generate a silent frame
       frame = SilentFrame::create();
@@ -100,12 +99,14 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     if (frame->state.ready()) { // render this frame and send to DMX controller
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
-      run_stats->write(frame->silent() ? desk::FRAMES_SILENT : desk::FRAMES_RENDERED, 1);
+      Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
 
       if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
         active_fx = fx_factory::create<fx::MajorPeak>();
         INFO(module_id, "FRAME_RENDER", "engaging fx={}\n", active_fx->name());
       }
+
+      // INFO(module_id, "DEBUG", "FRAME_LOOP \n");
 
       active_fx->render(frame, data_msg);
       data_msg.finalize();
@@ -120,7 +121,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // account for processing time thus far
     sync_wait = frame->sync_wait_recalc();
-    run_stats->write(desk::SYNC_WAIT, pet::floor(sync_wait)); // log sync_wait
+    Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait)); // log sync_wait
 
     if (sync_wait >= Nanos::zero()) {
       frame_timer.expires_after(sync_wait);
@@ -145,11 +146,8 @@ void Desk::init() noexcept { // static instance creation
 }
 
 void Desk::init_self() noexcept {
-
   // initialize supporting objects
-  const auto db_uri = Config().at("stats.db_uri"sv).value_or(string());
-  run_stats = desk::Stats::create(io_ctx, module_id, db_uri)->init();
-
+  Stats::init(); // ensure Stats object is initialized
   active_fx = fx_factory::create<fx::Leave>();
 
   const auto num_threads = Config().at("desk.threads"sv).value_or(3);
@@ -172,7 +170,7 @@ void Desk::init_self() noexcept {
 
   // all threads / strands are runing, fire up subsystems
   asio::post(io_ctx, [this]() {
-    ctrl = desk::Ctrl::create(io_ctx, run_stats)->init();
+    ctrl = desk::Ctrl::create(io_ctx)->init();
 
     frame_loop(); // start Desk frame processing
   });

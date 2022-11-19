@@ -1,25 +1,24 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+// Pierre
+// Copyright (C) 2022 Tim Hughey
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// https://www.wisslanding.com
 
 #include "reply/setup.hpp"
 #include "base/host.hpp"
+#include "config/config.hpp"
 #include "conn_info/conn_info.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
@@ -70,7 +69,6 @@ bool Setup::populate() {
 }
 
 bool Setup::handleNoStreams() {
-  // auto &anchor = *pierre::shared::anchor;
   auto conn = ConnInfo::ptr();
 
   // deduces cat, type and timing
@@ -155,14 +153,16 @@ bool Setup::handleStreams() {
 
     // now handle the specific stream type
     switch (stream_type) {
-    case stream::typeBuffered():
+    case stream::typeBuffered(): {
       conn->stream.buffered(); // this is a buffered audio stream
+
+      const uint64_t buff_size = Config().at("rtsp.audio.buffer_size"sv).value_or(8) * 1024 * 1024;
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()},                     // stream type
                               {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
-                              {dk::BUFF_SIZE, conn->bufferSize()}}); // our buffer size
-
+                              {dk::BUFF_SIZE, buff_size}}); // our buffer size
+    }
       rc = true;
       break;
 

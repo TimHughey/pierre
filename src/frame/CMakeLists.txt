@@ -39,9 +39,6 @@ add_library(${__target} SHARED
   # master clock and anchor
   anchor.cpp master_clock.cpp
 
-  # stats
-  stats/stats.cpp
-
   ${HEADER_LIST}
 )
 
@@ -61,4 +58,5 @@ target_link_libraries(${__target} PRIVATE
   base
   config
   io
+  stats
 )

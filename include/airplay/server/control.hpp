@@ -98,6 +98,18 @@ public:
   uint8_t *hdrData() { return _hdr.data(); }
   size_t hdrSize() const { return _hdr.size(); }
 
+  bool isReady(const error_code &ec) noexcept {
+    auto rc = true;
+
+    if (socket.is_open() && ec) {
+      [[maybe_unused]] error_code ec;
+      socket.shutdown(udp_socket::shutdown_both, ec);
+      rc = false;
+    }
+
+    return rc;
+  }
+
   // ensure the server is started and return the local endpoint port
   uint16_t localPort() override { return socket.local_endpoint().port(); }
 
@@ -105,9 +117,6 @@ public:
 
 private:
   void asyncRestOfPacket();
-
-  bool isReady() const { return socket.is_open(); };
-  bool isReady(const error_code &ec);
 
   void nextBlock();
 

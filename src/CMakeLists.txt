@@ -12,7 +12,7 @@ FetchContent_Declare(ArduinoJson
 
 FetchContent_Declare(InfluxData
     GIT_REPOSITORY https://github.com/offa/influxdb-cxx
-    GIT_TAG        v0.6.7
+    GIT_TAG        822e42254288387f5077d2c60157391c6384bd97
 )
 
 FetchContent_Declare(tomlplusplus
@@ -30,6 +30,9 @@ add_subdirectory(config)
 
 # asio wrapper
 add_subdirectory(io)
+
+# influx-cxx wrapper
+add_subdirectory(stats)
 
 # mdns brought to you by Avahi
 add_subdirectory(mdns)

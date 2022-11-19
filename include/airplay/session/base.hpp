@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "common/ss_inject.hpp"
 
@@ -30,46 +31,61 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
-class Base;
-typedef std::shared_ptr<Base> shBase;
-
 class Base {
-protected:
-  enum ACCUMULATE : uint8_t { RX = 31, TX };
-
-private:
-  static constexpr csv DEF_MODULE_ID{"UNSET MODULE"};
 
 public:
-  Base(const Inject &di, csv module_id = DEF_MODULE_ID)
-      : socket(std::move(di.socket)), local_strand(di.io_ctx), module_id(module_id) {
-    _acc.emplace(ACCUMULATE::RX, 0);
-    _acc.emplace(ACCUMULATE::TX, 0);
-  }
+  Base(const Inject &di, csv module_id) noexcept
+      : socket(std::move(di.socket)), //
+        local_strand(di.io_ctx),      //
+        module_id(module_id)          //
+  {}
 
-  virtual ~Base();
+  virtual ~Base() = default;
 
   virtual void asyncLoop() = 0;
 
-  bool isReady() const { return socket.is_open(); };
-  bool isReady(const error_code &ec);
+  bool isReady() const noexcept { return socket.is_open(); };
 
-  csv moduleID() const { return module_id; }
-  virtual void shutdown() { teardown(); }
-  virtual void teardown();
+  virtual bool isReady(const error_code &ec) noexcept {
+    auto rc = isReady();
 
-  void accumulate(ACCUMULATE type, size_t bytes) { _acc[type] += bytes; }
-  const auto accumulated(ACCUMULATE type) { return _acc[type]; }
+    if (rc) {
+      switch (ec.value()) {
+      case errc::success:
+        break;
+
+      case errc::operation_canceled:
+      case errc::resource_unavailable_try_again:
+      case errc::no_such_file_or_directory:
+        rc = false;
+        break;
+
+      default:
+        INFO(module_id, "NOT READY", "socket={} {}\n", socket.native_handle(), ec.message());
+
+        socket.shutdown(tcp_socket::shutdown_both);
+        socket.close();
+        rc = false;
+      }
+    }
+
+    return rc;
+  }
+
+  virtual void shutdown() noexcept { teardown(); }
+  virtual void teardown() noexcept {
+    [[maybe_unused]] error_code ec;
+
+    socket.cancel(ec);
+  }
 
 protected:
   // order dependent - initialized by constructor
   tcp_socket socket;
   strand local_strand;
 
-private:
+public:
   string module_id; // used for logging
-
-  std::unordered_map<ACCUMULATE, uint64_t> _acc;
 };
 
 } // namespace session

@@ -26,13 +26,8 @@
 
 #include <algorithm>
 #include <latch>
-#include <ranges>
 
 namespace pierre {
-
-namespace {
-namespace ranges = std::ranges;
-}
 
 namespace shared {
 std::shared_ptr<Airplay> airplay;

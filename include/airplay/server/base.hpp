@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/logger.hpp"
 #include "common/ss_inject.hpp"
 
@@ -27,15 +28,10 @@ namespace server {
 
 class Base {
 public:
-  static constexpr uint16_t ANY_PORT = 0;
-  static constexpr bool LOG_TRUE = true;
-  static constexpr bool LOG_FALSE = false;
-
-private:
-  static constexpr csv DEF_SERVER_ID{"unknown server"};
+  static constexpr uint16_t ANY_PORT{0};
 
 public:
-  Base(csv server_id = DEF_SERVER_ID) : server_id(server_id){};
+  Base(csv server_id) : server_id(server_id){};
   virtual ~Base(){};
 
   virtual void asyncLoop(const error_code ec_last = error_code()) = 0;
@@ -44,14 +40,7 @@ public:
   virtual void shutdown() { teardown(); }
   virtual void teardown() = 0;
 
-protected:
-  void __infoAccept(const auto handle, bool log = LOG_FALSE) {
-    if (log) { // log accepted connection
-      INFO(server_id, "CONNECTION", "accepted handle={}\n", handle);
-    }
-  }
-
-private:
+public:
   string server_id; // used for logging
 };
 

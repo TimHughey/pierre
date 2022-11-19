@@ -75,7 +75,7 @@ void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_pr
   asio::post(io_ctx, [=, this]() mutable {
     Elapsed elapsed;
 
-    while (!clock_info.ok() && (elapsed() < max_wait)) {
+    while (!clock_info.ok() && (elapsed < max_wait)) {
       // reduce max wait so this loop eventually breaks out
       auto poll_wait = pet::percent(max_wait, 10);
       std::this_thread::sleep_for(poll_wait);

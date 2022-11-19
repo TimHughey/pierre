@@ -57,10 +57,6 @@ bool Teardown::phase2() { // we've been asked to disconnect
   servers->teardown(ServerType::Control);
   servers->teardown(ServerType::Audio);
 
-  if (ConnInfo::ptr()->stream.isNtpStream()) {
-    ConnInfo::ptr()->airplay_gid.clear();
-  }
-
   ConnInfo::ptr()->groupContainsGroupLeader = false;
   // ConnInfo::ptr()->dacp_active_remote.clear();
 

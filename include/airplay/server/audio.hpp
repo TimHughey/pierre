@@ -32,12 +32,10 @@ namespace server {
 
 class Audio : public Base {
 public:
-  Audio(io_context &io_ctx)
+  Audio(io_context &io_ctx) noexcept
       : Base(SERVER_ID), // set the name of the server
         io_ctx(io_ctx),  //
         acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)} {}
-
-  ~Audio() final;
 
   // asyncLoop is invoked to:
   //  1. schedule the initial async accept
@@ -49,7 +47,7 @@ public:
   void asyncLoop(const error_code ec_last = error_code()) override;
 
   Port localPort() override { return acceptor.local_endpoint().port(); }
-  void teardown() override; // issue cancel to acceptor
+  void teardown() noexcept override; // issue cancel to acceptor
 
 private:
   // order dependent
@@ -58,7 +56,7 @@ private:
 
   std::optional<tcp_socket> socket;
 
-  static constexpr auto SERVER_ID = "AUDIO SERVER";
+  static constexpr csv SERVER_ID{"AUDIO SERVER"};
 };
 
 } // namespace server

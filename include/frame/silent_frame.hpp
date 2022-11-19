@@ -31,12 +31,12 @@ private:
 
     // rationalize since_frame, more than InputInfo::lead_time
     // has elapsed then reset it to create a READY frame immediately
-    if (since_frame() > InputInfo::lead_time) since_frame.reset();
+    if (since_frame > InputInfo::lead_time) since_frame.reset();
 
     // we want this frame to render at the correct frame rate
     // so subtract since_frame() to ensure it falls within
     // the lead time window
-    state_now(InputInfo::lead_time - since_frame());
+    state_now(InputInfo::lead_time - Nanos(since_frame));
 
     // a frame was generated, reset since_frame
     since_frame.reset();
@@ -48,7 +48,7 @@ public:
 public:
   virtual Nanos sync_wait_recalc() noexcept override {
 
-    return set_sync_wait(sync_wait() - since_birth());
+    return set_sync_wait(sync_wait() - Nanos(since_birth));
   }
 
 private:

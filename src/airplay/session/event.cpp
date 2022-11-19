@@ -91,9 +91,6 @@ void Event::asyncLoop() {
 void Event::handleEvent(size_t rx_bytes) {
   INFO("AIRPLAY SESSION", "EVENT", "bytes={}\n", rx_bytes);
 
-  // the following function calls do not contain async_* calls
-  accumulate(RX, rx_bytes);
-
   rxAvailable(); // drain the socket
 }
 
@@ -105,8 +102,7 @@ bool Event::rxAvailable() {
     auto buff = dynamic_buffer(_wire);
 
     while (isReady(ec) && (avail_bytes > 0)) {
-      auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
-      accumulate(RX, tx_bytes);
+      [[maybe_unused]] auto tx_bytes = read(socket, buff, transfer_at_least(avail_bytes), ec);
 
       avail_bytes = socket.available(ec);
     }
@@ -121,10 +117,8 @@ bool Event::rxAtLeast(size_t bytes) {
   if (isReady()) {
     auto buff = dynamic_buffer(_wire);
 
-    error_code ec;
-    auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
-
-    accumulate(RX, rx_bytes);
+    [[maybe_unused]] error_code ec;
+    [[maybe_unused]] auto rx_bytes = read(socket, buff, transfer_at_least(bytes), ec);
   }
   return isReady();
 }

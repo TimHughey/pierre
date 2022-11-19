@@ -18,11 +18,10 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "server/base.hpp"
 #include "session/rtsp.hpp"
 
-#include <boost/asio.hpp>
-#include <boost/asio/io_context.hpp>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -36,7 +35,6 @@ public:
   Rtsp(io_context &io_ctx)
       : Base(SERVER_ID), // set the name of the server
         io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)} //
-
   {}
 
   // asyncLoop is invoked to:
@@ -57,8 +55,10 @@ private:
 
   std::optional<tcp_socket> socket;
 
-  static constexpr uint16_t LOCAL_PORT = 7000;
-  static constexpr auto SERVER_ID = "RTSP";
+  static constexpr uint16_t LOCAL_PORT{7000};
+
+public:
+  static constexpr auto SERVER_ID{"RTSP"};
 };
 
 } // namespace server

@@ -31,6 +31,9 @@ stalled_ms = 2000
 receiver = "%h"        # use hostname
 service = "_ruth._tcp" # service advertised by rendering devices
 
+[rtsp]
+audio = { buffer_size = 8 } # kilobytes
+
 [frame]
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 clock = { shm_name = "/nqptp" }

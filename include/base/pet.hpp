@@ -47,7 +47,8 @@ using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
 typedef uint64_t ClockID; // master clock id
 
 template <typename T>
-concept Integer = std::is_integral<int>::value;
+concept IsDuration =
+    IsAnyOf<std::remove_cvref_t<std::remove_pointer_t<std::decay_t<T>>>, Nanos, Micros, Millis>;
 
 struct pet {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};

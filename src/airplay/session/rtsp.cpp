@@ -75,8 +75,7 @@ void Rtsp::asyncLoop() {
   //    signature
 }
 
-void Rtsp::handleRequest(size_t rx_bytes) {
-  accumulate(RX, rx_bytes);
+void Rtsp::handleRequest([[maybe_unused]] size_t rx_bytes) {
 
   if (rxAvailable()            // drained the socket successfully
       && ensureAllContent()    // loaded bytes == Content-Length
@@ -95,11 +94,9 @@ bool Rtsp::rxAvailable() {
   error_code ec;
   size_t avail_bytes = socket.available(ec);
 
-  auto buff = asio::dynamic_buffer(_wire);
-
   while (isReady(ec) && (avail_bytes > 0)) {
-    auto rx_bytes = asio::read(socket, buff, asio::transfer_at_least(avail_bytes), ec);
-    accumulate(RX, rx_bytes);
+    [[maybe_unused]] auto rx_bytes =
+        asio::read(socket, asio::dynamic_buffer(_wire), asio::transfer_at_least(avail_bytes), ec);
 
     avail_bytes = socket.available(ec);
   }
@@ -155,21 +152,17 @@ bool Rtsp::createAndSendReply() {
   auto &reply_packet = reply->build();
 
   if (reply_packet.size() == 0) { // warn of empty packet, still return true
-    INFO(moduleID(), "SEND REPLY", "empty reply method={} path={}\n", inject.method, inject.path);
+    INFO(module_id, "SEND REPLY", "empty reply method={} path={}\n", inject.method, inject.path);
 
     return true;
   }
 
   // reply has content to send
   aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-  auto buff = asio::const_buffer(reply_packet.data(), reply_packet.size());
 
   error_code ec;
-  auto tx_bytes = asio::write(socket, buff, ec);
-  accumulate(TX, tx_bytes);
-
-  INFOX(moduleID(), "sent tx_bytes={:<4} reason={} method={} path={}\n", moduleID(),
-        csv("SEND REPLY"), tx_bytes, ec.message(), inject.method, inject.path);
+  [[maybe_unused]] auto tx_bytes =
+      asio::write(socket, asio::const_buffer(reply_packet.data(), reply_packet.size()), ec);
 
   // check the most recent ec
   return isReady(ec);
@@ -180,24 +173,23 @@ bool Rtsp::createAndSendReply() {
 void Rtsp::dump(DumpKind dump_type) {
 
   if (dump_type == HeadersOnly) {
-    INFO(moduleID(), "DUMP HEADERS", "method={} path={} protocol={}\n", method(), path(),
+    INFO(module_id, "DUMP HEADERS", "method={} path={} protocol={}\n", method(), path(),
          protocol());
 
     _headers.dump();
   }
 
   if (dump_type == ContentOnly) {
-    INFO(moduleID(), "DUMP CONTENT", "method={} path={} protocol={}\n", method(), path(),
+    INFO(module_id, "DUMP CONTENT", "method={} path={} protocol={}\n", method(), path(),
          protocol());
     _content.dump();
   }
 
   if (dump_type == RawOnly) {
-    INFO(moduleID(), "DUMP RAW", "\n{}", _wire.view());
+    INFO(module_id, "DUMP RAW", "\n{}", _wire.view());
   }
 
-  INFO(moduleID(), "DUMP_COMPLETE", "method={} path={} protocol={}\n", method(), path(),
-       protocol());
+  INFO(module_id, "DUMP_COMPLETE", "method={} path={} protocol={}\n", method(), path(), protocol());
 }
 
 } // namespace session

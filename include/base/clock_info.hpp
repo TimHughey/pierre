@@ -86,8 +86,10 @@ struct ClockInfo {
   Nanos sample_time() const { return Nanos(sampleTime); }
 
   bool sample_old(auto age_max = SAMPLE_AGE_MAX) const {
-    if (auto age = sample_age(); age >= age_max) {
-      return log_age_issue("SAMPLE OLD", age);
+    if (sample_age >= age_max) {
+      INFO(module_id, "SAMPLE_OLD", "clock_id={:#x} sample_age={}\n", //
+           clock_id, sample_age.humanize());
+      return true;
     }
 
     return false;
@@ -97,13 +99,6 @@ struct ClockInfo {
   const string inspect() const;
 
 private:
-  bool log_age_issue(csv msg, const Nanos &diff) const {
-    INFO(module_id, msg, "clock_id={:#x} sampleTime={} age={}\n", //
-         clock_id, pet::as<MillisFP>(sample_time()), pet::humanize(diff));
-
-    return true; // return false, final rc is inverted
-  }
-
   void log_clock_time([[maybe_unused]] csv category, [[maybe_unused]] Nanos actual) const {
     INFOX(module_id, category, "clock_id={:#x} now={:02.3}\n", //
           clock_id, pet::humanize(actual));

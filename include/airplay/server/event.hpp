@@ -56,7 +56,8 @@ private:
   // temporary holder of socket (io_ctx) while waiting for a connection
   std::optional<tcp_socket> socket;
 
-  static constexpr auto SERVER_ID = "EVENT SERVER";
+public:
+  static constexpr auto SERVER_ID{"EVENT SERVER"};
 };
 
 } // namespace server

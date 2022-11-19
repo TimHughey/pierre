@@ -41,9 +41,7 @@ public:
 
   AnchorLast() = default;
 
-  bool age_check(const auto age_min) const noexcept {
-    return ready() && (since_update() > age_min);
-  }
+  bool age_check(const auto age_min) const noexcept { return ready() && (since_update > age_min); }
 
   Nanos frame_local_time_diff(uint32_t timestamp) const {
     auto diff = Nanos::zero();

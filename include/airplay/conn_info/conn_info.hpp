@@ -46,9 +46,6 @@ private:
   ConnInfo() = default; // all access through shared ptr
 
 public:
-  static constexpr size_t bufferSize() { return 1024 * 1024 * 8; };
-
-  // setters
   void save(const Stream &new_stream) { stream = new_stream; }
   void save(const StreamData &data);
 

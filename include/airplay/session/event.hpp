@@ -29,16 +29,13 @@ namespace pierre {
 namespace airplay {
 namespace session {
 
-class Event; // forward decl for shared_ptr def
-typedef std::shared_ptr<Event> shEvent;
-
 class Event : public Base, public std::enable_shared_from_this<Event> {
 public:
-  static shEvent start(const Inject &di) {
+  static auto start(const Inject &di) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
     // socket is detected
-    auto session = shEvent(new Event(di));
+    auto session = std::shared_ptr<Event>(new Event(di));
 
     session->asyncLoop();
 

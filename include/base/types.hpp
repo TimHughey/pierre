@@ -18,10 +18,12 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 namespace pierre {
@@ -45,5 +47,8 @@ typedef std::vector<double> reals_t;
 using reel_serial_num_t = uint64_t;
 using seq_num_t = uint32_t;   // frame sequence num
 using timestamp_t = uint32_t; // frame timestamp
+
+template <typename T, typename... U>
+concept IsAnyOf = (std::same_as<T, U> || ...);
 
 } // namespace pierre
