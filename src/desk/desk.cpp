@@ -80,13 +80,13 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // note: reset render_wait to get best possible measurement
     if (render_wait.reset() && Render::enabled()) {
-      Stats::write(stats::RENDER_DELAY, render_wait);
+      Stats::write(stats::RENDER_DELAY, render_wait.freeze());
 
-      Elapsed elapsed_next;
+      Elapsed next_wait;
 
       // Racked will always return either a racked or silent frame
       frame = Racked::next_frame().get();
-      Stats::write(stats::NEXT_FRAME_WAIT, elapsed_next);
+      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
     } else {
       // not rendering, generate a silent frame
       frame = SilentFrame::create();
@@ -102,11 +102,16 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
 
       if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
-        active_fx = fx_factory::create<fx::MajorPeak>();
-        INFO(module_id, "FRAME_RENDER", "engaging fx={}\n", active_fx->name());
-      }
+        const auto fx_prev_name = active_fx->name();
 
-      // INFO(module_id, "DEBUG", "FRAME_LOOP \n");
+        if (active_fx->match_name(fx::MAJOR_PEAK) == false) {
+          active_fx = fx_factory::create<fx::MajorPeak>();
+        }
+
+        if (active_fx->match_name(fx_prev_name) == false) {
+          INFO(module_id, "FRAME_RENDER", "FX {} -> {}\n", fx_prev_name, active_fx->name());
+        }
+      }
 
       active_fx->render(frame, data_msg);
       data_msg.finalize();

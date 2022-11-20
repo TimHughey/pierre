@@ -70,7 +70,7 @@ enum stats_v {
 
 class Stats : public std::enable_shared_from_this<Stats> {
 private:
-  Stats() noexcept;
+  Stats(bool enabled = false) noexcept;
   using stat_variant = std::variant<int32_t, int64_t, double>;
 
 public:
@@ -79,69 +79,71 @@ public:
   }
 
   // can safely be called multiple times
-  static void init() noexcept;
+  static void init() noexcept; // must be in .cpp to limit Config visibility
 
-  static void shutdown() noexcept;
+  static void shutdown(io_context &io_ctx) noexcept;
 
   template <typename T> static auto write(stats::stats_v vt, T v) noexcept {
-    auto pt = make_pt();
+    static constexpr csv DOUBLE{"double"};
+    static constexpr csv INTEGRAL{"integral"};
+    static constexpr csv MEASURE{"STATS"};
+    static constexpr csv METRIC{"metric"};
+    static constexpr csv NANOS{"nanos"};
 
-    // if constexpr (std::is_same_v<T, Elapsed>) {
-    //   v.freeze();
-    //   pt.addField(NANOS, v().count());
-    // } else
+    auto s = self()->shared_from_this(); // get our own reference counted shared_ptr
 
-    if constexpr (IsDuration<T>) {
-      pt.addField(NANOS, std::chrono::duration_cast<Nanos>(v).count());
-    } else if constexpr (std::is_convertible_v<T, Nanos>) {
-      pt.addField(NANOS, Nanos(v).count());
-    } else if constexpr (std::is_integral_v<T>) {
-      pt.addField(INTEGRAL, v);
-    } else if constexpr (std::is_convertible_v<T, double>) {
-      pt.addField(DOUBLE, v);
-    } else {
-      static_assert("bad type");
+    if (s->enabled.load()) {
+
+      auto &io_ctx = s->io_ctx; // grab a reference to the io_ctx, we'll move the shared_ptr
+
+      // capture the time in the lambda so the point is most accurately recorded
+      auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC, s->val_txt[vt]);
+
+      // now post the pt and params for eventual write to influx
+      asio::post(io_ctx, [=, s = std::move(s), v = v, pt = std::move(pt)]() mutable {
+        // this closure deliberately converts various types (e.g. chrono durations, Frequency,
+        // Magnitude) to the correct type for influx and sets the field key to an appropriate
+        // name to prevent different data types associated to the same key
+        auto add_value = [pt = std::move(pt)](T v) mutable {
+          if constexpr (IsDuration<T>) {
+            const auto d = std::chrono::duration_cast<Nanos>(v);
+            return pt.addField(NANOS, d.count());
+          } else if constexpr (std::is_integral_v<T>) {
+            return pt.addField(INTEGRAL, v);
+          } else if constexpr (std::is_convertible_v<T, double>) {
+            return pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
+          }
+
+          static_assert("unhandled type");
+        };
+
+        s->db->write(add_value(std::move(v)));
+      });
     }
-
-    ptr()->write_pt(vt, std::move(pt));
   }
 
 private:
   void init_self(const string &db_uri) noexcept;
 
-  static auto make_pt() noexcept -> influxdb::Point { return influxdb::Point(MEASURE); }
-
-  static std::shared_ptr<Stats> ptr() noexcept;
-
-  void write_pt(stats::stats_v vt, influxdb::Point pt) noexcept {
-    pt.addTag(METRIC, val_txt[vt]);
-
-    asio::post(io_ctx, [s = shared_from_this(), pt = std::move(pt)]() mutable {
-      s->db->write(std::move(pt));
-    });
-  }
+  // DRAGONS BE HERE!!
+  // returns reference to ACTUAL shared_ptr holding Stats
+  static std::shared_ptr<Stats> &self() noexcept; // must be .cpp to access shared_ptr
 
 private:
   // order dependent
   io_context io_ctx;
   work_guard_t guard;
+  std::atomic_bool enabled{false};
   std::map<stats::stats_v, string> val_txt;
 
   // order independent
-  std::atomic_bool enabled{false};
+
   std::unique_ptr<influxdb::InfluxDB> db;
   Threads threads;
   stop_tokens tokens;
 
 public:
   static constexpr csv module_id{"PIERRE_STATS"};
-
-  static constexpr auto MEASURE{"STATS"};
-
-  static constexpr csv DOUBLE{"double"};
-  static constexpr csv INTEGRAL{"integral"};
-  static constexpr csv METRIC{"metric"};
-  static constexpr csv NANOS{"nanos"};
 };
 
 } // namespace pierre

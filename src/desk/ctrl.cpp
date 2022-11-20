@@ -212,7 +212,7 @@ const error_code Ctrl::log_accept(const error_code ec, Elapsed e) noexcept {
     INFO(module_id, "DATA", "accepted connection {}:{} {}\n", r.address().to_string(), r.port(),
          e.humanize());
 
-    Stats::write(stats::CTRL_CONNECT_ELAPSED, e);
+    Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
   }
 
   return ec;
@@ -243,8 +243,8 @@ const error_code Ctrl::log_connect(const error_code ec, Elapsed &e,
 }
 
 void Ctrl::log_feedback(JsonDocument &doc) noexcept {
-  const auto remote_now = Micros(doc["now_µs"].as<int64_t>());
-  const auto clocks_diff = pet::abs(remote_now - pet::now_realtime<Micros>());
+  const auto now_us = doc["now_µs"].as<int64_t>() | 0;
+  const auto clocks_diff = pet::abs(Micros(now_us) - pet::now_realtime<Micros>());
   Stats::write(stats::CLOCK_DIFF, clocks_diff);
 
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
@@ -258,9 +258,8 @@ void Ctrl::log_feedback(JsonDocument &doc) noexcept {
 }
 
 void Ctrl::log_handshake(JsonDocument &doc) {
-  const auto remote_now = Micros(doc["now_µs"].as<int64_t>());
-  const auto clocks_diff = pet::abs(remote_now - pet::now_realtime<Micros>());
-
+  const auto now_us = doc["now_µs"].as<int64_t>() | 0;
+  const auto clocks_diff = pet::abs(Micros(now_us) - pet::now_realtime<Micros>());
   Stats::write(stats::CLOCK_DIFF, clocks_diff);
 
   INFO(module_id, "REMOTE", "clocks_diff={} ctrl={} data={}\n", //
@@ -270,7 +269,7 @@ void Ctrl::log_handshake(JsonDocument &doc) {
 }
 
 const error_code Ctrl::log_read_msg(const error_code ec, Elapsed e) noexcept {
-  Stats::write(stats::CTRL_MSG_READ_ELAPSED, e);
+  Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
 
   if (ec != errc::success) Stats::write(stats::CTRL_MSG_READ_ERROR, true);
 
@@ -279,7 +278,7 @@ const error_code Ctrl::log_read_msg(const error_code ec, Elapsed e) noexcept {
 
 const error_code Ctrl::log_send_ctrl_msg(const error_code ec, const size_t tx_want,
                                          const size_t tx_actual, Elapsed e) noexcept {
-  Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e);
+  Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
 
   if ((ec != errc::success) && (tx_want != tx_actual)) {
     Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
@@ -292,7 +291,7 @@ const error_code Ctrl::log_send_ctrl_msg(const error_code ec, const size_t tx_wa
 }
 
 const error_code Ctrl::log_send_data_msg(const error_code ec, Elapsed e) noexcept {
-  Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e);
+  Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e.freeze());
   Stats::write(stats::FRAMES, 1);
 
   if (ec != errc::success) Stats::write(stats::DATA_MSG_WRITE_ERROR, true);

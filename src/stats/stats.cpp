@@ -25,54 +25,57 @@
 #include <memory>
 
 namespace pierre {
+namespace stats {
 static std::shared_ptr<Stats> self;
+}
 
-Stats::Stats() noexcept
+Stats::Stats(bool enabled) noexcept
     : guard(io::make_work_guard(io_ctx)), //
-      val_txt{
-          // create map of stats val to text
-          {stats::CLOCK_DIFF, "clock_diff"},
-          {stats::CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
-          {stats::CTRL_CONNECT_TIMEOUT, "ctrl_connect_timeout"},
-          {stats::CTRL_MSG_READ_ELAPSED, "ctrl_msg_read_elapsed"},
-          {stats::CTRL_MSG_READ_ERROR, "ctrl_msg_read_error"},
-          {stats::CTRL_MSG_WRITE_ELAPSED, "ctrl_msg_write_elapsed"},
-          {stats::CTRL_MSG_WRITE_ERROR, "ctrl_msg_write_error"},
-          {stats::DATA_MSG_WRITE_ELAPSED, "data_msg_write_elapsed"},
-          {stats::DATA_MSG_WRITE_ERROR, "data_msg_write_error"},
-          {stats::FLUSH_ELAPSED, "flush_elapsed"},
-          {stats::FLUSHED_REELS, "flushed_reels"},
-          {stats::FPS, "fps"},
-          {stats::FRAMES_RENDERED, "frames_rendered"},
-          {stats::FRAMES_SILENT, "frames_silent"},
-          {stats::FRAMES, "frames"},
-          {stats::MAX_PEAK_FREQUENCY, "max_peak_frequency"},
-          {stats::MAX_PEAK_MAGNITUDE, "max_peak_magnitude"},
-          {stats::NEXT_FRAME_WAIT, "next_frame_wait"},
-          {stats::NO_CONN, "no_conn"},
-          {stats::RACK_COLLISION, "rack_collision"},
-          {stats::RACK_WIP_TIMEOUT, "rack_wip_timeout"},
-          {stats::RACKED_REELS, "racked_reels"},
-          {stats::REMOTE_DATA_WAIT, "remote_data_wait"},
-          {stats::REMOTE_ELAPSED, "remote_elapsed"},
-          {stats::REMOTE_ROUNDTRIP, "remote_roundtrip"},
-          {stats::RENDER_DELAY, "render_delay"},
-          {stats::RENDER_ELAPSED, "render_elapsed"},
-          {stats::SYNC_WAIT, "sync_wait"},
-          // comment allows for easy IDE sorting
-      } {}
+      enabled(enabled), val_txt{
+                            // create map of stats val to text
+                            {stats::CLOCK_DIFF, "clock_diff"},
+                            {stats::CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
+                            {stats::CTRL_CONNECT_TIMEOUT, "ctrl_connect_timeout"},
+                            {stats::CTRL_MSG_READ_ELAPSED, "ctrl_msg_read_elapsed"},
+                            {stats::CTRL_MSG_READ_ERROR, "ctrl_msg_read_error"},
+                            {stats::CTRL_MSG_WRITE_ELAPSED, "ctrl_msg_write_elapsed"},
+                            {stats::CTRL_MSG_WRITE_ERROR, "ctrl_msg_write_error"},
+                            {stats::DATA_MSG_WRITE_ELAPSED, "data_msg_write_elapsed"},
+                            {stats::DATA_MSG_WRITE_ERROR, "data_msg_write_error"},
+                            {stats::FLUSH_ELAPSED, "flush_elapsed"},
+                            {stats::FLUSHED_REELS, "flushed_reels"},
+                            {stats::FPS, "fps"},
+                            {stats::FRAMES_RENDERED, "frames_rendered"},
+                            {stats::FRAMES_SILENT, "frames_silent"},
+                            {stats::FRAMES, "frames"},
+                            {stats::MAX_PEAK_FREQUENCY, "max_peak_frequency"},
+                            {stats::MAX_PEAK_MAGNITUDE, "max_peak_magnitude"},
+                            {stats::NEXT_FRAME_WAIT, "next_frame_wait"},
+                            {stats::NO_CONN, "no_conn"},
+                            {stats::RACK_COLLISION, "rack_collision"},
+                            {stats::RACK_WIP_TIMEOUT, "rack_wip_timeout"},
+                            {stats::RACKED_REELS, "racked_reels"},
+                            {stats::REMOTE_DATA_WAIT, "remote_data_wait"},
+                            {stats::REMOTE_ELAPSED, "remote_elapsed"},
+                            {stats::REMOTE_ROUNDTRIP, "remote_roundtrip"},
+                            {stats::RENDER_DELAY, "render_delay"},
+                            {stats::RENDER_ELAPSED, "render_elapsed"},
+                            {stats::SYNC_WAIT, "sync_wait"},
+                            // comment allows for easy IDE sorting
+                        } {}
 
 void Stats::init() noexcept {
-  if (!self) {
+  if (!stats::self) {
     const auto db_uri = Config().at("stats.db_uri"sv).value_or(string());
     auto enabled = Config().at("stats.enabled"sv).value_or(false);
 
     if (db_uri.size() && enabled) {
 
-      self = std::shared_ptr<Stats>(new Stats());
-      self->enabled.store(enabled);
+      stats::self = std::shared_ptr<Stats>(new Stats(enabled));
+      stats::self->init_self(db_uri);
 
-      self->init_self(db_uri);
+      INFO(module_id, "INIT", "sizeof={} db_uri={} enabled={}\n", sizeof(Stats), db_uri, enabled);
+
     } else {
       INFO(module_id, "INIT", "stats are disabled\n");
     }
@@ -83,7 +86,10 @@ void Stats::init_self(const string &db_uri) noexcept {
 
   if (enabled) {
     db = influxdb::InfluxDBFactory::Get(db_uri);
-    db->batchOf(100);
+
+    if (const std::size_t bs = Config().at("stats.batch_of"sv).value_or(0); bs > 0) {
+      db->batchOf(bs);
+    }
 
     std::latch latch(1);
 
@@ -101,8 +107,10 @@ void Stats::init_self(const string &db_uri) noexcept {
   }
 }
 
-std::shared_ptr<Stats> Stats::ptr() noexcept { return self->shared_from_this(); }
+// DRAGONS BE HERE!!
+// returns reference to ACTUAL shared_ptr holding Stats
+std::shared_ptr<Stats> &Stats::self() noexcept { return stats::self; }
 
-void Stats::shutdown() noexcept { self.reset(); }
+void Stats::shutdown([[maybe_unused]] io_context &io_ctx) noexcept { self().reset(); }
 
 } // namespace pierre

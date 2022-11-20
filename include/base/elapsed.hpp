@@ -34,10 +34,10 @@ public:
 
   template <typename TO> TO as() const { return TO(elapsed()); }
 
-  constexpr Elapsed &freeze() noexcept {
+  constexpr const Nanos freeze() noexcept {
     nanos = elapsed();
     frozen = true;
-    return *this;
+    return nanos;
   }
 
   const string humanize() const noexcept { return pet::humanize(elapsed()); }
