@@ -42,7 +42,7 @@ private:
   Ctrl(io_context &io_ctx) noexcept;
 
 public:
-  ~Ctrl() noexcept;
+  ~Ctrl() = default;
 
   static auto create(io_context &io_ctx) noexcept {
     return std::shared_ptr<Ctrl>(new Ctrl(io_ctx));
@@ -50,7 +50,14 @@ public:
 
   auto ptr() noexcept { return shared_from_this(); }
 
-  std::shared_ptr<Ctrl> init() noexcept;
+  std::shared_ptr<Ctrl> init() noexcept {
+    // NOTE:  stalled_watchdog will be started as needed
+
+    listen();
+    connect();
+
+    return shared_from_this();
+  }
 
   bool ready() noexcept {
     return ctrl_sock.has_value() && //
@@ -65,6 +72,9 @@ private:
   // lookup dmx controller and establish control connection
   void connect() noexcept;
 
+  // handle received feedback msgs
+  void handle_feedback_msg(JsonDocument &doc) noexcept;
+
   // wait for handshake message from remote endpoint
   void handshake() noexcept;
 
@@ -72,18 +82,18 @@ private:
 
   void msg_loop() noexcept;
 
+  void reconnect_if_needed(const error_code ec) noexcept;
+
   void send_ctrl_msg(io::Msg msg) noexcept;
   void stalled_watchdog() noexcept;
 
   // misc debug
-  const error_code log_accept(const error_code ec, Elapsed e) noexcept;
-  const error_code log_connect(const error_code ec, Elapsed &e, const tcp_endpoint &r) noexcept;
-  void log_feedback(JsonDocument &doc) noexcept;
-  void log_handshake(JsonDocument &doc);
-  const error_code log_read_msg(const error_code ec, Elapsed e) noexcept;
-  const error_code log_send_ctrl_msg(const error_code ec, const size_t tx_want,
-                                     const size_t tx_actual, Elapsed e) noexcept;
-  const error_code log_send_data_msg(const error_code ec, Elapsed e) noexcept;
+  error_code log_socket(csv type, error_code ec, tcp_socket &sock, Elapsed &e) noexcept {
+    return log_socket(type, ec, sock, sock.remote_endpoint(), e);
+  }
+
+  error_code log_socket(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                        Elapsed &e) noexcept;
 
 private:
   // order dependent
@@ -93,7 +103,6 @@ private:
 
   // order independent
   std::atomic_bool connected{false};
-  std::atomic_bool connecting{false};
   std::optional<tcp_socket> ctrl_sock;
   std::optional<tcp_socket> data_sock;
 

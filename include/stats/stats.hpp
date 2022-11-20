@@ -24,6 +24,7 @@
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
+#include "stats/stats_v.hpp"
 
 #include <InfluxDBFactory.h>
 #include <atomic>
@@ -33,40 +34,6 @@
 #include <memory>
 
 namespace pierre {
-namespace stats {
-
-enum stats_v {
-  CLOCK_DIFF,
-  CTRL_CONNECT_ELAPSED,
-  CTRL_CONNECT_TIMEOUT,
-  CTRL_MSG_READ_ELAPSED,
-  CTRL_MSG_READ_ERROR,
-  CTRL_MSG_WRITE_ELAPSED,
-  CTRL_MSG_WRITE_ERROR,
-  DATA_MSG_WRITE_ELAPSED,
-  DATA_MSG_WRITE_ERROR,
-  FLUSH_ELAPSED,
-  FLUSHED_REELS,
-  FPS,
-  FRAMES_RENDERED,
-  FRAMES_SILENT,
-  FRAMES,
-  MAX_PEAK_FREQUENCY,
-  MAX_PEAK_MAGNITUDE,
-  NEXT_FRAME_WAIT,
-  NO_CONN,
-  RACK_COLLISION,
-  RACK_WIP_TIMEOUT,
-  RACKED_REELS,
-  REMOTE_DATA_WAIT,
-  REMOTE_ELAPSED,
-  REMOTE_ROUNDTRIP,
-  RENDER_DELAY,
-  RENDER_ELAPSED,
-  SYNC_WAIT,
-  // extra comma allows for easy IDE sorting
-};
-}
 
 class Stats : public std::enable_shared_from_this<Stats> {
 private:

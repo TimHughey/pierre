@@ -138,9 +138,8 @@ void Racked::flush_impl(FlushInfo request) {
         }
       }
 
-      if (auto flushed = initial_size - std::ssize(racked); flushed > 0) {
-        Stats::write(stats::FLUSHED_REELS, flushed);
-      }
+      const auto flushed = initial_size - std::ssize(racked);
+      Stats::write(stats::REELS_FLUSHED, flushed > 0 ? flushed : initial_size);
     }
 
     // has everything been flushed?

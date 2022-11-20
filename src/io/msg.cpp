@@ -36,7 +36,7 @@ string Msg::inspect() const noexcept {
 error_code Msg::log_tx(const error_code ec, const size_t bytes) noexcept {
   if (ec || (tx_len != bytes)) {
     if (ec != errc::operation_canceled) {
-      INFO(module_id, "LOG_TX", "failed, bytes={}/{} reason={}\n", bytes, tx_len, ec.message());
+      INFO(module_id, "LOG_TX", "bytes={}/{} {}\n", bytes, tx_len, ec.message());
     }
   }
 

@@ -77,6 +77,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     Nanos sync_wait = wait;
     Elapsed render_wait;
     frame_t frame;
+    static auto outdated{0};
 
     // note: reset render_wait to get best possible measurement
     if (render_wait.reset() && Render::enabled()) {
@@ -97,6 +98,12 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     //  2. not rendering = generated SilentFrame
 
     if (frame->state.ready()) { // render this frame and send to DMX controller
+
+      if (outdated) {
+        INFO(module_id, "FRAME_LOOP", "outdated frames={}\n", outdated);
+        Stats::write(stats::FRAMES_OUTDATED, outdated);
+        outdated = 0;
+      }
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
       Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
@@ -120,6 +127,8 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       frame->mark_rendered();
       frame_last = pet::now_realtime();
+    } else if (frame->state.outdated()) {
+      outdated++;
     } else {
       INFO(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
     }

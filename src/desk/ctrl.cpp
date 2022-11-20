@@ -38,50 +38,70 @@ namespace {
 namespace stats = pierre::stats;
 }
 
+static const auto controller_name() noexcept {
+  static constexpr csv PATH{"dmx.controller"};
+
+  return Config().at(PATH).value_or(string());
+}
+
+static const auto idle_shutdown() noexcept {
+  static constexpr csv PATH{"dmx.timeouts.idle_ms"};
+
+  return Config().at(PATH).value_or(30000);
+}
+
+// static const auto retry_delay() noexcept {
+//   static constexpr csv PATH{"dmx.controller.timeouts.retry_ms"};
+
+//   return pet::from_ms(Config().at(PATH).value_or(500));
+// }
+
+static const auto stalled_timeout() noexcept {
+  static constexpr csv PATH{"dmx.controller.timeouts.stalled_ms"};
+
+  return pet::from_ms(Config().at(PATH).value_or(1000));
+}
+
 // general API
 Ctrl::Ctrl(io_context &io_ctx) noexcept
     : io_ctx(io_ctx), // use shared io_ctx
       acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),
-      stalled_timer(io_ctx) // detect stalled controllers
+      stalled_timer(io_ctx, Nanos::zero()) // stalled_watchdog() will start on first call
 {}
 
-Ctrl::~Ctrl() noexcept { INFO(module_id, "DESTRUCT", "ready={}\n", ready()); }
-
 void Ctrl::connect() noexcept {
-  connecting = true;
-  const auto name = Config() //
-                        .at("dmx.controller"sv)
-                        .value_or<string_view>(string());
 
   // now begin the control channel connect and handshake
-  asio::post(io_ctx, [s = ptr(),                              //
-                      zcsf = mDNS::zservice(std::move(name)), // zerconf resolve future
+  asio::post(io_ctx, [s = ptr(),                                //
+                      zcsf = mDNS::zservice(controller_name()), // zerconf resolve future
                       e = Elapsed()]() mutable {
-    // the following can BLOCK, as needed
-    auto zcs = zcsf.get();
+    auto zcs = zcsf.get(); // can BLOCK, as needed
+
+    // we now have our zeroconf data, start the stalled_watchdog
+    s->stalled_watchdog();
 
     auto &ctrl_sock = s->ctrl_sock.emplace(s->io_ctx); // create the socket
     const auto addr = asio::ip::make_address_v4(zcs.address());
 
     const std::array endpoints{tcp_endpoint{addr, zcs.port()}};
-    asio::async_connect(
-        ctrl_sock, endpoints, [s, e](const error_code ec, const tcp_endpoint r) mutable {
-          if (s->log_connect(ec, e, r) == errc::success) [[likely]] {
+    asio::async_connect( //
+        ctrl_sock,       //
+        endpoints,       //
+        [s, e](const error_code ec, const tcp_endpoint r) mutable {
+          // error code is good
+          if (s->log_socket("CTRL", ec, s->ctrl_sock.value(), r, e) == errc::success) {
+
             s->ctrl_sock->set_option(ip_tcp::no_delay(true));
+            Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
             io::Msg msg(HANDSHAKE);
-            auto idle_ms = pet::from_ms(Config().at("dmx.timeouts.idle_ms"sv).value_or(30000));
 
-            msg.add_kv("idle_shutdown_ms", idle_ms);
+            msg.add_kv("idle_shutdown_ms", idle_shutdown());
             msg.add_kv("lead_time_µs", InputInfo::lead_time);
             msg.add_kv("ref_µs", pet::now_realtime<Micros>());
             msg.add_kv("data_port", s->acceptor.local_endpoint().port());
 
             s->send_ctrl_msg(std::move(msg));
-
-          } else { // connect error
-            [[maybe_unused]] error_code ec;
-            s->acceptor.cancel(ec); // this will set the promise
           }
         });
   });
@@ -90,163 +110,7 @@ void Ctrl::connect() noexcept {
   //       listen() will start msg_loop() when data connection is available
 }
 
-std::shared_ptr<Ctrl> Ctrl::init() noexcept {
-  auto was_connected = std::atomic_exchange(&connected, false);
-
-  INFO(module_id, "INIT", "was_connected={} connecting={}\n", was_connected, connecting.load());
-
-  // if already connected but not currently connecting
-  if (was_connected || connecting.load()) {
-    connecting = true;
-
-    const auto retry =
-        pet::from_ms(Config().at("dmx.controller.timeouts.retry_ms"sv).value_or(500));
-    auto reconnect_timer = std::make_shared<steady_timer>(io_ctx);
-    reconnect_timer->expires_after(retry);
-
-    reconnect_timer->async_wait([reconnect_timer, s = ptr()](const error_code ec) {
-      if (ec == errc::success) {
-        s->listen();
-        s->connect();
-      }
-    });
-  } else { // startup case
-    connecting = true;
-
-    listen();
-    connect();
-  }
-
-  return shared_from_this();
-}
-
-void Ctrl::listen() noexcept {
-  stalled_watchdog();
-
-  // listen for inbound data connections and get our local port
-  // when this async_accept is successful msg_loop() is invoked
-  data_sock.emplace(io_ctx);
-  acceptor.async_accept( //
-      *data_sock,        //
-      [e = Elapsed(), s = ptr()](const error_code ec) mutable {
-        e.freeze(); // stop measuring the accept elapsed time
-
-        // if success, set socket opts, flags then start the message loop
-        if (s->log_accept(ec, e) == errc::success) {
-          s->data_sock->set_option(ip_tcp::no_delay(true));
-
-          s->connected = s->ctrl_sock->is_open() && s->data_sock->is_open();
-          s->connecting = false;
-
-          s->msg_loop(); // start the msg loop
-        }
-      });
-}
-
-void Ctrl::msg_loop() noexcept {
-  // only attempt to read a message if we're connected
-  if (connected.load()) {
-    stalled_watchdog(); // start (or restart) stalled watchdog
-
-    io::async_read_msg(*ctrl_sock, [s = ptr(), e = Elapsed()](const error_code ec, io::Msg msg) {
-      if (s->log_read_msg(ec, e) == errc::success) {
-
-        // handle the various message types
-        if (msg.key_equal(io::TYPE, FEEDBACK)) s->log_feedback(msg.doc);
-        if (msg.key_equal(io::TYPE, HANDSHAKE)) s->log_handshake(msg.doc);
-
-        s->msg_loop(); // async handle next message
-      }
-    });
-  }
-}
-
-void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
-
-  msg.serialize();
-  const auto buf_seq = msg.buff_seq(); // calculates tx_len
-  const auto tx_len = msg.tx_len;
-
-  asio::async_write( //
-      ctrl_sock.value(), buf_seq, asio::transfer_exactly(tx_len),
-      [s = ptr(), msg = std::move(msg), e = Elapsed()](const error_code ec,
-                                                       const auto actual) mutable {
-        s->log_send_ctrl_msg(ec, msg.tx_len, actual, e);
-      });
-}
-
-void Ctrl::send_data_msg(DataMsg data_msg) noexcept {
-
-  if (connected.load()) {
-    io::async_write_msg(
-        *data_sock, std::move(data_msg),
-        [s = ptr(), e = Elapsed()](const error_code ec) mutable { s->log_send_data_msg(ec, e); });
-  }
-}
-
-void Ctrl::stalled_watchdog() noexcept {
-  if (connected.load()) {
-    const auto stalled = pet::from_ms( //
-        Config().at("dmx.controller.timeouts.stalled_ms"sv).value_or(0));
-
-    stalled_timer.expires_after(stalled > 0ms ? stalled : 2s);
-    stalled_timer.async_wait([s = ptr()](const error_code ec) {
-      if (ec == errc::success) {
-        s->init();
-      }
-    });
-  }
-}
-
-// misc debug
-const error_code Ctrl::log_accept(const error_code ec, Elapsed e) noexcept {
-  static constexpr auto aborted{io::make_error(errc::operation_canceled)};
-
-  if (ec) {
-    if (ec != aborted) {
-      // we ignore operation aborted (cancled)
-      INFO(module_id, "ACCEPT", "accept failed, reason={}\n", ec.message());
-    }
-  } else if (!ec) {
-    auto r = data_sock->remote_endpoint();
-    INFO(module_id, "DATA", "accepted connection {}:{} {}\n", r.address().to_string(), r.port(),
-         e.humanize());
-
-    Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
-  }
-
-  return ec;
-}
-
-const error_code Ctrl::log_connect(const error_code ec, Elapsed &e,
-                                   const tcp_endpoint &r) noexcept {
-
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  if (ec) {
-    fmt::format_to(w, "failed, reason={}", ec.message());
-  } else if (ctrl_sock.has_value() == false) {
-    fmt::format_to(w, "ctrl_sock=EMPTY");
-  } else {
-    const auto &l = ctrl_sock->local_endpoint();
-
-    fmt::format_to(w, "{}:{}", l.address().to_string(), l.port());
-    fmt::format_to(w, " -> ");
-    fmt::format_to(w, "{}:{}", r.address().to_string(), r.port());
-    fmt::format_to(w, " elapsed={} handle={}", e.humanize(), ctrl_sock->native_handle());
-  }
-
-  if (!msg.empty()) INFO(module_id, "CONNECT", "{}\n", msg);
-
-  return ec;
-}
-
-void Ctrl::log_feedback(JsonDocument &doc) noexcept {
-  const auto now_us = doc["now_µs"].as<int64_t>() | 0;
-  const auto clocks_diff = pet::abs(Micros(now_us) - pet::now_realtime<Micros>());
-  Stats::write(stats::CLOCK_DIFF, clocks_diff);
-
+void Ctrl::handle_feedback_msg(JsonDocument &doc) noexcept {
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
   Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
 
@@ -257,44 +121,152 @@ void Ctrl::log_feedback(JsonDocument &doc) noexcept {
   Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
 }
 
-void Ctrl::log_handshake(JsonDocument &doc) {
-  const auto now_us = doc["now_µs"].as<int64_t>() | 0;
-  const auto clocks_diff = pet::abs(Micros(now_us) - pet::now_realtime<Micros>());
-  Stats::write(stats::CLOCK_DIFF, clocks_diff);
+void Ctrl::listen() noexcept {
+  stalled_watchdog();
 
-  INFO(module_id, "REMOTE", "clocks_diff={} ctrl={} data={}\n", //
-       pet::humanize(clocks_diff),                              //
-       ctrl_sock.has_value() ? ctrl_sock->native_handle() : 0,
-       data_sock.has_value() ? data_sock->native_handle() : 0);
+  // listen for inbound data connections and get our local port
+  // when this async_accept is successful msg_loop() is invoked
+  data_sock.emplace(io_ctx);
+  acceptor.async_accept( //
+      *data_sock,        //
+      [s = ptr(), e = Elapsed()](const error_code ec) mutable {
+        Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
+
+        // if success, set socket opts, flags then start the message loop
+        if (s->log_socket("DATA", ec, s->data_sock.value(), e) == errc::success) {
+          s->data_sock->set_option(ip_tcp::no_delay(true));
+
+          s->connected = s->ctrl_sock->is_open() && s->data_sock->is_open();
+
+          s->msg_loop(); // start the msg loop
+        }
+      });
 }
 
-const error_code Ctrl::log_read_msg(const error_code ec, Elapsed e) noexcept {
-  Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
+void Ctrl::msg_loop() noexcept {
+  stalled_watchdog(); // start (or restart) stalled watchdog
 
-  if (ec != errc::success) Stats::write(stats::CTRL_MSG_READ_ERROR, true);
+  // only attempt to read a message if we're connected
+  if (connected.load()) {
 
-  return ec;
+    io::async_read_msg( //
+        *ctrl_sock, [s = ptr(), e = Elapsed()](const error_code ec, io::Msg msg) mutable {
+          Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
+
+          if (ec == errc::success) {
+
+            // handle the various message types
+            if (msg.key_equal(io::TYPE, FEEDBACK)) s->handle_feedback_msg(msg.doc);
+
+            s->msg_loop(); // async handle next message
+          } else {
+            Stats::write(stats::CTRL_MSG_READ_ERROR, true);
+          }
+        });
+  }
 }
 
-const error_code Ctrl::log_send_ctrl_msg(const error_code ec, const size_t tx_want,
-                                         const size_t tx_actual, Elapsed e) noexcept {
-  Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
+void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
 
-  if ((ec != errc::success) && (tx_want != tx_actual)) {
-    Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
+  stalled_watchdog();
 
-    INFO(module_id, "SEND_CTRL_MSG", "write failed, reason={} bytes={}/{}\n", //
-         ec.message(), tx_actual, tx_want);
+  msg.serialize();
+  const auto buf_seq = msg.buff_seq(); // calculates tx_len
+  const auto tx_len = msg.tx_len;
+
+  asio::async_write(     //
+      ctrl_sock.value(), //
+      buf_seq,           //
+      asio::transfer_exactly(tx_len),
+      [s = ptr(), msg = std::move(msg), e = Elapsed()](const error_code ec,
+                                                       const auto actual) mutable {
+        Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
+
+        if ((ec != errc::success) && (actual != msg.tx_len)) {
+          Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
+
+          INFO(module_id, "SEND_CTRL_MSG", "write failed, reason={} bytes={}/{}\n", //
+               ec.message(), actual, msg.tx_len);
+        }
+      });
+}
+
+void Ctrl::send_data_msg(DataMsg data_msg) noexcept {
+
+  if (connected.load()) { // only send msgs when connected
+
+    stalled_watchdog();
+
+    io::async_write_msg( //
+        *data_sock,      //
+        std::move(data_msg), [s = ptr(), e = Elapsed()](const error_code ec) mutable {
+          // better readability
+
+          Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e.freeze());
+
+          if (ec != errc::success) {
+            Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
+            s->connected.store(false);
+          }
+
+          return ec;
+        });
+  }
+}
+
+void Ctrl::stalled_watchdog() noexcept {
+
+  stalled_timer.expires_after(stalled_timeout());
+  stalled_timer.async_wait([s = ptr(), was_connected = connected.load()](const error_code ec) {
+    if (ec == errc::success) {
+
+      if (was_connected) INFO(module_id, "STALLED", "was_connected={}\n", was_connected);
+
+      [[maybe_unused]] error_code ec;
+      s->acceptor.cancel(ec);
+      s->ctrl_sock.reset();
+      s->data_sock.reset();
+
+      s->connected = false;
+
+      s->listen();
+      s->connect();
+
+    } else if (ec != errc::operation_canceled) {
+      INFO(module_id, "STALLED", "falling through {}\n", ec.message());
+    }
+  });
+}
+
+// logging
+error_code Ctrl::log_socket(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                            Elapsed &e) noexcept {
+  e.freeze();
+
+  csv arrow{type == csv{"DATA"} ? "->" : "<-"};
+  csv state(sock.is_open() ? "OPEN" : "CLOSED");
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  fmt::format_to(w, "{} {} ", type, state);
+
+  if (sock.is_open()) {
+
+    const auto &l = sock.local_endpoint();
+
+    fmt::format_to(w, "{}:{} {} {}:{} {}",            //
+                   l.address().to_string(), l.port(), //
+                   arrow,                             //
+                   r.address().to_string(), r.port(), //
+                   sock.native_handle());
   }
 
-  return ec;
-}
+  fmt::format_to(w, " {}", e.humanize());
 
-const error_code Ctrl::log_send_data_msg(const error_code ec, Elapsed e) noexcept {
-  Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e.freeze());
-  Stats::write(stats::FRAMES, 1);
+  if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
 
-  if (ec != errc::success) Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
+  INFO(module_id, "LOG_SOCKET", "{} \n", msg);
 
   return ec;
 }
