@@ -243,7 +243,7 @@ error_code Ctrl::log_socket(csv type, error_code ec, tcp_socket &sock, const tcp
                             Elapsed &e) noexcept {
   e.freeze();
 
-  csv arrow{type == csv{"DATA"} ? "->" : "<-"};
+  csv arrow{type == csv{"CTRL"} ? "->" : "<-"};
   csv state(sock.is_open() ? "OPEN" : "CLOSED");
 
   string msg;
