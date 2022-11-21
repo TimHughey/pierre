@@ -26,6 +26,7 @@
 #include <boost/system.hpp>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace pierre {
 
@@ -51,8 +52,9 @@ using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 using work_guard_t = std::unique_ptr<work_guard>;
+using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 
-static constexpr uint16_t ANY_PORT = 0;
+static constexpr uint16_t ANY_PORT{0};
 typedef uint16_t Port;
 
 // types of the various servers we will spin up
