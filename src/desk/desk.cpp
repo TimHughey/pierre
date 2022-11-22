@@ -39,6 +39,7 @@
 #include <math.h>
 #include <optional>
 #include <ranges>
+#include <tuple>
 
 namespace pierre {
 
@@ -107,6 +108,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
       Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
+      // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());
 
       if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
         const auto fx_prev_name = active_fx->name();
@@ -125,19 +127,21 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       ctrl->send_data_msg(std::move(data_msg));
 
-      frame->mark_rendered();
       frame_last = pet::now_realtime();
     } else if (frame->state.outdated()) {
       outdated++;
+      // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());
     } else {
       INFO(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
     }
 
     // account for processing time thus far
     sync_wait = frame->sync_wait_recalc();
-    Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait)); // log sync_wait
+
+    frame->mark_rendered();
 
     if (sync_wait >= Nanos::zero()) {
+      // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());
       frame_timer.expires_after(sync_wait);
       error_code ec;
       frame_timer.wait(ec); // loop runs in frame_strand, no async necessary

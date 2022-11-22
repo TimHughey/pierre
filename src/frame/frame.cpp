@@ -29,6 +29,7 @@
 #include "fft.hpp"
 #include "master_clock.hpp"
 #include "racked.hpp"
+#include "stats/stats.hpp"
 
 #include <iterator>
 #include <ranges>
@@ -194,6 +195,8 @@ frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept
   // this is necessary because we are now running in a thread environment
   state.update_if(initial_state, new_state);
   set_sync_wait(diff);
+
+  Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
 
   return state;
 }

@@ -28,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <type_traits>
 
 namespace pierre {
@@ -120,6 +121,8 @@ public:
   bool store_if_equal(state_now_t want_val, state_now_t next_val) noexcept {
     return std::atomic_compare_exchange_strong(&_val, &want_val, next_val);
   }
+
+  auto tag() noexcept { return std::make_pair("state"sv, inspect()); }
 
   bool update_if(const state_now_t previous, std::optional<state> &new_state) noexcept {
     auto rc = false;

@@ -139,7 +139,7 @@ void Racked::flush_impl(FlushInfo request) {
       }
 
       const auto flushed = initial_size - std::ssize(racked);
-      Stats::write(stats::REELS_FLUSHED, flushed > 0 ? flushed : initial_size);
+      Stats::write(stats::REELS_FLUSHED, int64_t{flushed > 0 ? flushed : initial_size});
     }
 
     // has everything been flushed?
@@ -204,6 +204,7 @@ void Racked::monitor_wip() noexcept {
       asio::bind_executor(wip_strand, [=, this](const error_code ec) {
         if (!ec && !racked.contains(serial_num)) {
           INFO(module_id, "MONITOR_WIP", "INCOMPLETE {}\n", wip->inspect());
+          Stats::write(stats::RACK_WIP_INCOMPLETE, wip->size());
           // not a timer error and reel is the same
           rack_wip();
         } else if (!ec) {

@@ -50,12 +50,6 @@ static const auto idle_shutdown() noexcept {
   return Config().at(PATH).value_or(30000);
 }
 
-// static const auto retry_delay() noexcept {
-//   static constexpr csv PATH{"dmx.controller.timeouts.retry_ms"};
-
-//   return pet::from_ms(Config().at(PATH).value_or(500));
-// }
-
 static const auto stalled_timeout() noexcept {
   static constexpr csv PATH{"dmx.controller.timeouts.stalled_ms"};
 
@@ -113,6 +107,9 @@ void Ctrl::connect() noexcept {
 void Ctrl::handle_feedback_msg(JsonDocument &doc) noexcept {
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
   Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
+  Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
+  Stats::write(stats::REMOTE_DMX_QRF, doc["dmx_qrf"].as<int64_t>());
+  Stats::write(stats::REMOTE_DMX_QSF, doc["dmx_qsf"].as<int64_t>());
 
   const int64_t fps = doc["fps"].as<int64_t>();
   Stats::write(stats::FPS, fps);

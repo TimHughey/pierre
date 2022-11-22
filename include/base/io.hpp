@@ -66,10 +66,6 @@ static constexpr error_code make_error(errc::errc_t val = errc::success) {
   return error_code(val, sys::generic_category());
 }
 
-template <class T> static constexpr steady_timer_ptr make_steady_timer(T &ctx_or_strand) {
-  return std::make_shared<steady_timer>(asio::get_associated_executor(ctx_or_strand));
-}
-
 inline work_guard_t make_work_guard(io_context &io_ctx) {
   return std::make_unique<work_guard>(io_ctx.get_executor());
 }

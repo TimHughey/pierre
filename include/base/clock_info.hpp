@@ -32,7 +32,7 @@ using MasterIP = std::string;
 
 struct ClockInfo;
 using clock_info_future = std::future<ClockInfo>;
-using clock_info_promise_ptr = std::shared_ptr<std::promise<ClockInfo>>;
+using clock_info_prom = std::shared_ptr<std::promise<ClockInfo>>;
 
 struct ClockInfo {
   ClockID clock_id{0};          // current master clock

@@ -37,7 +37,10 @@ audio = { buffer_size = 8 } # kilobytes
 
 [frame]
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
-clock = { shm_name = "/nqptp" }
+
+[frame.clock]
+shm_name = "/nqptp"
+info = { max_wait_frames = 10 }
 
 [frame.racked]
 threads = 3 # stats runs on this io_ctx

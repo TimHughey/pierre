@@ -32,11 +32,14 @@
 #include <cmath>
 #include <map>
 #include <memory>
+#include <tuple>
 
 namespace pierre {
 
 class Stats : public std::enable_shared_from_this<Stats> {
 private:
+  static constexpr auto TAG_DEF{std::make_pair(csv{""}, csv{""})};
+
   Stats(bool enabled = false) noexcept;
   using stat_variant = std::variant<int32_t, int64_t, double>;
 
@@ -50,7 +53,8 @@ public:
 
   static void shutdown(io_context &io_ctx) noexcept;
 
-  template <typename T> static auto write(stats::stats_v vt, T v) noexcept {
+  template <typename T>
+  static auto write(stats::stats_v vt, T v, std::pair<csv, csv> tag = TAG_DEF) noexcept {
     static constexpr csv DOUBLE{"double"};
     static constexpr csv INTEGRAL{"integral"};
     static constexpr csv MEASURE{"STATS"};
@@ -67,25 +71,30 @@ public:
       auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC, s->val_txt[vt]);
 
       // now post the pt and params for eventual write to influx
-      asio::post(io_ctx, [=, s = std::move(s), v = v, pt = std::move(pt)]() mutable {
-        // this closure deliberately converts various types (e.g. chrono durations, Frequency,
-        // Magnitude) to the correct type for influx and sets the field key to an appropriate
-        // name to prevent different data types associated to the same key
-        auto add_value = [pt = std::move(pt)](T v) mutable {
-          if constexpr (IsDuration<T>) {
-            const auto d = std::chrono::duration_cast<Nanos>(v);
-            return pt.addField(NANOS, d.count());
-          } else if constexpr (std::is_integral_v<T>) {
-            return pt.addField(INTEGRAL, v);
-          } else if constexpr (std::is_convertible_v<T, double>) {
-            return pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
-          }
+      asio::post(
+          io_ctx, [=, s = std::move(s), v = v, pt = std::move(pt), tag = std::move(tag)]() mutable {
+            // this closure deliberately converts various types (e.g. chrono durations, Frequency,
+            // Magnitude) to the correct type for influx and sets the field key to an appropriate
+            // name to prevent different data types associated to the same key
+            auto add_value = [pt = std::move(pt)](T v) mutable {
+              if constexpr (IsDuration<T>) {
+                const auto d = std::chrono::duration_cast<Nanos>(v);
+                return pt.addField(NANOS, d.count());
+              } else if constexpr (std::is_integral_v<T>) {
+                return pt.addField(INTEGRAL, v);
+              } else if constexpr (std::is_convertible_v<T, double>) {
+                return pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
+              }
 
-          static_assert("unhandled type");
-        };
+              static_assert("unhandled type");
+            };
 
-        s->db->write(add_value(std::move(v)));
-      });
+            if (tag.first.size() > 0) {
+              return s->db->write(add_value(std::move(v)).addTag(tag.first, tag.second));
+            } else {
+              return s->db->write(add_value(std::move(v)));
+            }
+          });
     }
   }
 

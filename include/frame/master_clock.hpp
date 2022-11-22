@@ -85,7 +85,7 @@ public:
 public:
   MasterClock() noexcept;
 
-  static clock_info_future info(Nanos max_wait = ClockInfo::INFO_MAX_WAIT);
+  static clock_info_future info() noexcept; // max_wait configured in .toml
 
   static void init();
 
@@ -101,7 +101,11 @@ public:
   void dump();
 
 private:
-  void info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_promise_ptr prom = nullptr);
+  void info_retry(clock_info_prom prom, //
+                  Nanos max_wait = Nanos::zero(),
+                  Elapsed e = Elapsed(), //
+                  steady_timer_ptr timer =nullptr) noexcept;
+
   bool is_mapped() const;
   void init_self() noexcept;
   const ClockInfo load_info_from_mapped();

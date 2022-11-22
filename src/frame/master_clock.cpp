@@ -18,6 +18,7 @@
 
 #include "master_clock.hpp"
 #include "base/host.hpp"
+#include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -53,7 +54,7 @@ MasterClock::MasterClock() noexcept
        shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
 }
 
-clock_info_future MasterClock::info(Nanos max_wait) { // static
+clock_info_future MasterClock::info() noexcept { // static
   auto prom = std::make_shared<std::promise<ClockInfo>>();
   auto clock_info = shared::master_clock->load_info_from_mapped();
 
@@ -62,34 +63,48 @@ clock_info_future MasterClock::info(Nanos max_wait) { // static
     prom->set_value(clock_info);
   } else {
     // clock info not ready yet, retry
-    shared::master_clock->info_retry(clock_info, max_wait, prom);
+    shared::master_clock->info_retry(prom);
   }
 
   return prom->get_future();
 }
 
-void MasterClock::info_retry(ClockInfo clock_info, Nanos max_wait, clock_info_promise_ptr prom) {
+void MasterClock::info_retry(clock_info_prom prom,      //
+                             Nanos max_wait, Elapsed e, //
+                             steady_timer_ptr timer) noexcept {
 
   // perform the retries on the MasterClock io_ctx enabling caller to continue other work
   // while the clock becomes useable and the future is set to ready
-  asio::post(io_ctx, [=, this]() mutable {
-    Elapsed elapsed;
 
-    while (!clock_info.ok() && (elapsed < max_wait)) {
-      // reduce max wait so this loop eventually breaks out
-      auto poll_wait = pet::percent(max_wait, 10);
-      std::this_thread::sleep_for(poll_wait);
+  auto clock_info = load_info_from_mapped();
 
-      clock_info = load_info_from_mapped();
+  if (clock_info.ok()) { // it's good, set the prom and return
+    prom->set_value(clock_info);
+  } else {
+    // clock info still not ready prepare for a retry
 
-      INFO(module_id, "INFO_RETRY", "waiting for clock, wait={}\n", pet::humanize(max_wait));
+    // this might be the first time through...  prepare retry support objects
+    if (max_wait == Nanos::zero()) {
+      e.reset(); // start timing how long we've been retrying
+      const int max_frames = Config().at("frame.clock.info.max_wait_frames"sv).value_or(10);
+      max_wait = InputInfo::lead_time * max_frames;
     }
 
-    INFO(module_id, "GET_INFO", "no clock after {}\n", elapsed.humanize());
+    if (!timer) timer = std::make_shared<steady_timer>(io_ctx);
 
-    // set the promise with whatever the outcome of above
-    prom->set_value(clock_info);
-  });
+    // ok, we have our retry support objects
+
+    timer->expires_after(InputInfo::lead_time);
+    timer->async_wait([=, this](const error_code ec) mutable {
+      if (!ec && (e < max_wait)) {
+        info_retry(prom, max_wait, e, timer);
+      } else {
+        // error or max_wait exceeded, give up
+        INFO(module_id, "INFO_RETRY", "no clock info after {}\n", e.humanize());
+        prom->set_value(clock_info);
+      }
+    });
+  }
 }
 
 void MasterClock::init() {
