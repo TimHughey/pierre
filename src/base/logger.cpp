@@ -43,7 +43,7 @@ namespace shared {
 std::optional<Logger> logger;
 }
 
-static Elapsed _runtime;
+Elapsed _runtime; // class static data
 
 void Logger::init() { // static
   if (shared::logger.has_value() == false) {
@@ -103,9 +103,8 @@ void Logger::print_chunk(const string &chunk) {
     fmt::print("{}{}\n", tab(), line);
   }
 }
-
-MillisFP Logger::runtime() { // static
-  return _runtime.as<MillisFP>();
+Logger::millis_fp Logger::runtime() { // static
+  return std::chrono::duration_cast<millis_fp>((Nanos)_runtime);
 }
 
 } // namespace pierre

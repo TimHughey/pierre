@@ -33,22 +33,20 @@ using namespace std::chrono_literals;
 using Days = std::chrono::days;
 using Hours = std::chrono::hours;
 using Micros = std::chrono::microseconds;
-using MicrosFP = std::chrono::duration<double, std::chrono::microseconds::period>;
 using Millis = std::chrono::milliseconds;
-using MillisFP = std::chrono::duration<double, std::chrono::milliseconds::period>;
 using Minutes = std::chrono::minutes;
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::seconds;
-using SecondsFP = std::chrono::duration<long double>;
 using steady_clock = std::chrono::steady_clock;
+using steady_timepoint = std::chrono::time_point<steady_clock, Nanos>;
 using system_clock = std::chrono::system_clock;
 using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
 
 typedef uint64_t ClockID; // master clock id
 
 template <typename T>
-concept IsDuration =
-    IsAnyOf<std::remove_cvref_t<std::remove_pointer_t<std::decay_t<T>>>, Nanos, Micros, Millis>;
+concept IsDuration = IsAnyOf<std::remove_cvref_t<std::remove_pointer_t<std::decay_t<T>>>, Nanos,
+                             Micros, Millis, Seconds, Minutes>;
 
 struct pet {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};

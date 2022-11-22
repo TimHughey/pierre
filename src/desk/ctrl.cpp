@@ -51,7 +51,7 @@ static const auto idle_shutdown() noexcept {
 }
 
 static const auto stalled_timeout() noexcept {
-  static constexpr csv PATH{"dmx.controller.timeouts.stalled_ms"};
+  static constexpr csv PATH{"dmx.timeouts.stalled_ms"};
 
   return pet::from_ms(Config().at(PATH).value_or(1000));
 }

@@ -108,7 +108,6 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
       Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
-      // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());
 
       if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
         const auto fx_prev_name = active_fx->name();

@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/pet.hpp"
 #include "base/types.hpp"
 
 #include <chrono>
@@ -41,7 +40,6 @@ extern std::optional<Logger> logger;
   pierre::shared::logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFOX(mod_id, cat, format, ...)
-// #define DEBUG(mod_id, format, ...) Logger(mod_id, "DEBUG", format, _VA_ARGS__)
 
 #define INFO_FORMAT_CHUNK(data, size) pierre::shared::logger->format_chunk(data, size)
 #define INFO_INDENT_CHUNK(chunk) pierre::shared::logger->indent_chunk(chunk)
@@ -50,6 +48,9 @@ extern std::optional<Logger> logger;
   pierre::shared::logger->info_with_chunk(mod_id, cat, chunk, FMT_STRING(format), ##__VA_ARGS__)
 
 class Logger {
+private:
+  using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
+
 public:
   Logger() = default;
 
@@ -121,7 +122,7 @@ public:
 private:
   void init_self();
   void print_chunk(const string &chunk);
-  static MillisFP runtime();
+  static millis_fp runtime();
 
 private:
   // order dependent

@@ -26,6 +26,7 @@
 namespace pierre {
 
 string pet::humanize(Nanos d) {
+  using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
   string msg;
   auto w = std::back_inserter(msg);
 
@@ -46,7 +47,7 @@ string pet::humanize(Nanos d) {
     d -= as<Nanos>(x);
   }
 
-  auto ms = as<MillisFP>(d);
+  auto ms = as<millis_fp>(d);
   fmt::format_to(w, "{:0.2}", ms);
 
   return msg;

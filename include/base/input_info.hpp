@@ -26,21 +26,32 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <type_traits>
 
 namespace pierre {
 
 struct InputInfo {
-  static constexpr uint32_t rate = 44100; // max available at the moment
-  static constexpr uint8_t channels = 2;
-  static constexpr uint8_t bit_depth = 16;
-  static constexpr uint8_t bytes_per_frame = 4;
+  static constexpr uint32_t rate{44100}; // max available at the moment
+  static constexpr uint8_t channels{2};
+  static constexpr uint8_t bit_depth{16};
+  static constexpr uint8_t bytes_per_frame{4};
 
-  static constexpr Nanos frame = pet::from_ns(1e+9 / rate);
+  static constexpr Nanos frame{pet::from_ns(1e+9 / rate)};
 
-  static constexpr Nanos lead_time = frame * 1024;
-  static constexpr Nanos lead_time_min = pet::percent(lead_time, 33);
+  static constexpr Nanos lead_time{frame * 1024};
+  static constexpr Nanos lead_time_min{pet::percent(lead_time, 33)};
 
-  static constexpr int fps = Millis(1000) / pet::as<Millis>(lead_time);
+  static constexpr int fps{Millis(1000) / pet::as<Millis>(lead_time)};
+
+  template <typename T> static constexpr auto frame_count(T v) noexcept {
+    if constexpr (std::is_same_v<T, Nanos>) {
+      return v / lead_time;
+    } else if constexpr (IsDuration<T>) {
+      return std::chrono::duration_cast<Nanos>(v) / lead_time;
+    } else {
+      static_assert("unhandled type");
+    }
+  }
 };
 
 } // namespace pierre
