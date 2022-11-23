@@ -19,73 +19,71 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "common/ss_inject.hpp"
+#include "base/logger.hpp"
 #include "server/base.hpp"
 
-#include <future>
+#include <algorithm>
+#include <array>
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <utility>
-#include <vector>
 
 namespace pierre {
 namespace airplay {
 
-namespace strands {
-constexpr csv RTSP("rtsp");
-constexpr csv CLOCK("clock");
-constexpr csv RTP("rtp");
-constexpr csv PCM("pcm");
-} // namespace strands
-
-enum TeardownPhase : uint8_t { None = 0, One, Two };
-using TeardownBarrier = std::future<TeardownPhase>;
-using Teardown = std::promise<TeardownPhase>;
-using TeardownList = std::vector<ServerType>;
-
-class Servers;
-typedef std::shared_ptr<Servers> shServers;
-
-namespace shared {
-std::optional<shServers> &servers();
-} // namespace shared
-
 class Servers : public std::enable_shared_from_this<Servers> {
-private:
-  typedef std::shared_ptr<server::Base> ServerPtr;
-  typedef std::map<ServerType, ServerPtr> ServerMap;
 
 public:
-  static shServers init(io_context &io_ctx) {
-    return shared::servers().emplace(new Servers(io_ctx));
-  }
-  static shServers ptr() { return shared::servers().value()->shared_from_this(); }
-  static void reset() { shared::servers().reset(); }
-
-  ~Servers() { teardown(); }
+  static std::shared_ptr<Servers> init(io_context &io_ctx) noexcept;
+  static auto ptr() noexcept { return self()->shared_from_this(); }
+  static void reset() noexcept { self().reset(); }
 
   Port localPort(ServerType type);
-  void teardown();
-  // TeardownBarrier teardown(TeardownPhase phase);
-  void teardown(ServerType type);
+  static void teardown() noexcept {
+    static constexpr std::array types{ServerType::Event, ServerType::Control, ServerType::Audio};
+
+    auto &map = ptr()->map;
+
+    for (const auto type : types) {
+      auto it = map.find(type);
+
+      if (it != map.end()) {
+        auto srv = it->second; // get our own shared_ptr to the server
+
+        srv->teardown(); // ask it to shutdown
+        map.erase(it);   // erase it from the map
+
+        INFO(module_id, "TEARDOWN", "server={}\n", fmt::ptr(srv.get()));
+
+        // our shared_ptr to the server falls out of scope
+      }
+    }
+  }
 
 private:
   Servers(io_context &io_ctx) : io_ctx(io_ctx) {}
 
-  ServerPtr fetch(ServerType type);
+  std::shared_ptr<server::Base> fetch(ServerType type) noexcept {
+    if (map.contains(type) == false) {
+      return std::shared_ptr<server::Base>(nullptr);
+    }
 
-  // void teardownFinished();
+    return map.at(type);
+  }
+
+  static std::shared_ptr<Servers> &self() noexcept;
 
 private:
   // order dependent based on constructor
   io_context &io_ctx;
 
   // order independent
-  ServerMap map;
+  std::map<ServerType, std::shared_ptr<server::Base>> map;
 
-  TeardownPhase teardown_phase = TeardownPhase::None;
-  Teardown teardown_request;
+public:
+  static constexpr csv module_id{"AP_SERVERS"};
 };
 
 } // namespace airplay

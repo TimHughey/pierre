@@ -18,14 +18,21 @@
 
 #include "session/rtsp.hpp"
 #include "base/content.hpp"
+#include "config/config.hpp"
 #include "reply/factory.hpp"
 #include "reply/reply.hpp"
 
 #include <algorithm>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <utility>
 
 namespace pierre {
 namespace airplay {
 namespace session {
+
+namespace fs = std::filesystem;
 
 void Rtsp::asyncLoop() {
   // notes:
@@ -81,6 +88,7 @@ void Rtsp::handleRequest([[maybe_unused]] size_t rx_bytes) {
       && ensureAllContent()    // loaded bytes == Content-Length
       && createAndSendReply()) // sent the reply OK
   {                            // all is well... prepare for next request
+
     _wire.clear();
     _packet.clear();
     _headers.clear();
@@ -137,6 +145,32 @@ bool Rtsp::ensureAllContent() {
 }
 
 bool Rtsp::createAndSendReply() {
+
+  // INFO GATHERING / DEBUG
+  if (Config().at("debug.rtsp.save"sv).value_or(false)) {
+    const auto base = Config().at("debug.path"sv).value_or(string());
+    const auto file = Config().at("debug.rtsp.file"sv).value_or(string());
+
+    namespace fs = std::filesystem;
+    fs::path path{fs::current_path()};
+    path.append(base);
+
+    try {
+      fs::create_directories(path);
+
+      fs::path full_path(path);
+      full_path.append(file);
+
+      std::ofstream out(full_path, std::ios::app);
+
+      out.write(_packet.raw<char>(), _packet.size());
+      out << std::endl << std::endl;
+
+    } catch (const std::exception &e) {
+      INFO(module_id, "RTSP_SAVE", "exception, {}\n", e.what());
+    }
+  }
+
   // create the reply to the request
 
   reply::Inject inject{.method = method(),

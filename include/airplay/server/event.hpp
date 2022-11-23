@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
+#include "base/uint8v.hpp"
 #include "server/base.hpp"
 
 #include <memory>
@@ -28,7 +29,7 @@ namespace pierre {
 namespace airplay {
 namespace server {
 
-class Event : public Base {
+class Event : public Base, public std::enable_shared_from_this<Event> {
 public:
   Event(io_context &io_ctx)
       : Base(SERVER_ID),                                       //
@@ -43,18 +44,85 @@ public:
   // with this in mind we accept an error code that is checked before
   // starting the next async_accept.  when the error code is not specified
   // assume this is startup and all is well.
-  void asyncLoop(const error_code ec_last = error_code()) override;
+  void asyncLoop(const error_code ec = io::make_error(errc::success)) override {
+
+    if (!ec && acceptor.is_open()) {
+
+      // this is the socket for the next accepted connection, store it in an optional
+      // for use within the lambda
+      sock_accept.emplace(io_ctx);
+
+      // since the io_ctx is wrapped in the optional and asyncLoop wants the actual
+      // io_ctx we must deference or get the value of the optional
+      acceptor.async_accept(*sock_accept, [s = self()](error_code ec) {
+        if (!ec && s->sock_accept.has_value()) {
+
+          auto &sock = s->sock_accept;
+
+          const auto &l = sock->local_endpoint();
+          const auto &r = sock->remote_endpoint();
+
+          INFO("AIRPLAY", SERVER_ID, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
+               l.address().to_string(), l.port());
+
+          // if there was a previous session, clear it
+          s->sock_session.reset();
+          s->sock_accept.swap(s->sock_session); // swap the accepted socket into the session socket
+
+          // wait for session data
+          s->session_async_loop(ec);
+
+          // listen for the next connection request
+          s->asyncLoop(ec);
+        } else {
+          s->teardown();
+        }
+      });
+    } else {
+      teardown();
+    }
+  }
 
   Port localPort() override { return acceptor.local_endpoint().port(); }
-  void teardown() override; // issue cancel to acceptor
+  void teardown() override {
+    try {
+      acceptor.cancel();
+      sock_accept->close();
+      sock_session->close();
+
+    } catch (...) {
+    }
+  }
+
+private:
+  std::shared_ptr<Event> self() noexcept { return shared_from_this(); }
+  void session_async_loop(const error_code ec) noexcept {
+    // similiar to the Control UDP socket, Event is not used by AP2 however
+    // the TCP socket must remain connected
+
+    if (!ec && sock_session.has_value()) {
+      auto raw = std::make_unique<uint8v>();
+      auto buff = asio::dynamic_buffer(*raw);
+
+      // in the event data is received quietly discard it and keep reading
+      // reminder the unique_ptr is moved into the closure so it is deallocated
+      asio::async_read(*sock_session, buff, asio::transfer_at_least(32),
+                       [raw = std::move(raw), s = self()](const error_code ec,
+                                                          [[maybe_unused]] size_t rx_bytes) {
+                         s->session_async_loop(ec); // recurse (which checks for errors)
+                       });
+    } else {
+      teardown(); // and fall through
+    }
+  }
 
 private:
   // order dependent
   io_context &io_ctx;
   tcp_acceptor acceptor;
 
-  // temporary holder of socket (io_ctx) while waiting for a connection
-  std::optional<tcp_socket> socket;
+  std::optional<tcp_socket> sock_accept; // socket for next accepted connection
+  std::optional<tcp_socket> sock_session;
 
 public:
   static constexpr auto SERVER_ID{"EVENT SERVER"};

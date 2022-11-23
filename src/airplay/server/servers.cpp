@@ -26,17 +26,12 @@
 namespace pierre {
 namespace airplay {
 
-namespace shared {
-std::optional<shServers> __servers;
-std::optional<shServers> &servers() { return __servers; }
-} // namespace shared
+static std::shared_ptr<Servers> servers;
 
-Servers::ServerPtr Servers::fetch(ServerType type) {
-  if (map.contains(type) == false) {
-    return ServerPtr(nullptr);
-  }
+std::shared_ptr<Servers> Servers::init(io_context &io_ctx) noexcept {
+  servers = std::shared_ptr<Servers>(new Servers(io_ctx));
 
-  return map.at(type);
+  return servers->shared_from_this();
 }
 
 Port Servers::localPort(ServerType type) {
@@ -45,19 +40,19 @@ Port Servers::localPort(ServerType type) {
   if (svr.get() == nullptr) {
     switch (type) {
     case ServerType::Audio:
-      map.emplace(type, new server::Audio(io_ctx));
+      map.emplace(type, std::make_shared<server::Audio>(io_ctx));
       break;
 
     case ServerType::Event:
-      map.emplace(type, new server::Event(io_ctx));
+      map.emplace(type, std::make_shared<server::Event>(io_ctx));
       break;
 
     case ServerType::Control:
-      map.emplace(type, new server::Control(io_ctx));
+      map.emplace(type, std::make_shared<server::Control>(io_ctx));
       break;
 
     case ServerType::Rtsp:
-      map.emplace(type, new server::Rtsp(io_ctx));
+      map.emplace(type, std::make_shared<server::Rtsp>(io_ctx));
       break;
     }
 
@@ -69,22 +64,7 @@ Port Servers::localPort(ServerType type) {
   return svr->localPort();
 }
 
-void Servers::teardown() {
-  using enum ServerType;
-
-  for (const auto type : std::array{Audio, Event, Control, Rtsp}) {
-    teardown(type);
-  }
-}
-
-void Servers::teardown(ServerType type) {
-  auto svr = fetch(type);
-
-  if (svr.get() != nullptr) {
-    svr->teardown();
-    map.erase(type);
-  }
-}
+std::shared_ptr<Servers> &Servers::self() noexcept { return servers; }
 
 } // namespace airplay
 } // namespace pierre

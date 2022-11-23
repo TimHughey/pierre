@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "common/ss_inject.hpp"
+#include "base/uint8v.hpp"
 #include "server/base.hpp"
 
 #include <array>
@@ -29,111 +29,56 @@ namespace pierre {
 namespace airplay {
 namespace server {
 
-namespace control {
-
-struct hdr {
-  struct {
-    uint8_t vpm = 0x00;      // vsn, padding, marker
-    uint8_t type = 0x00;     // packet type
-    uint16_t length = 0x000; // packet total length
-  } full;
-
-  void clear();
-  uint8_t *data() { return (uint8_t *)&full; }
-  size_t length() const { return full.length; }
-  void loaded(size_t rx_bytes);
-
-  size_t moreBytes() const { return size() - length(); }
-  static constexpr size_t size() { return sizeof(full); }
-
-  // header details
-  bool marker() const { return ((full.vpm & 0x08) >> 4) == 0x01; }
-  bool padding() const { return ((full.vpm & 0x20) >> 5) == 0x01; }
-
-  uint8_t version() const { return (full.vpm & 0x0c) >> 6; }
-
-  // misc debug
-  void dump() const;
-};
-
-class Packet {
-private:
-  static constexpr size_t STD_PACKET_SIZE = 128;
-  typedef std::array<uint8_t, STD_PACKET_SIZE> Raw;
-
-public:
-  Packet() { clear(); }
-
-  void clear() { _raw.fill(0x00); }
-  uint8_t *data() { return (uint8_t *)_raw.data(); }
-
-  void loaded(size_t rx_bytes);
-
-  ccs raw() const { return (ccs)_raw.data(); }
-  size_t size() const { return _size; }
-
-  bool valid() const { return _valid; }
-  const csv view() const { return csv(raw(), size()); }
-
-private:
-  Raw _raw;
-  size_t _size = 0;
-
-  bool _valid = false;
-};
-
-} // namespace control
-
 // back to namespace server
 
-class Control : public Base {
+class Control : public Base, public std::enable_shared_from_this<Control> {
 public:
   // create the Control
-  Control(io_context &io_ctx);
-  ~Control();
+  Control(io_context &io_ctx)
+      : Base("AP_CTRL"),                                     // server name
+        io_ctx(io_ctx),                                      // io_ctx
+        socket(io_ctx, udp_endpoint(ip_udp::v4(), ANY_PORT)) // create socket and endpoint
+  {}
 
-  void asyncLoop(const error_code ec_last = error_code()) override;
+  ~Control() = default;
 
-  control::hdr &hdr() { return _hdr; }
-  uint8_t *hdrData() { return _hdr.data(); }
-  size_t hdrSize() const { return _hdr.size(); }
+  void asyncLoop(const error_code ec = io::make_error(errc::success)) override {
+    if (!ec && socket.is_open()) { // no error and socket is good
+      // for AP2 we only need this socket open and don't do anything with any
+      // data that might be received.  so, create and capture a unique_ptr that
+      // simply goes away if any data is received.
+      auto raw = std::make_unique<uint8v>(1024);
+      auto buff = asio::buffer(*raw); // get the buffer before moving the ptr
 
-  bool isReady(const error_code &ec) noexcept {
-    auto rc = true;
-
-    if (socket.is_open() && ec) {
-      [[maybe_unused]] error_code ec;
-      socket.shutdown(udp_socket::shutdown_both, ec);
-      rc = false;
+      socket.async_receive(buff, [s = self(), raw = std::move(raw)](
+                                     const error_code ec, [[maybe_unused]] size_t rx_bytes) {
+        s->asyncLoop(ec); // will detect errors and close socket
+      });
+    } else {
+      teardown();
     }
-
-    return rc;
   }
 
   // ensure the server is started and return the local endpoint port
   uint16_t localPort() override { return socket.local_endpoint().port(); }
 
-  void teardown() override;
+  void teardown() override {
+    // here we only issue the cancel to the acceptor.
+    // the closing of the acceptor will be handled when
+    // the error is caught by asyncLoop
+    try {
+      socket.close();
+    } catch (...) {
+    }
+  }
 
 private:
-  void asyncRestOfPacket();
-
-  void nextBlock();
-
-  control::Packet &wire() { return _wire; }
+  std::shared_ptr<Control> self() noexcept { return shared_from_this(); }
 
 private:
   // order dependent
   io_context &io_ctx;
   udp_socket socket;
-
-  // latest sender endpoint
-  udp_endpoint remote_endpoint;
-
-  control::Packet _wire;
-  control::hdr _hdr;
-  uint64_t _rx_bytes = 0;
-  uint64_t _tx_bytes = 0;
 };
 
 } // namespace server

@@ -48,16 +48,14 @@ bool Teardown::phase1() {
 }
 
 bool Teardown::phase2() { // we've been asked to disconnect
-  auto servers = Servers::ptr().get();
+  // auto servers = Servers::ptr().get();
 
   Service::ptr()->receiverActive(false);
   mDNS::update();
 
-  servers->teardown(ServerType::Event);
-  servers->teardown(ServerType::Control);
-  servers->teardown(ServerType::Audio);
+  Servers::teardown();
 
-  ConnInfo::ptr()->groupContainsGroupLeader = false;
+    ConnInfo::ptr()->groupContainsGroupLeader = false;
   // ConnInfo::ptr()->dacp_active_remote.clear();
 
   return true;

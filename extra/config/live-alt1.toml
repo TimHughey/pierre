@@ -18,6 +18,10 @@ enabled = true
 db_uri = "http://localhost:8086?db=pierre"
 batch_of = 100
 
+[debug]
+path = "../extra/debug"
+rtsp = { save = false, file = "rtsp.log" }
+
 [dmx]
 # controller = "dmx"
 controller = "test-with-devs"

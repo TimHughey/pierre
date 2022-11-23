@@ -41,10 +41,10 @@ add_library(${__target} SHARED
   reply/unhandled.cpp
 
   # servers
-  server/servers.cpp server/audio.cpp server/control.cpp server/event.cpp server/rtsp.cpp
+  server/servers.cpp server/audio.cpp  server/rtsp.cpp
 
   # sessions
-  session/audio.cpp session/event.cpp session/rtsp.cpp
+  session/audio.cpp session/rtsp.cpp
 
   ${HEADER_LIST}
 )

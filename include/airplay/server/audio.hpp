@@ -22,15 +22,14 @@
 #include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
-#include <fmt/format.h>
-#include <list>
+#include <memory>
 #include <optional>
 
 namespace pierre {
 namespace airplay {
 namespace server {
 
-class Audio : public Base {
+class Audio : public Base, public std::enable_shared_from_this<Audio> {
 public:
   Audio(io_context &io_ctx) noexcept
       : Base(SERVER_ID), // set the name of the server
