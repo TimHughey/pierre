@@ -24,8 +24,6 @@
 #include "common/ss_inject.hpp"
 
 #include <memory>
-#include <unordered_map>
-#include <utility>
 
 namespace pierre {
 namespace airplay {

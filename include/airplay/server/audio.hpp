@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "common/ss_inject.hpp"
 #include "server/base.hpp"
 
 #include <memory>

@@ -19,7 +19,6 @@
 #include "airplay/airplay.hpp"
 #include "base/features.hpp"
 #include "base/logger.hpp"
-#include "common/ss_inject.hpp"
 #include "conn_info/conn_info.hpp"
 #include "frame/master_clock.hpp"
 #include "server/servers.hpp"

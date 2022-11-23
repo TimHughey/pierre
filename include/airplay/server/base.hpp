@@ -20,7 +20,6 @@
 
 #include "base/io.hpp"
 #include "base/logger.hpp"
-#include "common/ss_inject.hpp"
 
 namespace pierre {
 namespace airplay {

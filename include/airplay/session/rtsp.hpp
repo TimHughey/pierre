@@ -29,7 +29,6 @@
 #include "reply/inject.hpp"
 #include "session/base.hpp"
 
-#include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
