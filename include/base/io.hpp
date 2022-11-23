@@ -19,12 +19,14 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
 #include "base/types.hpp"
 
 #include <array>
 #include <boost/asio.hpp>
 #include <boost/system.hpp>
 #include <cstdint>
+#include <fmt/format.h>
 #include <memory>
 #include <vector>
 
@@ -61,6 +63,34 @@ typedef uint16_t Port;
 enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
 
 namespace io {
+
+inline const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                                   Elapsed e) noexcept {
+  e.freeze();
+
+  csv state(sock.is_open() ? "OPEN  " : "CLOSED");
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  fmt::format_to(w, "{} {} ", type, state);
+
+  if (sock.is_open()) {
+
+    const auto &l = sock.local_endpoint();
+
+    fmt::format_to(w, "{}:{} -> {}:{} {}",            //
+                   l.address().to_string(), l.port(), //
+                   r.address().to_string(), r.port(), //
+                   sock.native_handle());
+  }
+
+  fmt::format_to(w, " {}", e.humanize());
+
+  if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+
+  return msg;
+}
 
 static constexpr error_code make_error(errc::errc_t val = errc::success) {
   return error_code(val, sys::generic_category());

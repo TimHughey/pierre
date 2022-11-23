@@ -82,20 +82,27 @@ void Ctrl::connect() noexcept {
         ctrl_sock,       //
         endpoints,       //
         [s, e](const error_code ec, const tcp_endpoint r) mutable {
-          // error code is good
-          if (s->log_socket("CTRL", ec, s->ctrl_sock.value(), r, e) == errc::success) {
+          if (s->ctrl_sock.has_value()) {
+            auto &ctrl_sock = s->ctrl_sock.value();
+            INFO(module_id, "CONNECT", "{}\n", io::log_socket_msg("CTRL", ec, ctrl_sock, r, e));
 
-            s->ctrl_sock->set_option(ip_tcp::no_delay(true));
-            Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
+            if (!ec) {
 
-            io::Msg msg(HANDSHAKE);
+              ctrl_sock.set_option(ip_tcp::no_delay(true));
+              Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
-            msg.add_kv("idle_shutdown_ms", idle_shutdown());
-            msg.add_kv("lead_time_µs", InputInfo::lead_time);
-            msg.add_kv("ref_µs", pet::now_realtime<Micros>());
-            msg.add_kv("data_port", s->acceptor.local_endpoint().port());
+              io::Msg msg(HANDSHAKE);
 
-            s->send_ctrl_msg(std::move(msg));
+              msg.add_kv("idle_shutdown_ms", idle_shutdown());
+              msg.add_kv("lead_time_µs", InputInfo::lead_time);
+              msg.add_kv("ref_µs", pet::now_realtime<Micros>());
+              msg.add_kv("data_port", s->acceptor.local_endpoint().port());
+
+              s->send_ctrl_msg(std::move(msg));
+            }
+
+          } else {
+            INFO(module_id, "CONNECT", "no socket, {}", ec.message());
           }
         });
   });
@@ -129,13 +136,23 @@ void Ctrl::listen() noexcept {
       [s = ptr(), e = Elapsed()](const error_code ec) mutable {
         Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
-        // if success, set socket opts, flags then start the message loop
-        if (s->log_socket("DATA", ec, s->data_sock.value(), e) == errc::success) {
-          s->data_sock->set_option(ip_tcp::no_delay(true));
+        if (s->data_sock.has_value()) {
+          auto &data_sock = s->data_sock.value();
+          const auto &r = data_sock.remote_endpoint();
 
-          s->connected = s->ctrl_sock->is_open() && s->data_sock->is_open();
+          INFO(module_id, "LISTEN", "{}\n", io::log_socket_msg("DATA", ec, data_sock, r, e));
 
-          s->msg_loop(); // start the msg loop
+          if (!ec) {
+            // success, set sock opts, connected and start msg_loop()
+            data_sock.set_option(ip_tcp::no_delay(true));
+
+            s->connected = s->ctrl_sock->is_open() && data_sock.is_open();
+
+            s->msg_loop(); // start the msg loop
+          }
+
+        } else {
+          INFO(module_id, "LISTEN", "no socket, {}\n", ec.message());
         }
       });
 }
@@ -233,39 +250,6 @@ void Ctrl::stalled_watchdog() noexcept {
       INFO(module_id, "STALLED", "falling through {}\n", ec.message());
     }
   });
-}
-
-// logging
-error_code Ctrl::log_socket(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
-                            Elapsed &e) noexcept {
-  e.freeze();
-
-  csv arrow{type == csv{"CTRL"} ? "->" : "<-"};
-  csv state(sock.is_open() ? "OPEN" : "CLOSED");
-
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  fmt::format_to(w, "{} {} ", type, state);
-
-  if (sock.is_open()) {
-
-    const auto &l = sock.local_endpoint();
-
-    fmt::format_to(w, "{}:{} {} {}:{} {}",            //
-                   l.address().to_string(), l.port(), //
-                   arrow,                             //
-                   r.address().to_string(), r.port(), //
-                   sock.native_handle());
-  }
-
-  fmt::format_to(w, " {}", e.humanize());
-
-  if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
-
-  INFO(module_id, "LOG_SOCKET", "{} \n", msg);
-
-  return ec;
 }
 
 } // namespace desk
