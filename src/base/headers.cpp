@@ -1,20 +1,20 @@
-/*  Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com */
+//  Pierre - Custom Light Show for Wiss Landing
+//  Copyright (C) 2022  Tim Hughey
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  https://www.wisslanding.com
 
 #include "base/headers.hpp"
 #include "base/content.hpp"
@@ -30,7 +30,6 @@
 #include <sstream>
 
 using namespace std::literals::string_view_literals;
-namespace ranges = std::ranges;
 
 namespace pierre {
 
@@ -65,7 +64,7 @@ static string __EMPTY;
 static csv __EMPTY_SV(__EMPTY);
 
 void Headers::add(csv type, csv val) {
-  if (auto known = ranges::find(__known_types, type); known != __known_types.end()) {
+  if (auto known = std::ranges::find(__known_types, type); known != __known_types.end()) {
     map.try_emplace(*known, string(val));
   } else {
     unknown.emplace(string(type));
@@ -91,7 +90,7 @@ const string_view Headers::getVal(csv want_type) const {
     return csv(search->second);
   }
 
-  INFO(moduleId, "GET VAL", "type={} not found (returning empty string)\n", want_type);
+  INFO(module_id, "GET VAL", "type={} not found (returning empty string)\n", want_type);
 
   return __EMPTY;
 }
@@ -101,7 +100,7 @@ size_t Headers::getValInt(csv want_type) const {
     return static_cast<size_t>(std::atoi(search->second.data()));
   }
 
-  INFO(moduleId, "GETVAL INT", "type={} not found (returning 0)\n", want_type);
+  INFO(module_id, "GETVAL INT", "type={} not found (returning 0)\n", want_type);
 
   return 0;
 }
@@ -131,7 +130,7 @@ size_t Headers::loadMore(const string_view view, Content &content) {
 
     ++count;
     if ((count == 0) || (count % 20)) {
-      INFO(moduleId, "LOAD_MORE", "separators not found count={}\n", count);
+      INFO(module_id, "LOAD_MORE", "separators not found count={}\n", count);
     }
 
     return 1;
@@ -165,7 +164,7 @@ size_t Headers::loadMore(const string_view view, Content &content) {
 
   // byte diff is negative indicating we need more data
   if (byte_diff < 0) {
-    INFOX(moduleId, "LOAD MORE",
+    INFOX(module_id, "LOAD MORE",
           "method={} path={} content_type={} have={} content_len={} diff={}\n",
           method(), //
           path(), contentType(), view_size, contentLength(), byte_diff);
@@ -184,7 +183,7 @@ size_t Headers::loadMore(const string_view view, Content &content) {
   content.assign(copy_begin, copy_end);
 
   // if we've reached here then everything is as it should be
-  INFOX(moduleId, "LOAD MORE", "complete method={} path={} content_type={} content_len={}\n", //
+  INFOX(module_id, "LOAD MORE", "complete method={} path={} content_type={} content_len={}\n", //
         method(), path(), contentType(), content.size());
 
   return 0;
@@ -217,12 +216,12 @@ void Headers::parseHeaderBlock(const string_view &view) {
       colon_pos++;                                    // skip space after the colon
       auto val = view.substr(++colon_pos, view.npos); // to eol
 
-      INFOX("key={} val={}\n", moduleId, csv("PARSE"), key, val);
+      INFOX("key={} val={}\n", module_id, csv("PARSE"), key, val);
 
       add(key, val);
 
     } else {
-      INFO(moduleId, "PARSE", "ignored={}\n", line);
+      INFO(module_id, "PARSE", "ignored={}\n", line);
     }
   }
 }

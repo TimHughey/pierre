@@ -28,31 +28,27 @@
 #include <regex>
 #include <set>
 
-namespace {
-namespace ranges = std::ranges;
-}
-
 namespace pierre {
 
 struct hdr_type {
   static constexpr csv CSeq{"CSeq"};
-  static constexpr csv Server = "Server";
-  static constexpr csv ContentSimple = "Content";
-  static constexpr csv ContentType = "Content-Type";
-  static constexpr csv ContentLength = "Content-Length";
-  static constexpr csv Public = "Public";
-  static constexpr csv DacpActiveRemote = "Active-Remote";
-  static constexpr csv DacpID = "DACP-ID";
-  static constexpr csv AppleProtocolVersion = "Apple-ProtocolVersion";
-  static constexpr csv UserAgent = "User-Agent";
-  static constexpr csv AppleHKP = "Apple-HKP";
-  static constexpr csv XAppleClientName = "X-Apple-Client-Name";
-  static constexpr csv XApplePD = "X-Apple-PD";
-  static constexpr csv XAppleProtocolVersion = "X-Apple-ProtocolVersion";
-  static constexpr csv XAppleHKP = "X-Apple-HKP";
-  static constexpr csv XAppleET = "X-Apple-ET";
-  static constexpr csv RtpInfo = "RTP-Info";
-  static constexpr csv XAppleAbsoulteTime = "X-Apple-AbsoluteTime";
+  static constexpr csv Server{"Server"};
+  static constexpr csv ContentSimple{"Content"};
+  static constexpr csv ContentType{"Content-Type"};
+  static constexpr csv ContentLength{"Content-Length"};
+  static constexpr csv Public{"Public"};
+  static constexpr csv DacpActiveRemote{"Active-Remote"};
+  static constexpr csv DacpID{"DACP-ID"};
+  static constexpr csv AppleProtocolVersion{"Apple-ProtocolVersion"};
+  static constexpr csv UserAgent{"User-Agent"};
+  static constexpr csv AppleHKP{"Apple-HKP"};
+  static constexpr csv XAppleClientName{"X-Apple-Client-Name"};
+  static constexpr csv XApplePD{"X-Apple-PD"};
+  static constexpr csv XAppleProtocolVersion{"X-Apple-ProtocolVersion"};
+  static constexpr csv XAppleHKP{"X-Apple-HKP"};
+  static constexpr csv XAppleET{"X-Apple-ET"};
+  static constexpr csv RtpInfo{"RTP-Info"};
+  static constexpr csv XAppleAbsoulteTime{"X-Apple-AbsoluteTime"};
 };
 
 struct hdr_val {
@@ -66,8 +62,8 @@ struct hdr_val {
 
 class Headers {
 public:
-  typedef std::map<csv, string> HeaderMap;
-  typedef std::set<string> UnknownHeaders;
+  using HeaderMap = std::map<csv, string>;
+  using UnknownHeaders = std::set<string>;
 
 public:
   Headers() = default;
@@ -92,7 +88,7 @@ public:
   void dump() const;
 
   void list(auto &where) const {
-    ranges::for_each(map, [&](const auto &entry) {
+    std::ranges::for_each(map, [&](const auto &entry) {
       fmt::format_to(where, "{}: {}\r\n", entry.first, entry.second);
     });
   }
@@ -127,8 +123,9 @@ private:
   static constexpr auto re_syntax = std::regex_constants::ECMAScript;
   static constexpr string_view EOL{"\r\n"};
   static constexpr string_view SEP{"\r\n\r\n"};
-  static constexpr auto THROW = std::numeric_limits<size_t>::max();
-  static constexpr csv moduleId{"HEADERS"};
+
+public:
+  static constexpr csv module_id{"HEADERS"};
 };
 
 } // namespace pierre
