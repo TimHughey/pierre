@@ -21,7 +21,10 @@
 #include "frame/frame.hpp"
 #include "frame/state.hpp"
 
+#include <algorithm>
 #include <optional>
+#include <ranges>
+#include <set>
 
 namespace pierre {
 
@@ -29,33 +32,49 @@ class SilentFrame : public Frame {
 private:
   SilentFrame() noexcept : Frame(frame::DSP_COMPLETE) {
 
-    // rationalize since_frame, more than InputInfo::lead_time
-    // has elapsed then reset it to create a READY frame immediately
-    if (since_frame > InputInfo::lead_time) since_frame.reset();
+    // lambda since we may need to recalculate
+    auto calc_diff = [now = pet::now_monotonic(), this](const auto frame_num) {
+      return (epoch + (InputInfo::lead_time * frame_num)) - now;
+    };
 
-    // we want this frame to render at the correct frame rate
-    // so subtract since_frame() to ensure it falls within
-    // the lead time window
-    state_now(InputInfo::lead_time - Nanos(since_frame));
+    Nanos diff = calc_diff(frame_num);
 
-    // a frame was generated, reset since_frame
-    since_frame.reset();
+    // silent frames are only READY or FUTURE (never OUTDATED)
+    // if oOUTDATED  then there has been a gap in this silence frame
+    // sequence so reset the epoch and frame_num and recalculate diff
+    // before calling state_now()
+    if (diff < Nanos::zero()) {
+      reset();
+
+      diff = calc_diff(frame_num);
+    }
+
+    state_now(diff);
+    ++frame_num;
   }
 
 public:
-  static auto create() { return std::shared_ptr<SilentFrame>(new SilentFrame()); }
+  static auto create() noexcept { return std::shared_ptr<SilentFrame>(new SilentFrame()); }
+
+  static void reset() noexcept {
+    frame_num = 0;
+    epoch = pet::now_monotonic();
+  }
 
 public:
-  virtual Nanos sync_wait_recalc() noexcept override {
-
-    return set_sync_wait(sync_wait() - Nanos(since_birth));
+  virtual Nanos sync_wait_recalc() noexcept final {
+    return set_sync_wait(sync_wait() - (Nanos)since_birth);
   }
 
 private:
   Elapsed since_birth; // elapsed time since frame creation, used for recalc
 
 private:
-  static Elapsed since_frame;
+  static Nanos epoch;
+  static int64_t frame_num;
+
+public:
+  static constexpr csv module_id{"SILENT_FRAME"};
 };
 
 } // namespace pierre

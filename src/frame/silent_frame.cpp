@@ -28,6 +28,9 @@ namespace pierre {
 // calculate the sync_wait for the next frame to simulate the correct
 // frame rate in absence of the master clock and/or anchor
 
-Elapsed SilentFrame::since_frame; // establish a reference time
+// Elapsed SilentFrame::since_frame; // establish a reference time
+// steady_timepoint SilentFrame::epoch{steady_clock::now()};
+Nanos SilentFrame::epoch{pet::now_monotonic()};
+int64_t SilentFrame::frame_num{0};
 
 } // namespace pierre
