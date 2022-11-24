@@ -40,11 +40,14 @@ add_library(${__target} SHARED
   reply/set_peers.cpp reply/set_peersx.cpp reply/setup.cpp reply/teardown.cpp
   reply/unhandled.cpp
 
+  # primary communications
+  rtsp.cpp rtsp/session.cpp
+
   # servers
-  server/servers.cpp server/audio.cpp  server/rtsp.cpp
+  server/servers.cpp server/audio.cpp 
 
   # sessions
-  session/audio.cpp session/rtsp.cpp
+  session/audio.cpp 
 
   ${HEADER_LIST}
 )
@@ -61,7 +64,7 @@ target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
   ple
-  base config frame io mdns
+  base config frame io mdns stats
 )
 
 target_link_libraries(${__target} PUBLIC mdns)

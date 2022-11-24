@@ -19,23 +19,29 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "server/base.hpp"
-#include "session/rtsp.hpp"
 
 #include <cstdint>
 #include <memory>
 #include <optional>
 
 namespace pierre {
-namespace airplay {
-namespace server {
 
-class Rtsp : public Base {
-public:
+class Rtsp : public std::enable_shared_from_this<Rtsp> {
+private:
   Rtsp(io_context &io_ctx)
-      : Base(SERVER_ID), // set the name of the server
-        io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)} //
+      : io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)} //
   {}
+
+public:
+  static std::shared_ptr<Rtsp> init(io_context &io_ctx) noexcept {
+    auto self = std::shared_ptr<Rtsp>(new Rtsp(io_ctx));
+
+    self->async_loop();
+
+    return self;
+  }
+
+  auto ptr() noexcept { return shared_from_this(); }
 
   // asyncLoop is invoked to:
   //  1. schedule the initial async accept
@@ -44,23 +50,32 @@ public:
   // with this in mind we accept an error code that is checked before
   // starting the next async_accept.  when the error code is not specified
   // assume this is startup and all is well.
-  void asyncLoop(const error_code ec_last = error_code()) override;
+  void async_loop(const error_code ec_last = io::make_error(errc::success)) noexcept;
 
-  Port localPort() override { return acceptor.local_endpoint().port(); }
-  void teardown() override;
+  void shutdown() noexcept { teardown(); }
+
+  void teardown() noexcept {
+    // here we only issue the cancel to the acceptor.
+    // the closing of the acceptor will be handled when
+    // the error is caught by asyncLoop
+
+    try {
+      acceptor.cancel();
+      acceptor.close();
+    } catch (...) {
+    }
+  }
 
 private:
   io_context &io_ctx;
   tcp_acceptor acceptor;
 
-  std::optional<tcp_socket> socket;
+  std::optional<tcp_socket> sock_accept;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 
 public:
-  static constexpr auto SERVER_ID{"RTSP"};
+  static constexpr csv module_id{"RTSP"};
 };
 
-} // namespace server
-} // namespace airplay
 } // namespace pierre

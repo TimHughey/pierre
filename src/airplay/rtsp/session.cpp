@@ -16,11 +16,13 @@
 //
 //  https://www.wisslanding.com
 
-#include "session/rtsp.hpp"
+#include "rtsp/session.hpp"
 #include "base/content.hpp"
+#include "base/elapsed.hpp"
 #include "config/config.hpp"
 #include "reply/factory.hpp"
 #include "reply/reply.hpp"
+#include "stats/stats.hpp"
 
 #include <algorithm>
 #include <exception>
@@ -29,12 +31,11 @@
 #include <utility>
 
 namespace pierre {
-namespace airplay {
-namespace session {
+namespace rtsp {
 
 namespace fs = std::filesystem;
 
-void Rtsp::asyncLoop() {
+void Session::async_loop() noexcept {
   // notes:
   //  1. nothing within this function can be captured by the lamba
   //     because the scope of this function ends before
@@ -55,10 +56,14 @@ void Rtsp::asyncLoop() {
   //     of the session above zero until the session ends
   //     (e.g. error, natural completion, io_ctx is stopped)
 
-  asio::async_read(socket,                       // rx from this socket
-                   asio::dynamic_buffer(wire()), // put rx'ed data here
-                   asio::transfer_at_least(12),  // start by rx'ed this many bytes
-                   [self = shared_from_this()](error_code ec, size_t rx_bytes) {
+  static constexpr ssize_t BYTES_MIN{12};
+
+  asio::async_read(sock,                               // rx from this socket
+                   asio::dynamic_buffer(wire()),       // put rx'ed data here
+                   asio::transfer_at_least(BYTES_MIN), // rx this many bytes
+                   [s = ptr(), e = Elapsed()](error_code ec, ssize_t bytes) {
+                     Stats::write(stats::RTSP_SESSION_RX_FIRST, bytes);
+
                      // general notes:
                      // 1. this was not captured so the lamba is not in 'this' context
                      // 2. all calls to the session must be via self (which was captured)
@@ -66,69 +71,72 @@ void Rtsp::asyncLoop() {
 
                      // essential activities:
                      // 1. check the error code
-                     if (self->isReady(ec)) {
+                     if (!ec && s->sock.is_open() && (bytes >= BYTES_MIN)) {
                        // 2. handle the request
                        //    a. remember... the data received is in wire buffer
                        //    b. performs request if bytes rx'ed != content length header
                        //    c. schedules io_ctx work or shared_ptr  falls out of scope
-                       self->handleRequest(rx_bytes);
-                     } // self is about to go out of scope...
+
+                       if (s->rxAvailable()            // drained the socket successfully
+                           && s->ensureAllContent()    // loaded bytes == Content-Length
+                           && s->createAndSendReply()) // sent the reply OK
+                       {                               // all is well... next request
+
+                         s->_wire.clear();
+                         s->_packet.clear();
+                         s->_headers.clear();
+                         s->_content.clear();
+
+                         s->async_loop(); // schedule rx of next packet
+                       } else {
+                         io::log_socket_msg(module_id, ec, s->sock, s->sock.remote_endpoint(), e);
+                       }
+
+                     } else {
+                       io::log_socket_msg(module_id, ec, s->sock, s->sock.remote_endpoint(), e);
+                     }
                    }); // self is out of scope and the shared_ptr use count is reduced by one
 
   // misc notes:
   // 1. the first return of this function traverses back to the Server that
-  //    created the Rtsp (in the same io_ctx)
+  //    created the Session (in the same io_ctx)
   // 2. subsequent returns are to the io_ctx and match the required void return
   //    signature
 }
 
-void Rtsp::handleRequest([[maybe_unused]] size_t rx_bytes) {
-
-  if (rxAvailable()            // drained the socket successfully
-      && ensureAllContent()    // loaded bytes == Content-Length
-      && createAndSendReply()) // sent the reply OK
-  {                            // all is well... prepare for next request
-
-    _wire.clear();
-    _packet.clear();
-    _headers.clear();
-    _content.clear();
-
-    asyncLoop(); // schedule rx of next packet
-  }
-}
-
-bool Rtsp::rxAvailable() {
+bool Session::rxAvailable() {
   error_code ec;
-  size_t avail_bytes = socket.available(ec);
+  size_t avail_bytes = sock.available(ec);
 
-  while (isReady(ec) && (avail_bytes > 0)) {
-    [[maybe_unused]] auto rx_bytes =
-        asio::read(socket, asio::dynamic_buffer(_wire), asio::transfer_at_least(avail_bytes), ec);
+  while (is_ready(ec) && (avail_bytes > 0)) {
+    ssize_t bytes = asio::read(sock,                        //
+                               asio::dynamic_buffer(_wire), //
+                               asio::transfer_at_least(avail_bytes), ec);
 
-    avail_bytes = socket.available(ec);
+    Stats::write(stats::RTSP_SESSION_RX_AVAIL, bytes);
+
+    avail_bytes = sock.available(ec);
   }
 
   // decipher what we have into the packet
   [[maybe_unused]] auto consumed = aes_ctx.decrypt(_packet, _wire);
 
   // note: don't clear _wire since it may contained unciphered bytes
-  return isReady(ec);
+  return is_ready(ec);
 }
 
-bool Rtsp::ensureAllContent() {
+bool Session::ensureAllContent() {
   auto rc = true;
 
   // parse packet and return if more bytes are needed (e.g. Content-Length)
   auto more_bytes = _headers.loadMore(_packet.view(), _content);
 
-  INFOX(moduleID(), "NEED MORE", "bytes={} method={} path={}\n", more_bytes, _headers.method(),
+  INFOX(module_id, "NEED MORE", "bytes={} method={} path={}\n", more_bytes, _headers.method(),
         _headers.path());
 
   // loop until we have all the data or an error occurs
   while (more_bytes && rc) {
-    // send Continue reply indicating packet good so far then
-    // read waiting bytes
+    // send Continue reply indicating packet good so far then read waiting bytes
     if (!rxAvailable()) { // error, bail out
       rc = false;
       continue;
@@ -139,14 +147,72 @@ bool Rtsp::ensureAllContent() {
     more_bytes = _headers.loadMore(_packet.view(), _content);
   }
 
-  INFOX(moduleID(), "ENSURE CONTENT", "rx total_bytes={}\n", _wire.size());
+  INFOX(module_id, "ENSURE CONTENT", "rx total_bytes={}\n", _wire.size());
 
   return rc;
 }
 
-bool Rtsp::createAndSendReply() {
+bool Session::createAndSendReply() {
+  using namespace airplay::reply;
 
-  // INFO GATHERING / DEBUG
+  Session::save_packet(_packet); // noop if config enable = false
+
+  // create the reply to the request
+  Inject inject{.method = _headers.method(),
+                .path = _headers.path(),
+                .content = _content,
+                .headers = _headers,
+                .aes_ctx = aes_ctx};
+
+  // create the reply and hold onto the shared_ptr
+  auto reply = Factory::create(inject);
+
+  // build the reply from the reply shared_ptr
+  auto &reply_packet = reply->build();
+
+  if (reply_packet.size() == 0) { // warn of empty packet, still return true
+    INFO(module_id, "SEND REPLY", "empty reply method={} path={}\n", inject.method, inject.path);
+
+    return true;
+  }
+
+  // reply has content to send
+  aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
+
+  error_code ec;
+  [[maybe_unused]] auto tx_bytes =
+      asio::write(sock, asio::const_buffer(reply_packet.data(), reply_packet.size()), ec);
+
+  // check the most recent ec
+  return is_ready(ec);
+}
+
+// misc debug, loggind
+
+void Session::dump(DumpKind dump_type) {
+
+  if (dump_type == HeadersOnly) {
+    INFO(module_id, "DUMP HEADERS", "method={} path={} protocol={}\n", _headers.method(),
+         _headers.path(), _headers.protocol());
+
+    _headers.dump();
+  }
+
+  if (dump_type == ContentOnly) {
+    INFO(module_id, "DUMP CONTENT", "method={} path={} protocol={}\n", _headers.method(),
+         _headers.path(), _headers.protocol());
+    _content.dump();
+  }
+
+  if (dump_type == RawOnly) {
+    INFO(module_id, "DUMP RAW", "\n{}", _wire.view());
+  }
+
+  INFO(module_id, "DUMP_COMPLETE", "method={} path={} protocol={}\n", _headers.method(),
+       _headers.path(), _headers.protocol());
+}
+
+void Session::save_packet(uint8v &packet) noexcept { // static
   if (Config().at("debug.rtsp.save"sv).value_or(false)) {
     const auto base = Config().at("debug.path"sv).value_or(string());
     const auto file = Config().at("debug.rtsp.file"sv).value_or(string());
@@ -163,69 +229,14 @@ bool Rtsp::createAndSendReply() {
 
       std::ofstream out(full_path, std::ios::app);
 
-      out.write(_packet.raw<char>(), _packet.size());
+      out.write(packet.raw<char>(), packet.size());
       out << std::endl << std::endl;
 
     } catch (const std::exception &e) {
       INFO(module_id, "RTSP_SAVE", "exception, {}\n", e.what());
     }
   }
-
-  // create the reply to the request
-
-  reply::Inject inject{.method = method(),
-                       .path = path(),
-                       .content = content(),
-                       .headers = headers(),
-                       .aes_ctx = aes_ctx};
-
-  // create the reply and hold onto the shared_ptr
-  auto reply = reply::Factory::create(inject);
-
-  // build the reply from the reply shared_ptr
-  auto &reply_packet = reply->build();
-
-  if (reply_packet.size() == 0) { // warn of empty packet, still return true
-    INFO(module_id, "SEND REPLY", "empty reply method={} path={}\n", inject.method, inject.path);
-
-    return true;
-  }
-
-  // reply has content to send
-  aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed
-
-  error_code ec;
-  [[maybe_unused]] auto tx_bytes =
-      asio::write(socket, asio::const_buffer(reply_packet.data(), reply_packet.size()), ec);
-
-  // check the most recent ec
-  return isReady(ec);
 }
 
-// misc debug, loggind
-
-void Rtsp::dump(DumpKind dump_type) {
-
-  if (dump_type == HeadersOnly) {
-    INFO(module_id, "DUMP HEADERS", "method={} path={} protocol={}\n", method(), path(),
-         protocol());
-
-    _headers.dump();
-  }
-
-  if (dump_type == ContentOnly) {
-    INFO(module_id, "DUMP CONTENT", "method={} path={} protocol={}\n", method(), path(),
-         protocol());
-    _content.dump();
-  }
-
-  if (dump_type == RawOnly) {
-    INFO(module_id, "DUMP RAW", "\n{}", _wire.view());
-  }
-
-  INFO(module_id, "DUMP_COMPLETE", "method={} path={} protocol={}\n", method(), path(), protocol());
-}
-
-} // namespace session
-} // namespace airplay
+} // namespace rtsp
 } // namespace pierre

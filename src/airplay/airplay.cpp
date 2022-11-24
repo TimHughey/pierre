@@ -21,6 +21,7 @@
 #include "base/logger.hpp"
 #include "conn_info/conn_info.hpp"
 #include "frame/master_clock.hpp"
+#include "rtsp.hpp"
 #include "server/servers.hpp"
 
 #include <algorithm>
@@ -28,49 +29,54 @@
 
 namespace pierre {
 
-namespace shared {
-std::shared_ptr<Airplay> airplay;
-} // namespace shared
+static std::shared_ptr<Airplay> overload;
+static std::shared_ptr<Rtsp> rtsp;
 
-shAirplay Airplay::init_self() {
+std::shared_ptr<Airplay> Airplay::init() noexcept { // static
+  auto s = std::shared_ptr<Airplay>(new Airplay());
+
   INFO(module_id, "INIT", "features={:#x}\n", Features().ap2Default());
 
   // executed by caller thread
   airplay::ConnInfo::init();
-  airplay::Servers::init(io_ctx);
+  airplay::Servers::init(s->io_ctx);
 
   std::latch latch(AIRPLAY_THREADS);
 
   for (auto n = 0; n < AIRPLAY_THREADS; n++) {
-    threads.emplace_back([=, &latch, self = shared_from_this()](std::stop_token token) mutable {
-      self->tokens.add(std::move(token));
+    s->threads.emplace_back([=, &latch, s = s->shared_from_this()](std::stop_token token) mutable {
+      s->tokens.add(std::move(token));
 
       name_thread("Airplay", n);
 
       // we want all airplay threads to start at once
-      latch.arrive_and_wait();
-      self->io_ctx.run();
+      latch.count_down();
+      s->io_ctx.run();
     });
   }
 
-  latch.wait(); // wait for all threads to start
-  watch_dog();  // start the watchdog once all threads are started
+  latch.wait();   // wait for all threads to start
+  s->watch_dog(); // start the watchdog once all threads are started
 
   shared::master_clock->peers_reset(); // reset timing peers
 
   // start listening for Rtsp messages
-  airplay::Servers::ptr()->localPort(ServerType::Rtsp);
+  rtsp = Rtsp::init(s->io_ctx);
 
-  return shared_from_this();
+  overload = std::move(s);
+
+  return overload->shared_from_this();
 }
 
-void Airplay::watch_dog() {
-  // cancels any running timers
-  [[maybe_unused]] auto timers_cancelled = watchdog_timer.expires_after(250ms);
+std::shared_ptr<Airplay> &Airplay::self() noexcept { return overload; }
 
-  watchdog_timer.async_wait([self = shared_from_this()](const error_code ec) {
+void Airplay::watch_dog() noexcept {
+  // cancels any running timers
+  [[maybe_unused]] auto timers_cancelled = watchdog_timer.expires_after(2s);
+
+  watchdog_timer.async_wait([s = ptr()](const error_code ec) {
     if (ec == errc::success) { // unless success, fall out of scape
-      self->tokens.any_requested(self->io_ctx, self->guard, [=]() { self->watch_dog(); });
+      s->tokens.any_requested(s->io_ctx, s->guard, [=]() { s->watch_dog(); });
 
     } else {
       INFO(module_id, "WATCH DOG", "going out of scope reason={}\n", ec.message());

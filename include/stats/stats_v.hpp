@@ -56,6 +56,9 @@ enum stats_v {
   REMOTE_ROUNDTRIP,
   RENDER_DELAY,
   RENDER_ELAPSED,
+  RTSP_SESSION_CONNECT,
+  RTSP_SESSION_RX_AVAIL,
+  RTSP_SESSION_RX_FIRST,
   SYNC_WAIT,
   // extra comma allows for easy IDE sorting
 };

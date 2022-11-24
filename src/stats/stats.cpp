@@ -67,6 +67,9 @@ Stats::Stats(bool enabled) noexcept
                             {stats::RENDER_DELAY, "render_delay"},
                             {stats::RENDER_ELAPSED, "render_elapsed"},
                             {stats::SYNC_WAIT, "sync_wait"},
+                            {stats::RTSP_SESSION_RX_AVAIL, "rtsp_session_rx_avail"},
+                            {stats::RTSP_SESSION_RX_FIRST, "rtsp_session_rx_first"},
+                            {stats::RTSP_SESSION_CONNECT, "rtsp_session_connect"}
                             // comment allows for easy IDE sorting
                         } {}
 

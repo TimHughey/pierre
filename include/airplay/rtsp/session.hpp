@@ -20,73 +20,100 @@
 
 #include "base/aes/ctx.hpp"
 #include "base/content.hpp"
+#include "base/elapsed.hpp"
 #include "base/headers.hpp"
 #include "base/host.hpp"
+#include "base/io.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "common/ss_inject.hpp"
 #include "reply/inject.hpp"
-#include "session/base.hpp"
 
 #include <memory>
 
 namespace pierre {
-namespace airplay {
-namespace session {
+namespace rtsp {
 
-class Rtsp : public Base, public std::enable_shared_from_this<Rtsp> {
+class Session : public std::enable_shared_from_this<Session> {
 public:
   enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
 
 public:
-  ~Rtsp() { teardown(); }
-  static auto start(const Inject &di) {
+  static auto create(io_context &io_ctx, tcp_socket &&sock) {
     // creates the shared_ptr and starts the async loop
     // the asyncLoop holds onto the shared_ptr until an error on the
     // socket is detected
-    auto session = std::shared_ptr<Rtsp>(new Rtsp(di));
-
-    session->asyncLoop();
-
-    return session;
+    return std::shared_ptr<Session>(new Session(io_ctx, std::forward<tcp_socket>(sock)));
   }
+
+  auto ptr() noexcept { return shared_from_this(); }
 
 private:
-  Rtsp(const Inject &di) noexcept
-      : Base(di, csv("RTSP SESSION")), // Base holds the newly connected socket
-        aes_ctx(Host().device_id())    // create aes ctx
-  {
-    INFO(module_id, "NEW", "handle={}\n", socket.native_handle());
-  }
+  Session(io_context &io_ctx, tcp_socket sock) noexcept
+      : io_ctx(io_ctx),             //
+        sock(std::move(sock)),      //
+        aes_ctx(Host().device_id()) // create aes ctx
+  {}
 
 public:
-  // initiates async request run loop
-  void asyncLoop() override; // see .cpp file for critical function details
+  void run(Elapsed accept_e) noexcept {
+    const auto &r = sock.remote_endpoint();
+    const auto msg = io::log_socket_msg("SESSION", io::make_error(), sock, r, accept_e);
+    INFO(module_id, "RUN", "{}\n", msg);
 
-  // Getters
-  const Content &content() const noexcept { return _content; }
-  const Headers &headers() const noexcept { return _headers; }
-  csv method() const noexcept { return _headers.method(); }
-  csv path() const noexcept { return _headers.path(); }
-  csv protocol() const noexcept { return _headers.protocol(); }
+    async_loop();
+  }
+
+  void teardown() noexcept {
+    try {
+      sock.shutdown(tcp_socket::shutdown_both);
+      sock.close();
+    } catch (...) {
+    }
+  }
 
 private:
+  void async_loop() noexcept; // see .cpp file for critical function details
   bool createAndSendReply();
   bool ensureAllContent(); // uses Headers to ensure all content is loaded
 
-  // receives the rx_bytes from async_read
-  void handleRequest(size_t bytes);
+  bool is_ready(const error_code ec = io::make_error()) noexcept {
+    auto rc = sock.is_open();
+
+    if (rc) {
+      switch (ec.value()) {
+      case errc::success:
+        break;
+
+      case errc::operation_canceled:
+      case errc::resource_unavailable_try_again:
+      case errc::no_such_file_or_directory:
+        rc = false;
+        break;
+
+      default:
+        INFO(module_id, "NOT READY", "socket={} {}\n", sock.native_handle(), ec.message());
+        teardown();
+
+        rc = false;
+      }
+    }
+
+    return rc;
+  }
+
   bool rxAvailable(); // load bytes immediately available
+  static void save_packet(uint8v &packet) noexcept;
   uint8v &wire() { return _wire; }
 
   // misc debug / logging
   void dump(DumpKind dump_type = RawOnly);
   void dump(const auto *data, size_t len) const;
-  void infoNewSession() const;
 
 private:
   // order dependent - initialized by constructor
+  io_context &io_ctx;
+  tcp_socket sock;
   AesCtx aes_ctx;
 
   uint8v _wire;   // plain text or ciphered
@@ -95,8 +122,10 @@ private:
   Content _content;
 
   string active_remote;
+
+public:
+  static constexpr csv module_id{"RTSP_SESSION"};
 };
 
-} // namespace session
-} // namespace airplay
+} // namespace rtsp
 } // namespace pierre

@@ -68,26 +68,31 @@ inline const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, co
                                    Elapsed e) noexcept {
   e.freeze();
 
-  csv state(sock.is_open() ? "OPEN  " : "CLOSED");
-
   string msg;
   auto w = std::back_inserter(msg);
 
+  csv state(sock.is_open() ? "OPEN  " : "CLOSED");
+
   fmt::format_to(w, "{} {} ", type, state);
 
-  if (sock.is_open()) {
+  try {
+    if (sock.is_open()) {
 
-    const auto &l = sock.local_endpoint();
+      const auto &l = sock.local_endpoint();
 
-    fmt::format_to(w, "{}:{} -> {}:{} {}",            //
-                   l.address().to_string(), l.port(), //
-                   r.address().to_string(), r.port(), //
-                   sock.native_handle());
+      fmt::format_to(w, "{}:{} -> {}:{} {}",            //
+                     l.address().to_string(), l.port(), //
+                     r.address().to_string(), r.port(), //
+                     sock.native_handle());
+    }
+
+    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+  } catch (const std::exception &e) {
+
+    fmt::format_to(w, "EXCEPTION {}", e.what());
   }
 
   fmt::format_to(w, " {}", e.humanize());
-
-  if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
 
   return msg;
 }

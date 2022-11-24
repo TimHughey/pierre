@@ -21,7 +21,6 @@
 #include "server/audio.hpp"
 #include "server/control.hpp"
 #include "server/event.hpp"
-#include "server/rtsp.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -52,7 +51,6 @@ Port Servers::localPort(ServerType type) {
       break;
 
     case ServerType::Rtsp:
-      map.emplace(type, std::make_shared<server::Rtsp>(io_ctx));
       break;
     }
 

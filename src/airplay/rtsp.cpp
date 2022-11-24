@@ -16,48 +16,45 @@
 //
 //  https://www.wisslanding.com
 
-#include "server/rtsp.hpp"
+#include "rtsp.hpp"
+#include "base/elapsed.hpp"
 #include "base/logger.hpp"
-#include "session/rtsp.hpp"
-
-#include <fmt/format.h>
+#include "rtsp/session.hpp"
+#include "stats/stats.hpp"
 
 namespace pierre {
-namespace airplay {
-namespace server {
 
-using namespace boost::asio;
-using namespace boost::system;
-using error_code = boost::system::error_code;
+using namespace rtsp;
 
-void Rtsp::asyncLoop(const error_code ec_last) {
+void Rtsp::async_loop(const error_code ec_last) noexcept {
   // first things first, check ec_last passed in, bail out if needed
   if ((ec_last != errc::success) || !acceptor.is_open()) { // problem
 
     // don't highlight "normal" shutdown
     if ((ec_last.value() != errc::operation_canceled) &&
         (ec_last.value() != errc::resource_unavailable_try_again)) {
-      INFO("AIRPLAY", "SERVER", "accept failed, reason={}\n", ec_last.message());
+      INFO("AIRPLAY", "SERVER", "accept failed, {}\n", ec_last.message());
     }
-    // some kind of error occurred, simply close the socket
-    [[maybe_unused]] error_code __ec;
-    acceptor.close(__ec); // used error code overload to prevent throws
+    teardown();
 
     return; // bail out
   }
 
   // this is the socket for the next accepted connection, store it in an
   // optional for the lamba
-  socket.emplace(io_ctx);
+  sock_accept.emplace(io_ctx);
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
   // io_ctx we must deference or get the value of the optional
-  acceptor.async_accept(*socket, [&](error_code ec) {
-    if (ec == errc::success) {
-      const auto &l = socket->local_endpoint();
-      const auto &r = socket->remote_endpoint();
+  acceptor.async_accept(*sock_accept, [s = ptr(), e = Elapsed()](error_code ec) {
+    Elapsed e2(e);
+    e2.freeze();
 
-      INFO("AIRPLAY", server_id, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
+    if (ec == errc::success) {
+      const auto &l = s->sock_accept->local_endpoint();
+      const auto &r = s->sock_accept->remote_endpoint();
+
+      INFO("AIRPLAY", module_id, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
            l.address().to_string(), l.port());
 
       // create the session passing all the options
@@ -68,25 +65,14 @@ void Rtsp::asyncLoop(const error_code ec_last) {
       //     async lamba so it doesn't go out of scope
 
       // assemble the dependency injection and start the server
-      const session::Inject inject{.io_ctx = io_ctx, // io_cty (used to create a local strand)
-                                   .socket = std::move(socket.value())};
 
-      session::Rtsp::start(inject);
+      Stats::write(stats::RTSP_SESSION_CONNECT, e2.freeze());
+      auto session = Session::create(s->io_ctx, std::move(s->sock_accept.value()));
+      session->run(std::move(e));
     }
 
-    asyncLoop(ec); // schedule more work or gracefully exit
+    s->async_loop(ec); // schedule more work or gracefully exit
   });
 }
 
-void Rtsp::teardown() {
-  // here we only issue the cancel to the acceptor.
-  // the closing of the acceptor will be handled when
-  // the error is caught by asyncLoop
-
-  [[maybe_unused]] error_code __ec;
-  acceptor.cancel(__ec);
-}
-
-} // namespace server
-} // namespace airplay
 } // namespace pierre

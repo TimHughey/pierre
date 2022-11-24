@@ -136,7 +136,7 @@ void Ctrl::listen() noexcept {
       [s = ptr(), e = Elapsed()](const error_code ec) mutable {
         Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
-        if (s->data_sock.has_value()) {
+        if (!ec && s->data_sock.has_value() && s->data_sock->is_open()) {
           auto &data_sock = s->data_sock.value();
           const auto &r = data_sock.remote_endpoint();
 

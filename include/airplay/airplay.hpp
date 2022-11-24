@@ -22,40 +22,23 @@
 #include "base/threads.hpp"
 #include "base/types.hpp"
 
-#include <algorithm>
 #include <memory>
-#include <optional>
-#include <ranges>
-#include <stop_token>
 
 namespace pierre {
-namespace {
-namespace ranges = std::ranges;
-}
-
-class Airplay;
-using shAirplay = std::shared_ptr<Airplay>;
-
-namespace shared {
-extern std::shared_ptr<Airplay> airplay;
-} // namespace shared
 
 class Airplay : public std::enable_shared_from_this<Airplay> {
 private:
-  static constexpr int AIRPLAY_THREADS = 4;
+  static constexpr int AIRPLAY_THREADS{4};
 
 private:
   Airplay() : watchdog_timer(io_ctx), guard(io::make_work_guard(io_ctx)) {}
 
 public:
   // shared instance management
-  static shAirplay init() {
-    shared::airplay = std::shared_ptr<Airplay>(new Airplay());
-    return shared::airplay->init_self();
-  }
+  static std::shared_ptr<Airplay> init() noexcept;
 
-  static shAirplay ptr() { return shared::airplay->shared_from_this(); }
-  static void reset() { shared::airplay.reset(); }
+  auto ptr() noexcept { return shared_from_this(); }
+  static void reset() noexcept { self().reset(); }
 
   // void join() { thread_main.join(); }
 
@@ -66,8 +49,11 @@ public:
   // }
 
 private:
-  std::shared_ptr<Airplay> init_self();
-  void watch_dog();
+  // DRAGONS BE HERE!!
+  // returns reference to ACTUAL shared_ptr holding Airplay
+  static std::shared_ptr<Airplay> &self() noexcept;
+
+  void watch_dog() noexcept;
 
 private:
   // order depdendent
