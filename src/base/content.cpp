@@ -30,11 +30,11 @@ void Content::dump() const {
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "type={} bytes={} ", _type, size());
+  fmt::format_to(w, "type={} bytes={} ", type, size());
 
-  if (Headers::valEquals(_type, hdr_val::TextParameters)) {
-    fmt::format_to(w, "parameters='{}'", toSingleLineString());
-  } else if (multiLineString()) {
+  if (type == hdr_val::TextParameters) {
+    fmt::format_to(w, "parameters='{}'", make_single_line());
+  } else if (is_multi_line()) {
     fmt::format_to(w, "\n{}{}", INFO_TAB, inspect());
   } else if (size() == 0) {
     fmt::format_to(w, "CONTENT EMPTY");

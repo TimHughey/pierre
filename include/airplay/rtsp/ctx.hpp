@@ -18,38 +18,38 @@
 
 #pragma once
 
-#include <concepts>
-#include <cstdint>
-#include <string>
-#include <string_view>
-#include <thread>
-#include <type_traits>
-#include <vector>
+#include "base/aes/ctx.hpp"
+#include "base/content.hpp"
+#include "base/elapsed.hpp"
+#include "base/headers.hpp"
+#include "base/host.hpp"
+#include "base/io.hpp"
+#include "base/logger.hpp"
+#include "base/types.hpp"
+
+#include <memory>
+#include <optional>
 
 namespace pierre {
+namespace rtsp {
 
-using namespace std::literals;
+class Ctx : public std::enable_shared_from_this<Ctx> {
 
-// string, string_view and const char *
-using string = std::string;
-typedef const string &csr;
+public:
+  static auto create() { return std::shared_ptr<Ctx>(new Ctx()); }
 
-using string_view = std::string_view;
-typedef const string_view csv;
-typedef const char *ccs;
+  auto ptr() noexcept { return shared_from_this(); }
 
-// threads
-typedef std::jthread Thread;
+private:
+  Ctx() noexcept : cseq{0}, active_remote{0} {}
 
-// Vector of Floats
-typedef std::vector<double> reals_t;
+public:
+  int64_t cseq;
+  int64_t active_remote;
 
-using reel_serial_num_t = uint64_t;
-using seq_num_t = uint32_t;   // frame sequence num
-using timestamp_t = uint32_t; // frame timestamp
+public:
+  static constexpr csv module_id{"RTSP_CTX"};
+};
 
-template <typename T, typename... U>
-concept IsAnyOf = (std::same_as<T, U> || ...);
-template <class> inline constexpr bool always_false_v = false;
-
+} // namespace rtsp
 } // namespace pierre

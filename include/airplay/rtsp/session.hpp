@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "airplay/rtsp/ctx.hpp"
 #include "base/aes/ctx.hpp"
 #include "base/content.hpp"
 #include "base/elapsed.hpp"
@@ -30,13 +31,112 @@
 #include "reply/inject.hpp"
 
 #include <memory>
+#include <optional>
 
 namespace pierre {
 namespace rtsp {
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
-  enum DumpKind { RawOnly, HeadersOnly, ContentOnly };
+  using Packet = uint8v;
+  using Wire = uint8v;
+
+private:
+  // the magic number of 117 represents the minimum size RTSP message expected
+  // ** plain-text only, not accounting for encryption
+  //
+  // POST /feedback RTSP/1.0
+  // CSeq: 15
+  // DACP-ID: DF86B6D21A6C805F
+  // Active-Remote: 1570223890
+  // User-Agent: AirPlay/665.13.1
+
+  static auto transfer_initial() noexcept { return asio::transfer_at_least(117); }
+
+  static constexpr csv CRLF{"\r\n"};
+  static constexpr csv CRLFx2{"\r\n\r\n"};
+
+private:
+  Session(io_context &io_ctx, tcp_socket sock) noexcept
+      : io_ctx(io_ctx),              // shared io_ctx
+        sock(std::move(sock)),       // socket for this session
+        msg_strand(io_ctx),          // ensure all msg async read/write are serialized
+        aes_ctx(Host().device_id()), // create aes ctx
+        rtsp_ctx(Ctx::create())      // create ctx for this session
+  {}
+
+  template <typename CompletionCondition>
+  void async_read(CompletionCondition &&cond, Elapsed &&e = Elapsed()) noexcept {
+    // notes:
+    //  1. nothing within this function can be captured by the lamba
+    //     because the scope of this function ends before
+    //     the lamba executes
+    //
+    //  2. the async_read call will attach the lamba to the io_ctx
+    //     then immediately return and then this function returns
+    //
+    //  3. we capture a shared_ptr (self) for access within the lamba,
+    //     that shared_ptr is kept in scope while async_read is
+    //     waiting for socket data and while the lamba executes
+    //
+    //  4. when called again from within the lamba the sequence of
+    //     events repeats (this function returns) and the shared_ptr
+    //     once again goes out of scope
+    //
+    //  5. the crucial point -- we must keep the use count
+    //     of the session above zero until the session ends
+    //     (e.g. error, natural completion, io_ctx is stopped)
+
+    const auto msg = io::is_ready(sock);
+
+    if (msg.empty()) {
+
+      asio::async_read(sock,                       // read from this socket
+                       asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
+                       std::move(cond),            // completion condition (bytes to transfer)
+                       asio::bind_executor(msg_strand, [s = ptr(), e = std::forward<Elapsed>(e)](
+                                                           error_code ec, ssize_t bytes) mutable {
+                         const auto msg = io::is_ready(s->sock, ec);
+
+                         if (!msg.empty() || (bytes < 1)) {
+
+                           INFO(module_id, "ASYNC_READ", "FAILED bytes={} msg\n", bytes, msg);
+                           // fall out of scope
+                         } else if (s->sock.available() > 0) {
+
+                           // read available bytes (if any)
+                           s->async_read(std::forward<Elapsed>(e));
+                         } else {
+
+                           // handoff for decipher, parsing and reply
+                           s->do_packet(std::forward<Elapsed>(e));
+                         }
+                       }));
+    } else {
+      INFO(module_id, "ASYNC_READ", "{}\n", msg);
+      // fall through
+    }
+
+    // misc notes:
+    // 1. the first return of this function traverses back to the Server that
+    //    created the Session (in the same io_ctx)
+    // 2. subsequent returns are to the io_ctx and match the required void return
+    //    signature
+  }
+
+  // async_read:
+  //
+  // invokes async_read() with a specific number of bytes request based on
+  // bytes available on the socket or, when zero, a single byte
+  //
+  void async_read(Elapsed &&e) noexcept {
+
+    if (const auto avail = sock.available(); avail > 0) {
+      async_read(asio::transfer_exactly(avail), std::forward<Elapsed>(e));
+    } else {
+      async_read(asio::transfer_at_least(1), std::forward<Elapsed>(e));
+    }
+  }
 
 public:
   static auto create(io_context &io_ctx, tcp_socket &&sock) {
@@ -48,20 +148,12 @@ public:
 
   auto ptr() noexcept { return shared_from_this(); }
 
-private:
-  Session(io_context &io_ctx, tcp_socket sock) noexcept
-      : io_ctx(io_ctx),             //
-        sock(std::move(sock)),      //
-        aes_ctx(Host().device_id()) // create aes ctx
-  {}
-
-public:
   void run(Elapsed accept_e) noexcept {
     const auto &r = sock.remote_endpoint();
-    const auto msg = io::log_socket_msg("SESSION", io::make_error(), sock, r, accept_e);
+    const auto msg = io::log_socket_msg("SOCK", io::make_error(), sock, r, accept_e);
     INFO(module_id, "RUN", "{}\n", msg);
 
-    async_loop();
+    async_read(transfer_initial());
   }
 
   void teardown() noexcept {
@@ -73,55 +165,28 @@ public:
   }
 
 private:
-  void async_loop() noexcept; // see .cpp file for critical function details
-  bool createAndSendReply();
-  bool ensureAllContent(); // uses Headers to ensure all content is loaded
+  void do_packet(Elapsed &&e) noexcept;
 
-  bool is_ready(const error_code ec = io::make_error()) noexcept {
-    auto rc = sock.is_open();
-
-    if (rc) {
-      switch (ec.value()) {
-      case errc::success:
-        break;
-
-      case errc::operation_canceled:
-      case errc::resource_unavailable_try_again:
-      case errc::no_such_file_or_directory:
-        rc = false;
-        break;
-
-      default:
-        INFO(module_id, "NOT READY", "socket={} {}\n", sock.native_handle(), ec.message());
-        teardown();
-
-        rc = false;
-      }
-    }
-
-    return rc;
-  }
-
-  bool rxAvailable(); // load bytes immediately available
   static void save_packet(uint8v &packet) noexcept;
-  uint8v &wire() { return _wire; }
 
   // misc debug / logging
-  void dump(DumpKind dump_type = RawOnly);
-  void dump(const auto *data, size_t len) const;
+  // void dump(DumpKind dump_type = RawOnly);
+  // void dump(const auto *data, size_t len) const;
 
 private:
   // order dependent - initialized by constructor
   io_context &io_ctx;
   tcp_socket sock;
+  strand msg_strand;
   AesCtx aes_ctx;
+  std::shared_ptr<rtsp::Ctx> rtsp_ctx;
 
-  uint8v _wire;   // plain text or ciphered
-  uint8v _packet; // deciphered
-  Headers _headers;
-  Content _content;
+  Wire wire;     // socket data (maybe encrypted)
+  Packet packet; // deciphered
+  Headers headers;
+  Content content;
 
-  string active_remote;
+  std::vector<size_t> _separators;
 
 public:
   static constexpr csv module_id{"RTSP_SESSION"};

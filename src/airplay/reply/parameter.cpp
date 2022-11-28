@@ -57,7 +57,8 @@ bool Parameter::handleGet() {
 }
 
 bool Parameter::handleSet() {
-  if (rHeaders().contentType() == csv(hdr_val::TextParameters)) {
+
+  if (rContent() == hdr_val::TextParameters) {
     // rContent().dump();
   }
 

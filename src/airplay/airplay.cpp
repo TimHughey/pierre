@@ -29,13 +29,11 @@
 
 namespace pierre {
 
-static std::shared_ptr<Airplay> overload;
+static std::shared_ptr<Airplay> overlord;
 static std::shared_ptr<Rtsp> rtsp;
 
 std::shared_ptr<Airplay> Airplay::init() noexcept { // static
   auto s = std::shared_ptr<Airplay>(new Airplay());
-
-  INFO(module_id, "INIT", "features={:#x}\n", Features().ap2Default());
 
   // executed by caller thread
   airplay::ConnInfo::init();
@@ -63,12 +61,15 @@ std::shared_ptr<Airplay> Airplay::init() noexcept { // static
   // start listening for Rtsp messages
   rtsp = Rtsp::init(s->io_ctx);
 
-  overload = std::move(s);
+  overlord = std::move(s);
 
-  return overload->shared_from_this();
+  INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Airplay), 0,
+       AIRPLAY_THREADS, Features().ap2Default());
+
+  return overlord->shared_from_this();
 }
 
-std::shared_ptr<Airplay> &Airplay::self() noexcept { return overload; }
+std::shared_ptr<Airplay> &Airplay::self() noexcept { return overlord; }
 
 void Airplay::watch_dog() noexcept {
   // cancels any running timers

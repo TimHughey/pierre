@@ -27,8 +27,7 @@
 #include <boost/system.hpp>
 #include <cstdint>
 #include <fmt/format.h>
-#include <memory>
-#include <vector>
+#include <iterator>
 
 namespace pierre {
 
@@ -64,16 +63,50 @@ enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
 
 namespace io {
 
+static constexpr error_code make_error(errc::errc_t val = errc::success) {
+  return error_code(val, sys::generic_category());
+}
+
+inline work_guard_t make_work_guard(io_context &io_ctx) {
+  return std::make_unique<work_guard>(io_ctx.get_executor());
+}
+
+inline const string is_ready(tcp_socket &sock, error_code ec = make_error(),
+                             bool cancel = true) noexcept {
+
+  // errc::operation_canceled:
+  // errc::resource_unavailable_try_again:
+  // errc::no_such_file_or_directory:
+
+  string msg;
+
+  // only generate log string on error or socket closed
+  if (ec || !sock.is_open()) {
+    auto w = std::back_inserter(msg);
+
+    fmt::format_to(w, "{}", sock.is_open() ? "OPEN  " : "CLOSED");
+    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+  }
+
+  if (msg.size() && cancel) {
+    try {
+      sock.cancel();
+      sock.close();
+    } catch (...) {
+    }
+  }
+
+  return msg;
+}
+
 inline const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
-                                   Elapsed e) noexcept {
+                                   Elapsed e = Elapsed()) noexcept {
   e.freeze();
 
   string msg;
   auto w = std::back_inserter(msg);
 
-  csv state(sock.is_open() ? "OPEN  " : "CLOSED");
-
-  fmt::format_to(w, "{} {} ", type, state);
+  fmt::format_to(w, "{} {} ", type, sock.is_open() ? "OPEN  " : "CLOSED");
 
   try {
     if (sock.is_open()) {
@@ -92,18 +125,11 @@ inline const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, co
     fmt::format_to(w, "EXCEPTION {}", e.what());
   }
 
-  fmt::format_to(w, " {}", e.humanize());
+  if (e > 1us) fmt::format_to(w, " {}", e.humanize());
 
   return msg;
 }
 
-static constexpr error_code make_error(errc::errc_t val = errc::success) {
-  return error_code(val, sys::generic_category());
-}
-
-inline work_guard_t make_work_guard(io_context &io_ctx) {
-  return std::make_unique<work_guard>(io_ctx.get_executor());
-}
 } // namespace io
 
 } // namespace pierre

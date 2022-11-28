@@ -27,6 +27,8 @@
 #include <iterator>
 #include <memory>
 #include <ranges>
+#include <span>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -36,37 +38,64 @@ namespace ranges = std::ranges;
 namespace pierre {
 
 class uint8v : public std::vector<uint8_t> {
+
+public:
+  // a vector of pairs where each pair is the start pos and end pos of the
+  // found delims
+  using delims_t = std::vector<std::pair<ssize_t, ssize_t>>;
+
 public:
   uint8v() = default;
-  uint8v(size_t reserve_default) : reserve_default(reserve_default) { reserve(reserve_default); }
-  uint8v(size_t count, uint8_t byte) : std::vector<uint8_t>(count, byte), reserve_default(count) {}
+  uint8v(auto count) noexcept { reserve(count); }
+  uint8v(auto count, uint8_t byte) noexcept : std::vector<uint8_t>(count, byte) {}
 
-  bool multiLineString() const {
+  void assign_span(const std::span<uint8_t> &span) noexcept { assign(span.begin(), span.end()); }
+
+  // find delimiters
+  //
+  // returns: vector of pairs of:
+  //   a. position delim found
+  //   b. length of delim
+  auto find_delims(const auto &delims_want) noexcept {
+    uint8v::delims_t delims;
+
+    const auto search_view = view();
+
+    for (ssize_t search_pos = 0; csv it : delims_want) {
+
+      auto pos = search_view.find(it, search_pos);
+
+      if (pos != search_view.npos) {
+        delims.emplace_back(std::make_pair(pos, std::ssize(it)));
+
+        search_pos += pos + std::ssize(it);
+
+        if (search_pos >= std::ssize(search_view)) break;
+      }
+    }
+
+    return delims;
+  }
+
+  bool is_multi_line() const noexcept {
     return ranges::count_if(view(), [](const char c) { return c == '\n'; }) > 2;
   }
 
   uint8v::iterator from_begin(std::ptrdiff_t bytes) { return begin() + bytes; }
   uint8v::iterator from_end(std::ptrdiff_t bytes) { return end() - bytes; }
 
-  template <typename T> const T *raw() const { return (const T *)data(); }
-  void reset(size_t reserve_bytes = 0) {
-    clear();
-
-    if ((reserve_bytes == 0) && (reserve_default > 0)) {
-      reserve(reserve_default);
-    } else if (reserve_bytes > 0) {
-      reserve(reserve_bytes);
-    }
-  }
-
-  string toSingleLineString() const {
+  string make_single_line() const noexcept {
     auto vspace = [](const char c) { return ((c != '\n') && (c != '\r')); };
     auto v = ranges::filter_view(view(), vspace);
 
     return string(v.begin(), v.end());
   }
 
-  uint32_t to_uint32(size_t offset, int n) const {
+  template <typename T = char> const T *raw(size_t offset = 0) const noexcept {
+    return (const T *)(data() + (sizeof(T) * offset));
+  }
+
+  uint32_t to_uint32(size_t offset, int n) const noexcept {
     uint32_t val = 0;
     size_t shift = (n - 1) * 8;
 
@@ -80,7 +109,10 @@ public:
     return val;
   }
 
-  const string_view view() const { return string_view(raw<char>(), size()); }
+  csv view(const size_t offset = 0, size_t bytes = 0) const noexcept {
+    bytes = (bytes == 0) ? size() : bytes;
+    return string_view(raw<char>(offset), bytes);
+  }
 
   // debug, logging
 
@@ -89,7 +121,7 @@ public:
   virtual csv moduleId() const { return module_id_base; }
 
 protected:
-  bool printable() const {
+  bool printable() const noexcept {
     if (size()) {
       return ranges::all_of( // only look at the first 10%
           begin(), begin() + (size() / 10),
@@ -100,9 +132,7 @@ protected:
   }
   string &toByteArrayString(string &msg) const;
 
-private:
-  size_t reserve_default = 0;
-
+public:
   static constexpr csv module_id_base{"UINT8V"};
 };
 

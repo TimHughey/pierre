@@ -70,7 +70,7 @@ namespace reply {
 
 Reply &Reply::inject(const reply::Inject &injected) {
   // copy the sequence header, must be part of the reply headers
-  headers.copy(injected.headers, hdr_type::CSeq);
+  headers.copy(hdr_type::CSeq, injected.headers);
   headers.add(hdr_type::Server, hdr_val::AirPierre);
 
   di.emplace(injected); // use an optional because it contains references
@@ -90,7 +90,7 @@ void Reply::log_reply(csv resp_text) {
   if (di.has_value()) {
     if (ranges::none_of(no_log, [&](csv m) { return di->method == m; })) {
       INFO(moduleID(), "REPLY", "cseq={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
-           headers.getValInt(hdr_type::CSeq), _packet.size(), resp_text, di->method, di->path);
+           headers.val<int64_t>(hdr_type::CSeq), _packet.size(), resp_text, di->method, di->path);
     }
   }
 }

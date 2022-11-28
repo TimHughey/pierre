@@ -31,15 +31,15 @@ namespace pierre {
 
 class Content : public uint8v {
 public:
-  void storeContentType(auto type) { _type = type; }
-  csr type() const { return _type; }
+  bool operator==(const string &t) const noexcept { return t == type; }
 
   // misc debug
   void dump() const override;
   virtual csv moduleId() const override { return module_id; }
 
-private:
-  string _type;
+public:
+  string type;
+
   static constexpr csv module_id{"CONTENT"};
 };
 

@@ -109,9 +109,6 @@ public:
   inline void responseCode(RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
 
-  // sequence number of this request/reply exchange
-  size_t sequence() { return headers.getValInt(hdr_type::CSeq); };
-
   // misc debug
   void dump() const;
   auto &errMsg() const { return _err_msg; }

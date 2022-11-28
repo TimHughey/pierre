@@ -22,69 +22,110 @@
 #include "base/types.hpp"
 
 #include "fmt/format.h"
-#include <algorithm>
-#include <limits>
+#include <charconv>
+#include <exception>
 #include <map>
-#include <regex>
 #include <set>
+#include <type_traits>
 
 namespace pierre {
 
 struct hdr_type {
-  static constexpr csv CSeq{"CSeq"};
-  static constexpr csv Server{"Server"};
-  static constexpr csv ContentSimple{"Content"};
-  static constexpr csv ContentType{"Content-Type"};
-  static constexpr csv ContentLength{"Content-Length"};
-  static constexpr csv Public{"Public"};
-  static constexpr csv DacpActiveRemote{"Active-Remote"};
-  static constexpr csv DacpID{"DACP-ID"};
-  static constexpr csv AppleProtocolVersion{"Apple-ProtocolVersion"};
-  static constexpr csv UserAgent{"User-Agent"};
-  static constexpr csv AppleHKP{"Apple-HKP"};
-  static constexpr csv XAppleClientName{"X-Apple-Client-Name"};
-  static constexpr csv XApplePD{"X-Apple-PD"};
-  static constexpr csv XAppleProtocolVersion{"X-Apple-ProtocolVersion"};
-  static constexpr csv XAppleHKP{"X-Apple-HKP"};
-  static constexpr csv XAppleET{"X-Apple-ET"};
-  static constexpr csv RtpInfo{"RTP-Info"};
-  static constexpr csv XAppleAbsoulteTime{"X-Apple-AbsoluteTime"};
+  static const string AppleHKP;
+  static const string AppleProtocolVersion;
+  static const string ContentLength;
+  static const string ContentSimple;
+  static const string ContentType;
+  static const string CSeq;
+  static const string DacpActiveRemote;
+  static const string DacpID;
+  static const string Public;
+  static const string RtpInfo;
+  static const string Server;
+  static const string UserAgent;
+  static const string XAppleAbsoulteTime;
+  static const string XAppleClientName;
+  static const string XAppleET;
+  static const string XAppleHKP;
+  static const string XApplePD;
+  static const string XAppleProtocolVersion;
 };
 
 struct hdr_val {
-  static const string OctetStream;
   static const string AirPierre;
   static const string AppleBinPlist;
-  static const string TextParameters;
-  static const string ImagePng;
   static const string ConnectionClosed;
+  static const string ImagePng;
+  static const string OctetStream;
+  static const string TextParameters;
 };
 
 class Headers {
-public:
-  using HeaderMap = std::map<csv, string>;
-  using UnknownHeaders = std::set<string>;
 
 public:
   Headers() = default;
 
-  void add(csv type, csv val); // must be in .cpp
-  void add(csv type, size_t val) { add(type, fmt::format("{}", val)); }
-  size_t contentLength() const { return getValInt(hdr_type::ContentLength); }
-  csv contentType() const { return getVal(hdr_type::ContentType); }
-  void copy(const Headers &from, csv type);
-  bool exists(csv type) const { return map.contains(type); }
-  bool contentTypeEquals(csv want_val) const {
-    const auto &search = map.find(hdr_type::ContentType);
-    return (search != map.end()) && (want_val == search->second) ? true : false;
+  // early definitions for type deductions
+public:
+  // add a header type and value to the map
+  template <typename T> auto add(const string &t, const T &v) noexcept {
+
+    // converts integrals to strings or copies the string for emplacement
+    auto to_string = [](const T &v) -> const string {
+      if constexpr (std::is_integral_v<T>) {
+        return fmt::format("{}", v);
+      } else if constexpr (std::is_same_v<T, string>) {
+        return string(v);
+      } else {
+        static_assert(always_false_v<T>, "unhandled type");
+      }
+    };
+
+    if (known_types.contains(t)) {
+      map.try_emplace(t, to_string(v));
+    } else {
+      unknown_headers.emplace(to_string(v));
+    }
   }
 
-  const string_view getVal(csv want_type) const;
-  size_t getValInt(csv want_type) const;
+  bool contains(const string &t) const noexcept { return map.contains(t); }
+
+  // get the value of a header type as a string
+  // alternative to val() for header types with string values
+  template <typename T = string> const T operator()(const string &t) const noexcept {
+    return val<string>(t);
+  }
+
+  // get the value of a header type as a string (default) or an integral
+  // may throw if header type does not exist in the map or the value can not be
+  // converted to an integral value
+  //
+  // returns: a copy of the value of the header type
+  template <typename T = string> const T val(const string &t) const {
+    const auto &v = map.at(t);
+
+    if constexpr (std::is_same_v<T, string>) {
+      return v;
+    } else if constexpr (std::is_integral_v<T>) {
+      int64_t num{0};
+      auto result{std::from_chars(v.data(), v.data() + v.size(), num)};
+
+      if (result.ec == std::errc()) {
+        return num;
+      } else {
+        throw(std::runtime_error("not an integral type"));
+      }
+    } else {
+      static_assert(always_false_v<T>, "unhandled type");
+    }
+  }
+
+public:
+  // get the value of the header type from other and add to this object
+  void copy(const string &t, const Headers &from) noexcept { map.try_emplace(t, from.map.at(t)); }
 
   // member functions that act on the entire container
-  void clear();
-  auto count() const { return map.size(); }
+
   void dump() const;
 
   void list(auto &where) const {
@@ -93,34 +134,35 @@ public:
     });
   }
 
-  size_t loadMore(csv view, Content &content);
-  size_t moreBytes() const { return _more_bytes; }
-
-  static bool valEquals(csv v1, csv v2) { return v1 == v2; }
+  // invoked one or more times to parses the packet headers using the delims provided
+  //
+  // when delims size is:
+  // 1. zero - immediately returns, not enough bytes to parse method
+  // 2. one  - parses the method line
+  // 2. two  - parses the header block
+  //
+  // returns:
+  // 1. true  - parsing complete (method and header block)
+  // 2. false - parsing incomplete (delims incomplete)
+  bool parse(uint8v &packet, const uint8v::delims_t &delims) noexcept;
 
   // preamble info
-  csv method() const { return csv(_method); }
-  csv path() const { return csv(_path); }
-  csv protocol() const { return csv(_protocol); }
+  csv method() const noexcept { return csv{_method}; }
+  csv path() const noexcept { return csv{_path}; }
+  csv protocol() const noexcept { return csv{_protocol}; }
+
+public:
+  bool parse_ok{false};
+  std::set<string> unknown_headers; // allow direct access to unknown headers
 
 private:
-  bool haveSeparators(const string_view &view);
-  void parseHeaderBlock(const string_view &view);
-  void parseMethod(const string_view &view);
-
-private:
-  HeaderMap map;
-  UnknownHeaders unknown;
+  static std::set<string> known_types;
+  std::map<string, string> map;
 
   string _method;
   string _path;
   string _protocol;
-  size_t _more_bytes = 0;
 
-  bool _ok = false;
-  std::vector<size_t> _separators;
-
-  static constexpr auto re_syntax = std::regex_constants::ECMAScript;
   static constexpr string_view EOL{"\r\n"};
   static constexpr string_view SEP{"\r\n\r\n"};
 

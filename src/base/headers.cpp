@@ -27,228 +27,95 @@
 #include <exception>
 #include <iterator>
 #include <regex>
+#include <set>
+#include <span>
 #include <sstream>
 
 using namespace std::literals::string_view_literals;
 
 namespace pierre {
 
-// initialize hdr_val static data
-const string hdr_val::OctetStream("application/octet-stream");
-const string hdr_val::AirPierre("AirPierre/366.0");
-const string hdr_val::AppleBinPlist("application/x-apple-binary-plist");
-const string hdr_val::TextParameters("text/parameters");
-const string hdr_val::ImagePng("image/png");
-const string hdr_val::ConnectionClosed("close");
+static constexpr auto re_syntax{std::regex_constants::ECMAScript};
 
-static std::array __known_types{hdr_type::CSeq,
-                                hdr_type::Server,
-                                hdr_type::ContentSimple,
-                                hdr_type::ContentType,
-                                hdr_type::ContentLength,
-                                hdr_type::Public,
-                                hdr_type::DacpActiveRemote,
-                                hdr_type::DacpID,
-                                hdr_type::AppleProtocolVersion,
-                                hdr_type::UserAgent,
-                                hdr_type::AppleHKP,
-                                hdr_type::XAppleClientName,
-                                hdr_type::XApplePD,
-                                hdr_type::XAppleProtocolVersion,
-                                hdr_type::XAppleHKP,
-                                hdr_type::XAppleET,
-                                hdr_type::RtpInfo,
-                                hdr_type::XAppleAbsoulteTime};
+bool Headers::parse(uint8v &packet, const uint8v::delims_t &delims) noexcept {
 
-static string __EMPTY;
-static csv __EMPTY_SV(__EMPTY);
+  if (parse_ok) return parse_ok;
 
-void Headers::add(csv type, csv val) {
-  if (auto known = std::ranges::find(__known_types, type); known != __known_types.end()) {
-    map.try_emplace(*known, string(val));
-  } else {
-    unknown.emplace(string(type));
-  }
-}
+  // create stream using whatever we have based on the delim at idx
+  // note: first == start of delim, second == len of delim
+  // note: delims[0]: method, delims[1]: header block
+  const auto end_pos = delims[1].first + delims[1].second; // end of block to parse
+  string backing_store(packet.raw(), end_pos);             // backing store for in_stream
+  std::istringstream in_stream(backing_store);             // parsing method and header block
 
-void Headers::copy(const Headers &from, csv type) { add(type, from.getVal(type)); }
+  // parse the method, path and protocol if we haven't already
+  if (_method.empty()) {
+    // build regex once
+    // note: regex matches and ignores the CR
+    static std::regex re_method{"([A-Z_]+) (.+) (RTSP/1.0)\\r", re_syntax}; // build this once
 
-void Headers::clear() {
-  map.clear();
-  _separators.clear();
+    // Example Method
+    //
+    // POST /fp-setup RTSP/1.0<CR><LF>
 
-  _method.clear();
-  _path.clear();
-  _protocol.clear();
+    // NOTE: index 0 is entire string
+    constexpr auto method_idx{1};
+    constexpr auto path_idx{2};
+    constexpr auto protocol_idx{3};
+    constexpr auto matches{4}; // four matches including whole string
 
-  _more_bytes = 0;
-  _ok = false;
-}
+    std::smatch sm;
 
-const string_view Headers::getVal(csv want_type) const {
-  if (const auto &search = map.find(want_type); search != map.end()) {
-    return csv(search->second);
-  }
+    string line;                              // get_line() makes a copy
+    if (std::getline(in_stream, line)) {      // line is string up to LF (includeing the CR)
+      std::regex_search(line, sm, re_method); // note: regex matches and ignores the CR in the line
 
-  INFO(module_id, "GET VAL", "type={} not found (returning empty string)\n", want_type);
-
-  return __EMPTY;
-}
-
-size_t Headers::getValInt(csv want_type) const {
-  if (const auto &search = map.find(want_type); search != map.end()) {
-    return static_cast<size_t>(std::atoi(search->second.data()));
-  }
-
-  INFO(module_id, "GETVAL INT", "type={} not found (returning 0)\n", want_type);
-
-  return 0;
-}
-
-bool Headers::haveSeparators(const string_view &view) {
-  if (_separators.size() == 2) {
-    return true;
-  }
-
-  const auto want = std::array{EOL, SEP};
-  for (size_t search_pos = 0; const auto &it : want) {
-    auto pos = view.find(it, search_pos);
-
-    if (pos != view.npos) {
-      _separators.emplace_back(pos);
-      search_pos = pos + want.size();
+      if (sm.ready() && (sm.size() == matches)) {
+        _method = sm[method_idx].str();
+        _path = sm[path_idx].str();
+        _protocol = sm[protocol_idx].str();
+      }
+    } else {
+      // we don't reparse this line so ignore everything up to the first LF
+      const auto max = delims[0].first + delims[0].second;
+      in_stream.ignore(max, '\n');
     }
   }
 
-  return _separators.size() == 2;
-}
+  // parse the header block if delim is available
 
-size_t Headers::loadMore(const string_view view, Content &content) {
-  // keep loading if we haven't found the separators
-  if (haveSeparators(view) == false) {
-    static size_t count = 0;
+  static std::regex re_header_pair{"^([A-Za-z-]+): (.{1,})?\\r", re_syntax}; // build this once
 
-    ++count;
-    if ((count == 0) || (count % 20)) {
-      INFO(module_id, "LOAD_MORE", "separators not found count={}\n", count);
-    }
-
-    return 1;
-  }
-
-  // NOTE:
-  // this function does not clear previously found header key/val to avoid
-  // the cost of recreating the header map on subsequent calls
-
-  //  we've found the separaters, parse method and headers then check content length
-  const size_t method_begin = 0;
-  const size_t method_end = _separators.front();
-  const std::string_view method_view = view.substr(method_begin, method_end);
-  parseMethod(method_view);
-
-  const size_t headers_begin = method_end + EOL.size();
-  const size_t headers_end = _separators.back();
-  const std::string_view hdr_block = view.substr(headers_begin, headers_end - headers_begin);
-  parseHeaderBlock(hdr_block);
-
-  // no content, we're done
-  if (exists(hdr_type::ContentType) == false) {
-    return 0;
-  }
-
-  // there's content, confirm we have it all
-  const size_t content_begin = headers_end + SEP.size();
-  const auto view_size = view.size();
-
-  int64_t byte_diff = view_size - contentLength();
-
-  // byte diff is negative indicating we need more data
-  if (byte_diff < 0) {
-    INFOX(module_id, "LOAD MORE",
-          "method={} path={} content_type={} have={} content_len={} diff={}\n",
-          method(), //
-          path(), contentType(), view_size, contentLength(), byte_diff);
-
-    _more_bytes = std::abs(byte_diff);
-
-    return _more_bytes;
-  }
-
-  // we have all the content, copy it
-  content.clear();
-  content.storeContentType(contentType());
-  auto copy_begin = view.begin() + content_begin;
-  auto copy_end = view.end();
-
-  content.assign(copy_begin, copy_end);
-
-  // if we've reached here then everything is as it should be
-  INFOX(module_id, "LOAD MORE", "complete method={} path={} content_type={} content_len={}\n", //
-        method(), path(), contentType(), content.size());
-
-  return 0;
-}
-
-void Headers::parseHeaderBlock(const string_view &view) {
-  // Example Headers
+  // Example Header
   //
   // Content-Type: application/octet-stream
   // Content-Length: 16
   // User-Agent: Music/1.2.2 (Macintosh; OS X 12.2.1) AppleWebKit/612.4.9.1.8
-  // Client-Instance: BAFE421337BA1913
-
-  auto sstream = std::istringstream(string(view));
-  string line;
-
-  while (std::getline(sstream, line)) {
-    auto view = string_view(line);
-
-    // eliminate those pesky \r at the end of the line
-    if (view.back() == '\r') {
-      view.remove_suffix(1);
-    }
-
-    // remember zero indexing!
-    auto colon_pos = view.find_first_of(':');
-
-    if (colon_pos != view.npos) {                     // we found a header line
-      auto key = view.substr(0, colon_pos);           // bol to colon
-      colon_pos++;                                    // skip space after the colon
-      auto val = view.substr(++colon_pos, view.npos); // to eol
-
-      INFOX("key={} val={}\n", module_id, csv("PARSE"), key, val);
-
-      add(key, val);
-
-    } else {
-      INFO(module_id, "PARSE", "ignored={}\n", line);
-    }
-  }
-}
-
-void Headers::parseMethod(csv &view) {
-  // Example Method
-  //
-  // POST /fp-setup RTSP/1.0
+  // Client-Instance: BAFE421337BA1913<CR><LF><CR><LF>
 
   // NOTE: index 0 is entire string
-  constexpr auto method_idx = 1;
-  constexpr auto path_idx = 2;
-  constexpr auto protocol_idx = 3;
-  constexpr auto match_count = 4;
+  constexpr auto type_idx{1};
+  constexpr auto val_idx{2};
+  constexpr size_t matches{3}; // three matches including whole string
 
-  std::smatch sm;
-  static auto re_method = std::regex("([A-Z_]+) (.+) (RTSP.+)", re_syntax);
+  for (string line; std::getline(in_stream, line);) {
+    // line is string up to LF (includeing the CR)
 
-  const string line(view);
+    if (line.size() > 1) {
+      std::smatch sm;
+      std::regex_search(line, sm, re_header_pair); // regex matches and ignores the CR
 
-  std::regex_search(line, sm, re_method);
-
-  if (sm.ready() && (sm.size() == match_count)) {
-    _method = sm[method_idx].str();
-    _path = sm[path_idx].str();
-    _protocol = sm[protocol_idx].str();
+      if (sm.ready() && (sm.size() == matches)) {
+        add(sm[type_idx].str(), sm[val_idx].str());
+      } else {
+        INFO(module_id, "PARSE", "ready={} matches={} '{}'\n", sm.ready(), sm.size(), sm[0].str());
+      }
+    }
   }
+
+  parse_ok = true;
+
+  return parse_ok;
 }
 
 void Headers::dump() const {
@@ -262,5 +129,55 @@ void Headers::dump() const {
   list(where);
   fmt::print("{}\n", header_list);
 }
+
+// initialize static data
+const string hdr_type::AppleHKP{"Apple-HKP"};
+const string hdr_type::AppleProtocolVersion{"Apple-ProtocolVersion"};
+const string hdr_type::ContentLength{"Content-Length"};
+const string hdr_type::ContentSimple{"Content"};
+const string hdr_type::ContentType{"Content-Type"};
+const string hdr_type::CSeq{"CSeq"};
+const string hdr_type::DacpActiveRemote{"Active-Remote"};
+const string hdr_type::DacpID{"DACP-ID"};
+const string hdr_type::Public{"Public"};
+const string hdr_type::RtpInfo{"RTP-Info"};
+const string hdr_type::Server{"Server"};
+const string hdr_type::UserAgent{"User-Agent"};
+const string hdr_type::XAppleAbsoulteTime{"X-Apple-AbsoluteTime"};
+const string hdr_type::XAppleClientName{"X-Apple-Client-Name"};
+const string hdr_type::XAppleET{"X-Apple-ET"};
+const string hdr_type::XAppleHKP{"X-Apple-HKP"};
+const string hdr_type::XApplePD{"X-Apple-PD"};
+const string hdr_type::XAppleProtocolVersion{"X-Apple-ProtocolVersion"};
+
+const string hdr_val::AirPierre{"AirPierre/366.0"};
+const string hdr_val::AppleBinPlist{"application/x-apple-binary-plist"};
+const string hdr_val::ConnectionClosed{"close"};
+const string hdr_val::ImagePng{"image/png"};
+const string hdr_val::OctetStream{"application/octet-stream"};
+const string hdr_val::TextParameters{"text/parameters"};
+
+std::set<string> Headers::known_types{
+    // for easy sorting via IDE
+    hdr_type::AppleHKP,
+    hdr_type::AppleProtocolVersion,
+    hdr_type::ContentLength,
+    hdr_type::ContentSimple,
+    hdr_type::ContentType,
+    hdr_type::CSeq,
+    hdr_type::DacpActiveRemote,
+    hdr_type::DacpID,
+    hdr_type::Public,
+    hdr_type::RtpInfo,
+    hdr_type::Server,
+    hdr_type::UserAgent,
+    hdr_type::XAppleAbsoulteTime,
+    hdr_type::XAppleClientName,
+    hdr_type::XAppleET,
+    hdr_type::XAppleHKP,
+    hdr_type::XApplePD,
+    hdr_type::XAppleProtocolVersion,
+    //
+};
 
 } // namespace pierre

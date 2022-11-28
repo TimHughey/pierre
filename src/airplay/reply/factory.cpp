@@ -36,7 +36,7 @@ namespace reply {
   csv method = di.method;
   csv path = di.path;
 
-  INFOX(moduleId, "CREATE", "cseq={} method={} path={}\n", di.headers.getVal(hdr_type::CSeq),
+  INFOX(moduleId, "CREATE", "cseq={} method={} path={}\n", di.headers.val<int64_t>(hdr_type::CSeq),
         method, path);
 
   if (method.starts_with("CONTINUE")) {
