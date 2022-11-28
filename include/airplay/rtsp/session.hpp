@@ -60,7 +60,6 @@ private:
   Session(io_context &io_ctx, tcp_socket sock) noexcept
       : io_ctx(io_ctx),              // shared io_ctx
         sock(std::move(sock)),       // socket for this session
-        msg_strand(io_ctx),          // ensure all msg async read/write are serialized
         aes_ctx(Host().device_id()), // create aes ctx
         rtsp_ctx(Ctx::create())      // create ctx for this session
   {}
@@ -91,27 +90,27 @@ private:
 
     if (msg.empty()) {
 
-      asio::async_read(sock,                       // read from this socket
-                       asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
-                       std::move(cond),            // completion condition (bytes to transfer)
-                       asio::bind_executor(msg_strand, [s = ptr(), e = std::forward<Elapsed>(e)](
-                                                           error_code ec, ssize_t bytes) mutable {
-                         const auto msg = io::is_ready(s->sock, ec);
+      asio::async_read(
+          sock,                       // read from this socket
+          asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
+          std::move(cond),            // completion condition (bytes to transfer)
+          [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
+            const auto msg = io::is_ready(s->sock, ec);
 
-                         if (!msg.empty() || (bytes < 1)) {
+            if (!msg.empty() || (bytes < 1)) {
 
-                           INFO(module_id, "ASYNC_READ", "FAILED bytes={} msg\n", bytes, msg);
-                           // fall out of scope
-                         } else if (s->sock.available() > 0) {
+              INFO(module_id, "ASYNC_READ", "FAILED bytes={} msg\n", bytes, msg);
+              // fall out of scope
+            } else if (s->sock.available() > 0) {
 
-                           // read available bytes (if any)
-                           s->async_read(std::forward<Elapsed>(e));
-                         } else {
+              // read available bytes (if any)
+              s->async_read(std::forward<Elapsed>(e));
+            } else {
 
-                           // handoff for decipher, parsing and reply
-                           s->do_packet(std::forward<Elapsed>(e));
-                         }
-                       }));
+              // handoff for decipher, parsing and reply
+              s->do_packet(std::forward<Elapsed>(e));
+            }
+          });
     } else {
       INFO(module_id, "ASYNC_READ", "{}\n", msg);
       // fall through
@@ -150,7 +149,7 @@ public:
 
   void run(Elapsed accept_e) noexcept {
     const auto &r = sock.remote_endpoint();
-    const auto msg = io::log_socket_msg("SOCK", io::make_error(), sock, r, accept_e);
+    const auto msg = io::log_socket_msg("SESSION", io::make_error(), sock, r, accept_e);
     INFO(module_id, "RUN", "{}\n", msg);
 
     async_read(transfer_initial());
@@ -177,7 +176,6 @@ private:
   // order dependent - initialized by constructor
   io_context &io_ctx;
   tcp_socket sock;
-  strand msg_strand;
   AesCtx aes_ctx;
   std::shared_ptr<rtsp::Ctx> rtsp_ctx;
 
