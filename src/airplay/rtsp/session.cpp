@@ -119,9 +119,10 @@ void Session::do_packet(Elapsed &&e) noexcept {
   // create the reply to the request
   Inject inject{.method = headers.method(),
                 .path = headers.path(),
-                .content = content,
+                .content = std::move(content),
                 .headers = headers,
-                .aes_ctx = aes_ctx};
+                .aes_ctx = aes_ctx,
+                .rtsp_ctx = rtsp_ctx};
 
   // create the reply and hold onto the shared_ptr
   auto reply = Factory::create(std::move(inject));
@@ -147,29 +148,31 @@ void Session::do_packet(Elapsed &&e) noexcept {
   // must capture reply to ensure it stays in scope until the async completes
   auto reply_buffer = asio::buffer(reply_packet);
 
-  asio::async_write(sock,         // sock to send reply
-                    reply_buffer, //
-                    [s = ptr(), e = std::move(e), reply = std::move(reply)](error_code ec,
-                                                                            ssize_t bytes) mutable {
-                      const auto msg = io::is_ready(s->sock, ec);
+  asio::async_write(
+      sock,         // sock to send reply
+      reply_buffer, //
+      [s = ptr(), e = std::move(e), reply = std::move(reply)](error_code ec, ssize_t bytes) {
+        Elapsed e2(e); // make a local copy to avoid mutable lambda
 
-                      if (!msg.empty()) {
-                        INFO(module_id, "WRITE_REPLY", "{}\n", msg);
-                      } else {
+        const auto msg = io::is_ready(s->sock, ec);
 
-                        Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
-                        Stats::write(stats::RTSP_SESSION_TX_REPLY, bytes);
+        if (!msg.empty()) {
+          INFO(module_id, "WRITE_REPLY", "{}\n", msg);
+        } else {
 
-                        // message handling complete, reset buffers
-                        s->wire = Wire();
-                        s->packet = Packet();
-                        s->headers = Headers();
-                        s->content = Content();
+          Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e2.freeze());
+          Stats::write(stats::RTSP_SESSION_TX_REPLY, bytes);
 
-                        // continue processing messages
-                        s->async_read(transfer_initial());
-                      }
-                    });
+          // message handling complete, reset buffers
+          s->wire = Wire();
+          s->packet = Packet();
+          s->headers = Headers();
+          s->content = Content();
+
+          // continue processing messages
+          s->async_read(transfer_initial());
+        }
+      });
 }
 
 void Session::save_packet(Session::Packet &packet) noexcept { // static

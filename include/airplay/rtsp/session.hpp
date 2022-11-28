@@ -86,35 +86,32 @@ private:
     //     of the session above zero until the session ends
     //     (e.g. error, natural completion, io_ctx is stopped)
 
-    const auto msg = io::is_ready(sock);
+    asio::async_read(
+        sock,                       // read from this socket
+        asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
+        std::move(cond),            // completion condition (bytes to transfer)
+        [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
+          const auto msg = io::is_ready(s->sock, ec);
 
-    if (msg.empty()) {
+          if (!msg.empty()) {
 
-      asio::async_read(
-          sock,                       // read from this socket
-          asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
-          std::move(cond),            // completion condition (bytes to transfer)
-          [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
-            const auto msg = io::is_ready(s->sock, ec);
+            INFO(module_id, "ASYNC_READ", "{}\n", msg);
+            // will fall out of scope when this function returns
+          } else if (bytes < 1) {
 
-            if (!msg.empty() || (bytes < 1)) {
+            INFO(module_id, "ASYNC_READ", "retry, bytes={}\n", bytes);
+            s->async_read(asio::transfer_at_least(1), std::move(e));
 
-              INFO(module_id, "ASYNC_READ", "FAILED bytes={} msg\n", bytes, msg);
-              // fall out of scope
-            } else if (s->sock.available() > 0) {
+          } else if (s->sock.available() > 0) {
 
-              // read available bytes (if any)
-              s->async_read(std::forward<Elapsed>(e));
-            } else {
+            // read available bytes (if any)
+            s->async_read(std::forward<Elapsed>(e));
+          } else {
 
-              // handoff for decipher, parsing and reply
-              s->do_packet(std::forward<Elapsed>(e));
-            }
-          });
-    } else {
-      INFO(module_id, "ASYNC_READ", "{}\n", msg);
-      // fall through
-    }
+            // handoff for decipher, parsing and reply
+            s->do_packet(std::forward<Elapsed>(e));
+          }
+        });
 
     // misc notes:
     // 1. the first return of this function traverses back to the Server that
@@ -156,11 +153,13 @@ public:
   }
 
   void teardown() noexcept {
-    try {
-      sock.shutdown(tcp_socket::shutdown_both);
-      sock.close();
-    } catch (...) {
-    }
+    asio::post(io_ctx, [s = ptr()]() {
+      try {
+        s->sock.shutdown(tcp_socket::shutdown_both);
+        s->sock.close();
+      } catch (...) {
+      }
+    });
   }
 
 private:
@@ -174,7 +173,7 @@ private:
 
 private:
   // order dependent - initialized by constructor
-  io_context &io_ctx;
+  io_context &io_ctx; // shared io_ctx
   tcp_socket sock;
   AesCtx aes_ctx;
   std::shared_ptr<rtsp::Ctx> rtsp_ctx;

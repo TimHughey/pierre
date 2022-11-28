@@ -21,6 +21,7 @@
 #include "base/aes/ctx.hpp"
 #include "base/headers.hpp"
 #include "base/types.hpp"
+#include "rtsp/ctx.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -29,9 +30,10 @@ namespace reply {
 struct Inject {
   csv method;
   csv path;
-  const Content &content;
+  const Content content;
   const Headers &headers;
   AesCtx &aes_ctx;
+  std::shared_ptr<rtsp::Ctx> rtsp_ctx;
 };
 
 } // namespace reply

@@ -9,14 +9,7 @@ set(__target  airplay)
 set(HEADER_PATH                           "${pierre_SOURCE_DIR}/include")
 set(HEADER_PATH_LOCAL                     "${HEADER_PATH}/${__target}")
 set(HEADER_PATH_EMBED                     "${HEADER_PATH_LOCAL}/embed")
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS  
-    "${HEADER_PATH_LOCAL}/aplist/*.h*"
-    "${HEADER_PATH_LOCAL}/common/*.h*"
-    "${HEADER_PATH_LOCAL}/embed/*.h*"
-    "${HEADER_PATH_LOCAL}/reply/*.h*"
-    "${HEADER_PATH_LOCAL}/server/*.h*"
-    "${HEADER_PATH_LOCAL}/session/*.h*"
-)
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/**/*.h*")
 
 find_library(libplist     NAMES plist      REQUIRED)
 

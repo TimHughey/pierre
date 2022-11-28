@@ -64,6 +64,11 @@ class Headers {
 
 public:
   Headers() = default;
+  Headers(const Headers &h) = default;
+  Headers(Headers &&h) = default;
+
+  Headers &operator=(const Headers &h) = default;
+  Headers &operator=(Headers &&) = default;
 
   // early definitions for type deductions
 public:
