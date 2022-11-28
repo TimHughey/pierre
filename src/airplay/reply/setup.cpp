@@ -19,12 +19,13 @@
 #include "reply/setup.hpp"
 #include "base/host.hpp"
 #include "config/config.hpp"
-#include "conn_info/conn_info.hpp"
-#include "frame/anchor.hpp"
+// #include "frame/anchor.hpp"
+#include "base/shk.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/mdns.hpp"
 #include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
+#include "rtsp/ctx.hpp"
 #include "server/servers.hpp"
 
 #include <algorithm>
@@ -40,11 +41,7 @@ bool Setup::populate() {
   rdict = plist();
   auto rc = rdict.ready();
 
-  // rdict.dump();
-
   const auto has_streams = (rdict.fetchNode({dk::STREAMS}, PLIST_ARRAY)) ? true : false;
-
-  INFOX(baseID(), moduleID(), "has_streams={}\n", has_streams);
 
   if (rc && has_streams) { // followup SETUP (contains streams data)
     rc = handleStreams();
@@ -59,25 +56,25 @@ bool Setup::populate() {
 
     headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
     responseCode(RespCode::OK);
+
   } else {
     INFO(moduleID(), "WARN", "implementation missing for control_type={}\n", 1);
-    // rHeaders().dump();
-    // rdict.dump();
   }
 
   return rc;
 }
 
 bool Setup::handleNoStreams() {
-  auto conn = ConnInfo::ptr();
+  bool rc = true;
+  auto rtsp_ctx = di->rtsp_ctx;
 
   // deduces cat, type and timing
-  auto stream = Stream(rdict.stringView({dk::TIMING_PROTOCOL}));
+  rtsp_ctx->setup_stream(rdict.stringView({dk::TIMING_PROTOCOL}));
 
   // now we create a reply plist based on the type of stream
-  if (stream.isPtpStream()) {
-    conn->airplay_gid = rdict.stringView({dk::GROUP_UUID});
-    conn->groupContainsGroupLeader = rdict.boolVal({dk::GROUP_LEADER});
+  if (rtsp_ctx->stream_info.is_ptp_stream()) {
+    rtsp_ctx->group_id = rdict.stringView({dk::GROUP_UUID});
+    rtsp_ctx->group_contains_group_leader = rdict.boolVal({dk::GROUP_LEADER});
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
     pierre::shared::master_clock->peers(peers);
@@ -96,97 +93,84 @@ bool Setup::handleNoStreams() {
     Service::ptr()->receiverActive();
     mDNS::update();
 
-    conn->save(stream);
-    return true;
-  }
+  } else if (rtsp_ctx->stream_info.is_ntp_stream()) {
+    INFO(baseID(), moduleID(), "NTP timing not supported\n");
+    rc = false;
 
-  if (stream.isNtpStream()) {
-    INFO(baseID(), moduleID(), "NTP timing requeste, supported={}\n", false);
-    return false;
-  }
-
-  if (stream.isRemote()) { // remote control only; open event port, send timing
-                           // dummy port
+  } else if (rtsp_ctx->stream_info.is_remote_control()) {
+    // remote control only; open event port, send timing dummy port
     reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
                          {dk::TIMING_PORT, 0}}); // unused by AP2
-
-    return true;
+  } else {
+    rc = false; // no match
   }
 
-  // something is wrong if we reach this point
-  return false;
+  return rc;
 }
 
 // SETUP followup message containing type of stream to start
 bool Setup::handleStreams() {
-  auto servers = Servers::ptr();
-  auto conn = ConnInfo::ptr();
-
   auto rc = false;
-  StreamData stream_data;
-  Aplist reply_stream0; // build the streams sub dict
+  auto servers = Servers::ptr();
+  auto rtsp_ctx = di->rtsp_ctx;
+  auto &stream_info = rtsp_ctx->stream_info;
 
-  if (conn->stream.isPtpStream()) { // initial setup is PTP, this setup
-                                    // finalizes details
+  Aplist reply_stream0; // reply streams sub dict
+
+  if (stream_info.is_ptp_stream()) {
+    // initial setup indicated PTP, the followup setup message finalizes details
+
     const auto s0 = Aplist(rdict, {dk::STREAMS, dk::IDX0});
 
-    // capture stream info common for buffered or real-time
-    stream_data.audio_format = s0.uint({dk::AUDIO_MODE});
-    stream_data.ct = (uint8_t)s0.uint({dk::COMPRESSION_TYPE});
-    stream_data.conn_id = s0.uint({dk::STREAM_CONN_ID});
-    stream_data.spf = s0.uint({dk::SAMPLE_FRAMES_PER_PACKET});
-    stream_data.key = s0.dataArray({dk::SHK});
-    stream_data.supports_dynamic_stream_id = s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
-    stream_data.audio_format = s0.uint({dk::AUDIO_FORMAT});
-    stream_data.client_id = s0.stringView({dk::CLIENT_ID});
-    stream_data.type = s0.uint({dk::TYPE});
+    // capture stream info
+    stream_info.audio_format = s0.uint({dk::AUDIO_MODE});
+    stream_info.ct = (uint8_t)s0.uint({dk::COMPRESSION_TYPE});
+    stream_info.conn_id = s0.uint({dk::STREAM_CONN_ID});
+    stream_info.spf = s0.uint({dk::SAMPLE_FRAMES_PER_PACKET});
+    stream_info.key = std::move(s0.dataArray({dk::SHK}));
+    stream_info.supports_dynamic_stream_id = s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
+    stream_info.audio_format = s0.uint({dk::AUDIO_FORMAT});
+    stream_info.client_id = s0.stringView({dk::CLIENT_ID});
 
-    stream_data.active_remote = rHeaders().val(hdr_type::DacpActiveRemote);
-    stream_data.dacp_id = rHeaders().val(hdr_type::DacpID);
+    SharedKey::save(stream_info.key);
 
-    ConnInfo::ptr()->save(stream_data);
+    rtsp_ctx->active_remote = rHeaders().val<int64_t>(hdr_type::DacpActiveRemote);
+    rtsp_ctx->dacp_id = rHeaders().val(hdr_type::DacpID);
 
-    // get the stream type that is starting
-    auto stream_type = rdict.uint({dk::STREAMS, dk::IDX0, dk::TYPE});
-
-    INFOX(baseID(), moduleID(), "stream_type={}\n", stream_type);
+    auto stream_type = rtsp_ctx->setup_stream_type(s0.uint({dk::TYPE}));
 
     // now handle the specific stream type
-    switch (stream_type) {
-    case stream::typeBuffered(): {
-      conn->stream.buffered(); // this is a buffered audio stream
-
+    if (stream_info.is_buffered()) {
+      rc = true;
       const uint64_t buff_size = Config().at("rtsp.audio.buffer_size"sv).value_or(8) * 1024 * 1024;
 
       // reply requires the type, audio data port and our buffer size
-      reply_stream0.setUints({{dk::TYPE, stream::typeBuffered()},                     // stream type
+      reply_stream0.setUints({{dk::TYPE, stream_type},                                // stream type
                               {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
                               {dk::BUFF_SIZE, buff_size}}); // our buffer size
-    }
-      rc = true;
-      break;
 
-    case stream::typeRealTime():
-      conn->stream.realtime();
-      rc = true;
-      break;
-
-    default:
+    } else if (stream_info.is_realtime()) {
       rc = false;
-      break;
+      INFO(module_id, "STREAM", "realtime not supported\n");
+
+    } else if (stream_info.is_remote_control()) {
+      rc = true;
+
+      reply_stream0.setUints({
+          {dk::STREAM_ID, 1},
+          {dk::TYPE, stream_type},
+      });
     }
 
-  } else if (conn->stream.isRemote()) {
-    reply_stream0.setUints({{
-        {dk::STREAM_ID, 1},
-        {dk::TYPE, conn->stream.typeVal()},
-    }});
-    rc = true;
+  } else if (stream_info.is_ntp_stream()) {
+    INFO(module_id, "STREAM", "ntp timing not supported\n");
+
+  } else {
+    INFO(module_id, "STREAM", "unknown / unsupported stream\n");
   }
 
   if (rc) {
-    // regardless of stream type start the control server and add it's port to
-    // the reply
+    // regardless of stream type start the control server
     reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(ServerType::Control));
 
     // put the sub dict into the reply

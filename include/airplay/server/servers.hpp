@@ -42,24 +42,28 @@ public:
 
   Port localPort(ServerType type);
   static void teardown() noexcept {
-    static constexpr std::array types{ServerType::Event, ServerType::Control, ServerType::Audio};
+    auto self = ptr();
 
-    auto &map = ptr()->map;
+    asio::post(self->io_ctx, [s = self]() {
+      static constexpr std::array types{ServerType::Event, ServerType::Control, ServerType::Audio};
 
-    for (const auto type : types) {
-      auto it = map.find(type);
+      auto &map = s->map; // save deferences
 
-      if (it != map.end()) {
-        auto srv = it->second; // get our own shared_ptr to the server
+      for (const auto type : types) {
+        auto it = s->map.find(type);
 
-        srv->teardown(); // ask it to shutdown
-        map.erase(it);   // erase it from the map
+        if (it != map.end()) {
+          auto srv = it->second; // get our own shared_ptr to the server
 
-        INFO(module_id, "TEARDOWN", "server={}\n", fmt::ptr(srv.get()));
+          if (srv) srv->teardown(); // ask it to shutdown
+          map.erase(it);            // erase it from the map
 
-        // our shared_ptr to the server falls out of scope
+          INFO(module_id, "TEARDOWN", "server={}\n", fmt::ptr(srv.get()));
+
+          // our shared_ptr to the server falls out of scope
+        }
       }
-    }
+    });
   }
 
 private:

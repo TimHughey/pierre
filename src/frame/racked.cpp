@@ -149,12 +149,12 @@ void Racked::flush_impl(FlushInfo request) {
   });
 }
 
-void Racked::handoff(uint8v packet) { // static
-  shared::racked->handoff_impl(std::move(packet));
+void Racked::handoff(uint8v &&packet) { // static
+  shared::racked->handoff_impl(std::forward<uint8v>(packet));
 }
 
-void Racked::handoff_impl(uint8v packet) noexcept {
-  frame_t frame = Frame::create(packet);
+void Racked::handoff_impl(uint8v &&packet) noexcept {
+  frame_t frame = Frame::create(std::forward<uint8v>(packet));
 
   if (frame->state.header_parsed()) {
     if (flush_request.should_flush(frame)) {

@@ -20,9 +20,6 @@ add_library(${__target} SHARED
   # apple property lists
   aplist/aplist.cpp
 
-  # connection info
-  conn_info/conn_info.cpp conn_info/stream.cpp conn_info/stream_info.cpp
-
   # embedded plists (via ld text file to binary, see ple/CMakeLists.txt)
   embed/embed.cpp
 
@@ -33,7 +30,7 @@ add_library(${__target} SHARED
   reply/set_peers.cpp reply/set_peersx.cpp reply/setup.cpp reply/teardown.cpp
   reply/unhandled.cpp
 
-  # primary communications
+  # rtsp message server and session
   rtsp.cpp rtsp/session.cpp
 
   # servers

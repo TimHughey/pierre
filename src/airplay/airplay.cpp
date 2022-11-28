@@ -19,7 +19,6 @@
 #include "airplay/airplay.hpp"
 #include "base/features.hpp"
 #include "base/logger.hpp"
-#include "conn_info/conn_info.hpp"
 #include "frame/master_clock.hpp"
 #include "rtsp.hpp"
 #include "server/servers.hpp"
@@ -36,7 +35,6 @@ std::shared_ptr<Airplay> Airplay::init() noexcept { // static
   auto s = std::shared_ptr<Airplay>(new Airplay());
 
   // executed by caller thread
-  airplay::ConnInfo::init();
   airplay::Servers::init(s->io_ctx);
 
   std::latch latch(AIRPLAY_THREADS);

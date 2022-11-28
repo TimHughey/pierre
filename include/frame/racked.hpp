@@ -57,7 +57,7 @@ public:
   {}
 
   static void flush(FlushInfo request);
-  static void handoff(uint8v packet);
+  static void handoff(uint8v &&packet);
 
   static void init();
   const string inspect() const noexcept;
@@ -72,7 +72,7 @@ private:
   void add_frame(frame_t frame) noexcept;
 
   void flush_impl(FlushInfo request);
-  void handoff_impl(uint8v packet) noexcept;
+  void handoff_impl(uint8v &&packet) noexcept;
   void next_frame_impl(frame_promise prom) noexcept;
 
   void init_self();

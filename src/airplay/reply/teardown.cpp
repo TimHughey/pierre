@@ -21,10 +21,10 @@
 #include "base/render.hpp"
 #include "base/shk.hpp"
 #include "base/types.hpp"
-#include "conn_info/conn_info.hpp"
 #include "mdns/mdns.hpp"
 #include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
+#include "rtsp/ctx.hpp"
 #include "server/servers.hpp"
 
 namespace pierre {
@@ -55,8 +55,8 @@ bool Teardown::phase2() { // we've been asked to disconnect
 
   Servers::teardown();
 
-    ConnInfo::ptr()->groupContainsGroupLeader = false;
-  // ConnInfo::ptr()->dacp_active_remote.clear();
+  di->rtsp_ctx->group_contains_group_leader = false;
+  di->rtsp_ctx->active_remote = 0;
 
   return true;
 }
