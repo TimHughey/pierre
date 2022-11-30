@@ -56,10 +56,7 @@ using work_guard_t = std::unique_ptr<work_guard>;
 using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 
 static constexpr uint16_t ANY_PORT{0};
-typedef uint16_t Port;
-
-// types of the various servers we will spin up
-enum class ServerType : uint8_t { Audio, Event, Control, Rtsp };
+using Port = uint16_t;
 
 namespace io {
 
