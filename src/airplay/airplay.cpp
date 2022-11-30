@@ -30,13 +30,16 @@ namespace pierre {
 static std::shared_ptr<Airplay> overlord;
 static std::shared_ptr<Rtsp> rtsp;
 
-std::shared_ptr<Airplay> Airplay::init() noexcept { // static
-  auto s = std::shared_ptr<Airplay>(new Airplay());
+void Airplay::init() noexcept { // static
+  overlord = std::shared_ptr<Airplay>(new Airplay());
+  overlord->init_self();
+}
 
+void Airplay::init_self() noexcept {
   std::latch latch(AIRPLAY_THREADS);
 
   for (auto n = 0; n < AIRPLAY_THREADS; n++) {
-    s->threads.emplace_back([=, &latch, s = s->shared_from_this()](std::stop_token token) mutable {
+    threads.emplace_back([=, &latch, s = ptr()](std::stop_token token) mutable {
       s->tokens.add(std::move(token));
 
       name_thread("Airplay", n);
@@ -47,20 +50,16 @@ std::shared_ptr<Airplay> Airplay::init() noexcept { // static
     });
   }
 
-  latch.wait();   // wait for all threads to start
-  s->watch_dog(); // start the watchdog once all threads are started
+  latch.wait(); // wait for all threads to start
+  watch_dog();  // start the watchdog once all threads are started
 
   shared::master_clock->peers_reset(); // reset timing peers
 
   // start listening for Rtsp messages
-  rtsp = Rtsp::init(s->io_ctx);
+  rtsp = Rtsp::init(io_ctx);
 
-  overlord = std::move(s);
-
-  INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Airplay), 0,
-       AIRPLAY_THREADS, Features().ap2Default());
-
-  return overlord->shared_from_this();
+  INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Airplay),
+       std::ssize(threads), AIRPLAY_THREADS, Features().ap2Default());
 }
 
 std::shared_ptr<Airplay> &Airplay::self() noexcept { return overlord; }

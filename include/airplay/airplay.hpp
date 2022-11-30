@@ -35,7 +35,7 @@ private:
 
 public:
   // shared instance management
-  static std::shared_ptr<Airplay> init() noexcept;
+  static void init() noexcept;
 
   auto ptr() noexcept { return shared_from_this(); }
   static void reset() noexcept { self().reset(); }
@@ -49,6 +49,8 @@ public:
   // }
 
 private:
+  void init_self() noexcept;
+
   // DRAGONS BE HERE!!
   // returns reference to ACTUAL shared_ptr holding Airplay
   static std::shared_ptr<Airplay> &self() noexcept;
