@@ -24,6 +24,8 @@
 namespace pierre {
 namespace rtsp {
 
+void Ctx::feedback_msg() noexcept {}
+
 Port Ctx::server_port(ports_t server_type) noexcept {
   Port port{0};
 
@@ -46,6 +48,33 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   }
 
   return port;
+}
+
+void Ctx::teardown() noexcept {
+  audio_srv->teardown();
+  audio_srv.reset();
+
+  control_srv->teardown();
+  control_srv.reset();
+
+  event_srv->teardown();
+  event_srv.reset();
+
+  [[maybe_unused]] error_code ec;
+  feedback_timer.cancel(ec);
+}
+
+void Ctx::update_from(const Headers &h) noexcept {
+
+  cseq = h.val<int64_t>(hdr_type::CSeq);
+  active_remote = h.val<int64_t>(hdr_type::DacpActiveRemote);
+
+  if (h.contains(hdr_type::XAppleProtocolVersion))
+    proto_ver = h.val<int64_t>(hdr_type::XAppleProtocolVersion);
+
+  if (h.contains(hdr_type::XAppleClientName)) client_name = h.val(hdr_type::XAppleClientName);
+
+  user_agent = h.val(hdr_type::UserAgent);
 }
 
 } // namespace rtsp

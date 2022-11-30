@@ -68,7 +68,6 @@ Stats::Stats(bool enabled) noexcept
                             {stats::RENDER_ELAPSED, "render_elapsed"},
                             {stats::RTSP_SESSION_CONNECT, "rtsp_session_connect"},
                             {stats::RTSP_SESSION_MSG_ELAPSED, "rtsp_session_msg_elapsed"},
-                            {stats::RTSP_SESSION_RX_AVAIL, "rtsp_session_rx_avail"},
                             {stats::RTSP_SESSION_RX_PACKET, "rtsp_session_rx_packet"},
                             {stats::RTSP_SESSION_TX_REPLY, "rtsp_session_tx_reply"},
                             {stats::SYNC_WAIT, "sync_wait"},

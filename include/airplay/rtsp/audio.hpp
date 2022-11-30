@@ -46,10 +46,7 @@ public:
   void teardown() noexcept {
     [[maybe_unused]] error_code ec;
 
-    acceptor.cancel(ec);
     acceptor.close(ec);
-
-    sock.cancel(ec);
     sock.close(ec);
   }
 

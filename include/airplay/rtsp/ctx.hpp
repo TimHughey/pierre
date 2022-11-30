@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/headers.hpp"
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -66,7 +67,7 @@ public:
   static auto create(io_context &io_ctx) noexcept { return std::shared_ptr<Ctx>(new Ctx(io_ctx)); }
   auto ptr() noexcept { return shared_from_this(); }
 
-  // void save_shared_key(const uint8v shk) noexcept { shared_key ; }
+  void feedback_msg() noexcept;
 
   Port server_port(ports_t server_type) noexcept;
 
@@ -97,21 +98,23 @@ public:
     return type;
   }
 
-  void teardown() noexcept {
-    audio_srv.reset();
-    control_srv.reset();
-    event_srv.reset();
-  }
+  void teardown() noexcept;
+
+  void update_from(const Headers &headers) noexcept;
 
 private:
-  Ctx(io_context &io_ctx) noexcept : io_ctx(io_ctx) {}
+  Ctx(io_context &io_ctx) noexcept
+      : io_ctx(io_ctx),        //
+        feedback_timer(io_ctx) // detect absence of routine feedback messages
+  {}
 
 private:
   io_context &io_ctx;
+  steady_timer feedback_timer;
 
 public:
   // from RTSP headers
-  int64_t cseq{0}; // i.e. CSeq: 8 (message seq num for active session, increasing from zero)
+  int64_t cseq{0};          // i.e. CSeq: 8 (active session seq num, increasing from zero)
   int64_t active_remote{0}; // i.e. Active-Remote: 1570223890
   int64_t proto_ver{0};     // i.e. X-Apple-ProtocolVersion: 1
   string client_name;       // i.e. X-Apple-Client-Name: xapham

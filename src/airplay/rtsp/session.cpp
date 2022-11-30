@@ -114,7 +114,10 @@ void Session::do_packet(Elapsed &&e) noexcept {
   // ok, we now have the headers and content (if applicable)
   // create and send the reply
 
-  Session::save_packet(packet); // noop if config enable = false
+  Session::save_packet(packet); // noop when config enable=false
+
+  // update rtsp_ctx
+  rtsp_ctx->update_from(headers);
 
   // create the reply to the request
   Inject inject{.method = headers.method(),

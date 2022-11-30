@@ -33,13 +33,11 @@ class Event : public std::enable_shared_from_this<Event> {
 public:
   Port port() noexcept { return acceptor.local_endpoint().port(); }
   void teardown() noexcept {
-    try {
-      acceptor.cancel();
-      sock_accept->close();
-      sock_session->close();
+    [[maybe_unused]] error_code ec;
+    acceptor.close(ec);
 
-    } catch (...) {
-    }
+    if (sock_accept) sock_accept->close(ec);
+    if (sock_session) sock_session->close(ec);
   }
 
   std::shared_ptr<Event> ptr() noexcept { return shared_from_this(); }
@@ -54,7 +52,9 @@ public:
 
 private:
   Event(io_context &io_ctx)
-      : io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)} {}
+      : io_ctx(io_ctx),                                        //
+        acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), ANY_PORT)} //
+  {}
 
   // async_loop is invoked to:
   //  1. schedule the initial async accept
@@ -130,8 +130,8 @@ private:
   io_context &io_ctx;
   tcp_acceptor acceptor;
 
-  std::optional<tcp_socket> sock_accept; // socket for next accepted connection
-  std::optional<tcp_socket> sock_session;
+  std::optional<tcp_socket> sock_accept;  // socket for next accepted connection
+  std::optional<tcp_socket> sock_session; // socket for active session
 
 public:
   static constexpr csv module_id{"RTSP EVENT"};

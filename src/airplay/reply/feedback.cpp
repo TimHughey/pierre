@@ -21,6 +21,7 @@
 #include "aplist/aplist.hpp"
 #include "reply/dict_keys.hpp"
 #include "reply/reply.hpp"
+#include "rtsp/ctx.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -41,6 +42,8 @@ bool Feedback::populate() {
   // copyToContent(binary, bytes);
 
   // headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
+
+  di->rtsp_ctx->feedback_msg();
 
   responseCode(RespCode::OK);
   return true;

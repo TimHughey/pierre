@@ -60,11 +60,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
   // first things first, ensure we are running in the correct strand
   if (frame_strand.running_in_this_thread() == false) {
-    asio::post(frame_strand, [=]() {
-      INFO(module_id, "FRAME_LOOP", "moving self to frame_strand\n");
-
-      self->frame_loop(wait);
-    });
+    asio::post(frame_strand, [=]() { self->frame_loop(wait); });
 
     return; // do not fall through to the frame procesing loop
   }
