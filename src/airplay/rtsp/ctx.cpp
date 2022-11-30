@@ -16,24 +16,37 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/types.hpp"
-#include "base/uint8v.hpp"
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string_view>
-#include <vector>
+#include "rtsp/ctx.hpp"
+#include "rtsp/audio.hpp"
+#include "rtsp/control.hpp"
+#include "rtsp/event.hpp"
 
 namespace pierre {
+namespace rtsp {
 
-struct SharedKey {
-  static void clear();
-  static bool empty();
-  static const uint8_t *key();
-  static const uint8v &save(const uint8v &key);
-};
+Port Ctx::server_port(ports_t server_type) noexcept {
+  Port port{0};
 
+  switch (server_type) {
+
+  case ports_t::AudioPort:
+    audio_srv = Audio::start(io_ctx, shared_from_this());
+    port = audio_srv->port();
+    break;
+
+  case ports_t::ControlPort:
+    control_srv = Control::start(io_ctx);
+    port = control_srv->port();
+    break;
+
+  case ports_t::EventPort:
+    event_srv = Event::start(io_ctx);
+    port = event_srv->port();
+    break;
+  }
+
+  return port;
+}
+
+} // namespace rtsp
 } // namespace pierre

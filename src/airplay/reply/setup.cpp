@@ -19,14 +19,11 @@
 #include "reply/setup.hpp"
 #include "base/host.hpp"
 #include "config/config.hpp"
-// #include "frame/anchor.hpp"
-#include "base/shk.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/mdns.hpp"
 #include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtsp/ctx.hpp"
-#include "server/servers.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -86,7 +83,7 @@ bool Setup::handleNoStreams() {
     peer_info.setString(dk::ID, ip_addrs[0]);
 
     reply_dict.setArray(dk::TIMING_PEER_INFO, {peer_info});
-    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
+    reply_dict.setUints({{dk::EVENT_PORT, rtsp_ctx->server_port(rtsp::EventPort)},
                          {dk::TIMING_PORT, 0}}); // unused by AP2
 
     // adjust Service system flags and request mDNS update
@@ -99,7 +96,7 @@ bool Setup::handleNoStreams() {
 
   } else if (rtsp_ctx->stream_info.is_remote_control()) {
     // remote control only; open event port, send timing dummy port
-    reply_dict.setUints({{dk::EVENT_PORT, Servers::ptr()->localPort(ServerType::Event)},
+    reply_dict.setUints({{dk::EVENT_PORT, rtsp_ctx->server_port(rtsp::EventPort)},
                          {dk::TIMING_PORT, 0}}); // unused by AP2
   } else {
     rc = false; // no match
@@ -111,7 +108,6 @@ bool Setup::handleNoStreams() {
 // SETUP followup message containing type of stream to start
 bool Setup::handleStreams() {
   auto rc = false;
-  auto servers = Servers::ptr();
   auto rtsp_ctx = di->rtsp_ctx;
   auto &stream_info = rtsp_ctx->stream_info;
 
@@ -127,15 +123,14 @@ bool Setup::handleStreams() {
     stream_info.ct = (uint8_t)s0.uint({dk::COMPRESSION_TYPE});
     stream_info.conn_id = s0.uint({dk::STREAM_CONN_ID});
     stream_info.spf = s0.uint({dk::SAMPLE_FRAMES_PER_PACKET});
-    stream_info.key = std::move(s0.dataArray({dk::SHK}));
+
     stream_info.supports_dynamic_stream_id = s0.boolVal({dk::SUPPORTS_DYNAMIC_STREAM_ID});
     stream_info.audio_format = s0.uint({dk::AUDIO_FORMAT});
     stream_info.client_id = s0.stringView({dk::CLIENT_ID});
 
-    SharedKey::save(stream_info.key);
-
     rtsp_ctx->active_remote = rHeaders().val<int64_t>(hdr_type::DacpActiveRemote);
     rtsp_ctx->dacp_id = rHeaders().val(hdr_type::DacpID);
+    rtsp_ctx->shared_key = s0.dataArray({dk::SHK}); // copy is ok here
 
     auto stream_type = rtsp_ctx->setup_stream_type(s0.uint({dk::TYPE}));
 
@@ -145,8 +140,8 @@ bool Setup::handleStreams() {
       const uint64_t buff_size = Config().at("rtsp.audio.buffer_size"sv).value_or(8) * 1024 * 1024;
 
       // reply requires the type, audio data port and our buffer size
-      reply_stream0.setUints({{dk::TYPE, stream_type},                                // stream type
-                              {dk::DATA_PORT, servers->localPort(ServerType::Audio)}, // audio port
+      reply_stream0.setUints({{dk::TYPE, stream_type}, // stream type
+                              {dk::DATA_PORT, rtsp_ctx->server_port(rtsp::AudioPort)}, // audio port
                               {dk::BUFF_SIZE, buff_size}}); // our buffer size
 
     } else if (stream_info.is_realtime()) {
@@ -171,7 +166,7 @@ bool Setup::handleStreams() {
 
   if (rc) {
     // regardless of stream type start the control server
-    reply_stream0.setUint(dk::CONTROL_PORT, servers->localPort(ServerType::Control));
+    reply_stream0.setUint(dk::CONTROL_PORT, rtsp_ctx->server_port(rtsp::ControlPort));
 
     // put the sub dict into the reply
     reply_dict.setArray(dk::STREAMS, reply_stream0);

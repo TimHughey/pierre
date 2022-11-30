@@ -21,7 +21,6 @@
 #include "base/logger.hpp"
 #include "frame/master_clock.hpp"
 #include "rtsp.hpp"
-#include "server/servers.hpp"
 
 #include <algorithm>
 #include <latch>
@@ -33,9 +32,6 @@ static std::shared_ptr<Rtsp> rtsp;
 
 std::shared_ptr<Airplay> Airplay::init() noexcept { // static
   auto s = std::shared_ptr<Airplay>(new Airplay());
-
-  // executed by caller thread
-  airplay::Servers::init(s->io_ctx);
 
   std::latch latch(AIRPLAY_THREADS);
 

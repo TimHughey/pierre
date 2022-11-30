@@ -32,11 +32,6 @@ namespace pierre {
 class Content : public uint8v {
 public:
   Content() = default;
-  Content(const Content &) = default;
-  Content(Content &&) = default;
-
-  Content &operator=(const Content &) = default;
-  Content &operator=(Content &&) = default;
 
   bool operator==(const string &t) const noexcept { return t == type; }
 

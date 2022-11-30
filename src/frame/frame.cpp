@@ -23,7 +23,6 @@
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/io.hpp"
-#include "base/shk.hpp"
 #include "base/uint8v.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
@@ -84,7 +83,7 @@ notes:
 
 // Frame API
 
-bool Frame::decipher(uint8v &packet) noexcept {
+bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
@@ -100,7 +99,7 @@ bool Frame::decipher(uint8v &packet) noexcept {
   // ciphered data begin + 12, end - 8
   std::span<uint8_t> ciphered(packet.from_begin(12), packet.from_end(8));
 
-  if (SharedKey::empty()) {
+  if (key.empty()) {
     state = frame::NO_SHARED_KEY;
 
   } else if (version != RTPv2) {
@@ -118,7 +117,7 @@ bool Frame::decipher(uint8v &packet) noexcept {
             aad.data(),                            // authenticated additional data
             aad.size(),                            // authenticated additional data length
             nonce.data(),                          // the nonce
-            SharedKey::key());                     // shared key (from SETUP message)
+            key.data());                           // shared key (from SETUP message)
 
     if ((cipher_rc >= 0) && (decipher_len > 0)) {
       state = frame::DECIPHERED;

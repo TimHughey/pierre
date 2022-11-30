@@ -18,13 +18,22 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 
 #include <memory>
 
 namespace pierre {
+
 namespace rtsp {
+
+// forward decls for servers associated to this session
+class Audio;
+class Control;
+class Event;
+
+enum ports_t { AudioPort, ControlPort, EventPort };
 
 struct stream_info_t {
   enum class cat : uint64_t { unspecified = 10, ptp_stream, ntp_stream, remote_control };
@@ -44,7 +53,6 @@ struct stream_info_t {
   uint64_t conn_id{0}; // stream connection id
   uint64_t ct{0};      // compression type
   uint64_t spf{0};     // sample frames per packet
-  uint8v key;          // shared key (for decipher)
 
   // timing
   cat timing_cat{cat::unspecified};
@@ -55,8 +63,12 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  static auto create() noexcept { return std::shared_ptr<Ctx>(new Ctx()); }
+  static auto create(io_context &io_ctx) noexcept { return std::shared_ptr<Ctx>(new Ctx(io_ctx)); }
   auto ptr() noexcept { return shared_from_this(); }
+
+  // void save_shared_key(const uint8v shk) noexcept { shared_key ; }
+
+  Port server_port(ports_t server_type) noexcept;
 
   void setup_stream(const auto timing_protocol) noexcept {
     if (timing_protocol == csv{"PTP"}) {
@@ -85,22 +97,37 @@ public:
     return type;
   }
 
+  void teardown() noexcept {
+    audio_srv.reset();
+    control_srv.reset();
+    event_srv.reset();
+  }
+
 private:
-  Ctx() noexcept : cseq{0}, active_remote{0} {}
+  Ctx(io_context &io_ctx) noexcept : io_ctx(io_ctx) {}
+
+private:
+  io_context &io_ctx;
 
 public:
   // from RTSP headers
-  int64_t cseq;          // i.e. CSeq: 8 (message seq num for active session, increasing from zero)
-  int64_t active_remote; // i.e. Active-Remote: 1570223890
-  string dacp_id;        // i.e. DACP-ID: DF86B6D21A6C805F
-  string user_agent;     // i.e. User-Agent: AirPlay/665.13.1
-  int64_t proto_ver;     // i.e. X-Apple-ProtocolVersion: 1
-  string client_name;    // i.e. X-Apple-Client-Name: xapham
+  int64_t cseq{0}; // i.e. CSeq: 8 (message seq num for active session, increasing from zero)
+  int64_t active_remote{0}; // i.e. Active-Remote: 1570223890
+  int64_t proto_ver{0};     // i.e. X-Apple-ProtocolVersion: 1
+  string client_name;       // i.e. X-Apple-Client-Name: xapham
+  string dacp_id;           // i.e. DACP-ID: DF86B6D21A6C805F
+  string user_agent;        // i.e. User-Agent: AirPlay/665.13.1
 
-  string group_id; // airplay group id
+  // from SETUP message
   bool group_contains_group_leader{false};
-
+  uint8v shared_key; // shared key (for decipher)
   stream_info_t stream_info;
+  string group_id; // airplay group id
+
+  // sessions
+  std::shared_ptr<Audio> audio_srv;
+  std::shared_ptr<Control> control_srv;
+  std::shared_ptr<Event> event_srv;
 
 public:
   static constexpr csv module_id{"RTSP_CTX"};

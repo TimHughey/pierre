@@ -30,14 +30,8 @@ add_library(${__target} SHARED
   reply/set_peers.cpp reply/set_peersx.cpp reply/setup.cpp reply/teardown.cpp
   reply/unhandled.cpp
 
-  # rtsp message server and session
-  rtsp.cpp rtsp/session.cpp
-
-  # servers
-  server/servers.cpp server/audio.cpp 
-
-  # sessions
-  session/audio.cpp 
+  # rtsp session context, message / worker servers and message session
+  rtsp.cpp rtsp/session.cpp rtsp/audio.cpp rtsp/ctx.cpp
 
   ${HEADER_LIST}
 )

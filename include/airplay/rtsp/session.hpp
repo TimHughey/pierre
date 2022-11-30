@@ -58,10 +58,10 @@ private:
 
 private:
   Session(io_context &io_ctx, tcp_socket sock) noexcept
-      : io_ctx(io_ctx),              // shared io_ctx
-        sock(std::move(sock)),       // socket for this session
-        aes_ctx(Host().device_id()), // create aes ctx
-        rtsp_ctx(Ctx::create())      // create ctx for this session
+      : io_ctx(io_ctx),               // shared io_ctx
+        sock(std::move(sock)),        // socket for this session
+        aes_ctx(Host().device_id()),  // create aes ctx
+        rtsp_ctx(Ctx::create(io_ctx)) // create ctx for this session
   {}
 
   template <typename CompletionCondition>

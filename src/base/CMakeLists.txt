@@ -20,14 +20,14 @@ find_package(Threads                       REQUIRED)
 add_subdirectory(pair)
 
 add_library(${__target} SHARED
+  # io (asio) helpers
+  io.cpp
+
   # logging (threaded)
   logger.cpp
 
   # common thread typedefs and helpers
   threads.cpp
-  
-  # connection shared key
-  shk.cpp
 
   # aes
   aes/ctx.cpp

@@ -45,7 +45,7 @@ namespace pierre {
 
 using racked_reels = std::map<reel_serial_num_t, Reel>;
 
-class Racked {
+class Racked : public std::enable_shared_from_this<Racked> {
 public:
   Racked() noexcept
       : guard(io::make_work_guard(io_ctx)), // ensure io_ctx has work
@@ -56,8 +56,30 @@ public:
         wip_timer(io_ctx)                   // used to racked incomplete wip reels
   {}
 
+  static auto ptr() noexcept { return self()->shared_from_this(); }
+
   static void flush(FlushInfo request);
-  static void handoff(uint8v &&packet);
+
+  // handeff() allows the packet to be moved however expects the key to be a reference
+  static void handoff(uint8v packet, const uint8v &key) noexcept {
+    auto s = ptr();
+
+    auto frame = Frame::create(packet);
+
+    if (frame->state.header_parsed()) {
+      if (s->flush_request.should_flush(frame)) {
+        frame->flushed();
+      } else if (frame->decipher(std::move(packet), key)) {
+        // note:  we move the packet since handoff() is done with it
+
+        asio::post(s->handoff_strand, [=]() { s->accept_frame(frame); });
+      }
+    }
+
+    if (!frame->deciphered()) {
+      INFO(module_id, "HANDOFF", "DISCARDING frame={}\n", frame->inspect());
+    }
+  }
 
   static void init();
   const string inspect() const noexcept;
@@ -72,7 +94,6 @@ private:
   void add_frame(frame_t frame) noexcept;
 
   void flush_impl(FlushInfo request);
-  void handoff_impl(uint8v &&packet) noexcept;
   void next_frame_impl(frame_promise prom) noexcept;
 
   void init_self();
@@ -80,6 +101,8 @@ private:
   void monitor_wip() noexcept;
 
   void rack_wip() noexcept;
+
+  static std::shared_ptr<Racked> &self() noexcept;
 
   // misc logging, debug
   void log_racked() const noexcept { log_racked(string()); }

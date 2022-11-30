@@ -71,64 +71,10 @@ inline work_guard_t make_work_guard(io_context &io_ctx) {
   return std::make_unique<work_guard>(io_ctx.get_executor());
 }
 
-inline const string is_ready(tcp_socket &sock, error_code ec = make_error(),
-                             bool cancel = true) noexcept {
+const string is_ready(tcp_socket &sock, error_code ec = make_error(), bool cancel = true) noexcept;
 
-  // errc::operation_canceled:
-  // errc::resource_unavailable_try_again:
-  // errc::no_such_file_or_directory:
-
-  string msg;
-
-  // only generate log string on error or socket closed
-  if (ec || !sock.is_open()) {
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "{}", sock.is_open() ? "OPEN  " : "CLOSED");
-    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
-  }
-
-  if (msg.size() && cancel) {
-    try {
-      sock.cancel();
-      sock.close();
-    } catch (...) {
-    }
-  }
-
-  return msg;
-}
-
-inline const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
-                                   Elapsed e = Elapsed()) noexcept {
-  e.freeze();
-
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  fmt::format_to(w, "{} {} ", type, sock.is_open() ? "OPEN  " : "CLOSED");
-
-  try {
-    if (sock.is_open()) {
-
-      const auto &l = sock.local_endpoint();
-
-      fmt::format_to(w, "{}:{} -> {}:{} {}",            //
-                     l.address().to_string(), l.port(), //
-                     r.address().to_string(), r.port(), //
-                     sock.native_handle());
-    }
-
-    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
-  } catch (const std::exception &e) {
-
-    fmt::format_to(w, "EXCEPTION {}", e.what());
-  }
-
-  if (e > 1us) fmt::format_to(w, " {}", e.humanize());
-
-  return msg;
-}
+const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                            Elapsed e = Elapsed()) noexcept;
 
 } // namespace io
 

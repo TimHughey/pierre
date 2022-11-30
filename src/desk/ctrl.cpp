@@ -102,7 +102,7 @@ void Ctrl::connect() noexcept {
             }
 
           } else {
-            INFO(module_id, "CONNECT", "no socket, {}", ec.message());
+            INFO(module_id, "CONNECT", "no socket, {}\n", ec.message());
           }
         });
   });

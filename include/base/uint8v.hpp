@@ -46,14 +46,8 @@ public:
 
 public:
   uint8v() = default;
-  uint8v(const uint8v &) = default; // inherit base class
-  uint8v(uint8v &&) = default;      // inherit base class
-
   uint8v(auto count) noexcept { reserve(count); }
   uint8v(auto count, uint8_t byte) noexcept : std::vector<uint8_t>(count, byte) {}
-
-  uint8v &operator=(const uint8v &) = default; // inherit base class
-  uint8v &operator=(uint8v &&) = default;      // inherit base class
 
   void assign_span(const std::span<uint8_t> &span) noexcept { assign(span.begin(), span.end()); }
 

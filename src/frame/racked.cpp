@@ -45,14 +45,16 @@
 namespace pierre {
 
 namespace shared {
-std::optional<Racked> racked;
+std::shared_ptr<Racked> racked;
 }
 
 uint64_t Racked::REEL_SERIAL_NUM{0x1000};
 
 void Racked::accept_frame(frame_t frame) noexcept {
   if (frame->decode()) {
-    add_frame(std::move(frame));
+    add_frame(frame);
+  } else {
+    INFO(module_id, "ACCEPT", "decode failed\n");
   }
 }
 
@@ -149,29 +151,10 @@ void Racked::flush_impl(FlushInfo request) {
   });
 }
 
-void Racked::handoff(uint8v &&packet) { // static
-  shared::racked->handoff_impl(std::forward<uint8v>(packet));
-}
-
-void Racked::handoff_impl(uint8v &&packet) noexcept {
-  frame_t frame = Frame::create(std::forward<uint8v>(packet));
-
-  if (frame->state.header_parsed()) {
-    if (flush_request.should_flush(frame)) {
-      frame->flushed();
-    } else if (frame->decipher(packet)) { // true ensures frame is deciphered
-      asio::post(handoff_strand, [=, this]() { accept_frame(frame); });
-    }
-  }
-
-  if (!frame->deciphered()) {
-    INFO(module_id, "HANDOFF", "DISCARDING frame={}\n", frame->inspect());
-  }
-}
-
 void Racked::init() { // static
-  if (shared::racked.has_value() == false) {
-    shared::racked.emplace().init_self();
+  if (shared::racked.use_count() < 1) {
+    shared::racked = std::shared_ptr<Racked>(new Racked());
+    shared::racked->init_self();
   }
 }
 
@@ -297,6 +280,8 @@ void Racked::rack_wip() noexcept {
     wip.reset();
   }
 }
+
+std::shared_ptr<Racked> &Racked::self() noexcept { return shared::racked; }
 
 void Racked::log_racked(const string &wip_info, log_racked_rc rc) const noexcept {
   string msg;

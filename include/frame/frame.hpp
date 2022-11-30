@@ -46,7 +46,7 @@ using frame_promise = std::promise<frame_t>;
 class Frame : public std::enable_shared_from_this<Frame> {
 
 private: // use create()
-  Frame(uint8v &&packet) noexcept
+  Frame(uint8v &packet) noexcept
       : state(frame::HEADER_PARSED),              // frame header parsed
         version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
         padding((packet[0] & 0b00100000) >> 5),   // has padding
@@ -66,12 +66,14 @@ protected: // subclass use only
   {}
 
 public:
-  static auto create(uint8v &&packet) noexcept {
-    return std::shared_ptr<Frame>(new Frame(std::forward<uint8v>(packet)));
+  static auto create(uint8v &packet) noexcept { //
+    return std::shared_ptr<Frame>(new Frame(packet));
   }
 
+  auto ptr() noexcept { return shared_from_this(); }
+
   // Public API
-  bool decipher(uint8v &packet) noexcept;
+  bool decipher(uint8v packet, const uint8v key) noexcept;
   bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
   bool decode() noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }

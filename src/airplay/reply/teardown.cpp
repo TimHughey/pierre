@@ -19,13 +19,11 @@
 #include "reply/teardown.hpp"
 #include "base/headers.hpp"
 #include "base/render.hpp"
-#include "base/shk.hpp"
 #include "base/types.hpp"
 #include "mdns/mdns.hpp"
 #include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtsp/ctx.hpp"
-#include "server/servers.hpp"
 
 namespace pierre {
 namespace airplay {
@@ -41,19 +39,18 @@ bool Teardown::populate() {
 }
 
 bool Teardown::phase1() {
-  SharedKey::clear();
+  di->rtsp_ctx->shared_key.clear();
   Render::set(false);
 
   return true;
 }
 
 bool Teardown::phase2() { // we've been asked to disconnect
-  // auto servers = Servers::ptr().get();
 
   Service::ptr()->receiverActive(false);
   mDNS::update();
 
-  Servers::teardown();
+  di->rtsp_ctx->teardown();
 
   di->rtsp_ctx->group_contains_group_leader = false;
   di->rtsp_ctx->active_remote = 0;
