@@ -55,7 +55,7 @@ void Airplay::init_self() noexcept {
 
   shared::master_clock->peers_reset(); // reset timing peers
 
-  // start listening for Rtsp messages
+  // start listening for Rtsp connections
   rtsp = Rtsp::init(io_ctx);
 
   INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Airplay),

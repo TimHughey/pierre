@@ -208,4 +208,52 @@ void Service::saveCalcVal(Key key, const string &val) {
   _kvm_calc.insert_or_assign(key, service::KeyValCalc{key_str, val_str});
 }
 
+using namespace service;
+using enum service::Key;
+
+static const char *__calc = "*";
+
+// static definitions for Service
+
+KeyValMap Service::_kvm{{apAccessControlLevel, KeyVal{"acl", "0"}},
+                        {apAirPlayPairingIdentity, KeyVal{"pi", __calc}},
+                        {apAirPlayVsn, KeyVal{"srcvers", "366.0"}},
+                        {apDeviceID, KeyVal{"deviceid", __calc}},
+                        {apFeatures, KeyVal{"features", __calc}},
+                        {apGroupDiscoverableLeader, KeyVal{"gcgl", "0"}},
+                        {apGroupUUID, KeyVal{"gid", __calc}},
+                        {apManufacturer, KeyVal{"manufacturer", "Hughey"}},
+                        {apModel, KeyVal{"model", "Lights By Pierre"}},
+                        {apProtocolVsn, KeyVal{"protovers", "1.1"}},
+                        {apRequiredSenderFeatures, KeyVal{"rsf", "0x0"}},
+                        {apSerialNumber, KeyVal{"serialNumber", __calc}},
+                        {apStatusFlags, KeyVal{"statusFlags", __calc}},
+                        {apSystemFlags, KeyVal{"flags", __calc}},
+                        {mdAirPlayVsn, KeyVal{"vs", "366.0"}},
+                        {mdAirTunesProtocolVsn, KeyVal{"vn", "1.1"}},
+                        {mdCompressionTypes, KeyVal{"cn", "0,4"}},
+                        {mdDigestAuthKey, KeyVal{"da", "true"}},
+                        {mdEncryptTypes, KeyVal{"et", "0,4"}},
+                        {mdFeatures, KeyVal{"ft", __calc}},
+                        {mdMetadataTypes, KeyVal{"md", "0,1,2"}},
+                        {mdModel, KeyVal{"am", "Lights By Pierre"}},
+                        {mdSystemFlags, KeyVal{"sf", __calc}},
+                        {mdTransportTypes, KeyVal{"tp", "UDP"}},
+                        {plFeatures, KeyVal{"features", __calc}},
+                        {FirmwareVsn, KeyVal{"fv", __calc}},
+                        {PublicKey, KeyVal{"pk", __calc}},
+                        {ServiceName, KeyVal{"name", __calc}},
+                        {AirPlayRegNameType, KeyVal{"_airplay._tcp", __calc}},
+                        {RaopRegNameType, KeyVal{"_raop._tcp", __calc}}};
+
+KeySequences Service::_key_sequences{
+    KeySeq{PublicKey, apFeatures, apGroupDiscoverableLeader, apGroupUUID, apAirPlayPairingIdentity,
+           apProtocolVsn, apSerialNumber, apManufacturer, apModel, apSystemFlags,
+           apRequiredSenderFeatures, apDeviceID, apAccessControlLevel},
+
+    KeySeq{PublicKey, mdAirPlayVsn, mdAirTunesProtocolVsn, mdTransportTypes, mdSystemFlags, mdModel,
+           mdMetadataTypes, mdEncryptTypes, mdDigestAuthKey, mdCompressionTypes}};
+
+KeyValMapCalc Service::_kvm_calc;
+
 } // namespace pierre

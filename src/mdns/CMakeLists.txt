@@ -18,7 +18,7 @@ add_library(${__target} SHARED
   provider.cpp
 
   # service for airplay
-  service.cpp service/static_data.cpp
+  service.cpp
 
   # consolidated view of an available service
   zservice.cpp
