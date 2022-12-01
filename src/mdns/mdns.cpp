@@ -98,12 +98,14 @@ void mDNS::browser_remove(const string name) noexcept {
 
 void mDNS::init(io_context &io_ctx) noexcept { // static
   if (shared::mdns.has_value() == false) {
-    Service::init();
     shared::mdns.emplace(io_ctx).init_self();
   }
 }
 
 void mDNS::init_self() {
+
+  service = Service::create();
+
   mdns::_tpoll = avahi_threaded_poll_new();
   auto poll = avahi_threaded_poll_get(mdns::_tpoll);
 
@@ -119,8 +121,8 @@ void mDNS::init_self() {
   }
 
   if (error.empty()) {
-    string service = Config().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
-    mDNS::browse(service);
+    string stype = Config().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
+    mDNS::browse(stype);
   } else {
     INFO(module_id, "INIT", "error={}\n", error);
   }
@@ -142,24 +144,27 @@ void mDNS::resolver_found(const ZeroConf::Details zcd) noexcept {
 
 void mDNS::reset() { shared::mdns.reset(); }
 
+std::shared_ptr<Service> mDNS::service_ptr() noexcept { return shared::mdns->service->ptr(); }
+
 void mDNS::update() noexcept { shared::mdns->update_impl(); };
 
 void mDNS::update_impl() {
-  [[maybe_unused]] static constexpr csv fn_id = "UPDATE";
-  INFOX(mDNS::module_id, fn_id, "groups={}\n", mdns::_groups.size());
+  static constexpr csv cat{"UPDATE"};
+  // INFOX(mDNS::module_id, cat, "groups={}\n", mdns::_groups.size());
 
   avahi_threaded_poll_lock(mdns::_tpoll); // lock the thread poll
 
   AvahiStringList *sl = avahi_string_list_new("autoUpdate=true", nullptr);
 
-  const auto kvmap = Service::ptr()->keyValList(service::Type::AirPlayTCP);
-  for (const auto &[key, val] : *kvmap) {
+  const auto entries = service->key_val_for_type(txt_type::AirPlayTCP);
+
+  for (const auto &[key, val] : entries) {
     INFOX(mDNS::module_id, fn_id, "{:>18}={}\n", key, val);
 
-    sl = avahi_string_list_add_pair(sl, key, val);
+    sl = avahi_string_list_add_pair(sl, key.data(), val.data());
   }
 
-  const auto [reg_type, name] = Service::ptr()->nameAndReg(service::Type::AirPlayTCP);
+  const auto [reg_type, name] = service->name_and_reg(txt_type::AirPlayTCP);
   auto group = mdns::_groups.front(); // update the first (and only) group
 
   if (auto rc =                                    //
@@ -168,13 +173,13 @@ void mDNS::update_impl() {
           AVAHI_IF_UNSPEC,                         //
           AVAHI_PROTO_UNSPEC,                      //
           (AvahiPublishFlags)0,                    //
-          name,                                    //
-          reg_type,                                //
+          name.data(),                             //
+          reg_type.data(),                         //
           nullptr,                                 //
           sl                                       // string list to apply to the group
       );
       rc != 0) {
-    INFO(module_id, fn_id, "failed rc={}\n", rc);
+    INFO(module_id, cat, "failed rc={}\n", rc);
   }
 
   avahi_threaded_poll_unlock(mdns::_tpoll); // resume thread poll

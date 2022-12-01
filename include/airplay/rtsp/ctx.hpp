@@ -27,6 +27,8 @@
 
 namespace pierre {
 
+class Service;
+
 namespace rtsp {
 
 // forward decls for servers associated to this session
@@ -103,14 +105,14 @@ public:
   void update_from(const Headers &headers) noexcept;
 
 private:
-  Ctx(io_context &io_ctx) noexcept
-      : io_ctx(io_ctx),        //
-        feedback_timer(io_ctx) // detect absence of routine feedback messages
-  {}
+  Ctx(io_context &io_ctx) noexcept;
 
 private:
   io_context &io_ctx;
   steady_timer feedback_timer;
+
+public:
+  std::shared_ptr<Service> service; // mdns and service info
 
 public:
   // from RTSP headers

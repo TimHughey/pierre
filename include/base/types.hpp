@@ -32,17 +32,17 @@ using namespace std::literals;
 
 // string, string_view and const char *
 using string = std::string;
-typedef const string &csr;
+typedef const std::string &csr;
 
 using string_view = std::string_view;
-typedef const string_view csv;
+typedef const std::string_view csv;
 typedef const char *ccs;
 
 // threads
-typedef std::jthread Thread;
+using Thread = std::jthread;
 
 // Vector of Floats
-typedef std::vector<double> reals_t;
+using reals_t = std::vector<double>;
 
 using reel_serial_num_t = uint64_t;
 using seq_num_t = uint32_t;   // frame sequence num
@@ -50,6 +50,7 @@ using timestamp_t = uint32_t; // frame timestamp
 
 template <typename T, typename... U>
 concept IsAnyOf = (std::same_as<T, U> || ...);
+
 template <class> inline constexpr bool always_false_v = false;
 
 } // namespace pierre

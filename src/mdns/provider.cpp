@@ -78,7 +78,7 @@ void cb_client(AvahiClient *client, AvahiClientState state, [[maybe_unused]] voi
 
   case AVAHI_CLIENT_S_RUNNING:
     mdns.domain = avahi_client_get_domain_name(_client);
-    advertise(client);
+    advertise(client, shared::mdns->service);
     break;
 
   case AVAHI_CLIENT_FAILURE:
@@ -216,7 +216,7 @@ void cb_resolve(AvahiServiceResolver *r, AvahiIfIndex iface, AvahiProtocol proto
   if (r) avahi_service_resolver_free(r);
 }
 
-void advertise(AvahiClient *client) {
+void advertise(AvahiClient *client, std::shared_ptr<Service> service) {
   [[maybe_unused]] static constexpr csv fn_id("ADVERTISE");
 
   _client = client;
@@ -229,16 +229,8 @@ void advertise(AvahiClient *client) {
 
     auto group = avahi_entry_group_new(_client, mdns::cb_entry_group, nullptr);
 
-    for (const auto stype : std::array{service::Type::AirPlayTCP, service::Type::RaopTCP}) {
-      Entries entries;
-
-      auto kvmap = Service::ptr()->keyValList(stype);
-
-      for (const auto &[key, val] : *kvmap) { // ranges does not support assoc containers
-        entries.emplace_back(fmt::format("{}={}", key, val));
-      }
-
-      group_add_service(group, stype, entries);
+    for (const auto stype : std::array{txt_type::AirPlayTCP, txt_type::RaopTCP}) {
+      group_add_service(group, stype, service, service->make_txt_entries(stype));
     }
 
     if (auto rc = avahi_entry_group_commit(group); rc != AVAHI_OK) {
@@ -247,13 +239,15 @@ void advertise(AvahiClient *client) {
   }
 }
 
-bool group_add_service(AvahiEntryGroup *group, service::Type stype, const Entries &entries) {
+bool group_add_service(AvahiEntryGroup *group, txt_type stype, std::shared_ptr<Service> service,
+                       const Entries &entries) {
+
   [[maybe_unused]] static constexpr csv fn_id{"GROUP_ADD"};
   constexpr auto iface = AVAHI_IF_UNSPEC;
   constexpr auto proto = AVAHI_PROTO_UNSPEC;
   constexpr auto pub_flags = (AvahiPublishFlags)0;
 
-  const auto [reg_type, name] = Service::ptr()->nameAndReg(stype);
+  const auto [reg_type, name] = service->name_and_reg(stype);
 
   std::vector<ccs> ccs_ptrs;
   for (auto &entry : entries) {
@@ -261,8 +255,8 @@ bool group_add_service(AvahiEntryGroup *group, service::Type stype, const Entrie
   }
 
   auto sl = avahi_string_list_new_from_array(ccs_ptrs.data(), ccs_ptrs.size());
-  auto rc = avahi_entry_group_add_service_strlst(group, iface, proto, pub_flags, name, reg_type,
-                                                 NULL, NULL, mDNS::port(), sl);
+  auto rc = avahi_entry_group_add_service_strlst(group, iface, proto, pub_flags, name.data(),
+                                                 reg_type.data(), NULL, NULL, mDNS::port(), sl);
 
   if (rc == AVAHI_ERR_COLLISION) {
     INFO(mDNS::module_id, fn_id, "AirPlay2 name in use, name={}\n", name);

@@ -31,6 +31,7 @@
 #include <future>
 #include <list>
 #include <map>
+#include <memory>
 #include <optional>
 
 #pragma once
@@ -49,7 +50,7 @@ extern AvahiEntryGroupState _eg_state;
 extern Groups _groups;
 
 // local forward decls
-extern void advertise(AvahiClient *client);
+extern void advertise(AvahiClient *client, std::shared_ptr<Service> service);
 
 template <typename T> string error_string(T t) {
   if constexpr (std::is_same_v<T, AvahiClient>) {
@@ -63,7 +64,8 @@ template <typename T> string error_string(T t) {
   return string("unhandled Avahi type, can not create error string");
 }
 
-extern bool group_add_service(AvahiEntryGroup *group, service::Type stype, const Entries &entries);
+extern bool group_add_service(AvahiEntryGroup *group, txt_type txt_type,
+                              std::shared_ptr<Service> service, const Entries &entries);
 extern bool group_reset_if_needed();
 extern void group_save(AvahiEntryGroup *group);
 extern zc::TxtList make_txt_list(AvahiStringList *txt);

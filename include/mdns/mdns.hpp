@@ -20,6 +20,7 @@
 
 #include "base/io.hpp"
 #include "base/types.hpp"
+#include "mdns/service.hpp"
 #include "mdns/zservice.hpp"
 
 #include <atomic>
@@ -49,6 +50,9 @@ public:
   static void reset();
   void resolved_purge() noexcept;
   void resolver_found(const ZeroConf::Details zcd) noexcept;
+
+  static std::shared_ptr<Service> service_ptr() noexcept;
+
   static void update() noexcept;
   static ZeroConfFut zservice(csv name);
 
@@ -60,10 +64,9 @@ private:
 public:
   // order dependent
   io_context &io_ctx;
+  std::shared_ptr<Service> service;
 
   // order independent
-  string _dacp_id;
-
   string type;
   string domain;
   string host_name;

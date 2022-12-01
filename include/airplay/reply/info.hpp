@@ -25,8 +25,6 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-enum InfoStage { StageUnknown, Stage1, Stage2 };
-
 class Info : public Reply {
 public:
   Info() : Reply("INFO"), rdict(Aplist::DEFER_DICT) {}
@@ -34,11 +32,6 @@ public:
   bool populate() override;
 
 private:
-  bool stage1();
-  bool stage2();
-
-private:
-  InfoStage _stage = StageUnknown;
   Aplist rdict;
 };
 

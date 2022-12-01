@@ -121,12 +121,21 @@ constexpr size_t b60AudioMediaDataControl = 60;
 constexpr size_t b61RFC2198Redundant = 61;
 constexpr size_t b62_Unknown = 62;
 
-/*
-  constexpr size_t 51 - macOS sits for a while. Perhaps trying a closed connection port or
-  medium?; iOS just fails at Pair-Setup [2/5]
-*/
+// constexpr size_t 51 - macOS sits for a while. Perhaps trying a closed connection port or
+// medium?; iOS just fails at Pair-Setup [2/5]
 
-typedef std::bitset<64> Bits;
+// features is 64-bits and used for both mDNS (advertisement) and plist (RTSP replies)
+//  1. least significant 32-bits (with 0x prefix)
+//  2. comma seperator
+//  3. most significant 32-bits (with 0x prefix)
+//
+// examples:
+//  mDNS  -> 0x1C340405F4A00: features=0x405F4A00,0x1C340
+//  plist -> 0x1C340405F4A00: 496155702020608 (signed int)
+//
+// uint64_t _features_val = 0x1C340445F8A00; // based on Sonos Amp
+
+using Bits = std::bitset<64>;
 } // namespace ft
 
 class Features {

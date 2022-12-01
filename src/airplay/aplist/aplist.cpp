@@ -31,8 +31,6 @@
 #include <sstream>
 #include <string>
 
-namespace ranges = std::ranges;
-
 namespace pierre {
 
 Aplist::Aplist(bool allocate) {
@@ -64,10 +62,8 @@ Aplist::Aplist(const Aplist &src, const Steps &steps) {
 }
 
 Aplist::~Aplist() {
-  if (_plist) {
-    plist_free(_plist);
-    _plist = nullptr;
-  }
+  if (_plist) plist_free(_plist);
+  _plist = nullptr;
 }
 
 Aplist &Aplist::operator=(const Content &content) { return fromContent(content); }
@@ -99,10 +95,8 @@ bool Aplist::boolVal(const Steps &steps) const {
 }
 
 Aplist &Aplist::clear() {
-  if (_plist) {
-    plist_free(_plist);
-    _plist = nullptr;
-  }
+  if (_plist) plist_free(_plist);
+  _plist = nullptr;
 
   return *this;
 }
@@ -164,9 +158,7 @@ const uint8v Aplist::dataArray(const Steps &steps) const {
 
   auto node = fetchNode(steps, PLIST_DATA);
 
-  if (node == nullptr) {
-    return data;
-  }
+  if (node == nullptr) return data;
 
   uint64_t len = 0;
   auto ptr = (uint8_t *)plist_get_data_ptr(node, &len);
@@ -204,7 +196,7 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
 
   plist_t node = _plist; // start at the root
 
-  ranges::for_each(steps, [&](csv step) {
+  std::ranges::for_each(steps, [&](csv step) {
     if ((step[0] >= '0') && (step[0] <= '9')) { // is this an array index?
       uint32_t idx = std::atoi(step.data());
       node = plist_access_path(node, 1, idx);
@@ -281,9 +273,8 @@ bool Aplist::setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strin
   throw(std::runtime_error(msg));
 }
 
-void Aplist::setData(ccs key, const fmt::memory_buffer &buf) {
-  auto data = plist_new_data(buf.data(), buf.size());
-  plist_dict_set_item(_plist, key, data);
+void Aplist::setData(csv key, const string &d) noexcept {
+  plist_dict_set_item(_plist, key.data(), plist_new_data(d.data(), d.size()));
 }
 
 void Aplist::setReal(csv key, double val) {
@@ -294,10 +285,7 @@ void Aplist::setReal(csv key, double val) {
 bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
   auto sub_dict = _plist;
 
-  if (sub_dict_key) {
-    // get the EXISTING sub dictionary
-    sub_dict = getItem(sub_dict_key);
-  }
+  if (sub_dict_key) sub_dict = getItem(sub_dict_key); // get the EXISTING sub dictionary
 
   // just for giggles let's confirm the sub_dict is actually a dictionary
   if (sub_dict && (PLIST_DICT == plist_get_node_type(sub_dict))) {
@@ -314,9 +302,8 @@ bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
 }
 
 void Aplist::setString(csv key, csr str_val) {
-  auto cstr = str_val.c_str();
 
-  plist_dict_set_item(_plist, key.data(), plist_new_string(cstr));
+  plist_dict_set_item(_plist, key.data(), plist_new_string(str_val.c_str()));
 }
 
 // set a string at a sub_dict_key and ket
@@ -389,9 +376,7 @@ uint64_t Aplist::uint(const Steps &steps) const {
   uint64_t val = 0;
   auto node = fetchNode(steps, PLIST_UINT);
 
-  if (node) {
-    plist_get_uint_val(node, &val);
-  }
+  if (node) plist_get_uint_val(node, &val);
 
   return val;
 }
@@ -426,7 +411,7 @@ void Aplist::dump(plist_t sub_dict, csv prefix) const {
   auto const prefix_str = prefix.size() ? string(prefix.data(), prefix.size()) : "DUMP";
 
   if (dump_dict == nullptr) {
-    INFO(moduleId, prefix_str, "DICT DUMP dict={}\n", fmt::ptr(dump_dict));
+    INFO(module_id, prefix_str, "DICT DUMP dict={}\n", fmt::ptr(dump_dict));
     return;
   }
 
@@ -439,10 +424,10 @@ void Aplist::dump(plist_t sub_dict, csv prefix) const {
 
   if (bytes > 0) {
     const auto chunk = INFO_FORMAT_CHUNK(buf, bytes);
-    INFO(moduleId, prefix, "DICT DUMP dict={} bytes={}\n{}", buf, bytes, chunk);
+    INFO(module_id, prefix, "DICT DUMP dict={} bytes={}\n{}", buf, bytes, chunk);
 
   } else {
-    INFO(moduleId, prefix, "DICT DUMP FAILED dict={}\n", fmt::ptr(buf));
+    INFO(module_id, prefix, "DICT DUMP FAILED dict={}\n", fmt::ptr(buf));
     fmt::print("DUMP FAILED\n");
   }
 

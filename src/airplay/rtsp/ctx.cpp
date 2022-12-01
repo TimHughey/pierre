@@ -17,12 +17,18 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/ctx.hpp"
+#include "mdns/mdns.hpp"
 #include "rtsp/audio.hpp"
 #include "rtsp/control.hpp"
 #include "rtsp/event.hpp"
 
 namespace pierre {
 namespace rtsp {
+
+Ctx::Ctx(io_context &io_ctx) noexcept
+    : io_ctx(io_ctx),         //
+      feedback_timer(io_ctx), // detect absence of routine feedback messages
+      service(mDNS::service_ptr()) {}
 
 void Ctx::feedback_msg() noexcept {}
 

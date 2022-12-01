@@ -27,128 +27,66 @@
 #include <fmt/format.h>
 #include <iterator>
 #include <memory>
-
-using namespace pierre::service;
+#include <tuple>
 
 namespace pierre {
 namespace airplay {
 namespace reply {
 
 bool Info::populate() {
-  // if dictionary is empty this is a stage 2 packet
-  if (rdict.empty()) {
-    _stage = Stage2;
-    return stage2();
-  }
+  auto rc = true;
+  auto service = di->rtsp_ctx->service;
 
-  // not stage 2, is this a stage 1 requset?
+  // an error with INFO is rare so let's build the common portions
+  // of the reply then augment based on the stage we're handling
 
-  // confirm dict contains: qualifier -> array[0] == txtAirPlay
-  if (rdict.compareStringViaPath(dv::TXT_AIRPLAY.data(), 2, dk::QUALIFIER.data(), 0)) {
-    _stage = Stage1;
-    return stage1();
-  }
+  // common list of keys to add to reply (only stage 2 adds a key)
+  txt_opt_seq_t want_keys{txt_opt::apDeviceID, txt_opt::apAirPlayPairingIdentity,
+                          txt_opt::ServiceName, txt_opt::apModel};
 
-  // if we've reached this point this is an app error
-  responseCode(RespCode::BadRequest);
-  return false;
-}
-
-bool Info::stage1() {
-  using enum service::Type;
-  using enum service::Key;
-
-  auto serv = Service::ptr();
-
-  // create the reply dict from an embedded plist
+  // the plist from embedded binary data
   Aplist reply_dict(ple::binary(ple::Embedded::GetInfoRespStage1));
+  reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apFeatures));
 
-  // create the qualifier data value
-  auto qual_data = fmt::memory_buffer();
-  auto here = back_inserter(qual_data);
-  auto digest = serv->keyValList(Type::AirPlayTCP);
+  if (rdict.empty()) { // if dictionary is empty this is a stage 2 message
 
-  // an entry in the plist is an concatenated list of txt values
-  // published via mDNS
-  for (const auto &entry : *digest) {
-    const auto [key_str, val_str] = entry;
-    fmt::format_to(here, "{}={}", key_str, val_str);
+    // INFO stage 2 appears to want apStatusFlags
+    reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apStatusFlags));
+
+    // INFO stage 2 also includes the public key
+    want_keys.emplace_back(txt_opt::PublicKey);
+
+  } else if (rdict.compareStringViaPath(dv::TXT_AIRPLAY.data(), 2, dk::QUALIFIER.data(), 0)) {
+    // INFO stage 1 request because it contains: qualifiers -> array[0] == txtAirPlay
+
+    // in thre reply we concatenate all the AirPlayTCP mdns data into a data chunk
+    reply_dict.setData("qualifier", service->make_txt_string(txt_type::AirPlayTCP));
+
+    // INFO stage 2 appears to want apSystemFlags (slight nuance vs stage 1)
+    reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apSystemFlags));
+
+  } else {
+    rc = false;
   }
 
-  constexpr auto qual_key = "qualifier";
-  reply_dict.setData(qual_key, qual_data);
+  if (rc) {
 
-  // add specific dictionary entries
-  // features
-  const auto features_key = serv->fetchKey(apFeatures);
-  const auto features_val = serv->features();
-  reply_dict.setUint(nullptr, features_key, features_val);
+    // populate plist keys
+    for (const auto &key : want_keys) {
+      reply_dict.setStringVal(nullptr, service->key_val(key));
+    }
 
-  // system flags
-  const auto system_flags_key = serv->fetchKey(apSystemFlags);
-  const auto system_flags_val = serv->statusFlags();
-  reply_dict.setUint(nullptr, system_flags_key, system_flags_val);
+    size_t bytes = 0;
+    auto binary = reply_dict.toBinary(bytes);
 
-  // string vals
-  auto want_keys =
-      std::array{Key::apDeviceID, Key::apAirPlayPairingIdentity, Key::ServiceName, Key::apModel};
+    copyToContent(binary, bytes);
 
-  for (const auto key : want_keys) {
-    const auto [key_str, val_str] = serv->fetch(key);
-    reply_dict.setStringVal(nullptr, key_str, val_str);
+    headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
   }
 
-  size_t bytes = 0;
-  auto binary = reply_dict.toBinary(bytes);
+  responseCode(rc ? RespCode::OK : RespCode::BadRequest);
 
-  copyToContent(binary, bytes);
-
-  responseCode(OK);
-  headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
-
-  return true;
-}
-
-bool Info::stage2() {
-  using KeySeq = service::KeySeq;
-  using enum service::Key;
-
-  auto serv = Service::ptr();
-
-  // the response dict is based on the request
-  Aplist reply_dict(ple::binary(ple::Embedded::GetInfoRespStage1));
-
-  // handle the uints first
-  const auto features_key = serv->fetchKey(apFeatures);
-  const auto features_val = serv->features();
-  reply_dict.setUint(nullptr, features_key, features_val);
-
-  const auto status_flags_key = serv->fetchKey(apStatusFlags);
-  const auto status_flags_val = serv->statusFlags();
-  reply_dict.setUint(nullptr, status_flags_key, status_flags_val);
-
-  // get the key/vals of interest
-  const auto want_kv =
-      KeySeq{apDeviceID, apAirPlayPairingIdentity, ServiceName, apModel, PublicKey};
-
-  auto kv_list = serv->keyValList(want_kv); // returns shared_ptr
-
-  // must deference kv_list (shared_ptr) to get to the actual kv_list
-  for (const auto &entry : *kv_list) {
-    const auto &[key_str, val_str] = entry;
-
-    reply_dict.setStringVal(nullptr, key_str, val_str);
-  }
-
-  size_t bytes = 0;
-  auto binary = reply_dict.toBinary(bytes);
-
-  copyToContent(binary, bytes);
-
-  responseCode(OK);
-  headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
-
-  return true;
+  return rc;
 }
 
 } // namespace reply

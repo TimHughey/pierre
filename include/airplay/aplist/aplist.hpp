@@ -96,13 +96,24 @@ public:
   void setArray(csv key, const Aplist &dict);
   bool setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
 
-  void setData(ccs key, const fmt::memory_buffer &buf);
+  void setData(csv key, const string &d) noexcept;
 
   void setReal(csv key, double val);
   void setString(csv key, csr str_val);
+
+  // NEW!
+  bool setStringVal(ccs sub_dict_key, std::pair<string, string> key_val) noexcept {
+    return setStringVal(sub_dict_key, key_val.first.data(), key_val.second);
+  }
+
   bool setStringVal(ccs sub_dict_key, ccs key, csr str_val);
   bool setUint(csv key, uint64_t val) { return setUint(nullptr, key.data(), val); }
   bool setUint(ccs sub_dict, ccs key, uint64_t val);
+
+  bool setUint(std::pair<csv, uint64_t> key_val) {
+    return setUint(nullptr, key_val.first.data(), key_val.second);
+  }
+
   void setUints(const UintList &uints);
 
   const ArrayStrings stringArray(const Steps &steps) const;
@@ -126,7 +137,7 @@ private:
 private:
   plist_t _plist = nullptr;
 
-  static constexpr csv moduleId = "APLIST";
+  static constexpr csv module_id{"APLIST"};
 };
 
 } // namespace pierre

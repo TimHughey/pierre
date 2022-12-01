@@ -20,95 +20,201 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "base/status_flags.hpp"
 #include "base/types.hpp"
-#include "service/types.hpp"
 
+#include <charconv>
 #include <cstdint>
+#include <exception>
+#include <fmt/format.h>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <optional>
 #include <tuple>
-#include <unordered_map>
+#include <type_traits>
 
 namespace pierre {
 
-class Service;
-typedef std::shared_ptr<Service> shService;
+// service type (key into service_txt_map)
+enum txt_type : int8_t { AirPlayTCP = 0, RaopTCP };
 
-namespace shared {
-std::optional<shService> &service();
-} // namespace shared
+// available service txt options (key into lookup map)
+enum txt_opt : int8_t {
+  AirPlayRegNameType,
+  apAccessControlLevel,
+  apAirPlayPairingIdentity,
+  apAirPlayVsn,
+  apDeviceID,
+  apFeatures,
+  apGroupDiscoverableLeader,
+  apGroupUUID,
+  apManufacturer,
+  apModel,
+  apProtocolVsn,
+  apRequiredSenderFeatures,
+  apSerialNumber,
+  apStatusFlags,
+  apSystemFlags,
+  FirmwareVsn,
+  mdAirPlayVsn,
+  mdAirTunesProtocolVsn,
+  mdCompressionTypes,
+  mdDigestAuthKey,
+  mdEncryptTypes,
+  mdFeatures,
+  mdMetadataTypes,
+  mdModel,
+  mdSystemFlags,
+  mdTransportTypes,
+  plFeatures,
+  PublicKey,
+  RaopRegNameType,
+  ServiceName,
+};
+
+// data structures representing the TXT option key/val:
+using txt_key_t = string;                         // txt key
+using txt_val_t = string;                         // txt val
+using txt_kv_t = std::pair<txt_key_t, txt_val_t>; // combined option kv
+using lookup_map_t = std::map<txt_opt, txt_kv_t>; // map of enum TXT names to kv
+using txt_opt_seq_t = std::vector<txt_opt>;       // TXT string order of kv
+
+struct service_def {
+  txt_type type;
+  txt_opt_seq_t order;
+};
+
+using service_txt_map = std::map<txt_type, service_def>;
 
 class Service : public std::enable_shared_from_this<Service> {
-public:
-  enum Flags : uint8_t { DeviceSupportsRelay = 11 };
+
+private:
+  Service() noexcept;
 
 public:
-  using KeyVal = service::KeyVal;
-  using sKeyValList = service::sKeyValList;
-  using Type = service::Type;
-  using Key = service::Key;
-  using KeySeq = service::KeySeq;
-  using enum service::Key;
+  static auto create() noexcept {
+    auto s = std::shared_ptr<Service>(new Service());
 
-public:
-  static shService init() { return shared::service().emplace(new Service()); }
-  static shService ptr() { return shared::service().value()->shared_from_this(); }
-  static void reset() { shared::service().reset(); }
+    s->init();
 
-public:
-  Service();
+    return s;
+  }
+
+  auto ptr() noexcept { return shared_from_this(); }
 
   // general API
-  // void adjustSystemFlags(Flags flag);
-  void receiverActive(bool on_off = true);
-  auto features() const { return _features_val; }
-  const KeyVal fetch(const Key key) const;
-  ccs fetchKey(const Key key) const;
-  ccs fetchVal(const Key key) const;
-  sKeyValList keyValList(Type service_type) const;
-  sKeyValList keyValList(const KeySeq &keys_want) const;
-  const KeyVal nameAndReg(Type type) const;
 
-  // primary port for AirPlay2 connections
-  uint16_t basePort() { return _base_port; }
+  template <typename T = string> const std::pair<string, T> key_val(txt_opt opt) const {
+    const auto &[key, val] = lookup_map.at(opt);
 
-  // easy access to commonly needed values
-  ccs deviceID() const { return fetchVal(apDeviceID); }
-  ccs name() const { return fetchVal(ServiceName); }
+    if constexpr (std::is_same_v<T, string>) {
+      return std::make_pair(key, val);
+    } else if constexpr (std::is_integral_v<std::remove_cvref_t<T>>) {
+      T num{0};
+      auto result{std::from_chars(val.data(), val.data() + val.size(), num)};
 
-  // system flags (these change based on AirPlay)
-  uint32_t statusFlags() const { return _status_flags.val(); }
+      if (result.ec == std::errc()) {
+        return std::make_pair(key, num);
+      } else {
+        throw(std::runtime_error("not an integral type"));
+      }
+    } else {
+      static_assert(always_false_v<T>, "unhandled type");
+    }
+  }
+
+  // lookup up a key / value pair of a txt_opt
+  const auto &lookup(const txt_opt opt) const noexcept { return lookup_map.at(opt); }
+
+  const string make_txt_string(const txt_type type,
+                               string_view sep = string_view()) const noexcept {
+    const auto &service_def = service_map.at(type);
+
+    return make_txt_string(service_def.order, sep);
+  }
+
+  // create the txt string key/val pair string from using the sequence of txt_opts
+  const string make_txt_string(const txt_opt_seq_t &order,
+                               string_view sep = string_view()) const noexcept {
+    std::vector<string> parts; // contains strings of "key=val"
+
+    for (const auto &opt : order) {
+      const auto &entry = lookup_map.at(opt);
+      parts.emplace_back(fmt::format("{}={}", entry.first, entry.second));
+    }
+
+    string txt_val_string;
+    auto w = std::back_inserter(txt_val_string);
+
+    for (const auto &p : parts) {
+      if (!txt_val_string.empty()) { // add the separator, if needed
+        fmt::format_to(w, "{}", sep);
+      } else {
+        fmt::format_to(w, "{}", p); // add the key/val
+      }
+    }
+
+    return txt_val_string;
+  }
+
+  std::vector<string> make_txt_entries(const txt_type type) const noexcept {
+    std::vector<string> entries;
+
+    const auto &service_def = service_map.at(type);
+
+    for (const auto &opt : service_def.order) {
+      const auto &entry = lookup_map.at(opt);
+      entries.emplace_back(fmt::format("{}={}", entry.first, entry.second));
+    }
+
+    return entries;
+  }
+
+  std::vector<txt_kv_t> key_val_for_type(const txt_type type) const noexcept {
+    std::vector<txt_kv_t> entries;
+
+    const auto &service_def = service_map.at(type);
+
+    for (const auto &opt : service_def.order) {
+      const auto &entry = lookup_map.at(opt);
+      entries.emplace_back(entry);
+    }
+
+    return entries;
+  }
+
+  txt_kv_t name_and_reg(txt_type type) const noexcept {
+    const auto opt = (type == txt_type::AirPlayTCP) //
+                         ? txt_opt::AirPlayRegNameType
+                         : txt_opt::RaopRegNameType;
+
+    return key_val(opt);
+  }
+
+  // set the status flag to indicate if the receiver is active or inactive
+  void receiver_active([[maybe_unused]] bool on_off = true) noexcept {};
+
+  template <typename T> void update_key_val(txt_opt opt, T new_val) noexcept {
+    using U = std::remove_cvref_t<T>;
+
+    auto &[key, val] = lookup_map[opt];
+
+    if constexpr (std::is_same_v<U, string>) {
+      val = new_val;
+    } else if constexpr (std::is_integral_v<U>) {
+      val = fmt::format("{}", new_val);
+    } else {
+      val = string(new_val);
+    }
+  }
 
 private:
-  void addFeatures();
-  void addRegAndName();
-  void addSystemFlags();
-
-  void saveCalcVal(Key key, csr val);
-  void saveCalcVal(Key key, auto val) { saveCalcVal(key, string(val)); }
+  // calculate the runtime values (called once at start up)
+  void init() noexcept;
 
 private:
-  static constexpr uint16_t _base_port = 7000;
-
   StatusFlags _status_flags; // see status_flags.hpp
 
-  // features code is 64-bits and is used for both mDNS and plist
-  // for mDNS advertisement
-  //  1. least significant 32-bits (with 0x prefix)
-  //  2. comma seperator
-  //  3. most significant 32-bits (with 0x prefix)
-  //
-  // examples:
-  //  mDNS  -> 0x1C340405F4A00: features=0x405F4A00,0x1C340
-  //  plist -> 0x1C340405F4A00: 496155702020608 (signed int)
-  //  and in a signed decimal number in the plist:
-
-  // uint64_t _features_val = 0x1C340445F8A00; // based on Sonos Amp
-  uint64_t _features_val = 0x00;
-  std::string _features_mdns;
-  std::string _features_plist;
-
-  static service::KeyValMap _kvm;
-  static service::KeyValMapCalc _kvm_calc;
-  static service::KeySequences _key_sequences;
+  static lookup_map_t lookup_map;
+  static service_txt_map service_map;
 };
 } // namespace pierre

@@ -26,234 +26,126 @@
 
 namespace pierre {
 
-namespace shared {
-std::optional<shService> __service;
-std::optional<shService> &service() { return shared::__service; }
-} // namespace shared
+Service::Service() noexcept {}
 
-using namespace service;
-using enum service::Key;
-
-Service::Service() {
+void Service::init() noexcept {
   const auto host = Host();
   const auto cfg = Config();
 
-  // stora calculated key/vals available from Host
-  saveCalcVal(apAirPlayPairingIdentity, host.hw_address());
-  saveCalcVal(apDeviceID, host.device_id());
+  update_key_val(txt_opt::apAirPlayPairingIdentity, host.hw_address());
+  update_key_val(txt_opt::apDeviceID, host.device_id());
 
-  saveCalcVal(apGroupUUID, host.uuid());
-  saveCalcVal(apSerialNumber, host.serial_num());
+  update_key_val(txt_opt::apGroupUUID, host.uuid());
+  update_key_val(txt_opt::apSerialNumber, host.serial_num());
 
-  saveCalcVal(ServiceName, cfg.receiver());
-  saveCalcVal(FirmwareVsn, cfg.build_vsn());
+  update_key_val(txt_opt::ServiceName, cfg.receiver());
+  update_key_val(txt_opt::FirmwareVsn, cfg.build_vsn());
 
-  saveCalcVal(PublicKey, host.pk());
-
-  addRegAndName();
-  addSystemFlags();
-  addFeatures();
-}
-
-void Service::addFeatures() {
+  update_key_val(txt_opt::PublicKey, host.pk());
 
   Features features;
-  _features_val = features.ap2SetPeersX();
+  const auto features_val = features.ap2SetPeersX();
 
   constexpr auto mask32 = 0xffffffff;
-  const uint64_t hi = (_features_val >> 32) & mask32;
-  const uint64_t lo = _features_val & mask32;
+  const uint64_t hi = (features_val >> 32) & mask32;
+  const uint64_t lo = features_val & mask32;
 
-  for (auto key : std::array{apFeatures, mdFeatures, plFeatures}) {
+  for (auto key : std::array{txt_opt::apFeatures, txt_opt::mdFeatures, txt_opt::plFeatures}) {
     switch (key) {
     case apFeatures:
     case mdFeatures: {
       auto str = fmt::format("{:#02X},{:#02X}", lo, hi);
-      saveCalcVal(key, str);
+      update_key_val(key, str);
     } break;
 
     case plFeatures: {
-      auto str = fmt::format("{}", (int64_t)_features_val);
-      saveCalcVal(key, str);
+      const auto str = fmt::format("{}", features_val);
+      update_key_val(key, str);
     } break;
 
     default:
       break;
     }
   }
-}
 
-void Service::addRegAndName() {
-  // these must go into the calc map
+  for (auto opt : std::array{txt_opt::AirPlayRegNameType, txt_opt::RaopRegNameType}) {
+    if (opt == txt_opt::AirPlayRegNameType) {
+      const auto &[key, val] = key_val(txt_opt::ServiceName);
 
-  for (auto key : std::array{AirPlayRegNameType, RaopRegNameType}) {
-    if (key == AirPlayRegNameType) {
       // _airplay._tcp service name is just the service
-      saveCalcVal(key, fetchVal(ServiceName));
+      update_key_val(opt, val);
     }
 
-    if (key == RaopRegNameType) {
+    if (opt == RaopRegNameType) {
       // _airplay._tcp service name is device_id@service
-      auto device_id = fetchVal(apDeviceID);
-      auto service_name = fetchVal(ServiceName);
-      auto raop_service_name = fmt::format("{}@{}", device_id, service_name);
+      const auto &device_id = key_val(txt_opt::apDeviceID);
+      const auto &service_name = key_val(txt_opt::ServiceName);
+      const auto raop_service_name = fmt::format("{}@{}", device_id.second, service_name.second);
 
-      saveCalcVal(key, raop_service_name);
+      update_key_val(opt, raop_service_name);
     }
   }
-}
 
-void Service::addSystemFlags() {
-  for (auto key : std::array{apSystemFlags, apStatusFlags, mdSystemFlags}) {
-    auto str = fmt::format("{:#x}", _status_flags.val());
+  for (auto opt :
+       std::array{txt_opt::apSystemFlags, txt_opt::apStatusFlags, txt_opt::mdSystemFlags}) {
+    const auto str = fmt::format("{:#x}", _status_flags.val());
 
-    saveCalcVal(key, str);
+    update_key_val(opt, str);
   }
 }
 
-void Service::receiverActive(bool on_off) {
-  if (on_off == true) {
-    _status_flags.rendering();
+lookup_map_t Service::lookup_map{
+    // comment to make IDE sorting easy
+    {AirPlayRegNameType, std::make_pair("_airplay._tcp", string())},
+    {apAccessControlLevel, std::make_pair("acl", "0")},
+    {apAirPlayPairingIdentity, std::make_pair("pi", string())},
+    {apAirPlayVsn, std::make_pair("srcvers", "366.0")},
+    {apDeviceID, std::make_pair("deviceid", string())},
+    {apFeatures, std::make_pair("features", string())},
+    {apGroupDiscoverableLeader, std::make_pair("gcgl", "0")},
+    {apGroupUUID, std::make_pair("gid", string())},
+    {apManufacturer, std::make_pair("manufacturer", "Hughey")},
+    {apModel, std::make_pair("model", "Lights By Pierre")},
+    {apProtocolVsn, std::make_pair("protovers", "1.1")},
+    {apRequiredSenderFeatures, std::make_pair("rsf", "0x0")},
+    {apSerialNumber, std::make_pair("serialNumber", string())},
+    {apStatusFlags, std::make_pair("statusFlags", string())},
+    {apSystemFlags, std::make_pair("flags", string())},
+    {FirmwareVsn, std::make_pair("fv", string())},
+    {mdAirPlayVsn, std::make_pair("vs", "366.0")},
+    {mdAirTunesProtocolVsn, std::make_pair("vn", "1.1")},
+    {mdCompressionTypes, std::make_pair("cn", "0,4")},
+    {mdDigestAuthKey, std::make_pair("da", "true")},
+    {mdDigestAuthKey, std::make_pair("da", "true")},
+    {mdEncryptTypes, std::make_pair("et", "0,4")},
+    {mdEncryptTypes, std::make_pair("et", "0,4")},
+    {mdFeatures, std::make_pair("ft", string())},
+    {mdFeatures, std::make_pair("ft", string())},
+    {mdMetadataTypes, std::make_pair("md", "0,1,2")},
+    {mdModel, std::make_pair("am", "Lights By Pierre")},
+    {mdSystemFlags, std::make_pair("sf", string())},
+    {mdTransportTypes, std::make_pair("tp", "UDP")},
+    {plFeatures, std::make_pair("features", string())},
+    {PublicKey, std::make_pair("pk", string())},
+    {RaopRegNameType, std::make_pair("_raop._tcp", string())},
+    {ServiceName, std::make_pair("name", string())},
+    // extra comma to make IDE sorting easy
+};
 
-  } else {
-    _status_flags.ready();
-  }
+service_txt_map Service::service_map{
+    {AirPlayTCP,
+     service_def{.type = AirPlayTCP,
+                 .order = {PublicKey, apFeatures, apGroupDiscoverableLeader, apGroupUUID,
+                           apAirPlayPairingIdentity, apProtocolVsn, apSerialNumber, apManufacturer,
+                           apModel, apSystemFlags, apRequiredSenderFeatures, apDeviceID,
+                           apAccessControlLevel}}},
 
-  addSystemFlags(); // update the calculated key/val map
-}
+    {RaopTCP, //
+     service_def{.type = RaopTCP,
+                 .order = {PublicKey, mdAirPlayVsn, mdAirTunesProtocolVsn, mdTransportTypes,
+                           mdSystemFlags, mdModel, mdMetadataTypes, mdEncryptTypes, mdDigestAuthKey,
+                           mdCompressionTypes}}
 
-const service::KeyVal Service::fetch(const Key key) const {
-  const auto &kv = _kvm.at(key);
-
-  const auto &[__unused_key_str, val_str] = kv;
-
-  // this is a constant (not calculated)
-  if (val_str[0] != '*') {
-    return kv;
-  }
-
-  // this is a calculated (saved val); get the saved value
-  const auto &saved_kv = _kvm_calc.at(key);
-
-  // destructure
-  const auto &[saved_key_str, saved_val_str] = saved_kv;
-
-  // build a standard key/val
-  return KeyVal{saved_key_str, saved_val_str.get()};
-}
-
-const char *Service::fetchKey(const Key key) const {
-  const auto &[key_str, __unused_val_str] = fetch(key);
-
-  return key_str;
-}
-
-const char *Service::fetchVal(const Key key) const {
-  const auto &[__unused_key_str, val_str] = fetch(key);
-
-  return val_str;
-}
-
-service::sKeyValList Service::keyValList(Type service_type) const {
-  // get the list of keys
-  const auto &seq_list = _key_sequences.at(service_type);
-
-  sKeyValList kv_list = std::make_shared<KeyValList>();
-
-  // spin through the sequence list populating the key/list
-  for (const auto key : seq_list) {
-    auto kv = fetch(key);
-
-    kv_list->emplace_back(kv);
-  }
-
-  return kv_list;
-}
-
-// return a key/val list for an adhoc list of keys
-service::sKeyValList Service::keyValList(const KeySeq &want_keys) const {
-  sKeyValList kv_list = std::make_shared<KeyValList>();
-
-  for (const auto key : want_keys) {
-    const auto &kv = fetch(key);
-    kv_list->emplace_back(kv);
-  }
-
-  return kv_list;
-}
-
-const KeyVal Service::nameAndReg(Type type) const {
-  switch (type) {
-  case service::AirPlayTCP:
-    return fetch(AirPlayRegNameType);
-
-  case service::RaopTCP:
-    return fetch(RaopRegNameType);
-  }
-
-  throw(std::runtime_error("bad service type"));
-}
-
-void Service::saveCalcVal(Key key, const string &val) {
-  // get the key/val from the static map -- we need the key
-  auto &[key_str, __unused] = _kvm.at(key);
-
-  // create the new val str
-  auto len = val.size() + 1; // plus null terminator
-  service::ValStrCalc val_str(new char[len]{0});
-
-  memcpy(val_str.get(), val.c_str(), len);
-
-  // put the key/val tuple into the calc map
-  _kvm_calc.insert_or_assign(key, service::KeyValCalc{key_str, val_str});
-}
-
-using namespace service;
-using enum service::Key;
-
-static const char *__calc = "*";
-
-// static definitions for Service
-
-KeyValMap Service::_kvm{{apAccessControlLevel, KeyVal{"acl", "0"}},
-                        {apAirPlayPairingIdentity, KeyVal{"pi", __calc}},
-                        {apAirPlayVsn, KeyVal{"srcvers", "366.0"}},
-                        {apDeviceID, KeyVal{"deviceid", __calc}},
-                        {apFeatures, KeyVal{"features", __calc}},
-                        {apGroupDiscoverableLeader, KeyVal{"gcgl", "0"}},
-                        {apGroupUUID, KeyVal{"gid", __calc}},
-                        {apManufacturer, KeyVal{"manufacturer", "Hughey"}},
-                        {apModel, KeyVal{"model", "Lights By Pierre"}},
-                        {apProtocolVsn, KeyVal{"protovers", "1.1"}},
-                        {apRequiredSenderFeatures, KeyVal{"rsf", "0x0"}},
-                        {apSerialNumber, KeyVal{"serialNumber", __calc}},
-                        {apStatusFlags, KeyVal{"statusFlags", __calc}},
-                        {apSystemFlags, KeyVal{"flags", __calc}},
-                        {mdAirPlayVsn, KeyVal{"vs", "366.0"}},
-                        {mdAirTunesProtocolVsn, KeyVal{"vn", "1.1"}},
-                        {mdCompressionTypes, KeyVal{"cn", "0,4"}},
-                        {mdDigestAuthKey, KeyVal{"da", "true"}},
-                        {mdEncryptTypes, KeyVal{"et", "0,4"}},
-                        {mdFeatures, KeyVal{"ft", __calc}},
-                        {mdMetadataTypes, KeyVal{"md", "0,1,2"}},
-                        {mdModel, KeyVal{"am", "Lights By Pierre"}},
-                        {mdSystemFlags, KeyVal{"sf", __calc}},
-                        {mdTransportTypes, KeyVal{"tp", "UDP"}},
-                        {plFeatures, KeyVal{"features", __calc}},
-                        {FirmwareVsn, KeyVal{"fv", __calc}},
-                        {PublicKey, KeyVal{"pk", __calc}},
-                        {ServiceName, KeyVal{"name", __calc}},
-                        {AirPlayRegNameType, KeyVal{"_airplay._tcp", __calc}},
-                        {RaopRegNameType, KeyVal{"_raop._tcp", __calc}}};
-
-KeySequences Service::_key_sequences{
-    KeySeq{PublicKey, apFeatures, apGroupDiscoverableLeader, apGroupUUID, apAirPlayPairingIdentity,
-           apProtocolVsn, apSerialNumber, apManufacturer, apModel, apSystemFlags,
-           apRequiredSenderFeatures, apDeviceID, apAccessControlLevel},
-
-    KeySeq{PublicKey, mdAirPlayVsn, mdAirTunesProtocolVsn, mdTransportTypes, mdSystemFlags, mdModel,
-           mdMetadataTypes, mdEncryptTypes, mdDigestAuthKey, mdCompressionTypes}};
-
-KeyValMapCalc Service::_kvm_calc;
+    }};
 
 } // namespace pierre

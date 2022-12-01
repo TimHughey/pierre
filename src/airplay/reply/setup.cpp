@@ -87,7 +87,7 @@ bool Setup::handleNoStreams() {
                          {dk::TIMING_PORT, 0}}); // unused by AP2
 
     // adjust Service system flags and request mDNS update
-    Service::ptr()->receiverActive();
+    rtsp_ctx->service->receiver_active();
     mDNS::update();
 
   } else if (rtsp_ctx->stream_info.is_ntp_stream()) {

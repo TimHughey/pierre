@@ -21,7 +21,6 @@
 #include "base/render.hpp"
 #include "base/types.hpp"
 #include "mdns/mdns.hpp"
-#include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtsp/ctx.hpp"
 
@@ -47,7 +46,7 @@ bool Teardown::phase1() {
 
 bool Teardown::phase2() { // we've been asked to disconnect
 
-  Service::ptr()->receiverActive(false);
+  di->rtsp_ctx->service->receiver_active(false);
   mDNS::update();
 
   di->rtsp_ctx->teardown();
