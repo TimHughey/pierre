@@ -136,8 +136,10 @@ bool Setup::handleStreams() {
 
     // now handle the specific stream type
     if (stream_info.is_buffered()) {
+      static constexpr csv cfg_buff_size{"rtsp.audio.buffer_size"}; // 8mb default
       rc = true;
-      const uint64_t buff_size = Config().at("rtsp.audio.buffer_size"sv).value_or(8) * 1024 * 1024;
+
+      const uint64_t buff_size = Config().at(cfg_buff_size).value_or(0x800000);
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{dk::TYPE, stream_type}, // stream type

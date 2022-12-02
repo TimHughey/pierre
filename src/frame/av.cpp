@@ -20,6 +20,7 @@
 #include "base/io.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
+#include "base/uint8v.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
@@ -31,6 +32,7 @@
 #include <iterator>
 #include <latch>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <sodium.h>
 #include <utility>
@@ -47,7 +49,6 @@ AVCodecContext *codec_ctx{nullptr};
 int codec_open_rc{-1};
 AVCodecParserContext *parser_ctx{nullptr};
 
-constexpr std::ptrdiff_t ADTS_HEADER_SIZE{7};
 constexpr int ADTS_PROFILE{2};     // AAC LC
 constexpr int ADTS_FREQ_IDX{4};    // 44.1 KHz
 constexpr int ADTS_CHANNEL_CFG{2}; // CPE
@@ -105,7 +106,7 @@ void init() {
 }
 
 void log_discard(frame_t frame, int used, AVPacket *pkt) {
-  int32_t enc_size = frame->decipher_len + ADTS_HEADER_SIZE;
+  int32_t enc_size = std::ssize(frame->m.value()) + ADTS_HEADER_SIZE;
 
   string msg;
   auto w = std::back_inserter(msg);
@@ -131,19 +132,12 @@ void log_discard(frame_t frame, int used, AVPacket *pkt) {
   INFO(module_id, "DISCARD", "{}\n{}", frame->state, msg);
 }
 
-// leave space for ADTS header
-uint8_t *m_buffer(cipher_buff_ptr &m) { return m->data() + ADTS_HEADER_SIZE; }
-
 bool parse(frame_t frame) {
   auto rc = false;
   auto pkt = check_nullptr(av_packet_alloc());
 
-  auto decipher_len = frame->decipher_len;
-
-  // NOTE: the size of encoded is the deciphered len AND the ADTS header
-  const size_t encoded_size = decipher_len + ADTS_HEADER_SIZE;
-
   auto m = frame->m->data();
+  const size_t encoded_size = std::size(frame->m.value());
 
   // make ADTS header
   m[0] = 0xFF;
@@ -171,8 +165,8 @@ bool parse(frame_t frame) {
   }
 
   if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
-    INFO(module_id, "SEND_PACKET", "FAILED decipher_len={} size={} flags={:#b} rc={}\n", //
-         decipher_len, pkt->size, pkt->flags, rc);
+    INFO(module_id, "SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}\n", //
+         encoded_size, pkt->size, pkt->flags, rc);
     frame->state = frame::DECODE_FAILURE;
     av_packet_free(&pkt);
     return rc;

@@ -35,8 +35,7 @@
 
 namespace pierre {
 
-using cipher_buff_t = std::array<uint8_t, 16 * 1024>;
-using cipher_buff_ptr = std::unique_ptr<cipher_buff_t>;
+using cipher_buff_t = std::optional<uint8v>;
 
 class Frame;
 using frame_t = std::shared_ptr<Frame>;
@@ -53,9 +52,8 @@ private: // use create()
         extension((packet[0] & 0b00010000) >> 4), // has extension
         ssrc_count((packet[0] & 0b00001111)),     // source system record count
         ssrc(packet.to_uint32(8, 4)),             // source system record count
-        seq_num(packet.to_uint32(1, 3)),          // note: only three bytes
-        timestamp(packet.to_uint32(4, 4)),        // RTP timestamp
-        m(new cipher_buff_t)                      // unique_ptr for deciphered data
+        seq_num(packet.to_uint32(1, 3)),          // rtp seq num note: only three bytes
+        timestamp(packet.to_uint32(4, 4))         // rtp timestamp
   {}
 
 protected: // subclass use only
@@ -120,8 +118,9 @@ public:
   // order dependent (must expose publicly)
   seq_num_t seq_num{0};
   timestamp_t timestamp{0};
-  cipher_buff_ptr m;                  // temporary buffer of ciphered data
-  unsigned long long decipher_len{0}; // type dictated by libsodium
+
+  // order independent
+  cipher_buff_t m; // temporary buffer for ciphering
 
   // decode frame (exposed publicly for av decode)
   int samples_per_channel{0};
@@ -139,7 +138,8 @@ protected:
 
 private:
   // order independent
-  int cipher_rc{0}; // decipher support
+  int cipher_rc{0};                  // decipher support
+  static ptrdiff_t cipher_buff_size; // in bytes, populated by init()
 
   std::optional<AnchorLast> _anchor;
 

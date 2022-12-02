@@ -37,10 +37,11 @@ receiver = "%h"        # use hostname
 service = "_ruth._tcp" # service advertised by rendering devices
 
 [rtsp]
-audio = { buffer_size = 8 } # kilobytes
+audio = { buffer_size = 0x800000 } # in bytes (8mb)
 
 [frame]
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
+cipher_buffer = 0x2000             # in bytes (4k)
 
 [frame.clock]
 shm_name = "/nqptp"

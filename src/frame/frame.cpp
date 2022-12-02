@@ -24,6 +24,7 @@
 #include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "master_clock.hpp"
@@ -81,6 +82,8 @@ notes:
  3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
      are zeroed */
 
+static constexpr csv cfg_cipher_buff_size{"frame.cipher_buffer"};
+
 // Frame API
 
 bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
@@ -107,10 +110,14 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
   } else [[likely]] {
 
+    Stats::write(stats::RTSP_AUDIO_CIPHERED, std::ssize(packet));
+
+    unsigned long long consumed{0};
+
     cipher_rc =                                    //
         crypto_aead_chacha20poly1305_ietf_decrypt( // -1 == failure
-            av::m_buffer(m),                       // m (av leaves room for ADTS)
-            &decipher_len,                         // bytes deciphered
+            av::m_buffer(m, cipher_buff_size),     // m (av leaves room for ADTS)
+            &consumed,                             // bytes deciphered
             nullptr,                               // nanoseconds (unused, must be nullptr)
             ciphered.data(),                       // ciphered data
             ciphered.size(),                       // ciphered length
@@ -119,16 +126,16 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
             nonce.data(),                          // the nonce
             key.data());                           // shared key (from SETUP message)
 
-    Stats::write(stats::RTSP_AUDIO_CIPHERED, std::ssize(packet));
+    if ((cipher_rc >= 0) && (consumed > 0)) {
+      av::m_buffer_resize(m, consumed); // resizes m to include header + cipher data
 
-    if ((cipher_rc >= 0) && (decipher_len > 0)) {
-      Stats::write(stats::RTSP_AUDIO_DECIPERED, static_cast<int64_t>(decipher_len));
+      Stats::write(stats::RTSP_AUDIO_DECIPERED, std::ssize(*m));
       state = frame::DECIPHERED;
 
     } else if (cipher_rc < 0) {
       state = frame::DECIPHER_FAILURE;
 
-    } else if (decipher_len <= 0) {
+    } else if (consumed <= 0) {
       state = frame::EMPTY;
 
     } else { // catch all
@@ -152,6 +159,8 @@ void Frame::init() {
   Anchor::init();
   Racked::init();
   dsp::init();
+
+  cipher_buff_size = Config().at(cfg_cipher_buff_size).value_or(0x4000);
 
   INFO(Frame::module_id, "INIT", "sizeof={} lead_time={} fps={}\n", sizeof(Frame),
        pet::humanize(InputInfo::lead_time), InputInfo::fps);
@@ -231,8 +240,8 @@ const string Frame::inspect(bool full) const noexcept {
     fmt::format_to(w, " sync_wait={}", pet::humanize(sync_wait()));
   }
 
-  if (decipher_len <= 0) {
-    fmt::format_to(w, " decipher_len={}", decipher_len);
+  if (m.has_value() && (std::ssize(*m) <= 0)) {
+    fmt::format_to(w, " consumed={}", std::ssize(*m));
   }
 
   if (state == frame::READY && silent()) {
@@ -256,16 +265,21 @@ const string Frame::inspect_safe(frame_t frame, bool full) noexcept { // static
 }
 
 void Frame::log_decipher() const noexcept {
+  [[maybe_unused]] auto consumed = m.has_value() ? std::ssize(*m) : 0;
+
   if (state.deciphered()) {
-    INFOX(module_id, "DECIPHER", "decipher/cipher{:>6} / {:<6} {}\n", module_id, decipher_len,
+    INFOX(module_id, "DECIPHER", "consumed/cipher{:>6} / {:<6} {}\n", module_id, consumed,
           decoded.size(), state);
 
   } else if (state == frame::NO_SHARED_KEY) {
     INFO(module_id, "DECIPHER", "decipher shared key empty {}\n", state);
   } else {
-    INFOX(module_id, "DECIPHER", "decipher cipher_rc={} decipher_len={} {}\n", //
-          cipher_rc, decipher_len, state);
+    INFOX(module_id, "DECIPHER", "decipher cipher_rc={} consumed={} {}\n", //
+          cipher_rc, consumed, state);
   }
 }
+
+// class data
+ptrdiff_t Frame::cipher_buff_size{0x4000};
 
 } // namespace pierre
