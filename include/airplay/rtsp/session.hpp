@@ -43,7 +43,7 @@ public:
 
 private:
   // the magic number of 117 represents the minimum size RTSP message expected
-  // ** plain-text only, not accounting for encryption
+  // ** plain-text only, not accounting for encryption **
   //
   // POST /feedback RTSP/1.0
   // CSeq: 15
@@ -95,7 +95,7 @@ private:
 
           if (!msg.empty()) {
 
-            INFO(module_id, "ASYNC_READ", "{}\n", msg);
+            INFO(module_id, "ASYNC_READ", "active_remote={} {}\n", s->rtsp_ctx->active_remote, msg);
             // will fall out of scope when this function returns
           } else if (bytes < 1) {
 
@@ -154,11 +154,12 @@ public:
 
   void teardown() noexcept {
     asio::post(io_ctx, [s = ptr()]() {
-      try {
-        s->sock.shutdown(tcp_socket::shutdown_both);
-        s->sock.close();
-      } catch (...) {
-      }
+      [[maybe_unused]] error_code ec;
+      s->sock.shutdown(tcp_socket::shutdown_both, ec);
+      s->sock.close(ec);
+
+      INFO(module_id, "TEARDOWN", "active_remote={} {}\n", s->rtsp_ctx->active_remote,
+           ec.message());
     });
   }
 

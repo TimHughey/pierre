@@ -66,6 +66,8 @@ Stats::Stats(bool enabled) noexcept
                             {stats::REMOTE_ROUNDTRIP, "remote_roundtrip"},
                             {stats::RENDER_DELAY, "render_delay"},
                             {stats::RENDER_ELAPSED, "render_elapsed"},
+                            {stats::RTSP_AUDIO_CIPHERED, "rtsp_audio_ciphered"},
+                            {stats::RTSP_AUDIO_DECIPERED, "rtsp_audio_deciphered"},
                             {stats::RTSP_SESSION_CONNECT, "rtsp_session_connect"},
                             {stats::RTSP_SESSION_MSG_ELAPSED, "rtsp_session_msg_elapsed"},
                             {stats::RTSP_SESSION_RX_PACKET, "rtsp_session_rx_packet"},

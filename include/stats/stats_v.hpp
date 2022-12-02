@@ -61,6 +61,8 @@ enum stats_v {
   RTSP_SESSION_RX_PACKET,
   RTSP_SESSION_TX_REPLY,
   SYNC_WAIT,
+  RTSP_AUDIO_CIPHERED,
+  RTSP_AUDIO_DECIPERED,
   // extra comma allows for easy IDE sorting
 };
 

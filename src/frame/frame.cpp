@@ -119,7 +119,10 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
             nonce.data(),                          // the nonce
             key.data());                           // shared key (from SETUP message)
 
+    Stats::write(stats::RTSP_AUDIO_CIPHERED, std::ssize(packet));
+
     if ((cipher_rc >= 0) && (decipher_len > 0)) {
+      Stats::write(stats::RTSP_AUDIO_DECIPERED, static_cast<int64_t>(decipher_len));
       state = frame::DECIPHERED;
 
     } else if (cipher_rc < 0) {
