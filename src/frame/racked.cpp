@@ -293,7 +293,7 @@ void Racked::log_racked(const string &wip_info, log_racked_rc rc) const noexcept
   case log_racked_rc::NONE:
     if (reel_count == 0) {
       auto frame_count = racked.cbegin()->second.size();
-      if (frame_count == 1) fmt::format_to(w, "LAST FRAME\n");
+      if (frame_count == 1) fmt::format_to(w, "LAST FRAME");
     } else if ((reel_count >= 400) && ((reel_count % 10) == 0)) {
       fmt::format_to(w, "HIGH REELS reels={:<3}", reel_count);
     }
