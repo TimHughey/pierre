@@ -33,8 +33,8 @@
 namespace pierre {
 
 struct AesResult {
-  bool ok = true;
-  RespCode resp_code = RespCode::OK;
+  bool ok{true};
+  RespCode resp_code{RespCode::OK};
 };
 
 // NOTE: this struct consolidates the pairing "state"
@@ -47,30 +47,27 @@ public:
 
   // size_t decrypt()
 
-  inline bool haveSharedSecret() const { return secretBytes() > 0; }
+  inline bool have_shared_secret() const { return secret_bytes() > 0; }
   AesResult verify(const Content &in, Content &out);
 
-  inline auto secret() { return _result->shared_secret; }
-  inline size_t secretBytes() const { return _result->shared_secret_len; }
+  inline auto secret() { return result->shared_secret; }
+  inline size_t secret_bytes() const { return result->shared_secret_len; }
 
   AesResult setup(const Content &in, Content &out);
 
 private:
-  auto cipher() { return _cipher; }
+  auto cipher() { return cipher_ctx; }
 
-  Content &copyBodyTo(Content &out, const uint8_t *data, size_t bytes) const;
+  Content &copy_body_to(Content &out, const uint8_t *data, size_t bytes) const;
 
 private:
-  bool _decrypt_in{false};
-  bool _encrypt_out{false};
-  pair_setup_context *_setup = nullptr;
-  pair_result *_result = nullptr;
-  pair_verify_context *_verify = nullptr;
-  pair_cipher_context *_cipher = nullptr;
+  bool decrypt_in{false};
+  bool encrypt_out{false};
 
-  char *_pin{nullptr};
-
-  static constexpr pair_type _pair_type{PAIR_SERVER_HOMEKIT};
+  pair_cipher_context *cipher_ctx{nullptr};
+  pair_result *result{nullptr};
+  pair_setup_context *setup_ctx{nullptr};
+  pair_verify_context *verify_ctx{nullptr};
 };
 
 } // namespace pierre

@@ -29,25 +29,28 @@
 
 namespace pierre {
 
+static constexpr pair_type HOMEKIT{PAIR_SERVER_HOMEKIT};
+
 AesCtx::AesCtx(csv device_id) {
   // allocate the setup and verify contexts
-  _setup = pair_setup_new(_pair_type, _pin, NULL, NULL, device_id.data());
+  char *pin{nullptr};
+  setup_ctx = pair_setup_new(HOMEKIT, pin, NULL, NULL, device_id.data());
 
-  if (_setup == nullptr) {
+  if (setup_ctx == nullptr) {
     static const char *msg = "pair_setup_new() failed";
     fmt::print("{}\n", msg);
     throw(std::runtime_error(msg));
   }
 
-  _verify = pair_verify_new(_pair_type, NULL, NULL, NULL, device_id.data());
-  if (_verify == nullptr) {
+  verify_ctx = pair_verify_new(HOMEKIT, NULL, NULL, NULL, device_id.data());
+  if (verify_ctx == nullptr) {
     static const char *msg = "pair_verify_new() failed";
     fmt::print("{}\n", msg);
     throw(std::runtime_error(msg));
   }
 }
 
-Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body, size_t bytes) const {
+Content &AesCtx::copy_body_to(Content &out, const uint8_t *body, size_t bytes) const {
   out.clear();
 
   if (body && (bytes > 0)) {
@@ -68,13 +71,13 @@ Content &AesCtx::copyBodyTo(Content &out, const uint8_t *body, size_t bytes) con
 size_t AesCtx::encrypt(uint8v &packet) {
   ssize_t bytes_ciphered = packet.size();
 
-  if (cipher() && _encrypt_out) {
+  if (cipher() && encrypt_out) {
     uint8_t *ciphered_data;
     size_t ciphered_len;
 
-    auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(), packet.size(), _cipher);
+    auto rc = pair_encrypt(&ciphered_data, &ciphered_len, packet.data(), packet.size(), cipher_ctx);
 
-    auto __ciphered_data = std::make_unique<uint8_t *>(ciphered_data);
+    std::unique_ptr<uint8_t[]> xxx(ciphered_data); // auto free the cipher buffer
 
     if (rc >= 0) { // success
       packet.clear();
@@ -85,7 +88,7 @@ size_t AesCtx::encrypt(uint8v &packet) {
       std::copy(ciphered_data, last_byte, where);
       bytes_ciphered = ciphered_len;
     } else {
-      auto msg = string(pair_cipher_errmsg(_cipher));
+      auto msg = string(pair_cipher_errmsg(cipher_ctx));
       fmt::print("encryption failed: {}\n", msg);
     }
   }
@@ -99,14 +102,14 @@ size_t AesCtx::decrypt(uint8v &packet, uint8v &ciphered) {
 
   if (cipher()) {
     // when we've decrypted an inbound packet we should always encrypt outbound
-    _encrypt_out = true;
+    encrypt_out = true;
 
     // we have a cipher
     uint8_t *data = nullptr;
     size_t len = 0;
 
     auto consumed = pair_decrypt(&data, &len, ciphered.data(), ciphered.size(), cipher());
-    auto __data = std::make_unique<uint8_t *>(data);
+    std::unique_ptr<uint8_t[]> xxx(data); // auto free the data buffer
 
     if (consumed > 0) {
       std::copy(data, data + len, to);
@@ -130,25 +133,25 @@ AesResult AesCtx::verify(const Content &in, Content &out) {
   uint8_t *body = nullptr;
   size_t body_bytes = 0;
 
-  if (pair_verify(&body, &body_bytes, _verify, in.data(), in.size()) < 0) {
+  if (pair_verify(&body, &body_bytes, verify_ctx, in.data(), in.size()) < 0) {
     aes_result.resp_code = RespCode::AuthRequired;
-    copyBodyTo(out, body, body_bytes);
+    copy_body_to(out, body, body_bytes);
     return aes_result;
   }
 
-  if ((pair_verify_result(&_result, _verify) == 0) && haveSharedSecret()) {
-    _cipher = pair_cipher_new(_pair_type, 2, secret(), secretBytes());
+  if ((pair_verify_result(&result, verify_ctx) == 0) && have_shared_secret()) {
+    cipher_ctx = pair_cipher_new(HOMEKIT, 2, secret(), secret_bytes());
 
-    if (_cipher != nullptr) {
+    if (cipher_ctx != nullptr) {
       // enable inbound encryption, the next packet will be encrypted
-      _decrypt_in = true;
+      decrypt_in = true;
     } else {
       fmt::print("error setting up control channel ciper\n");
       aes_result.resp_code = RespCode::InternalServerError;
     }
   }
 
-  copyBodyTo(out, body, body_bytes);
+  copy_body_to(out, body, body_bytes);
   return aes_result;
 }
 
@@ -160,24 +163,24 @@ AesResult AesCtx::setup(const Content &in, Content &out) {
   // first time pair_setup is called it will not be able to find the state
   // return AuthRequired
 
-  if (pair_setup(&body, &body_bytes, _setup, in.data(), in.size()) < 0) {
+  if (pair_setup(&body, &body_bytes, setup_ctx, in.data(), in.size()) < 0) {
     aes_result.resp_code = RespCode::AuthRequired;
-    copyBodyTo(out, body, body_bytes);
+    copy_body_to(out, body, body_bytes);
     return aes_result;
   }
 
   // if we made it here the setup context is in good shape, see if the result
   // is available (we have shared secret data)
-  if ((pair_setup_result(NULL, &_result, _setup) == 0) && haveSharedSecret()) {
+  if ((pair_setup_result(NULL, &result, setup_ctx) == 0) && have_shared_secret()) {
     // Transient pairing completed (pair-setup step 2), prepare encryption, but
     // don't activate yet, the response to this request is still plaintext
-    _cipher = pair_cipher_new(_pair_type, 2, secret(), secretBytes());
+    cipher_ctx = pair_cipher_new(HOMEKIT, 2, secret(), secret_bytes());
 
     // NOTE: ciper may be null indicating setup is incomplete. we still return
     // the body from pair_setup() to complete the setup phase
   }
 
-  copyBodyTo(out, body, body_bytes);
+  copy_body_to(out, body, body_bytes);
 
   return aes_result;
 }
