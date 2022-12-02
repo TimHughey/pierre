@@ -10,7 +10,6 @@ set(HEADER_PATH_PAIR                    ${HEADER_PATH_LOCAL}/pair)
 set(HEADER_PATH_AES                     ${HEADER_PATH_LOCAL}/aes)
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/**/*.h*")
 
-find_library(libUUID      NAMES uuid       REQUIRED)
 find_package(Boost 1.79   QUIET COMPONENTS REQUIRED system)
 find_package(fmt                           REQUIRED)
 find_package(GCRYPT                        REQUIRED)
@@ -67,7 +66,6 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PUBLIC 
   Threads::Threads 
   ${Boost_LIBRARIES}
-  ${libUUID}
   libpairing
   sodium
   gcrypt

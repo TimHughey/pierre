@@ -50,9 +50,6 @@ public:
   const string pk() const noexcept { return fmt::format("{:02x}", fmt::join(pk_bytes, "")); }
   ccs serial_num() const noexcept { return serial.c_str(); }
 
-  // UUID for this host
-  ccs uuid() const noexcept { return host_uuid.c_str(); }
-
 private:
   void discover_ip_addrs();
 
@@ -68,7 +65,6 @@ public:
   string serial;
 
   // static member data
-  static string host_uuid;
   static PkBytes pk_bytes;
 
 public:

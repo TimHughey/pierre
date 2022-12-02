@@ -8,7 +8,8 @@ set(HEADER_PATH_LOCAL ${HEADER_PATH}/${__target})
 
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.hpp")
 
-find_package(Avahi REQUIRED)
+find_package(Avahi                          REQUIRED)
+find_library(libUUID      NAMES uuid        REQUIRED)
 
 add_library(${__target} SHARED 
   # mdns functionality specific to this app
@@ -37,7 +38,7 @@ target_include_directories(${__target} PRIVATE
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE 
-  ${AVAHI_LIBRARIES} config
+  ${AVAHI_LIBRARIES} ${libUUID} config
 )
 
 target_compile_definitions(${__target} PRIVATE ${AVAHI_DEFINITIONS})

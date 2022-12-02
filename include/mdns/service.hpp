@@ -216,5 +216,8 @@ private:
 
   static lookup_map_t lookup_map;
   static service_txt_map service_map;
+
+public:
+  static constexpr csv module_id{"mdns::SERVICE"};
 };
 } // namespace pierre

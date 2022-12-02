@@ -19,10 +19,12 @@
 #include "mdns/service.hpp"
 #include "base/features.hpp"
 #include "base/host.hpp"
+#include "base/logger.hpp"
 #include "config/config.hpp"
 
+#include <array>
 #include <exception>
-#include <fmt/format.h>
+#include <uuid/uuid.h>
 
 namespace pierre {
 
@@ -35,7 +37,17 @@ void Service::init() noexcept {
   update_key_val(txt_opt::apAirPlayPairingIdentity, host.hw_address());
   update_key_val(txt_opt::apDeviceID, host.device_id());
 
-  update_key_val(txt_opt::apGroupUUID, host.uuid());
+  // create UUID for this host (only once)
+
+  uuid_t binuuid;
+  uuid_generate_random(binuuid);
+
+  std::array<char, 37> tu{0};
+  uuid_unparse_lower(binuuid, tu.data());
+
+  const auto uuid = string(tu.data(), tu.size());
+
+  update_key_val(txt_opt::apGroupUUID, uuid);
   update_key_val(txt_opt::apSerialNumber, host.serial_num());
 
   update_key_val(txt_opt::ServiceName, cfg.receiver());
@@ -92,6 +104,8 @@ void Service::init() noexcept {
 
     update_key_val(opt, str);
   }
+
+  INFO(module_id, "INIT", "sizeof={} uuid={}\n", sizeof(Service), uuid);
 }
 
 lookup_map_t Service::lookup_map{

@@ -22,28 +22,15 @@
 #include "logger.hpp"
 #include "pair.h"
 
-// #include <algorithm>
 #include <arpa/inet.h>
 #include <array>
 #include <cstdlib>
-// #include <cstring>
 #include <exception>
-// #include <filesystem>
 #include <ifaddrs.h>
-// #include <iomanip>
-// #include <iterator>
-// #include <linux/if_packet.h>
-// #include <net/ethernet.h> /* the L2 protocols */
-// #include <net/if.h>
-// #include <netinet/in.h>
-// #include <sys/ioctl.h>
-// #include <sys/socket.h>
-#include <sys/types.h>
-// #include <unistd.h>
 #include <linux/if_packet.h>
 #include <net/ethernet.h> /* the L2 protocols */
 #include <sys/socket.h>
-#include <uuid/uuid.h>
+#include <sys/types.h>
 
 namespace pierre {
 
@@ -67,18 +54,6 @@ Host::Host() noexcept : name(255, 0x00) {
   if (gethostname(name.data(), name.size()) != 0) {
     // gethostname() has failed, fallback to device_id
     name = id;
-  }
-
-  // create UUID for this host (only once)
-  if (host_uuid.empty()) {
-    uuid_t binuuid;
-    uuid_generate_random(binuuid);
-
-    std::array<char, 37> tu{0};
-    uuid_unparse_lower(binuuid, tu.data());
-
-    host_uuid = string(tu.data(), tu.size());
-    INFO(module_id, "CREATED", "host_uuid={}\n", host_uuid);
   }
 
   // create the public key (only once)
@@ -137,8 +112,6 @@ void Host::discover_ip_addrs() {
 }
 
 // class static members
-
-string Host::host_uuid;
 PkBytes Host::pk_bytes{0};
 
 } // namespace pierre
