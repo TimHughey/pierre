@@ -33,7 +33,7 @@ namespace airplay {
 namespace reply {
 
 bool Setup::populate() {
-  responseCode(RespCode::BadRequest); // default response is BadRequest
+  resp_code(RespCode::BadRequest); // default response is BadRequest
 
   rdict = plist();
   auto rc = rdict.ready();
@@ -52,7 +52,7 @@ bool Setup::populate() {
     copyToContent(binary, bytes);
 
     headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
-    responseCode(RespCode::OK);
+    resp_code(RespCode::OK);
 
   } else {
     INFO(moduleID(), "WARN", "implementation missing for control_type={}\n", 1);

@@ -24,14 +24,22 @@ add_library(${__target} SHARED
   embed/embed.cpp
 
   # reply
-  reply/cmd.cpp reply/factory.cpp reply/fairplay.cpp reply/feedback.cpp
-  reply/flush.cpp reply/info.cpp reply/options.cpp reply/pairing.cpp
-  reply/parameter.cpp reply/record.cpp reply/reply.cpp reply/set_anchor.cpp
-  reply/set_peers.cpp reply/set_peersx.cpp reply/setup.cpp reply/teardown.cpp
-  reply/unhandled.cpp
+  reply/factory.cpp
+  reply/fairplay.cpp
+  reply/flush.cpp
+  reply/info.cpp
+  reply/reply.cpp
+  reply/set_anchor.cpp
+  reply/set_peers.cpp 
+  reply/set_peersx.cpp
+  reply/setup.cpp 
+  reply/teardown.cpp
 
   # rtsp session context, message / worker servers and message session
-  rtsp.cpp rtsp/session.cpp rtsp/audio.cpp rtsp/ctx.cpp
+  rtsp.cpp 
+  rtsp/session.cpp 
+  rtsp/audio.cpp 
+  rtsp/ctx.cpp
 
   ${HEADER_LIST}
 )

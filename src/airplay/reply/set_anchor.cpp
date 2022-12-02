@@ -55,7 +55,7 @@ bool SetAnchor::populate() {
     INFO(module_id, "SET_ANCHOR", "rate not present\n");
   }
 
-  responseCode(RespCode::OK);
+  resp_code(RespCode::OK);
 
   return true;
 }

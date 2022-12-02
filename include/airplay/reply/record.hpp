@@ -28,7 +28,11 @@ class Record : public Reply {
 public:
   Record() : Reply("RECORD") {}
 
-  bool populate() override;
+  bool populate() override {
+    resp_code(RespCode::OK);
+
+    return true;
+  }
 };
 
 } // namespace reply

@@ -32,7 +32,7 @@ bool Teardown::populate() {
   rdict = plist();
 
   headers.add(hdr_type::ContentSimple, hdr_val::ConnectionClosed);
-  responseCode(RespCode::OK); // always OK
+  resp_code(RespCode::OK); // always OK
 
   return rdict.exists(dk::STREAMS) ? phase1() : phase12();
 }

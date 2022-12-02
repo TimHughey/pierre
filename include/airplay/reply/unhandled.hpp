@@ -28,7 +28,11 @@ class Unhandled : public Reply {
 public:
   Unhandled() : Reply("UNHANDLED") {}
 
-  bool populate() override;
+  bool populate() override {
+    resp_code(RespCode::BadRequest);
+
+    return true;
+  }
 };
 
 } // namespace reply

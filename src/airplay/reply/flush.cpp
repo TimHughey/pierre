@@ -43,7 +43,7 @@ bool FlushBuffered::populate() {
                 rdict.uint({dk::FLUSH_UNTIL_TS}))  //
   );
 
-  responseCode(RespCode::OK);
+  resp_code(RespCode::OK);
   return true;
 }
 

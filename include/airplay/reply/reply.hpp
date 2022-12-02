@@ -106,12 +106,11 @@ public:
 
   virtual csv moduleID() const { return module_id; }
 
-  inline void responseCode(RespCode code) { _rcode = code; }
+  inline void resp_code(RespCode code) { _rcode = code; }
   inline string_view responseCodeView() const { return respCodeToView(_rcode); }
 
   // misc debug
   void dump() const;
-  auto &errMsg() const { return _err_msg; }
   void log_reply(csv resp_text);
 
 protected:
@@ -120,9 +119,7 @@ protected:
 
   std::optional<reply::Inject> di; // copy, ok because it's only references
 
-  string _err_msg;
-
-  RespCode _rcode = RespCode::NotImplemented;
+  RespCode _rcode{RespCode::NotImplemented};
   Headers headers;
 
   Content _content;

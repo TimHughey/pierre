@@ -44,7 +44,7 @@ bool SetPeersX::populate() {
     if (auto peers = rdict.stringArray({csv(idxs), dk::ADDRESSES}); peers.size() > 0) {
       ranges::copy(peers, std::back_inserter(peer_list));
 
-      responseCode(RespCode::OK); // we got some peer addresses
+      resp_code(RespCode::OK); // we got some peer addresses
     }
   }
 

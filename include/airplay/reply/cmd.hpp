@@ -31,14 +31,21 @@ class Command : public Reply {
 public:
   Command() : Reply("COMMAND"), rdict(Aplist::DEFER_DICT) {}
 
-  bool populate() override;
+  bool populate() override {
+    auto rc = false;
+    rdict = plist();
 
-private:
-  bool checkUpdateSupportedCommands();
+    if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
+      rc = true;
+    }
+
+    resp_code(rc ? RespCode::BadRequest : RespCode::OK);
+
+    return rc;
+  }
 
 private:
   Aplist rdict;
-  std::vector<bool> _checks;
 };
 
 } // namespace reply

@@ -88,22 +88,22 @@ bool FairPlay::populate() {
   const auto type = content.at(type_idx);
 
   switch (seq) {
-    case setup1_msg_seq:
-      payload1(mode);
-      break;
+  case setup1_msg_seq:
+    payload1(mode);
+    break;
 
-    case setup2_msg_seq:
-      payload2();
-      break;
+  case setup2_msg_seq:
+    payload2();
+    break;
 
-    default:
-      fmt::print("FairPlay issue; vsn={} seq={}, mode={}, type={}\n", vsn, seq, mode, type);
-      throw(std::runtime_error("FairPlay issue"));
+  default:
+    fmt::print("FairPlay issue; vsn={} seq={}, mode={}, type={}\n", vsn, seq, mode, type);
+    throw(std::runtime_error("FairPlay issue"));
   }
 
   if (_content.size() > 0) {
     headers.add(hdr_type::ContentType, hdr_val::OctetStream);
-    responseCode(OK);
+    resp_code(OK);
 
     return true;
   }
@@ -118,30 +118,30 @@ void FairPlay::payload1(uint8_t mode) {
   size_t bytes = 0;
 
   switch (mode) {
-    case 0:
-      content = reply1;
-      bytes = std::size(reply1);
+  case 0:
+    content = reply1;
+    bytes = std::size(reply1);
 
-      break;
+    break;
 
-    case 1:
-      content = reply2;
-      bytes = std::size(reply2);
-      break;
+  case 1:
+    content = reply2;
+    bytes = std::size(reply2);
+    break;
 
-    case 2:
-      content = reply2;
-      bytes = std::size(reply2);
-      break;
+  case 2:
+    content = reply2;
+    bytes = std::size(reply2);
+    break;
 
-    case 3:
-      content = reply2;
-      bytes = std::size(reply2);
-      break;
+  case 3:
+    content = reply2;
+    bytes = std::size(reply2);
+    break;
 
-    default:
-      throw(std::runtime_error("mode not in [0, 1, 2, 3"));
-      break;
+  default:
+    throw(std::runtime_error("mode not in [0, 1, 2, 3"));
+    break;
   }
 
   copyToContent(content, bytes);

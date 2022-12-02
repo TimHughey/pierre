@@ -29,11 +29,34 @@ class Parameter : public Reply {
 public:
   Parameter() : Reply("PARAMETER") {}
 
-  bool populate() override;
+  bool populate() override {
+    auto rc = true;
 
-private:
-  bool handleGet();
-  bool handleSet();
+    const auto &rheaders = rHeaders();
+
+    if (rheaders.method().starts_with("GET_PARAMETER")) {
+      csv param = rContent().view();
+
+      if (param.starts_with("volume")) {
+        static csv full_volume("\r\nvolume: 0.0\r\n");
+
+        copyToContent(full_volume);
+        headers.add(hdr_type::ContentType, hdr_val::TextParameters);
+      }
+
+    } else if (rheaders.method().starts_with("SET_PARAMETER")) {
+      if (rContent() == hdr_val::TextParameters) {
+        // rContent().dump();
+      }
+
+    } else {
+      rc = false;
+    }
+
+    resp_code(rc ? RespCode::OK : RespCode::BadRequest);
+
+    return rc;
+  }
 };
 
 } // namespace reply

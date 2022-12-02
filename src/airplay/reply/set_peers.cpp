@@ -38,7 +38,7 @@ bool SetPeers::populate() {
   }
 
   shared::master_clock->peers(peers); // set the peer lists
-  responseCode(RespCode::OK);         // indicate success
+  resp_code(RespCode::OK);            // indicate success
   return true;
 }
 

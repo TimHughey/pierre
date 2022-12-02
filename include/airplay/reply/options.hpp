@@ -30,7 +30,16 @@ class Options : public Reply {
 public:
   Options() : Reply("OPTIONS") {}
 
-  bool populate() override;
+  bool populate() override {
+    static const string options{
+        "ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, "
+        "TEARDOWN, OPTIONS, POST, GET, PUT"};
+
+    headers.add(hdr_type::Public, options);
+    resp_code(RespCode::OK);
+
+    return true;
+  }
 };
 
 } // namespace reply

@@ -84,7 +84,7 @@ bool Info::populate() {
     headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
   }
 
-  responseCode(rc ? RespCode::OK : RespCode::BadRequest);
+  resp_code(rc ? RespCode::OK : RespCode::BadRequest);
 
   return rc;
 }

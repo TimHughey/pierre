@@ -34,7 +34,25 @@ class Pairing : public Reply {
 public:
   Pairing() : Reply("PAIRING") {}
 
-  bool populate() override;
+  bool populate() override {
+    AesResult aes_result;
+
+    if (path().starts_with("/pair-setup")) {
+      aes_result = aesCtx().setup(rContent(), _content);
+    }
+
+    if (path().starts_with("/pair-verify")) {
+      aes_result = aesCtx().verify(rContent(), _content);
+    }
+
+    if (_content.empty() == false) {
+      headers.add(hdr_type::ContentType, hdr_val::OctetStream);
+    }
+
+    resp_code(aes_result.resp_code);
+
+    return aes_result.ok;
+  }
 };
 
 } // namespace reply

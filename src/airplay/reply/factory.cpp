@@ -20,16 +20,14 @@
 #include "base/types.hpp"
 #include "reply/all.hpp"
 
-#include <algorithm>
-#include <array>
-#include <ranges>
+#include <set>
 
 namespace pierre {
 namespace airplay {
 namespace reply {
 
 [[nodiscard]] shReply Factory::create(const reply::Inject &di) {
-  static const auto pair_paths = std::vector{"/pair-setup", "/pair-verify"};
+  static const std::set<string_view> pair_paths{"/pair-setup", "/pair-verify"};
 
   shReply reply;
 
@@ -51,12 +49,8 @@ namespace reply {
       reply = std::make_shared<Command>();
     } else if (path == csv("/feedback")) {
       reply = std::make_shared<Feedback>();
-    } else if (path.starts_with("/pair-")) {
-      if (ranges::any_of(pair_paths, [&path = path](csv p) { return p == path; })) {
-        reply = std::make_shared<Pairing>();
-      } else {
-        INFO(moduleId, "CREATE", "unhandled pairing path={}\n", path);
-      }
+    } else if (pair_paths.contains(path)) {
+      reply = std::make_shared<Pairing>();
     }
   } else if (method == csv("OPTIONS") && (path == csv("*"))) {
     reply = std::make_shared<Options>();
