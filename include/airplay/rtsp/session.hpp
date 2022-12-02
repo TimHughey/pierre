@@ -91,6 +91,8 @@ private:
         asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
         std::move(cond),            // completion condition (bytes to transfer)
         [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
+          if (s->packet.empty()) e.reset(); // start timing once we have data
+
           const auto msg = io::is_ready(s->sock, ec);
 
           if (!msg.empty()) {
