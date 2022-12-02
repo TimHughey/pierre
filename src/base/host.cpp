@@ -20,7 +20,6 @@
 
 #include "host.hpp"
 #include "logger.hpp"
-#include "pair.h"
 
 #include <arpa/inet.h>
 #include <array>
@@ -54,16 +53,6 @@ Host::Host() noexcept : name(255, 0x00) {
   if (gethostname(name.data(), name.size()) != 0) {
     // gethostname() has failed, fallback to device_id
     name = id;
-  }
-
-  // create the public key (only once)
-  if (pk_bytes[0] == 0x00) {
-    auto *dest = pk_bytes.data();
-    auto *secret = hw_address().data();
-
-    pair_public_key_get(PAIR_SERVER_HOMEKIT, dest, secret);
-
-    INFO(module_id, "CREATED", "public key={}\n", fmt::format("{:0x}", fmt::join(pk_bytes, "")));
   }
 }
 
@@ -110,8 +99,5 @@ void Host::discover_ip_addrs() {
 
   freeifaddrs(addrs);
 }
-
-// class static members
-PkBytes Host::pk_bytes{0};
 
 } // namespace pierre

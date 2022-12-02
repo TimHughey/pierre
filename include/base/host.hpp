@@ -18,10 +18,8 @@
 
 #include "base/types.hpp"
 
+#include <array>
 #include <cstdint>
-#include <fmt/format.h>
-#include <memory>
-#include <optional>
 #include <vector>
 
 namespace pierre {
@@ -30,7 +28,6 @@ using HwAddrBytes = std::array<uint8_t, 6>;
 using Hostname = std::string;
 using IpAddr = std::string;
 using IpAddrs = std::vector<IpAddr>;
-using PkBytes = std::array<uint8_t, 32>;
 
 // Host Command Information
 class Host {
@@ -47,7 +44,6 @@ public:
   const IpAddrs &ip_addresses() const noexcept { return ip_addrs; }
 
   // without 0x prefix
-  const string pk() const noexcept { return fmt::format("{:02x}", fmt::join(pk_bytes, "")); }
   ccs serial_num() const noexcept { return serial.c_str(); }
 
 private:
@@ -63,9 +59,6 @@ public:
   HwAddrBytes _hw_addr_bytes{0};
   IpAddrs ip_addrs;
   string serial;
-
-  // static member data
-  static PkBytes pk_bytes;
 
 public:
   static constexpr csv module_id{"HOST"};

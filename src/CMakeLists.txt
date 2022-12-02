@@ -37,6 +37,9 @@ add_subdirectory(stats)
 # mdns brought to you by Avahi
 add_subdirectory(mdns)
 
+# pairing and RTSP message cipher support
+add_subdirectory(pair)
+
 # top-level for all comms (RTSP, RTP, Buffered Audio, Control, Event)
 add_subdirectory(airplay)
 

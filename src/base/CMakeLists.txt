@@ -12,11 +12,9 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/**/*.h*")
 
 find_package(Boost 1.79   QUIET COMPONENTS REQUIRED system)
 find_package(fmt                           REQUIRED)
+find_package(Threads                       REQUIRED)
 find_package(GCRYPT                        REQUIRED)
 find_package(Sodium                        REQUIRED)
-find_package(Threads                       REQUIRED)
-
-add_subdirectory(pair)
 
 add_library(${__target} SHARED
   # io (asio) helpers
@@ -27,9 +25,6 @@ add_library(${__target} SHARED
 
   # common thread typedefs and helpers
   threads.cpp
-
-  # aes
-  aes/ctx.cpp
 
   # host info
   host.cpp
@@ -66,8 +61,7 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PUBLIC 
   Threads::Threads 
   ${Boost_LIBRARIES}
-  libpairing
+  fmt::fmt
   sodium
   gcrypt
-  fmt::fmt
 )

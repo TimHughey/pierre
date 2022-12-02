@@ -20,10 +20,10 @@
 
 #include "base/content.hpp"
 #include "base/headers.hpp"
-#include "base/pair/pair.h"
 #include "base/resp_code.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "pair/pair.h"
 
 #include <array>
 #include <cstdint>
@@ -61,16 +61,16 @@ private:
   Content &copyBodyTo(Content &out, const uint8_t *data, size_t bytes) const;
 
 private:
-  bool _decrypt_in = false;
-  bool _encrypt_out = false;
+  bool _decrypt_in{false};
+  bool _encrypt_out{false};
   pair_setup_context *_setup = nullptr;
   pair_result *_result = nullptr;
   pair_verify_context *_verify = nullptr;
   pair_cipher_context *_cipher = nullptr;
 
-  char *_pin = nullptr;
+  char *_pin{nullptr};
 
-  static constexpr pair_type _pair_type = PAIR_SERVER_HOMEKIT;
+  static constexpr pair_type _pair_type{PAIR_SERVER_HOMEKIT};
 };
 
 } // namespace pierre

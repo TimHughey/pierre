@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "base/status_flags.hpp"
 #include "base/types.hpp"
+#include "base/uint8v.hpp"
 
 #include <charconv>
 #include <cstdint>
@@ -202,6 +203,8 @@ public:
       val = new_val;
     } else if constexpr (std::is_integral_v<U>) {
       val = fmt::format("{}", new_val);
+    } else if constexpr (std::is_same_v<T, uint8v>) {
+      val = fmt::format("{:02x}", fmt::join(new_val, ""));
     } else {
       val = string(new_val);
     }

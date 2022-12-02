@@ -20,6 +20,9 @@ add_library(${__target} SHARED
   # apple property lists
   aplist/aplist.cpp
 
+  # message cipher support
+  aes_ctx.cpp
+
   # embedded plists (via ld text file to binary, see ple/CMakeLists.txt)
   embed/embed.cpp
 
@@ -55,8 +58,11 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
+  pair
   ple
   base config frame io mdns stats
 )
 
-target_link_libraries(${__target} PUBLIC mdns)
+target_link_libraries(${__target} PUBLIC 
+  mdns
+)

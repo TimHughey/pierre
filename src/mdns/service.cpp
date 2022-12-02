@@ -20,7 +20,9 @@
 #include "base/features.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
+#include "base/uint8v.hpp"
 #include "config/config.hpp"
+#include "pair/pair.h"
 
 #include <array>
 #include <exception>
@@ -53,7 +55,10 @@ void Service::init() noexcept {
   update_key_val(txt_opt::ServiceName, cfg.receiver());
   update_key_val(txt_opt::FirmwareVsn, cfg.build_vsn());
 
-  update_key_val(txt_opt::PublicKey, host.pk());
+  // create the public key
+  uint8v pk_bytes(32);
+  pair_public_key_get(PAIR_SERVER_HOMEKIT, pk_bytes.data(), host.hw_address().data());
+  update_key_val(txt_opt::PublicKey, pk_bytes);
 
   Features features;
   const auto features_val = features.ap2SetPeersX();

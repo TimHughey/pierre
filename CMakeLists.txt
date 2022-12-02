@@ -43,7 +43,9 @@ endif()
 
 # find pthreads
 set(THREADS_PREFER_PTHREAD_FLAG true)
-find_package(Threads REQUIRED)
+find_package(Threads    REQUIRED)
+find_package(GCRYPT     REQUIRED)
+find_package(Sodium     REQUIRED)
 
 add_subdirectory(src)
 
@@ -55,7 +57,14 @@ target_include_directories(${_target} PUBLIC
 
 target_link_libraries(${_target} PUBLIC
   Threads::Threads 
-  base config frame desk airplay mdns
+  ${GCRYPT}  
+  airplay
+  base
+  config
+  desk
+  frame
+  mdns
+  sodium
 )
 
 
