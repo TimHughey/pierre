@@ -49,7 +49,7 @@
 	<key>keepAliveSendStatsAsBody</key>
 	<true/>
 	<key>manufacturer</key>
-	<string>Shairport Sync</string>
+	<string>Hughey</string>
 	<key>nameIsFactoryDefault</key>
 	<false/>
 	<key>protocolVersion</key>
