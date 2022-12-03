@@ -91,6 +91,12 @@ public:
   const string build_time() const noexcept { return at(base(BUILD_TIME)).value_or(UNSET); };
   const string build_vsn() const noexcept { return at("base.build_vsn"sv).value_or(UNSET); };
   const string config_vsn() const noexcept { return at("base.config_vsn"sv).value_or(UNSET); }
+  fs::path fs_exec_path() const noexcept {
+    return fs::path(at(cli("exec_path"sv)).value_or(string("/")));
+  }
+  fs::path fs_parent_path() const noexcept {
+    return fs::path(at(cli("parent_path"sv)).value_or(string("/")));
+  }
 
   static bool has_changed(cfg_future &fut) noexcept;
 

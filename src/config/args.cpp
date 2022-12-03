@@ -17,6 +17,7 @@
 // https://www.wisslanding.com
 
 #include "args.hpp"
+#include "base/logger.hpp"
 
 #include <boost/program_options.hpp>
 #include <filesystem>
@@ -91,6 +92,9 @@ ArgsMap Args::parse(int argc, char *argv[]) {
   } catch (const po::error &ex) {
     fmt::print(FMT_STRING("command line args error: {}\n"), ex.what());
   }
+
+  am.exec_path = string(argv[0]);
+  am.parent_path = am.exec_path.parent_path();
 
   am.app_name.assign(basename(argv[0]));
 

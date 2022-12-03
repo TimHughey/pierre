@@ -20,11 +20,15 @@
 
 #include "base/types.hpp"
 
+#include <filesystem>
+
 namespace pierre {
 
 struct ArgsMap {
   bool parse_ok{false};
   bool daemon{false};
+  std::filesystem::path exec_path{};
+  std::filesystem::path parent_path{};
   string cfg_file{};
   string dmx_host{};
   string pid_file{};
@@ -40,5 +44,8 @@ public:
   Args() = default;
 
   ArgsMap parse(int argc, char *argv[]);
+
+public:
+  static constexpr csv module_id{"ARGS"};
 };
 } // namespace pierre

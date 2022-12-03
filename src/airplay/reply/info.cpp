@@ -20,6 +20,7 @@
 #include "aplist/aplist.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
 #include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 
@@ -38,19 +39,23 @@ std::vector<char> Info::reply_xml;
 
 /// @brief Initialize static data (reply pdict)
 void Info::init() noexcept { // static
+  static constexpr csv module_id{"reply::INFO"};
+  static constexpr csv fn_id{"INIT"};
   namespace fs = std::filesystem;
 
-  auto file_path = fs::path("../share/plist/get_info_resp.plist"sv);
+  auto file_path = Config().fs_parent_path().append("../share/plist/get_info_resp.plist"sv);
 
   if (std::ifstream is{file_path, std::ios::binary | std::ios::ate}) {
-    const auto size = is.tellg();
-    reply_xml.assign(size, 0x00);
+    reply_xml.assign(is.tellg(), 0x00);
 
     is.seekg(0);
-    if (is.read(reply_xml.data(), size)) {
-
-      INFO("reply::INFO", "INIT", "loaded reply xml size={}\n", reply_xml.size());
+    if (is.read(reply_xml.data(), reply_xml.size())) {
+      INFO(module_id, fn_id, "loaded: {} size={}\n", file_path.c_str(), reply_xml.size());
     }
+  }
+
+  if (reply_xml.empty()) {
+    INFO(module_id, fn_id, "failed to load: {}\n", file_path.c_str());
   }
 }
 

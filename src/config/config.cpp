@@ -157,6 +157,8 @@ bool Config::parse() noexcept { // static
     auto cli = table[CLI].as_table();
     cli->emplace("app_name"sv, args_map.app_name);
     cli->emplace("cfg_file"sv, args_map.cfg_file);
+    cli->emplace("exec_path"sv, args_map.exec_path.c_str());
+    cli->emplace("parent_path"sv, args_map.parent_path.c_str());
 
     rc = true;
 
