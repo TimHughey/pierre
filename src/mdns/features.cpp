@@ -25,9 +25,6 @@
 namespace pierre {
 
 using namespace ft;
-namespace {
-namespace ranges = std::ranges;
-}
 
 Features::Features() {
   auto set_bits = std::vector{b48TransientPairing, b47PeerManagement,     b46HomeKitPairing,
@@ -36,7 +33,7 @@ Features::Features() {
                               b18ReceiveAudioPCM,  b17AudioMetaTxtDAAP,   b16AudioMetaProgress,
                               b15AudioMetaCovers,  b14MFiSoft_FairPlay,   b09AirPlayAudio};
 
-  ranges::for_each(set_bits, [&](const auto bit) { ap2_default.set(bit); });
+  std::ranges::for_each(set_bits, [&](const auto bit) { ap2_default.set(bit); });
 
   ap2_setpeersx = ap2_default;
   ap2_setpeersx.set(b52PeersExtendedMessage);

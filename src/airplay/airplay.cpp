@@ -17,9 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "airplay/airplay.hpp"
-#include "base/features.hpp"
 #include "base/logger.hpp"
 #include "frame/master_clock.hpp"
+#include "mdns/features.hpp"
 #include "rtsp.hpp"
 
 #include <algorithm>

@@ -16,12 +16,12 @@
 //
 // https://www.wisslanding.com
 
-#include "mdns/service.hpp"
-#include "base/features.hpp"
+#include "service.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
+#include "features.hpp"
 #include "pair/pair.h"
 
 #include <array>

@@ -12,6 +12,9 @@ find_package(Avahi                          REQUIRED)
 find_library(libUUID      NAMES uuid        REQUIRED)
 
 add_library(${__target} SHARED 
+  # features bits (for mdns advert and airplay rtsp)
+  features.cpp
+
   # mdns functionality specific to this app
   mdns.cpp 
 
