@@ -9,8 +9,14 @@ set(HEADER_PATH_LOCAL                             ${HEADER_PATH}/${__target})
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/*.h*")
 
 add_library(${__target} SHARED
-  # public API for (light)desk and headunits
-  desk.cpp units.cpp
+  # public API
+  desk.cpp 
+
+  # color
+  color.cpp
+  
+  # headunits
+  units.cpp
 
   # desk DMX control session
   ctrl.cpp
@@ -19,7 +25,11 @@ add_library(${__target} SHARED
   unit/pinspot.cpp
 
   # FX
-  fx/fx.cpp fx/majorpeak.cpp fx/leave.cpp fx/colorbars.cpp fx/silence.cpp
+  fx/colorbars.cpp
+  fx/fx.cpp
+  fx/leave.cpp
+  fx/majorpeak.cpp
+  fx/silence.cpp
 
   ${HEADER_LIST}
 )

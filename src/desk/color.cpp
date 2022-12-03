@@ -18,7 +18,7 @@
     https://www.wisslanding.com
 */
 
-#include "base/color.hpp"
+#include "color.hpp"
 #include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 

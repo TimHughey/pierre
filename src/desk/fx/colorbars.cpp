@@ -17,10 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/colorbars.hpp"
-#include "base/color.hpp"
-#include "desk/desk.hpp"
-#include "desk/unit/pinspot.hpp"
+#include "color.hpp"
+#include "desk.hpp"
 #include "fader/toblack.hpp"
+#include "unit/pinspot.hpp"
 
 #include <chrono>
 

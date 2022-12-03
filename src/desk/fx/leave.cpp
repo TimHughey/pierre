@@ -17,10 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/leave.hpp"
-#include "base/color.hpp"
+#include "color.hpp"
 #include "config/config.hpp"
-#include "desk/desk.hpp"
-#include "desk/unit/all.hpp"
+#include "desk.hpp"
+#include "unit/all.hpp"
 
 namespace pierre {
 namespace fx {

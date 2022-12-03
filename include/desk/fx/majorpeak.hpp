@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include "base/color.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "config/types.hpp"
+#include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "majorpeak/types.hpp"
 

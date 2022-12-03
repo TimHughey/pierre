@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "base/color.hpp"
 #include "base/types.hpp"
+#include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/names.hpp"
 
