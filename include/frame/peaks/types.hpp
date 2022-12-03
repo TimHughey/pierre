@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "base/frequency.hpp"
-#include "base/magnitude.hpp"
 #include "base/min_max_pair.hpp"
+#include "frame/peaks/frequency.hpp"
+#include "frame/peaks/magnitude.hpp"
 
 #include <algorithm>
 #include <cmath>

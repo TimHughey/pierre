@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/magnitude.hpp"
 #include "base/types.hpp"
 #include "frame/peaks/types.hpp"
 

@@ -18,10 +18,10 @@
 
 #pragma once
 
-#include "base/frequency.hpp"
 #include "base/helpers.hpp"
-#include "base/magnitude.hpp"
 #include "base/types.hpp"
+#include "frame/peaks/frequency.hpp"
+#include "frame/peaks/magnitude.hpp"
 #include "frame/peaks/types.hpp"
 
 #include <algorithm>

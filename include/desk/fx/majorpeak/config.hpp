@@ -18,13 +18,14 @@
 
 #pragma once
 
-#include "base/frequency.hpp"
 #include "base/hard_soft_limit.hpp"
 #include "base/logger.hpp"
-#include "base/magnitude.hpp"
 #include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
+#include "frame/peaks/frequency.hpp"
+#include "frame/peaks/magnitude.hpp"
+#include "frame/peaks/types.hpp"
 #include "fx/majorpeak/types.hpp"
 
 #include <fmt/format.h>

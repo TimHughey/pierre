@@ -18,12 +18,12 @@
 
 #pragma once
 
-#include "base/frequency.hpp"
 #include "base/hard_soft_limit.hpp"
-#include "base/magnitude.hpp"
 #include "base/min_max_pair.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "frame/peaks/frequency.hpp"
+#include "frame/peaks/magnitude.hpp"
 
 #include <fmt/format.h>
 #include <map>
