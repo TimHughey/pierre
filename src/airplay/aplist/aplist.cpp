@@ -33,17 +33,6 @@
 
 namespace pierre {
 
-Aplist::Aplist(bool allocate) {
-  if (allocate != DEFER_DICT) {
-    _plist = plist_new_dict();
-  }
-}
-
-Aplist::Aplist(Aplist &&ap) {
-  _plist = ap._plist;
-  ap._plist = nullptr;
-}
-
 Aplist::Aplist(const Dictionaries &dictionaries) {
   _plist = plist_new_dict(); // create the root dictionary
 

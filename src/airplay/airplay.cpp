@@ -20,6 +20,7 @@
 #include "base/logger.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/features.hpp"
+#include "reply/info.hpp"
 #include "rtsp.hpp"
 
 #include <algorithm>
@@ -28,7 +29,7 @@
 namespace pierre {
 
 static std::shared_ptr<Airplay> overlord;
-static std::shared_ptr<Rtsp> rtsp;
+static std::shared_ptr<Rtsp> rtsp_server;
 
 void Airplay::init() noexcept { // static
   overlord = std::shared_ptr<Airplay>(new Airplay());
@@ -55,8 +56,10 @@ void Airplay::init_self() noexcept {
 
   shared::master_clock->peers_reset(); // reset timing peers
 
+  airplay::reply::Info::init();
+
   // start listening for Rtsp connections
-  rtsp = Rtsp::init(io_ctx);
+  rtsp_server = Rtsp::init(io_ctx);
 
   INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Airplay),
        std::ssize(threads), AIRPLAY_THREADS, Features().ap2Default());

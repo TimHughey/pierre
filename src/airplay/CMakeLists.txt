@@ -2,8 +2,6 @@
 # airplay
 #
 
-add_subdirectory(ple)
-
 set(__target  airplay)
 
 set(HEADER_PATH                           "${pierre_SOURCE_DIR}/include")
@@ -28,10 +26,7 @@ add_library(${__target} SHARED
   headers.cpp
   resp_code.cpp
 
-  # embedded plists (via ld text file to binary, see ple/CMakeLists.txt)
-  embed/embed.cpp
-
-  # reply
+  # replies
   reply/factory.cpp
   reply/fairplay.cpp
   reply/flush.cpp
@@ -43,7 +38,7 @@ add_library(${__target} SHARED
   reply/setup.cpp 
   reply/teardown.cpp
 
-  # rtsp session context, message / worker servers and message session
+  # rtsp session context and message server/workers
   rtsp.cpp 
   rtsp/session.cpp 
   rtsp/audio.cpp 
@@ -63,11 +58,15 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
+  base
+  config
+  frame
+  io
+  mdns
   pair
-  ple
-  base config frame io mdns stats
+  stats
 )
 
-target_link_libraries(${__target} PUBLIC 
-  mdns
-)
+# target_link_libraries(${__target} PUBLIC 
+#   mdns
+# )

@@ -1,37 +1,58 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+//  Pierre - Custom Light Show for Wiss Landing
+//  Copyright (C) 2022  Tim Hughey
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  https://www.wisslanding.com
 
 #include "reply/info.hpp"
-#include "airplay/embed/embed.hpp"
+#include "aplist/aplist.hpp"
+#include "base/logger.hpp"
+#include "base/uint8v.hpp"
 #include "mdns/service.hpp"
 #include "reply/dict_keys.hpp"
 
-#include <array>
-#include <fmt/format.h>
-#include <iterator>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <memory>
-#include <tuple>
+#include <sstream>
 
 namespace pierre {
 namespace airplay {
 namespace reply {
+
+// class static data
+std::vector<char> Info::reply_xml;
+
+/// @brief Initialize static data (reply pdict)
+void Info::init() noexcept { // static
+  namespace fs = std::filesystem;
+
+  auto file_path = fs::path("../share/plist/get_info_resp.plist"sv);
+
+  if (std::ifstream is{file_path, std::ios::binary | std::ios::ate}) {
+    const auto size = is.tellg();
+    reply_xml.assign(size, 0x00);
+
+    is.seekg(0);
+    if (is.read(reply_xml.data(), size)) {
+
+      INFO("reply::INFO", "INIT", "loaded reply xml size={}\n", reply_xml.size());
+    }
+  }
+}
 
 bool Info::populate() {
   auto rc = true;
@@ -44,8 +65,8 @@ bool Info::populate() {
   txt_opt_seq_t want_keys{txt_opt::apDeviceID, txt_opt::apAirPlayPairingIdentity,
                           txt_opt::ServiceName, txt_opt::apModel};
 
-  // the plist from embedded binary data
-  Aplist reply_dict(ple::binary(ple::Embedded::GetInfoRespStage1));
+  // the plist from static data read by init()
+  Aplist reply_dict(reply_xml);
   reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apFeatures));
 
   if (rdict.empty()) { // if dictionary is empty this is a stage 2 message

@@ -21,6 +21,8 @@
 #include "aplist/aplist.hpp"
 #include "reply/reply.hpp"
 
+#include <vector>
+
 namespace pierre {
 namespace airplay {
 namespace reply {
@@ -29,10 +31,13 @@ class Info : public Reply {
 public:
   Info() : Reply("INFO"), rdict(Aplist::DEFER_DICT) {}
 
+  static void init() noexcept;
+
   bool populate() override;
 
 private:
   Aplist rdict;
+  static std::vector<char> reply_xml;
 };
 
 } // namespace reply

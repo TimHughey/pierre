@@ -54,13 +54,27 @@ public:
   static constexpr csv ROOT{""};
 
 public:
-  Aplist(bool allocate = true);
-  Aplist(Aplist &&ap); // allow move construction
+  Aplist(bool allocate = true) noexcept {
+    if (allocate != DEFER_DICT) {
+      _plist = plist_new_dict();
+    }
+  }
+
+  /// @brief Move constructor
+  /// @param ap Other Aplist to move from
+  Aplist(Aplist &&ap) noexcept {
+    _plist = ap._plist;
+    ap._plist = nullptr;
+  }
+
+  /// @brief Create Aplist from a vector of chars
+  /// @param xml Vector of char data
+  Aplist(const std::vector<char> &xml) noexcept { plist_from_xml(xml.data(), xml.size(), &_plist); }
+
   Aplist(const Content &content) { fromContent(content); }
   Aplist(const Dictionaries &dicts);
   Aplist(csv mem);
   Aplist(const Aplist &src, const Steps &steps); //
-  Aplist(const Aplist &ap) = delete;             // no copies
 
   ~Aplist();
 
@@ -137,6 +151,7 @@ private:
 private:
   plist_t _plist = nullptr;
 
+public:
   static constexpr csv module_id{"APLIST"};
 };
 
