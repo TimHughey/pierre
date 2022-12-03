@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "base/resp_code.hpp"
+#include "resp_code.hpp"
 
 #include <map>
 
@@ -24,14 +24,14 @@ namespace pierre {
 
 typedef const std::map<RespCode, const char *> RespCodeMap;
 
-static RespCodeMap _resp_code_ccs{{OK, "OK"},
-                                  {AuthRequired, "Connection Authorization Required"},
-                                  {BadRequest, "Bad Request"},
-                                  {InternalServerError, "Internal Server Error"},
-                                  {Unauthorized, "Unauthorized"},
-                                  {Unavailable, "Unavailable"},
-                                  {NotImplemented, "Not Implemented"},
-                                  {Continue, "Continue"}};
+static RespCodeMap _resp_code_ccs{{RespCode::OK, "OK"},
+                                  {RespCode::AuthRequired, "Connection Authorization Required"},
+                                  {RespCode::BadRequest, "Bad Request"},
+                                  {RespCode::InternalServerError, "Internal Server Error"},
+                                  {RespCode::Unauthorized, "Unauthorized"},
+                                  {RespCode::Unavailable, "Unavailable"},
+                                  {RespCode::NotImplemented, "Not Implemented"},
+                                  {RespCode::Continue, "Continue"}};
 
 csv respCodeToView(RespCode resp_code) { return csv(_resp_code_ccs.at(resp_code)); }
 

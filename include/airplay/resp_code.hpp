@@ -16,44 +16,23 @@
 //
 //  https://www.wisslanding.com
 
-#include "reply/teardown.hpp"
-#include "airplay/headers.hpp"
-#include "base/render.hpp"
+#pragma once
+
 #include "base/types.hpp"
-#include "mdns/mdns.hpp"
-#include "reply/dict_keys.hpp"
-#include "rtsp/ctx.hpp"
 
 namespace pierre {
-namespace airplay {
-namespace reply {
 
-bool Teardown::populate() {
-  rdict = plist();
+enum RespCode : uint16_t {
+  Continue = 100,
+  OK = 200,
+  AuthRequired = 470,
+  BadRequest = 400,
+  Unauthorized = 403,
+  Unavailable = 451,
+  InternalServerError = 500,
+  NotImplemented = 501
+};
 
-  headers.add(hdr_type::ContentSimple, hdr_val::ConnectionClosed);
-  resp_code(RespCode::OK); // always OK
+csv respCodeToView(RespCode resp_code);
 
-  return rdict.exists(dk::STREAMS) ? phase1() : phase12();
-}
-
-bool Teardown::phase1() {
-  di->rtsp_ctx->shared_key.clear();
-  Render::set(false);
-
-  return true;
-}
-
-bool Teardown::phase2() { // we've been asked to disconnect
-
-  di->rtsp_ctx->service->receiver_active(false);
-  mDNS::update();
-
-  di->rtsp_ctx->teardown();
-
-  return true;
-}
-
-} // namespace reply
-} // namespace airplay
 } // namespace pierre

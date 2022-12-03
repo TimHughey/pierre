@@ -16,8 +16,23 @@
 //
 //  https://www.wisslanding.com
 
-#include "base/ref_clock.hpp"
+#include "resp_code.hpp"
+
+#include <map>
 
 namespace pierre {
-// no .cpp implementation at present
-}
+
+typedef const std::map<RespCode, const char *> RespCodeMap;
+
+static RespCodeMap _resp_code_ccs{{OK, "OK"},
+                                  {AuthRequired, "Connection Authorization Required"},
+                                  {BadRequest, "Bad Request"},
+                                  {InternalServerError, "Internal Server Error"},
+                                  {Unauthorized, "Unauthorized"},
+                                  {Unavailable, "Unavailable"},
+                                  {NotImplemented, "Not Implemented"},
+                                  {Continue, "Continue"}};
+
+csv respCodeToView(RespCode resp_code) { return csv(_resp_code_ccs.at(resp_code)); }
+
+} // namespace pierre

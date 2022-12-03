@@ -23,6 +23,11 @@ add_library(${__target} SHARED
   # message cipher support
   aes_ctx.cpp
 
+  # rtsp message support
+  content.cpp
+  headers.cpp
+  resp_code.cpp
+
   # embedded plists (via ld text file to binary, see ple/CMakeLists.txt)
   embed/embed.cpp
 

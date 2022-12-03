@@ -26,10 +26,10 @@ namespace pierre {
 namespace airplay {
 namespace reply {
 
-[[nodiscard]] shReply Factory::create(const reply::Inject &di) {
+[[nodiscard]] std::shared_ptr<Reply> Factory::create(const reply::Inject &di) {
   static const std::set<string_view> pair_paths{"/pair-setup", "/pair-verify"};
 
-  shReply reply;
+  std::shared_ptr<Reply> reply;
 
   csv method = di.method;
   csv path = di.path;

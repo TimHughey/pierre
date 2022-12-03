@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/headers.hpp"
+#include "airplay/headers.hpp"
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -27,7 +27,7 @@
 
 namespace pierre {
 
-class Service;
+class Service; // forward decl to hide Service implementation details
 
 namespace rtsp {
 

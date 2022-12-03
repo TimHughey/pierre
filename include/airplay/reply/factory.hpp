@@ -25,7 +25,7 @@ namespace airplay {
 namespace reply {
 
 struct Factory {
-  static shReply create(const reply::Inject &di);
+  static std::shared_ptr<Reply> create(const reply::Inject &di);
   static constexpr csv moduleId{"FACTORY"};
 };
 

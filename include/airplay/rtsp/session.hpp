@@ -19,10 +19,10 @@
 #pragma once
 
 #include "airplay/aes_ctx.hpp"
+#include "airplay/content.hpp"
+#include "airplay/headers.hpp"
 #include "airplay/rtsp/ctx.hpp"
-#include "base/content.hpp"
 #include "base/elapsed.hpp"
-#include "base/headers.hpp"
 #include "base/host.hpp"
 #include "base/io.hpp"
 #include "base/logger.hpp"

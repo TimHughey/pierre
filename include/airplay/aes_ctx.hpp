@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "base/content.hpp"
-#include "base/headers.hpp"
-#include "base/resp_code.hpp"
+#include "airplay/content.hpp"
+#include "airplay/headers.hpp"
+#include "airplay/resp_code.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "pair/pair.h"
