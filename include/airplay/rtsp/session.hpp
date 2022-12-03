@@ -97,7 +97,7 @@ private:
 
           if (!msg.empty()) {
 
-            INFO(module_id, "ASYNC_READ", "active_remote={} {}\n", s->rtsp_ctx->active_remote, msg);
+            INFO(module_id, "ASYNC_READ", "{}\n", msg);
             // will fall out of scope when this function returns
           } else if (bytes < 1) {
 

@@ -41,7 +41,7 @@ namespace fs = std::filesystem;
 void Session::do_packet(Elapsed &&e) noexcept {
   using namespace airplay::reply;
 
-  // this function is invoked multi times to:
+  // this function is invoked to:
   //  1. find the message delims
   //  2. parse the method / headers
   //  3. ensure all content is received
@@ -90,11 +90,7 @@ void Session::do_packet(Elapsed &&e) noexcept {
 
     // now, let's validate we have a packet that contains all the content
     const auto content_begin = found_delims[1].first + found_delims[1].second;
-    //  const auto content_end = content_begin + content_expected_len;
     const auto content_avail = std::ssize(packet) - content_begin;
-
-    // INFO(module_id, "CONTENT", "begin={}/{:02x} end={} avail={} expected={}\n", content_begin,
-    //      packet[content_begin], content_end, content_avail, content_expected_len);
 
     // compare the content_end to the size of the packet
     if (content_avail == content_expected_len) {
@@ -103,8 +99,6 @@ void Session::do_packet(Elapsed &&e) noexcept {
     } else {
       // packet does not contain all the content, read bytes from the socket
       const auto more_bytes = content_expected_len - content_avail;
-
-      // INFO(module_id, "CONTENT", "more_bytes={}\n", more_bytes);
 
       async_read(asio::transfer_exactly(more_bytes), std::move(e));
       return;
@@ -142,8 +136,6 @@ void Session::do_packet(Elapsed &&e) noexcept {
   }
 
   save_packet(reply_packet);
-
-  // INFO(module_id, "WRITE", "{}\n", reply_packet.view());
 
   // reply has content to send
   aes_ctx.encrypt(reply_packet); // NOTE: noop until cipher exchange completed

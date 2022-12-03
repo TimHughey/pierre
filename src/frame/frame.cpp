@@ -82,7 +82,7 @@ notes:
  3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
      are zeroed */
 
-static constexpr csv cfg_cipher_buff_size{"frame.cipher_buffer"};
+static constexpr csv cfg_cipher_buff_size{"frame.cipher.buffer_size"};
 
 // Frame API
 

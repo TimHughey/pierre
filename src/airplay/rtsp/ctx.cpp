@@ -57,17 +57,28 @@ Port Ctx::server_port(ports_t server_type) noexcept {
 }
 
 void Ctx::teardown() noexcept {
-  audio_srv->teardown();
-  audio_srv.reset();
 
-  control_srv->teardown();
-  control_srv.reset();
+  INFO(module_id, "TEARDOWN", "active_remote={} dacp_id={} client_name={}\n", //
+       active_remote, dacp_id, client_name);
 
-  event_srv->teardown();
-  event_srv.reset();
+  group_contains_group_leader = false;
+  active_remote = 0;
 
-  [[maybe_unused]] error_code ec;
-  feedback_timer.cancel(ec);
+  asio::post(io_ctx, [s = ptr()]() {
+    s->audio_srv->teardown();
+    s->audio_srv.reset();
+
+    s->control_srv->teardown();
+    s->control_srv.reset();
+
+    s->event_srv->teardown();
+    s->event_srv.reset();
+
+    [[maybe_unused]] error_code ec;
+    s->feedback_timer.cancel(ec);
+
+    INFO(module_id, "TEARDOWN", "COMPLETE\n");
+  });
 }
 
 void Ctx::update_from(const Headers &h) noexcept {

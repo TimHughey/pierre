@@ -7,8 +7,7 @@ working_dir = ".pierre" # cwd to this directory at startup
 
 [cli]
 # NOTE: cli table is not a source of config, rather it holds
-#       command line opts passed at startup and populated
-#       at runtime
+#       command line opts passed at startup and populated at runtime
 #
 # app_name = "" # typically basename() of the app
 # cfg_file = "" # could be this file or another specified by cli opt
@@ -16,7 +15,7 @@ working_dir = ".pierre" # cwd to this directory at startup
 [stats]
 enabled = true
 db_uri = "http://localhost:8086?db=pierre"
-batch_of = 100
+batch_of = 150
 
 [debug]
 path = "../extra/debug"
@@ -37,11 +36,12 @@ receiver = "%h"        # use hostname
 service = "_ruth._tcp" # service advertised by rendering devices
 
 [rtsp]
-audio = { buffer_size = 0x800000 } # in bytes (8mb)
+audio = { buffer_size = 0x800000 }   # bytes (8mb)
+connection = { timeout_ms = 30_000 }
 
 [frame]
+cipher = { buffer_size = 0x2000 }  # bytes (4k)
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
-cipher_buffer = 0x2000             # in bytes (4k)
 
 [frame.clock]
 shm_name = "/nqptp"
@@ -61,6 +61,9 @@ threads = 5      # frame, dmx connect, dmx ctrl/data
 [fx.leave]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
+
+[fx.majorpeak]
+silence = { timeout_ms = 13_000 }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

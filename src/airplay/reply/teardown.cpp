@@ -51,9 +51,6 @@ bool Teardown::phase2() { // we've been asked to disconnect
 
   di->rtsp_ctx->teardown();
 
-  di->rtsp_ctx->group_contains_group_leader = false;
-  di->rtsp_ctx->active_remote = 0;
-
   return true;
 }
 

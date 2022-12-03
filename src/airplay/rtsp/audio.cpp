@@ -47,7 +47,7 @@ void Audio::async_read_packet() noexcept {
             const auto msg = io::is_ready(sock, ec);
 
             if (!msg.empty() || (bytes < std::ssize(s->packet_len))) {
-              INFO(module_id, "ASYNC_READ", "bytes={} msg\n", bytes, msg);
+              INFO(module_id, "ASYNC_READ", "bytes={} {}\n", bytes, msg);
               return;
             }
 
