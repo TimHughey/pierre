@@ -25,19 +25,29 @@ find_package(ZLIB           REQUIRED)
 
 add_library(${__target} SHARED
   # deoder, dsp
-  av.cpp dsp.cpp fft.cpp 
+  av.cpp
+  dsp.cpp
+  fft.cpp 
+
+  # anchor and master clock
+  anchor_data.cpp
+  anchor.cpp
+  clock_info.cpp
+  master_clock.cpp
   
   # FFT results
-  peaks.cpp peaks/peak.cpp peaks/peak_config.cpp
+  peaks.cpp
+  peaks/peak.cpp
+  peaks/peak_config.cpp
 
   # the frame (from raw to dsp complete)
-  frame.cpp silent_frame.cpp state.cpp
+  frame.cpp
+  silent_frame.cpp
+  state.cpp
 
   # racks and reels of frames
-  racked.cpp reel.cpp
-
-  # master clock and anchor
-  anchor.cpp master_clock.cpp
+  racked.cpp
+  reel.cpp
 
   ${HEADER_LIST}
 )

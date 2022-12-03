@@ -17,7 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "stats/stats.hpp"
-#include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "config/config.hpp"
 

@@ -18,12 +18,12 @@
 
 #pragma once
 
-#include "base/clock_info.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "frame/clock_info.hpp"
 
 #include <array>
 #include <chrono>
@@ -104,7 +104,7 @@ private:
   void info_retry(clock_info_prom prom, //
                   Nanos max_wait = Nanos::zero(),
                   Elapsed e = Elapsed(), //
-                  steady_timer_ptr timer =nullptr) noexcept;
+                  steady_timer_ptr timer = nullptr) noexcept;
 
   bool is_mapped() const;
   void init_self() noexcept;

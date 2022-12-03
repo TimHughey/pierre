@@ -18,12 +18,12 @@
 
 #pragma once
 
-#include "base/anchor_data.hpp"
-#include "base/clock_info.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "frame/anchor_data.hpp"
+#include "frame/clock_info.hpp"
 
 #include <tuple>
 #include <utility>

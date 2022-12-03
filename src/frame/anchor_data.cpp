@@ -16,12 +16,12 @@
 //
 //  https://www.wisslanding.com
 
-#include "base/anchor_data.hpp"
+#include "anchor_data.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "frame/master_clock.hpp"
+#include "master_clock.hpp"
 
 #include <chrono>
 #include <cmath>

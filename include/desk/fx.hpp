@@ -30,14 +30,13 @@
 namespace pierre {
 
 class FX;
-typedef std::shared_ptr<FX> shFX;
 
 struct fx_factory {
-  template <typename T> static shFX create() {
+  template <typename T> static std::shared_ptr<FX> create() {
     return std::static_pointer_cast<T>(std::make_shared<T>());
   }
 
-  template <typename T> static std::shared_ptr<T> derive(shFX fx) {
+  template <typename T> static std::shared_ptr<T> derive(std::shared_ptr<FX> fx) {
     return std::static_pointer_cast<T>(fx);
   }
 };

@@ -17,13 +17,13 @@
 // https://www.wisslanding.com
 
 #include "desk.hpp"
-#include "base/anchor_last.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/render.hpp"
 #include "config/config.hpp"
 #include "ctrl.hpp"
 #include "data_msg.hpp"
+#include "frame/anchor_last.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
@@ -45,7 +45,7 @@ namespace pierre {
 
 // allow shorthand access to shared objects
 static std::shared_ptr<Desk> self;
-static shFX active_fx;
+static std::shared_ptr<FX> active_fx;
 static std::shared_ptr<desk::Ctrl> ctrl;
 
 // must be defined in .cpp to hide mdns

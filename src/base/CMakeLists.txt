@@ -35,8 +35,9 @@ add_library(${__target} SHARED
   # colors (used by multiple libraries)
   color.cpp
 
-  # time / frame / rtp time keeping anchor and clock info
-  anchor_data.cpp clock_info.cpp pet.cpp render.cpp
+  # time utilities and global render flag
+  pet.cpp
+  render.cpp
   
   # headers
   ${HEADER_LIST}
