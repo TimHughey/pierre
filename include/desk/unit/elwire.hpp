@@ -25,13 +25,12 @@ namespace pierre {
 
 class ElWire : public PulseWidth {
 public:
-  ElWire(const unit::Opts opts) : PulseWidth(opts) {
+  ElWire(const auto &opts) : PulseWidth(opts) {
     config.max = duty_percent(0.25);
     config.min = duty_percent(0.01);
     config.dim = duty_percent(0.03);
     config.pulse_start = duty_percent(0.15);
     config.pulse_end = config.dim;
-    config.leave = duty_percent(0.50);
 
     dim();
   }

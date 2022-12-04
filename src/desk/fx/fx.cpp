@@ -20,7 +20,7 @@
 #include "base/logger.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/unit/all.hpp"
-#include "desk/unit/opts.hpp"
+#include "desk/unit/names.hpp"
 #include "frame/frame.hpp"
 
 #include <algorithm>
@@ -30,16 +30,15 @@ namespace pierre {
 
 Units FX::units; // static class member
 
-FX::FX() {
+FX::FX() : finished(false) {
   if (units.empty()) { // create the units once
-    units.add<AcPower>(unit::AC_POWER_OPTS);
-    units.add<AcPower>(unit::AC_POWER_OPTS);
-    units.add<PinSpot>(unit::MAIN_SPOT_OPTS);
-    units.add<PinSpot>(unit::FILL_SPOT_OPTS);
-    units.add<DiscoBall>(unit::DISCO_BALL_OPTS);
-    units.add<ElWire>(unit::EL_DANCE_OPTS);
-    units.add<ElWire>(unit::EL_ENTRY_OPTS);
-    units.add<LedForest>(unit::LED_FOREST_OPTS);
+    units.add<AcPower>({.name = unit_name::AC_POWER, .address = 0});
+    units.add<PinSpot>({.name = unit_name::MAIN_SPOT, .address = 1});
+    units.add<PinSpot>({.name = unit_name::FILL_SPOT, .address = 7});
+    units.add<DiscoBall>({.name = unit_name::DISCO_BALL, .address = 3});
+    units.add<ElWire>({.name = unit_name::EL_DANCE, .address = 2});
+    units.add<ElWire>({.name = unit_name::EL_ENTRY, .address = 4});
+    units.add<LedForest>({.name = unit_name::LED_FOREST, .address = 1});
   }
 }
 
@@ -52,6 +51,8 @@ bool FX::render(frame_t frame, desk::DataMsg &msg) noexcept {
   if (called_once == false) {
     // frame 0 is always consumed by call to once()
     once();
+    units.update_msg(msg);
+
     called_once = true;
   } else {
     units.prepare();

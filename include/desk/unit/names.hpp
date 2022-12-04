@@ -16,45 +16,25 @@
 //
 // https://www.wisslanding.com
 
-#include "desk/unit/pinspot.hpp"
+#pragma once
+
 #include "base/types.hpp"
 
 namespace pierre {
 
-void PinSpot::colorNow(const Color &color_now, float strobe_val) {
-  color = color_now;
+struct unit_name {
+  static const string AC_POWER;
+  static const string MAIN_SPOT;
+  static const string FILL_SPOT;
+  static const string EL_ENTRY;
+  static const string EL_DANCE;
+  static const string LED_FOREST;
+  static const string DISCO_BALL;
+};
 
-  if ((strobe_val >= 0.0) && (strobe_val <= 1.0)) {
-    strobe = (uint8_t)(strobe_max * strobe);
-  }
-
-  fx = FX::None;
-}
-
-void PinSpot::faderMove() {
-  if (isFading()) {
-    auto continue_traveling = fader->travel();
-    color = fader->position();
-    strobe = 0;
-
-    if (continue_traveling == false) {
-      fader.reset();
-    }
-  }
-}
-
-void PinSpot::update_msg(desk::DataMsg &msg) noexcept {
-  auto snippet = msg.dmxFrame() + address;
-
-  color.copyRgbToByteArray(snippet + 1);
-
-  if (strobe > 0) {
-    snippet[0] = strobe + 0x87;
-  } else {
-    snippet[0] = 0xF0;
-  }
-
-  snippet[5] = fx;
-}
+struct hdopts {
+  const string name;
+  size_t address;
+};
 
 } // namespace pierre

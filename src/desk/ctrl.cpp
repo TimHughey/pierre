@@ -45,13 +45,13 @@ static const auto controller_name() noexcept {
 }
 
 static const auto idle_shutdown() noexcept {
-  static constexpr csv PATH{"dmx.timeouts.idle_ms"};
+  static constexpr csv PATH{"dmx.timeouts.milliseconds.idle"};
 
   return Config().at(PATH).value_or(30000);
 }
 
 static const auto stalled_timeout() noexcept {
-  static constexpr csv PATH{"dmx.timeouts.stalled_ms"};
+  static constexpr csv PATH{"dmx.timeouts.milliseconds.stalled"};
 
   return pet::from_ms(Config().at(PATH).value_or(1000));
 }

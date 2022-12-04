@@ -19,24 +19,29 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "config/config.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+
+#include <memory>
 
 namespace pierre {
 namespace fx {
 
-class Leave : public FX {
+class Leave : public FX, public std::enable_shared_from_this<Leave> {
 public:
   Leave() = default;
-  ~Leave();
 
   void execute(Peaks &peaks) override;
   csv name() const override { return fx::LEAVE; };
 
   void once() override;
 
+  std::shared_ptr<FX> ptr_base() noexcept { return std::static_pointer_cast<FX>(ptr()); }
+
 private:
   void load_config() noexcept;
+  std::shared_ptr<Leave> ptr() noexcept { return shared_from_this(); }
 
 private:
   // order independent
@@ -44,6 +49,8 @@ private:
   double max_brightness{0};
   double next_brightness{0};
   Color next_color;
+
+  cfg_future cfg_change;
 };
 
 } // namespace fx

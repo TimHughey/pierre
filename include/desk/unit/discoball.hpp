@@ -24,9 +24,11 @@ namespace pierre {
 
 class DiscoBall : public PulseWidth {
 public:
-  DiscoBall(const unit::Opts opts) : PulseWidth(opts) { config.leave = 0; }
+  DiscoBall(const auto &opts) : PulseWidth(opts) {}
 
 public: // effects
+  void activate() noexcept override { spin(); }
+
   inline void spin() { percent(0.65); }
   inline void still() { dark(); }
 };

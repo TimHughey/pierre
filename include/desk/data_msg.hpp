@@ -58,9 +58,9 @@ public:
     for (uint8_t byte : dmx_frame) {
       dframe.add(byte);
     }
-
-    // INFO_WITH_CHUNK(module_id, "FINALIZE", inspect(), "type={}\n", TYPE);
   }
+
+  void noop() noexcept {}
 
   // misc debug
   string inspect() const noexcept override {

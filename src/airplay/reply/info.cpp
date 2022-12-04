@@ -43,7 +43,8 @@ void Info::init() noexcept { // static
   static constexpr csv fn_id{"INIT"};
   namespace fs = std::filesystem;
 
-  auto file_path = Config().fs_parent_path().append("../share/plist/get_info_resp.plist"sv);
+  auto file_path = Config().fs_parent_path();
+  file_path /= "../share/plist/get_info_resp.plist"sv;
 
   if (std::ifstream is{file_path, std::ios::binary | std::ios::ate}) {
     reply_xml.assign(is.tellg(), 0x00);

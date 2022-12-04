@@ -19,7 +19,6 @@
 #pragma once
 
 #include "desk/fx.hpp"
-#include "desk/fx/colorbars.hpp"
 #include "desk/fx/leave.hpp"
 #include "desk/fx/majorpeak.hpp"
 #include "desk/fx/names.hpp"

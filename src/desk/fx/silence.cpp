@@ -17,14 +17,14 @@
 // https://www.wisslanding.com
 
 #include "desk/fx/silence.hpp"
-#include "desk/unit/all.hpp"
 
 namespace pierre {
 namespace fx {
 
 void Silence::once() {
-  units.dark();
-  finished = true;
+  units(unit_name::AC_POWER)->activate();
+
+  set_finished(true); // silence is always finished
 }
 
 } // namespace fx

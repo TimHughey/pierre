@@ -18,63 +18,76 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "desk/data_msg.hpp"
 #include "desk/unit.hpp"
 
 #include <algorithm>
+#include <initializer_list>
 #include <map>
 #include <memory>
+#include <ranges>
+#include <set>
 #include <type_traits>
 
 namespace pierre {
 
-using units_map = std::map<string, std::shared_ptr<Unit>>;
-
 class Units {
+
+private:
+  static constexpr auto empty_excludes = std::initializer_list<string>();
 
 public:
   Units() = default;
 
-  template <typename T> void add(unit::Opts opts) noexcept {
-    _units_map.try_emplace(string(opts.name), std::make_shared<T>(opts));
-  }
+  void for_each(auto f, std::initializer_list<string> exclude_list = empty_excludes) noexcept {
+    std::set<string> excludes(exclude_list);
 
-  void dark() noexcept {
-    for (auto it = _units_map.begin(); it != _units_map.end(); it++) {
-      it->second->dark();
+    for (auto [name, unit] : map) {
+      if (excludes.contains(name) == false) f(unit);
     }
   }
 
-  bool empty() const noexcept { return _units_map.empty(); }
-
-  template <typename T> auto operator()(csv name) noexcept { return get<T>(name); }
-
-  template <typename T> auto get(csv name) noexcept { return get<T>(string(name)); }
-
-  template <typename T> auto get(string name) noexcept {
-    return static_pointer_cast<T>(_units_map[name]);
+  template <typename T> void add(const hdopts opts) noexcept {
+    map.try_emplace(opts.name, std::make_shared<T>(opts));
   }
 
-  void leave() noexcept {
-    for (auto it = _units_map.begin(); it != _units_map.end(); it++) {
-      it->second->leave();
+  void dark(std::initializer_list<string> exclude_list = empty_excludes) noexcept {
+    for_each([](std::shared_ptr<Unit> unit) { unit->dark(); }, exclude_list);
+  }
+
+  bool empty() const noexcept { return map.empty(); }
+
+  auto operator()(const string &name) noexcept { return map[name]; }
+
+  template <typename T = Unit> constexpr auto get(const string &name) noexcept {
+    auto unit = map[name];
+
+    if constexpr (std::is_same_v<T, Unit>) {
+      return unit->shared_from_this();
+    } else if constexpr (std::is_base_of_v<Unit, T>) {
+      return static_pointer_cast<T>(unit);
+    } else {
+      static_assert(always_false_v<T>, "unhandled type");
     }
   }
 
   void prepare() noexcept {
-    for (auto it = _units_map.begin(); it != _units_map.end(); it++) {
-      it->second->prepare();
-    }
+    for_each([](std::shared_ptr<Unit> unit) { unit->prepare(); });
   }
+
+  ssize_t ssize() const noexcept { return std::ssize(map); }
+
   void update_msg(desk::DataMsg &m) noexcept {
-    for (auto it = _units_map.begin(); it != _units_map.end(); it++) {
-      it->second->update_msg(m);
-    }
+    for_each([&](std::shared_ptr<Unit> unit) mutable { unit->update_msg(m); });
   }
 
 private:
-  static units_map _units_map;
+  std::map<string, std::shared_ptr<Unit>> map;
+
+public:
+  static constexpr csv module_id{"desk::Units"};
 };
 
 } // namespace pierre

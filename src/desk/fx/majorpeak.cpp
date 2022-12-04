@@ -39,8 +39,11 @@ namespace {
 namespace stats = pierre::stats;
 }
 
-MajorPeak::MajorPeak() noexcept
+MajorPeak::MajorPeak(io_context &io_ctx) noexcept
     : FX(),                         //
+      io_ctx(io_ctx),               //
+      silence_timer(io_ctx),        //
+      silence{false},               // has silence timeout occurred
       base_color(Hsb{0, 100, 100}), //
       _main_last_peak(),            //
       _fill_last_peak()             //
@@ -63,15 +66,20 @@ MajorPeak::MajorPeak() noexcept
 
 void MajorPeak::execute(Peaks &peaks) {
 
+  // reset silence timer when peaks are not silent
+  if (peaks.silence() == false) silence_watch();
+
   if (_cfg_changed.has_value() && Config::has_changed(_cfg_changed)) {
     load_config();
+    silence_watch(); // restart silence watch in case silence timeout changes
+
     Config::want_changes(_cfg_changed);
 
     INFO(module_id, "EXECUTE", "config reloaded want_changes={}\n", _cfg_changed.has_value());
   }
 
-  units.get<AcPower>(unit::AC_POWER)->on();
-  units.get<DiscoBall>(unit::DISCO_BALL)->spin();
+  units(unit_name::AC_POWER)->activate();
+  units(unit_name::DISCO_BALL)->activate();
 
   handle_el_wire(peaks);
   handle_main_pinspot(peaks);
@@ -80,16 +88,17 @@ void MajorPeak::execute(Peaks &peaks) {
   Stats::write(stats::MAX_PEAK_FREQUENCY, peaks.major_peak().frequency());
   Stats::write(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
 
-  // detect if FX is in finished position (nothing is fading)
-  // finished = !main->isFading() && !fill->isFading();
-
-  finished = false;
+  // detect if FX is in finished position (nothing is fading) and the silence
+  // timeout has expired
+  set_finished((units.get<PinSpot>(unit_name::MAIN_SPOT)->isFading() == false) &&
+               (units.get<PinSpot>(unit_name::FILL_SPOT)->isFading() == false) && silence.load());
 }
 
 void MajorPeak::handle_el_wire(Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{units.get<ElWire>(unit::EL_DANCE), units.get<ElWire>(unit::EL_ENTRY)};
+  std::array elwires{units.get<ElWire>(unit_name::EL_DANCE),
+                     units.get<ElWire>(unit_name::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
@@ -105,7 +114,7 @@ void MajorPeak::handle_el_wire(Peaks &peaks) {
 }
 
 void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
-  auto fill = units.get<PinSpot>(unit::FILL_SPOT);
+  auto fill = units.get<PinSpot>(unit_name::FILL_SPOT);
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "fill pinspot");
 
   const auto peak = peaks.major_peak();
@@ -172,7 +181,7 @@ void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
 }
 
 void MajorPeak::handle_main_pinspot(Peaks &peaks) {
-  auto main = units.get<PinSpot>(unit::MAIN_SPOT);
+  auto main = units.get<PinSpot>(unit_name::MAIN_SPOT);
   auto cfg = major_peak::find_pspot_cfg(_pspot_cfg_map, "main pinspot");
 
   const auto freq_min = cfg.freq_min;
@@ -228,6 +237,7 @@ void MajorPeak::load_config() noexcept {
   _hue_cfg_map = major_peak::cfg_hue_map();
   _mag_limits = major_peak::cfg_mag_limits();
   _pspot_cfg_map = major_peak::cfg_pspot_map();
+  _silence_timeout = major_peak::cfg_silence_timeout();
 
   // register for changes
   Config::want_changes(_cfg_changed);
@@ -276,10 +286,25 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 // must be in .cpp to avoid including Desk in .hpp
 void MajorPeak::once() {
   Stats::init(); // ensure Stats object is initialized
-  units.dark();
+
+  units(unit_name::AC_POWER)->activate();
+  units(unit_name::LED_FOREST)->dark();
+
+  silence_watch();
 }
 
 const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_colors.at(index); }
+
+void MajorPeak::silence_watch() noexcept {
+
+  silence_timer.expires_after(_silence_timeout);
+  silence_timer.async_wait([s = ptr()](const error_code ec) {
+    if (!ec) {
+      s->silence.store(true);
+      INFO(module_id, "SILENCE_WATCH", "silence={}\n", s->silence.load());
+    }
+  });
+}
 
 // static class members
 MajorPeak::ReferenceColors MajorPeak::_ref_colors;

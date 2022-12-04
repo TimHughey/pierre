@@ -14,18 +14,15 @@ add_library(${__target} SHARED
 
   # color
   color.cpp
-  
-  # headunits
-  units.cpp
 
   # desk DMX control session
   ctrl.cpp
 
   # headunits
+  unit/names.cpp
   unit/pinspot.cpp
 
   # FX
-  fx/colorbars.cpp
   fx/fx.cpp
   fx/leave.cpp
   fx/majorpeak.cpp

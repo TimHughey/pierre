@@ -24,48 +24,44 @@
 #include "frame/frame.hpp"
 #include "fx/names.hpp"
 
+#include <atomic>
 #include <initializer_list>
 #include <memory>
 
 namespace pierre {
 
-class FX;
-
-struct fx_factory {
-  template <typename T> static std::shared_ptr<FX> create() {
-    return std::static_pointer_cast<T>(std::make_shared<T>());
-  }
-
-  template <typename T> static std::shared_ptr<T> derive(std::shared_ptr<FX> fx) {
-    return std::static_pointer_cast<T>(fx);
-  }
-};
-
 class FX {
 public:
   FX();
-  virtual ~FX() = default;
 
-  virtual bool completed() noexcept { return finished; }
+  virtual bool completed() noexcept { return finished.load(); }
 
   bool match_name(const std::initializer_list<csv> names) const noexcept;
   bool match_name(csv n) const { return n == name(); }
   virtual csv name() const = 0;
 
-  // workhorse of FX
+  /// @brief Called for every frame to render the embedded peaks
+  /// @param frame Audio frame containing peaks for rendering
+  /// @param msg Data message to populate (sent to remote render controller)
+  /// @return boolean indicating if FX is complete (safe to switch to another FX)
   bool render(frame_t frame, desk::DataMsg &msg) noexcept;
 
-  virtual void once() {} // subclasses should override once() to run setup code one time
+  /// @brief FX subclasses should override to run setup code once per creation
+  virtual void once() {}
+
+  virtual std::shared_ptr<FX> ptr_base() noexcept = 0;
 
 protected:
   virtual void execute(Peaks &peaks) = 0;
 
+  void set_finished(bool yes_or_no = true) noexcept { finished.store(yes_or_no); }
+
 protected:
   static Units units;
-  bool finished = false;
+  std::atomic_bool finished;
 
 private:
-  bool called_once = false;
+  bool called_once{false};
 
 public:
   static constexpr csv module_id{"FX"};

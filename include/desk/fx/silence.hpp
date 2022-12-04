@@ -28,7 +28,7 @@
 namespace pierre {
 namespace fx {
 
-class Silence : public FX {
+class Silence : public FX, std::enable_shared_from_this<Silence> {
 public:
   Silence() noexcept : FX() {}
 
@@ -38,6 +38,10 @@ public:
   csv name() const override { return fx::SILENCE; }
 
   void once() override; // must be in .cpp to limit units include
+
+  std::shared_ptr<FX> ptr_base() noexcept override {
+    return std::static_pointer_cast<FX>(shared_from_this());
+  }
 
 public:
   static constexpr csv module_id{"SILENCE"};

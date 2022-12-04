@@ -82,7 +82,9 @@ struct pet {
     return d >= min ? d : min;
   }
 
-  static constexpr Millis from_ms(int64_t ms) { return Millis(ms); }
+  template <typename T = Millis> static constexpr T from_ms(int64_t ms) {
+    return as<T, Millis>(Millis(ms));
+  }
 
   static constexpr Nanos from_ns(uint64_t ns) { return Nanos(static_cast<int64_t>(ns)); }
 

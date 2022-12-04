@@ -26,7 +26,7 @@ namespace pierre {
 
 class LedForest : public PulseWidth {
 public:
-  LedForest(const unit::Opts opts) : PulseWidth(opts) {
+  LedForest(const auto &opts) : PulseWidth(opts) {
     config.dim = duty_percent(0.005);
     config.pulse_start = duty_percent(0.02);
     config.pulse_end = config.dim;

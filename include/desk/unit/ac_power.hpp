@@ -24,16 +24,18 @@ namespace pierre {
 
 class AcPower : public Unit {
 public:
-  AcPower(const unit::Opts opts) noexcept : Unit(opts), powered{false} {}
+  AcPower(const auto &opts) noexcept : Unit(opts), powered{true} {}
 
-public: // effects
-  void dark() override { off(); }
-  void leave() override { on(); }
-  void prepare() override {}
+public:
+  // required by FX
+  void activate() noexcept override { on(); }
+  void dark() noexcept override { off(); }
+
+  // specific to this unit
   void on() noexcept { powered = true; }
   void off() noexcept { powered = false; }
 
-  void update_msg(desk::DataMsg &msg) override { msg.doc[name] = powered; }
+  void update_msg(desk::DataMsg &msg) noexcept override { msg.doc[name] = powered; }
 
 private:
   bool powered;

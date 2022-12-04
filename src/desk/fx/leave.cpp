@@ -25,12 +25,8 @@
 namespace pierre {
 namespace fx {
 
-static cfg_future cfg_changed;
-
-Leave::~Leave() { cfg_changed.reset(); }
-
 void Leave::execute([[maybe_unused]] Peaks &peaks) {
-  if (cfg_changed.has_value() && Config::has_changed(cfg_changed)) {
+  if (cfg_change.has_value() && Config::has_changed(cfg_change)) {
     load_config();
   }
 
@@ -39,8 +35,8 @@ void Leave::execute([[maybe_unused]] Peaks &peaks) {
     next_color.setBrightness(next_brightness);
   }
 
-  units.get<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
-  units.get<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
+  units.get<PinSpot>(unit_name::MAIN_SPOT)->colorNow(next_color);
+  units.get<PinSpot>(unit_name::FILL_SPOT)->colorNow(next_color);
 
   if (next_brightness >= max_brightness) {
     next_color.rotateHue(hue_step);
@@ -63,14 +59,18 @@ void Leave::load_config() noexcept {
   next_brightness = 0.0;
   max_brightness = next_color.brightness();
 
-  Config::want_changes(cfg_changed);
+  Config::want_changes(cfg_change);
 }
 
 void Leave::once() {
   load_config();
 
-  units.get<AcPower>(unit::AC_POWER)->on();
-  units.leave();
+  units(unit_name::AC_POWER)->activate();
+  units(unit_name::DISCO_BALL)->dark();
+  units.get<ElWire>(unit_name::EL_DANCE)->dim();
+  units.get<ElWire>(unit_name::EL_DANCE)->dim();
+
+  units.get<LedForest>(unit_name::LED_FOREST)->dim();
 }
 
 } // namespace fx

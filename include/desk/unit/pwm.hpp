@@ -41,25 +41,22 @@ private:
   enum mode_t : uint8_t { FIXED = 0, PULSE_INIT, PULSE_RUNNING };
 
 public:
-  PulseWidth(const auto opts) : Unit(opts, unit::NO_FRAME) {
+  PulseWidth(const auto &opts) : Unit(opts, unit::no_frame) {
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);
     config.bright = config.max;
-    config.leave = config.max;
     config.pulse_start = dutyPercent(0.5);
     config.pulse_end = dutyPercent(0.25);
 
     fixed(config.dim);
   }
 
-  virtual ~PulseWidth() override { stop(); }
-
   DutyVal duty() const { return _duty; }
   DutyVal dutyPercent(DutyPercent percent) const { return config.max * percent; }
 
+  virtual void activate() noexcept override { fixed(config.bright); }
   virtual bool isBusy() const { return _mode == FIXED; }
-  virtual void leave() override { fixed(config.leave); }
 
   template <typename T = double> const min_max_pair<T> minMaxDuty() {
     return min_max_pair<T>(config.min, config.max);
@@ -69,7 +66,7 @@ public:
 
 public:
   virtual void bright() { fixed(config.bright); }
-  virtual void dark() { fixed(config.min); }
+  virtual void dark() noexcept override { fixed(config.min); }
   virtual void dim() { fixed(config.dim); }
 
   virtual void fixed(const DutyVal val) {
@@ -79,7 +76,7 @@ public:
 
   virtual void percent(const DutyPercent x) { fixed(duty_percent(x)); }
 
-  virtual void prepare() override {
+  virtual void prepare() noexcept override {
     const auto duty_now = duty();
 
     switch (_mode) {
@@ -107,7 +104,7 @@ public:
     }
   }
 
-  virtual void update_msg(desk::DataMsg &msg) override {
+  virtual void update_msg(desk::DataMsg &msg) noexcept override {
     _duty = _duty_next;
 
     msg.doc[name] = _duty;
@@ -132,7 +129,6 @@ protected:
     DutyVal max;
     DutyVal dim;
     DutyVal bright;
-    DutyVal leave;
     DutyVal pulse_start;
     DutyVal pulse_end;
   } config;

@@ -55,7 +55,7 @@ public:
   };
 
 public:
-  PinSpot(const unit::Opts opts) : Unit(opts, FRAME_LEN) {}
+  PinSpot(const auto &opts) : Unit(opts, FRAME_LEN) {}
   ~PinSpot() = default;
 
   template <typename T> void activate(const typename T::Opts &opts) {
@@ -69,17 +69,15 @@ public:
 
   Color &colorNow() { return color; }
   void colorNow(const Color &color, float strobe = 0.0);
-  void dark() override {
+  void dark() noexcept override {
     color = Color::black();
     fx = FX::None;
   }
 
-  void prepare() override { faderMove(); }
+  void prepare() noexcept override { faderMove(); }
   inline bool isFading() const { return (bool)fader; }
 
-  void leave() override { Color::black(); }
-
-  void update_msg(desk::DataMsg &msg) override;
+  void update_msg(desk::DataMsg &msg) noexcept override;
 
 private:
   // functions
@@ -87,12 +85,12 @@ private:
 
 private:
   Color color;
-  uint8_t strobe = 0;
-  uint8_t strobe_max = 104;
+  uint8_t strobe{0};
+  uint8_t strobe_max{104};
   FX fx{FX::None};
 
   uqFader fader;
-  static constexpr size_t FRAME_LEN = 6;
+  static constexpr size_t FRAME_LEN{6};
 };
 
 } // namespace pierre

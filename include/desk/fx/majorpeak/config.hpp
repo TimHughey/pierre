@@ -134,6 +134,12 @@ inline pspot_cfg_map cfg_pspot_map() noexcept {
   return map;
 }
 
+inline Nanos cfg_silence_timeout() noexcept {
+  static constexpr csv path{"fx.majorpeak.silence.timeout_ms"};
+  int64_t raw_ms = Config().at(path).value_or(13000);
+  return pet::from_ms<Nanos>(raw_ms);
+}
+
 inline const hue_cfg &find_hue_cfg(hue_cfg_map &map, const string cat) noexcept {
   return map.at(cat);
 }

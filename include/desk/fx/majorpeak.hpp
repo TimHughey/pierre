@@ -20,29 +20,34 @@
 #pragma once
 
 #include "base/elapsed.hpp"
+#include "base/io.hpp"
+#include "base/pet.hpp"
 #include "base/types.hpp"
 #include "config/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "majorpeak/types.hpp"
 
+#include <atomic>
 #include <memory>
 #include <optional>
 
 namespace pierre {
 namespace fx {
 
-class MajorPeak : public FX {
+class MajorPeak : public FX, public std::enable_shared_from_this<MajorPeak> {
 public:
-  MajorPeak() noexcept;
+  MajorPeak(io_context &io_ctx) noexcept;
 
   void execute(Peaks &peaks) override;
   csv name() const override { return fx::MAJOR_PEAK; }
 
   void once() override; // must be in .cpp to limit units include
 
+  std::shared_ptr<FX> ptr_base() noexcept override { return std::static_pointer_cast<FX>(ptr()); }
+
 private:
-  typedef std::vector<Color> ReferenceColors;
+  using ReferenceColors = std::vector<Color>;
 
 private:
   void handle_el_wire(Peaks &peaks);
@@ -54,10 +59,20 @@ private:
 
   const Color make_color(const Peak &peak) noexcept { return make_color(peak, base_color); }
   const Color make_color(const Peak &peak, const Color &ref) noexcept;
+
+  /// @brief Get a shared pointer to this object
+  /// @return A shared pointer to this object
+  std::shared_ptr<MajorPeak> ptr() noexcept { return shared_from_this(); }
+
   const Color &ref_color(size_t index) const noexcept;
+
+  void silence_watch() noexcept;
 
 private:
   // order dependent
+  io_context &io_ctx;
+  steady_timer silence_timer;
+  std::atomic_bool silence;
   const Color base_color;
   Peak _main_last_peak;
   Peak _fill_last_peak;
@@ -72,6 +87,7 @@ private:
   major_peak::hue_cfg_map _hue_cfg_map;
   mag_min_max _mag_limits;
   major_peak::pspot_cfg_map _pspot_cfg_map;
+  Nanos _silence_timeout;
 
 public:
   static constexpr csv module_id{"MAJOR_PEAK"};

@@ -96,6 +96,8 @@ ArgsMap Args::parse(int argc, char *argv[]) {
   am.exec_path = string(argv[0]);
   am.parent_path = am.exec_path.parent_path();
 
+  INFO(module_id, "PARENT_PATH", "{}\n", am.parent_path.c_str());
+
   am.app_name.assign(basename(argv[0]));
 
   return am;

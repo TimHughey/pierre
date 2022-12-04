@@ -101,31 +101,48 @@ void Desk::frame_loop(const Nanos wait) noexcept {
         Stats::write(stats::FRAMES_OUTDATED, outdated);
         outdated = 0;
       }
+
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
       Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
 
-      if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
-        const auto fx_prev_name = active_fx->name();
+      const auto fx_name_now = active_fx->name();
+      if (fx_next == fx::LEAVE) {
+        fx_next.clear();
+
+        active_fx = std::make_shared<fx::Leave>();
+
+      } else if ((active_fx->match_name({fx::SILENCE, fx::LEAVE})) && !frame->silent()) {
 
         if (active_fx->match_name(fx::MAJOR_PEAK) == false) {
-          active_fx = fx_factory::create<fx::MajorPeak>();
-        }
-
-        if (active_fx->match_name(fx_prev_name) == false) {
-          INFO(module_id, "FRAME_RENDER", "FX {} -> {}\n", fx_prev_name, active_fx->name());
+          active_fx = std::make_shared<fx::MajorPeak>(io_ctx);
         }
       }
 
-      active_fx->render(frame, data_msg);
+      if (active_fx->match_name(fx_name_now) == false) {
+        INFO(module_id, "FRAME_RENDER", "FX {} -> {}\n", fx_name_now, active_fx->name());
+      }
+
+      auto fx_finished = active_fx->render(frame, data_msg);
       data_msg.finalize();
 
       ctrl->send_data_msg(std::move(data_msg));
 
+      if (fx_finished) {
+        if (fx_name_now == fx::MAJOR_PEAK) {
+          fx_next = fx::LEAVE;
+        } else if (fx_name_now == fx::SILENCE) {
+          fx_next = fx::LEAVE;
+        }
+
+        INFO(module_id, "FRAME_LOOP", "FX finished={} active={} next={}\n", fx_finished,
+             fx_name_now, fx_next);
+      }
+
       frame_last = pet::now_realtime();
     } else if (frame->state.outdated()) {
       outdated++;
-      // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());
+
     } else {
       INFO(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
     }
@@ -161,7 +178,7 @@ void Desk::init() noexcept { // static instance creation
 void Desk::init_self() noexcept {
   // initialize supporting objects
   Stats::init(); // ensure Stats object is initialized
-  active_fx = fx_factory::create<fx::Leave>();
+  active_fx = std::make_shared<fx::Silence>();
 
   const auto num_threads = Config().at("desk.threads"sv).value_or(3);
   std::latch latch(num_threads);

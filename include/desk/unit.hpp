@@ -20,32 +20,36 @@
 
 #include "base/types.hpp"
 #include "desk/data_msg.hpp"
-#include "desk/unit/opts.hpp"
+#include "desk/unit/names.hpp"
 
 namespace pierre {
 
+namespace unit {
+constexpr size_t no_frame{0};
+}
+
 class Unit : public std::enable_shared_from_this<Unit> {
 public:
-  Unit(const unit::Opts opts)
-      : name(opts.name),       // need to store an actual string so we can make csv
+  Unit(const hdopts &opts)
+      : name(opts.name),       // need to store an actual string so we can make
         address(opts.address), // abstract address (used by subclasses as needed)
         frame_len(0)           // support headunits that do not use the DMX frame
   {}
 
-  Unit(const unit::Opts opts, size_t frame_len)
+  Unit(const hdopts &opts, size_t frame_len)
       : name(opts.name),       // need to store an actual string so we can make csv
         address(opts.address), // abstract address (used by subclasses as needed)
         frame_len(frame_len)   // DMX frame length
   {}
 
-  virtual ~Unit() {}
-
   friend class Units;
 
-  virtual void dark() = 0;
-  virtual void leave() = 0;
-  virtual void prepare() = 0;
-  virtual void update_msg(desk::DataMsg &msg) = 0;
+  virtual void activate() noexcept {}
+  virtual void dark() noexcept {}
+
+  // message processing loop
+  virtual void prepare() noexcept {}
+  virtual void update_msg(desk::DataMsg &msg) noexcept { msg.noop(); }
 
 protected:
   // order dependent

@@ -28,11 +28,9 @@ rtsp = { save = false, file = "rtsp.log" }
 # controller = "dmx"
 controller = "test-with-devs"
 
-[dmx.timeouts]
-connect_ms = 1000
-idle_ms = 60_000
-retry_ms = 500
-stalled_ms = 2000
+[dmx.timeouts.millisseconds]
+idle = 60_000
+stalled = 2000
 
 [mdns]
 receiver = "%h"        # use hostname
@@ -58,8 +56,17 @@ floor = 0.9
 ceiling = 128.0
 
 [desk]
-colorbars = true
-threads = 5      # frame, dmx connect, dmx ctrl/data
+threads = 5 # frame, dmx connect, dmx ctrl/data
+
+[desk.headunits]
+switch = [{ name = "ac power", addr = 0 }]
+pinspot = [{ name = "main", addr = 0 }, { name = "fill", addr = 7 }]
+dimmable = [
+  { name = "el dance", addr = 2 },
+  { name = "el entry", addr = 3 },
+  { name = "led forest", addr = 4 },
+]
+var_speed = [{ name = "disco ball", addr = 1 }]
 
 [fx.leave]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }

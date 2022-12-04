@@ -61,6 +61,7 @@ private:
   std::atomic_bool loop_active;
 
   // order independent
+  string fx_next;
   Threads threads;
   stop_tokens tokens;
 

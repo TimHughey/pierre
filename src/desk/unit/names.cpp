@@ -16,9 +16,16 @@
 //
 // https://www.wisslanding.com
 
-#include "desk/units.hpp"
+#include "unit/names.hpp"
 
 namespace pierre {
-units_map Units::_units_map;
+
+const string unit_name::AC_POWER{"ac power"};
+const string unit_name::MAIN_SPOT{"main pinspot"};
+const string unit_name::FILL_SPOT{"fill pinspot"};
+const string unit_name::EL_ENTRY{"el entry"};
+const string unit_name::EL_DANCE{"el dance"};
+const string unit_name::LED_FOREST{"led forest"};
+const string unit_name::DISCO_BALL{"disco ball"};
 
 } // namespace pierre
