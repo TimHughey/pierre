@@ -78,6 +78,7 @@ public:
 
     if (!frame->deciphered()) {
       INFO(module_id, "HANDOFF", "DISCARDING frame={}\n", frame->inspect());
+      frame->state.record_state();
     }
   }
 

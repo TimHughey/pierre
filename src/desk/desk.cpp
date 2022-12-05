@@ -90,21 +90,15 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       frame = SilentFrame::create();
     }
 
-    // we now have valid frame (shared_ptr):
+    frame->state.record_state();
+
+    // we now have a valid frame (shared_ptr):
     //  1. rendering = from Racked (peaks or silent)
     //  2. not rendering = generated SilentFrame
 
     if (frame->state.ready()) { // render this frame and send to DMX controller
 
-      if (outdated) {
-        INFO(module_id, "FRAME_LOOP", "outdated frames={}\n", outdated);
-        Stats::write(stats::FRAMES_OUTDATED, outdated);
-        outdated = 0;
-      }
-
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
-
-      Stats::write(frame->silent() ? stats::FRAMES_SILENT : stats::FRAMES_RENDERED, 1);
 
       const auto fx_name_now = active_fx->name();
       if (fx_next == fx::LEAVE) {
@@ -150,7 +144,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     // account for processing time thus far
     sync_wait = frame->sync_wait_recalc();
 
-    frame->mark_rendered();
+    frame->mark_rendered(); // records rendered or silence in timeseries db
 
     if (sync_wait >= Nanos::zero()) {
       // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());

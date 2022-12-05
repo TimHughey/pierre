@@ -17,35 +17,41 @@
 //  https://www.wisslanding.com
 
 #include "state.hpp"
-
-#include <map>
+#include "stats/stats.hpp"
 
 namespace pierre {
 namespace frame {
 
-csv state::inspect() const noexcept {
-  static std::map<state_now_t, ccs> //
-      val_to_txt_map = {{DECIPHERED, "deciphered"},
-                        {DECIPHER_FAILURE, "decipher_falure"},
-                        {DECODED, "decoded"},
-                        {DECODE_FAILURE, "decode_failure"},
-                        {DSP_IN_PROGRESS, "dsp_in_progress"},
-                        {DSP_COMPLETE, "dsp_complete"},
-                        {EMPTY, "empty"},
-                        {ERROR, "error"},
-                        {FLUSHED, "flushed"},
-                        {FUTURE, "future"},
-                        {HEADER_PARSED, "header_parsed"},
-                        {INVALID, "invalid"},
-                        {NO_SHARED_KEY, "no_shared_key"},
-                        {NONE, "none"},
-                        {OUTDATED, "outdated"},
-                        {PARSE_FAILURE, "parse_failure"},
-                        {READY, "ready"},
-                        {RENDERED, "rendered"}};
+csv state::inspect() const noexcept { return csv(val_to_txt_map[_val]); }
 
-  return csv(val_to_txt_map[_val]);
+void state::record_state() const noexcept {
+
+  Stats::write(pierre::stats::FRAME, 1, {csv{"state"}, inspect()});
 }
+
+std::map<state_now_t, string> state::val_to_txt_map{
+    // comment for easy IDE sorting
+    {DECIPHER_FAILURE, "decipher_failure"},
+    {DECIPHERED, "deciphered"},
+    {DECODE_FAILURE, "decode_failure"},
+    {DECODED, "decoded"},
+    {DSP_COMPLETE, "dsp_complete"},
+    {DSP_IN_PROGRESS, "dsp_in_progress"},
+    {EMPTY, "empty"},
+    {ERROR, "error"},
+    {FLUSHED, "flushed"},
+    {FUTURE, "future"},
+    {HEADER_PARSED, "header_parsed"},
+    {INVALID, "invalid"},
+    {NO_SHARED_KEY, "no_shared_key"},
+    {NONE, "none"},
+    {OUTDATED, "outdated"},
+    {PARSE_FAILURE, "parse_failure"},
+    {READY, "ready"},
+    {RENDERED, "rendered"},
+    {SILENCE, "silence"}
+    //
+};
 
 } // namespace frame
 } // namespace pierre

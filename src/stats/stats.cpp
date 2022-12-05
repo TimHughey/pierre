@@ -32,7 +32,6 @@ Stats::Stats(bool enabled) noexcept
     : guard(io::make_work_guard(io_ctx)), //
       enabled(enabled), val_txt{
                             // create map of stats val to text
-                            {stats::CLOCK_DIFF, "clock_diff"},
                             {stats::CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
                             {stats::CTRL_CONNECT_TIMEOUT, "ctrl_connect_timeout"},
                             {stats::CTRL_MSG_READ_ELAPSED, "ctrl_msg_read_elapsed"},
@@ -45,9 +44,7 @@ Stats::Stats(bool enabled) noexcept
                             {stats::DATA_MSG_WRITE_ERROR, "data_msg_write_error"},
                             {stats::FLUSH_ELAPSED, "flush_elapsed"},
                             {stats::FPS, "fps"},
-                            {stats::FRAMES_OUTDATED, "frames_outdated"},
-                            {stats::FRAMES_RENDERED, "frames_rendered"},
-                            {stats::FRAMES_SILENT, "frames_silent"},
+                            {stats::FRAME, "frame"},
                             {stats::MAX_PEAK_FREQUENCY, "max_peak_frequency"},
                             {stats::MAX_PEAK_MAGNITUDE, "max_peak_magnitude"},
                             {stats::NEXT_FRAME_WAIT, "next_frame_wait"},

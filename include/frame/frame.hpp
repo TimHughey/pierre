@@ -78,7 +78,11 @@ public:
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)
 
-  void mark_rendered() noexcept { state = frame::RENDERED; }
+  void mark_rendered() noexcept {
+    state = silent() ? frame::SILENCE : frame::RENDERED;
+
+    state.record_state();
+  }
 
   bool silent() const noexcept { return peaks.silence(); }
 

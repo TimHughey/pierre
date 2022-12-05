@@ -25,6 +25,7 @@
 #include <atomic>
 #include <compare>
 #include <fmt/format.h>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -35,6 +36,9 @@ namespace pierre {
 namespace frame {
 
 enum state_now_t : size_t {
+  // NOTE:  do not sort these values they are sequenced based
+  //        based on frame processing and are compared via <=>
+  //        in some instances
   EMPTY = 0,
   NONE,
   ERROR,
@@ -52,7 +56,8 @@ enum state_now_t : size_t {
   FUTURE,
   OUTDATED,
   READY,
-  RENDERED
+  RENDERED,
+  SILENCE
 };
 
 class state {
@@ -117,6 +122,8 @@ public:
     return *this == want;
   }
 
+  void record_state() const noexcept;
+
   // returns true if the state was the wanted val
   bool store_if_equal(state_now_t want_val, state_now_t next_val) noexcept {
     return std::atomic_compare_exchange_strong(&_val, &want_val, next_val);
@@ -141,6 +148,7 @@ public:
 
 private:
   std::atomic<state_now_t> _val{state_now_t::NONE};
+  static std::map<state_now_t, string> val_to_txt_map;
 };
 
 } // namespace frame
