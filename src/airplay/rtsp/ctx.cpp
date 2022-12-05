@@ -65,14 +65,20 @@ void Ctx::teardown() noexcept {
   active_remote = 0;
 
   asio::post(io_ctx, [s = ptr()]() {
-    s->audio_srv->teardown();
-    s->audio_srv.reset();
+    if (s->audio_srv) {
+      s->audio_srv->teardown();
+      s->audio_srv.reset();
+    }
 
-    s->control_srv->teardown();
-    s->control_srv.reset();
+    if (s->control_srv) {
+      s->control_srv->teardown();
+      s->control_srv.reset();
+    }
 
-    s->event_srv->teardown();
-    s->event_srv.reset();
+    if (s->event_srv) {
+      s->event_srv->teardown();
+      s->event_srv.reset();
+    }
 
     [[maybe_unused]] error_code ec;
     s->feedback_timer.cancel(ec);
