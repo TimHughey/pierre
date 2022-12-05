@@ -186,7 +186,7 @@ void Racked::monitor_wip() noexcept {
   wip_timer.async_wait( // must run on wip_strand to protect containers
       asio::bind_executor(wip_strand, [=, this](const error_code ec) {
         if (!ec && !racked.contains(serial_num)) {
-          INFO(module_id, "MONITOR_WIP", "INCOMPLETE {}\n", wip->inspect());
+          INFOX(module_id, "MONITOR_WIP", "INCOMPLETE {}\n", wip->inspect());
           Stats::write(stats::RACK_WIP_INCOMPLETE, wip->size());
           // not a timer error and reel is the same
           rack_wip();

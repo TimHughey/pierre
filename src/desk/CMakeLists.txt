@@ -24,9 +24,9 @@ add_library(${__target} SHARED
 
   # FX
   fx/fx.cpp
-  fx/leave.cpp
   fx/majorpeak.cpp
-  fx/silence.cpp
+  fx/names.cpp
+  fx/standby.cpp
 
   ${HEADER_LIST}
 )

@@ -40,7 +40,7 @@ public:
   MajorPeak(io_context &io_ctx) noexcept;
 
   void execute(Peaks &peaks) override;
-  csv name() const override { return fx::MAJOR_PEAK; }
+  csv name() const override { return fx_name::MAJOR_PEAK; }
 
   void once() override; // must be in .cpp to limit units include
 

@@ -28,9 +28,9 @@
 
 namespace pierre {
 
-Units FX::units; // static class member
+Units FX::units; // headunits available for FX (static class data)
 
-FX::FX() : finished(false) {
+FX::FX() noexcept : finished(false) {
   if (units.empty()) { // create the units once
     units.add<AcPower>({.name = unit_name::AC_POWER, .address = 0});
     units.add<PinSpot>({.name = unit_name::MAIN_SPOT, .address = 1});
@@ -49,21 +49,18 @@ bool FX::match_name(const std::initializer_list<csv> names) const noexcept {
 bool FX::render(frame_t frame, desk::DataMsg &msg) noexcept {
 
   if (called_once == false) {
-    // frame 0 is always consumed by call to once()
-    once();
-    units.update_msg(msg);
+    once();                // frame 0 consumed by call to once(), peaks not rendered
+    units.update_msg(msg); // ensure any once() actions are in the data msg
 
     called_once = true;
+
   } else {
-    units.prepare();
-
-    // frame n is passed to execute
-    execute(frame->peaks);
-
-    units.update_msg(msg);
+    units.prepare();       // do any prep required to render next frame
+    execute(frame->peaks); // render frame into data msg
+    units.update_msg(msg); // populate data msg
   }
 
-  return finished;
+  return finished.load();
 }
 
 } // namespace pierre

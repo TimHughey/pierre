@@ -19,7 +19,7 @@
 #pragma once
 
 #include "desk/fx.hpp"
-#include "desk/fx/leave.hpp"
+#include "desk/fx/all_stop.hpp"
 #include "desk/fx/majorpeak.hpp"
 #include "desk/fx/names.hpp"
-#include "desk/fx/silence.hpp"
+#include "desk/fx/standby.hpp"

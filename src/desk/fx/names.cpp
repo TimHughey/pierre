@@ -16,16 +16,13 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/types.hpp"
+#include "desk/fx/names.hpp"
 
 namespace pierre {
-struct fx_name {
-  static const string ALL_STOP;
-  static const string MAJOR_PEAK;
-  static const string SILENCE;
-  static const string STANDBY;
-};
+
+const string fx_name::ALL_STOP{"all_stop"};
+const string fx_name::MAJOR_PEAK{"major_peak"};
+const string fx_name::SILENCE{"silence"};
+const string fx_name::STANDBY{"standby"};
 
 } // namespace pierre

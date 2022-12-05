@@ -81,7 +81,7 @@ private:
           const auto &l = sock->local_endpoint();
           const auto &r = sock->remote_endpoint();
 
-          INFO("AIRPLAY", module_id, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
+          INFO(module_id, "LISTEN", "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
                l.address().to_string(), l.port());
 
           // if there was a previous session, clear it

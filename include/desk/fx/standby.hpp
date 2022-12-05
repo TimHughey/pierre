@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/io.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "desk/color.hpp"
@@ -28,12 +29,15 @@
 namespace pierre {
 namespace fx {
 
-class Leave : public FX, public std::enable_shared_from_this<Leave> {
+class Standby : public FX, public std::enable_shared_from_this<Standby> {
 public:
-  Leave() = default;
+  Standby(io_context &io_ctx) //
+      : io_ctx(io_ctx),       //
+        silence_timer(io_ctx) //
+  {}
 
   void execute(Peaks &peaks) override;
-  csv name() const override { return fx::LEAVE; };
+  csv name() const override { return fx_name::STANDBY; };
 
   void once() override;
 
@@ -41,16 +45,26 @@ public:
 
 private:
   void load_config() noexcept;
-  std::shared_ptr<Leave> ptr() noexcept { return shared_from_this(); }
+  std::shared_ptr<Standby> ptr() noexcept { return shared_from_this(); }
+  void silence_watch() noexcept;
 
 private:
+  // order dependent
+  io_context &io_ctx;
+  steady_timer silence_timer;
+
   // order independent
   double hue_step{0.0};
   double max_brightness{0};
   double next_brightness{0};
   Color next_color;
 
+  Seconds silence_timeout;
+
   cfg_future cfg_change;
+
+public:
+  static constexpr csv module_id{"fx::Standby"};
 };
 
 } // namespace fx

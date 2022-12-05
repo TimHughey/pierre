@@ -28,23 +28,40 @@
 namespace pierre {
 namespace fx {
 
-class Silence : public FX, std::enable_shared_from_this<Silence> {
+class AllStop : public FX, std::enable_shared_from_this<AllStop> {
 public:
-  Silence() noexcept : FX() {}
+  AllStop() noexcept : FX() {
+    set_finished(false);
+
+    // note:  should render is set to true at creation so once() is
+    //        executed and the data msg sent
+    should_render = true;
+
+    next_fx = fx_name::MAJOR_PEAK;
+  }
 
   // do nothing, enjoy the silence
-  void execute([[maybe_unused]] Peaks &peaks) override { once(); };
+  void execute(Peaks &peaks) override {
+    if (peaks.silence() == false) {
+      next_fx = fx_name::MAJOR_PEAK;
+      set_finished(true);
+    }
 
-  csv name() const override { return fx::SILENCE; }
+    // note:  set should_render to false for subsequent executions to notify
+    //        caller that we are in a shutdown state
+    should_render = false;
+  };
 
-  void once() override; // must be in .cpp to limit units include
+  csv name() const override { return fx_name::ALL_STOP; }
+
+  void once() override { units(unit_name::AC_POWER)->dark(); }
 
   std::shared_ptr<FX> ptr_base() noexcept override {
     return std::static_pointer_cast<FX>(shared_from_this());
   }
 
 public:
-  static constexpr csv module_id{"SILENCE"};
+  static constexpr csv module_id{"ALL_STOP"};
 };
 
 } // namespace fx

@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "desk/fx/leave.hpp"
+#include "desk/fx/standby.hpp"
 #include "color.hpp"
 #include "config/config.hpp"
 #include "desk.hpp"
@@ -25,7 +25,7 @@
 namespace pierre {
 namespace fx {
 
-void Leave::execute([[maybe_unused]] Peaks &peaks) {
+void Standby::execute(Peaks &peaks) {
   if (cfg_change.has_value() && Config::has_changed(cfg_change)) {
     load_config();
   }
@@ -41,12 +41,18 @@ void Leave::execute([[maybe_unused]] Peaks &peaks) {
   if (next_brightness >= max_brightness) {
     next_color.rotateHue(hue_step);
   }
+
+  set_finished(peaks.silence() == false);
 }
 
-void Leave::load_config() noexcept {
-  static const auto base = toml::path{"fx.leave"};
+void Standby::load_config() noexcept {
+  static const auto base = toml::path{"fx.standby"};
   static const auto color_path = toml::path(base).append("color"sv);
   static const auto hue_path = toml::path(base).append("hue_step"sv);
+  static const auto will_render_path = toml::path(base).append("will_render"sv);
+  static const auto silence_path = toml::path(base).append("silence");
+
+  should_render = Config().at(will_render_path).value_or(true);
 
   auto color_cfg = Config().table_at(color_path);
 
@@ -59,18 +65,39 @@ void Leave::load_config() noexcept {
   next_brightness = 0.0;
   max_brightness = next_color.brightness();
 
+  auto silence_cfg = Config().table_at(silence_path);
+
+  const auto silence_timeout_old = silence_timeout;
+  silence_timeout = pet::from_val<Seconds, Minutes>(silence_cfg["timeout.seconds"].value_or(30));
+
+  // start silence watch if timeout changed (at start or config reload)
+  if (silence_timeout != silence_timeout_old) silence_watch();
+
+  next_fx = silence_cfg["suggested_next_fx"].value_or(string("all_stop"));
+
   Config::want_changes(cfg_change);
 }
 
-void Leave::once() {
+void Standby::once() {
   load_config();
 
   units(unit_name::AC_POWER)->activate();
   units(unit_name::DISCO_BALL)->dark();
-  units.get<ElWire>(unit_name::EL_DANCE)->dim();
-  units.get<ElWire>(unit_name::EL_DANCE)->dim();
 
+  units.get<ElWire>(unit_name::EL_DANCE)->dim();
+  units.get<ElWire>(unit_name::EL_DANCE)->dim();
   units.get<LedForest>(unit_name::LED_FOREST)->dim();
+}
+
+void Standby::silence_watch() noexcept {
+
+  silence_timer.expires_after(silence_timeout);
+  silence_timer.async_wait([s = ptr()](const error_code ec) {
+    if (!ec) {
+      INFO(module_id, "SILENCE_WATCH", "timeout, setting finished\n");
+      s->set_finished(true);
+    }
+  });
 }
 
 } // namespace fx

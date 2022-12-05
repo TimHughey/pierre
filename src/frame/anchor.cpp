@@ -100,7 +100,7 @@ void Anchor::save(AnchorData ad) noexcept { // static
     }
   }
 
-  shared::anchor->log_new_data(ad);
+  shared::anchor->log_new_data(ad, false);
 
   shared::anchor->source.emplace(ad);
 }

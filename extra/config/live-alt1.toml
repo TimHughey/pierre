@@ -30,7 +30,7 @@ controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
 idle = 60_000
-stalled = 2000
+stalled = 3300
 
 [mdns]
 receiver = "%h"        # use hostname
@@ -68,13 +68,17 @@ pinspot = [{ name = "main", addr = 0 }, { name = "fill", addr = 7 }]
 switch = [{ name = "ac power", addr = 0 }]
 var_speed = [{ name = "disco ball", addr = 1 }]
 
-[fx.leave]
+[fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-timeout = { minutes = 30, fx_next = "all_stop" }
+silence = { timeout = { minutes = 30, suggested_fx_next = "all_stop" } }
+will_render = true
+
+[fx.majorpeak]
+will_render = true
 
 [fx.majorpeak.silence]
-timeout = { seconds = 13, fx_next = "leaving" }
+timeout = { seconds = 13, suggested_fx_next = "standby" }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

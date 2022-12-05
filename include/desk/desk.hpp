@@ -39,8 +39,6 @@ public:
   static void init() noexcept;
   static void shutdown() noexcept;
 
-  bool silence() const noexcept;
-
 private:
   void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;
   void init_self() noexcept;
@@ -57,11 +55,10 @@ private:
   strand frame_strand;
   Nanos frame_last;
   work_guard_t guard;
-
   std::atomic_bool loop_active;
 
   // order independent
-  string fx_next;
+  bool fx_finished{true};
   Threads threads;
   stop_tokens tokens;
 
