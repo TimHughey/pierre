@@ -46,7 +46,7 @@ typedef uint64_t ClockID; // master clock id
 
 template <typename T>
 concept IsDuration = IsAnyOf<std::remove_cvref_t<std::remove_pointer_t<std::decay_t<T>>>, Nanos,
-                             Micros, Millis, Seconds, Minutes>;
+                             Micros, Millis, Seconds, Minutes, Hours, Days>;
 
 struct pet {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
@@ -57,11 +57,17 @@ struct pet {
     return Nanos{static_cast<uint64_t>(d.count()) + offset};
   }
 
-  template <typename TO, typename FROM = Nanos> static constexpr TO as(FROM x) {
-    if constexpr (std::is_same_v<TO, FROM>) return x;
-    if constexpr (std::is_convertible_v<FROM, TO>) return std::chrono::duration_cast<TO>(x);
-
-    return std::chrono::duration_cast<TO>(FROM(x));
+  template <typename TO, typename FROM = Nanos> //
+  static constexpr TO as(FROM x) {
+    if constexpr (std::is_same_v<TO, FROM>) {
+      return x;
+    } else if constexpr (IsDuration<FROM> && IsDuration<TO>) {
+      return std::chrono::duration_cast<TO>(x);
+    } else if constexpr (std::is_convertible_v<FROM, TO>) {
+      return std::chrono::duration_cast<TO>(x);
+    } else {
+      static_assert(always_false_v<TO>, "unhandled types");
+    }
   }
 
   template <typename T> static T diff_abs(const T &d1, const T &d2) {
@@ -70,7 +76,10 @@ struct pet {
 
   static string humanize(const Nanos d);
 
-  template <typename T> static constexpr bool is_zero(T val) { return val == Nanos::zero(); }
+  template <typename T> //
+  static constexpr bool is_zero(T val) {
+    return val == Nanos::zero();
+  }
 
   static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::_monotonic()) { return d2 - d1; }
 
@@ -82,13 +91,32 @@ struct pet {
     return d >= min ? d : min;
   }
 
-  template <typename T = Millis> static constexpr T from_ms(int64_t ms) {
-    return as<T, Millis>(Millis(ms));
+  template <typename AS, typename BASE = AS, typename T>
+  static constexpr AS from_val(T val) noexcept {
+
+    // ensure AS and BASE are chrono durations
+    if constexpr (IsDuration<AS> && IsDuration<BASE>) {
+
+      if constexpr (std::is_floating_point_v<T>) {
+        // round the value
+        int64_t count = static_cast<int64_t>(val);
+        return as<AS, BASE>(BASE(count));
+      } else if constexpr (std::is_integral_v<T>) {
+        int64_t count = static_cast<int64_t>(val);
+        return as<AS, BASE>(BASE(count));
+      } else if constexpr (std::is_convertible_v<T, BASE>) {
+        return as<AS, BASE>(BASE(val));
+      } else {
+        static_assert(always_false_v<T>, "val must be integral or floating point");
+      }
+    } else {
+      static_assert(always_false_v<T>, "AS and BASE must be chrono durations");
+    }
   }
 
-  static constexpr Nanos from_ns(uint64_t ns) { return Nanos(static_cast<int64_t>(ns)); }
-
-  static constexpr Micros from_us(const int64_t x) noexcept { return Micros(x); }
+  template <typename T = Millis> static constexpr T from_ms(int64_t ms) noexcept {
+    return as<T, Millis>(Millis(ms));
+  }
 
   template <typename T> static constexpr bool not_zero(const T &d) { return d != T::zero(); }
 

@@ -53,7 +53,7 @@ static const auto idle_shutdown() noexcept {
 static const auto stalled_timeout() noexcept {
   static constexpr csv PATH{"dmx.timeouts.milliseconds.stalled"};
 
-  return pet::from_ms(Config().at(PATH).value_or(1000));
+  return pet::from_val<Nanos, Millis>(Config().at(PATH).value_or(2000));
 }
 
 // general API
@@ -121,7 +121,8 @@ void Ctrl::handle_feedback_msg(JsonDocument &doc) noexcept {
   const int64_t fps = doc["fps"].as<int64_t>();
   Stats::write(stats::FPS, fps);
 
-  const auto roundtrip = pet::now_realtime() - pet::from_us(doc["echo_now_µs"]);
+  const int64_t echo_now_us = doc["echo_now_µs"].as<int64_t>();
+  const auto roundtrip = pet::now_realtime() - pet::from_val<Nanos, Micros>(echo_now_us);
   Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
 }
 

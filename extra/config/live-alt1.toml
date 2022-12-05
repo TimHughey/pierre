@@ -28,7 +28,7 @@ rtsp = { save = false, file = "rtsp.log" }
 # controller = "dmx"
 controller = "test-with-devs"
 
-[dmx.timeouts.millisseconds]
+[dmx.timeouts.milliseconds]
 idle = 60_000
 stalled = 2000
 
@@ -59,21 +59,22 @@ ceiling = 128.0
 threads = 5 # frame, dmx connect, dmx ctrl/data
 
 [desk.headunits]
-switch = [{ name = "ac power", addr = 0 }]
-pinspot = [{ name = "main", addr = 0 }, { name = "fill", addr = 7 }]
 dimmable = [
   { name = "el dance", addr = 2 },
   { name = "el entry", addr = 3 },
   { name = "led forest", addr = 4 },
 ]
+pinspot = [{ name = "main", addr = 0 }, { name = "fill", addr = 7 }]
+switch = [{ name = "ac power", addr = 0 }]
 var_speed = [{ name = "disco ball", addr = 1 }]
 
 [fx.leave]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
+timeout = { minutes = 30, fx_next = "all_stop" }
 
-[fx.majorpeak]
-silence = { timeout_ms = 13_000 }
+[fx.majorpeak.silence]
+timeout = { seconds = 13, fx_next = "leaving" }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

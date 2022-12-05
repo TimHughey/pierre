@@ -36,7 +36,7 @@ struct InputInfo {
   static constexpr uint8_t bit_depth{16};
   static constexpr uint8_t bytes_per_frame{4};
 
-  static constexpr Nanos frame{pet::from_ns(1e+9 / rate)};
+  static constexpr Nanos frame{pet::from_val<Nanos>(1e+9 / rate)};
 
   static constexpr Nanos lead_time{frame * 1024};
   static constexpr Nanos lead_time_min{pet::percent(lead_time, 33)};

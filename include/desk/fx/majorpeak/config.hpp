@@ -87,12 +87,12 @@ inline pspot_cfg_map cfg_pspot_map() noexcept {
 
     auto entry_name = (*tbl)["name"sv].value_or(string("unnamed"));
 
-    auto [it, inserted] = map.try_emplace(                   //
-        entry_name,                                          //
-        entry_name,                                          //
-        (*tbl)["type"sv].value_or(string("unknown")),        //
-        pet::from_ms((*tbl)["fade_max_ms"sv].value_or(100)), //
-        (*tbl)["freq_min"sv].value_or(0.0),                  //
+    auto [it, inserted] = map.try_emplace(                            //
+        entry_name,                                                   //
+        entry_name,                                                   //
+        (*tbl)["type"sv].value_or(string("unknown")),                 //
+        pet::from_val<Millis>((*tbl)["fade_max_ms"sv].value_or(100)), //
+        (*tbl)["freq_min"sv].value_or(0.0),                           //
         (*tbl)["freq_max"sv].value_or(0.0));
 
     if (inserted) {
@@ -135,9 +135,9 @@ inline pspot_cfg_map cfg_pspot_map() noexcept {
 }
 
 inline Nanos cfg_silence_timeout() noexcept {
-  static constexpr csv path{"fx.majorpeak.silence.timeout_ms"};
+  static constexpr csv path{"fx.majorpeak.silence.timeout.milliseconds"};
   int64_t raw_ms = Config().at(path).value_or(13000);
-  return pet::from_ms<Nanos>(raw_ms);
+  return pet::from_val<Nanos, Millis>(raw_ms);
 }
 
 inline const hue_cfg &find_hue_cfg(hue_cfg_map &map, const string cat) noexcept {

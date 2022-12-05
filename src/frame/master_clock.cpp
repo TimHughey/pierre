@@ -182,7 +182,7 @@ const ClockInfo MasterClock::load_info_from_mapped() {
   return ClockInfo(data.master_clock_id, string(clock_ip_sv),
                    data.local_time,                  // aka sample time
                    data.local_to_master_time_offset, // aka raw offset
-                   pet::from_ns(data.master_clock_start_time));
+                   pet::from_val<Nanos>(data.master_clock_start_time));
 }
 
 bool MasterClock::map_shm() {
