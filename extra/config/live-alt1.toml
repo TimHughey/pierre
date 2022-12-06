@@ -58,15 +58,26 @@ ceiling = 128.0
 [desk]
 threads = 5 # frame, dmx connect, dmx ctrl/data
 
-[desk.headunits]
-dimmable = [
-  { name = "el dance", addr = 2 },
-  { name = "el entry", addr = 3 },
-  { name = "led forest", addr = 4 },
+[desk.dimmable]
+max = 8190
+min = 0 # note: min is unused, all values calculated using max
+bright = 1.0
+units = [
+  { name = "el dance", addr = 2, max = 0.25, min = 0.01, dim = 0.03, pulse = { start = 0.5, end = 0.25 } },
+  { name = "el entry", addr = 3, max = 0.25, min = 0.01, dim = 0.03, pulse = { state = 0.15, end = 0.03 } },
+  { name = "led forest", addr = 4, dim = 0.005, pulse = { start = 0.02, end = 0.005 } },
+  { name = "disco ball", addr = 1, dim = 0.65, pulse = { start = 0.65, end = 0.85 } },
 ]
-pinspot = [{ name = "main", addr = 0 }, { name = "fill", addr = 7 }]
-switch = [{ name = "ac power", addr = 0 }]
-var_speed = [{ name = "disco ball", addr = 1 }]
+
+[desk.pinspot]
+units = [
+  { name = "main pinspot", addr = 1, frame_len = 6 },
+  { name = "fill pinspot", addr = 7, frame_len = 6 },
+]
+
+[desk.switch]
+units = [{ name = "ac power", addr = 1 }]
+
 
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }

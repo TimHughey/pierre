@@ -28,4 +28,8 @@ const string unit_name::EL_DANCE{"el dance"};
 const string unit_name::LED_FOREST{"led forest"};
 const string unit_name::DISCO_BALL{"disco ball"};
 
+const string unit_type::PINSPOT{"pinspot"};
+const string unit_type::DIMMABLE{"dimmable"};
+const string unit_type::SWITCH{"switch"};
+
 } // namespace pierre

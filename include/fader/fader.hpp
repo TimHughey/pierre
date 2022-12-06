@@ -26,9 +26,6 @@
 
 namespace pierre {
 
-class Fader;
-typedef std::unique_ptr<Fader> uqFader;
-
 class Fader {
 public:
   Fader(const Nanos duration) : duration(duration){};
@@ -55,8 +52,8 @@ private:
   const Nanos duration;
 
   // order independent
-  double progress = 0.0;
-  bool finished = false;
+  double progress{0.0};
+  bool finished{false};
   Nanos start_at{0};
 
   struct {

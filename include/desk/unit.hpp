@@ -28,18 +28,13 @@ namespace unit {
 constexpr size_t no_frame{0};
 }
 
-class Unit : public std::enable_shared_from_this<Unit> {
+class Unit {
 public:
-  Unit(const hdopts &opts)
+  Unit(const hdopts &opts, size_t frame_len = unit::no_frame)
       : name(opts.name),       // need to store an actual string so we can make
+        type(opts.type),       // type of unit (switch, dimmable, etc)
         address(opts.address), // abstract address (used by subclasses as needed)
-        frame_len(0)           // support headunits that do not use the DMX frame
-  {}
-
-  Unit(const hdopts &opts, size_t frame_len)
-      : name(opts.name),       // need to store an actual string so we can make csv
-        address(opts.address), // abstract address (used by subclasses as needed)
-        frame_len(frame_len)   // DMX frame length
+        frame_len(frame_len)   // support headunits that do not use the DMX frame
   {}
 
   friend class Units;
@@ -54,6 +49,7 @@ public:
 protected:
   // order dependent
   const string name;
+  const string type;
   const uint16_t address;
   const size_t frame_len;
 };

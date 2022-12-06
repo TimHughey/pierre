@@ -80,7 +80,7 @@ void MajorPeak::execute(Peaks &peaks) {
   }
 
   units(unit_name::AC_POWER)->activate();
-  units(unit_name::DISCO_BALL)->activate();
+  units.get<Dimmable>(unit_name::DISCO_BALL)->dim();
 
   handle_el_wire(peaks);
   handle_main_pinspot(peaks);
@@ -98,14 +98,14 @@ void MajorPeak::execute(Peaks &peaks) {
 void MajorPeak::handle_el_wire(Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{units.get<ElWire>(unit_name::EL_DANCE),
-                     units.get<ElWire>(unit_name::EL_ENTRY)};
+  std::array elwires{units.get<Dimmable>(unit_name::EL_DANCE),
+                     units.get<Dimmable>(unit_name::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
 
-      const DutyVal x = _freq_limits.scaled_soft(). //
-                        interpolate(elwire->minMaxDuty<double>(), peak.frequency().scaled());
+      const duty_val_t x = _freq_limits.scaled_soft(). //
+                           interpolate(elwire->minMaxDuty<double>(), peak.frequency().scaled());
 
       elwire->fixed(x);
     } else {

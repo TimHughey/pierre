@@ -17,10 +17,10 @@ add_library(${__target} SHARED
 
   # desk DMX control session
   ctrl.cpp
-
-  # headunits
+  
+  # collection of headunits
+  units.cpp
   unit/names.cpp
-  unit/pinspot.cpp
 
   # FX
   fx/fx.cpp

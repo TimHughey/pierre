@@ -31,15 +31,7 @@ namespace pierre {
 Units FX::units; // headunits available for FX (static class data)
 
 FX::FX() noexcept : finished(false) {
-  if (units.empty()) { // create the units once
-    units.add<AcPower>({.name = unit_name::AC_POWER, .address = 0});
-    units.add<PinSpot>({.name = unit_name::MAIN_SPOT, .address = 1});
-    units.add<PinSpot>({.name = unit_name::FILL_SPOT, .address = 7});
-    units.add<DiscoBall>({.name = unit_name::DISCO_BALL, .address = 3});
-    units.add<ElWire>({.name = unit_name::EL_DANCE, .address = 2});
-    units.add<ElWire>({.name = unit_name::EL_ENTRY, .address = 4});
-    units.add<LedForest>({.name = unit_name::LED_FOREST, .address = 1});
-  }
+  if (units.empty()) units.create_all_from_cfg(); // create the units once
 }
 
 bool FX::match_name(const std::initializer_list<csv> names) const noexcept {

@@ -32,8 +32,16 @@ struct unit_name {
   static const string DISCO_BALL;
 };
 
+struct unit_type {
+  static const string PINSPOT;
+  static const string DIMMABLE;
+  static const string SWITCH;
+  static const string VAR_SPEED;
+};
+
 struct hdopts {
   const string name;
+  const string type;
   size_t address;
 };
 

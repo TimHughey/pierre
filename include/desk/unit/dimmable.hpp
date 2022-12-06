@@ -32,16 +32,16 @@
 
 namespace pierre {
 
-using DutyVal = uint32_t;
-using DutyPercent = float;
+using duty_val_t = uint32_t;
+using duty_percent_t = float;
 
-class PulseWidth : public Unit {
+class Dimmable : public Unit {
 
 private:
   enum mode_t : uint8_t { FIXED = 0, PULSE_INIT, PULSE_RUNNING };
 
 public:
-  PulseWidth(const auto &opts) : Unit(opts, unit::no_frame) {
+  Dimmable(const auto &opts) : Unit(opts, unit::no_frame) {
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);
@@ -52,8 +52,8 @@ public:
     fixed(config.dim);
   }
 
-  DutyVal duty() const { return _duty; }
-  DutyVal dutyPercent(DutyPercent percent) const { return config.max * percent; }
+  duty_val_t duty() const { return _duty; }
+  duty_val_t dutyPercent(duty_percent_t percent) const { return config.max * percent; }
 
   virtual void activate() noexcept override { fixed(config.bright); }
   virtual bool isBusy() const { return _mode == FIXED; }
@@ -69,12 +69,12 @@ public:
   virtual void dark() noexcept override { fixed(config.min); }
   virtual void dim() { fixed(config.dim); }
 
-  virtual void fixed(const DutyVal val) {
+  virtual void fixed(const duty_val_t val) {
     duty_next(val);
     _mode = FIXED;
   }
 
-  virtual void percent(const DutyPercent x) { fixed(duty_percent(x)); }
+  virtual void percent(const duty_percent_t x) { fixed(duty_percent(x)); }
 
   virtual void prepare() noexcept override {
     const auto duty_now = duty();
@@ -89,8 +89,8 @@ public:
       break;
 
     case PULSE_RUNNING:
-      const DutyVal fuzzy = _dest + _velocity;
-      const DutyVal next = duty_now - _velocity;
+      const duty_val_t fuzzy = _dest + _velocity;
+      const duty_val_t next = duty_now - _velocity;
 
       // we've reached or are close enough to the destination
       if ((duty_now <= fuzzy) || (next <= _dest)) {
@@ -123,29 +123,29 @@ public:
     _mode = PULSE_INIT;
   }
 
-protected:
+public:
   struct {
-    DutyVal min;
-    DutyVal max;
-    DutyVal dim;
-    DutyVal bright;
-    DutyVal pulse_start;
-    DutyVal pulse_end;
+    duty_val_t min;
+    duty_val_t max;
+    duty_val_t dim;
+    duty_val_t bright;
+    duty_val_t pulse_start;
+    duty_val_t pulse_end;
   } config;
 
 protected:
-  virtual void duty_next(DutyVal duty) noexcept {
+  virtual void duty_next(duty_val_t duty) noexcept {
     _duty_next = std::ranges::clamp(duty, config.min, config.max);
   }
 
-  virtual DutyPercent duty_percent(float x) { return x * config.max; }
+  virtual duty_percent_t duty_percent(float x) { return x * config.max; }
 
 private:
   mode_t _mode{FIXED};
-  DutyVal _duty = 0;
-  DutyVal _duty_next = 0;
+  duty_val_t _duty = 0;
+  duty_val_t _duty_next = 0;
 
-  DutyVal _dest = 0;     // destination duty when traveling
+  duty_val_t _dest = 0;  // destination duty when traveling
   float _velocity = 0.0; // change per frame when fx is active
 };
 

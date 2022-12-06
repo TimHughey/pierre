@@ -30,10 +30,7 @@
 
 namespace pierre {
 
-class PinSpot;
-typedef std::shared_ptr<PinSpot> shPinSpot;
-
-class PinSpot : public Unit {
+class PinSpot : public Unit, public std::enable_shared_from_this<PinSpot> {
 public:
   enum FX {
     None = 0x00,
@@ -55,7 +52,7 @@ public:
   };
 
 public:
-  PinSpot(const auto &opts) : Unit(opts, FRAME_LEN) {}
+  PinSpot(const auto &opts, size_t frame_len) : Unit(opts, frame_len) {}
   ~PinSpot() = default;
 
   template <typename T> void activate(const typename T::Opts &opts) {
@@ -68,7 +65,17 @@ public:
   bool checkFaderProgress(float percent) const { return fader->checkProgress(percent); }
 
   Color &colorNow() { return color; }
-  void colorNow(const Color &color, float strobe = 0.0);
+
+  void colorNow(const Color &color_now, float strobe_val = 0.0) noexcept {
+    color = color_now;
+
+    if ((strobe_val >= 0.0) && (strobe_val <= 1.0)) {
+      strobe = (uint8_t)(strobe_max * strobe);
+    }
+
+    fx = FX::None;
+  }
+
   void dark() noexcept override {
     color = Color::black();
     fx = FX::None;
@@ -77,11 +84,33 @@ public:
   void prepare() noexcept override { faderMove(); }
   inline bool isFading() const { return (bool)fader; }
 
-  void update_msg(desk::DataMsg &msg) noexcept override;
+  void update_msg(desk::DataMsg &msg) noexcept override {
+    auto snippet = msg.dmxFrame() + address;
+
+    color.copyRgbToByteArray(snippet + 1);
+
+    if (strobe > 0) {
+      snippet[0] = strobe + 0x87;
+    } else {
+      snippet[0] = 0xF0;
+    }
+
+    snippet[5] = fx;
+  }
 
 private:
   // functions
-  void faderMove();
+  void faderMove() noexcept {
+    if (isFading()) {
+      auto continue_traveling = fader->travel();
+      color = fader->position();
+      strobe = 0;
+
+      if (continue_traveling == false) {
+        fader.reset();
+      }
+    }
+  }
 
 private:
   Color color;
@@ -89,7 +118,7 @@ private:
   uint8_t strobe_max{104};
   FX fx{FX::None};
 
-  uqFader fader;
+  std::unique_ptr<Fader> fader;
   static constexpr size_t FRAME_LEN{6};
 };
 

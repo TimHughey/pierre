@@ -41,6 +41,8 @@ private:
 public:
   Units() = default;
 
+  void create_all_from_cfg() noexcept;
+
   void for_each(auto f, std::initializer_list<string> exclude_list = empty_excludes) noexcept {
     std::set<string> excludes(exclude_list);
 
@@ -49,23 +51,19 @@ public:
     }
   }
 
-  template <typename T> void add(const hdopts opts) noexcept {
-    map.try_emplace(opts.name, std::make_shared<T>(opts));
-  }
-
   void dark(std::initializer_list<string> exclude_list = empty_excludes) noexcept {
     for_each([](std::shared_ptr<Unit> unit) { unit->dark(); }, exclude_list);
   }
 
   bool empty() const noexcept { return map.empty(); }
 
-  auto operator()(const string &name) noexcept { return map[name]; }
+  const auto operator()(const string &name) noexcept { return map.at(name); }
 
   template <typename T = Unit> constexpr auto get(const string &name) noexcept {
     auto unit = map[name];
 
     if constexpr (std::is_same_v<T, Unit>) {
-      return unit->shared_from_this();
+      return unit;
     } else if constexpr (std::is_base_of_v<Unit, T>) {
       return static_pointer_cast<T>(unit);
     } else {

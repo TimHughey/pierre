@@ -18,8 +18,6 @@
 
 #pragma once
 
-#include "desk/unit/ac_power.hpp"
-#include "desk/unit/discoball.hpp"
-#include "desk/unit/elwire.hpp"
-#include "desk/unit/ledforest.hpp"
-#include "desk/unit/pinspot.hpp"
+#include "unit/dimmable.hpp"
+#include "unit/pinspot.hpp"
+#include "unit/switch.hpp"

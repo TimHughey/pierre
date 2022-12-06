@@ -22,9 +22,9 @@
 
 namespace pierre {
 
-class AcPower : public Unit {
+class Switch : public Unit {
 public:
-  AcPower(const auto &opts) noexcept : Unit(opts), powered{true} {}
+  Switch(const auto &opts) noexcept : Unit(opts), powered{true} {}
 
 public:
   // required by FX

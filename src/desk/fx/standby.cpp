@@ -84,9 +84,9 @@ void Standby::once() {
   units(unit_name::AC_POWER)->activate();
   units(unit_name::DISCO_BALL)->dark();
 
-  units.get<ElWire>(unit_name::EL_DANCE)->dim();
-  units.get<ElWire>(unit_name::EL_DANCE)->dim();
-  units.get<LedForest>(unit_name::LED_FOREST)->dim();
+  units.get<Dimmable>(unit_name::EL_DANCE)->dim();
+  units.get<Dimmable>(unit_name::EL_DANCE)->dim();
+  units.get<Dimmable>(unit_name::LED_FOREST)->dim();
 }
 
 void Standby::silence_watch() noexcept {
