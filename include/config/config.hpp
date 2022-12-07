@@ -44,12 +44,7 @@ public:
   Config() = default;
 
   // initialization and setup
-  static Config init(int argc, char **argv) noexcept {
-    auto cfg = Config();
-    cfg.init_self(argc, argv);
-
-    return cfg;
-  }
+  static Config init(int argc, char **argv) noexcept;
 
   bool ready() const noexcept { return initialized; }
 
@@ -102,6 +97,8 @@ public:
 
   const string receiver() const noexcept; // see .cpp, uses Host
 
+  static bool should_start() noexcept { return will_start; }
+
   static void want_changes(cfg_future &fut) noexcept;
   const string working_dir() noexcept { return table_at("base.working_dir"sv).value_or(UNSET); }
 
@@ -110,21 +107,22 @@ private:
   const toml::path cli(auto key) const noexcept { return toml::path(CLI).append(key); }
   const toml::path base(csv key) const noexcept { return toml::path{"base"sv}.append(key); }
 
-  void init_self(int argc, char **argv) noexcept;
+  void init_self() noexcept;
   static bool parse() noexcept;
   static void monitor_file() noexcept;
 
 private:
-  static fs::path full_path;
-  static std::shared_mutex mtx;
-  static std::list<toml::table> tables;
   static bool initialized;
-  static constexpr int CONFIG_THREADS{1};
-  static Threads threads;
-  static stop_tokens tokens;
-  static std::filesystem::file_time_type last_write;
-  static std::optional<std::promise<bool>> change_proms;
+  static bool will_start;
   static cfg_future change_fut;
+  static constexpr int CONFIG_THREADS{1};
+  static fs::path full_path;
+  static std::filesystem::file_time_type last_write;
+  static std::list<toml::table> tables;
+  static std::optional<std::promise<bool>> change_proms;
+  static std::shared_mutex mtx;
+  static stop_tokens tokens;
+  static Threads threads;
 
   static constexpr csv BASE{"base"};
   static constexpr csv BUILD_TIME{"build_time"};

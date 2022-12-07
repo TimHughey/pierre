@@ -4,7 +4,7 @@
 
 set(__target config)
 
-find_package(Boost 1.79 QUIET REQUIRED COMPONENTS program_options)
+find_package(Boost 1.80 QUIET REQUIRED COMPONENTS program_options)
 
 message(VERBOSE "Resolving GIT Version")
 set(_build_version_ "unknown")

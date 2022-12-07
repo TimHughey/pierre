@@ -56,8 +56,6 @@ public:
 
   const string format_chunk(ccs data, size_t bytes) const noexcept;
 
-  void indent_chunk(csv chunk);
-
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
@@ -119,6 +117,8 @@ public:
 
   const string &tab() const noexcept { return indent; }
 
+  static void teardown() noexcept;
+
 private:
   void init_self();
   void print_chunk(const string &chunk);
@@ -131,13 +131,14 @@ private:
   Thread thread;
 
   // order independent
-  std::stop_token stop_token;
-  static constexpr fmt::string_view line_format{"{:>{}.{}} {:<{}} {:<{}} {}"};
   static constexpr csv SPACE{" "};
-  static constexpr int width_ts{13};
-  static constexpr int width_ts_precision{1};
-  static constexpr int width_mod{18};
+  static constexpr fmt::string_view line_format{"{:>{}.{}} {:<{}} {:<{}} {}"};
   static constexpr int width_cat{15};
+  static constexpr int width_mod{18};
+  static constexpr int width_ts_precision{1};
+  static constexpr int width_ts{13};
+  static Elapsed elapsed_runtime;
+  std::stop_token stop_token;
   string indent;
 };
 

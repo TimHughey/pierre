@@ -22,6 +22,7 @@
 #include <boost/program_options.hpp>
 #include <filesystem>
 #include <fmt/format.h>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <sys/resource.h>
@@ -34,27 +35,20 @@ namespace fs = std::filesystem;
 
 namespace pierre {
 
-static constexpr ccs help_description{R"help(
-  Pierre is your light guy for any dance party!
+static constexpr ccs help_description{"Pierre"};
 
-  Options:
-  )help"};
-
-static constexpr ccs daemon_arg{"daemon,b"};
-static constexpr ccs daemon_help{"daemon mode\nrun in background"};
-static constexpr ccs colorbars{"colorbars"};
-static constexpr ccs colorbars_help{"perform pinspot colorbar test at startup"};
-static constexpr ccs cfg_file_arg{"config,C"};
+static constexpr ccs cfg_file_arg{"cfg-file"};
 static constexpr ccs cfg_file_default{"live.toml"};
 static constexpr ccs cfg_file_help{"config file"};
+static constexpr ccs daemon_arg{"daemon"};
+static constexpr ccs daemon_help{"run as daemon (background)"};
 static constexpr ccs dmx_host_arg{"dmx-host"};
-static constexpr ccs dmx_host_help{"stream dmx frames to host"};
+static constexpr ccs dmx_host_help{"where to stream dmx frames"};
+static constexpr ccs help_help{"display this help message"};
 static constexpr ccs help{"help"};
-static constexpr ccs help_help{"help"};
+static constexpr ccs pid_file_help{"pid file path (daemon mode only)"};
+static constexpr ccs pid_file_default("/run/pierre");
 static constexpr ccs pid_file{"pid-file"};
-static constexpr ccs pid_file_help{R"path(
-  full path to write pid file when running as daemon
-  )path"};
 
 ArgsMap Args::parse(int argc, char *argv[]) {
   po::variables_map args;
@@ -64,19 +58,17 @@ ArgsMap Args::parse(int argc, char *argv[]) {
     // Declare the supported options
     po::options_description desc(help_description);
 
-    auto daemon_val = po::bool_switch(&am.daemon)->multitoken()->default_value(false);
-    auto cfg_file_val = po::value(&am.cfg_file)->multitoken()->default_value(cfg_file_default);
-    auto dmx_host_val = po::value(&am.dmx_host)->multitoken();
-    auto pid_file_val = po::value(&am.pid_file);
-    auto colorbars_val = po::bool_switch(&am.colorbars)->default_value(false);
+    auto daemon_val = po::bool_switch(&am.daemon)->default_value(false);
+    auto cfg_file_val = po::value(&am.cfg_file)->default_value(cfg_file_default);
+    auto dmx_host_val = po::value(&am.dmx_host);
+    auto pid_file_val = po::value(&am.pid_file)->default_value(pid_file_default);
 
     desc.add_options()                              // add allowed cmd line opts
-        (help, help_help)                           // help
-        (daemon_arg, daemon_val, daemon_help)       // run as daemon?
         (cfg_file_arg, cfg_file_val, cfg_file_help) // cfg file
         (dmx_host_arg, dmx_host_val, dmx_host_help) // dmx host
+        (daemon_arg, daemon_val, daemon_help)       // run as daemon?
         (pid_file, pid_file_val, pid_file_help)     // pid file
-        (colorbars, colorbars_val, colorbars_help); // run colorbar test at startup
+        (help, help_help);                          // help
 
     po::store(parse_command_line(argc, argv, desc), args);
     po::notify(args);
@@ -84,20 +76,19 @@ ArgsMap Args::parse(int argc, char *argv[]) {
     if (args.count(help) == 0) {
       am.parse_ok = true;
     } else {
-      std::stringstream sstream;
-      desc.print(sstream, 120); // format the description to a sstream
-      fmt::print(FMT_STRING("\n{}\n"), sstream.view());
+      am.help = true;
+
+      std::cout << std::endl;
+      std::cout << desc;
+      std::cout << std::endl;
     }
 
   } catch (const po::error &ex) {
-    fmt::print(FMT_STRING("command line args error: {}\n"), ex.what());
+    fmt::print("command line args error: {}\n", ex.what());
   }
 
   am.exec_path = string(argv[0]);
   am.parent_path = am.exec_path.parent_path();
-
-  INFO(module_id, "PARENT_PATH", "{}\n", am.parent_path.c_str());
-
   am.app_name.assign(basename(argv[0]));
 
   return am;

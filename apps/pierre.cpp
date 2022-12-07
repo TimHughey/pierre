@@ -28,31 +28,35 @@
 
 int main(int argc, char *argv[]) {
   pierre::Pierre().init(argc, argv).run();
+
   exit(0);
 }
 
 namespace pierre {
 
-Pierre &Pierre::init(int argc, char *argv[]) {
+Pierre &Pierre::init(int argc, char *argv[]) noexcept {
 
   crypto::init(); // initialize sodium and gcrypt
   Logger::init(); // start logging
 
   auto cfg = Config::init(argc, argv);
 
-  if (cfg.ready()) {
-    INFO(module_id, "INIT", "{} {} {}\n", cfg.receiver(), cfg.build_vsn(), cfg.build_time());
-
+  if (cfg.should_start()) {
     args_ok = true;
+    INFO(module_id, "INIT", "{} {} {}\n", cfg.receiver(), cfg.build_vsn(), cfg.build_time());
+  } else {
+    // app is not starting, teardown Logger and remove the work guard
+    Logger::teardown();
+    guard.reset();
   }
 
   return *this;
 }
 
 // create and run all threads
-bool Pierre::run() {
+void Pierre::run() noexcept {
 
-  if (args_ok) {
+  if (args_ok && Config().ready()) {
     mDNS::init(io_ctx);
     Frame::init();
     Desk::init();
@@ -62,7 +66,5 @@ bool Pierre::run() {
 
     io_ctx.run();
   }
-
-  return true;
 }
 } // namespace pierre

@@ -27,8 +27,8 @@ class Pierre {
 public:
   Pierre() noexcept : guard(std::make_unique<work_guard>(io_ctx.get_executor())) {}
 
-  Pierre &init(int argc, char *argv[]);
-  bool run();
+  Pierre &init(int argc, char *argv[]) noexcept;
+  void run() noexcept;
 
 private:
   // order dependent

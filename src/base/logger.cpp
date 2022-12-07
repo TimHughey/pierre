@@ -26,24 +26,27 @@
 #include <chrono>
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
+#include <fmt/core.h>
 #include <fmt/format.h>
+#include <functional>
+#include <iterator>
 #include <latch>
 #include <optional>
 #include <ranges>
 #include <string_view>
-
-namespace pierre {
 
 namespace {
 namespace ranges = std::ranges;
 namespace views = std::ranges::views;
 } // namespace
 
+namespace pierre {
+
 namespace shared {
 std::optional<Logger> logger;
 }
 
-Elapsed _runtime; // class static data
+Elapsed Logger::elapsed_runtime; // class static data
 
 void Logger::init() { // static
   if (shared::logger.has_value() == false) {
@@ -52,8 +55,9 @@ void Logger::init() { // static
 }
 
 void Logger::init_self() {
-  indent = fmt::format("{:>{}} {:>{}} {:>{}} ", //
-                       SPACE, width_ts, SPACE, width_mod, SPACE, width_cat);
+  indent = fmt::format(        //
+      "{:>{}} {:>{}} {:>{}} ", //
+      SPACE, width_ts, SPACE, width_mod, SPACE, width_cat);
 
   std::latch latch{1};
 
@@ -104,7 +108,13 @@ void Logger::print_chunk(const string &chunk) {
   }
 }
 Logger::millis_fp Logger::runtime() { // static
-  return std::chrono::duration_cast<millis_fp>((Nanos)_runtime);
+  return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
+}
+
+void Logger::teardown() noexcept { // static
+  auto &self = shared::logger.value();
+
+  self.guard->reset();
 }
 
 } // namespace pierre

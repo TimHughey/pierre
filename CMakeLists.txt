@@ -4,7 +4,7 @@
 # Top-level Cmake configuration
 #
 
-cmake_minimum_required(VERSION 3.23.0)
+cmake_minimum_required(VERSION 3.24.3)
 
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)

@@ -26,13 +26,13 @@ namespace pierre {
 
 struct ArgsMap {
   bool parse_ok{false};
+  bool help{false};
   bool daemon{false};
   std::filesystem::path exec_path{};
   std::filesystem::path parent_path{};
   string cfg_file{};
   string dmx_host{};
   string pid_file{};
-  bool colorbars{false};
   string app_name;
 
   // public api
