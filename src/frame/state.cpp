@@ -22,12 +22,7 @@
 namespace pierre {
 namespace frame {
 
-csv state::inspect() const noexcept { return csv(val_to_txt_map[_val]); }
-
-void state::record_state() const noexcept {
-
-  Stats::write(pierre::stats::FRAME, 1, {csv{"state"}, inspect()});
-}
+void state::record_state() const noexcept { Stats::write(pierre::stats::FRAME, 1, tag()); }
 
 std::map<state_now_t, string> state::val_to_txt_map{
     // comment for easy IDE sorting

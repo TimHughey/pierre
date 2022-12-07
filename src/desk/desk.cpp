@@ -61,7 +61,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
   // first things first, ensure we are running in the correct strand
   if (frame_strand.running_in_this_thread() == false) {
-    asio::post(frame_strand, [=]() { self->frame_loop(wait); });
+    asio::post(frame_strand, [=, s = self->shared_from_this()] { s->frame_loop(wait); });
 
     return; // do not fall through to the frame procesing loop
   }
@@ -136,7 +136,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     } else if (frame->state.outdated()) {
       outdated++;
     } else {
-      INFO(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
+      INFOX(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
     }
 
     // account for processing time thus far
@@ -145,14 +145,14 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     frame->mark_rendered(); // records rendered or silence in timeseries db
 
     if (sync_wait >= Nanos::zero()) {
-      // Stats::write(stats::SYNC_WAIT, pet::floor(sync_wait), frame->state.tag());
+      // now we need to wait for the correct time to render the next frame
       frame_timer.expires_after(sync_wait);
       error_code ec;
       frame_timer.wait(ec); // loop runs in frame_strand, no async necessary
 
       if (ec) {
         INFO(module_id, "FRAME_LOOP", "falling through reason={}\n", ec.message());
-        break; // timer error, likely due to shutdown, break out
+        loop_active.store(false);
       }
     }
   } // while loop

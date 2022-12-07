@@ -109,7 +109,7 @@ public:
   bool future() const noexcept { return *this == FUTURE; }
   bool header_parsed() const noexcept { return *this == HEADER_PARSED; }
 
-  csv inspect() const noexcept;
+  csv inspect() const noexcept { return csv{val_to_txt_map.at(_val)}; }
 
   auto now() const noexcept { return _val.load(); }
 
@@ -129,7 +129,7 @@ public:
     return std::atomic_compare_exchange_strong(&_val, &want_val, next_val);
   }
 
-  auto tag() noexcept { return std::make_pair("state"sv, inspect()); }
+  auto tag() const noexcept { return std::make_pair("state", inspect().data()); }
 
   bool update_if(const state_now_t previous, std::optional<state> &new_state) noexcept {
     auto rc = false;

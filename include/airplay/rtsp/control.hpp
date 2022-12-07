@@ -42,11 +42,11 @@ public:
   std::shared_ptr<Control> ptr() noexcept { return shared_from_this(); }
 
   static auto start(io_context &io_ctx) noexcept {
-    auto self = std::shared_ptr<Control>(new Control(io_ctx));
+    auto s = std::shared_ptr<Control>(new Control(io_ctx));
 
-    self->async_loop();
+    s->async_loop();
 
-    return self;
+    return s->ptr();
   }
 
 public:
@@ -64,19 +64,12 @@ public:
       auto raw = std::make_unique<uint8v>(1024);
       auto buff = asio::buffer(*raw); // get the buffer before moving the ptr
 
-      socket.async_receive(buff, [s = self(), raw = std::move(raw)](
+      socket.async_receive(buff, [s = ptr(), raw = std::move(raw)](
                                      const error_code ec, [[maybe_unused]] size_t rx_bytes) {
         s->async_loop(ec); // will detect errors and close socket
       });
-    } else {
-      teardown();
     }
   }
-
-  // ensure the server is started and return the local endpoint port
-
-private:
-  std::shared_ptr<Control> self() noexcept { return shared_from_this(); }
 
 private:
   // order dependent

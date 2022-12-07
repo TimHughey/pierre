@@ -19,10 +19,12 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
 #include <functional>
+#include <mutex>
 #include <pthread.h>
 #include <ranges>
 #include <set>
@@ -35,10 +37,26 @@ namespace pierre {
 
 using Threads = std::vector<Thread>;
 
-void name_thread(csv name);
-void name_thread(csv name, int num);
+inline void name_thread(csv name) noexcept {
+  const auto handle = pthread_self();
 
-const string thread_id_short();
+  pthread_setname_np(handle, name.data());
+}
+
+inline void name_thread(csv name, int num) noexcept {
+  name_thread(fmt::format("{} {}", name, num));
+}
+
+inline const string thread_id_short() noexcept {
+  static std::hash<std::thread::id> hasher;
+
+  const auto hashed = fmt::format("{:x}", hasher(std::this_thread::get_id()));
+
+  auto first = hashed.begin();
+  std::advance(first, std::ssize(hashed) - 8);
+
+  return string(first, hashed.end());
+}
 
 class stop_tokens {
 private:
@@ -47,7 +65,12 @@ private:
 public:
   stop_tokens() = default;
 
-  void add(std::stop_token &&tok) { _tokens.emplace_back(tok); }
+  void add(std::stop_token &&tok) {
+    std::unique_lock lck(mtx, std::defer_lock);
+    lck.lock();
+
+    _tokens.emplace_back(tok);
+  }
 
   bool any_requested() {
     return std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
@@ -81,6 +104,7 @@ public:
 
 private:
   std::vector<std::stop_token> _tokens;
+  std::mutex mtx;
 };
 
 } // namespace pierre

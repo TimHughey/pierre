@@ -21,39 +21,6 @@
 
 namespace pierre {
 
-namespace shared {
-Render render;
-}
-
-bool Render::enabled() noexcept { return shared::render.flag.test(); }
-
-// bool Render::enabled(bool wait) noexcept {
-//   if (wait && !shared::render.mode()) {
-//     if (shared::render.mode() == false) {
-//       shared::render.flag.wait(false);
-//     }
-//   }
-
-//   return shared::render.mode();
-// }
-
-csv Render::inspect() noexcept {
-  return shared::render.mode() ? csv{"RENDERING"} : csv{"NOT_RENDERING"};
-}
-
-void Render::set(uint64_t v) noexcept {
-  bool next = v & 0x01;
-
-  if (next) {
-    auto prev = shared::render.flag.test_and_set();
-
-    if (prev != next) {
-      INFO(module_id, "SET", "{} => {}\n", prev, next);
-      shared::render.flag.notify_all();
-    }
-  } else {
-    shared::render.flag.clear();
-  }
-}
+std::atomic_bool Render::flag;
 
 } // namespace pierre

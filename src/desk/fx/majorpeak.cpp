@@ -76,7 +76,7 @@ void MajorPeak::execute(Peaks &peaks) {
 
     Config::want_changes(_cfg_changed);
 
-    INFO(module_id, "EXECUTE", "config reloaded want_changes={}\n", _cfg_changed.has_value());
+    INFOX(module_id, "EXECUTE", "config reloaded want_changes={}\n", _cfg_changed.has_value());
   }
 
   units(unit_name::AC_POWER)->activate();

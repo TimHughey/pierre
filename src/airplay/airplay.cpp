@@ -46,13 +46,13 @@ void Airplay::init_self() noexcept {
       name_thread("Airplay", n);
 
       // we want all airplay threads to start at once
-      latch.count_down();
+      latch.arrive_and_wait();
       s->io_ctx.run();
     });
   }
 
   latch.wait(); // wait for all threads to start
-  watch_dog();  // start the watchdog once all threads are started
+  // qwatch_dog();  // start the watchdog once all threads are started
 
   shared::master_clock->peers_reset(); // reset timing peers
 

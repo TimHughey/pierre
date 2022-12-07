@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "base/types.hpp"
 
 #include <atomic>
@@ -28,15 +29,25 @@ class Render {
 public:
   Render() = default;
 
-  static bool enabled() noexcept;
-  static csv inspect() noexcept;
-  static void set(uint64_t v) noexcept;
+  static bool enabled() noexcept { return flag.load(); }
+
+  static csv inspect() noexcept { return mode() ? csv{"RENDERING"} : csv{"NOT_RENDERING"}; }
+
+  static void set(bool next) noexcept {
+    bool current = flag.load();
+
+    if (current != next) {
+      INFO(module_id, "SET", "{} => {}\n", current, next);
+      flag.store(next);
+      flag.notify_all();
+    }
+  }
 
 private:
-  bool mode() const noexcept { return flag.test(); }
+  static bool mode() noexcept { return flag.load(); }
 
 private:
-  std::atomic_flag flag;
+  static std::atomic_bool flag;
 
 public:
   static constexpr csv module_id{"RENDER"};

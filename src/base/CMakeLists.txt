@@ -23,9 +23,6 @@ add_library(${__target} SHARED
   # logging (threaded)
   logger.cpp
 
-  # common thread typedefs and helpers
-  threads.cpp
-
   # host info
   host.cpp
 

@@ -107,7 +107,7 @@ void Stats::init_self(const string &db_uri) noexcept {
       name_thread("Stats", 0);
 
       // we want all airplay threads to start at once
-      latch.count_down();
+      latch.arrive_and_wait();
       s->io_ctx.run();
     });
 

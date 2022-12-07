@@ -89,7 +89,7 @@ void Racked::flush(FlushInfo request) { // static
 void Racked::flush_impl(FlushInfo request) {
   // execute this on the wip strand
   asio::post(flush_strand, [=, this]() mutable {
-    INFO(module_id, "FLUSH", "{}\n", request.inspect());
+    INFOX(module_id, "FLUSH", "{}\n", request.inspect());
 
     flush_request = request; // record the flush request to check incoming frames
 
@@ -303,9 +303,10 @@ void Racked::log_racked(const string &wip_info, log_racked_rc rc) const noexcept
   case log_racked_rc::RACKED:
     if ((reel_count == 1) && !wip_info.empty()) {
       fmt::format_to(w, "FIRST REEL reels={:<3} wip_reel={}", 1, wip_info);
-    } else if ((reel_count == 2) && !wip_info.empty()) {
-      fmt::format_to(w, "RACKED     reels={:<3} wip_reel={}", reel_count, wip_info);
     }
+    // else if ((reel_count == 2) && !wip_info.empty()) {
+    //   fmt::format_to(w, "RACKED     reels={:<3} wip_reel={}", reel_count, wip_info);
+    // }
     break;
 
   default:

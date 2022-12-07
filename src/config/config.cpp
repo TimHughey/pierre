@@ -75,7 +75,8 @@ void Config::init_self(int argc, char **argv) noexcept {
         threads.emplace_back([=, &latch](std::stop_token token) mutable {
           tokens.add(std::move(token));
           name_thread(TASK_NAME, n);
-          latch.count_down();
+
+          latch.arrive_and_wait();
           io_ctx.run();
         });
       }

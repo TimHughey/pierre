@@ -158,7 +158,7 @@ bool parse(frame_t frame) {
                                AV_NOPTS_VALUE,  // dts
                                AV_NOPTS_VALUE); // pos
 
-  if ((used < 0) || std::cmp_not_equal(used, encoded_size) || (pkt->size == 0)) {
+  if ((used <= 0) || std::cmp_not_equal(used, encoded_size) || (pkt->size == 0)) {
     log_discard(frame, used, pkt);
     av_packet_free(&pkt);
     return rc;

@@ -72,12 +72,11 @@ public:
       } else if (frame->decipher(std::move(packet), key)) {
         // note:  we move the packet since handoff() is done with it
 
-        asio::post(s->handoff_strand, [=]() { s->accept_frame(frame); });
+        asio::post(s->handoff_strand,
+                   [s = s->ptr(), frame = std::move(frame)]() { s->accept_frame(frame); });
       }
-    }
-
-    if (!frame->deciphered()) {
-      INFO(module_id, "HANDOFF", "DISCARDING frame={}\n", frame->inspect());
+    } else {
+      INFOX(module_id, "HANDOFF", "DISCARDING {}\n", frame->inspect());
       frame->state.record_state();
     }
   }

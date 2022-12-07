@@ -59,10 +59,11 @@ void init() {
   double factor = Config().table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
   int thread_count = std::jthread::hardware_concurrency() * factor;
 
+  FFT::init();
+
   std::latch latch{thread_count};
 
   for (auto n = 0; n < thread_count; n++) {
-    static bool fft_initialized = false;
     // notes:
     //  1. start DSP processing threads
     threads.emplace_back([=, &latch](std::stop_token token) mutable {
@@ -70,13 +71,8 @@ void init() {
 
       tokens.add(std::move(token));
 
-      if (fft_initialized == false) {
-        fft_initialized = true;
-        asio::post(io_ctx, []() { FFT::init(); });
-      }
-
       // allow DSP threads to start immediately so FFT is initialized
-      latch.count_down();
+      latch.arrive_and_wait();
       io_ctx.run();
     });
   }
@@ -84,7 +80,7 @@ void init() {
   // caller thread waits until all threads are started
   latch.wait();
 
-  watch_dog(); // watch for shutdown
+  // watch_dog(); // watch for shutdown
 }
 
 // perform digital signal analysis on a Frame

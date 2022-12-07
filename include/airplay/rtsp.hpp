@@ -34,11 +34,11 @@ private:
 
 public:
   static std::shared_ptr<Rtsp> init(io_context &io_ctx) noexcept {
-    auto self = std::shared_ptr<Rtsp>(new Rtsp(io_ctx));
+    auto s = std::shared_ptr<Rtsp>(new Rtsp(io_ctx));
 
-    self->async_loop();
+    s->async_loop();
 
-    return self;
+    return s->init_self();
   }
 
   auto ptr() noexcept { return shared_from_this(); }
@@ -51,6 +51,12 @@ public:
   // starting the next async_accept.  when the error code is not specified
   // assume this is startup and all is well.
   void async_loop(const error_code ec_last = io::make_error(errc::success)) noexcept;
+
+  std::shared_ptr<Rtsp> init_self() noexcept {
+    async_loop();
+
+    return ptr();
+  }
 
   void shutdown() noexcept { teardown(); }
 

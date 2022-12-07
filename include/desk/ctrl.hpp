@@ -98,6 +98,7 @@ private:
 private:
   // order dependent
   io_context &io_ctx;
+  strand local_strand;
   tcp_acceptor acceptor;
   steady_timer stalled_timer;
 

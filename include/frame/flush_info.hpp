@@ -77,9 +77,9 @@ struct FlushInfo {
 
       active = ((item->seq_num <= until_seq) && (item->timestamp <= until_ts));
 
-      if (!active) {
-        INFO("FLUSH_REQUEST", "COMPLETE", "{}\n", inspect());
-      }
+      // if (!active) {
+      //   INFO("FLUSH_REQUEST", "COMPLETE", "{}\n", inspect());
+      // }
     }
 
     return active;

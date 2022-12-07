@@ -58,12 +58,12 @@ void Logger::init_self() {
   std::latch latch{1};
 
   thread = Thread([this, &latch](std::stop_token token) mutable {
+    stop_token = std::move(token);
     name_thread("Logger");
 
-    stop_token = token;
     guard = std::make_unique<work_guard>(io_ctx.get_executor());
 
-    latch.count_down();
+    latch.arrive_and_wait();
     io_ctx.run();
   });
 
