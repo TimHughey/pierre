@@ -370,8 +370,6 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 
 // must be in .cpp to avoid including Desk in .hpp
 void MajorPeak::once() {
-  Stats::init(); // ensure Stats object is initialized
-
   units(unit_name::AC_POWER)->activate();
   units(unit_name::LED_FOREST)->dark();
 

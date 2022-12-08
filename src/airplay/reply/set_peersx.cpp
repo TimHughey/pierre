@@ -42,13 +42,13 @@ bool SetPeersX::populate() {
   for (uint32_t idx = 0; idx < count; idx++) {
     auto idxs = fmt::format("{}", idx);
     if (auto peers = rdict.stringArray({csv(idxs), dk::ADDRESSES}); peers.size() > 0) {
-      ranges::copy(peers, std::back_inserter(peer_list));
+      ranges::copy(peers.begin(), peers.end(), std::back_inserter(peer_list));
 
       resp_code(RespCode::OK); // we got some peer addresses
     }
   }
 
-  shared::master_clock->peers(peer_list);
+  MasterClock::peers(peer_list);
 
   return peer_list.size() ? true : false;
 }

@@ -77,8 +77,6 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // note: reset render_wait to get best possible measurement
     if (render_wait.reset() && Render::enabled()) {
-      Stats::write(stats::RENDER_DELAY, render_wait.freeze());
-
       Elapsed next_wait;
 
       // Racked will always return either a racked or silent frame
@@ -166,7 +164,6 @@ void Desk::init() noexcept { // static instance creation
 
 void Desk::init_self() noexcept {
   // initialize supporting objects
-  Stats::init(); // ensure Stats object is initialized
   active_fx = std::make_shared<fx::Standby>(io_ctx);
 
   const auto num_threads = Config().at("desk.threads"sv).value_or(3);

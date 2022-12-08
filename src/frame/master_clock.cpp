@@ -37,9 +37,7 @@
 
 namespace pierre {
 
-namespace shared {
-std::optional<MasterClock> master_clock;
-} // namespace shared
+std::shared_ptr<MasterClock> MasterClock::self;
 
 // create the MasterClock
 MasterClock::MasterClock() noexcept
@@ -56,14 +54,16 @@ MasterClock::MasterClock() noexcept
 
 clock_info_future MasterClock::info() noexcept { // static
   auto prom = std::make_shared<std::promise<ClockInfo>>();
-  auto clock_info = shared::master_clock->load_info_from_mapped();
+
+  auto s = self->ptr();
+  auto clock_info = s->load_info_from_mapped();
 
   if (clock_info.ok()) {
     // clock info is good, immediately set the future
     prom->set_value(clock_info);
   } else {
     // clock info not ready yet, retry
-    shared::master_clock->info_retry(prom);
+    s->info_retry(prom);
   }
 
   return prom->get_future();
@@ -91,13 +91,14 @@ void MasterClock::info_retry(clock_info_prom prom,      //
     }
 
     if (!timer) timer = std::make_shared<steady_timer>(io_ctx);
-
+    auto t = timer.get();
     // ok, we have our retry support objects
 
-    timer->expires_after(InputInfo::lead_time);
-    timer->async_wait([=, this](const error_code ec) mutable {
+    t->expires_after(InputInfo::lead_time);
+    t->async_wait([s = ptr(), e = std::move(e), timer = std::move(timer), prom = std::move(prom),
+                   clock_info, max_wait](const error_code ec) mutable {
       if (!ec && (e < max_wait)) {
-        info_retry(prom, max_wait, e, timer);
+        s->info_retry(std::move(prom), max_wait, std::move(e), std::move(timer));
       } else {
         // error or max_wait exceeded, give up
         INFO(module_id, "INFO_RETRY", "no clock info after {}\n", e.humanize());
@@ -107,29 +108,21 @@ void MasterClock::info_retry(clock_info_prom prom,      //
   }
 }
 
-void MasterClock::init() {
-  if (shared::master_clock.has_value() == false) {
-    shared::master_clock.emplace().init_self();
-  }
-}
-
 void MasterClock::init_self() noexcept {
   std::latch latch{THREAD_COUNT};
 
   for (auto n = 0; n < THREAD_COUNT; n++) {
     // notes:
     //  1. start DSP processing threads
-    threads.emplace_back([=, this, &latch](std::stop_token token) mutable {
-      tokens.add(std::move(token));
-
+    threads.emplace_back([=, this, &latch]() mutable {
       name_thread("Master Clock", n);
       latch.arrive_and_wait();
       io_ctx.run();
     });
   }
 
-  latch.wait();  // caller waits until all threads are started
-  peers_reset(); // reset the peers (and creates the shm mem name)
+  latch.wait();   // caller waits until all threads are started
+  peers(Peers()); // reset the peers (and creates the shm mem name)
 }
 
 bool MasterClock::is_mapped() const {
@@ -219,14 +212,16 @@ void MasterClock::peers_update(const Peers &new_peers) {
   INFOX(module_id, "NEW PEERS", "count={}\n", new_peers.size());
 
   // queue the update to prevent collisions
+  auto s = ptr();
+  auto &io_ctx = s->io_ctx;
   asio::post( //
       io_ctx, //
-      [this, peers = std::move(new_peers)]() {
+      [s = std::move(s), peers = std::move(new_peers)]() {
         // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
         uint8v msg;
         auto w = std::back_inserter(msg);
 
-        fmt::format_to(w, "{} T", shm_name);
+        fmt::format_to(w, "{} T", s->shm_name);
 
         if (peers.empty() == false) {
           fmt::format_to(w, " {}", fmt::join(peers, " "));
@@ -237,7 +232,7 @@ void MasterClock::peers_update(const Peers &new_peers) {
         INFOX(module_id, "PEERS UPDATE", "peers={}\n", msg.view());
 
         error_code ec;
-        auto bytes = socket.send_to(asio::buffer(msg), remote_endpoint, 0, ec);
+        auto bytes = s->socket.send_to(asio::buffer(msg), s->remote_endpoint, 0, ec);
 
         if (ec) {
           INFO(module_id, "PEERS_UPDATE", "send msg failed, reason={} bytes={}\n", //
@@ -246,26 +241,23 @@ void MasterClock::peers_update(const Peers &new_peers) {
       });
 }
 
-bool MasterClock::ready() { // static
-  const auto &clock_info = shared::master_clock->load_info_from_mapped();
+void MasterClock::shutdown() noexcept { // static
+  auto s = self->ptr();
+  auto &io_ctx = s->io_ctx;
 
-  return clock_info.ok() && clock_info.master_for_at_least(333ms);
-}
+  self.reset(); // reset our static shared_ptr (we have a fresh one)
 
-void MasterClock::reset() { // static
-  shared::master_clock->unMap();
-  shared::master_clock.reset();
-}
+  // run our self-destruct via a post with the fresh shared_ptr
+  // to ourselves.  when this post completes the shared_ptr falls
+  // out of scope freeing the overall object
+  asio::post(io_ctx, [s = std::move(s)]() {
+    s->guard.reset(); // remove the work guard so io_ctx.run() returns ending the thread
 
-void MasterClock::unMap() {
-  if (is_mapped()) {
-    munmap(mapped, sizeof(nqptp));
+    if (s->is_mapped()) munmap(s->mapped, sizeof(nqptp));
 
-    mapped = nullptr;
-  }
-
-  [[maybe_unused]] error_code ec;
-  socket.close(ec);
+    [[maybe_unused]] error_code ec;
+    s->socket.close(ec);
+  });
 }
 
 // misc debug

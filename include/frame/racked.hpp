@@ -46,7 +46,7 @@ namespace pierre {
 using racked_reels = std::map<reel_serial_num_t, Reel>;
 
 class Racked : public std::enable_shared_from_this<Racked> {
-public:
+private:
   Racked() noexcept
       : guard(io::make_work_guard(io_ctx)), // ensure io_ctx has work
         handoff_strand(io_ctx),             // unprocessed frame 'queue'
@@ -56,8 +56,9 @@ public:
         wip_timer(io_ctx)                   // used to racked incomplete wip reels
   {}
 
-  static auto ptr() noexcept { return self()->shared_from_this(); }
+  static auto ptr() noexcept { return self->shared_from_this(); }
 
+public:
   static void flush(FlushInfo request);
 
   // handeff() allows the packet to be moved however expects the key to be a reference
@@ -81,8 +82,12 @@ public:
     }
   }
 
-  static void init();
-  const string inspect() const noexcept;
+  static void init() noexcept {
+    if (self.use_count() < 1) {
+      self = std::shared_ptr<Racked>(new Racked());
+      self->init_self();
+    }
+  }
 
   static frame_future next_frame() noexcept;
 
@@ -93,16 +98,11 @@ private:
   void accept_frame(frame_t frame) noexcept;
   void add_frame(frame_t frame) noexcept;
 
-  void flush_impl(FlushInfo request);
-  void next_frame_impl(frame_promise prom) noexcept;
-
   void init_self();
 
   void monitor_wip() noexcept;
 
   void rack_wip() noexcept;
-
-  static std::shared_ptr<Racked> &self() noexcept;
 
   // misc logging, debug
   void log_racked() const noexcept { log_racked(string()); }
@@ -128,14 +128,14 @@ private:
   frame_t first_frame;
 
   // threads
-  Threads _threads;
-  stop_tokens _stop_tokens;
+  Threads threads;
 
 private:
-  static uint64_t REEL_SERIAL_NUM; // ever incrementing, no dups
+  static std::shared_ptr<Racked> self;
+  static int64_t REEL_SERIAL_NUM; // ever incrementing, no dups
 
 public:
-  static constexpr Nanos reel_max_wait = InputInfo::lead_time_min;
+  static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};
   static constexpr csv module_id{"RACKED"};
 
 }; // Racked

@@ -74,7 +74,7 @@ bool Setup::handleNoStreams() {
     rtsp_ctx->group_contains_group_leader = rdict.boolVal({dk::GROUP_LEADER});
 
     auto peers = rdict.stringArray({dk::TIMING_PEER_INFO, dk::ADDRESSES});
-    pierre::shared::master_clock->peers(peers);
+    MasterClock::peers(peers);
 
     Aplist peer_info;
 

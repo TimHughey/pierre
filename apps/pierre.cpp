@@ -25,6 +25,7 @@
 #include "desk/desk.hpp"
 #include "frame/frame.hpp"
 #include "mdns/mdns.hpp"
+#include "stats/stats.hpp"
 
 int main(int argc, char *argv[]) {
   pierre::Pierre().init(argc, argv).run();
@@ -57,6 +58,7 @@ Pierre &Pierre::init(int argc, char *argv[]) noexcept {
 void Pierre::run() noexcept {
 
   if (args_ok && Config().ready()) {
+    Stats::init();
     mDNS::init(io_ctx);
     Frame::init();
     Desk::init();

@@ -45,8 +45,11 @@ cipher = { buffer_size = 0x2000 }  # bytes (4k)
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 
 [frame.clock]
+host = "127.0.0.1"
+info = { min_wait_frames = 12 }
+nqptp_version = 8
+port = 9000
 shm_name = "/nqptp"
-info = { max_wait_frames = 43 }
 
 [frame.racked]
 threads = 3 # stats runs on this io_ctx

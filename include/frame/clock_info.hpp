@@ -31,7 +31,7 @@ namespace pierre {
 using MasterIP = std::string;
 
 struct ClockInfo;
-using clock_info_future = std::future<ClockInfo>;
+using clock_info_future = std::shared_future<ClockInfo>;
 using clock_info_prom = std::shared_ptr<std::promise<ClockInfo>>;
 
 struct ClockInfo {

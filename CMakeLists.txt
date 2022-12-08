@@ -65,6 +65,7 @@ target_link_libraries(${_target} PUBLIC
   frame
   mdns
   sodium
+  stats
 )
 
 

@@ -33,7 +33,6 @@
 #include <functional>
 #include <future>
 #include <memory>
-#include <optional>
 #include <pthread.h>
 #include <vector>
 
@@ -44,32 +43,27 @@ struct ClockPort {
   Port port;
 };
 
-typedef std::vector<ClockPort> ClockPorts;
+using ClockPorts = std::vector<ClockPort>;
 
 struct PeerInfo {
   string id;
   uint8v addresses;
   ClockPorts clock_ports;
-  int device_type = 0;
-  ClockID clock_id = 0;
-  bool port_matching_override = false;
+  int device_type{0};
+  ClockID clock_id{0};
+  bool port_matching_override{false};
 };
 
-typedef std::vector<PeerInfo> PeerList;
+using PeerList = std::vector<PeerInfo>;
 
-class MasterClock;
-namespace shared {
-extern std::optional<MasterClock> master_clock;
-}
-
-class MasterClock {
+class MasterClock : public std::enable_shared_from_this<MasterClock> {
 private:
-  static constexpr uint16_t CTRL_PORT = 9000; // see note
-  static constexpr auto LOCALHOST = "127.0.0.1";
-  static constexpr uint16_t NQPTP_VERSION = 8;
+  static constexpr auto LOCALHOST{"127.0.0.1"};
+  static constexpr uint16_t CTRL_PORT{9000}; // see note
+  static constexpr uint16_t NQPTP_VERSION{8};
 
 public:
-  typedef std::vector<string> Peers;
+  using Peers = std::vector<string>;
 
 public:
   struct nqptp {
@@ -82,20 +76,32 @@ public:
     uint64_t master_clock_start_time;     // this is when the master clock became master}
   };
 
-public:
+private:
   MasterClock() noexcept;
+  auto ptr() noexcept { return shared_from_this(); }
 
-  static clock_info_future info() noexcept; // max_wait configured in .toml
+public:
+  /// @brief Get ClockInfo via a shared future. The minimum time allowed between requests is
+  ///        configured via the external .toml file.  If called before the minimum time
+  ///        has elpased this function will immediately set the future with an empty
+  ///        ClockInfo object.
+  /// @return std::shared_future<ClockInfo>
+  static clock_info_future info() noexcept;
 
-  static void init();
+  /// @brief Initialize a singleton MasterClock instance
+  static void init() noexcept {
+    if (self.use_count() < 1) {
+      self = std::shared_ptr<MasterClock>(new MasterClock());
+      self->init_self();
+    }
+  }
 
-  void peers(const Peers &peer_list) { peers_update(peer_list); }
-  void peers_reset() { peers_update(Peers()); }
+  static void peers(const Peers &peer_list) noexcept { self->ptr()->peers_update(peer_list); }
+  static void peers_reset() noexcept { self->ptr()->peers_update(Peers()); }
 
-  static bool ready();
-  static void reset();
+  static void shutdown() noexcept;
 
-  void teardown() { peers_reset(); }
+  static void teardown() noexcept { self->ptr()->peers_reset(); }
 
   // misc debug
   void dump();
@@ -110,8 +116,14 @@ private:
   void init_self() noexcept;
   const ClockInfo load_info_from_mapped();
   bool map_shm();
-  void unMap();
+
   void peers_update(const Peers &peers);
+
+  bool ready() noexcept {
+    const auto &clock_info = load_info_from_mapped();
+
+    return clock_info.ok() && clock_info.master_for_at_least(333ms);
+  }
 
 private:
   // order dependent
@@ -121,11 +133,11 @@ private:
   udp_endpoint remote_endpoint;
   const string shm_name; // shared memmory segment name (built by constructor)
 
-  void *mapped = nullptr; // mmapped region of nqptp data struct
-
-  Threads threads;
-  stop_tokens tokens;
+  // order independent
   static constexpr int THREAD_COUNT{3};
+  static std::shared_ptr<MasterClock> self;
+  Threads threads;
+  void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:
   static constexpr csv module_id{"MASTER CLOCK"};

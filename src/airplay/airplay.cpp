@@ -54,7 +54,7 @@ void Airplay::init_self() noexcept {
   latch.wait(); // wait for all threads to start
   // qwatch_dog();  // start the watchdog once all threads are started
 
-  shared::master_clock->peers_reset(); // reset timing peers
+  MasterClock::peers_reset(); // reset timing peersshared::
 
   airplay::reply::Info::init();
 

@@ -60,7 +60,6 @@ Stats::Stats(bool enabled) noexcept
                             {stats::REMOTE_DMX_QSF, "remote_dmx_qsf"},
                             {stats::REMOTE_ELAPSED, "remote_elapsed"},
                             {stats::REMOTE_ROUNDTRIP, "remote_roundtrip"},
-                            {stats::RENDER_DELAY, "render_delay"},
                             {stats::RENDER_ELAPSED, "render_elapsed"},
                             {stats::RTSP_AUDIO_CIPHERED, "rtsp_audio_ciphered"},
                             {stats::RTSP_AUDIO_DECIPERED, "rtsp_audio_deciphered"},

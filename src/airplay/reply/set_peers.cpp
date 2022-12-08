@@ -33,13 +33,13 @@ bool SetPeers::populate() {
   INFOX(REPLY_TYPE, "RDICT", "{}\n", rdict.inspect());
 
   auto peers = rdict.stringArray({dk::ROOT});
-  if (peers.empty()) {
-    return false;
+  if (peers.empty() == false) {
+    MasterClock::peers(peers); // set the peer lists
+    resp_code(RespCode::OK);   // indicate success
+    return true;
   }
 
-  shared::master_clock->peers(peers); // set the peer lists
-  resp_code(RespCode::OK);            // indicate success
-  return true;
+  return false;
 }
 
 } // namespace reply
