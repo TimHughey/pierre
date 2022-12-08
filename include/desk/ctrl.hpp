@@ -42,8 +42,6 @@ private:
   Ctrl(io_context &io_ctx) noexcept;
 
 public:
-  ~Ctrl() = default;
-
   static auto create(io_context &io_ctx) noexcept {
     return std::shared_ptr<Ctrl>(new Ctrl(io_ctx));
   }
@@ -51,7 +49,13 @@ public:
   auto ptr() noexcept { return shared_from_this(); }
 
   std::shared_ptr<Ctrl> init() noexcept {
-    // NOTE:  stalled_watchdog will be started as needed
+    // start stalled_watchdog() to detect:
+    //  1. zeroconf resolution timeouts
+    //  2. unable to make initial handshake connection
+    //  3. failure by remote controller to make inbound data connection
+    //  4. failure to receive regular ctrl feedbacks
+
+    stalled_watchdog();
 
     listen();
     connect();
@@ -68,6 +72,22 @@ public:
 
   void send_data_msg(DataMsg data_msg) noexcept;
 
+  static void teardown(std::shared_ptr<Ctrl> &self_ref) noexcept {
+    auto &io_ctx = self_ref->io_ctx;
+    auto self = self_ref->ptr();
+
+    self_ref.reset();
+
+    asio::post(io_ctx, [s = std::move(self)]() mutable {
+      [[maybe_unused]] error_code ec;
+
+      s->stalled_timer.cancel(ec);
+      s->acceptor.cancel(ec);
+      if (s->ctrl_sock.has_value()) s->ctrl_sock->cancel(ec);
+      if (s->data_sock.has_value()) s->data_sock->cancel(ec);
+    });
+  }
+
 private:
   // lookup dmx controller and establish control connection
   void connect() noexcept;
@@ -75,14 +95,9 @@ private:
   // handle received feedback msgs
   void handle_feedback_msg(JsonDocument &doc) noexcept;
 
-  // wait for handshake message from remote endpoint
-  void handshake() noexcept;
-
   void listen() noexcept;
 
   void msg_loop() noexcept;
-
-  void reconnect_if_needed(const error_code ec) noexcept;
 
   void send_ctrl_msg(io::Msg msg) noexcept;
   void stalled_watchdog() noexcept;

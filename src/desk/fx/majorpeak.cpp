@@ -65,7 +65,7 @@ MajorPeak::MajorPeak(io_context &io_ctx) noexcept
   load_config();
 }
 
-void MajorPeak::execute(Peaks &peaks) {
+void MajorPeak::execute(Peaks &peaks) noexcept {
 
   // reset silence timer when peaks are not silent
   if (peaks.silence() == false) silence_watch();

@@ -35,21 +35,24 @@ FX::FX() noexcept : finished(false) {
 }
 
 bool FX::match_name(const std::initializer_list<csv> names) const noexcept {
-  return std::ranges::any_of(names, [this](const auto &n) { return n == name(); });
+  return std::ranges::any_of(names.begin(), names.end(),
+                             [this](const auto &n) { return n == name(); });
 }
 
 bool FX::render(frame_t frame, desk::DataMsg &msg) noexcept {
 
-  if (called_once == false) {
-    once();                // frame 0 consumed by call to once(), peaks not rendered
-    units.update_msg(msg); // ensure any once() actions are in the data msg
+  if (should_render) {
+    if (called_once == false) {
+      once();                // frame 0 consumed by call to once(), peaks not rendered
+      units.update_msg(msg); // ensure any once() actions are in the data msg
 
-    called_once = true;
+      called_once = true;
 
-  } else {
-    units.prepare();       // do any prep required to render next frame
-    execute(frame->peaks); // render frame into data msg
-    units.update_msg(msg); // populate data msg
+    } else {
+      units.prepare();       // do any prep required to render next frame
+      execute(frame->peaks); // render frame into data msg
+      units.update_msg(msg); // populate data msg
+    }
   }
 
   return finished.load();

@@ -31,30 +31,15 @@ namespace fx {
 class AllStop : public FX, std::enable_shared_from_this<AllStop> {
 public:
   AllStop() noexcept : FX() {
+
+    // prevent frames from being sent to the dmx controller
+    should_render = false;
+
+    // never finished unless a non-silent frame is sent for execute
     set_finished(false);
-
-    // note:  should render is set to true at creation so once() is
-    //        executed and the data msg sent
-    should_render = true;
-
-    next_fx = fx_name::MAJOR_PEAK;
   }
 
-  // do nothing, enjoy the silence
-  void execute(Peaks &peaks) override {
-    if (peaks.silence() == false) {
-      next_fx = fx_name::MAJOR_PEAK;
-      set_finished(true);
-    }
-
-    // note:  set should_render to false for subsequent executions to notify
-    //        caller that we are in a shutdown state
-    should_render = false;
-  };
-
   csv name() const override { return fx_name::ALL_STOP; }
-
-  void once() override { units(unit_name::AC_POWER)->dark(); }
 
   std::shared_ptr<FX> ptr_base() noexcept override {
     return std::static_pointer_cast<FX>(shared_from_this());

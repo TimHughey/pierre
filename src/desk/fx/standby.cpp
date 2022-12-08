@@ -25,7 +25,7 @@
 namespace pierre {
 namespace fx {
 
-void Standby::execute(Peaks &peaks) {
+void Standby::execute(Peaks &peaks) noexcept {
   if (cfg_change.has_value() && Config::has_changed(cfg_change)) {
     load_config();
   }
@@ -42,7 +42,8 @@ void Standby::execute(Peaks &peaks) {
     next_color.rotateHue(hue_step);
   }
 
-  set_finished(peaks.silence() == false);
+  // unless completed (silence timeout fired) set finished to false
+  if (!completed()) set_finished(peaks.silence() == false);
 }
 
 void Standby::load_config() noexcept {
@@ -50,7 +51,7 @@ void Standby::load_config() noexcept {
   static const auto color_path = toml::path(base).append("color"sv);
   static const auto hue_path = toml::path(base).append("hue_step"sv);
   static const auto will_render_path = toml::path(base).append("will_render"sv);
-  static const auto silence_path = toml::path(base).append("silence");
+  static const auto silence_timeout_path = toml::path(base).append("silence.timeout");
 
   should_render = Config().at(will_render_path).value_or(true);
 
@@ -65,15 +66,15 @@ void Standby::load_config() noexcept {
   next_brightness = 0.0;
   max_brightness = next_color.brightness();
 
-  auto silence_cfg = Config().table_at(silence_path);
+  auto timeout_cfg = Config().table_at(silence_timeout_path);
 
   const auto silence_timeout_old = silence_timeout;
-  silence_timeout = pet::from_val<Seconds, Minutes>(silence_cfg["timeout.seconds"].value_or(30));
+  silence_timeout = pet::from_val<Seconds, Minutes>(timeout_cfg["minutes"].value_or(30));
 
   // start silence watch if timeout changed (at start or config reload)
   if (silence_timeout != silence_timeout_old) silence_watch();
 
-  next_fx = silence_cfg["suggested_next_fx"].value_or(string("all_stop"));
+  next_fx = timeout_cfg["suggested_next_fx"].value_or(string("all_stop"));
 
   Config::want_changes(cfg_change);
 }

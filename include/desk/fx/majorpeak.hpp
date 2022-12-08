@@ -39,7 +39,7 @@ class MajorPeak : public FX, public std::enable_shared_from_this<MajorPeak> {
 public:
   MajorPeak(io_context &io_ctx) noexcept;
 
-  void execute(Peaks &peaks) override;
+  void execute(Peaks &peaks) noexcept override;
   csv name() const override { return fx_name::MAJOR_PEAK; }
 
   void once() override; // must be in .cpp to limit units include

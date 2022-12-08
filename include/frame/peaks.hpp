@@ -57,6 +57,9 @@ public:
     return !std::empty(map) ? std::begin(map)->second : Peak();
   }
 
+  // avoid maybe_unused in special edge cases
+  void noop() const noexcept {}
+
   // find the first peak greater than the Frequency
   const Peak operator()(const Frequency freq, CHANNEL channel = LEFT) const noexcept {
     Peak found;

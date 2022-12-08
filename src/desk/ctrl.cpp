@@ -67,51 +67,45 @@ Ctrl::Ctrl(io_context &io_ctx) noexcept
 void Ctrl::connect() noexcept {
 
   // now begin the control channel connect and handshake
-  asio::post(io_ctx,              //
-             asio::bind_executor( //
-                 local_strand, [s = ptr(),
-                                zcsf = mDNS::zservice(controller_name()), // zerconf resolve future
-                                e = Elapsed()]() mutable {
-                   auto zcs = zcsf.get(); // can BLOCK, as needed
+  asio::post(io_ctx, // execute on any io_ctx, zero conf resolution may block
+             [s = ptr(),
+              zcsf = mDNS::zservice(controller_name()), // zerconf resolve future
+              e = Elapsed()]() mutable {
+               auto zcs = zcsf.get(); // can BLOCK, as needed
 
-                   // we now have our zeroconf data, start the stalled_watchdog
-                   s->stalled_watchdog();
+               auto &ctrl_sock = s->ctrl_sock.emplace(s->io_ctx); // create the socket
+               const auto addr = asio::ip::make_address_v4(zcs.address());
 
-                   auto &ctrl_sock = s->ctrl_sock.emplace(s->io_ctx); // create the socket
-                   const auto addr = asio::ip::make_address_v4(zcs.address());
+               const std::array endpoints{tcp_endpoint{addr, zcs.port()}};
+               asio::async_connect( //
+                   ctrl_sock,       //
+                   endpoints,       //
+                   [s = s->ptr(), e](const error_code ec, const tcp_endpoint r) mutable {
+                     if (s->ctrl_sock.has_value()) {
+                       auto &ctrl_sock = s->ctrl_sock.value();
+                       INFO(module_id, "CONNECT", "{}\n",
+                            io::log_socket_msg("CTRL", ec, ctrl_sock, r, e));
 
-                   const std::array endpoints{tcp_endpoint{addr, zcs.port()}};
-                   asio::async_connect(     //
-                       ctrl_sock,           //
-                       endpoints,           //
-                       asio::bind_executor( //
-                           s->local_strand, //
-                           [s = s->ptr(), e](const error_code ec, const tcp_endpoint r) mutable {
-                             if (s->ctrl_sock.has_value()) {
-                               auto &ctrl_sock = s->ctrl_sock.value();
-                               INFO(module_id, "CONNECT", "{}\n",
-                                    io::log_socket_msg("CTRL", ec, ctrl_sock, r, e));
+                       if (!ec) {
 
-                               if (!ec) {
+                         ctrl_sock.set_option(ip_tcp::no_delay(true));
+                         Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
-                                 ctrl_sock.set_option(ip_tcp::no_delay(true));
-                                 Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
+                         io::Msg msg(HANDSHAKE);
 
-                                 io::Msg msg(HANDSHAKE);
+                         msg.add_kv("idle_shutdown_ms", idle_shutdown());
+                         msg.add_kv("lead_time_µs", InputInfo::lead_time);
+                         msg.add_kv("ref_µs", pet::now_realtime<Micros>());
+                         msg.add_kv("data_port", s->acceptor.local_endpoint().port());
 
-                                 msg.add_kv("idle_shutdown_ms", idle_shutdown());
-                                 msg.add_kv("lead_time_µs", InputInfo::lead_time);
-                                 msg.add_kv("ref_µs", pet::now_realtime<Micros>());
-                                 msg.add_kv("data_port", s->acceptor.local_endpoint().port());
+                         s->send_ctrl_msg(std::move(msg));
+                       }
 
-                                 s->send_ctrl_msg(std::move(msg));
-                               }
-
-                             } else {
-                               INFO(module_id, "CONNECT", "no socket, {}\n", ec.message());
-                             }
-                           }));
-                 }));
+                     } else {
+                       INFO(module_id, "CONNECT", "no socket, {}\n", ec.message());
+                     }
+                   });
+             });
 
   // NOTE: intentionally fall through
   //       listen() will start msg_loop() when data connection is available
@@ -133,57 +127,51 @@ void Ctrl::handle_feedback_msg(JsonDocument &doc) noexcept {
 }
 
 void Ctrl::listen() noexcept {
-
   // listen for inbound data connections and get our local port
   // when this async_accept is successful msg_loop() is invoked
   data_sock.emplace(io_ctx);
   acceptor.async_accept( //
       *data_sock,        //
-      asio::bind_executor(
-          local_strand, //
-          [s = ptr(), e = Elapsed()](const error_code ec) mutable {
-            Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
+      [s = ptr(), e = Elapsed()](const error_code ec) mutable {
+        Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
-            if (!ec && s->data_sock.has_value() && s->data_sock->is_open()) {
-              s->stalled_watchdog();
+        if (!ec && s->data_sock.has_value() && s->data_sock->is_open()) {
+          auto &data_sock = s->data_sock.value();
+          const auto &r = data_sock.remote_endpoint();
 
-              auto &data_sock = s->data_sock.value();
-              const auto &r = data_sock.remote_endpoint();
+          INFO(module_id, "LISTEN", "{}\n", io::log_socket_msg("DATA", ec, data_sock, r, e));
 
-              INFO(module_id, "LISTEN", "{}\n", io::log_socket_msg("DATA", ec, data_sock, r, e));
+          if (!ec) {
+            // success, set sock opts, connected and start msg_loop()
+            data_sock.set_option(ip_tcp::no_delay(true));
 
-              if (!ec) {
-                // success, set sock opts, connected and start msg_loop()
-                data_sock.set_option(ip_tcp::no_delay(true));
+            s->connected = s->ctrl_sock->is_open() && data_sock.is_open();
 
-                s->connected = s->ctrl_sock->is_open() && data_sock.is_open();
+            s->msg_loop(); // start the msg loop
+          }
 
-                s->msg_loop(); // start the msg loop
-              }
-
-            } else {
-              INFO(module_id, "LISTEN", "ctrl_socket={} data_socket={} {}\n", //
-                   s->ctrl_sock.has_value(), s->data_sock.has_value(), ec.message());
-            }
-          }));
+        } else {
+          INFO(module_id, "LISTEN", "ctrl_socket={} data_socket={} {}\n", //
+               s->ctrl_sock.has_value(), s->data_sock.has_value(), ec.message());
+        }
+      });
 }
 
 void Ctrl::msg_loop() noexcept {
-
   // only attempt to read a message if we're connected
-  if (connected.load()) {
+  if (connected.load() && ready()) {
 
     io::async_read_msg( //
         *ctrl_sock, [s = ptr(), e = Elapsed()](const error_code ec, io::Msg msg) mutable {
           Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
 
           if (ec == errc::success) {
-            s->stalled_watchdog(); // start (or restart) stalled watchdog
-
+            s->stalled_watchdog(); // restart stalled watchdog
             // handle the various message types
             if (msg.key_equal(io::TYPE, FEEDBACK)) s->handle_feedback_msg(msg.doc);
 
             s->msg_loop(); // async handle next message
+
           } else {
             Stats::write(stats::CTRL_MSG_READ_ERROR, true);
           }
@@ -192,7 +180,6 @@ void Ctrl::msg_loop() noexcept {
 }
 
 void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
-
   msg.serialize();
   const auto buf_seq = msg.buff_seq(); // calculates tx_len
   const auto tx_len = msg.tx_len;
@@ -205,9 +192,7 @@ void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
                                                        const auto actual) mutable {
         Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
 
-        if (!ec) {
-          s->stalled_watchdog();
-        } else if ((ec != errc::success) && (actual != msg.tx_len)) {
+        if ((ec != errc::success) && (actual != msg.tx_len)) {
           Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
 
           INFO(module_id, "SEND_CTRL_MSG", "write failed, reason={} bytes={}/{}\n", //
@@ -217,8 +202,9 @@ void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
 }
 
 void Ctrl::send_data_msg(DataMsg data_msg) noexcept {
-
   if (connected.load()) { // only send msgs when connected
+
+    data_msg.finalize();
 
     io::async_write_msg( //
         *data_sock,      //
@@ -238,27 +224,29 @@ void Ctrl::send_data_msg(DataMsg data_msg) noexcept {
 }
 
 void Ctrl::stalled_watchdog() noexcept {
+  stalled_timer.expires_after(stalled_timeout());
+  stalled_timer.async_wait( //
+      asio::bind_executor(  //
+          local_strand,     // sync with connect and listen
+          [s = ptr(), was_connected = connected.load()](error_code ec) {
+            if (ec == errc::success) {
 
-  if (ctrl_sock.has_value()) {
-    stalled_timer.expires_after(stalled_timeout());
-    stalled_timer.async_wait( //
-        asio::bind_executor(  //
-            local_strand, [s = ptr(), was_connected = connected.load()](error_code ec) {
-              if (ec == errc::success) {
+              if (was_connected) INFO(module_id, "STALLED", "was_connected={}\n", was_connected);
 
-                if (was_connected) INFO(module_id, "STALLED", "was_connected={}\n", was_connected);
+              s->acceptor.cancel(ec);
+              if (s->ctrl_sock.has_value()) s->ctrl_sock->cancel(ec);
+              if (s->data_sock.has_value()) s->data_sock->cancel(ec);
+              s->connected = false;
 
-                s->acceptor.cancel(ec);
-                s->connected = false;
+              s->listen();
+              s->connect();
 
-                s->listen();
-                s->connect();
+              s->stalled_watchdog(); // restart stalled watchdog
 
-              } else if (ec != errc::operation_canceled) {
-                INFO(module_id, "STALLED", "falling through {}\n", ec.message());
-              }
-            }));
-  }
+            } else if (ec != errc::operation_canceled) {
+              INFO(module_id, "STALLED", "falling through {}\n", ec.message());
+            }
+          }));
 }
 
 } // namespace desk

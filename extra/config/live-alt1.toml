@@ -30,10 +30,10 @@ controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
 idle = 60_000
-stalled = 3300
+stalled = 5100
 
 [mdns]
-receiver = "%h"        # use hostname
+receiver = "Pierre"    # %h uses hostname
 service = "_ruth._tcp" # service advertised by rendering devices
 
 [rtsp]
@@ -77,7 +77,6 @@ units = [
 
 [desk.switch]
 units = [{ name = "ac power", addr = 1 }]
-
 
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }

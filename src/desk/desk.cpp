@@ -44,14 +44,11 @@
 namespace pierre {
 
 // allow shorthand access to shared objects
-static std::shared_ptr<Desk> self;
-static std::shared_ptr<FX> active_fx;
-static std::shared_ptr<desk::Ctrl> ctrl;
+std::shared_ptr<Desk> Desk::self;
 
 // must be defined in .cpp to hide mdns
 Desk::Desk() noexcept
     : frame_strand(io_ctx),               // serialize spooler frame access
-      frame_last{0},                      // last frame processed (steady clock)
       guard(io::make_work_guard(io_ctx)), // prevent io_ctx from ending
       loop_active{true}                   // frame loop defaults to active at creation
 {}
@@ -77,7 +74,6 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     Nanos sync_wait = wait;
     Elapsed render_wait;
     frame_t frame;
-    static auto outdated{0};
 
     // note: reset render_wait to get best possible measurement
     if (render_wait.reset() && Render::enabled()) {
@@ -95,7 +91,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     frame->state.record_state();
 
-    // we now have a valid frame (shared_ptr):
+    // we now have a valid frame:
     //  1. rendering = from Racked (peaks or silent)
     //  2. not rendering = generated SilentFrame
 
@@ -105,13 +101,18 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       if ((fx_suggested_next == fx_name::STANDBY) && frame->silent()) {
         active_fx = std::make_shared<fx::Standby>(io_ctx);
+
       } else if ((fx_suggested_next == fx_name::MAJOR_PEAK) && !frame->silent()) {
         active_fx = std::make_shared<fx::MajorPeak>(io_ctx);
-      } else if ((fx_suggested_next == fx_name::ALL_STOP) && frame->silent()) {
-        active_fx = std::make_shared<fx::AllStop>();
+
       } else if (!frame->silent() && (frame->state.ready() || frame->state.future())) {
         active_fx = std::make_shared<fx::MajorPeak>(io_ctx);
-      } else {
+
+      } else if ((fx_suggested_next == fx_name::ALL_STOP) && frame->silent()) {
+        active_fx = std::make_shared<fx::AllStop>();
+        desk::Ctrl::teardown(ctrl); // special case, stop Ctrl
+
+      } else { // default to Standby
         active_fx = std::make_shared<fx::Standby>(io_ctx);
       }
 
@@ -121,22 +122,20 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     }
 
     if (frame->state.ready()) { // render this frame and send to DMX controller
-
       desk::DataMsg data_msg(frame, InputInfo::lead_time);
 
-      fx_finished = active_fx->render(frame, data_msg);
+      if (fx_finished = active_fx->render(frame, data_msg); fx_finished == false) {
+        if (ctrl.use_count() > 0) {
 
-      if (active_fx->will_render()) {
-        data_msg.finalize();
+          ctrl->send_data_msg(std::move(data_msg));
 
-        ctrl->send_data_msg(std::move(data_msg));
+        } else {
+          asio::post(io_ctx,
+                     [s = shared_from_this()]() { //
+                       s->ctrl = desk::Ctrl::create(s->io_ctx);
+                     });
+        }
       }
-
-      frame_last = pet::now_realtime();
-    } else if (frame->state.outdated()) {
-      outdated++;
-    } else {
-      INFOX(module_id, "FRAME_LOOP", "NOT RENDERED frame={}\n", frame->inspect());
     }
 
     // account for processing time thus far
@@ -175,9 +174,8 @@ void Desk::init_self() noexcept {
 
   // note: work guard created by constructor p
   for (auto n = 0; n < num_threads; n++) { // main thread is 0s
-    self->threads.emplace_back([=, &s = self, &latch](std::stop_token token) {
+    self->threads.emplace_back([=, &s = self, &latch]() {
       name_thread(TASK_NAME, n);
-      s->tokens.add(std::move(token));
 
       latch.arrive_and_wait();
       s->io_ctx.run();
@@ -189,10 +187,10 @@ void Desk::init_self() noexcept {
   log_init(num_threads);
 
   // all threads / strands are runing, fire up subsystems
-  asio::post(io_ctx, [this]() {
-    ctrl = desk::Ctrl::create(io_ctx)->init();
+  asio::post(io_ctx, [s = shared_from_this()]() {
+    s->ctrl = desk::Ctrl::create(s->io_ctx)->init();
 
-    frame_loop(); // start Desk frame processing
+    s->frame_loop(); // start Desk frame processing
   });
 }
 

@@ -31,6 +31,13 @@
 
 namespace pierre {
 
+namespace desk {
+// forward decl to hide desk::Ctrl implementation detail
+class Ctrl;
+} // namespace desk
+
+class FX;
+
 class Desk : public std::enable_shared_from_this<Desk> {
 private:
   Desk() noexcept; // must be defined in .cpp to hide FX includes
@@ -53,14 +60,15 @@ private:
   // order dependent
   io_context io_ctx;
   strand frame_strand;
-  Nanos frame_last;
   work_guard_t guard;
   std::atomic_bool loop_active;
 
   // order independent
   bool fx_finished{true};
+  std::shared_ptr<desk::Ctrl> ctrl;
+  std::shared_ptr<FX> active_fx;
   Threads threads;
-  stop_tokens tokens;
+  static std::shared_ptr<Desk> self;
 
 public:
   static constexpr csv module_id{"DESK"};

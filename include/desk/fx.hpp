@@ -72,16 +72,15 @@ public:
 
   /// @brief Will this FX render the audio peaks
   /// @return boolean, caller can use this flag to determine if upstream work is required
-  bool will_render() const noexcept { return should_render; }
 
 protected:
   /// @brief Execute the FX subclass for audio peaks for a single frame
   /// @param peaks The audio peaks to use for FX execution
-  virtual void execute(Peaks &peaks) = 0;
+  virtual void execute(Peaks &peaks) noexcept { peaks.noop(); };
 
   /// @brief Set the FX as complete
-  /// @param yes_or_no Boolean indicating the finished status of the FX
-  void set_finished(bool yes_or_no = true) noexcept { finished.store(yes_or_no); }
+  /// @param is_finished Boolean indicating the finished status of the FX
+  void set_finished(bool is_finished = true) noexcept { finished.store(is_finished); }
 
 protected:
   /// @brief Order dependent class member data

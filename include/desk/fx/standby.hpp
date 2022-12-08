@@ -36,7 +36,7 @@ public:
         silence_timer(io_ctx) //
   {}
 
-  void execute(Peaks &peaks) override;
+  void execute(Peaks &peaks) noexcept override;
   csv name() const override { return fx_name::STANDBY; };
 
   void once() override;
