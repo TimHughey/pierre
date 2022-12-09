@@ -28,10 +28,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <iterator>
-#include <latch>
-#include <pthread.h>
 #include <ranges>
-#include <sys/mman.h>
 #include <time.h>
 #include <utility>
 
@@ -50,91 +47,6 @@ MasterClock::MasterClock() noexcept
 
   INFO(module_id, "CONSTRUCT", "shm_name={} dest={}:{}\n", //
        shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
-}
-
-clock_info_future MasterClock::info() noexcept { // static
-  auto prom = std::make_shared<std::promise<ClockInfo>>();
-
-  auto s = self->ptr();
-  auto clock_info = s->load_info_from_mapped();
-
-  if (clock_info.ok()) {
-    // clock info is good, immediately set the future
-    prom->set_value(clock_info);
-  } else {
-    // clock info not ready yet, retry
-    s->info_retry(prom);
-  }
-
-  return prom->get_future();
-}
-
-void MasterClock::info_retry(clock_info_prom prom,      //
-                             Nanos max_wait, Elapsed e, //
-                             steady_timer_ptr timer) noexcept {
-
-  // perform the retries on the MasterClock io_ctx enabling caller to continue other work
-  // while the clock becomes useable and the future is set to ready
-
-  auto clock_info = load_info_from_mapped();
-
-  if (clock_info.ok()) { // it's good, set the prom and return
-    prom->set_value(clock_info);
-  } else {
-    // clock info still not ready prepare for a retry
-
-    // this might be the first time through...  prepare retry support objects
-    if (max_wait == Nanos::zero()) {
-      e.reset(); // start timing how long we've been retrying
-      const int max_frames = Config().at("frame.clock.info.max_wait_frames"sv).value_or(10);
-      max_wait = InputInfo::lead_time * max_frames;
-    }
-
-    if (!timer) timer = std::make_shared<steady_timer>(io_ctx);
-    auto t = timer.get();
-    // ok, we have our retry support objects
-
-    t->expires_after(InputInfo::lead_time);
-    t->async_wait([s = ptr(), e = std::move(e), timer = std::move(timer), prom = std::move(prom),
-                   clock_info, max_wait](const error_code ec) mutable {
-      if (!ec && (e < max_wait)) {
-        s->info_retry(std::move(prom), max_wait, std::move(e), std::move(timer));
-      } else {
-        // error or max_wait exceeded, give up
-        INFO(module_id, "INFO_RETRY", "no clock info after {}\n", e.humanize());
-        prom->set_value(clock_info);
-      }
-    });
-  }
-}
-
-void MasterClock::init_self() noexcept {
-  std::latch latch{THREAD_COUNT};
-
-  for (auto n = 0; n < THREAD_COUNT; n++) {
-    // notes:
-    //  1. start DSP processing threads
-    threads.emplace_back([=, this, &latch]() mutable {
-      name_thread("Master Clock", n);
-      latch.arrive_and_wait();
-      io_ctx.run();
-    });
-  }
-
-  latch.wait();   // caller waits until all threads are started
-  peers(Peers()); // reset the peers (and creates the shm mem name)
-}
-
-bool MasterClock::is_mapped() const {
-  static uint32_t attempts = 0;
-  auto ok = (mapped && (mapped != MAP_FAILED));
-
-  if (!ok && attempts) {
-    ++attempts;
-    INFO(module_id, "CLOCK_MAPPED", "nqptp data not mapped attempts={}\n", attempts);
-  }
-
-  return ok;
 }
 
 // NOTE: new data is available every 126ms
@@ -188,8 +100,7 @@ bool MasterClock::map_shm() {
     auto shm_fd = shm_open(shm_name.data(), O_RDWR, 0);
 
     if (shm_fd >= 0) {
-      // flags must be PROT_READ | PROT_WRITE to allow writes
-      // to mapped memory for the mutex
+      // flags must be PROT_READ | PROT_WRITE to allow writes to mapped memory for the mutex
       constexpr auto flags = PROT_READ | PROT_WRITE;
       constexpr auto bytes = sizeof(nqptp);
 

@@ -18,9 +18,9 @@
 
 #include "reply/set_anchor.hpp"
 #include "base/logger.hpp"
-#include "base/render.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_data.hpp"
+#include "frame/racked.hpp"
 #include "reply/dict_keys.hpp"
 
 namespace pierre {
@@ -50,7 +50,9 @@ bool SetAnchor::populate() {
   }
 
   if (rdict.exists(dk::RATE)) {
-    Render::set(rdict.uint({dk::RATE}));
+    // note: rate is misleading, it is actually the flag that controls playback
+    bool rate = rdict.uint({dk::RATE});
+    Racked::spool(rate);
   } else {
     INFO(module_id, "SET_ANCHOR", "rate not present\n");
   }

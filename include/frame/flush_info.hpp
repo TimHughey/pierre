@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/logger.hpp"
-#include "base/render.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
@@ -47,13 +46,9 @@ struct FlushInfo {
         until_seq(until_seq), // flush everything <= seq_num
         until_ts(until_ts)    // flush everything <= timestamp
   {
+    // UNSURE IF THE FOLLOWING IS CURRENT OR LEGACY
     // a flush with from[seq|ts] will not be followed by a setanchor (i.e. render)
     // if it's a flush that will be followed by a setanchor then stop render now.
-    // if (from_seq == 0) {
-    //   Render::set(false);
-    // } else {
-    //   deferred = true;
-    // }
   }
 
   bool operator()(seq_num_t seq_num, timestamp_t ts) const noexcept {

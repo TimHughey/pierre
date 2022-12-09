@@ -18,8 +18,8 @@
 
 #include "reply/teardown.hpp"
 #include "airplay/headers.hpp"
-#include "base/render.hpp"
 #include "base/types.hpp"
+#include "frame/racked.hpp"
 #include "mdns/mdns.hpp"
 #include "reply/dict_keys.hpp"
 #include "rtsp/ctx.hpp"
@@ -39,7 +39,7 @@ bool Teardown::populate() {
 
 bool Teardown::phase1() {
   di->rtsp_ctx->shared_key.clear();
-  Render::set(false);
+  Racked::spool(false);
 
   return true;
 }

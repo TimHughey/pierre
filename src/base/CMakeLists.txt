@@ -29,9 +29,8 @@ add_library(${__target} SHARED
   # generic vector of uint8_t (as a base class or standalone)
   uint8v.cpp
 
-  # time utilities and global render flag
+  # time utilities
   pet.cpp
-  render.cpp
   
   # headers
   ${HEADER_LIST}

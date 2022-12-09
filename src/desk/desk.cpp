@@ -19,7 +19,6 @@
 #include "desk.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/render.hpp"
 #include "config/config.hpp"
 #include "ctrl.hpp"
 #include "data_msg.hpp"
@@ -71,21 +70,13 @@ void Desk::frame_loop(const Nanos wait) noexcept {
   // this is typically set once all FX have been executed and the system is
   // officially idle (no RTSP connection)
   while (loop_active.load()) {
-    Nanos sync_wait = wait;
-    Elapsed render_wait;
+    Elapsed next_wait;
     frame_t frame;
+    Nanos sync_wait = wait;
 
-    // note: reset render_wait to get best possible measurement
-    if (render_wait.reset() && Render::enabled()) {
-      Elapsed next_wait;
-
-      // Racked will always return either a racked or silent frame
-      frame = Racked::next_frame().get();
-      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
-    } else {
-      // not rendering, generate a silent frame
-      frame = SilentFrame::create();
-    }
+    // Racked will always return either a racked or silent frame
+    frame = Racked::next_frame().get();
+    Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
 
     frame->state.record_state();
 
@@ -139,7 +130,8 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     // account for processing time thus far
     sync_wait = frame->sync_wait_recalc();
 
-    frame->mark_rendered(); // records rendered or silence in timeseries db
+    // notates rendered or silence in timeseries db
+    frame->mark_rendered();
 
     if (sync_wait >= Nanos::zero()) {
       // now we need to wait for the correct time to render the next frame
@@ -155,40 +147,40 @@ void Desk::frame_loop(const Nanos wait) noexcept {
   } // while loop
 }
 
-void Desk::init() noexcept { // static instance creation
-  if (self.use_count() == 0) {
+void Desk::init() noexcept {
+  if (self.use_count() < 1) {
     self = std::shared_ptr<Desk>(new Desk());
-    self->init_self();
-  }
-}
 
-void Desk::init_self() noexcept {
-  // initialize supporting objects
-  active_fx = std::make_shared<fx::Standby>(io_ctx);
+    // grab reference to minimize shared_ptr dereferences
+    auto &io_ctx = self->io_ctx;
 
-  const auto num_threads = Config().at("desk.threads"sv).value_or(3);
-  std::latch latch(num_threads);
+    // initialize supporting objects
+    self->active_fx = std::make_shared<fx::Standby>(io_ctx);
 
-  // note: work guard created by constructor p
-  for (auto n = 0; n < num_threads; n++) { // main thread is 0s
-    self->threads.emplace_back([=, &s = self, &latch]() {
-      name_thread(TASK_NAME, n);
+    const auto num_threads = Config().at("desk.threads"sv).value_or(3);
+    std::latch latch(num_threads);
 
-      latch.arrive_and_wait();
-      s->io_ctx.run();
+    // note: work guard created by constructor p
+    for (auto n = 0; n < num_threads; n++) { // main thread is 0s
+      self->threads.emplace_back([s = self->ptr(), n = n, &latch]() {
+        name_thread(TASK_NAME, n);
+
+        latch.arrive_and_wait();
+        s->io_ctx.run();
+      });
+    }
+
+    // caller thread waits until all tasks are started
+    latch.wait();
+    self->log_init(num_threads);
+
+    // all threads / strands are runing, fire up subsystems
+    asio::post(io_ctx, [s = self->ptr()]() {
+      s->ctrl = desk::Ctrl::create(s->io_ctx)->init();
+
+      s->frame_loop(); // start Desk frame processing
     });
   }
-
-  // caller thread waits until all tasks are started
-  latch.wait();
-  log_init(num_threads);
-
-  // all threads / strands are runing, fire up subsystems
-  asio::post(io_ctx, [s = shared_from_this()]() {
-    s->ctrl = desk::Ctrl::create(s->io_ctx)->init();
-
-    s->frame_loop(); // start Desk frame processing
-  });
 }
 
 void Desk::shutdown() noexcept {
@@ -197,32 +189,6 @@ void Desk::shutdown() noexcept {
 }
 
 // misc debug and logging API
-bool Desk::log_frame_timer(const error_code &ec, csv fn_id) const noexcept {
-  auto rc = true;
-
-  if (!ec) {
-    string msg;
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "frame timer ");
-
-    switch (ec.value()) {
-    case errc::operation_canceled:
-      fmt::format_to(w, "CANCELED");
-      break;
-
-    default:
-      fmt::format_to(w, "ERROR reason={}", ec.message());
-    }
-
-    INFO(module_id, fn_id, "{} rendering={}\n", msg, Render::enabled());
-
-    rc = false;
-  }
-
-  return rc;
-}
-
 void Desk::log_init(int num_threads) const noexcept {
   INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
        sizeof(Desk),                                                    //

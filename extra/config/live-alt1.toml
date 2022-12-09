@@ -50,6 +50,7 @@ info = { min_wait_frames = 12 }
 nqptp_version = 8
 port = 9000
 shm_name = "/nqptp"
+threads = 3
 
 [frame.racked]
 threads = 3 # stats runs on this io_ctx

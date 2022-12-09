@@ -21,7 +21,6 @@
 #include "anchor.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
-#include "base/render.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
@@ -47,44 +46,6 @@ namespace pierre {
 // static class data
 std::shared_ptr<Racked> Racked::self;
 int64_t Racked::REEL_SERIAL_NUM{0x1000};
-
-void Racked::accept_frame(frame_t frame) noexcept {
-  if (frame->decode()) {
-    add_frame(frame);
-  } else {
-    INFO(module_id, "ACCEPT", "decode failed\n");
-  }
-}
-
-void Racked::add_frame(frame_t frame) noexcept {
-  // notes:
-  // 1. frame state guaranteed to be DECODED
-  // 2. wip processing is performed a strand to enable queueing of frames
-  // 3. queuing can be a problem during a flush
-  // 3. so we still use a lock to allow interrupting the queue
-
-  auto s = ptr();
-  auto &wip_strand = s->wip_strand;
-
-  asio::post(wip_strand, [s = std::move(s), frame = std::move(frame)]() mutable {
-    std::unique_lock lck(s->wip_mtx, std::defer_lock);
-    lck.lock();
-
-    // save shared_ptr dereferences for multiple use variables
-    auto &wip = s->wip;
-
-    // create the wip, if needed
-    if (wip.has_value() == false) wip.emplace(++REEL_SERIAL_NUM);
-
-    wip->add(frame);
-
-    if (wip->full()) {
-      s->rack_wip();
-    } else if (std::ssize(*wip) == 1) {
-      s->monitor_wip(); // handle incomplete wip reels
-    }
-  });
-}
 
 void Racked::flush(FlushInfo request) { // static
   auto s = ptr();
@@ -159,20 +120,23 @@ void Racked::flush(FlushInfo request) { // static
   });
 }
 
-void Racked::init_self() {
-  const int thread_count = Config().at("frame.racked.threads"sv).value_or(3);
+void Racked::init() noexcept {
+  if (self.use_count() < 1) {
+    self = std::shared_ptr<Racked>(new Racked());
 
-  std::latch latch{thread_count};
+    const int thread_count = Config().at("frame.racked.threads"sv).value_or(3);
+    std::latch latch{thread_count};
 
-  for (auto n = 0; n < thread_count; n++) {
-    threads.emplace_back([=, this, &latch]() mutable {
-      name_thread("Racked", n);
-      latch.arrive_and_wait();
-      io_ctx.run();
-    });
+    for (auto n = 0; n < thread_count; n++) {
+      self->threads.emplace_back([n = n, s = self->ptr(), &latch]() mutable {
+        name_thread("Racked", n);
+        latch.arrive_and_wait();
+        s->io_ctx.run();
+      });
+    }
+
+    latch.wait(); // caller waits until all threads are started
   }
-
-  latch.wait(); // caller waits until all threads are started
 }
 
 void Racked::monitor_wip() noexcept {
@@ -205,47 +169,67 @@ void Racked::monitor_wip() noexcept {
 frame_future Racked::next_frame() noexcept { // static
   auto prom = frame_promise();
   auto fut = prom.get_future().share();
-
   auto s = self->ptr();
 
-  // save shared_ptr dereferences for multiple use variable
+  // grab a reference to the frame strand since we're moving the shared_ptr
   auto &frame_strand = s->frame_strand;
 
   asio::post(frame_strand, [s = std::move(s), prom = std::move(prom)]() mutable {
+    auto &racked = s->racked; // local reference limit shared_ptr dereferences
     std::unique_lock lck{s->rack_mtx, std::defer_lock}; // don't lock yet
-    auto &racked = s->racked;                           // local reference to save shared_ptr use
 
+    // do we have any racked reels? if not, return a SilentFrame
+    lck.lock(); // guard std::empty(racked) call
+    if (std::empty(racked)) {
+      prom.set_value(SilentFrame::create());
+      return;
+    }
+
+    // we have racked reels but need clock_info, unlock while we wait
+    lck.unlock();
     auto clock_info = MasterClock::info().get(); // wait for clock info BEFORE locking rack
-    lck.lock();                                  // now lock to guard std::empty() call
 
-    if (!clock_info.ok() || std::empty(racked)) {
-      // this is code is here for clarity to avoid losing the plot
+    if (clock_info.ok() == false) {
+      // no clock info, set promise to SilentFrame
       prom.set_value(SilentFrame::create());
     } else [[likely]] {
-
-      auto &reel = racked.begin()->second; // avoid multiple begin()->second
-      auto frame = reel.peek_first();
-
+      // we have ClockInfo and there are racked reels
       // refresh clock info and get anchor info
       clock_info = MasterClock::info().get();
       auto anchor = Anchor::get_data(clock_info);
+
+      // anchor not ready yet or we haven't been instructed to spool
+      // (i.e. user hit pause, hasn't hit play yet or disconnected) so set
+      // the promise to a SilentFrame.  note:  we could have done this check
+      // very early and completely avoided the asio::post but didn't so we
+      // could prime ClockInfo and Anchor.  plus the above code isn't really
+      // that expensive every ~23ms.
+      if ((anchor.ready() == false) || (s->spool_frames.load() == false)) {
+        prom.set_value(SilentFrame::create());
+        return;
+      }
+
+      lck.lock(); // lock since since we're looking at racked reels
+
+      auto &reel = racked.begin()->second; // avoid multiple begin()->second
+      auto frame = reel.peek_first();
 
       // calc the frame state (Frame caches the anchor)
       auto state = frame->state_now(anchor, InputInfo::lead_time);
       prom.set_value(frame);
 
       if (state.ready() || state.outdated() || state.future()) {
-        // consume the ready or outdated frame (rack access is still acquired)
+        // consume the ready or outdated frame
         reel.consume();
 
-        // if the reel is empty, pop it from racked
+        // if the reel is empty, discard it
         if (reel.empty()) {
           racked.erase(racked.begin());
           Stats::write(stats::RACKED_REELS, std::ssize(racked));
         }
-      }
 
-      s->log_racked();
+        s->log_racked();
+      }
     }
   });
 

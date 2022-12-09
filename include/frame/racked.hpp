@@ -71,10 +71,49 @@ public:
       if (s->flush_request.should_flush(frame)) {
         frame->flushed();
       } else if (frame->decipher(std::move(packet), key)) {
-        // note:  we move the packet since handoff() is done with it
+        // notes:
+        //  1. we post to handoff_strand to control the concurrency of decoding
+        //  2. we move the packet since handoff() is done with it
+        //  3. we grab a reference to handoff strand since we move s
+        //  4. we move the frame since no code beyond this point needs it
 
-        asio::post(s->handoff_strand,
-                   [s = s->ptr(), frame = std::move(frame)]() { s->accept_frame(frame); });
+        auto &handoff_strand = s->handoff_strand;
+        asio::post(handoff_strand, [s = std::move(s), frame = std::move(frame)]() {
+          // here we do the decoding of the audio data, if decode succeeds we
+          // rack the frame into wip
+
+          if (frame->decode()) [[likely]] {
+            // decode success, rack the frame
+
+            auto &wip_strand = s->wip_strand; // will move s, need reference
+
+            // we post to wip_strand to guard wip reel.  that said, we still use a mutex
+            // because of flushing and so next_frame can temporarily interrupt inbound
+            // decoded packet spooling.  this is important because once a wip is full it
+            // must be spooled into racked reels which is also being read from for next_frame()
+            asio::post(wip_strand, [s = std::move(s), frame = std::move(frame)]() mutable {
+              std::unique_lock lck(s->wip_mtx, std::defer_lock);
+              lck.lock();
+
+              // save shared_ptr dereferences for multiple use variables
+              auto &wip = s->wip;
+
+              // create the wip, if needed
+              if (wip.has_value() == false) wip.emplace(++REEL_SERIAL_NUM);
+
+              wip->add(frame);
+
+              if (wip->full()) {
+                s->rack_wip();
+              } else if (std::ssize(*wip) == 1) {
+                s->monitor_wip(); // handle incomplete wip reels
+              }
+            });
+
+          } else {
+            frame->state.record_state(); // save the failue to timeseries database
+          }
+        });
       }
     } else {
       INFOX(module_id, "HANDOFF", "DISCARDING {}\n", frame->inspect());
@@ -82,24 +121,16 @@ public:
     }
   }
 
-  static void init() noexcept {
-    if (self.use_count() < 1) {
-      self = std::shared_ptr<Racked>(new Racked());
-      self->init_self();
-    }
-  }
+  static void init() noexcept;
 
   static frame_future next_frame() noexcept;
+
+  static void spool(bool enable = true) noexcept { ptr()->spool_frames.store(enable); }
 
 private:
   enum log_racked_rc { NONE, RACKED, COLLISION, TIMEOUT };
 
 private:
-  void accept_frame(frame_t frame) noexcept;
-  void add_frame(frame_t frame) noexcept;
-
-  void init_self();
-
   void monitor_wip() noexcept;
 
   void rack_wip() noexcept;
@@ -119,6 +150,7 @@ private:
   steady_timer wip_timer;
 
   // order independent
+  std::atomic_bool spool_frames{false};
   FlushInfo flush_request;
   std::shared_timed_mutex rack_mtx;
   std::shared_timed_mutex wip_mtx;
