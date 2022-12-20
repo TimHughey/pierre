@@ -110,10 +110,10 @@ void Session::do_packet(Elapsed &&e) noexcept {
   ctx->update_from(request.headers);
 
   // create the reply to the request
-  auto reply = std::make_unique<Reply>();
-  reply->build(request, ctx->ptr());
+  Reply reply;
+  reply.build(request, ctx->ptr());
 
-  if (reply->empty()) { // warn of empty reply
+  if (reply.empty()) { // warn of empty reply
     INFO(module_id, "SEND REPLY", "empty reply method={} path={}\n", request.headers.method(),
          request.headers.path());
 
@@ -122,10 +122,10 @@ void Session::do_packet(Elapsed &&e) noexcept {
   }
 
   // reply has content to send
-  ctx->aes_ctx.encrypt(reply->packet()); // NOTE: noop until cipher exchange completed
+  ctx->aes_ctx.encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
 
   // get the buffer to send, we will move reply into async_write lambda
-  auto reply_buffer = reply->buffer();
+  auto reply_buffer = reply.buffer();
 
   asio::async_write(
       sock, reply_buffer,

@@ -10,8 +10,8 @@ host = "test-with-devs.ruth"
 port = "48005"
 
 [dsp]
-fft = {samples = 1024, rate = 48000}
-logging = {file = "dsp.log", enable = false, truncate = true}
+fft = { samples = 1024, rate = 48000 }
+logging = { file = "dsp.log", enable = false, truncate = true }
 
 [lightdesk]
 colorbars = false
@@ -27,13 +27,13 @@ peaks = false
 colors = false
 
 [lightdesk.majorpeak.color]
-reference = { hue = 0.0, sat = 100.0, bri = 100.0}
+reference = { hue = 0.0, sat = 100.0, bri = 100.0 }
 random_start = false
-rotate = {enable = false, ms = 7000}
+rotate = { enable = false, ms = 7000 }
 
 [lightdesk.majorpeak.frequencies]
-hard = {ceiling = 10000.0, floor = 40.0}
-soft = {ceiling = 1500.0, floor = 110.0}
+hard = { ceiling = 10000.0, floor = 40.0 }
+soft = { ceiling = 1500.0, floor = 110.0 }
 
 [lightdesk.majorpeak.pinspot.fill]
 name = 'fill'
@@ -43,7 +43,7 @@ fade_max_ms = 800
 [lightdesk.majorpeak.pinspot.fill.when_greater]
 frequency = 180.0
 brightness_min = 3.0
-higher_frequency = {brightness_min = 80.0}
+higher_frequency = { brightness_min = 80.0 }
 
 [lightdesk.majorpeak.pinspot.fill.when_lessthan]
 frequency = 180.0
@@ -53,15 +53,15 @@ brightness_min = 27.0
 name = 'main'
 fade_max_ms = 700
 frequency_min = 180.0
-when_fading = {brightness_min = 5.0, freq_greater = {brightness_min = 69.0}}
+when_fading = { brightness_min = 5.0, freq_greater = { brightness_min = 69.0 } }
 
 [lightdesk.majorpeak.makecolor.above_soft_ceiling]
-hue = {min = 345.0, max = 355.0, step = 0.0001}
-brightness = {max = 50.0, mag_scaled = true}
+hue = { min = 345.0, max = 355.0, step = 0.0001 }
+brightness = { max = 50.0, mag_scaled = true }
 
 [lightdesk.majorpeak.makecolor.generic]
-hue = {min = 30.0, max = 360.0, step = 0.0001}
-brightness = {max = 100.0, mag_scaled = true}
+hue = { min = 30.0, max = 360.0, step = 0.0001 }
+brightness = { max = 100.0, mag_scaled = true }
 
 [pcm.logging]
 file = "pcm.log"
