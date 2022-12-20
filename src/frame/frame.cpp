@@ -17,7 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "frame.hpp"
-#include "anchor.hpp"
 #include "anchor_last.hpp"
 #include "av.hpp"
 #include "base/elapsed.hpp"
@@ -25,10 +24,8 @@
 #include "base/io.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
-#include "dsp.hpp"
 #include "fft.hpp"
 #include "master_clock.hpp"
-#include "racked.hpp"
 #include "stats/stats.hpp"
 
 #include <iterator>
@@ -88,6 +85,9 @@ static constexpr csv cfg_cipher_buff_size{"frame.cipher.buffer_size"};
 
 bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
+  // ensure we know how big of a cipher buffer to allocate
+  if (!cipher_buff_size) cipher_buff_size = Config().at(cfg_cipher_buff_size).value_or(0x4000);
+
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
   // mini nonce end - 8; copy 8 bytes total
@@ -116,7 +116,7 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
     cipher_rc =                                    //
         crypto_aead_chacha20poly1305_ietf_decrypt( // -1 == failure
-            av::m_buffer(m, cipher_buff_size),     // m (av leaves room for ADTS)
+            Av::m_buffer(m, cipher_buff_size),     // m (av leaves room for ADTS)
             &consumed,                             // bytes deciphered
             nullptr,                               // nanoseconds (unused, must be nullptr)
             ciphered.data(),                       // ciphered data
@@ -127,7 +127,7 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
             key.data());                           // shared key (from SETUP message)
 
     if ((cipher_rc >= 0) && (consumed > 0)) {
-      av::m_buffer_resize(m, consumed); // resizes m to include header + cipher data
+      Av::m_buffer_resize(m, consumed); // resizes m to include header + cipher data
 
       Stats::write(stats::RTSP_AUDIO_DECIPERED, std::ssize(*m));
       state = frame::DECIPHERED;
@@ -148,22 +148,8 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
   return state == frame::DECIPHERED;
 }
 
-bool Frame::decode() noexcept {
-  return state.deciphered() && av::parse(shared_from_this()) && state.dsp_any();
-}
-
-// Frame static functions for init
-void Frame::init() {
-  av::init();
-  MasterClock::init();
-  Anchor::init();
-  Racked::init();
-  dsp::init();
-
-  cipher_buff_size = Config().at(cfg_cipher_buff_size).value_or(0x4000);
-
-  INFO(Frame::module_id, "INIT", "sizeof={} lead_time={} fps={}\n", sizeof(Frame),
-       pet::humanize(InputInfo::lead_time), InputInfo::fps);
+bool Frame::decode(std::shared_ptr<Av> av) noexcept {
+  return state.deciphered() && av->parse(ptr()) && state.dsp_any();
 }
 
 frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) noexcept {
@@ -280,6 +266,6 @@ void Frame::log_decipher() const noexcept {
 }
 
 // class data
-ptrdiff_t Frame::cipher_buff_size{0x4000};
+ptrdiff_t Frame::cipher_buff_size{0x00};
 
 } // namespace pierre

@@ -20,8 +20,8 @@
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "config/config.hpp"
-#include "ctrl.hpp"
-#include "data_msg.hpp"
+#include "dmx_ctrl.hpp"
+#include "dmx_data_msg.hpp"
 #include "frame/anchor_last.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
@@ -99,7 +99,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       } else if ((fx_suggested_next == fx_name::ALL_STOP) && frame->silent()) {
         active_fx = std::make_shared<fx::AllStop>();
-        desk::Ctrl::teardown(ctrl); // special case, stop Ctrl
+        DmxCtrl::teardown(dmx_ctrl); // special case, stop Ctrl
 
       } else { // default to Standby
         active_fx = std::make_shared<fx::Standby>(io_ctx);
@@ -111,17 +111,17 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     }
 
     if (frame->state.ready()) { // render this frame and send to DMX controller
-      desk::DataMsg data_msg(frame, InputInfo::lead_time);
+      DmxDataMsg msg(frame, InputInfo::lead_time);
 
-      if (fx_finished = active_fx->render(frame, data_msg); fx_finished == false) {
-        if (ctrl.use_count() > 0) {
+      if (fx_finished = active_fx->render(frame, msg); fx_finished == false) {
+        if (dmx_ctrl.use_count() > 0) {
 
-          ctrl->send_data_msg(std::move(data_msg));
+          dmx_ctrl->send_data_msg(std::move(msg));
 
         } else {
           asio::post(io_ctx,
                      [s = shared_from_this()]() { //
-                       s->ctrl = desk::Ctrl::create(s->io_ctx);
+                       s->dmx_ctrl = DmxCtrl::create(s->io_ctx);
                      });
         }
       }
@@ -156,12 +156,13 @@ void Desk::init() noexcept {
 
     // initialize supporting objects
     self->active_fx = std::make_shared<fx::Standby>(io_ctx);
+    Racked::init();
 
     const auto num_threads = Config().at("desk.threads"sv).value_or(3);
     std::latch latch(num_threads);
 
-    // note: work guard created by constructor p
-    for (auto n = 0; n < num_threads; n++) { // main thread is 0s
+    // note: work guard created by constructor
+    for (auto n = 0; n < num_threads; n++) {
       self->threads.emplace_back([s = self->ptr(), n = n, &latch]() {
         name_thread(TASK_NAME, n);
 
@@ -176,7 +177,7 @@ void Desk::init() noexcept {
 
     // all threads / strands are runing, fire up subsystems
     asio::post(io_ctx, [s = self->ptr()]() {
-      s->ctrl = desk::Ctrl::create(s->io_ctx)->init();
+      s->dmx_ctrl = DmxCtrl::create(s->io_ctx)->init();
 
       s->frame_loop(); // start Desk frame processing
     });

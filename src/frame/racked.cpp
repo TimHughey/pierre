@@ -19,6 +19,7 @@
 
 #include "racked.hpp"
 #include "anchor.hpp"
+#include "av.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
@@ -44,8 +45,8 @@
 namespace pierre {
 
 // static class data
-std::shared_ptr<Racked> Racked::self;
 int64_t Racked::REEL_SERIAL_NUM{0x1000};
+std::shared_ptr<Racked> Racked::self;
 
 void Racked::flush(FlushInfo request) { // static
   auto s = ptr();
@@ -124,7 +125,14 @@ void Racked::init() noexcept {
   if (self.use_count() < 1) {
     self = std::shared_ptr<Racked>(new Racked());
 
-    const int thread_count = Config().at("frame.racked.threads"sv).value_or(3);
+    // initialize supporting objects
+    MasterClock::init();
+    Anchor::init();
+    self->av = Av::create(self->io_ctx);
+
+    static const toml::path cfg_threads_path{"frame.racked.threads"};
+    const int thread_count = Config().at(cfg_threads_path).value_or(3);
+
     std::latch latch{thread_count};
 
     for (auto n = 0; n < thread_count; n++) {
@@ -136,6 +144,9 @@ void Racked::init() noexcept {
     }
 
     latch.wait(); // caller waits until all threads are started
+
+    INFO(module_id, "INIT", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
+         sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
   }
 }
 

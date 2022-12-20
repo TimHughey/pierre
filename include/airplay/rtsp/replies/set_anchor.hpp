@@ -15,30 +15,21 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
-#pragma once
 
-#include "desk/unit.hpp"
-#include <memory>
+#include <cstdint>
+
+#include "aplist/aplist.hpp"
+#include "rtsp/reply.hpp"
 
 namespace pierre {
+namespace rtsp {
 
-class Switch : public Unit {
+class SetAnchor {
 public:
-  Switch(const auto &opts) noexcept : Unit(opts), powered{true} {}
+  SetAnchor(Request &request, Reply &reply) noexcept;
 
-public:
-  // required by FX
-  void activate() noexcept override { on(); }
-  void dark() noexcept override { off(); }
-
-  // specific to this unit
-  void on() noexcept { powered = true; }
-  void off() noexcept { powered = false; }
-
-  void update_msg(DmxDataMsg &msg) noexcept override { msg.doc[name] = powered; }
-
-private:
-  bool powered;
+  static constexpr csv module_id{"SET_ANCHOR"};
 };
 
+} // namespace rtsp
 } // namespace pierre

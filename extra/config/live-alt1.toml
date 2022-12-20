@@ -39,6 +39,7 @@ service = "_ruth._tcp" # service advertised by rendering devices
 [rtsp]
 audio = { buffer_size = 0x800000 }   # bytes (8mb)
 connection = { timeout_ms = 30_000 }
+threads = 4
 
 [frame]
 cipher = { buffer_size = 0x2000 }  # bytes (4k)
@@ -47,8 +48,6 @@ dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 [frame.clock]
 host = "127.0.0.1"
 info = { min_wait_frames = 12 }
-nqptp_version = 8
-port = 9000
 shm_name = "/nqptp"
 threads = 3
 

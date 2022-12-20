@@ -32,6 +32,8 @@
 
 namespace pierre {
 
+std::shared_ptr<Dsp> Dsp::self;
+
 //  Many thanks to:
 //  https://stackoverflow.com/questions/18862715/how-to-generate-the-aac-adts-elementary-stream-with-android-mediacodec
 //
@@ -52,26 +54,20 @@ static constexpr csv module_id{"DSP"};
 // order independent
 static Thread thread_main;
 static Threads threads;
-static stop_tokens tokens;
 
 // initialize the thread pool for digital signal analysis
 void init() {
   double factor = Config().table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
   int thread_count = std::jthread::hardware_concurrency() * factor;
 
-  FFT::init();
-
   std::latch latch{thread_count};
 
   for (auto n = 0; n < thread_count; n++) {
     // notes:
     //  1. start DSP processing threads
-    threads.emplace_back([=, &latch](std::stop_token token) mutable {
+    threads.emplace_back([=, &latch]() mutable {
       name_thread(thread_prefix, n);
 
-      tokens.add(std::move(token));
-
-      // allow DSP threads to start immediately so FFT is initialized
       latch.arrive_and_wait();
       io_ctx.run();
     });
@@ -118,27 +114,7 @@ void process(frame_t frame, FFT left, FFT right) {
 }
 
 // shutdown thread pool and wait for all threads to stop
-void shutdown() {
-  thread_main.request_stop();
-  thread_main.join();
-  ranges::for_each(threads, [](auto &t) { t.join(); });
-}
-
-// watch for thread stop request
-void watch_dog() {
-  // cancels any running timers
-  [[maybe_unused]] auto canceled = watchdog_timer.expires_after(250ms);
-
-  watchdog_timer.async_wait([&](const error_code ec) {
-    if (ec == errc::success) { // unless success, fall out of scape
-
-      // check if any thread has received a stop request
-      tokens.any_requested(io_ctx, &watch_dog);
-    } else {
-      INFO(module_id, "WATCH_DOG", "going out of scope reason={}\n", ec.message());
-    }
-  });
-}
+void shutdown() {}
 
 } // namespace dsp
 } // namespace pierre

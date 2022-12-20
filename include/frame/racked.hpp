@@ -37,11 +37,12 @@
 #include <mutex>
 #include <optional>
 #include <ranges>
-#include <set>
 #include <shared_mutex>
-#include <stop_token>
 
 namespace pierre {
+
+// forward decls to hide implementation details
+class Av;
 
 using racked_reels = std::map<reel_serial_num_t, Reel>;
 
@@ -82,7 +83,7 @@ public:
           // here we do the decoding of the audio data, if decode succeeds we
           // rack the frame into wip
 
-          if (frame->decode()) [[likely]] {
+          if (frame->decode(s->av)) [[likely]] {
             // decode success, rack the frame
 
             auto &wip_strand = s->wip_strand; // will move s, need reference
@@ -150,8 +151,9 @@ private:
   steady_timer wip_timer;
 
   // order independent
-  std::atomic_bool spool_frames{false};
   FlushInfo flush_request;
+  std::atomic_bool spool_frames{false};
+  std::shared_ptr<Av> av;
   std::shared_timed_mutex rack_mtx;
   std::shared_timed_mutex wip_mtx;
 

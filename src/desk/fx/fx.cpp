@@ -18,7 +18,7 @@
 
 #include "desk/fx.hpp"
 #include "base/logger.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/dmx_data_msg.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
 #include "frame/frame.hpp"
@@ -39,7 +39,7 @@ bool FX::match_name(const std::initializer_list<csv> names) const noexcept {
                              [this](const auto &n) { return n == name(); });
 }
 
-bool FX::render(frame_t frame, desk::DataMsg &msg) noexcept {
+bool FX::render(frame_t frame, DmxDataMsg &msg) noexcept {
 
   if (should_render) {
     if (called_once == false) {

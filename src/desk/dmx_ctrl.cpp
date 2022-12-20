@@ -16,7 +16,7 @@
 //
 // https://www.wisslanding.com
 
-#include "ctrl.hpp"
+#include "dmx_ctrl.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
@@ -32,11 +32,6 @@
 #include <utility>
 
 namespace pierre {
-namespace desk {
-
-namespace {
-namespace stats = pierre::stats;
-}
 
 static const auto controller_name() noexcept {
   static constexpr csv PATH{"dmx.controller"};
@@ -57,14 +52,14 @@ static const auto stalled_timeout() noexcept {
 }
 
 // general API
-Ctrl::Ctrl(io_context &io_ctx) noexcept
+DmxCtrl::DmxCtrl(io_context &io_ctx) noexcept
     : io_ctx(io_ctx),       // use shared io_ctx
       local_strand(io_ctx), // serialize
       acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),
       stalled_timer(io_ctx, Nanos::zero()) // stalled_watchdog() will start on first call
 {}
 
-void Ctrl::connect() noexcept {
+void DmxCtrl::connect() noexcept {
 
   // now begin the control channel connect and handshake
   asio::post(io_ctx, // execute on any io_ctx, zero conf resolution may block
@@ -111,7 +106,7 @@ void Ctrl::connect() noexcept {
   //       listen() will start msg_loop() when data connection is available
 }
 
-void Ctrl::handle_feedback_msg(JsonDocument &doc) noexcept {
+void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
   Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
   Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
@@ -126,7 +121,7 @@ void Ctrl::handle_feedback_msg(JsonDocument &doc) noexcept {
   Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
 }
 
-void Ctrl::listen() noexcept {
+void DmxCtrl::listen() noexcept {
   // listen for inbound data connections and get our local port
   // when this async_accept is successful msg_loop() is invoked
   data_sock.emplace(io_ctx);
@@ -157,7 +152,7 @@ void Ctrl::listen() noexcept {
       });
 }
 
-void Ctrl::msg_loop() noexcept {
+void DmxCtrl::msg_loop() noexcept {
   // only attempt to read a message if we're connected
   if (connected.load() && ready()) {
 
@@ -179,7 +174,7 @@ void Ctrl::msg_loop() noexcept {
   }
 }
 
-void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
+void DmxCtrl::send_ctrl_msg(io::Msg msg) noexcept {
   msg.serialize();
   const auto buf_seq = msg.buff_seq(); // calculates tx_len
   const auto tx_len = msg.tx_len;
@@ -201,14 +196,14 @@ void Ctrl::send_ctrl_msg(io::Msg msg) noexcept {
       });
 }
 
-void Ctrl::send_data_msg(DataMsg data_msg) noexcept {
+void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
   if (connected.load()) { // only send msgs when connected
 
-    data_msg.finalize();
+    msg.finalize();
 
     io::async_write_msg( //
         *data_sock,      //
-        std::move(data_msg), [s = ptr(), e = Elapsed()](const error_code ec) mutable {
+        std::move(msg), [s = ptr(), e = Elapsed()](const error_code ec) mutable {
           // better readability
 
           Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e.freeze());
@@ -223,7 +218,7 @@ void Ctrl::send_data_msg(DataMsg data_msg) noexcept {
   }
 }
 
-void Ctrl::stalled_watchdog() noexcept {
+void DmxCtrl::stalled_watchdog() noexcept {
   stalled_timer.expires_after(stalled_timeout());
   stalled_timer.async_wait( //
       asio::bind_executor(  //
@@ -249,5 +244,4 @@ void Ctrl::stalled_watchdog() noexcept {
           }));
 }
 
-} // namespace desk
 } // namespace pierre

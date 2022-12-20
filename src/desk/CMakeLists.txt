@@ -16,7 +16,7 @@ add_library(${__target} SHARED
   color.cpp
 
   # desk DMX control session
-  ctrl.cpp
+  dmx_ctrl.cpp
   
   # collection of headunits
   units.cpp

@@ -24,9 +24,7 @@ find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
 add_library(${__target} SHARED
-  # deoder, dsp
-  av.cpp
-  dsp.cpp
+  # digital signal processing
   fft.cpp 
 
   # anchor and master clock

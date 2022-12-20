@@ -19,6 +19,8 @@
 #pragma once
 
 #include "base/io.hpp"
+#include "base/logger.hpp"
+#include "base/threads.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -28,55 +30,48 @@ namespace pierre {
 
 class Rtsp : public std::enable_shared_from_this<Rtsp> {
 private:
-  Rtsp(io_context &io_ctx)
-      : io_ctx(io_ctx), acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)} //
-  {}
+  Rtsp()
+      : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
+        guard(io::make_work_guard(io_ctx)) {}
 
-public:
-  static std::shared_ptr<Rtsp> init(io_context &io_ctx) noexcept {
-    auto s = std::shared_ptr<Rtsp>(new Rtsp(io_ctx));
-
-    s->async_loop();
-
-    return s->init_self();
-  }
+  /// @brief Accepts RTSP connections and starts a unique session for each
+  void async_accept() noexcept;
 
   auto ptr() noexcept { return shared_from_this(); }
 
-  // asyncLoop is invoked to:
-  //  1. schedule the initial async accept
-  //  2. after accepting a connection to schedule the next async connect
-  //
-  // with this in mind we accept an error code that is checked before
-  // starting the next async_accept.  when the error code is not specified
-  // assume this is startup and all is well.
-  void async_loop(const error_code ec_last = io::make_error(errc::success)) noexcept;
+public:
+  /// @brief Creates and starts the RTSP connection listener and worker threads
+  /// as specified in the external config
+  static void init() noexcept;
 
-  std::shared_ptr<Rtsp> init_self() noexcept {
-    async_loop();
+  /// @brief Shuts down the RTSP listener and releases shared_ptr to self
+  static void shutdown() noexcept {
+    auto s = self->ptr();     // grab a fresh shared_ptr (will reset self below)
+    auto &io_ctx = s->io_ctx; // grab a ref to the io_ctx (will move s into lambda)
 
-    return ptr();
-  }
+    asio::post(io_ctx, [s = std::move(s)]() {
+      [[maybe_unused]] error_code ec;
 
-  void shutdown() noexcept { teardown(); }
+      s->guard->reset();
+      s->acceptor.close(ec);
+      s->guard->reset(); // allow the io_ctx to complete when other work is finished
+    });
 
-  void teardown() noexcept {
-    // here we only issue the cancel to the acceptor.
-    // the closing of the acceptor will be handled when
-    // the error is caught by asyncLoop
-
-    try {
-      acceptor.cancel();
-      acceptor.close();
-    } catch (...) {
-    }
+    // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
+    // when the above post completes we will be deallocated
+    self.reset();
   }
 
 private:
-  io_context &io_ctx;
+  // order dependent
+  io_context io_ctx;
   tcp_acceptor acceptor;
+  work_guard_t guard;
 
+  // order independent
+  static std::shared_ptr<Rtsp> self;
   std::optional<tcp_socket> sock_accept;
+  Threads threads;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 

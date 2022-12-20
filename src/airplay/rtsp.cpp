@@ -19,27 +19,21 @@
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
 #include "base/logger.hpp"
+#include "config/config.hpp"
+#include "mdns/features.hpp"
+#include "rtsp/replies/info.hpp"
 #include "rtsp/session.hpp"
 #include "stats/stats.hpp"
 
+#include <latch>
+#include <mutex>
+
 namespace pierre {
 
-using namespace rtsp;
+// static class data
+std::shared_ptr<Rtsp> Rtsp::self;
 
-void Rtsp::async_loop(const error_code ec_last) noexcept {
-  // first things first, check ec_last passed in, bail out if needed
-  if ((ec_last != errc::success) || !acceptor.is_open()) { // problem
-
-    // don't highlight "normal" shutdown
-    if ((ec_last.value() != errc::operation_canceled) &&
-        (ec_last.value() != errc::resource_unavailable_try_again)) {
-      INFO("AIRPLAY", "SERVER", "accept failed, {}\n", ec_last.message());
-    }
-    teardown();
-
-    return; // bail out
-  }
-
+void Rtsp::async_accept() noexcept {
   // this is the socket for the next accepted connection, store it in an
   // optional for the lamba
   sock_accept.emplace(io_ctx);
@@ -50,12 +44,11 @@ void Rtsp::async_loop(const error_code ec_last) noexcept {
     Elapsed e2(e);
     e2.freeze();
 
-    if (ec == errc::success) {
-      const auto &l = s->sock_accept->local_endpoint();
+    if ((ec == errc::success) && s->acceptor.is_open()) {
       const auto &r = s->sock_accept->remote_endpoint();
 
-      INFO("AIRPLAY", module_id, "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
-           l.address().to_string(), l.port());
+      const auto msg = io::log_socket_msg("ACCEPT", ec, s->sock_accept.value(), r, e2);
+      INFO(module_id, "LISTEN", "{}\n", msg);
 
       // create the session passing all the options
       // notes
@@ -64,15 +57,47 @@ void Rtsp::async_loop(const error_code ec_last) noexcept {
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
 
-      // assemble the dependency injection and start the server
-
       Stats::write(stats::RTSP_SESSION_CONNECT, e2.freeze());
-      auto session = Session::create(s->io_ctx, std::move(s->sock_accept.value()));
+      auto session = rtsp::Session::create(s->io_ctx, std::move(s->sock_accept.value()));
       session->run(std::move(e));
-    }
 
-    s->async_loop(ec); // schedule more work or gracefully exit
+      s->async_accept(); // schedule the next accept
+    } else {
+
+      INFO(module_id, "RTSP", "accept failed, {}\n", ec.message());
+      shutdown();
+    }
   });
+}
+
+void Rtsp::init() noexcept {
+  static constexpr csv threads_path("rtsp.threads");
+  std::once_flag once_flag;
+
+  self = std::shared_ptr<Rtsp>(new Rtsp());
+
+  const auto thread_count = Config().at(threads_path).value_or(4);
+  std::latch latch{thread_count};
+
+  for (auto n = 0; n < thread_count; n++) {
+    self->threads.emplace_back([n = n, &latch, &once_flag, s = self->ptr()]() mutable {
+      name_thread("RTSP", n);
+
+      // do special startup tasks once
+      std::call_once(once_flag, []() { rtsp::Info::init(); });
+
+      // we want a syncronized start of all threads
+      latch.arrive_and_wait();
+      s->io_ctx.run();
+    });
+  }
+
+  latch.wait();
+
+  self->async_accept();
+
+  INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Rtsp),
+       std::ssize(self->threads), thread_count, Features().ap2Default());
 }
 
 } // namespace pierre

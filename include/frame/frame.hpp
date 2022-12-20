@@ -23,7 +23,6 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "frame/anchor_data.hpp"
 #include "frame/anchor_last.hpp"
 #include "frame/peaks.hpp"
 #include "frame/state.hpp"
@@ -36,6 +35,8 @@
 namespace pierre {
 
 using cipher_buff_t = std::optional<uint8v>;
+
+class Av;
 
 class Frame;
 using frame_t = std::shared_ptr<Frame>;
@@ -73,7 +74,7 @@ public:
   // Public API
   bool decipher(uint8v packet, const uint8v key) noexcept;
   bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
-  bool decode() noexcept;
+  bool decode(std::shared_ptr<Av> av) noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)

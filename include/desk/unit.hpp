@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/dmx_data_msg.hpp"
 #include "desk/unit/names.hpp"
 
 namespace pierre {
@@ -44,7 +44,7 @@ public:
 
   // message processing loop
   virtual void prepare() noexcept {}
-  virtual void update_msg(desk::DataMsg &msg) noexcept { msg.noop(); }
+  virtual void update_msg(DmxDataMsg &msg) noexcept { msg.noop(); }
 
 protected:
   // order dependent

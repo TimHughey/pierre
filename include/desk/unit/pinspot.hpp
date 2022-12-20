@@ -20,7 +20,7 @@
 
 #include "base/types.hpp"
 #include "desk/color.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/dmx_data_msg.hpp"
 #include "desk/unit.hpp"
 #include "fader/color_travel.hpp"
 
@@ -84,7 +84,7 @@ public:
   void prepare() noexcept override { faderMove(); }
   inline bool isFading() const { return (bool)fader; }
 
-  void update_msg(desk::DataMsg &msg) noexcept override {
+  void update_msg(DmxDataMsg &msg) noexcept override {
     auto snippet = msg.dmxFrame() + address;
 
     color.copyRgbToByteArray(snippet + 1);

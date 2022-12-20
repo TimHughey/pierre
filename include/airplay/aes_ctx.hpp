@@ -49,7 +49,7 @@ struct AesResult {
 /// @brief Encapsulates RTSP encryption, decryption and pairing state
 class AesCtx {
 public:
-  AesCtx(csv device_str);
+  AesCtx();
 
   ~AesCtx() {
     pair_cipher_free(cipher_ctx);

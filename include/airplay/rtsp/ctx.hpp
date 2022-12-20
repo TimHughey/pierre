@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "airplay/aes_ctx.hpp"
 #include "airplay/headers.hpp"
 #include "base/io.hpp"
 #include "base/types.hpp"
@@ -65,6 +66,9 @@ struct stream_info_t {
 
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
+private:
+  Ctx(io_context &io_ctx) noexcept;
+
 public:
   static auto create(io_context &io_ctx) noexcept { return std::shared_ptr<Ctx>(new Ctx(io_ctx)); }
   auto ptr() noexcept { return shared_from_this(); }
@@ -105,14 +109,12 @@ public:
   void update_from(const Headers &headers) noexcept;
 
 private:
-  Ctx(io_context &io_ctx) noexcept;
-
-private:
   io_context &io_ctx;
   steady_timer feedback_timer;
 
 public:
   std::shared_ptr<Service> service; // mdns and service info
+  AesCtx aes_ctx;
 
 public:
   // from RTSP headers

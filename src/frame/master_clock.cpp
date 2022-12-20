@@ -36,17 +36,41 @@ namespace pierre {
 
 std::shared_ptr<MasterClock> MasterClock::self;
 
+static constexpr csv cfg_shm_name{"frame.clock.shm_name"};
+static constexpr csv cfg_thread_count{"frame.clock.thread_count"};
+
 // create the MasterClock
 MasterClock::MasterClock() noexcept
     : guard(io_ctx.get_executor()),                                  // syncronize clock io
       socket(io_ctx, ip_udp::v4()),                                  // construct and open
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
-      shm_name(Config()                                              // make shm_name
-                   .at("frame.clock.shm_name"sv)
-                   .value_or<string>("/nqptp")) {
+      shm_name(Config().at(cfg_shm_name).value_or<string>("/nqptp")) //
+{}
 
-  INFO(module_id, "CONSTRUCT", "shm_name={} dest={}:{}\n", //
-       shm_name, remote_endpoint.address().to_string(), remote_endpoint.port());
+void MasterClock::init() noexcept { // static
+  if (self.use_count() < 1) {
+    self = std::shared_ptr<MasterClock>(new MasterClock());
+    auto s = self->ptr(); // grab a fresh shared_ptr for initialization
+
+    // grab configured thread count
+    const auto thread_count = Config().at(cfg_thread_count).value_or<int>(3);
+    std::latch latch{thread_count};
+
+    for (auto n = 0; n < thread_count; n++) {
+
+      s->threads.emplace_back([n = n, s = s->ptr(), &latch]() mutable {
+        name_thread("Master Clock", n);
+        latch.arrive_and_wait();
+        s->io_ctx.run();
+      });
+    }
+
+    latch.wait();      // caller waits until all threads are started
+    s->peers(Peers()); // reset the peers (creates the shm name)}
+
+    INFO(module_id, "INIT", "shm_name={} dest={}:{}\n", //
+         s->shm_name, s->remote_endpoint.address().to_string(), s->remote_endpoint.port());
+  }
 }
 
 // NOTE: new data is available every 126ms
@@ -125,31 +149,29 @@ void MasterClock::peers_update(const Peers &new_peers) {
   // queue the update to prevent collisions
   auto s = ptr();
   auto &io_ctx = s->io_ctx;
-  asio::post( //
-      io_ctx, //
-      [s = std::move(s), peers = std::move(new_peers)]() {
-        // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
-        uint8v msg;
-        auto w = std::back_inserter(msg);
+  asio::post(io_ctx, [s = std::move(s), peers = std::move(new_peers)]() {
+    // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
+    uint8v msg;
+    auto w = std::back_inserter(msg);
 
-        fmt::format_to(w, "{} T", s->shm_name);
+    fmt::format_to(w, "{} T", s->shm_name);
 
-        if (peers.empty() == false) {
-          fmt::format_to(w, " {}", fmt::join(peers, " "));
-        }
+    if (peers.empty() == false) {
+      fmt::format_to(w, " {}", fmt::join(peers, " "));
+    }
 
-        msg.push_back(0x00); // must be null terminated
+    msg.push_back(0x00); // must be null terminated
 
-        INFOX(module_id, "PEERS UPDATE", "peers={}\n", msg.view());
+    INFOX(module_id, "PEERS UPDATE", "peers={}\n", msg.view());
 
-        error_code ec;
-        auto bytes = s->socket.send_to(asio::buffer(msg), s->remote_endpoint, 0, ec);
+    error_code ec;
+    auto bytes = s->socket.send_to(asio::buffer(msg), s->remote_endpoint, 0, ec);
 
-        if (ec) {
-          INFO(module_id, "PEERS_UPDATE", "send msg failed, reason={} bytes={}\n", //
-               ec.message(), bytes);
-        }
-      });
+    if (ec) {
+      INFO(module_id, "PEERS_UPDATE", "send msg failed, reason={} bytes={}\n", //
+           ec.message(), bytes);
+    }
+  });
 }
 
 void MasterClock::shutdown() noexcept { // static

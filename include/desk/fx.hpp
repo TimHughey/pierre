@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/dmx_data_msg.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
 #include "fx/names.hpp"
@@ -64,7 +64,7 @@ public:
   /// @param frame Audio frame containing peaks for rendering
   /// @param msg Data message to populate (sent to remote render controller)
   /// @return boolean indicating if FX is complete (safe to switch to another FX)
-  bool render(frame_t frame, desk::DataMsg &msg) noexcept;
+  bool render(frame_t frame, DmxDataMsg &msg) noexcept;
 
   /// @brief The next FX suggested by external configuration file
   /// @return name, as a string, of the suggested FX

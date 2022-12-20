@@ -31,11 +31,8 @@
 
 namespace pierre {
 
-namespace desk {
-// forward decl to hide desk::Ctrl implementation detail
-class Ctrl;
-} // namespace desk
-
+// forward decls to hide implementation details
+class DmxCtrl;
 class FX;
 
 class Desk : public std::enable_shared_from_this<Desk> {
@@ -63,10 +60,10 @@ private:
 
   // order independent
   bool fx_finished{true};
-  std::shared_ptr<desk::Ctrl> ctrl;
+  static std::shared_ptr<Desk> self;
+  std::shared_ptr<DmxCtrl> dmx_ctrl;
   std::shared_ptr<FX> active_fx;
   Threads threads;
-  static std::shared_ptr<Desk> self;
 
 public:
   static constexpr csv module_id{"DESK"};

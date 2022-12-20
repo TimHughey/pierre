@@ -30,8 +30,6 @@
 
 namespace pierre {
 
-Service::Service() noexcept {}
-
 void Service::init() noexcept {
   const auto host = Host();
   const auto cfg = Config();
@@ -56,7 +54,7 @@ void Service::init() noexcept {
   update_key_val(txt_opt::FirmwareVsn, cfg.build_vsn());
 
   // create the public key
-  uint8v pk_bytes(32);
+  uint8v pk_bytes(32, 0x00);
   pair_public_key_get(PAIR_SERVER_HOMEKIT, pk_bytes.data(), host.hw_address().data());
   update_key_val(txt_opt::PublicKey, pk_bytes);
 
@@ -157,7 +155,7 @@ service_txt_map Service::service_map{
                  .order = {PublicKey, apFeatures, apGroupDiscoverableLeader, apGroupUUID,
                            apAirPlayPairingIdentity, apProtocolVsn, apSerialNumber, apManufacturer,
                            apModel, apSystemFlags, apRequiredSenderFeatures, apDeviceID,
-                           apAccessControlLevel}}},
+                           apAccessControlLevel, apAirPlayVsn}}},
 
     {RaopTCP, //
      service_def{.type = RaopTCP,

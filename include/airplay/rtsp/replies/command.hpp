@@ -15,30 +15,32 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+
 #pragma once
 
-#include "desk/unit.hpp"
-#include <memory>
+#include "airplay/content.hpp"
+#include "aplist/aplist.hpp"
+#include "rtsp/reply.hpp"
+#include "rtsp/request.hpp"
+
+#include <vector>
 
 namespace pierre {
+namespace rtsp {
 
-class Switch : public Unit {
+class Command {
 public:
-  Switch(const auto &opts) noexcept : Unit(opts), powered{true} {}
+  Command(Request &request, Reply &reply) {
+    Aplist rdict = request.content;
 
-public:
-  // required by FX
-  void activate() noexcept override { on(); }
-  void dark() noexcept override { off(); }
-
-  // specific to this unit
-  void on() noexcept { powered = true; }
-  void off() noexcept { powered = false; }
-
-  void update_msg(DmxDataMsg &msg) noexcept override { msg.doc[name] = powered; }
-
-private:
-  bool powered;
+    if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
+      // we don't support updateMRSupportedCommands
+      reply.set_resp_code(RespCode::BadRequest);
+    } else {
+      reply.set_resp_code(RespCode::OK);
+    }
+  }
 };
 
+} // namespace rtsp
 } // namespace pierre

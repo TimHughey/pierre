@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "aes_ctx.hpp"
+#include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 
@@ -29,22 +30,23 @@
 #include <ranges>
 #include <string>
 
-/// @brief
 namespace pierre {
 
 static constexpr pair_type HOMEKIT{PAIR_SERVER_HOMEKIT};
 
-AesCtx::AesCtx(csv device_id) {
+AesCtx::AesCtx() {
+  const auto device_id = Host().device_id().data();
+
   // allocate the setup and verify contexts
   char *pin{nullptr};
-  setup_ctx = pair_setup_new(HOMEKIT, pin, NULL, NULL, device_id.data());
+  setup_ctx = pair_setup_new(HOMEKIT, pin, NULL, NULL, device_id);
 
   if (setup_ctx == nullptr) {
     static constexpr csv msg{"pair_setup_new() failed"};
     throw(std::runtime_error(msg.data()));
   }
 
-  verify_ctx = pair_verify_new(HOMEKIT, NULL, NULL, NULL, device_id.data());
+  verify_ctx = pair_verify_new(HOMEKIT, NULL, NULL, NULL, device_id);
   if (verify_ctx == nullptr) {
     static constexpr csv msg{"pair_verify_new() failed"};
     throw(std::runtime_error(msg.data()));

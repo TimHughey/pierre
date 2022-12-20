@@ -121,12 +121,7 @@ public:
   }
 
   /// @brief Initialize a singleton MasterClock instance
-  static void init() noexcept {
-    if (self.use_count() < 1) {
-      self = std::shared_ptr<MasterClock>(new MasterClock());
-      self->init_self();
-    }
-  }
+  static void init() noexcept;
 
   static void peers(const Peers &peer_list) noexcept { self->ptr()->peers_update(peer_list); }
   static void peers_reset() noexcept { self->ptr()->peers_update(Peers()); }
@@ -137,7 +132,7 @@ public:
   void dump();
 
 private:
-    bool is_mapped() const {
+  bool is_mapped() const {
     static uint32_t attempts = 0;
     auto ok = (mapped && (mapped != MAP_FAILED));
 
@@ -147,23 +142,6 @@ private:
     }
 
     return ok;
-  }
-
-  void init_self() noexcept {
-    std::latch latch{THREAD_COUNT};
-
-    for (auto n = 0; n < THREAD_COUNT; n++) {
-      // notes:
-      //  1. start DSP processing threads
-      threads.emplace_back([=, this, &latch]() mutable {
-        name_thread("Master Clock", n);
-        latch.arrive_and_wait();
-        io_ctx.run();
-      });
-    }
-
-    latch.wait();   // caller waits until all threads are started
-    peers(Peers()); // reset the peers (and creates the shm mem name)
   }
 
   const ClockInfo load_info_from_mapped();
@@ -186,7 +164,6 @@ private:
   const string shm_name; // shared memmory segment name (built by constructor)
 
   // order independent
-  static constexpr int THREAD_COUNT{3};
   static std::shared_ptr<MasterClock> self;
   Threads threads;
   void *mapped{nullptr}; // mmapped region of nqptp data struct

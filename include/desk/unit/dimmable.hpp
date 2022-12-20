@@ -104,7 +104,7 @@ public:
     }
   }
 
-  virtual void update_msg(desk::DataMsg &msg) noexcept override {
+  virtual void update_msg(DmxDataMsg &msg) noexcept override {
     _duty = _duty_next;
 
     msg.doc[name] = _duty;

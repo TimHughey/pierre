@@ -12,9 +12,6 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/**/*.h*")
 find_library(libplist     NAMES plist      REQUIRED)
 
 add_library(${__target} SHARED
-  # public API
-  airplay.cpp
-
   # apple property lists
   aplist/aplist.cpp
 
@@ -26,23 +23,19 @@ add_library(${__target} SHARED
   headers.cpp
   resp_code.cpp
 
-  # replies
-  reply/factory.cpp
-  reply/fairplay.cpp
-  reply/flush.cpp
-  reply/info.cpp
-  reply/reply.cpp
-  reply/set_anchor.cpp
-  reply/set_peers.cpp 
-  reply/set_peersx.cpp
-  reply/setup.cpp 
-  reply/teardown.cpp
-
   # rtsp session context and message server/workers
   rtsp.cpp 
-  rtsp/session.cpp 
   rtsp/audio.cpp 
   rtsp/ctx.cpp
+  rtsp/reply.cpp
+  rtsp/request.cpp
+  rtsp/session.cpp
+
+  # rtsp replies (complex, requires .cpp)
+  rtsp/replies/info.cpp
+  rtsp/replies/fairplay.cpp
+  rtsp/replies/setup.cpp
+  rtsp/replies/set_anchor.cpp
 
   ${HEADER_LIST}
 )

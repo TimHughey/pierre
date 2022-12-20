@@ -17,13 +17,12 @@
 // https://www.wisslanding.com
 
 #include "pierre.hpp"
-#include "airplay/airplay.hpp"
+#include "airplay/rtsp.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "config/config.hpp"
 #include "desk/desk.hpp"
-#include "frame/frame.hpp"
 #include "mdns/mdns.hpp"
 #include "stats/stats.hpp"
 
@@ -60,13 +59,15 @@ void Pierre::run() noexcept {
   if (args_ok && Config().ready()) {
     Stats::init();
     mDNS::init(io_ctx);
-    Frame::init();
     Desk::init();
 
-    // create and start Airplay
-    Airplay::init();
+    // create and start RTSP
+    Rtsp::init();
 
-    io_ctx.run();
+    io_ctx.run(); // returns when all io_ctx work is finished
+
+    // shutdown subsystems
+    Rtsp::shutdown();
   }
 }
 } // namespace pierre

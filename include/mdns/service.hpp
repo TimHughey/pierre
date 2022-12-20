@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "mdns/status_flags.hpp"
@@ -89,18 +90,14 @@ using service_txt_map = std::map<txt_type, service_def>;
 class Service : public std::enable_shared_from_this<Service> {
 
 private:
-  Service() noexcept;
+  Service() = default;
+  auto ptr() noexcept { return shared_from_this(); }
 
 public:
-  static auto create() noexcept {
-    auto s = std::shared_ptr<Service>(new Service());
+  static auto create() noexcept { return std::shared_ptr<Service>(new Service()); }
 
-    s->init();
-
-    return s;
-  }
-
-  auto ptr() noexcept { return shared_from_this(); }
+  // calculate the runtime values (called once at start up)
+  void init() noexcept;
 
   // general API
 
@@ -147,7 +144,7 @@ public:
     auto w = std::back_inserter(txt_val_string);
 
     for (const auto &p : parts) {
-      if (!txt_val_string.empty()) { // add the separator, if needed
+      if (!txt_val_string.empty() && !sep.empty()) { // add the separator, if needed
         fmt::format_to(w, "{}", sep);
       } else {
         fmt::format_to(w, "{}", p); // add the key/val
@@ -209,10 +206,6 @@ public:
       val = string(new_val);
     }
   }
-
-private:
-  // calculate the runtime values (called once at start up)
-  void init() noexcept;
 
 private:
   StatusFlags _status_flags; // see status_flags.hpp

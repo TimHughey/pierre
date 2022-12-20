@@ -15,30 +15,36 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 //  https://www.wisslanding.com
+
 #pragma once
 
-#include "desk/unit.hpp"
+#include "rtsp/reply.hpp"
+
+#include <array>
 #include <memory>
 
 namespace pierre {
+namespace rtsp {
 
-class Switch : public Unit {
+class FairPlay {
 public:
-  Switch(const auto &opts) noexcept : Unit(opts), powered{true} {}
-
-public:
-  // required by FX
-  void activate() noexcept override { on(); }
-  void dark() noexcept override { off(); }
-
-  // specific to this unit
-  void on() noexcept { powered = true; }
-  void off() noexcept { powered = false; }
-
-  void update_msg(DmxDataMsg &msg) noexcept override { msg.doc[name] = powered; }
+  FairPlay(Request &request, Reply &reply) noexcept;
 
 private:
-  bool powered;
+  // NOTE: these are all magic numbers; someday hunt down what they mean
+  static constexpr size_t vsn_idx{4};
+  static constexpr size_t mode_idx{14};
+  static constexpr size_t type_idx{5};
+  static constexpr size_t seq_idx{6};
+
+  static constexpr uint8_t setup_msg_type{1};
+  static constexpr uint8_t setup1_msg_seq{1};
+  static constexpr uint8_t setup2_msg_seq{3};
+  static constexpr ptrdiff_t setup2_suffix_len{20};
+
+public:
+  static constexpr csv module_id{"FAIRPLAY"};
 };
 
+} // namespace rtsp
 } // namespace pierre

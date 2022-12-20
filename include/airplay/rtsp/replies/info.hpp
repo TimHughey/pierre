@@ -18,23 +18,26 @@
 
 #pragma once
 
-#include "reply/reply.hpp"
+#include "aplist/aplist.hpp"
+#include "rtsp/reply.hpp"
+
+#include <vector>
 
 namespace pierre {
-namespace airplay {
-namespace reply {
+namespace rtsp {
 
-class Record : public Reply {
+class Info {
 public:
-  Record() : Reply("RECORD") {}
+  Info(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept;
 
-  bool populate() override {
-    resp_code(RespCode::OK);
+  static void init() noexcept;
 
-    return true;
-  }
+private:
+  static std::vector<char> reply_xml;
+
+public:
+  static constexpr csv module_id{"rtsp::INFO"};
 };
 
-} // namespace reply
-} // namespace airplay
+} // namespace rtsp
 } // namespace pierre

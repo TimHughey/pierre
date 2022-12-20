@@ -20,7 +20,7 @@
 
 #include "base/logger.hpp"
 #include "base/types.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/dmx_data_msg.hpp"
 #include "desk/unit.hpp"
 
 #include <algorithm>
@@ -77,7 +77,7 @@ public:
 
   ssize_t ssize() const noexcept { return std::ssize(map); }
 
-  void update_msg(desk::DataMsg &m) noexcept {
+  void update_msg(DmxDataMsg &m) noexcept {
     for_each([&](std::shared_ptr<Unit> unit) mutable { unit->update_msg(m); });
   }
 

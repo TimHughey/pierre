@@ -31,6 +31,8 @@
 #include <sstream>
 #include <string>
 
+namespace ranges = std::ranges;
+
 namespace pierre {
 
 Aplist::Aplist(const Dictionaries &dictionaries) {
@@ -98,9 +100,7 @@ Aplist::Binary Aplist::toBinary(size_t &bytes) const {
 
   bytes = (size_t)len;
 
-  auto ptr = std::shared_ptr<uint8_t[]>((uint8_t *)data);
-
-  return ptr;
+  return std::shared_ptr<uint8_t[]>((uint8_t *)data);
 }
 
 // bool Aplist::compareString(csv key, csv val) const {
@@ -185,7 +185,7 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
 
   plist_t node = _plist; // start at the root
 
-  std::ranges::for_each(steps, [&](csv step) {
+  ranges::for_each(steps, [&](auto step) {
     if ((step[0] >= '0') && (step[0] <= '9')) { // is this an array index?
       uint32_t idx = std::atoi(step.data());
       node = plist_access_path(node, 1, idx);
@@ -403,8 +403,6 @@ void Aplist::dump(plist_t sub_dict, csv prefix) const {
     INFO(module_id, prefix_str, "DICT DUMP dict={}\n", fmt::ptr(dump_dict));
     return;
   }
-
-  fmt::print("DICT DUMP dict={} ", fmt::ptr(dump_dict));
 
   char *buf = nullptr;
   uint32_t bytes = 0;

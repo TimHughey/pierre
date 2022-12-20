@@ -54,7 +54,6 @@ fs::path Config::full_path{"/home/thughey/.pierre"};
 std::list<toml::table> Config::tables;
 std::optional<std::promise<bool>> Config::change_proms;
 std::shared_mutex Config::mtx;
-stop_tokens Config::tokens;
 Threads Config::threads;
 
 // Config API
@@ -62,50 +61,45 @@ Threads Config::threads;
 // initialization
 
 Config Config::init(int argc, char **argv) noexcept { // static
+  Elapsed elapsed;
   auto cfg = Config();
 
   args_map = Args().parse(argc, argv);
 
   if (args_map.ok() && !args_map.help) {
-    cfg.init_self();
-    will_start = true;
+    full_path /= args_map.cfg_file;
+
+    if (parse() && threads.empty()) {
+      guard = std::make_shared<work_guard>(io_ctx.get_executor());
+
+      std::latch latch(CONFIG_THREADS);
+
+      // note: work guard created by constructor p
+      for (auto n = 0; n < CONFIG_THREADS; n++) { // main thread is 0s
+        threads.emplace_back([=, &latch]() mutable {
+          name_thread(TASK_NAME, n);
+
+          latch.arrive_and_wait();
+          io_ctx.run();
+        });
+      }
+
+      // caller thread waits until all tasks are started
+      latch.wait();
+
+      std::error_code ec;
+      last_write = fs::last_write_time(full_path, ec);
+
+      monitor_file();
+      initialized = true;
+      will_start = true;
+    }
+
+    INFO(module_id, "INIT", "sizeof={} table size={} elapsed={}\n", sizeof(Config),
+         cfg.tables.front().size(), elapsed.humanize());
   }
 
   return cfg;
-}
-
-void Config::init_self() noexcept {
-
-  full_path /= args_map.cfg_file;
-
-  if (parse() && threads.empty()) {
-    guard = std::make_shared<work_guard>(io_ctx.get_executor());
-
-    std::latch latch(CONFIG_THREADS);
-
-    // note: work guard created by constructor p
-    for (auto n = 0; n < CONFIG_THREADS; n++) { // main thread is 0s
-      threads.emplace_back([=, &latch](std::stop_token token) mutable {
-        tokens.add(std::move(token));
-        name_thread(TASK_NAME, n);
-
-        latch.arrive_and_wait();
-        io_ctx.run();
-      });
-    }
-
-    // caller thread waits until all tasks are started
-    latch.wait();
-
-    std::error_code ec;
-    last_write = fs::last_write_time(full_path, ec);
-
-    monitor_file();
-    initialized = true;
-  }
-
-  INFO(module_id, "INIT", "sizeof={} threads={}/{}\n", //
-       sizeof(Config), threads.size(), CONFIG_THREADS);
 }
 
 bool Config::has_changed(cfg_future &fut) noexcept {
@@ -154,7 +148,6 @@ void Config::monitor_file() noexcept { // static
 
 bool Config::parse() noexcept { // static
   auto rc = false;
-  Elapsed elapsed;
 
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
@@ -185,8 +178,6 @@ bool Config::parse() noexcept { // static
          err.description());
   }
 
-  INFO(module_id, "PARSE", "COMPLETE table size={} elapsed={}\n", tables.front().size(),
-       elapsed.humanize());
   return rc;
 }
 

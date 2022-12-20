@@ -105,6 +105,9 @@ void mDNS::init(io_context &io_ctx) noexcept { // static
 void mDNS::init_self() {
 
   service = Service::create();
+  service->init();
+
+  const auto qualifier = service->make_txt_string(txt_type::AirPlayTCP);
 
   mdns::_tpoll = avahi_threaded_poll_new();
   auto poll = avahi_threaded_poll_get(mdns::_tpoll);
@@ -144,7 +147,9 @@ void mDNS::resolver_found(const ZeroConf::Details zcd) noexcept {
 
 void mDNS::reset() { shared::mdns.reset(); }
 
-std::shared_ptr<Service> mDNS::service_ptr() noexcept { return shared::mdns->service->ptr(); }
+std::shared_ptr<Service> mDNS::service_ptr() noexcept {
+  return shared::mdns->service->shared_from_this();
+}
 
 void mDNS::update() noexcept { shared::mdns->update_impl(); };
 
@@ -196,7 +201,8 @@ ZeroConfFut mDNS::zservice(csv name) {
 
   auto cmp = [=](const auto it) { return it.second.match_name(name); };
 
-  if (auto it = ranges::find_if(mdns.zcs_map, cmp); it != mdns.zcs_map.end()) {
+  if (auto it = ranges::find_if(mdns.zcs_map.begin(), mdns.zcs_map.end(), cmp);
+      it != mdns.zcs_map.end()) {
     prom.set_value(it->second);
   } else {
 

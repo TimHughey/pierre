@@ -37,9 +37,9 @@ namespace pierre {
 
 using namespace fft;
 
-static const float PI2 = std::numbers::pi * 2;
-static const float PI4 = std::numbers::pi * 4;
-static const float PI6 = std::numbers::pi * 6;
+constexpr float PI2{std::numbers::pi * 2};
+constexpr float PI4{std::numbers::pi * 4};
+constexpr float PI6{std::numbers::pi * 6};
 
 static const size_t _samples{1024};
 static const window _window_type{window::Hann};
@@ -66,6 +66,9 @@ FFT::FFT(const float *reals, size_t samples, const float frequency)
       _imaginary(_samples, 0),     //
       _power(std::log2f(_samples)) //
 {
+
+  init(); // calc the window weighing factors
+
   if (samples != _samples) {
     throw std::runtime_error("unsupported number of samples");
   }
@@ -163,7 +166,6 @@ void FFT::find_peaks(Peaks &peaks, Peaks::CHANNEL channel) noexcept {
 }
 
 void FFT::init() { // static
-  Elapsed elapsed;
 
   if (_wwf.size() == 0) {
     _wwf.reserve(_samples >> 1);
@@ -221,8 +223,6 @@ void FFT::init() { // static
       wwf = weighingFactor;
     }
   }
-
-  INFO("FFT", "INIT", "wwf_size={} elapsed={}\n", _wwf.size(), elapsed.humanize());
 }
 
 Magnitude FFT::mag_at_index(const size_t i) const {

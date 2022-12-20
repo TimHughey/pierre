@@ -18,23 +18,33 @@
 
 #pragma once
 
-#include "reply/reply.hpp"
+#include "aplist/aplist.hpp"
+#include "rtsp/reply.hpp"
 
 namespace pierre {
-namespace airplay {
-namespace reply {
+namespace rtsp {
 
-class Unhandled : public Reply {
+class Setup {
 public:
-  Unhandled() : Reply("UNHANDLED") {}
+  Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept;
 
-  bool populate() override {
-    resp_code(RespCode::BadRequest);
+private:
+  bool has_streams() noexcept;
+  bool no_streams() noexcept;
 
-    return true;
-  }
+private:
+  // order dependent
+  Request &request;
+  Reply &reply;
+  std::shared_ptr<Ctx> ctx;
+  Aplist rdict; // the request dict
+
+  // order independent
+  Aplist reply_dict; // entire reply dict
+
+public:
+  static constexpr csv module_id{"rtsp::SETUP"};
 };
 
-} // namespace reply
-} // namespace airplay
+} // namespace rtsp
 } // namespace pierre

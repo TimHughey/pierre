@@ -24,7 +24,7 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/dmx_data_msg.hpp"
 #include "io/msg.hpp"
 
 #include <atomic>
@@ -33,22 +33,19 @@
 #include <optional>
 
 namespace pierre {
-namespace desk {
 
-using ctrl_fut_ec_t = std::future<error_code>;
-
-class Ctrl : public std::enable_shared_from_this<Ctrl> {
+class DmxCtrl : public std::enable_shared_from_this<DmxCtrl> {
 private:
-  Ctrl(io_context &io_ctx) noexcept;
+  DmxCtrl(io_context &io_ctx) noexcept;
 
 public:
   static auto create(io_context &io_ctx) noexcept {
-    return std::shared_ptr<Ctrl>(new Ctrl(io_ctx));
+    return std::shared_ptr<DmxCtrl>(new DmxCtrl(io_ctx));
   }
 
   auto ptr() noexcept { return shared_from_this(); }
 
-  std::shared_ptr<Ctrl> init() noexcept {
+  auto init() noexcept {
     // start stalled_watchdog() to detect:
     //  1. zeroconf resolution timeouts
     //  2. unable to make initial handshake connection
@@ -70,9 +67,9 @@ public:
            data_sock->is_open();
   }
 
-  void send_data_msg(DataMsg data_msg) noexcept;
+  void send_data_msg(DmxDataMsg msg) noexcept;
 
-  static void teardown(std::shared_ptr<Ctrl> &self_ref) noexcept {
+  static void teardown(std::shared_ptr<DmxCtrl> &self_ref) noexcept {
     auto &io_ctx = self_ref->io_ctx;
     auto self = self_ref->ptr();
 
@@ -102,14 +99,6 @@ private:
   void send_ctrl_msg(io::Msg msg) noexcept;
   void stalled_watchdog() noexcept;
 
-  // misc debug
-  error_code log_socket(csv type, error_code ec, tcp_socket &sock, Elapsed &e) noexcept {
-    return log_socket(type, ec, sock, sock.remote_endpoint(), e);
-  }
-
-  error_code log_socket(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
-                        Elapsed &e) noexcept;
-
 private:
   // order dependent
   io_context &io_ctx;
@@ -128,8 +117,7 @@ private:
 
   // misc debug
 public:
-  static constexpr csv module_id{"DESK_CONTROL"};
+  static constexpr csv module_id{"DMX_CTRL"};
 };
 
-} // namespace desk
 } // namespace pierre

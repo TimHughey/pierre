@@ -45,11 +45,9 @@ public:
 
   // initialization and setup
   static Config init(int argc, char **argv) noexcept;
-
   bool ready() const noexcept { return initialized; }
 
   // raw, direct access
-
   template <typename P> const auto at(P p) const noexcept {
     std::shared_lock slk(mtx, std::defer_lock);
     slk.lock();
@@ -89,6 +87,7 @@ public:
   fs::path fs_exec_path() const noexcept {
     return fs::path(at(cli("exec_path"sv)).value_or(string("/")));
   }
+
   fs::path fs_parent_path() const noexcept {
     return fs::path(at(cli("parent_path"sv)).value_or(string("/")));
   }
@@ -107,7 +106,6 @@ private:
   const toml::path cli(auto key) const noexcept { return toml::path(CLI).append(key); }
   const toml::path base(csv key) const noexcept { return toml::path{"base"sv}.append(key); }
 
-  void init_self() noexcept;
   static bool parse() noexcept;
   static void monitor_file() noexcept;
 
@@ -121,7 +119,6 @@ private:
   static std::list<toml::table> tables;
   static std::optional<std::promise<bool>> change_proms;
   static std::shared_mutex mtx;
-  static stop_tokens tokens;
   static Threads threads;
 
   static constexpr csv BASE{"base"};

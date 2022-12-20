@@ -28,12 +28,11 @@
 #include <iterator>
 
 namespace pierre {
-namespace desk {
 
-class DataMsg : public io::Msg {
+class DmxDataMsg : public io::Msg {
 
 public:
-  DataMsg(frame_t frame, const Nanos lead_time)
+  DmxDataMsg(frame_t frame, const Nanos lead_time)
       : Msg(TYPE),               // init base class
         dmx_frame(16, 0x00),     // init the dmx frame to all zeros
         silence(frame->silent()) // is this silence?
@@ -41,14 +40,13 @@ public:
     add_kv("seq_num", frame->seq_num);
     add_kv("timestamp", frame->timestamp); // RTSP timestamp
     add_kv("silence", silence);
-    // add_kv("nettime_µs", frame->nettime<Micros>().count());
     add_kv("lead_time_µs", pet::as<Micros>(lead_time).count());
     add_kv("sync_wait_µs", pet::as<Micros>(frame->sync_wait()).count());
   }
 
-  DataMsg(Msg &m) = delete;
-  DataMsg(const Msg &m) = delete;
-  DataMsg(DataMsg &&m) = default;
+  DmxDataMsg(Msg &m) = delete;
+  DmxDataMsg(const Msg &m) = delete;
+  DmxDataMsg(DmxDataMsg &&m) = default;
 
 public:
   uint8_t *dmxFrame() { return dmx_frame.data(); }
@@ -81,8 +79,7 @@ private:
   bool silence{false};
 
 public:
-  static constexpr csv module_id{"DATA_MSG"};
+  static constexpr csv module_id{"DMX_CTRL_MSG"};
 };
 
-} // namespace desk
 } // namespace pierre

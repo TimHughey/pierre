@@ -18,23 +18,31 @@
 
 #pragma once
 
-#include "reply/reply.hpp"
+#include "airplay/content.hpp"
+#include "airplay/headers.hpp"
+#include "base/types.hpp"
+#include "base/uint8v.hpp"
 
 namespace pierre {
-namespace airplay {
-namespace reply {
+namespace rtsp {
 
-class LoadMore : public Reply {
+class Request {
 public:
-  LoadMore() : Reply("LOAD MORE") {}
+  Request() = default;
 
-  bool populate() override {
-    resp_code(RespCode::Continue);
+  void clear() noexcept {
+    content = Content();
+    headers = Headers();
+  }
 
-    return true;
-  };
+  void save(const uint8v &wire) noexcept;
+
+public:
+  Content content;
+  Headers headers;
+
+  static constexpr csv module_id{"rtsp::REQUEST"};
 };
 
-} // namespace reply
-} // namespace airplay
+} // namespace rtsp
 } // namespace pierre
