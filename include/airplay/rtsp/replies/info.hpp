@@ -28,7 +28,7 @@ namespace rtsp {
 
 class Info {
 public:
-  Info(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept;
+  Info(Request &request, Reply &reply, Ctx *ctx) noexcept;
 
   static void init() noexcept;
 

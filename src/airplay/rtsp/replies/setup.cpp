@@ -31,7 +31,7 @@
 namespace pierre {
 namespace rtsp {
 
-Setup::Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept
+Setup::Setup(Request &request, Reply &reply, Ctx *ctx) noexcept
     : request(request), reply(reply), ctx(ctx), reply_dict() {
 
   reply(RespCode::BadRequest); // default response is BadRequest

@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "airplay/content.hpp"
 #include "base/types.hpp"
+#include "base/uint8v.hpp"
 
 #include "fmt/format.h"
 #include <charconv>

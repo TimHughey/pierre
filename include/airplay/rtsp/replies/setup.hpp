@@ -26,7 +26,7 @@ namespace rtsp {
 
 class Setup {
 public:
-  Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept;
+  Setup(Request &request, Reply &reply, Ctx *ctx) noexcept;
 
 private:
   bool has_streams() noexcept;
@@ -36,7 +36,7 @@ private:
   // order dependent
   Request &request;
   Reply &reply;
-  std::shared_ptr<Ctx> ctx;
+  Ctx *ctx;
   Aplist rdict; // the request dict
 
   // order independent

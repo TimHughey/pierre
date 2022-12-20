@@ -46,6 +46,11 @@ namespace rtsp {
 
 void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
+  // get a naked pointer to ctx for use locally to save shared_ptr dereferences
+  // this is OK because this function receives the shared_ptr and therefore keeps
+  // it in scope until it returns.
+  auto *ctx_naked = ctx.get();
+
   // handle the various RTSP requests based on the method and path
   const auto &method = request.headers.method();
   const auto &path = request.headers.path();
@@ -58,7 +63,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     resp_code(RespCode::Continue); // trivial, only set reqponse code
 
   } else if (method == csv("GET") && (path == csv("/info"))) {
-    Info(request, *this, ctx);
+    Info(request, *this, ctx_naked);
 
   } else if (method == csv("POST")) { // handle POST methods
 
@@ -71,16 +76,16 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     } else if (path == csv("/feedback")) {
       // trival, basic headers and response code of OK
       resp_code(RespCode::OK);
-      ctx->feedback_msg();
+      ctx_naked->feedback_msg();
 
     } else if (path.starts_with("/pair-")) {
       // pairing setup and verify
       AesResult aes_result;
 
       if (path.ends_with("setup")) {
-        aes_result = ctx->aes_ctx.setup(request.content, content);
+        aes_result = ctx_naked->aes_ctx.setup(request.content, content);
       } else if (path.ends_with("verify")) {
-        aes_result = ctx->aes_ctx.verify(request.content, content);
+        aes_result = ctx_naked->aes_ctx.verify(request.content, content);
       }
 
       if (has_content()) {
@@ -100,7 +105,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     set_resp_code(RespCode::OK);
 
   } else if (method == csv("SETUP")) {
-    Setup(request, *this, ctx);
+    Setup(request, *this, ctx_naked);
 
   } else if (method.ends_with("_PARAMETER")) {
     if (method.starts_with("GET")) {
@@ -161,15 +166,15 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
     // any TEARDOWN request (with streams key or not) always clears the shared key and
     // informs Racked spooling should be stopped
-    ctx->shared_key.clear();
+    ctx_naked->shared_key.clear();
     Racked::spool(false);
 
     // when the streams key is not present this is a complete disconnect
     if (request_dict.exists(STREAMS) == false) {
-      ctx->service->receiver_active(false);
+      ctx_naked->service->receiver_active(false);
       mDNS::update();
 
-      ctx->teardown();
+      ctx_naked->teardown();
     }
 
   } else if (method == csv("FLUSHBUFFERED")) {

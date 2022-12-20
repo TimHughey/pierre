@@ -33,11 +33,14 @@ class Event : public std::enable_shared_from_this<Event> {
 public:
   Port port() noexcept { return acceptor.local_endpoint().port(); }
   void teardown() noexcept {
-    [[maybe_unused]] error_code ec;
-    acceptor.close(ec);
 
-    if (sock_accept) sock_accept->close(ec);
-    if (sock_session) sock_session->close(ec);
+    asio::post(io_ctx, [s = ptr()]() {
+      [[maybe_unused]] error_code ec;
+      s->acceptor.close(ec);
+
+      if (s->sock_accept) s->sock_accept->close(ec);
+      if (s->sock_session) s->sock_session->close(ec);
+    });
   }
 
   std::shared_ptr<Event> ptr() noexcept { return shared_from_this(); }
@@ -111,7 +114,8 @@ private:
       auto buff = asio::dynamic_buffer(*raw);
 
       // in the event data is received quietly discard it and keep reading
-      // reminder the unique_ptr is moved into the closure so it is deallocated
+      // note: the unique_ptr is moved into the closure so it remains in scope
+      //       until the lambda finishes
       asio::async_read(*sock_session, buff, //
                        asio::transfer_at_least(32),
                        [raw = std::move(raw), s = ptr()](error_code ec, ssize_t bytes) //

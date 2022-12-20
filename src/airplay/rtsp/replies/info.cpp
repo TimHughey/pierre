@@ -37,7 +37,7 @@ namespace rtsp {
 // class static data
 std::vector<char> Info::reply_xml;
 
-Info::Info([[maybe_unused]] Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept {
+Info::Info([[maybe_unused]] Request &request, Reply &reply, Ctx *ctx) noexcept {
 
   // notes:
   //  1. other open source implementations look for and build a stage 1
@@ -54,18 +54,16 @@ Info::Info([[maybe_unused]] Request &request, Reply &reply, std::shared_ptr<Ctx>
   if (reply_xml.empty()) init(); // ensure the base reply XML is loaded
   Aplist reply_dict(reply_xml);
 
-  auto service = ctx->service; // avoid multiple shared_ptr dereferences
-
   // first, we add the uint64 values to the dict
-  reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apFeatures));
-  reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apStatusFlags));
+  reply_dict.setUint(ctx->service->key_val<uint64_t>(txt_opt::apFeatures));
+  reply_dict.setUint(ctx->service->key_val<uint64_t>(txt_opt::apStatusFlags));
 
   // now add the text values to the dict
   txt_opt_seq_t txt_keys{txt_opt::apDeviceID, txt_opt::apAirPlayPairingIdentity,
                          txt_opt::ServiceName, txt_opt::apModel, txt_opt::PublicKey};
 
   for (const auto &key : txt_keys) {
-    reply_dict.setStringVal(nullptr, service->key_val(key));
+    reply_dict.setStringVal(nullptr, ctx->service->key_val(key));
   }
 
   // finally, convert the plist dictionary to binary and store as
