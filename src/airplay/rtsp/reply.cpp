@@ -27,7 +27,6 @@
 #include "frame/racked.hpp"
 #include "headers.hpp"
 #include "mdns/mdns.hpp"
-#include "resp_code.hpp"
 #include "rtsp/ctx.hpp"
 #include "rtsp/replies/command.hpp"
 #include "rtsp/replies/dict_kv.hpp"
@@ -42,6 +41,7 @@
 #include <iterator>
 
 namespace pierre {
+
 namespace rtsp {
 
 void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
@@ -55,7 +55,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   headers.add(hdr_type::Server, hdr_val::AirPierre);
 
   if (method.starts_with("CONTINUE")) {
-    set_resp_code(RespCode::Continue); // trivial, only set reqponse code
+    resp_code(RespCode::Continue); // trivial, only set reqponse code
 
   } else if (method == csv("GET") && (path == csv("/info"))) {
     Info(request, *this, ctx);
@@ -70,7 +70,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
     } else if (path == csv("/feedback")) {
       // trival, basic headers and response code of OK
-      set_resp_code(RespCode::OK);
+      resp_code(RespCode::OK);
       ctx->feedback_msg();
 
     } else if (path.starts_with("/pair-")) {
@@ -87,7 +87,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
         headers.add(hdr_type::ContentType, hdr_val::OctetStream);
       }
 
-      set_resp_code(aes_result.resp_code);
+      resp_code = aes_result.resp_code;
     }
   } else if (method == csv("OPTIONS") && (path == csv("*"))) {
     // trivial, only populate an additional header with a string
@@ -197,10 +197,9 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   wire.clear();
 
   auto w = std::back_inserter(wire);
-  auto resp_text = respCodeToView(resp_code);
   constexpr csv seperator{"\r\n"};
 
-  fmt::format_to(w, "RTSP/1.0 {:d} {}{}", resp_code, resp_text, seperator);
+  fmt::format_to(w, "RTSP/1.0 {}{}", resp_code(), seperator);
 
   // must add content length before calling headers list()
   if (content.empty() == false) {
@@ -219,7 +218,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   // INFO(module_id, "REPLY", "path={} method={}\n", path(), method());
   // _content.dump();
 
-  log_reply(request, resp_text, wire);
+  log_reply(request, resp_code(), wire);
   save(); // no op unless enabled by external configuration file
 }
 

@@ -34,7 +34,7 @@ namespace rtsp {
 Setup::Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept
     : request(request), reply(reply), ctx(ctx), reply_dict() {
 
-  reply.set_resp_code(RespCode::BadRequest); // default response is BadRequest
+  reply(RespCode::BadRequest); // default response is BadRequest
 
   rdict = request.content;
 
@@ -55,7 +55,7 @@ Setup::Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept
       reply.copy_to_content(binary.get(), bytes);
 
       reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
-      reply.set_resp_code(RespCode::OK);
+      reply(RespCode::OK);
 
     } else {
       INFO(module_id, "WARN", "implementation missing for control_type={}\n", 1);

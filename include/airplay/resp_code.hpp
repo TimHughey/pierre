@@ -20,19 +20,53 @@
 
 #include "base/types.hpp"
 
+#include <compare>
+#include <map>
+
 namespace pierre {
 
-enum RespCode : uint16_t {
-  Continue = 100,
-  OK = 200,
-  AuthRequired = 470,
-  BadRequest = 400,
-  Unauthorized = 403,
-  Unavailable = 451,
-  InternalServerError = 500,
-  NotImplemented = 501
+/// @brief RTSP response code (similar to HTTP)
+class RespCode {
+public:
+  enum code_val : uint16_t {
+    Continue = 100,
+    OK = 200,
+    AuthRequired = 470,
+    BadRequest = 400,
+    Unauthorized = 403,
+    Unavailable = 451,
+    InternalServerError = 500,
+    NotImplemented = 501
+  };
+
+  RespCode(code_val v) noexcept : val{v} {}
+  RespCode(const RespCode &) = default;
+  RespCode(RespCode &&) = default;
+
+  RespCode &operator=(const RespCode &) = default;
+  RespCode &operator=(RespCode &&) = default;
+  RespCode &operator=(code_val v) noexcept {
+    val = v;
+    return *this;
+  }
+
+  void operator()(code_val v) noexcept { val = v; }
+  const string operator()() noexcept;
+  auto operator<=>(const RespCode &resp_code) const = default;
+
+  /// @brief Test equality of a RespCode to a code_val
+  /// @param resp_code RespCode to test
+  /// @param v code_val desired
+  /// @return boolean
+  friend constexpr auto operator==(const RespCode &resp_code, const code_val v) noexcept {
+    return resp_code.val == v;
+  }
+
+private:
+  // order dependent
+  code_val val;
+
+  // order independent
+  static std::map<code_val, string> txt_map;
 };
-
-csv respCodeToView(RespCode resp_code);
-
 } // namespace pierre

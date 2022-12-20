@@ -77,7 +77,7 @@ Info::Info([[maybe_unused]] Request &request, Reply &reply, std::shared_ptr<Ctx>
 
   reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
-  reply.set_resp_code(RespCode::OK);
+  reply(RespCode::OK);
 }
 
 /// @brief Initialize static data (reply pdict)

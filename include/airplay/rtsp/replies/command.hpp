@@ -35,9 +35,9 @@ public:
 
     if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
       // we don't support updateMRSupportedCommands
-      reply.set_resp_code(RespCode::BadRequest);
+      reply(RespCode::BadRequest);
     } else {
-      reply.set_resp_code(RespCode::OK);
+      reply(RespCode::OK);
     }
   }
 };

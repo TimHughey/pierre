@@ -18,12 +18,10 @@
 
 #pragma once
 
-#include "airplay/content.hpp"
-#include "airplay/headers.hpp"
-#include "airplay/resp_code.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "pair/pair.h"
+#include "rtsp/reply.hpp"
 
 #include <algorithm>
 #include <array>

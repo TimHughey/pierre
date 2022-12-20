@@ -54,7 +54,7 @@ SetAnchor::SetAnchor(Request &request, Reply &reply) noexcept {
     INFO(module_id, "NOTICE", "rate not present\n");
   }
 
-  reply.set_resp_code(RespCode::OK);
+  reply(RespCode::OK);
 }
 
 } // namespace rtsp

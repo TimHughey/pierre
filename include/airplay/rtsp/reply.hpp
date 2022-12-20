@@ -27,9 +27,13 @@
 #include "rtsp/request.hpp"
 
 #include <algorithm>
+#include <compare>
+#include <fmt/format.h>
+#include <map>
 #include <ranges>
 
 namespace pierre {
+
 namespace rtsp {
 
 // forward decl to hide implementation details
@@ -76,10 +80,12 @@ public:
 
   bool has_content() noexcept { return content.empty() == false; }
 
+  void operator()(RespCode::code_val val) noexcept { resp_code(val); }
+
   uint8v &packet() noexcept { return wire; }
   void save() noexcept;
 
-  void set_resp_code(RespCode code) noexcept { resp_code = code; }
+  void set_resp_code(RespCode::code_val val) noexcept { resp_code(val); }
 
   // misc debug
   void dump() const noexcept;

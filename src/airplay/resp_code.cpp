@@ -18,21 +18,26 @@
 
 #include "resp_code.hpp"
 
+#include <fmt/format.h>
 #include <map>
 
 namespace pierre {
 
-typedef const std::map<RespCode, const char *> RespCodeMap;
+std::map<RespCode::code_val, string> RespCode::txt_map{
+    // comments for ease of IDE sorting
+    {AuthRequired, "Connection Authorization Required"},
+    {BadRequest, "Bad Request"},
+    {Continue, "Continue"},
+    {InternalServerError, "Internal Server Error"},
+    {NotImplemented, "Not Implemented"},
+    {OK, "OK"},
+    {Unauthorized, "Unauthorized"},
+    {Unavailable, "Unavailable"},
+    // extra comma for ease of IDE sorting
+};
 
-static RespCodeMap _resp_code_ccs{{OK, "OK"},
-                                  {AuthRequired, "Connection Authorization Required"},
-                                  {BadRequest, "Bad Request"},
-                                  {InternalServerError, "Internal Server Error"},
-                                  {Unauthorized, "Unauthorized"},
-                                  {Unavailable, "Unavailable"},
-                                  {NotImplemented, "Not Implemented"},
-                                  {Continue, "Continue"}};
-
-csv respCodeToView(RespCode resp_code) { return csv(_resp_code_ccs.at(resp_code)); }
+const string RespCode::operator()() noexcept {
+  return fmt::format("{:d} {}", val, txt_map.at(val));
+}
 
 } // namespace pierre

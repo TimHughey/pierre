@@ -105,9 +105,9 @@ FairPlay::FairPlay(Request &request, Reply &reply) noexcept {
 
     if (reply.has_content()) {
       reply.headers.add(hdr_type::ContentType, hdr_val::OctetStream);
-      reply.set_resp_code(RespCode::OK);
+      reply(RespCode::OK);
     } else {
-      reply.set_resp_code(RespCode::InternalServerError);
+      reply(RespCode::InternalServerError);
       INFO(module_id, "ERROR", "no match for sequence and/or mode\n");
     }
   }

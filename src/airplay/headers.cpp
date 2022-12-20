@@ -20,7 +20,6 @@
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "content.hpp"
-#include "resp_code.hpp"
 
 #include <algorithm>
 #include <array>

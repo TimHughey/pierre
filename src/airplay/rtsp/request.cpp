@@ -23,7 +23,6 @@
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "headers.hpp"
-#include "resp_code.hpp"
 #include "rtsp/ctx.hpp"
 
 #include <algorithm>
