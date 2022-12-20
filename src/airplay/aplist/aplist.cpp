@@ -1,22 +1,20 @@
-/*
-    Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com
-*/
+//  Pierre - Custom Light Show for Wiss Landing
+//  Copyright (C) 2022  Tim Hughey
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  https://www.wisslanding.com
 
 #include "aplist/aplist.hpp"
 #include "base/logger.hpp"
@@ -52,11 +50,6 @@ Aplist::Aplist(const Aplist &src, const Steps &steps) {
   _plist = (node) ? plist_copy(node) : plist_new_dict();
 }
 
-Aplist::~Aplist() {
-  if (_plist) plist_free(_plist);
-  _plist = nullptr;
-}
-
 Aplist &Aplist::operator=(const Content &content) { return fromContent(content); }
 
 Aplist &Aplist::operator=(Aplist &&ap) {
@@ -85,13 +78,6 @@ bool Aplist::boolVal(const Steps &steps) const {
   return false;
 }
 
-Aplist &Aplist::clear() {
-  if (_plist) plist_free(_plist);
-  _plist = nullptr;
-
-  return *this;
-}
-
 Aplist::Binary Aplist::toBinary(size_t &bytes) const {
   char *data = nullptr;
   uint32_t len = 0;
@@ -100,12 +86,8 @@ Aplist::Binary Aplist::toBinary(size_t &bytes) const {
 
   bytes = (size_t)len;
 
-  return std::shared_ptr<uint8_t[]>((uint8_t *)data);
+  return Binary((uint8_t *)data);
 }
-
-// bool Aplist::compareString(csv key, csv val) const {
-//   return compareString(key.data(), val.data());
-// }
 
 bool Aplist::compareString(csv key, csv val) const {
   auto found = plist_dict_get_item(_plist, key.data());
@@ -185,7 +167,7 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
 
   plist_t node = _plist; // start at the root
 
-  ranges::for_each(steps, [&](auto step) {
+  ranges::for_each(steps.cbegin(), steps.cend(), [&](auto step) {
     if ((step[0] >= '0') && (step[0] <= '9')) { // is this an array index?
       uint32_t idx = std::atoi(step.data());
       node = plist_access_path(node, 1, idx);
@@ -291,7 +273,6 @@ bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
 }
 
 void Aplist::setString(csv key, csr str_val) {
-
   plist_dict_set_item(_plist, key.data(), plist_new_string(str_val.c_str()));
 }
 
@@ -377,14 +358,11 @@ bool Aplist::checkType(plist_t node, plist_type type) const {
 Aplist &Aplist::fromContent(const Content &content) {
   clear(); // ensure there isn't an existing dict
 
-  constexpr auto header = "bplist00";
-  constexpr auto header_len = strlen(header);
+  static constexpr csv header{"bplist00"};
 
-  if (content.size() > header_len) {
-    const char *data = (const char *)content.data();
-
+  if (content.view(0, header.size()) == header) {
     // create the plist and wrap the pointer
-    plist_from_memory(data, content.size(), &_plist);
+    plist_from_memory(content.view().data(), content.size(), &_plist);
   }
 
   return *this;

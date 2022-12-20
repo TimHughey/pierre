@@ -124,12 +124,11 @@ void Session::do_packet(Elapsed &&e) noexcept {
   // reply has content to send
   ctx->aes_ctx.encrypt(reply->packet()); // NOTE: noop until cipher exchange completed
 
-  // must capture reply to ensure it stays in scope until the async completes
-  auto reply_buffer = asio::buffer(reply->packet());
+  // get the buffer to send, we will move reply into async_write lambda
+  auto reply_buffer = reply->buffer();
 
   asio::async_write(
-      sock,         // sock to send reply
-      reply_buffer, //
+      sock, reply_buffer,
       [s = ptr(), e = std::move(e), rp = std::move(reply)](error_code ec, ssize_t bytes) mutable {
         const auto msg = io::is_ready(s->sock, ec);
 

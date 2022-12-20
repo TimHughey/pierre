@@ -14,7 +14,6 @@ working_dir = ".pierre" # cwd to this directory at startup
 # exec_path = "" # executable path
 # parent_path = "" # parent path of the executable
 
-
 [stats]
 enabled = true
 db_uri = "http://localhost:8086?db=pierre"
@@ -22,7 +21,7 @@ batch_of = 150
 
 [debug]
 path = "../extra/debug"
-rtsp = { save = false, file = "rtsp.log" }
+rtsp = { save = false, file = "rtsp.log", format = "pretty" }
 
 [dmx]
 # controller = "dmx"

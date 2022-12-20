@@ -32,7 +32,7 @@ namespace pierre {
 namespace rtsp {
 
 Setup::Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept
-    : request(request), reply(reply), ctx(ctx), rdict(Aplist::DEFER_DICT), reply_dict() {
+    : request(request), reply(reply), ctx(ctx), reply_dict() {
 
   reply.set_resp_code(RespCode::BadRequest); // default response is BadRequest
 
@@ -52,7 +52,7 @@ Setup::Setup(Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept
     if (rc) { // all is well, finalize the reply
       size_t bytes = 0;
       auto binary = reply_dict.toBinary(bytes);
-      reply.copy_to_content(binary, bytes);
+      reply.copy_to_content(binary.get(), bytes);
 
       reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
       reply.set_resp_code(RespCode::OK);

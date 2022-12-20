@@ -62,10 +62,6 @@ public:
 
   void build(Request &request, std::shared_ptr<Ctx> ctx) noexcept;
 
-  void copy_to_content(std::shared_ptr<uint8_t[]> data, const size_t bytes) noexcept {
-    copy_to_content(data.get(), bytes);
-  }
-
   void copy_to_content(const uint8_t *begin, const size_t bytes) noexcept {
     auto w = std::back_inserter(content);
     std::copy_n(begin, bytes, w);
@@ -74,7 +70,6 @@ public:
   void copy_to_content(const auto &buf) noexcept {
     auto w = std::back_inserter(content);
     std::copy_n(buf.begin(), std::size(buf), w);
-    // std::ranges::copy(buf, std::back_inserter(content));
   }
 
   bool empty() const noexcept { return std::empty(wire); }

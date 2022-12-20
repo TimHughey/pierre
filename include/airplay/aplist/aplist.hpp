@@ -40,43 +40,37 @@ public:
     uint64_t val;
   };
 
-  typedef std::vector<string> ArrayStrings;
-  typedef std::vector<Aplist> ArrayDicts;
-  typedef std::shared_ptr<uint8_t[]> Binary;
-  typedef std::vector<const Aplist &> ConstArrayDicts;
-  typedef std::vector<ccs> Dictionaries;
-  typedef std::vector<string_view> KeyList;
-  typedef std::vector<string_view> Steps;
-  typedef std::vector<KeyUint> UintList;
+  using ArrayStrings = std::vector<string>;
+  using ArrayDicts = std::vector<Aplist>;
+  using Binary = std::unique_ptr<uint8_t[]>;
+  using ConstArrayDicts = std::vector<const Aplist &>;
+  using Dictionaries = std::vector<ccs>;
+  using KeyList = std::vector<string_view>;
+  using Steps = std::vector<string_view>;
+  using UintList = std::vector<KeyUint>;
 
 public:
-  static constexpr bool DEFER_DICT = false;
   static constexpr csv ROOT{""};
 
 public:
-  Aplist(bool allocate = true) noexcept {
-    if (allocate != DEFER_DICT) {
-      _plist = plist_new_dict();
-    }
+  /// @brief Default constructor (dict not allocated)
+  Aplist() noexcept : _plist(plist_new_dict()) {}
+  ~Aplist() {
+    if (_plist) plist_free(_plist);
   }
 
   /// @brief Move constructor
   /// @param ap Other Aplist to move from
-  Aplist(Aplist &&ap) noexcept {
-    _plist = ap._plist;
-    ap._plist = nullptr;
-  }
+  Aplist(Aplist &&ap) noexcept : _plist(std::exchange(ap._plist, nullptr)) {}
 
   /// @brief Create Aplist from a vector of chars
   /// @param xml Vector of char data
   Aplist(const std::vector<char> &xml) noexcept { plist_from_xml(xml.data(), xml.size(), &_plist); }
 
-  Aplist(const Content &content) { fromContent(content); }
+  Aplist(const Content &content) noexcept { fromContent(content); }
   Aplist(const Dictionaries &dicts);
   Aplist(csv mem);
   Aplist(const Aplist &src, const Steps &steps); //
-
-  ~Aplist();
 
   Aplist &operator=(const Aplist &ap) = delete; // no copy assignment
   Aplist &operator=(Aplist &&ap);               // allow move assignment
@@ -84,10 +78,14 @@ public:
 
   uint32_t arrayItemCount(const Steps &steps) const;
 
-  Aplist &clear();
+  Aplist &clear() noexcept {
+    if (_plist) plist_free(_plist);
+    _plist = plist_new_dict();
+
+    return *this;
+  }
 
   // general API
-
   bool boolVal(const Steps &steps) const;
   Binary toBinary(size_t &bytes) const;
 
@@ -149,7 +147,7 @@ private:
   plist_t getItem(csv key) const;
 
 private:
-  plist_t _plist = nullptr;
+  plist_t _plist{nullptr};
 
 public:
   static constexpr csv module_id{"APLIST"};

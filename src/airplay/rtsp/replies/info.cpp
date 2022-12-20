@@ -38,51 +38,42 @@ namespace rtsp {
 std::vector<char> Info::reply_xml;
 
 Info::Info([[maybe_unused]] Request &request, Reply &reply, std::shared_ptr<Ctx> ctx) noexcept {
-  // ensure reply xml is loaded
-  if (reply_xml.empty()) init();
 
-  auto service = ctx->service;
-  Aplist rdict(Aplist::DEFER_DICT);
-  reply.set_resp_code(RespCode::BadRequest);
+  // notes:
+  //  1. other open source implementations look for and build a stage 1
+  //     reply when the request plist contains: qualifiers[0] = "txtAirPlay"
+  //  2. comments from those implementations state a root level key of
+  //     "qualifier" should contain a concatentated list of the txt values
+  //     published as part of the AirPlayTCP zeroconf service
+  //  3. this implementation has determined that a stage 1 reply is not
+  //     required
+  //  4. rather, the stage 2 reply consisting of following plist is sufficient
 
-  // an error with INFO is rare so let's build the common portions
-  // of the reply then augment based on the stage we're handling
-
-  // common list of keys to add to reply (only stage 2 adds a key)
-  txt_opt_seq_t want_keys{txt_opt::apDeviceID, txt_opt::apAirPlayPairingIdentity,
-                          txt_opt::ServiceName, txt_opt::apModel};
-
-  // the plist from static data read by init()
+  // the overall reply dict is rather large so we load it from a file to save the
+  // code required to build programmatically
+  if (reply_xml.empty()) init(); // ensure the base reply XML is loaded
   Aplist reply_dict(reply_xml);
+
+  auto service = ctx->service; // avoid multiple shared_ptr dereferences
+
+  // first, we add the uint64 values to the dict
   reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apFeatures));
+  reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apStatusFlags));
 
-  if (rdict.empty()) { // if dictionary is empty this is a stage 2 message
+  // now add the text values to the dict
+  txt_opt_seq_t txt_keys{txt_opt::apDeviceID, txt_opt::apAirPlayPairingIdentity,
+                         txt_opt::ServiceName, txt_opt::apModel, txt_opt::PublicKey};
 
-    // INFO stage 2 appears to want apStatusFlags
-    reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apStatusFlags));
-
-    // INFO stage 2 also includes the public key
-    want_keys.emplace_back(txt_opt::PublicKey);
-
-  } else if (rdict.compareStringViaPath(TXT_AIRPLAY.data(), 2, QUALIFIER.data(), 0)) {
-    // INFO stage 1 request because it contains: qualifiers -> array[0] == txtAirPlay
-
-    // in thre reply we concatenate all the AirPlayTCP mdns data into a data chunk
-    const auto qualifier = service->make_txt_string(txt_type::AirPlayTCP);
-    reply_dict.setData("qualifier", qualifier);
-
-    // INFO stage 1 appears to want apSystemFlags (slight nuance vs stage 1)
-    reply_dict.setUint(service->key_val<uint64_t>(txt_opt::apSystemFlags));
-  }
-
-  // populate plist keys
-  for (const auto &key : want_keys) {
+  for (const auto &key : txt_keys) {
     reply_dict.setStringVal(nullptr, service->key_val(key));
   }
 
+  // finally, convert the plist dictionary to binary and store as
+  // content for inclusion in reply
+
   size_t bytes = 0;
   auto binary = reply_dict.toBinary(bytes);
-  reply.copy_to_content(binary, bytes);
+  reply.copy_to_content(binary.get(), bytes);
 
   reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
@@ -93,7 +84,6 @@ Info::Info([[maybe_unused]] Request &request, Reply &reply, std::shared_ptr<Ctx>
 void Info::init() noexcept { // static
   static constexpr csv module_id{"reply::INFO"};
   static constexpr csv fn_id{"INIT"};
-  namespace fs = std::filesystem;
 
   auto file_path = Config().fs_parent_path();
   file_path /= "../share/plist/get_info_resp.plist"sv;
