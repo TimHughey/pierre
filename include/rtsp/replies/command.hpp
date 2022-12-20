@@ -16,19 +16,30 @@
 //
 //  https://www.wisslanding.com
 
-#include <cstdint>
+#pragma once
 
-#include "aplist/aplist.hpp"
+#include "rtsp/aplist.hpp"
+#include "rtsp/content.hpp"
 #include "rtsp/reply.hpp"
+#include "rtsp/request.hpp"
+
+#include <vector>
 
 namespace pierre {
 namespace rtsp {
 
-class SetAnchor {
+class Command {
 public:
-  SetAnchor(Request &request, Reply &reply) noexcept;
+  Command(Request &request, Reply &reply) {
+    Aplist rdict = request.content;
 
-  static constexpr csv module_id{"SET_ANCHOR"};
+    if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
+      // we don't support updateMRSupportedCommands
+      reply(RespCode::BadRequest);
+    } else {
+      reply(RespCode::OK);
+    }
+  }
 };
 
 } // namespace rtsp

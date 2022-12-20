@@ -33,7 +33,7 @@ namespace ft {
 // https://emanuelecozzi.net/docs/airplay2/features/
 // https://openairplay.github.io/airplay-spec/features.html
 // https://nto.github.io/AirPlay.html
-// https://github.com/openairplay/goplay2
+// https://github.com/openrtsp/goplay2
 constexpr size_t b00Video = 0;
 constexpr size_t b01Photo = 1;
 constexpr size_t b02VideoFairPlay = 2;

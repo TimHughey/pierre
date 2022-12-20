@@ -18,11 +18,11 @@
 
 #pragma once
 
-#include "airplay/aes_ctx.hpp"
-#include "airplay/content.hpp"
-#include "airplay/headers.hpp"
-#include "airplay/rtsp/ctx.hpp"
-#include "airplay/rtsp/request.hpp"
+#include "rtsp/aes_ctx.hpp"
+#include "rtsp/content.hpp"
+#include "rtsp/headers.hpp"
+#include "rtsp/ctx.hpp"
+#include "rtsp/request.hpp"
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
 #include "base/logger.hpp"

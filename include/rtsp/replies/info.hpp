@@ -18,28 +18,25 @@
 
 #pragma once
 
-#include "airplay/content.hpp"
-#include "aplist/aplist.hpp"
+#include "aplist.hpp"
 #include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
 
 #include <vector>
 
 namespace pierre {
 namespace rtsp {
 
-class Command {
+class Info {
 public:
-  Command(Request &request, Reply &reply) {
-    Aplist rdict = request.content;
+  Info(Request &request, Reply &reply, Ctx *ctx) noexcept;
 
-    if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
-      // we don't support updateMRSupportedCommands
-      reply(RespCode::BadRequest);
-    } else {
-      reply(RespCode::OK);
-    }
-  }
+  static void init() noexcept;
+
+private:
+  static std::vector<char> reply_xml;
+
+public:
+  static constexpr csv module_id{"rtsp::INFO"};
 };
 
 } // namespace rtsp

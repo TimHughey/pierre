@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/replies/info.hpp"
-#include "aplist/aplist.hpp"
+#include "aplist.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"

@@ -40,8 +40,8 @@ add_subdirectory(mdns)
 # pairing and RTSP message cipher support
 add_subdirectory(pair)
 
-# top-level for all comms (RTSP, RTP, Buffered Audio, Control, Event)
-add_subdirectory(airplay)
+# rtsp messaging server, session, workers
+add_subdirectory(rtsp)
 
 # Frame of processed audio, master clock and anchor
 add_subdirectory(frame)

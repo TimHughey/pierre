@@ -18,25 +18,32 @@
 
 #pragma once
 
-#include "aplist/aplist.hpp"
+#include "aplist.hpp"
 #include "rtsp/reply.hpp"
-
-#include <vector>
 
 namespace pierre {
 namespace rtsp {
 
-class Info {
+class Setup {
 public:
-  Info(Request &request, Reply &reply, Ctx *ctx) noexcept;
-
-  static void init() noexcept;
+  Setup(Request &request, Reply &reply, Ctx *ctx) noexcept;
 
 private:
-  static std::vector<char> reply_xml;
+  bool has_streams() noexcept;
+  bool no_streams() noexcept;
+
+private:
+  // order dependent
+  Request &request;
+  Reply &reply;
+  Ctx *ctx;
+  Aplist rdict; // the request dict
+
+  // order independent
+  Aplist reply_dict; // entire reply dict
 
 public:
-  static constexpr csv module_id{"rtsp::INFO"};
+  static constexpr csv module_id{"rtsp::SETUP"};
 };
 
 } // namespace rtsp

@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "airplay/content.hpp"
-#include "airplay/headers.hpp"
+#include "rtsp/content.hpp"
+#include "rtsp/headers.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 

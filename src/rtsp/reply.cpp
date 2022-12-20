@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/reply.hpp"
-#include "airplay/aes_ctx.hpp"
-#include "airplay/aplist/aplist.hpp"
+#include "rtsp/aes_ctx.hpp"
+#include "rtsp/aplist.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"

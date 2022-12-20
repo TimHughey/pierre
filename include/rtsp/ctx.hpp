@@ -18,11 +18,11 @@
 
 #pragma once
 
-#include "airplay/aes_ctx.hpp"
-#include "airplay/headers.hpp"
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "rtsp/aes_ctx.hpp"
+#include "rtsp/headers.hpp"
 
 #include <memory>
 

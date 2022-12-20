@@ -58,12 +58,12 @@ target_include_directories(${_target} PUBLIC
 target_link_libraries(${_target} PUBLIC
   Threads::Threads 
   ${GCRYPT}  
-  airplay
   base
   config
   desk
   frame
   mdns
+  rtsp
   sodium
   stats
 )

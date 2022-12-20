@@ -16,34 +16,19 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
+#include <cstdint>
 
-#include "aplist/aplist.hpp"
+#include "aplist.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-class Setup {
+class SetAnchor {
 public:
-  Setup(Request &request, Reply &reply, Ctx *ctx) noexcept;
+  SetAnchor(Request &request, Reply &reply) noexcept;
 
-private:
-  bool has_streams() noexcept;
-  bool no_streams() noexcept;
-
-private:
-  // order dependent
-  Request &request;
-  Reply &reply;
-  Ctx *ctx;
-  Aplist rdict; // the request dict
-
-  // order independent
-  Aplist reply_dict; // entire reply dict
-
-public:
-  static constexpr csv module_id{"rtsp::SETUP"};
+  static constexpr csv module_id{"SET_ANCHOR"};
 };
 
 } // namespace rtsp
