@@ -1,0 +1,3131 @@
+GET /info RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 0
+Content-Length: 70
+Content-Type: application/x-apple-binary-plist
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-ProtocolVersion: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>qualifier</key>
+	<array>
+		<string>txtAirPlay</string>
+	</array>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 0
+Content-Length: 619
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>audioLatencies</key>
+	<array>
+		<dict>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>default</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>102</integer>
+		</dict>
+	</array>
+	<key>keepAliveLowPower</key>
+	<true/>
+	<key>keepAliveSendStatsAsBody</key>
+	<true/>
+	<key>manufacturer</key>
+	<string>Hughey</string>
+	<key>nameIsFactoryDefault</key>
+	<false/>
+	<key>protocolVersion</key>
+	<string>1.1</string>
+	<key>sdk</key>
+	<string>AirPlay;2.0.2</string>
+	<key>sourceVersion</key>
+	<string>366.0</string>
+	<key>statusFlags</key>
+	<integer>0</integer>
+	<key>features</key>
+	<integer>0</integer>
+	<key>deviceid</key>
+	<string>02000000C0A8</string>
+	<key>pi</key>
+	<string>02:00:00:00:C0:A8</string>
+	<key>name</key>
+	<string>Pierre</string>
+	<key>model</key>
+	<string>Lights By Pierre</string>
+	<key>pk</key>
+	<string>50ee552b25f5f1f7bef547af4a9e7457abb49ee37bc630752b194542ca558884</string>
+</dict>
+</plist>
+
+
+POST /pair-verify RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 1
+Content-Length: 37
+Content-Type: application/octet-stream
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-Client-Name: xapham
+X-Apple-HKP: 6
+X-Apple-PD: 1
+
+<<OCTET STREAM>>
+
+RTSP/1.0 500 Internal Server Error
+CSeq: 1
+Server: AirPierre/366.0
+
+POST /pair-setup RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 2
+Content-Length: 9
+Content-Type: application/x-apple-binary-plist
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-Client-Name: xapham
+X-Apple-HKP: 4
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 2
+Content-Length: 409
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+POST /pair-setup RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 3
+Content-Length: 457
+Content-Type: application/x-apple-binary-plist
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-Client-Name: xapham
+X-Apple-HKP: 4
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 3
+Content-Length: 69
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+POST /fp-setup RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 4
+Content-Length: 16
+Content-Type: application/octet-stream
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-ET: 32
+
+<<OCTET STREAM>>
+
+RTSP/1.0 200 OK
+CSeq: 4
+Content-Length: 142
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+POST /fp-setup RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 5
+Content-Length: 164
+Content-Type: application/octet-stream
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-ET: 32
+
+<<OCTET STREAM>>
+
+RTSP/1.0 200 OK
+CSeq: 5
+Content-Length: 32
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+SETUP rtsp://192.168.2.4/11813286232877974797 RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 6
+Content-Length: 872
+Content-Type: application/x-apple-binary-plist
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>timingProtocol</key>
+	<string>PTP</string>
+	<key>statsCollectionEnabled</key>
+	<false/>
+	<key>sessionUUID</key>
+	<string>A3F1393D-44B4-450D-A3B8-78F6A0F98CFA</string>
+	<key>osName</key>
+	<string>macOS</string>
+	<key>osBuildVersion</key>
+	<string>22C65</string>
+	<key>sourceVersion</key>
+	<string>670.6.2</string>
+	<key>senderSupportsRelay</key>
+	<true/>
+	<key>osVersion</key>
+	<string>13.1</string>
+	<key>timingPeerInfo</key>
+	<dict>
+		<key>ID</key>
+		<string>0996645E-DB44-4F3D-853E-6D48413D9C65</string>
+		<key>Addresses</key>
+		<array>
+			<string>192.168.2.72</string>
+			<string>fe80::14db:6e24:26a7:d0e3</string>
+		</array>
+		<key>DeviceType</key>
+		<integer>0</integer>
+		<key>SupportsClockPortMatchingOverride</key>
+		<true/>
+	</dict>
+	<key>isMultiSelectAirPlay</key>
+	<true/>
+	<key>timingPeerList</key>
+	<array>
+		<dict>
+			<key>ID</key>
+			<string>0996645E-DB44-4F3D-853E-6D48413D9C65</string>
+			<key>Addresses</key>
+			<array>
+				<string>192.168.2.72</string>
+				<string>fe80::14db:6e24:26a7:d0e3</string>
+			</array>
+			<key>DeviceType</key>
+			<integer>0</integer>
+			<key>SupportsClockPortMatchingOverride</key>
+			<true/>
+		</dict>
+	</array>
+	<key>sessionCorrelationUUID</key>
+	<string>0996645E-DB44-4F3D-853E-6D48413D9C65</string>
+	<key>groupContainsGroupLeader</key>
+	<false/>
+	<key>groupUUID</key>
+	<string>09598EC0-6BF9-486F-AC5B-3D5DE8E3C219</string>
+	<key>deviceID</key>
+	<string>BC:D0:74:73:01:1F</string>
+	<key>model</key>
+	<string>MacBookPro18,2</string>
+	<key>name</key>
+	<string>xapham</string>
+	<key>macAddress</key>
+	<string>BC:D0:74:73:01:1F</string>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 6
+Content-Length: 134
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>timingPeerInfo</key>
+	<array>
+		<dict>
+			<key>Addresses</key>
+			<array>
+				<string>192.168.2.4</string>
+			</array>
+			<key>ID</key>
+			<string>192.168.2.4</string>
+		</dict>
+	</array>
+	<key>eventPort</key>
+	<integer>41993</integer>
+	<key>timingPort</key>
+	<integer>0</integer>
+</dict>
+</plist>
+
+
+GET /info RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 7
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+X-Apple-ProtocolVersion: 1
+
+RTSP/1.0 200 OK
+CSeq: 7
+Content-Length: 619
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>audioLatencies</key>
+	<array>
+		<dict>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>default</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>102</integer>
+		</dict>
+	</array>
+	<key>keepAliveLowPower</key>
+	<true/>
+	<key>keepAliveSendStatsAsBody</key>
+	<true/>
+	<key>manufacturer</key>
+	<string>Hughey</string>
+	<key>nameIsFactoryDefault</key>
+	<false/>
+	<key>protocolVersion</key>
+	<string>1.1</string>
+	<key>sdk</key>
+	<string>AirPlay;2.0.2</string>
+	<key>sourceVersion</key>
+	<string>366.0</string>
+	<key>statusFlags</key>
+	<integer>0</integer>
+	<key>features</key>
+	<integer>0</integer>
+	<key>deviceid</key>
+	<string>02000000C0A8</string>
+	<key>pi</key>
+	<string>02:00:00:00:C0:A8</string>
+	<key>name</key>
+	<string>Pierre</string>
+	<key>model</key>
+	<string>Lights By Pierre</string>
+	<key>pk</key>
+	<string>50ee552b25f5f1f7bef547af4a9e7457abb49ee37bc630752b194542ca558884</string>
+</dict>
+</plist>
+
+
+GET_PARAMETER rtsp://192.168.2.4/11813286232877974797 RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 8
+Content-Length: 8
+Content-Type: text/parameters
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+volume
+
+
+RTSP/1.0 200 OK
+CSeq: 8
+Content-Length: 15
+Content-Type: text/parameters
+Server: AirPierre/366.0
+
+
+volume: 0.0
+
+
+RECORD rtsp://192.168.2.4/11813286232877974797 RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 9
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 9
+Server: AirPierre/366.0
+
+SETPEERSX rtsp://192.168.2.4/11813286232877974797 RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 10
+Content-Length: 265
+Content-Type: /peer-list-changed-x
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 10
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/11813286232877974797 RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 11
+Content-Length: 20
+Content-Type: text/parameters
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+volume: -20.000000
+
+
+RTSP/1.0 200 OK
+CSeq: 11
+Server: AirPierre/366.0
+
+POST /command RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 12
+Content-Length: 128
+Content-Type: application/x-apple-binary-plist
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>type</key>
+	<string>updateMRSupportedCommands</string>
+	<key>params</key>
+	<dict>
+		<key>mrSupportedCommandsFromSender</key>
+		<array/>
+	</dict>
+</dict>
+</plist>
+
+
+RTSP/1.0 400 Bad Request
+CSeq: 12
+Server: AirPierre/366.0
+
+POST /command RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 13
+Content-Length: 2644
+Content-Type: application/x-apple-binary-plist
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>type</key>
+	<string>updateMRSupportedCommands</string>
+	<key>params</key>
+	<dict>
+		<key>mrSupportedCommandsFromSender</key>
+		<array>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAAJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAEJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAIJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAMJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAQICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAUICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAgICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAoICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAsJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBEICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBIICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBQJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBUJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBYJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBcJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBgICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EHkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EHoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EH0JCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EIAJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+		</array>
+	</dict>
+</dict>
+</plist>
+
+
+RTSP/1.0 400 Bad Request
+CSeq: 13
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 14
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 14
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 15
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 15
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 16
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 16
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 17
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 17
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 18
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 18
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 19
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 19
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 20
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 20
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 21
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 21
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 2139285721
+CSeq: 22
+DACP-ID: BC803588EC9F2114
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 22
+Server: AirPierre/366.0
+
+GET /info RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 0
+Content-Length: 70
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-ProtocolVersion: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>qualifier</key>
+	<array>
+		<string>txtAirPlay</string>
+	</array>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 0
+Content-Length: 619
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>audioLatencies</key>
+	<array>
+		<dict>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>default</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>102</integer>
+		</dict>
+	</array>
+	<key>keepAliveLowPower</key>
+	<true/>
+	<key>keepAliveSendStatsAsBody</key>
+	<true/>
+	<key>manufacturer</key>
+	<string>Hughey</string>
+	<key>nameIsFactoryDefault</key>
+	<false/>
+	<key>protocolVersion</key>
+	<string>1.1</string>
+	<key>sdk</key>
+	<string>AirPlay;2.0.2</string>
+	<key>sourceVersion</key>
+	<string>366.0</string>
+	<key>statusFlags</key>
+	<integer>0</integer>
+	<key>features</key>
+	<integer>0</integer>
+	<key>deviceid</key>
+	<string>02000000C0A8</string>
+	<key>pi</key>
+	<string>02:00:00:00:C0:A8</string>
+	<key>name</key>
+	<string>Pierre</string>
+	<key>model</key>
+	<string>Lights By Pierre</string>
+	<key>pk</key>
+	<string>50ee552b25f5f1f7bef547af4a9e7457abb49ee37bc630752b194542ca558884</string>
+</dict>
+</plist>
+
+
+POST /pair-verify RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 1
+Content-Length: 37
+Content-Type: application/octet-stream
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-Client-Name: xapham
+X-Apple-HKP: 6
+X-Apple-PD: 1
+
+<<OCTET STREAM>>
+
+RTSP/1.0 500 Internal Server Error
+CSeq: 1
+Server: AirPierre/366.0
+
+POST /pair-setup RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 2
+Content-Length: 9
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-Client-Name: xapham
+X-Apple-HKP: 4
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 2
+Content-Length: 409
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+POST /pair-setup RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 3
+Content-Length: 457
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-Client-Name: xapham
+X-Apple-HKP: 4
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 3
+Content-Length: 69
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+POST /fp-setup RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 4
+Content-Length: 16
+Content-Type: application/octet-stream
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-ET: 32
+
+<<OCTET STREAM>>
+
+RTSP/1.0 200 OK
+CSeq: 4
+Content-Length: 142
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+POST /fp-setup RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 5
+Content-Length: 164
+Content-Type: application/octet-stream
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-ET: 32
+
+<<OCTET STREAM>>
+
+RTSP/1.0 200 OK
+CSeq: 5
+Content-Length: 32
+Content-Type: application/octet-stream
+Server: AirPierre/366.0
+
+<<OCTET STREAM>>
+
+SETUP rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 6
+Content-Length: 872
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>timingProtocol</key>
+	<string>PTP</string>
+	<key>statsCollectionEnabled</key>
+	<false/>
+	<key>sessionUUID</key>
+	<string>BDD01A99-B561-4E75-8DB2-B5931FED2DAF</string>
+	<key>osName</key>
+	<string>macOS</string>
+	<key>osBuildVersion</key>
+	<string>22C65</string>
+	<key>sourceVersion</key>
+	<string>670.6.2</string>
+	<key>senderSupportsRelay</key>
+	<true/>
+	<key>osVersion</key>
+	<string>13.1</string>
+	<key>timingPeerInfo</key>
+	<dict>
+		<key>ID</key>
+		<string>0996645E-DB44-4F3D-853E-6D48413D9C65</string>
+		<key>Addresses</key>
+		<array>
+			<string>192.168.2.72</string>
+			<string>fe80::14db:6e24:26a7:d0e3</string>
+		</array>
+		<key>DeviceType</key>
+		<integer>0</integer>
+		<key>SupportsClockPortMatchingOverride</key>
+		<true/>
+	</dict>
+	<key>isMultiSelectAirPlay</key>
+	<true/>
+	<key>timingPeerList</key>
+	<array>
+		<dict>
+			<key>ID</key>
+			<string>0996645E-DB44-4F3D-853E-6D48413D9C65</string>
+			<key>Addresses</key>
+			<array>
+				<string>192.168.2.72</string>
+				<string>fe80::14db:6e24:26a7:d0e3</string>
+			</array>
+			<key>DeviceType</key>
+			<integer>0</integer>
+			<key>SupportsClockPortMatchingOverride</key>
+			<true/>
+		</dict>
+	</array>
+	<key>sessionCorrelationUUID</key>
+	<string>0996645E-DB44-4F3D-853E-6D48413D9C65</string>
+	<key>groupContainsGroupLeader</key>
+	<false/>
+	<key>groupUUID</key>
+	<string>09598EC0-6BF9-486F-AC5B-3D5DE8E3C219</string>
+	<key>deviceID</key>
+	<string>BC:D0:74:73:01:1F</string>
+	<key>model</key>
+	<string>MacBookPro18,2</string>
+	<key>name</key>
+	<string>xapham</string>
+	<key>macAddress</key>
+	<string>BC:D0:74:73:01:1F</string>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 6
+Content-Length: 134
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>timingPeerInfo</key>
+	<array>
+		<dict>
+			<key>Addresses</key>
+			<array>
+				<string>192.168.2.4</string>
+			</array>
+			<key>ID</key>
+			<string>192.168.2.4</string>
+		</dict>
+	</array>
+	<key>eventPort</key>
+	<integer>36149</integer>
+	<key>timingPort</key>
+	<integer>0</integer>
+</dict>
+</plist>
+
+
+GET /info RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 7
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+X-Apple-ProtocolVersion: 1
+
+RTSP/1.0 200 OK
+CSeq: 7
+Content-Length: 619
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>audioLatencies</key>
+	<array>
+		<dict>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>default</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>102</integer>
+		</dict>
+	</array>
+	<key>keepAliveLowPower</key>
+	<true/>
+	<key>keepAliveSendStatsAsBody</key>
+	<true/>
+	<key>manufacturer</key>
+	<string>Hughey</string>
+	<key>nameIsFactoryDefault</key>
+	<false/>
+	<key>protocolVersion</key>
+	<string>1.1</string>
+	<key>sdk</key>
+	<string>AirPlay;2.0.2</string>
+	<key>sourceVersion</key>
+	<string>366.0</string>
+	<key>statusFlags</key>
+	<integer>0</integer>
+	<key>features</key>
+	<integer>0</integer>
+	<key>deviceid</key>
+	<string>02000000C0A8</string>
+	<key>pi</key>
+	<string>02:00:00:00:C0:A8</string>
+	<key>name</key>
+	<string>Pierre</string>
+	<key>model</key>
+	<string>Lights By Pierre</string>
+	<key>pk</key>
+	<string>50ee552b25f5f1f7bef547af4a9e7457abb49ee37bc630752b194542ca558884</string>
+</dict>
+</plist>
+
+
+GET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 8
+Content-Length: 8
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+volume
+
+
+RTSP/1.0 200 OK
+CSeq: 8
+Content-Length: 15
+Content-Type: text/parameters
+Server: AirPierre/366.0
+
+
+volume: 0.0
+
+
+RECORD rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 9
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 9
+Server: AirPierre/366.0
+
+SETPEERSX rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 10
+Content-Length: 265
+Content-Type: /peer-list-changed-x
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 10
+Server: AirPierre/366.0
+
+POST /command RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 11
+Content-Length: 128
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>type</key>
+	<string>updateMRSupportedCommands</string>
+	<key>params</key>
+	<dict>
+		<key>mrSupportedCommandsFromSender</key>
+		<array/>
+	</dict>
+</dict>
+</plist>
+
+
+RTSP/1.0 400 Bad Request
+CSeq: 11
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 12
+Content-Length: 20
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+volume: -20.000000
+
+
+RTSP/1.0 200 OK
+CSeq: 12
+Server: AirPierre/366.0
+
+POST /command RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 13
+Content-Length: 2644
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>type</key>
+	<string>updateMRSupportedCommands</string>
+	<key>params</key>
+	<dict>
+		<key>mrSupportedCommandsFromSender</key>
+		<array>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAAJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAEJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAIJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAMJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAQJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAUJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAgJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAsJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBEICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBIICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBQJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBUJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBYJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBcJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBgJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EHkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EHoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EH0JCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EIAJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+		</array>
+	</dict>
+</dict>
+</plist>
+
+
+RTSP/1.0 400 Bad Request
+CSeq: 13
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 14
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 14
+Server: AirPierre/366.0
+
+SETUP rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 15
+Content-Length: 271
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>streams</key>
+	<array>
+		<dict>
+			<key>audioMode</key>
+			<string>default</string>
+			<key>ct</key>
+			<integer>4</integer>
+			<key>streamConnectionID</key>
+			<integer>404194393143921333</integer>
+			<key>spf</key>
+			<integer>1024</integer>
+			<key>shk</key>
+			<data>
+			L/R+AQ52SADk1sSYvBbkOFz6400CKcUwF9Mx5dNeB3M=
+			</data>
+			<key>supportsDynamicStreamID</key>
+			<true/>
+			<key>audioFormat</key>
+			<integer>4194304</integer>
+			<key>clientID</key>
+			<string>com.apple.Music</string>
+			<key>type</key>
+			<integer>103</integer>
+		</dict>
+	</array>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 15
+Content-Length: 131
+Content-Type: application/x-apple-binary-plist
+Server: AirPierre/366.0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>streams</key>
+	<array>
+		<dict>
+			<key>type</key>
+			<integer>103</integer>
+			<key>dataPort</key>
+			<integer>40883</integer>
+			<key>audioBufferSize</key>
+			<integer>8388608</integer>
+			<key>controlPort</key>
+			<integer>45608</integer>
+		</dict>
+	</array>
+</dict>
+</plist>
+
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 16
+Content-Length: 0
+Content-Type: image/none
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3944624262
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 16
+Server: AirPierre/366.0
+
+SETRATEANCHORTIME rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 17
+Content-Length: 190
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>rate</key>
+	<integer>1</integer>
+	<key>networkTimeTimelineID</key>
+	<integer>-4841241562134413304</integer>
+	<key>networkTimeSecs</key>
+	<integer>145386</integer>
+	<key>networkTimeFrac</key>
+	<integer>8110291644244295680</integer>
+	<key>networkTimeFlags</key>
+	<integer>0</integer>
+	<key>rtpTime</key>
+	<integer>3944624256</integer>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 17
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 18
+Content-Length: 43
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3944624410
+User-Agent: AirPlay/670.6.2
+
+progress: 3944002226/3944624410/3952335538
+
+
+RTSP/1.0 200 OK
+CSeq: 18
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 19
+Content-Length: 182
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3944624688
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 19
+Server: AirPierre/366.0
+
+POST /command RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 20
+Content-Length: 2644
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>type</key>
+	<string>updateMRSupportedCommands</string>
+	<key>params</key>
+	<dict>
+		<key>mrSupportedCommandsFromSender</key>
+		<array>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAAJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAEJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAIJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAMJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAQJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAUJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAgJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EAsJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBEICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBIICA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBQJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBUJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBYJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBcJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBgJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EBoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EHkJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EHoJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EH0JCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+			<data>
+			YnBsaXN0MDDSAQIDBF8QFmtDb21tYW5kSW5mb0NvbW1hbmRLZXlf
+			EBZrQ29tbWFuZEluZm9FbmFibGVkS2V5EIAJCA0mP0EAAAAAAAAB
+			AQAAAAAAAAAFAAAAAAAAAAAAAAAAAAAAQg==
+			</data>
+		</array>
+	</dict>
+</dict>
+</plist>
+
+
+RTSP/1.0 400 Bad Request
+CSeq: 20
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 21
+Content-Length: 20
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+volume: -25.051399
+
+
+RTSP/1.0 200 OK
+CSeq: 21
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 22
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 22
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 23
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 23
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 24
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 24
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 25
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 25
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 26
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 26
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 27
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 27
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 28
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 28
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 29
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 29
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 30
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 30
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 31
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 31
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 32
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 32
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 33
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 33
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 34
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 34
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 35
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 35
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 36
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 36
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 37
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 37
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 38
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 38
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 39
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 39
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 40
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 40
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 41
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 41
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 42
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 42
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 43
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 43
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 44
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 44
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 45
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 45
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 46
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 46
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 47
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 47
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 48
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 48
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 49
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 49
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 50
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 50
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 51
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 51
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 52
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 52
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 53
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 53
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 54
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 54
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 55
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 55
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 56
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 56
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 57
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 57
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 58
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 58
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 59
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 59
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 60
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 60
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 61
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 61
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 62
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 62
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 63
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 63
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 64
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 64
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 65
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 65
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 66
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 66
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 67
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 67
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 68
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 68
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 69
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 69
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 70
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 70
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 71
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 71
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 72
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 72
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 73
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 73
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 74
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 74
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 75
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 75
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 76
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 76
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 77
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 77
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 78
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 78
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 79
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 79
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 80
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 80
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 81
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 81
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 82
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 82
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 83
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 83
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 84
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 84
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 85
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 85
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 86
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 86
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 87
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 87
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 88
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 88
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 89
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 89
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 90
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 90
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 91
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 91
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 92
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 92
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 93
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 93
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 94
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 94
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 95
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 95
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 96
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 96
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 97
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 97
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 98
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 98
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 99
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 99
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 100
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 100
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 101
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 101
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 102
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 102
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 103
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 103
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 104
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 104
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 105
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 105
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 106
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 106
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 107
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 107
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 108
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 108
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 109
+Content-Length: 153
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952365294
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 109
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 110
+Content-Length: 43
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952365876
+User-Agent: AirPlay/670.6.2
+
+progress: 3951750536/3952365876/3960252266
+
+
+RTSP/1.0 200 OK
+CSeq: 110
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 111
+Content-Length: 166
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952366068
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 111
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 112
+Content-Length: 144
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952366262
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 112
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 113
+Content-Length: 144
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952366461
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 113
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 114
+Content-Length: 43
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952366722
+User-Agent: AirPlay/670.6.2
+
+progress: 3952361821/3952366722/3961364836
+
+
+RTSP/1.0 200 OK
+CSeq: 114
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 115
+Content-Length: 144
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952366994
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 115
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 116
+Content-Length: 43
+Content-Type: text/parameters
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952367184
+User-Agent: AirPlay/670.6.2
+
+progress: 3952361915/3952367184/3961364930
+
+
+RTSP/1.0 200 OK
+CSeq: 116
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 117
+Content-Length: 144
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952367399
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 117
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 118
+Content-Length: 144
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952367536
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 118
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 119
+Content-Length: 144
+Content-Type: application/x-dmap-tagged
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952367720
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 119
+Server: AirPierre/366.0
+
+SET_PARAMETER rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 120
+Content-Length: 76450
+Content-Type: image/png
+DACP-ID: 4EDFE6E74B046EF0
+RTP-Info: rtptime=3952367950
+User-Agent: AirPlay/670.6.2
+
+
+
+RTSP/1.0 200 OK
+CSeq: 120
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 121
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 121
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 122
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 122
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 123
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 123
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 124
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 124
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 125
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 125
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 126
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 126
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 127
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 127
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 128
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 128
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 129
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 129
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 130
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 130
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 131
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 131
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 132
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 132
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 133
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 133
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 134
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 134
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 135
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 135
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 136
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 136
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 137
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 137
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 138
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 138
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 139
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 139
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 140
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 140
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 141
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 141
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 142
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 142
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 143
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 143
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 144
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 144
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 145
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 145
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 146
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 146
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 147
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 147
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 148
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 148
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 149
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 149
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 150
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 150
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 151
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 151
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 152
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 152
+Server: AirPierre/366.0
+
+SETRATEANCHORTIME rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 153
+Content-Length: 53
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>rate</key>
+	<integer>0</integer>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 153
+Server: AirPierre/366.0
+
+POST /feedback RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 154
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+RTSP/1.0 200 OK
+CSeq: 154
+Server: AirPierre/366.0
+
+TEARDOWN rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 155
+Content-Length: 84
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>streams</key>
+	<array>
+		<dict>
+			<key>streamID</key>
+			<integer>0</integer>
+			<key>type</key>
+			<integer>103</integer>
+		</dict>
+	</array>
+</dict>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 155
+Content: close
+Server: AirPierre/366.0
+
+TEARDOWN rtsp://192.168.2.4/13677461315799567989 RTSP/1.0
+Active-Remote: 1432746617
+CSeq: 156
+Content-Length: 42
+Content-Type: application/x-apple-binary-plist
+DACP-ID: 4EDFE6E74B046EF0
+User-Agent: AirPlay/670.6.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+
+
+RTSP/1.0 200 OK
+CSeq: 156
+Content: close
+Server: AirPierre/366.0
+

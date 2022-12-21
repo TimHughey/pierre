@@ -1,0 +1,117 @@
+//  Pierre - Custom Light Show for Wiss Landing
+//  Copyright (C) 2022  Tim Hughey
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  https://www.wisslanding.com
+
+#pragma once
+
+#include "base/types.hpp"
+#include "config/config.hpp"
+#include "rtsp/aplist.hpp"
+#include "rtsp/reply.hpp"
+#include "rtsp/request.hpp"
+
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <type_traits>
+
+namespace pierre {
+namespace rtsp {
+
+class Saver {
+private:
+  void format_content(const Headers &headers, const Content &content, auto &w) const noexcept {
+
+    if (headers.contains(hdr_type::ContentType)) {
+      const auto type = headers(hdr_type::ContentType);
+
+      if (type == hdr_val::AppleBinPlist) {
+        Aplist(content).format_to(w);
+
+      } else if (type == hdr_val::TextParameters) {
+        std::copy_n(content.begin(), content.size(), w);
+
+      } else if (type == hdr_val::OctetStream) {
+        fmt::format_to(w, "<<OCTET STREAM>>");
+      }
+
+      fmt::format_to(w, "{}{}", separator, separator);
+    }
+  }
+
+public:
+  Saver() noexcept : enable(Config().at("debug.rtsp.save"sv).value_or(false)) {}
+
+  template <typename T> void format_and_write(const T &r) noexcept {
+
+    if (enable) {
+      using U = std::remove_cvref_t<T>;
+
+      uint8v buff;
+      auto w = std::back_inserter(buff);
+
+      if constexpr (std::is_same_v<U, Request>) {
+
+        fmt::format_to(w, "{} {} RTSP/1.0{}", r.headers.method(), r.headers.path(), separator);
+      } else if constexpr (std::is_same_v<U, Reply>) {
+        fmt::format_to(w, "RTSP/1.0 {}{}", r.resp_code(), separator);
+      }
+
+      r.headers.list(w);
+      fmt::format_to(w, "{}", separator);
+      format_content(r.headers, r.content, w);
+
+      write(buff);
+    }
+  }
+
+  void write(const uint8v &buff) const noexcept {
+    const auto base = Config().at("debug.path"sv).value_or(string());
+    const auto file = Config().at("debug.rtsp.file"sv).value_or(string());
+
+    namespace fs = std::filesystem;
+    fs::path path{fs::current_path()};
+    path.append(base);
+
+    try {
+      fs::create_directories(path);
+
+      fs::path full_path(path);
+      full_path.append(file);
+
+      std::ofstream out(full_path, std::ios::app);
+
+      out.write(buff.raw<char>(), buff.size());
+
+    } catch (const std::exception &e) {
+      INFO(module_id, "RTSP_SAVE", "exception, {}\n", e.what());
+    }
+  }
+
+private:
+  const bool enable;
+  static constexpr csv separator{"\r\n"};
+
+public:
+  static constexpr csv module_id{"rtsp::SAVER"};
+};
+
+} // namespace rtsp
+
+} // namespace pierre

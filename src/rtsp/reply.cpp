@@ -17,8 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/reply.hpp"
-#include "rtsp/aes_ctx.hpp"
-#include "rtsp/aplist.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -27,6 +25,8 @@
 #include "frame/racked.hpp"
 #include "headers.hpp"
 #include "mdns/mdns.hpp"
+#include "rtsp/aes_ctx.hpp"
+#include "rtsp/aplist.hpp"
 #include "rtsp/ctx.hpp"
 #include "rtsp/replies/command.hpp"
 #include "rtsp/replies/dict_kv.hpp"
@@ -220,11 +220,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     std::copy(content.begin(), content.end(), w);
   }
 
-  // INFO(module_id, "REPLY", "path={} method={}\n", path(), method());
-  // _content.dump();
-
   log_reply(request, resp_code(), wire);
-  save(); // no op unless enabled by external configuration file
 }
 
 // misc debug

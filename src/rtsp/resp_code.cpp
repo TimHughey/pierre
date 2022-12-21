@@ -36,7 +36,7 @@ std::map<RespCode::code_val, string> RespCode::txt_map{
     // extra comma for ease of IDE sorting
 };
 
-const string RespCode::operator()() noexcept {
+const string RespCode::operator()() const noexcept {
   return fmt::format("{:d} {}", val, txt_map.at(val));
 }
 

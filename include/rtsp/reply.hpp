@@ -41,6 +41,9 @@ class Ctx;
 
 class Reply {
 
+public:
+  friend class Saver;
+
   // Building the response:
   // 1. Include CSeq header from request
   // 2. Include Server header
@@ -95,7 +98,7 @@ public:
   Headers headers;
   Content content;
 
-private:
+protected:
   RespCode resp_code{RespCode::NotImplemented};
   uint8v wire;
 

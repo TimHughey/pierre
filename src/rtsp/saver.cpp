@@ -16,31 +16,14 @@
 //
 //  https://www.wisslanding.com
 
-#include "content.hpp"
+#include "saver.hpp"
 #include "base/logger.hpp"
-#include "headers.hpp"
+#include "config/config.hpp"
 
-#include <iomanip>
+#include <filesystem>
+#include <fstream>
 
 namespace pierre {
-
-void Content::dump() const {
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  fmt::format_to(w, "type={} bytes={} ", type, size());
-
-  if (type == hdr_val::TextParameters) {
-    fmt::format_to(w, "parameters='{}'", make_single_line());
-  } else if (is_multi_line()) {
-    fmt::format_to(w, "\n{}{}", INFO_TAB, inspect());
-  } else if (size() == 0) {
-    fmt::format_to(w, "CONTENT EMPTY");
-  } else {
-    fmt::format_to(w, "val='{}'", inspect()); // output inspect msg on the same line
-  }
-
-  INFO(moduleId(), "DUMP", "{}\n", msg);
-}
+namespace rtsp {} // namespace rtsp
 
 } // namespace pierre

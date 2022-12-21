@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "rtsp/content.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "rtsp/content.hpp"
 
 #include <array>
 #include <cstdarg>
@@ -99,6 +99,21 @@ public:
   bool existsAll(const KeyList &key_list);
 
   plist_t fetchNode(const Steps &steps, plist_type type = PLIST_DICT) const;
+
+  void format_to(auto &w) const noexcept {
+    char *xml{nullptr};
+    uint32_t bytes{0};
+
+    plist_to_xml(_plist, &xml, &bytes);
+
+    if (bytes) {
+      fmt::format_to(w, "{}", xml);
+    } else {
+      fmt::format_to(w, "<<failed to format plist as xml>>");
+    }
+
+    plist_to_xml_free(xml);
+  }
 
   bool ready() const { return _plist != nullptr; }
 

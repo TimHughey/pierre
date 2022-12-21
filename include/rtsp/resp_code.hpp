@@ -51,7 +51,7 @@ public:
   }
 
   void operator()(code_val v) noexcept { val = v; }
-  const string operator()() noexcept;
+  const string operator()() const noexcept;
   auto operator<=>(const RespCode &resp_code) const = default;
 
   /// @brief Test equality of a RespCode to a code_val

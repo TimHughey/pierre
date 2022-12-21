@@ -16,12 +16,13 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtsp/session.hpp"
+#include "session.hpp"
 #include "base/elapsed.hpp"
 #include "config/config.hpp"
 #include "content.hpp"
-#include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
+#include "reply.hpp"
+#include "request.hpp"
+#include "saver.hpp"
 #include "stats/stats.hpp"
 
 #include <algorithm>
@@ -104,7 +105,7 @@ void Session::do_packet(Elapsed &&e) noexcept {
   // ok, we now have the headers and content (if applicable)
   // create and send the reply
 
-  request.save(packet); // noop when config enable=false
+  Saver().format_and_write(request); // noop when config enable=false
 
   // update rtsp_ctx
   ctx->update_from(request.headers);
@@ -120,6 +121,8 @@ void Session::do_packet(Elapsed &&e) noexcept {
     async_read_request(transfer_initial());
     return;
   }
+
+  Saver().format_and_write(reply);
 
   // reply has content to send
   ctx->aes_ctx.encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
