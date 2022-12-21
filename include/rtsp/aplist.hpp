@@ -42,7 +42,6 @@ public:
 
   using ArrayStrings = std::vector<string>;
   using ArrayDicts = std::vector<Aplist>;
-  using Binary = std::unique_ptr<uint8_t[]>;
   using ConstArrayDicts = std::vector<const Aplist &>;
   using Dictionaries = std::vector<ccs>;
   using KeyList = std::vector<string_view>;
@@ -87,7 +86,6 @@ public:
 
   // general API
   bool boolVal(const Steps &steps) const;
-  Binary toBinary(size_t &bytes) const;
 
   bool compareString(csv key, csv val) const;
   bool compareStringViaPath(csv val, uint32_t path_count, ...) const;
@@ -99,6 +97,8 @@ public:
   bool existsAll(const KeyList &key_list);
 
   plist_t fetchNode(const Steps &steps, plist_type type = PLIST_DICT) const;
+
+  void format_to(Content &content) const noexcept;
 
   void format_to(auto &w) const noexcept {
     char *xml{nullptr};

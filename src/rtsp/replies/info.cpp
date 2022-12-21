@@ -68,11 +68,7 @@ Info::Info([[maybe_unused]] Request &request, Reply &reply, Ctx *ctx) noexcept {
 
   // finally, convert the plist dictionary to binary and store as
   // content for inclusion in reply
-
-  size_t bytes = 0;
-  auto binary = reply_dict.toBinary(bytes);
-  reply.copy_to_content(binary.get(), bytes);
-
+  reply_dict.format_to(reply.content);
   reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
   reply(RespCode::OK);

@@ -78,17 +78,6 @@ bool Aplist::boolVal(const Steps &steps) const {
   return false;
 }
 
-Aplist::Binary Aplist::toBinary(size_t &bytes) const {
-  char *data = nullptr;
-  uint32_t len = 0;
-
-  plist_to_bin(_plist, &data, &len);
-
-  bytes = (size_t)len;
-
-  return Binary((uint8_t *)data);
-}
-
 bool Aplist::compareString(csv key, csv val) const {
   auto found = plist_dict_get_item(_plist, key.data());
 
@@ -177,6 +166,22 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
   });
 
   return (node && (type == plist_get_node_type(node))) ? node : nullptr;
+}
+
+void Aplist::format_to(Content &content) const noexcept {
+  char *data = nullptr;
+  uint32_t len = 0;
+
+  plist_to_bin(_plist, &data, &len);
+
+  if (len > 0) {
+    auto w = std::back_inserter(content);
+    std::copy_n(data, len, w);
+  } else {
+    INFO(module_id, "FORMAT_TO", "failed, len={}\n", len);
+  }
+
+  plist_to_bin_free(data);
 }
 
 plist_t Aplist::getItem(csv key) const {
