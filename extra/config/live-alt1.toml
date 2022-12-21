@@ -6,8 +6,8 @@ working_dir = ".pierre" # cwd to this directory at startup
 # build_time = ""       # (runtime) datetime of build
 
 [cli]
-# NOTE: cli table is not a source of config, rather it holds
-#       command line opts passed at startup and populated at runtime
+# NOTE: cli table is not a source of config, rather it is populated
+#       at runtime based on command line opts and shell environmeny
 #
 # app_name = "" # typically basename() of the app
 # cfg_file = "" # could be this file or another specified by cli opt

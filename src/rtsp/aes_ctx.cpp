@@ -20,7 +20,7 @@
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
-#include "rtsp/reply.hpp"
+#include "reply.hpp"
 
 #include <algorithm>
 #include <cstdlib>

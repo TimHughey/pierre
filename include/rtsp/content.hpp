@@ -31,14 +31,11 @@ class Content : public uint8v {
 public:
   Content() = default;
 
-  // bool operator==(const string &t) const noexcept { return t == type; }
-
   // misc debug
-  void dump() const override;
   virtual csv moduleId() const override { return module_id; }
 
 public:
-  string type;
+  // string type;
 
   static constexpr csv module_id{"CONTENT"};
 };

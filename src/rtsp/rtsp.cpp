@@ -21,8 +21,8 @@
 #include "base/logger.hpp"
 #include "config/config.hpp"
 #include "mdns/features.hpp"
-#include "rtsp/replies/info.hpp"
-#include "rtsp/session.hpp"
+#include "replies/info.hpp"
+#include "session.hpp"
 #include "stats/stats.hpp"
 
 #include <latch>

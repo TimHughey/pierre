@@ -72,7 +72,11 @@ public:
 
   // early definitions for type deductions
 public:
-  // add a header type and value to the map
+  /// @brief Add the specified header type and value
+  /// @tparam T Integral type or string
+  /// @param t Header Type (hdr_type)
+  /// @param v Value
+  /// @return auto
   template <typename T> auto add(const string &t, const T &v) noexcept {
 
     // converts integrals to strings or copies the string for emplacement
@@ -93,12 +97,17 @@ public:
     }
   }
 
+  /// @brief Determine if a header type has a value
+  /// @param t Header Type (hdr_type)
+  /// @return boolean indicating header type has a value
   bool contains(const string &t) const noexcept { return map.contains(t); }
 
-  // get the value of a header type as a string
-  // alternative to val() for header types with string values
-  template <typename T = string> const T operator()(const string &t) const noexcept {
-    return val<string>(t);
+  /// @brief Format the known headers to the specified location
+  /// @param where Any type accepted by fmt::format_to
+  void format_to(auto &where) const noexcept {
+    std::ranges::for_each(map, [&](const auto &entry) {
+      fmt::format_to(where, "{}: {}\r\n", entry.first, entry.second);
+    });
   }
 
   // get the value of a header type as a string (default) or an integral
@@ -106,6 +115,13 @@ public:
   // converted to an integral value
   //
   // returns: a copy of the value of the header type
+
+  /// @brief Get the value of a header
+  /// @tparam T Type of desired return value
+  /// @param t Header Type (hdr_type)
+  /// @return Value of header
+  /// @throws if header type does not exist or value can not be converted
+  ///         to specified type
   template <typename T = string> const T val(const string &t) const {
     const auto &v = map.at(t);
 
@@ -125,30 +141,19 @@ public:
     }
   }
 
-public:
-  // get the value of the header type from other and add to this object
+  /// @brief Copy header value of specified header type into this object
+  /// @param t Header Type (hdr_type)
+  /// @param from Header object to copy value from
   void copy(const string &t, const Headers &from) noexcept { map.try_emplace(t, from.map.at(t)); }
 
-  // member functions that act on the entire container
-
-  void dump() const;
-
-  void list(auto &where) const {
-    std::ranges::for_each(map, [&](const auto &entry) {
-      fmt::format_to(where, "{}: {}\r\n", entry.first, entry.second);
-    });
-  }
-
-  // invoked one or more times to parses the packet headers using the delims provided
-  //
-  // when delims size is:
-  // 1. zero - immediately returns, not enough bytes to parse method
-  // 2. one  - parses the method line
-  // 2. two  - parses the header block
-  //
-  // returns:
-  // 1. true  - parsing complete (method and header block)
-  // 2. false - parsing incomplete (delims incomplete)
+  /// @brief Invoked one or more times to parse the packet headers
+  /// @param packet Clear text packet to parse
+  /// @param delims Delimiters of header section of packet.
+  ///    Delimiter count decides if header can be parsed.
+  ///    zero - immediately returns, not enough bytes to parse method;
+  ///    one  - parses the method line
+  ///    two  - parses the header block
+  /// @return boolean indicating if parsing is complete
   bool parse(uint8v &packet, const uint8v::delims_t &delims) noexcept;
 
   // preamble info

@@ -18,8 +18,6 @@
 
 #include "headers.hpp"
 #include "base/logger.hpp"
-#include "base/types.hpp"
-#include "content.hpp"
 
 #include <algorithm>
 #include <array>
@@ -115,18 +113,6 @@ bool Headers::parse(uint8v &packet, const uint8v::delims_t &delims) noexcept {
   parse_ok = true;
 
   return parse_ok;
-}
-
-void Headers::dump() const {
-  fmt::print("\n");
-
-  fmt::print("HEADER DUMP method={} path={}\n", _method, _path);
-
-  string header_list;
-  auto where = std::back_inserter(header_list);
-
-  list(where);
-  fmt::print("{}\n", header_list);
 }
 
 // initialize static data

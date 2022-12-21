@@ -36,10 +36,11 @@ namespace rtsp {
 
 class Saver {
 private:
+  // early decl due to auto
   void format_content(const Headers &headers, const Content &content, auto &w) const noexcept {
 
     if (headers.contains(hdr_type::ContentType)) {
-      const auto type = headers(hdr_type::ContentType);
+      const auto type = headers.val(hdr_type::ContentType);
 
       if (type == hdr_val::AppleBinPlist) {
         Aplist(content).format_to(w);
@@ -73,7 +74,7 @@ public:
         fmt::format_to(w, "RTSP/1.0 {}{}", r.resp_code(), separator);
       }
 
-      r.headers.list(w);
+      r.headers.format_to(w);
       fmt::format_to(w, "{}", separator);
       format_content(r.headers, r.content, w);
 
@@ -105,7 +106,7 @@ public:
   }
 
 private:
-  const bool enable;
+  bool enable{false};
   static constexpr csv separator{"\r\n"};
 
 public:

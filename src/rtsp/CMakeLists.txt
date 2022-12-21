@@ -18,7 +18,6 @@ add_library(${__target} SHARED
   aes_ctx.cpp
 
   # rtsp message support
-  content.cpp
   headers.cpp
   resp_code.cpp
 
@@ -26,7 +25,6 @@ add_library(${__target} SHARED
   audio.cpp 
   ctx.cpp
   reply.cpp
-  request.cpp
   rtsp.cpp 
   session.cpp
 

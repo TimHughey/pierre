@@ -90,10 +90,6 @@ public:
 
   void set_resp_code(RespCode::code_val val) noexcept { resp_code(val); }
 
-  // misc debug
-  void dump() const noexcept;
-  void log_reply(const Request &request, csv resp_text, const uint8v &packet) noexcept;
-
 public:
   Headers headers;
   Content content;

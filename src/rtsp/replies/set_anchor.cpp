@@ -16,12 +16,12 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtsp/replies/set_anchor.hpp"
+#include "replies/set_anchor.hpp"
 #include "base/logger.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_data.hpp"
 #include "frame/racked.hpp"
-#include "rtsp/replies/dict_kv.hpp"
+#include "replies/dict_kv.hpp"
 
 namespace pierre {
 namespace rtsp {

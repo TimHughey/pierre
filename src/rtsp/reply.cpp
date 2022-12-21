@@ -20,7 +20,6 @@
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/racked.hpp"
 #include "headers.hpp"
@@ -36,8 +35,6 @@
 #include "rtsp/replies/setup.hpp"
 
 #include <algorithm>
-#include <filesystem>
-#include <fstream>
 #include <iterator>
 
 namespace pierre {
@@ -55,7 +52,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   const auto &method = request.headers.method();
   const auto &path = request.headers.path();
 
-  // all replies must include CSeq and Server headers, copy them now
+  // all replies must include CSeq and Server headers, copy/add them now
   headers.copy(hdr_type::CSeq, request.headers);
   headers.add(hdr_type::Server, hdr_val::AirPierre);
 
@@ -211,62 +208,13 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     headers.add(hdr_type::ContentLength, content.size());
   }
 
-  headers.list(w);
+  headers.format_to(w);
 
-  // always write the separator between heqders and content
+  // always write the separator between headers and content
   fmt::format_to(w, "{}", seperator);
 
   if (content.empty() == false) { // we have content, add it
     std::copy(content.begin(), content.end(), w);
-  }
-
-  log_reply(request, resp_code(), wire);
-}
-
-// misc debug
-void Reply::dump() const noexcept { headers.dump(); }
-
-void Reply::log_reply(const Request &request, csv resp_text, const uint8v &wire) noexcept {
-  // static constexpr std::array no_log{csv{"ALL"}};
-
-  static constexpr std::array no_log{
-      csv{"GET"},       csv{"GET_PARAMETER"}, csv{"RECORD"},
-      csv{"SETPEERSX"}, csv{"SET_PARAMETER"}, csv{"POST"},
-      csv{"SETUP"},     csv{"FEEDBACK"},      csv{"SETRATEANCHORTIME"},
-      csv{"TEARDOWN"},  csv{"FLUSHBUFFERED"}};
-
-  const auto &method = request.headers.method();
-  const auto &path = request.headers.path();
-
-  if (std::none_of(no_log.begin(), no_log.end(), [&](csv m) { return method == m; })) {
-    INFO(module_id, "DETAILS", "cseq={:>4} size={:>4} rc={:<15} method={:<19} path={}\n", //
-         headers.val<int64_t>(hdr_type::CSeq), wire.size(), resp_text, method, path);
-  }
-}
-
-void Reply::save() noexcept {
-
-  if (Config().at("debug.rtsp.save"sv).value_or(false)) {
-    const auto base = Config().at("debug.path"sv).value_or(string());
-    const auto file = Config().at("debug.rtsp.file"sv).value_or(string());
-
-    namespace fs = std::filesystem;
-    fs::path path{fs::current_path()};
-    path.append(base);
-
-    try {
-      fs::create_directories(path);
-
-      fs::path full_path(path);
-      full_path.append(file);
-
-      std::ofstream out(full_path, std::ios::app);
-
-      out.write(wire.raw<char>(), wire.size());
-
-    } catch (const std::exception &e) {
-      INFO(module_id, "RTSP_SAVE", "exception, {}\n", e.what());
-    }
   }
 }
 

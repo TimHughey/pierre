@@ -16,14 +16,14 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtsp/replies/info.hpp"
+#include "replies/info.hpp"
 #include "aplist.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
+#include "ctx.hpp"
 #include "mdns/service.hpp"
-#include "rtsp/ctx.hpp"
-#include "rtsp/replies/dict_kv.hpp"
+#include "replies/dict_kv.hpp"
 
 #include <filesystem>
 #include <fstream>

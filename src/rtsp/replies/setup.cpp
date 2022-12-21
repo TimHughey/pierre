@@ -16,14 +16,14 @@
 //
 // https://www.wisslanding.com
 
-#include "rtsp/replies/setup.hpp"
+#include "replies/setup.hpp"
 #include "base/host.hpp"
 #include "config/config.hpp"
+#include "ctx.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/mdns.hpp"
 #include "mdns/service.hpp"
-#include "rtsp/ctx.hpp"
-#include "rtsp/replies/dict_kv.hpp"
+#include "replies/dict_kv.hpp"
 
 #include <algorithm>
 #include <iterator>

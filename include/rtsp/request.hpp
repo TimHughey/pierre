@@ -18,10 +18,10 @@
 
 #pragma once
 
-#include "rtsp/content.hpp"
-#include "rtsp/headers.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "rtsp/content.hpp"
+#include "rtsp/headers.hpp"
 
 namespace pierre {
 namespace rtsp {
@@ -34,8 +34,6 @@ public:
     content = Content();
     headers = Headers();
   }
-
-  void save(const uint8v &wire) noexcept;
 
 public:
   Content content;

@@ -16,12 +16,12 @@
 //
 //  https://www.wisslanding.com
 
-#include "rtsp/ctx.hpp"
+#include "ctx.hpp"
+#include "audio.hpp"
+#include "control.hpp"
+#include "event.hpp"
 #include "frame/anchor.hpp"
 #include "mdns/mdns.hpp"
-#include "rtsp/audio.hpp"
-#include "rtsp/control.hpp"
-#include "rtsp/event.hpp"
 
 namespace pierre {
 
