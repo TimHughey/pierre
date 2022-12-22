@@ -23,23 +23,22 @@
 
 namespace pierre {
 
-class Pierre {
+class App {
 public:
-  Pierre() noexcept : guard(std::make_unique<work_guard>(io_ctx.get_executor())) {}
+  App() noexcept : guard(asio::make_work_guard(io_ctx)) {}
 
-  Pierre &init(int argc, char *argv[]) noexcept;
-  void run() noexcept;
+  int main(int argc, char *argv[]) noexcept;
 
 private:
   // order dependent
   io_context io_ctx;
-  std::unique_ptr<work_guard> guard;
+  work_guard guard;
 
   // order independent
   bool args_ok{false};
 
 public:
-  static constexpr csv module_id{"PIERRE"};
+  static constexpr csv module_id{"APP"};
 };
 
 } // namespace pierre

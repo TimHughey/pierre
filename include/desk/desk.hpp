@@ -41,7 +41,7 @@ private:
   auto ptr() noexcept { return shared_from_this(); }
 
 public:
-  static void init() noexcept; // in .cpp to hide Config()
+  static void init() noexcept; // in .cpp to hide DmxCtrl()
 
   static void shutdown() noexcept;
 

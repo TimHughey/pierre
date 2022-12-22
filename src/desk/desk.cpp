@@ -158,7 +158,7 @@ void Desk::init() noexcept {
     self->active_fx = std::make_shared<fx::Standby>(io_ctx);
     Racked::init();
 
-    const auto num_threads = Config().at("desk.threads"sv).value_or(3);
+    const auto num_threads = config()->at("desk.threads"sv).value_or(3);
     std::latch latch(num_threads);
 
     // note: work guard created by constructor

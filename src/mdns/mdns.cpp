@@ -96,15 +96,13 @@ void mDNS::browser_remove(const string name) noexcept {
   avahi_threaded_poll_unlock(mdns::_tpoll);
 }
 
-void mDNS::init(io_context &io_ctx) noexcept { // static
+void mDNS::init() noexcept { // static
   if (shared::mdns.has_value() == false) {
-    shared::mdns.emplace(io_ctx).init_self();
+    shared::mdns.emplace().init_self();
   }
 }
 
 void mDNS::init_self() {
-
-  service = Service::create();
   service->init();
 
   const auto qualifier = service->make_txt_string(txt_type::AirPlayTCP);
@@ -124,7 +122,7 @@ void mDNS::init_self() {
   }
 
   if (error.empty()) {
-    string stype = Config().table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
+    string stype = config()->table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
     mDNS::browse(stype);
   } else {
     INFO(module_id, "INIT", "error={}\n", error);

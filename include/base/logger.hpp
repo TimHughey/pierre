@@ -31,48 +31,37 @@
 
 namespace pierre {
 
-class Logger;
-namespace shared {
-extern std::optional<Logger> logger;
-}
-
-#define INFO(mod_id, cat, format, ...)                                                             \
-  pierre::shared::logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
-
-#define INFOX(mod_id, cat, format, ...)
-
-#define INFO_FORMAT_CHUNK(data, size) pierre::shared::logger->format_chunk(data, size)
-#define INFO_INDENT_CHUNK(chunk) pierre::shared::logger->indent_chunk(chunk)
-#define INFO_TAB pierre::shared::logger->tab()
-#define INFO_WITH_CHUNK(mod_id, cat, chunk, format, ...)                                           \
-  pierre::shared::logger->info_with_chunk(mod_id, cat, chunk, FMT_STRING(format), ##__VA_ARGS__)
-
-class Logger {
+class Logger : public std::enable_shared_from_this<Logger> {
 private:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
-public:
-  Logger() = default;
+private:
+  Logger(io_context &io_ctx) noexcept               //
+      : io_ctx(io_ctx),                             //
+        local_strand(io_ctx),                       //
+        indent(fmt::format("{:>{}} {:>{}} {:>{}} ", // pre-compute indent string
+                           SPACE, width_ts, SPACE, width_mod, SPACE, width_cat)) {}
 
+  auto ptr() noexcept { return shared_from_this(); }
+
+public:
   const string format_chunk(ccs data, size_t bytes) const noexcept;
 
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
     if (!io_ctx.stopped()) {
-      asio::post(io_ctx, [=, this,       //
-                          e = runtime(), //
-                          msg = fmt::vformat(
-                              format, fmt::make_args_checked<Args...>(format, args...))]() mutable {
-        // print the log message
-        fmt::print(line_format,                     //
-                   e, width_ts, width_ts_precision, // runtime + width and precision
-                   mod_id, width_mod,               // module_id + width
-                   cat, width_cat,                  // category + width
-                   msg);
-
-        if (stop_token.stop_requested()) guard.reset();
-      });
+      asio::post(
+          local_strand,
+          [=, s = ptr(), e = runtime(),
+           msg = fmt::vformat(format, fmt::make_args_checked<Args...>(format, args...))]() mutable {
+            // print the log message
+            fmt::print(line_format,                     //
+                       e, width_ts, width_ts_precision, // runtime + width and precision
+                       mod_id, width_mod,               // module_id + width
+                       cat, width_cat,                  // category + width
+                       msg);
+          });
     } else {
       fmt::print(line_format,                             //
                  runtime(), width_ts, width_ts_precision, //
@@ -87,23 +76,20 @@ public:
                        Args &&...args) {
 
     if (!io_ctx.stopped()) {
-      asio::post(io_ctx, [=, this,       //
-                          e = runtime(), //
-                          chunk = string(std::data(chunk), std::size(chunk)),
-                          msg = fmt::vformat(
-                              format, fmt::make_args_checked<Args...>(format, args...))]() mutable {
-        // print the initial log message with prefix
-        fmt::print(line_format,                     //
-                   e, width_ts, width_ts_precision, // runtime + width and precision
-                   mod_id, width_mod,               // module_id + width
-                   cat, width_cat,                  // category + width
-                   msg);
+      asio::post(
+          local_strand,
+          [=, s = ptr(), e = runtime(), chunk = string(std::data(chunk), std::size(chunk)),
+           msg = fmt::vformat(format, fmt::make_args_checked<Args...>(format, args...))]() mutable {
+            // print the initial log message with prefix
+            fmt::print(line_format,                     //
+                       e, width_ts, width_ts_precision, // runtime + width and precision
+                       mod_id, width_mod,               // module_id + width
+                       cat, width_cat,                  // category + width
+                       msg);
 
-        // print the chunk, indented
-        print_chunk(chunk);
-
-        if (stop_token.stop_requested()) guard.reset();
-      });
+            // print the chunk, indented
+            s->print_chunk(chunk);
+          });
     } else {
       fmt::print(line_format,                             //
                  runtime(), width_ts, width_ts_precision, //
@@ -113,11 +99,25 @@ public:
     }
   }
 
-  static void init();
+  /// @brief Initialize Logger subsystem
+  /// @param io_ctx io_context for async logging when external cfg threads=0
+  static void init(io_context &io_ctx) noexcept {
+    self = std::shared_ptr<Logger>(new Logger(io_ctx));
+  }
 
   const string &tab() const noexcept { return indent; }
 
-  static void teardown() noexcept;
+  static void teardown() noexcept {
+    auto s = self->ptr();                 // get a fresh shared_ptr to ourself
+    auto &local_strand = s->local_strand; // get a reference to our strand, we'll move s
+
+    self.reset(); // reset our static shared_ptr to ourself
+
+    asio::post(local_strand, [s = std::move(s)]() {
+      // keeps Logger in-scope until lambda completes
+      // future implementation
+    });
+  }
 
 private:
   void init_self();
@@ -126,9 +126,9 @@ private:
 
 private:
   // order dependent
-  io_context io_ctx;
-  std::unique_ptr<work_guard> guard;
-  Thread thread;
+  io_context &io_ctx;
+  strand local_strand;
+  const string indent;
 
   // order independent
   static constexpr csv SPACE{" "};
@@ -138,8 +138,20 @@ private:
   static constexpr int width_ts_precision{1};
   static constexpr int width_ts{13};
   static Elapsed elapsed_runtime;
-  std::stop_token stop_token;
-  string indent;
+
+public:
+  static std::shared_ptr<Logger> self; // must be public for macro
 };
+
+#define INFO(mod_id, cat, format, ...)                                                             \
+  Logger::self->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
+
+#define INFOX(mod_id, cat, format, ...)
+
+#define INFO_FORMAT_CHUNK(data, size) Logger::self->format_chunk(data, size)
+#define INFO_INDENT_CHUNK(chunk) Logger::self->indent_chunk(chunk)
+#define INFO_TAB Logger::self->tab()
+#define INFO_WITH_CHUNK(mod_id, cat, chunk, format, ...)                                           \
+  Logger::self->info_with_chunk(mod_id, cat, chunk, FMT_STRING(format), ##__VA_ARGS__)
 
 } // namespace pierre

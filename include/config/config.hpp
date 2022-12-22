@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/threads.hpp"
+#include "base/io.hpp"
 #include "base/types.hpp"
 #include "config/types.hpp"
 
@@ -39,16 +39,21 @@ namespace {
 namespace fs = std::filesystem;
 }
 
-class Config {
-public:
-  Config() = default;
+class Config : public std::enable_shared_from_this<Config> {
+private:
+  Config(io_context &io_ctx, int argc, char **argv) noexcept; // must be in .cpp to hide ArgsMap
 
-  // initialization and setup
-  static Config init(int argc, char **argv) noexcept;
-  bool ready() const noexcept { return initialized; }
+public:
+  static auto init(io_context &io_ctx, int argc, char *argv[]) noexcept {
+    if (self.use_count() < 1) {
+      self = std::shared_ptr<Config>(new Config(io_ctx, argc, argv));
+    }
+
+    return ptr();
+  }
 
   // raw, direct access
-  template <typename P> const auto at(P p) const noexcept {
+  template <typename P> const auto at(P p) noexcept {
     std::shared_lock slk(mtx, std::defer_lock);
     slk.lock();
 
@@ -60,14 +65,18 @@ public:
     }
   }
 
-  const toml::table &table() const noexcept {
+  static std::shared_ptr<Config> ptr() noexcept { return self->shared_from_this(); }
+
+  static bool ready() noexcept { return self->initialized; }
+
+  const toml::table &table() noexcept {
     std::shared_lock slk(mtx, std::defer_lock);
     slk.lock();
 
     return tables.front();
   }
 
-  template <typename P> const auto table_at(P p) const noexcept {
+  template <typename P> const auto table_at(P p) noexcept {
     std::shared_lock slk(mtx, std::defer_lock);
     slk.lock();
 
@@ -80,55 +89,63 @@ public:
   }
 
   // specific accessors
-  const string app_name() const noexcept { return at(cli("app_name"sv)).value_or(UNSET); }
-  const string build_time() const noexcept { return at(base(BUILD_TIME)).value_or(UNSET); };
-  const string build_vsn() const noexcept { return at("base.build_vsn"sv).value_or(UNSET); };
-  const string config_vsn() const noexcept { return at("base.config_vsn"sv).value_or(UNSET); }
-  fs::path fs_exec_path() const noexcept {
+  const string app_name() noexcept { return at(cli("app_name"sv)).value_or(UNSET); }
+  const string build_time() noexcept { return at(base(BUILD_TIME)).value_or(UNSET); };
+  const string build_vsn() noexcept { return at("base.build_vsn"sv).value_or(UNSET); };
+  const string config_vsn() noexcept { return at("base.config_vsn"sv).value_or(UNSET); }
+  fs::path fs_exec_path() noexcept {
     return fs::path(at(cli("exec_path"sv)).value_or(string("/")));
   }
 
-  fs::path fs_parent_path() const noexcept {
+  fs::path fs_parent_path() noexcept {
     return fs::path(at(cli("parent_path"sv)).value_or(string("/")));
   }
 
   static bool has_changed(cfg_future &fut) noexcept;
 
-  const string receiver() const noexcept; // see .cpp, uses Host
+  void monitor_file() noexcept;
 
-  static bool should_start() noexcept { return will_start; }
+  const string receiver() noexcept; // see .cpp, uses Host
+
+  static bool should_start() noexcept { return self->will_start; }
 
   static void want_changes(cfg_future &fut) noexcept;
   const string working_dir() noexcept { return table_at("base.working_dir"sv).value_or(UNSET); }
 
 private:
   // path builders
-  const toml::path cli(auto key) const noexcept { return toml::path(CLI).append(key); }
-  const toml::path base(csv key) const noexcept { return toml::path{"base"sv}.append(key); }
+  const toml::path cli(auto key) noexcept { return toml::path(CLI).append(key); }
+  const toml::path base(csv key) noexcept { return toml::path{"base"sv}.append(key); }
 
-  static bool parse() noexcept;
-  static void monitor_file() noexcept;
+  bool parse() noexcept;
 
 private:
-  static bool initialized;
-  static bool will_start;
-  static cfg_future change_fut;
-  static constexpr int CONFIG_THREADS{1};
-  static fs::path full_path;
-  static std::filesystem::file_time_type last_write;
-  static std::list<toml::table> tables;
-  static std::optional<std::promise<bool>> change_proms;
-  static std::shared_mutex mtx;
-  static Threads threads;
+  // order dependent
+  io_context &io_ctx;
+  steady_timer file_timer;
+  bool initialized;
+  bool will_start;
+  const string home_dir;
 
+  // order independent
+  fs::path full_path;
+  cfg_future change_fut;
+  fs::file_time_type last_write;
+  std::list<toml::table> tables;
+  std::optional<std::promise<bool>> change_proms;
+  std::shared_mutex mtx;
+
+  // class static data
+  static std::shared_ptr<Config> self;
   static constexpr csv BASE{"base"};
   static constexpr csv BUILD_TIME{"build_time"};
   static constexpr csv CLI{"cli"};
   static constexpr ccs UNSET{"?"};
 
 public:
-  static constexpr csv TASK_NAME{"Config"};
   static constexpr csv module_id{"CONFIG"};
 };
+
+inline std::shared_ptr<Config> config() noexcept { return Config::ptr(); }
 
 } // namespace pierre

@@ -234,7 +234,7 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
 
 void MajorPeak::load_config() noexcept {
   // cache the config
-  auto mp = Config().at("fx.majorpeak"sv);
+  auto mp = config()->at("fx.majorpeak"sv);
 
   should_render = mp["will_render"sv].value_or(true);
 
@@ -248,7 +248,7 @@ void MajorPeak::load_config() noexcept {
   for (auto cat : std::array{csv{"generic"}, csv{"above_soft_ceiling"}}) {
     const string full_path = fmt::format("fx.majorpeak.makecolors.{}", cat);
 
-    auto cc = Config().at(full_path);
+    auto cc = config()->at(full_path);
 
     _hue_cfg_map.try_emplace(
         string(cat),

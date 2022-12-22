@@ -57,7 +57,7 @@ static Threads threads;
 
 // initialize the thread pool for digital signal analysis
 void init() {
-  double factor = Config().table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
+  double factor = config()->table().at_path("frame.dsp.concurrency_factor"sv).value_or<double>(0.4);
   int thread_count = std::jthread::hardware_concurrency() * factor;
 
   std::latch latch{thread_count};

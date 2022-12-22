@@ -136,7 +136,7 @@ bool Setup::has_streams() noexcept {
       static constexpr csv cfg_buff_size{"rtsp.audio.buffer_size"}; // 8mb default
       rc = true;
 
-      const uint64_t buff_size = Config().at(cfg_buff_size).value_or(0x800000);
+      const uint64_t buff_size = config()->at(cfg_buff_size).value_or(0x800000);
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{TYPE, stream_type},                            // stream type

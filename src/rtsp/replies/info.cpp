@@ -79,7 +79,7 @@ void Info::init() noexcept { // static
   static constexpr csv module_id{"reply::INFO"};
   static constexpr csv fn_id{"INIT"};
 
-  auto file_path = Config().fs_parent_path();
+  auto file_path = config()->fs_parent_path();
   file_path /= "../share/plist/get_info_resp.plist"sv;
 
   if (std::ifstream is{file_path, std::ios::binary | std::ios::ate}) {

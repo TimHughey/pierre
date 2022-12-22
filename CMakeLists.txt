@@ -49,7 +49,7 @@ find_package(Sodium     REQUIRED)
 
 add_subdirectory(src)
 
-add_executable(${_target} apps/pierre.cpp)
+add_executable(${_target} apps/app.cpp)
 
 target_include_directories(${_target} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include

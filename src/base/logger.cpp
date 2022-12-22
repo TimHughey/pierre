@@ -35,44 +35,13 @@
 #include <ranges>
 #include <string_view>
 
-namespace {
 namespace ranges = std::ranges;
 namespace views = std::ranges::views;
-} // namespace
 
 namespace pierre {
 
-namespace shared {
-std::optional<Logger> logger;
-}
-
+std::shared_ptr<Logger> Logger::self;
 Elapsed Logger::elapsed_runtime; // class static data
-
-void Logger::init() { // static
-  if (shared::logger.has_value() == false) {
-    shared::logger.emplace().init_self();
-  }
-}
-
-void Logger::init_self() {
-  indent = fmt::format(        //
-      "{:>{}} {:>{}} {:>{}} ", //
-      SPACE, width_ts, SPACE, width_mod, SPACE, width_cat);
-
-  std::latch latch{1};
-
-  thread = Thread([this, &latch](std::stop_token token) mutable {
-    stop_token = std::move(token);
-    name_thread("Logger");
-
-    guard = std::make_unique<work_guard>(io_ctx.get_executor());
-
-    latch.arrive_and_wait();
-    io_ctx.run();
-  });
-
-  latch.wait(); // make the calling thread wait for thread to start
-}
 
 const string Logger::format_chunk(ccs data, size_t bytes) const noexcept {
   constexpr std::string_view delim{"\n"};
@@ -109,12 +78,6 @@ void Logger::print_chunk(const string &chunk) {
 }
 Logger::millis_fp Logger::runtime() { // static
   return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
-}
-
-void Logger::teardown() noexcept { // static
-  auto &self = shared::logger.value();
-
-  self.guard->reset();
 }
 
 } // namespace pierre

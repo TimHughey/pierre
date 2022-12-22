@@ -37,14 +37,14 @@ namespace pierre {
 std::shared_ptr<MasterClock> MasterClock::self;
 
 static constexpr csv cfg_shm_name{"frame.clock.shm_name"};
-static constexpr csv cfg_thread_count{"frame.clock.thread_count"};
+static constexpr csv cfg_thread_count{"frame.clock.threads"};
 
 // create the MasterClock
 MasterClock::MasterClock() noexcept
-    : guard(io_ctx.get_executor()),                                  // syncronize clock io
-      socket(io_ctx, ip_udp::v4()),                                  // construct and open
-      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
-      shm_name(Config().at(cfg_shm_name).value_or<string>("/nqptp")) //
+    : guard(io_ctx.get_executor()),                                   // syncronize clock io
+      socket(io_ctx, ip_udp::v4()),                                   // construct and open
+      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),  // nqptp endpoint
+      shm_name(config()->at(cfg_shm_name).value_or<string>("/nqptp")) //
 {}
 
 void MasterClock::init() noexcept { // static
@@ -53,7 +53,7 @@ void MasterClock::init() noexcept { // static
     auto s = self->ptr(); // grab a fresh shared_ptr for initialization
 
     // grab configured thread count
-    const auto thread_count = Config().at(cfg_thread_count).value_or<int>(3);
+    const auto thread_count = config()->at(cfg_thread_count).value_or<int>(3);
     std::latch latch{thread_count};
 
     for (auto n = 0; n < thread_count; n++) {

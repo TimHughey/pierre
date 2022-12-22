@@ -36,19 +36,19 @@ namespace pierre {
 static const auto controller_name() noexcept {
   static constexpr csv PATH{"dmx.controller"};
 
-  return Config().at(PATH).value_or(string());
+  return config()->at(PATH).value_or(string());
 }
 
 static const auto idle_shutdown() noexcept {
   static constexpr csv PATH{"dmx.timeouts.milliseconds.idle"};
 
-  return Config().at(PATH).value_or(30000);
+  return config()->at(PATH).value_or(30000);
 }
 
 static const auto stalled_timeout() noexcept {
   static constexpr csv PATH{"dmx.timeouts.milliseconds.stalled"};
 
-  return pet::from_val<Nanos, Millis>(Config().at(PATH).value_or(2000));
+  return pet::from_val<Nanos, Millis>(config()->at(PATH).value_or(2000));
 }
 
 // general API

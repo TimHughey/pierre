@@ -27,6 +27,7 @@
 #include "config/args.hpp"
 #include "version.hpp"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fmt/chrono.h>
 #include <iostream>
@@ -39,67 +40,41 @@ namespace {
 namespace fs = std::filesystem;
 }
 
-// static data outside of class
+// ArgsMap is truly static as it is set once at startup
+// declare it here to avoid pulling in args_map.hpp into class header
 static ArgsMap args_map;
-static io_context io_ctx;
-static std::shared_ptr<work_guard> guard;
-static steady_timer file_timer(io_ctx);
 
-// class static member data
-bool Config::initialized{false};
-bool Config::will_start{false};
-cfg_future Config::change_fut;
-fs::file_time_type Config::last_write;
-fs::path Config::full_path{"/home/thughey/.pierre"};
-std::list<toml::table> Config::tables;
-std::optional<std::promise<bool>> Config::change_proms;
-std::shared_mutex Config::mtx;
-Threads Config::threads;
+// static class data
+std::shared_ptr<Config> Config::self;
 
 // Config API
-
-// initialization
-
-Config Config::init(int argc, char **argv) noexcept { // static
+Config::Config(io_context &io_ctx, int argc, char **argv) noexcept
+    : io_ctx(io_ctx),               //
+      file_timer(io_ctx),           //
+      initialized(false),           //
+      will_start(false),            //
+      home_dir(std::getenv("HOME")) //
+{
   Elapsed elapsed;
-  auto cfg = Config();
 
   args_map = Args().parse(argc, argv);
 
   if (args_map.ok() && !args_map.help) {
+    full_path.append(home_dir).append(".pierre");
+    // full_path /= ".pierre";
     full_path /= args_map.cfg_file;
 
-    if (parse() && threads.empty()) {
-      guard = std::make_shared<work_guard>(io_ctx.get_executor());
-
-      std::latch latch(CONFIG_THREADS);
-
-      // note: work guard created by constructor p
-      for (auto n = 0; n < CONFIG_THREADS; n++) { // main thread is 0s
-        threads.emplace_back([=, &latch]() mutable {
-          name_thread(TASK_NAME, n);
-
-          latch.arrive_and_wait();
-          io_ctx.run();
-        });
-      }
-
-      // caller thread waits until all tasks are started
-      latch.wait();
-
+    if (parse()) {
       std::error_code ec;
       last_write = fs::last_write_time(full_path, ec);
 
-      monitor_file();
       initialized = true;
       will_start = true;
+
+      INFO(module_id, "INIT", "sizeof={} table size={} elapsed={}\n", sizeof(Config),
+           tables.front().size(), elapsed.humanize());
     }
-
-    INFO(module_id, "INIT", "sizeof={} table size={} elapsed={}\n", sizeof(Config),
-         cfg.tables.front().size(), elapsed.humanize());
   }
-
-  return cfg;
 }
 
 bool Config::has_changed(cfg_future &fut) noexcept {
@@ -118,31 +93,33 @@ bool Config::has_changed(cfg_future &fut) noexcept {
 void Config::monitor_file() noexcept { // static
 
   file_timer.expires_after(1s);
-  file_timer.async_wait([](const error_code ec) {
-    if (!ec) {
+  file_timer.async_wait([_s = ptr()](const error_code ec) {
+    if (ec) return; // error or shutdown
 
-      auto now_last_write = fs::last_write_time(full_path);
+    auto s = _s.get(); // minimize shared_ptr dereferences
 
-      if (auto diff = now_last_write - last_write; diff != Nanos::zero()) {
-        INFO(module_id, "MONITOR_FILE",
-             "CHANGED file={0} "                          //
-             "was={1:%F}T{1:%R%z} now={2:%F}T{2:%R%z}\n", //
-             full_path.c_str(),                           //
-             std::chrono::file_clock::to_sys(last_write),
-             std::chrono::file_clock::to_sys(now_last_write));
+    auto now_last_write = fs::last_write_time(s->full_path);
 
-        last_write = now_last_write;
+    if (auto diff = now_last_write - s->last_write; diff != Nanos::zero()) {
+      INFOX(module_id, "MONITOR_FILE",
+            "CHANGED file={0} "                          //
+            "was={1:%F}T{1:%R%z} now={2:%F}T{2:%R%z}\n", //
+            full_path.c_str(),                           //
+            std::chrono::file_clock::to_sys(last_write),
+            std::chrono::file_clock::to_sys(now_last_write));
 
-        parse();
+      s->last_write = now_last_write;
 
-        if (change_proms) {
-          change_proms->set_value(true);
-          change_proms.reset();
-          change_fut.reset();
-        }
+      s->parse();
+
+      if (s->change_proms) {
+        s->change_proms->set_value(true);
+        s->change_proms.reset();
+        s->change_fut.reset();
       }
-      monitor_file();
     }
+
+    s->monitor_file();
   });
 }
 
@@ -181,21 +158,24 @@ bool Config::parse() noexcept { // static
   return rc;
 }
 
-const string Config::receiver() const noexcept {
+const string Config::receiver() noexcept {
   static constexpr csv fallback{"%h"};
   auto val = at("mdns.receiver"sv).value_or(fallback);
 
   return (val == fallback ? string(Host().hostname()) : string(val));
 }
 
-void Config::want_changes(cfg_future &fut) noexcept {
+void Config::want_changes(cfg_future &chg_fut) noexcept {
+  auto s = ptr();
+  auto &proms = s->change_proms;
+  auto &fut = s->change_fut;
 
-  if (!change_proms.has_value() && !change_fut.has_value()) {
-    change_proms.emplace();
-    change_fut.emplace(change_proms->get_future());
+  if (!proms.has_value() && !fut.has_value()) {
+    proms.emplace();
+    fut.emplace(proms->get_future());
   }
 
-  fut.emplace(change_fut.value());
+  chg_fut.emplace(fut.value());
 }
 
 } // namespace pierre

@@ -86,7 +86,7 @@ static constexpr csv cfg_cipher_buff_size{"frame.cipher.buffer_size"};
 bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
   // ensure we know how big of a cipher buffer to allocate
-  if (!cipher_buff_size) cipher_buff_size = Config().at(cfg_cipher_buff_size).value_or(0x4000);
+  if (!cipher_buff_size) cipher_buff_size = config()->at(cfg_cipher_buff_size).value_or(0x4000);
 
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium

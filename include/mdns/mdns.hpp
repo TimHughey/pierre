@@ -39,16 +39,15 @@ using ZeroConfPromMap = std::map<string, ZeroConfProm>;
 class mDNS {
 
 public:
-  mDNS(io_context &io_ctx) noexcept : io_ctx(io_ctx) {}
+  mDNS() noexcept : service(Service::create()) {}
 
 public:
   void all_for_now(bool next_val = true) noexcept;
   static void browse(csv stype);
   void browser_remove(const string name_net) noexcept;
-  static void init(io_context &io_ctx) noexcept;
+  static void init() noexcept;
   static auto port() noexcept { return PORT; }
   static void reset();
-  void resolved_purge() noexcept;
   void resolver_found(const ZeroConf::Details zcd) noexcept;
 
   static std::shared_ptr<Service> service_ptr() noexcept;
@@ -63,7 +62,6 @@ private:
 
 public:
   // order dependent
-  io_context &io_ctx;
   std::shared_ptr<Service> service;
 
   // order independent

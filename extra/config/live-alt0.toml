@@ -38,7 +38,7 @@ service = "_ruth._tcp" # service advertised by rendering devices
 [rtsp]
 audio = { buffer_size = 0x800000 }   # bytes (8mb)
 connection = { timeout_ms = 30_000 }
-threads = 2
+threads = 4
 
 [frame]
 cipher = { buffer_size = 0x2000 }  # bytes (4k)
@@ -48,17 +48,17 @@ dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 host = "127.0.0.1"
 info = { min_wait_frames = 12 }
 shm_name = "/nqptp"
-threads = 1
+threads = 3
 
 [frame.racked]
 threads = 3 # stats runs on this io_ctx
 
-[frame.peaks.magnitudes] # only keep peaks in this range
+[frame.peaks.magnitudes] # only keep peaks in this rangethreads = 3
 floor = 0.9
 ceiling = 128.0
 
 [desk]
-threads = 3 # frame, dmx connect, dmx ctrl/data
+threads = 5 # frame, dmx connect, dmx ctrl/data
 
 [desk.dimmable]
 max = 8190
@@ -97,7 +97,7 @@ hard = { floor = 40.0, ceiling = 11500.0 }
 soft = { floor = 110.0, ceiling = 5000.0 }
 
 [fx.majorpeak.magnitudes]
-floor = 2.15
+floor = 2.09
 ceiling = 80.0
 
 [fx.majorpeak.makecolors.above_soft_ceiling]
@@ -111,15 +111,15 @@ bri = { max = 100.0, mag_scaled = true }
 [[fx.majorpeak.pinspots]]
 name = "fill pinspot"
 type = "fill"
-fade_max_ms = 1500
+fade_max_ms = 1199
 freq_max = 5000.0
-when_greater = { freq = 220.0, bri_min = 20.0, when_higher_freq = { bri_min = 85.0 } }
-when_less_than = { freq = 220.0, bri_min = 25.0 }
+when_greater = { freq = 180.0, bri_min = 27.0, when_higher_freq = { bri_min = 85.0 } }
+when_less_than = { freq = 180.0, bri_min = 13.0 }
 
 [[fx.majorpeak.pinspots]]
 name = "main pinspot"
 type = "main"
-fade_max_ms = 1000
+fade_max_ms = 900
 freq_min = 180.0
-when_fading = { bri_min = 30.0, when_freq_greater = { bri_min = 27.0 } }
-when_less_than = { freq = 180.0, bri_min = 30.0 }
+when_fading = { bri_min = 5.0, when_freq_greater = { bri_min = 27.0 } }
+when_less_than = { freq = 180.0, bri_min = 17.0 }

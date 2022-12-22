@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "rtsp/aplist.hpp"
@@ -57,7 +58,7 @@ private:
   }
 
 public:
-  Saver() noexcept : enable(Config().at("debug.rtsp.save"sv).value_or(false)) {}
+  Saver() noexcept : enable(config()->at("debug.rtsp.save"sv).value_or(false)) {}
 
   template <typename T> void format_and_write(const T &r) noexcept {
 
@@ -83,8 +84,9 @@ public:
   }
 
   void write(const uint8v &buff) const noexcept {
-    const auto base = Config().at("debug.path"sv).value_or(string());
-    const auto file = Config().at("debug.rtsp.file"sv).value_or(string());
+    auto cfg = Config::ptr();
+    const auto base = cfg->at("debug.path"sv).value_or(string());
+    const auto file = cfg->at("debug.rtsp.file"sv).value_or(string());
 
     namespace fs = std::filesystem;
     fs::path path{fs::current_path()};

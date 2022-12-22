@@ -1,20 +1,20 @@
-/*  Pierre - Custom Light Show for Wiss Landing
-    Copyright (C) 2022  Tim Hughey
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    https://www.wisslanding.com */
+//  Pierre - Custom Light Show for Wiss Landing
+//  Copyright (C) 2022  Tim Hughey
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+//  https://www.wisslanding.com
 
 #include "frame/reel.hpp"
 #include "base/logger.hpp"
@@ -54,11 +54,13 @@ bool Reel::flush(FlushInfo &flush) noexcept {
     auto b = frames.rbegin()->second; // reel last frame
 
     if (flush(a) && flush(b)) {
-      INFO(module_id, "FLUSH", "clearing ALL {}\n", inspect());
-      frames.clear();
+      INFOX(module_id, "FLUSH", "{}\n", inspect());
+      Frames empty_map;
+
+      std::swap(frames, empty_map);
 
     } else if (flush.matches<frame_t>({a, b})) {
-      INFO(module_id, "FLUSH", "clearing SOME {}\n", inspect());
+      INFO(module_id, "FLUSH", "SOME {}\n", inspect());
 
       // partial match
       std::erase_if(frames, [&](const auto &item) { return flush(item.second); });

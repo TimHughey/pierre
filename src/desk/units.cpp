@@ -33,7 +33,7 @@
 namespace pierre {
 
 void Units::create_all_from_cfg() noexcept {
-  auto cfg_desk = Config().at("desk"sv);
+  auto cfg_desk = config()->at("desk"sv);
 
   {
     // load dimmable units

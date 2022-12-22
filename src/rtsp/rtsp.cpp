@@ -76,7 +76,7 @@ void Rtsp::init() noexcept {
 
   self = std::shared_ptr<Rtsp>(new Rtsp());
 
-  const auto thread_count = Config().at(threads_path).value_or(4);
+  const auto thread_count = config()->at(threads_path).value_or(4);
   std::latch latch{thread_count};
 
   for (auto n = 0; n < thread_count; n++) {

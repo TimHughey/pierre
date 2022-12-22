@@ -60,7 +60,11 @@ public:
 
   /// @brief Move constructor
   /// @param ap Other Aplist to move from
-  Aplist(Aplist &&ap) noexcept : _plist(std::exchange(ap._plist, nullptr)) {}
+  Aplist(Aplist &&ap) noexcept {
+    if (_plist) plist_free(_plist); // ensure no memory leaks if default constructed
+
+    _plist = std::exchange(ap._plist, nullptr);
+  }
 
   /// @brief Create Aplist from a vector of chars
   /// @param xml Vector of char data

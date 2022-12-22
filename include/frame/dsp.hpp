@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
+#include "base/threads.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "fft.hpp"
@@ -122,7 +123,7 @@ private:
   static int cfg_thread_count() noexcept { // static
     static toml::path factor_path{"frame.dsp.concurrency_factor"sv};
 
-    double factor = Config().table().at_path(factor_path).value_or<double>(0.4);
+    double factor = config()->table().at_path(factor_path).value_or<double>(0.4);
     return std::jthread::hardware_concurrency() * factor;
   }
 

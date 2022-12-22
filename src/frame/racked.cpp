@@ -131,7 +131,7 @@ void Racked::init() noexcept {
     self->av = Av::create(self->io_ctx);
 
     static const toml::path cfg_threads_path{"frame.racked.threads"};
-    const int thread_count = Config().at(cfg_threads_path).value_or(3);
+    const int thread_count = config()->at(cfg_threads_path).value_or(3);
 
     std::latch latch{thread_count};
 
@@ -304,11 +304,9 @@ void Racked::log_racked(const string &wip_info, log_racked_rc rc) const noexcept
 
   case log_racked_rc::RACKED:
     if ((reel_count == 1) && !wip_info.empty()) {
-      fmt::format_to(w, "FIRST REEL reels={:<3} wip_reel={}", 1, wip_info);
+      // fmt::format_to(w, "FIRST REEL reels={:<3} wip_reel={}", 1, wip_info);
     }
-    // else if ((reel_count == 2) && !wip_info.empty()) {
-    //   fmt::format_to(w, "RACKED     reels={:<3} wip_reel={}", reel_count, wip_info);
-    // }
+
     break;
 
   default:

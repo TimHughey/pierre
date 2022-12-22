@@ -53,20 +53,22 @@ void Standby::load_config() noexcept {
   static const auto will_render_path = toml::path(base).append("will_render"sv);
   static const auto silence_timeout_path = toml::path(base).append("silence.timeout");
 
-  should_render = Config().at(will_render_path).value_or(true);
+  auto cfg = config();
 
-  auto color_cfg = Config().table_at(color_path);
+  should_render = cfg->at(will_render_path).value_or(true);
+
+  auto color_cfg = cfg->table_at(color_path);
 
   next_color = Color({.hue = color_cfg["hue"sv].value_or(0.0),
                       .sat = color_cfg["sat"sv].value_or(0.0),
                       .bri = color_cfg["bri"sv].value_or(0.0)});
 
-  hue_step = Config().at(hue_path).value_or(0.0);
+  hue_step = cfg->at(hue_path).value_or(0.0);
 
   next_brightness = 0.0;
   max_brightness = next_color.brightness();
 
-  auto timeout_cfg = Config().table_at(silence_timeout_path);
+  auto timeout_cfg = cfg->table_at(silence_timeout_path);
 
   const auto silence_timeout_old = silence_timeout;
   silence_timeout = pet::from_val<Seconds, Minutes>(timeout_cfg["minutes"].value_or(30));
