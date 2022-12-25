@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "desk/color.hpp"
@@ -35,6 +36,13 @@ public:
       : io_ctx(io_ctx),       //
         silence_timer(io_ctx) //
   {}
+
+  void cancel() noexcept override {
+    [[maybe_unused]] error_code ec;
+    silence_timer.cancel(ec);
+
+    INFO(module_id, "CANCEL", "cancel reason={}\n", ec.message());
+  }
 
   void execute(Peaks &peaks) noexcept override;
   csv name() const override { return fx_name::STANDBY; };

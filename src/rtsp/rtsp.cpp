@@ -72,7 +72,7 @@ void Rtsp::async_accept() noexcept {
 
 void Rtsp::init() noexcept {
   static constexpr csv threads_path("rtsp.threads");
-  std::once_flag once_flag;
+  static std::once_flag once_flag;
 
   self = std::shared_ptr<Rtsp>(new Rtsp());
 
@@ -80,7 +80,7 @@ void Rtsp::init() noexcept {
   std::latch latch{thread_count};
 
   for (auto n = 0; n < thread_count; n++) {
-    self->threads.emplace_back([n = n, &latch, &once_flag, s = self->ptr()]() mutable {
+    self->threads.emplace_back([n = n, &latch, s = self->ptr()]() mutable {
       name_thread("RTSP", n);
 
       // do special startup tasks once

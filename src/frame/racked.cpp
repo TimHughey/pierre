@@ -92,7 +92,10 @@ void Racked::flush(FlushInfo request) { // static
         // yes, the entire rack matches the flush request so we can
         // take a short-cut and clear the entire rack in oneshot
         INFO(module_id, "FLUSH", "clearing all reels={}\n", initial_size);
-        racked.clear();
+
+        racked_reels cleared;
+        std::swap(racked, cleared);
+
       } else {
         // the entire rack did not match the flush request so now
         // we must use maximum effort and look at each reel

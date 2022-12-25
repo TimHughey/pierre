@@ -51,6 +51,10 @@ public:
 
   void assign_span(const std::span<uint8_t> &span) noexcept { assign(span.begin(), span.end()); }
 
+  template <typename T = char> T *data_as(std::ptrdiff_t offset = 0) noexcept {
+    return (T *)(data() + offset);
+  }
+
   // find delimiters
   //
   // returns: vector of pairs of:
@@ -83,13 +87,6 @@ public:
 
   uint8v::iterator from_begin(std::ptrdiff_t bytes) { return begin() + bytes; }
   uint8v::iterator from_end(std::ptrdiff_t bytes) { return end() - bytes; }
-
-  string make_single_line() const noexcept {
-    auto vspace = [](const char c) { return ((c != '\n') && (c != '\r')); };
-    auto v = ranges::filter_view(view(), vspace);
-
-    return string(v.begin(), v.end());
-  }
 
   template <typename T = char> const T *raw(size_t offset = 0) const noexcept {
     return (const T *)(data() + (sizeof(T) * offset));

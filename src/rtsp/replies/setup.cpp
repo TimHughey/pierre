@@ -22,7 +22,6 @@
 #include "ctx.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/mdns.hpp"
-#include "mdns/service.hpp"
 #include "replies/dict_kv.hpp"
 
 #include <algorithm>
@@ -86,7 +85,7 @@ bool Setup::no_streams() noexcept {
     reply_dict.setUints({{EVENT_PORT, ctx->server_port(EventPort)}, {TIMING_PORT, 0}});
 
     // adjust Service system flags and request mDNS update
-    ctx->service->receiver_active();
+    mDNS::service().receiver_active();
     mDNS::update();
 
   } else if (ctx->stream_info.is_ntp_stream()) {

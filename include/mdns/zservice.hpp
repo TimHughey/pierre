@@ -22,17 +22,16 @@
 
 #include <algorithm>
 #include <any>
+#include <boost/algorithm/string.hpp>
+#include <future>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <ranges>
 #include <string_view>
 #include <vector>
 
 namespace pierre {
-
-namespace {
-namespace ranges = std::ranges;
-}
 
 namespace zc {
 class Txt;
@@ -43,7 +42,8 @@ public:
   Txt(ccs key_ccs, ccs val_ccs) : key_string(key_ccs) {
     string val(val_ccs);
 
-    if (ranges::all_of(val, [](char c) { return (c >= '0') && (c <= '9'); })) {
+    if (std::ranges::all_of(val.begin(), val.end(),
+                            [](char c) { return (c >= '0') && (c <= '9'); })) {
       is_number = true;
       val_any.emplace<uint32_t>(std::stol(val));
     } else {
@@ -80,7 +80,8 @@ public:
   ZeroConf(Details d) noexcept;
 
   const auto findTxtByKey(csv key) const noexcept {
-    return ranges::find_if(_txt_list, [=](auto &txt) { return txt.key() == key; });
+    return std::ranges::find_if(_txt_list.begin(), _txt_list.end(),
+                                [=](auto &txt) { return txt.key() == key; });
   }
 
 public:
@@ -90,8 +91,11 @@ public:
   bool match_name(csv name) const noexcept {
     constexpr string_view delim{"@"};
 
-    return ranges::any_of(ranges::views::split(csv{name_net}, delim),
-                          [=](auto r) { return csv(&*r.begin(), ranges::distance(r)) == name; });
+    std::vector<string_view> parts;
+    boost::algorithm::split(parts, name_net, [=](const auto c) { return c == delim.front(); });
+
+    return std::ranges::any_of(parts.begin(), parts.end(),
+                               [&name](const auto &part) { return part == name; });
   }
 
   uint16_t port() const noexcept { return _port; }
@@ -130,5 +134,10 @@ private:
 public:
   static constexpr csv module_id{"ZSERVICE"};
 };
+
+using ZeroConfMap = std::map<string, ZeroConf>;
+using ZeroConfFut = std::shared_future<ZeroConf>;
+using ZeroConfProm = std::promise<ZeroConf>;
+using ZeroConfPromMap = std::map<string, ZeroConfProm>;
 
 } // namespace pierre

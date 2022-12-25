@@ -60,7 +60,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     resp_code(RespCode::Continue); // trivial, only set reqponse code
 
   } else if (method == csv("GET") && (path == csv("/info"))) {
-    Info(request, *this, ctx_naked);
+    Info(request, *this);
 
   } else if (method == csv("POST")) { // handle POST methods
 
@@ -168,7 +168,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
     // when the streams key is not present this is a complete disconnect
     if (request_dict.exists(STREAMS) == false) {
-      ctx_naked->service->receiver_active(false);
+      mDNS::service().receiver_active(false);
       mDNS::update();
 
       ctx_naked->teardown();

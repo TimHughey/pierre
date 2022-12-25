@@ -1,0 +1,29 @@
+       86.5ms CONFIG             INIT            sizeof=368 table size=10 elapsed=0.46ms
+       86.5ms APP                INIT            Pierre 00.01.02-15-gee3375c 2022-12-25T07:51:16
+       87.9ms PIERRE_STATS       INIT            sizeof=136 db_uri=http://localhost:8086?db=pierre enabled=true
+       88.1ms mdns::SERVICE      INIT            sizeof=8 uuid=57024a1e-f4e0-4798-86bb-168b3504680b
+       89.1ms mdns::Ctx          CB_CLIENT       client=0x5555555d63e0 user_data=0x5555555adda0 ctx=0x5555555adda0
+       89.7ms mdns::Ctx          CB_EB           group=0x0 state=0 user_data=0x5555555adda0
+       90.6ms mdns::Ctx          INIT            client running, sizeof=176
+       90.6ms mdns::Ctx          CB_EB           group=0x5555555d5320 state=1 user_data=0x5555555adda0
+       90.6ms mdns::Ctx          REGISTER        REGISTERING group=0x5555555d5320
+       91.1ms MASTER CLOCK       INIT            shm_name=/nqptp dest=127.0.0.1:9000
+       94.3ms RACKED             INIT            sizeof=568 frame_sizeof=304 lead_time=23.22ms fps=43
+       95.0ms DESK               INIT            sizeof=120 threads=3/3 lead_time_min=7.66ms
+       95.1ms fx::Standby        CANCEL          cancel reason=Success
+       95.3ms reply::INFO        INIT            /home/thughey/devel/pierre/build/../share/plist/get_info_resp.plist size=1749
+       96.0ms RTSP               INIT            sizeof=248 threads=3/3 features=0x1c300405fc200
+      407.0ms DMX_CTRL           CONNECT         CTRL OPEN   192.168.2.4:48222 -> 192.168.2.162:49152 27 311.90ms
+      417.4ms DMX_CTRL           LISTEN          DATA OPEN   192.168.2.4:42069 -> 192.168.2.162:49909 28 322.32ms
+      988.3ms mdns::Ctx          CB_EB           group=0x5555555d5320 state=2 user_data=0x5555555adda0
+      988.3ms mdns::Ctx          GROUP_ESTAB     exists state=2 same=true
+    60095.4ms fx::Standby        SILENCE_WATCH   timeout, setting finished
+    60140.3ms fx::Standby        CANCEL          cancel reason=Success
+    60140.3ms DESK               FRAME_LOOP      FX standby -> all_stop
+    60140.5ms DMX_CTRL           DESTRUCT        
+    80088.6ms RTSP               LISTEN          ACCEPT OPEN   192.168.2.4:7000 -> 192.168.2.72:64638 26 1m 19s 992.61ms
+    80088.9ms RTSP_SESSION       RUN             SESSION OPEN   192.168.2.4:7000 -> 192.168.2.72:64638 26 1m 19s 992.90ms
+    80178.8ms RTSP EVENT         LISTEN          192.168.2.72:64639 -> 192.168.2.4:33141 accepted
+    80205.9ms RTSP AUDIO         ACCEPT          SESSION OPEN   192.168.2.4:34011 -> 192.168.2.72:64640 35 6.01ms
+    80207.8ms AV                 INFO            audio plane/linesize 1=0x7fffd0008830/8192 2=0x7fffd000a840/0 nb_samples=1024 format=8 flags=0
+   125808.6ms RACKED             MONITOR_WIP     reel serial_num=4418 already racked

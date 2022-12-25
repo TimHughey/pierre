@@ -69,13 +69,9 @@ public:
 
   void send_data_msg(DmxDataMsg msg) noexcept;
 
-  static void teardown(std::shared_ptr<DmxCtrl> &self_ref) noexcept {
-    auto &io_ctx = self_ref->io_ctx;
-    auto self = self_ref->ptr();
+  void teardown() noexcept {
 
-    self_ref.reset();
-
-    asio::post(io_ctx, [s = std::move(self)]() mutable {
+    asio::post(io_ctx, [s = ptr()]() mutable {
       [[maybe_unused]] error_code ec;
 
       s->stalled_timer.cancel(ec);

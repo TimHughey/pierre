@@ -24,7 +24,7 @@ path = "../extra/debug"
 rtsp = { save = false, file = "rtsp.log", format = "pretty" }
 
 [dmx]
-# controller = "dmx"
+# controller = "dmx"  # default
 controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
@@ -32,6 +32,7 @@ idle = 60_000
 stalled = 5100
 
 [mdns]
+port = 7000
 receiver = "Pierre"    # %h uses hostname
 service = "_ruth._tcp" # service advertised by rendering devices
 

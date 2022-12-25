@@ -31,55 +31,37 @@
 
 namespace pierre {
 
-using ZeroConfMap = std::map<string, ZeroConf>;
-using ZeroConfFut = std::shared_future<ZeroConf>;
-using ZeroConfProm = std::promise<ZeroConf>;
-using ZeroConfPromMap = std::map<string, ZeroConfProm>;
+namespace mdns {
+class Ctx;
+}
 
-class mDNS {
+class mDNS : public std::enable_shared_from_this<mDNS> {
 
-public:
-  mDNS() noexcept : service(Service::create()) {}
-
-public:
-  void all_for_now(bool next_val = true) noexcept;
-  static void browse(csv stype);
-  void browser_remove(const string name_net) noexcept;
-  static void init() noexcept;
-  static auto port() noexcept { return PORT; }
-  static void reset();
-  void resolver_found(const ZeroConf::Details zcd) noexcept;
-
-  static std::shared_ptr<Service> service_ptr() noexcept;
-
-  static void update() noexcept;
-  static ZeroConfFut zservice(csv name);
+  friend class mdns::Ctx;
 
 private:
-  void browse_impl(csv stype);
-  void init_self();
-  void update_impl();
+  mDNS() noexcept;
+  static auto ptr() noexcept { return self->shared_from_this(); }
+
+public:
+  static void browse(csv stype) noexcept;
+  static void init() noexcept;
+
+  static Service &service() noexcept { return self->service_obj; }
+
+  static void update() noexcept;
+  static ZeroConfFut zservice(csv name) noexcept;
 
 public:
   // order dependent
-  std::shared_ptr<Service> service;
+  Service service_obj;
+  std::unique_ptr<mdns::Ctx> ctx;
 
-  // order independent
-  string type;
-  string domain;
-  string host_name;
-  string error;
-
-private:
-  string _service_base;
-  std::atomic_flag _all_for_now;
-
-  ZeroConfMap zcs_map;
-  ZeroConfPromMap zcs_proms;
+  // static class data
+  static std::shared_ptr<mDNS> self;
 
 public:
   static constexpr csv module_id{"mDNS"};
-  static constexpr auto PORT{7000};
 };
 
 } // namespace pierre

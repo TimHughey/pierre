@@ -87,14 +87,10 @@ struct service_def {
 
 using service_txt_map = std::map<txt_type, service_def>;
 
-class Service : public std::enable_shared_from_this<Service> {
-
-private:
-  Service() = default;
-  auto ptr() noexcept { return shared_from_this(); }
+class Service {
 
 public:
-  static auto create() noexcept { return std::shared_ptr<Service>(new Service()); }
+  Service() = default;
 
   // calculate the runtime values (called once at start up)
   void init() noexcept;
@@ -189,7 +185,16 @@ public:
   }
 
   // set the status flag to indicate if the receiver is active or inactive
-  void receiver_active([[maybe_unused]] bool on_off = true) noexcept {};
+  void receiver_active(bool active = true) noexcept {
+
+    if (active == true) {
+      _status_flags.rendering();
+    } else {
+      _status_flags.ready();
+    }
+
+    update_system_flags(); // reflect the status flags changes
+  }
 
   template <typename T> void update_key_val(txt_opt opt, T new_val) noexcept {
     using U = std::remove_cvref_t<T>;
@@ -204,6 +209,20 @@ public:
       val = fmt::format("{:02x}", fmt::join(new_val, ""));
     } else {
       val = string(new_val);
+    }
+  }
+
+private:
+  void update_system_flags() noexcept {
+
+    constexpr auto opts = std::array{txt_opt::apSystemFlags, //
+                                     txt_opt::apStatusFlags, //
+                                     txt_opt::mdSystemFlags};
+
+    for (auto opt : opts) {
+      const auto str = fmt::format("{:#x}", _status_flags.val());
+
+      update_key_val(opt, str);
     }
   }
 

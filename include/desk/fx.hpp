@@ -34,6 +34,10 @@ class FX {
 public:
   /// @brief Construct the base FX via the subclassed type
   FX() noexcept;
+  virtual ~FX() = default;
+
+  /// @brief Cancel any pending io_ctx actions
+  virtual void cancel() noexcept {}
 
   /// @brief Is the FX complete as determined by the subclass
   /// @return boolean indicating the FX is complete

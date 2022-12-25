@@ -18,8 +18,8 @@ add_library(${__target} SHARED
   # mdns functionality specific to this app
   mdns.cpp 
 
-  # mdns client provider
-  provider.cpp
+  # mdns ctx and client provider
+  mdns_ctx.cpp
 
   # service for airplay
   service.cpp

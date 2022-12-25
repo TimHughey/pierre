@@ -88,6 +88,8 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       const auto fx_name_now = active_fx ? active_fx->name() : "NONE";
       const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : fx_name::STANDBY;
 
+      active_fx->cancel(); // stop any pending io_ctx work
+
       if ((fx_suggested_next == fx_name::STANDBY) && frame->silent()) {
         active_fx = std::make_shared<fx::Standby>(io_ctx);
 
@@ -99,7 +101,8 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       } else if ((fx_suggested_next == fx_name::ALL_STOP) && frame->silent()) {
         active_fx = std::make_shared<fx::AllStop>();
-        DmxCtrl::teardown(dmx_ctrl); // special case, stop Ctrl
+        dmx_ctrl->teardown(); // special case, stop Ctrl
+        dmx_ctrl.reset();
 
       } else { // default to Standby
         active_fx = std::make_shared<fx::Standby>(io_ctx);

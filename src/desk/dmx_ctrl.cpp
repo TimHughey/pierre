@@ -36,7 +36,7 @@ namespace pierre {
 static const auto controller_name() noexcept {
   static constexpr csv PATH{"dmx.controller"};
 
-  return config()->at(PATH).value_or(string());
+  return config()->at(PATH).value_or<string>("dmx");
 }
 
 static const auto idle_shutdown() noexcept {

@@ -55,23 +55,19 @@ public:
     _flags.set(AudioLink);
   }
 
-  StatusFlags &ready() noexcept {
+  void ready() noexcept {
     _flags.set(AudioLink);
     _flags.reset(RemoteControlRelay);
     _flags.reset(ReceiverSessionIsActive);
-
-    return *this;
   }
 
-  StatusFlags &rendering() noexcept {
+  void rendering() noexcept {
     _flags.set(AudioLink);
     _flags.set(RemoteControlRelay);
     _flags.set(ReceiverSessionIsActive);
-
-    return *this;
   }
 
-  uint32_t val() const { return _flags.to_ulong(); }
+  uint64_t val() const { return _flags.to_ulong(); }
 
 private:
   std::bitset<32> _flags;

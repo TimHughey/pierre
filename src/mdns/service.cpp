@@ -35,7 +35,7 @@ void Service::init() noexcept {
   const auto cfg = config();
 
   update_key_val(txt_opt::apAirPlayPairingIdentity, host.hw_address());
-  update_key_val(txt_opt::apDeviceID, host.device_id());
+  update_key_val(txt_opt::apDeviceID, host.hw_address());
 
   // create UUID for this host (only once)
 
@@ -101,12 +101,7 @@ void Service::init() noexcept {
     }
   }
 
-  for (auto opt :
-       std::array{txt_opt::apSystemFlags, txt_opt::apStatusFlags, txt_opt::mdSystemFlags}) {
-    const auto str = fmt::format("{:#x}", _status_flags.val());
-
-    update_key_val(opt, str);
-  }
+  update_system_flags();
 
   INFO(module_id, "INIT", "sizeof={} uuid={}\n", sizeof(Service), uuid);
 }

@@ -28,9 +28,8 @@ namespace pierre {
 namespace rtsp {
 
 Ctx::Ctx(io_context &io_ctx) noexcept
-    : io_ctx(io_ctx),              //
-      feedback_timer(io_ctx),      // detect absence of routine feedback messages
-      service(mDNS::service_ptr()) //
+    : io_ctx(io_ctx),        //
+      feedback_timer(io_ctx) // detect absence of routine feedback messages
 {}
 
 void Ctx::feedback_msg() noexcept {}
