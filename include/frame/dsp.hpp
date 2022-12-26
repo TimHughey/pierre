@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/io.hpp"
+#include "base/logger.hpp"
 #include "base/threads.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
@@ -32,27 +33,26 @@ namespace pierre {
 
 class Dsp : public std::enable_shared_from_this<Dsp> {
 private:
-  Dsp() noexcept : guard(io::make_work_guard(io_ctx)) {}
+  Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {}
   auto ptr() noexcept { return shared_from_this(); }
 
 public:
   static auto create() noexcept {
-
     auto self = std::shared_ptr<Dsp>(new Dsp());
 
-    auto s = self->ptr();
+    static toml::path factor_path{"frame.dsp.concurrency_factor"sv};
+    double factor = config()->table().at_path(factor_path).value_or<double>(0.4);
+    const int thread_count = std::jthread::hardware_concurrency() * factor;
 
-    auto thread_count = cfg_thread_count();
-
-    std::latch latch{thread_count};
+    auto latch = std::make_shared<std::latch>(thread_count);
 
     for (auto n = 0; n < thread_count; n++) {
       // notes:
       //  1. start DSP processing threads
-      self->threads.emplace_back([n = n, s = s->ptr(), &latch]() mutable {
+      self->threads.emplace_back([n = n, s = self->ptr(), latch = latch]() mutable {
         name_thread(thread_prefix, n);
 
-        latch.arrive_and_wait();
+        latch->arrive_and_wait();
         s->io_ctx.run();
       });
     }
@@ -60,9 +60,9 @@ public:
     FFT::init();
 
     // caller thread waits until all threads are started
-    latch.wait();
+    latch->wait();
 
-    return self->ptr();
+    return self;
   }
 
   void process(frame_t frame, FFT left, FFT right) noexcept {
@@ -104,40 +104,25 @@ public:
     });
   }
 
-  static void shutdown() noexcept {
-    auto s = self->ptr();
-    auto &io_ctx = s->io_ctx; // get reference, we're moving s into lambda
+  void shutdown() noexcept {
+    guard.reset();
 
-    asio::post(io_ctx, [s = std::move(s)]() {
-      // by moving s into this lambda we keep this object in-scope while
-      // resetting the work guard.  any threads performing dsp processing
-      // have their own shared pointer.  the io_ctx will fall through because
-      // of lack of work and the thread will exit
-      s->guard->reset();
-    });
+    std::for_each(threads.begin(), threads.end(), [](auto &t) { t.join(); });
+    threads.clear();
 
-    self.reset(); // reset our self
-  }
-
-private:
-  static int cfg_thread_count() noexcept { // static
-    static toml::path factor_path{"frame.dsp.concurrency_factor"sv};
-
-    double factor = config()->table().at_path(factor_path).value_or<double>(0.4);
-    return std::jthread::hardware_concurrency() * factor;
+    INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(threads));
   }
 
 private:
   // order dependent
   io_context io_ctx;
-  work_guard_t guard;
+  work_guard guard;
 
   // order independent
-  static std::shared_ptr<Dsp> self;
   Threads threads;
 
 public:
-  static constexpr csv thread_prefix{"DSP"};
+  static constexpr csv thread_prefix{"dsp"};
   static constexpr csv module_id{"DSP"};
 };
 

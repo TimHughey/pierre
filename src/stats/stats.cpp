@@ -20,7 +20,6 @@
 #include "base/logger.hpp"
 #include "config/config.hpp"
 
-#include <latch>
 #include <memory>
 
 namespace pierre {

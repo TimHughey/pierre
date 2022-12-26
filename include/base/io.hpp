@@ -52,7 +52,6 @@ using tcp_socket = boost::asio::ip::tcp::socket;
 using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
-using work_guard_t = std::unique_ptr<work_guard>;
 using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 
 static constexpr uint16_t ANY_PORT{0};
@@ -62,10 +61,6 @@ namespace io {
 
 static constexpr error_code make_error(errc::errc_t val = errc::success) {
   return error_code(val, sys::generic_category());
-}
-
-inline work_guard_t make_work_guard(io_context &io_ctx) {
-  return std::make_unique<work_guard>(io_ctx.get_executor());
 }
 
 const string is_ready(tcp_socket &sock, error_code ec = make_error(), bool cancel = true) noexcept;

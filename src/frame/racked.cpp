@@ -49,6 +49,9 @@ int64_t Racked::REEL_SERIAL_NUM{0x1000};
 std::shared_ptr<Racked> Racked::self;
 
 void Racked::flush(FlushInfo request) { // static
+
+  if (self.use_count() < 1) return;
+
   auto s = ptr();
   auto &flush_strand = s->flush_strand;
 
@@ -69,9 +72,8 @@ void Racked::flush(FlushInfo request) { // static
       std::unique_lock lck_wip(s->wip_mtx, std::defer_lock);
       lck_wip.lock();
 
-      if (wip->flush(s->flush_request) && std::ssize(wip.value())) {
-        wip.reset();
-      }
+      // if wip is completely flushed reset the optional
+      if (wip->flush(flush_request)) wip.reset();
     }
 
     std::unique_lock lck_rack{s->rack_mtx, std::defer_lock};
@@ -136,17 +138,17 @@ void Racked::init() noexcept {
     static const toml::path cfg_threads_path{"frame.racked.threads"};
     const int thread_count = config()->at(cfg_threads_path).value_or(3);
 
-    std::latch latch{thread_count};
+    auto latch = std::make_shared<std::latch>(thread_count);
 
     for (auto n = 0; n < thread_count; n++) {
-      self->threads.emplace_back([n = n, s = self->ptr(), &latch]() mutable {
-        name_thread("Racked", n);
-        latch.arrive_and_wait();
+      self->threads.emplace_back([n = n, s = self->ptr(), latch = latch]() mutable {
+        name_thread("racked", n);
+        latch->arrive_and_wait();
         s->io_ctx.run();
       });
     }
 
-    latch.wait(); // caller waits until all threads are started
+    latch->wait(); // caller waits until all threads are started
 
     INFO(module_id, "INIT", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
          sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
@@ -183,6 +185,13 @@ void Racked::monitor_wip() noexcept {
 frame_future Racked::next_frame() noexcept { // static
   auto prom = frame_promise();
   auto fut = prom.get_future().share();
+
+  // when Racked isn't ready (doesn't exist) return SilentFrame
+  if (self.use_count() < 1) {
+    prom.set_value(SilentFrame::create());
+    return fut;
+  }
+
   auto s = self->ptr();
 
   // grab a reference to the frame strand since we're moving the shared_ptr
@@ -213,11 +222,12 @@ frame_future Racked::next_frame() noexcept { // static
       auto anchor = Anchor::get_data(clock_info);
 
       // anchor not ready yet or we haven't been instructed to spool
-      // (i.e. user hit pause, hasn't hit play yet or disconnected) so set
-      // the promise to a SilentFrame.  note:  we could have done this check
-      // very early and completely avoided the asio::post but didn't so we
-      // could prime ClockInfo and Anchor.  plus the above code isn't really
-      // that expensive every ~23ms.
+      // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
+      // play yet or disconnected)
+      //
+      // note:  we could have done this check very early and completely avoid
+      // the asio::post but didn't so we could prime ClockInfo and Anchor.
+      // plus the above code isn't really that expensive every ~23ms.
       if ((anchor.ready() == false) || (s->spool_frames.load() == false)) {
         prom.set_value(SilentFrame::create());
         return;
@@ -317,6 +327,25 @@ void Racked::log_racked(const string &wip_info, log_racked_rc rc) const noexcept
   }
 
   if (!msg.empty()) INFO(module_id, "LOG_RACKED", "{}\n", msg);
+}
+
+void Racked::shutdown() noexcept {
+
+  self->av->shutdown();
+  self->av.reset();
+
+  auto s = self->ptr(); // get a fresh shared_ptr to ourselves
+  self.reset();         // decrement our local shared_ptr so we're deallocated
+
+  s->guard.reset();
+
+  [[maybe_unused]] error_code ec;
+  s->wip_timer.cancel(ec);
+
+  std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) { t.join(); });
+  s->threads.clear();
+
+  INFO(module_id, "SHUTDOWN", "threads={}\n", std::size(s->threads));
 }
 
 } // namespace pierre

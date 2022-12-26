@@ -51,11 +51,7 @@ private:
   static constexpr csv CRLFx2{"\r\n\r\n"};
 
 private:
-  Session(io_context &io_ctx, tcp_socket sock) noexcept
-      : io_ctx(io_ctx),          // shared io_ctx
-        sock(std::move(sock)),   // socket for this session
-        ctx(Ctx::create(io_ctx)) // create ctx for this session
-  {}
+  Session(io_context &io_ctx, tcp_socket sock) noexcept;
 
   template <typename CompletionCondition>
   void async_read_request(CompletionCondition &&cond, Elapsed &&e = Elapsed()) noexcept {
@@ -132,12 +128,7 @@ private:
   auto ptr() noexcept { return shared_from_this(); }
 
 public:
-  static auto create(io_context &io_ctx, tcp_socket &&sock) {
-    // creates the shared_ptr and starts the async loop
-    // the asyncLoop holds onto the shared_ptr until an error on the
-    // socket is detected
-    return std::shared_ptr<Session>(new Session(io_ctx, std::forward<tcp_socket>(sock)));
-  }
+  static std::shared_ptr<Session> create(io_context &io_ctx, tcp_socket &&sock) noexcept;
 
   void run(Elapsed accept_e) noexcept {
     const auto &r = sock.remote_endpoint();

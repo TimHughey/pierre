@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <iterator>
+#include <latch>
 #include <ranges>
 #include <time.h>
 #include <utility>
@@ -53,19 +54,19 @@ void MasterClock::init() noexcept { // static
     auto s = self->ptr(); // grab a fresh shared_ptr for initialization
 
     // grab configured thread count
-    const auto thread_count = config()->at(cfg_thread_count).value_or<int>(3);
-    std::latch latch{thread_count};
+    const auto thread_count = config()->at(cfg_thread_count).value_or<int>(1);
+    auto latch = std::make_shared<std::latch>(thread_count);
 
     for (auto n = 0; n < thread_count; n++) {
 
-      s->threads.emplace_back([n = n, s = s->ptr(), &latch]() mutable {
-        name_thread("Master Clock", n);
-        latch.arrive_and_wait();
+      s->threads.emplace_back([latch, n, s = s->ptr()]() mutable {
+        name_thread("clock", n);
+        latch->arrive_and_wait();
         s->io_ctx.run();
       });
     }
 
-    latch.wait();      // caller waits until all threads are started
+    latch->wait();     // caller waits until all threads are started
     s->peers(Peers()); // reset the peers (creates the shm name)}
 
     INFO(module_id, "INIT", "shm_name={} dest={}:{}\n", //

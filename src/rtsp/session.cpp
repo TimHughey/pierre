@@ -20,6 +20,7 @@
 #include "base/elapsed.hpp"
 #include "config/config.hpp"
 #include "content.hpp"
+#include "desk/desk.hpp"
 #include "reply.hpp"
 #include "request.hpp"
 #include "saver.hpp"
@@ -33,7 +34,22 @@
 namespace pierre {
 namespace rtsp {
 
-// STATIC!
+Session::Session(io_context &io_ctx, tcp_socket sock) noexcept
+    : io_ctx(io_ctx),          // shared io_ctx
+      sock(std::move(sock)),   // socket for this session
+      ctx(Ctx::create(io_ctx)) // create ctx for this session
+{}
+
+std::shared_ptr<Session> Session::create(io_context &io_ctx, tcp_socket &&sock) noexcept {
+
+  // Desk may have shutdown if there hasn't been an active session, ensure it's running
+  Desk::init(io_ctx);
+
+  // creates the shared_ptr and starts the async loop
+  // the asyncLoop holds onto the shared_ptr until an error on the
+  // socket is detected
+  return std::shared_ptr<Session>(new Session(io_ctx, std::forward<tcp_socket>(sock)));
+}
 
 void Session::do_packet(Elapsed &&e) noexcept {
 

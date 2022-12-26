@@ -47,10 +47,9 @@ private:
   static constexpr std::ptrdiff_t ADTS_HEADER_SIZE{7};
 
 private:
-  Av(io_context &io_ctx) noexcept //
-      : io_ctx(io_ctx),           //
-        ready{false},             //
-        dig_sig(Dsp::create())    //
+  Av() noexcept            //
+      : ready{false},      //
+        dsp(Dsp::create()) //
   {}
 
   bool decode_failed(const frame_t &frame, AVPacket **pkt,
@@ -68,7 +67,7 @@ private:
 
 public:
   static auto create(io_context &io_ctx) noexcept {
-    auto self = std::shared_ptr<Av>(new Av(io_ctx));
+    auto self = std::shared_ptr<Av>(new Av());
     auto s = self->ptr();
 
     asio::post(io_ctx, [s = std::move(s)]() {
@@ -184,7 +183,7 @@ public:
       FFT right(data[1], frame->samples_per_channel, audio_frame->sample_rate);
 
       // this goes async
-      dig_sig->process(frame, std::move(left), std::move(right));
+      dsp->process(frame, std::move(left), std::move(right));
       rc = true;
     }
 
@@ -193,6 +192,11 @@ public:
     frame->m.reset();
 
     return rc;
+  }
+
+  void shutdown() noexcept {
+    dsp->shutdown();
+    dsp.reset();
   }
 
 private:
@@ -238,9 +242,8 @@ private:
 
 private:
   // order dependent
-  io_context &io_ctx;           // borrowed io_context
-  std::atomic_bool ready;       // AV functionality setup and ready
-  std::shared_ptr<Dsp> dig_sig; // digital signal processing
+  std::atomic_bool ready;   // AV functionality setup and ready
+  std::shared_ptr<Dsp> dsp; // digital signal processing
 
   // order independent
   AVCodec *codec{nullptr};

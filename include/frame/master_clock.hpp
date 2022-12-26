@@ -33,7 +33,6 @@
 #include <exception>
 #include <functional>
 #include <future>
-#include <latch>
 #include <memory>
 #include <pthread.h>
 #include <sys/mman.h>

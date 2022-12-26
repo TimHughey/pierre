@@ -51,7 +51,7 @@ int App::main(int argc, char *argv[]) noexcept {
 
       Stats::init(io_ctx);
       mDNS::init();
-      Desk::init();
+      Desk::init(io_ctx);
 
       // create and start RTSP
       Rtsp::init();

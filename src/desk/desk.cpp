@@ -46,8 +46,9 @@ namespace pierre {
 std::shared_ptr<Desk> Desk::self;
 
 // must be defined in .cpp to hide mdns
-Desk::Desk() noexcept
-    : frame_strand(io_ctx),                 // serialize spooler frame access
+Desk::Desk(io_context &io_ctx_caller) noexcept
+    : io_ctx_caller(io_ctx_caller),         // caller's io_ctx (for shutdown)
+      frame_strand(io_ctx),                 // serialize spooler frame access
       guard(asio::make_work_guard(io_ctx)), // prevent io_ctx from ending
       loop_active{true}                     // frame loop defaults to active at creation
 {}
@@ -76,13 +77,14 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     // Racked will always return either a racked or silent frame
     frame = Racked::next_frame().get();
-    Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
-
-    frame->state.record_state();
 
     // we now have a valid frame:
     //  1. rendering = from Racked (peaks or silent)
     //  2. not rendering = generated SilentFrame
+
+    Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+
+    frame->state.record_state();
 
     if (fx_finished) {
       const auto fx_name_now = active_fx ? active_fx->name() : "NONE";
@@ -101,19 +103,21 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
       } else if ((fx_suggested_next == fx_name::ALL_STOP) && frame->silent()) {
         active_fx = std::make_shared<fx::AllStop>();
-        dmx_ctrl->teardown(); // special case, stop Ctrl
-        dmx_ctrl.reset();
+
+        loop_active.store(false); // signal to end frame loop
 
       } else { // default to Standby
         active_fx = std::make_shared<fx::Standby>(io_ctx);
       }
 
+      // note in log switch to new FX, if needed
       if (active_fx->match_name(fx_name_now) == false) {
         INFO(module_id, "FRAME_LOOP", "FX {} -> {}\n", fx_name_now, active_fx->name());
       }
     }
 
-    if (frame->state.ready()) { // render this frame and send to DMX controller
+    // render this frame and send to DMX controller
+    if (frame->state.ready()) {
       DmxDataMsg msg(frame, InputInfo::lead_time);
 
       if (fx_finished = active_fx->render(frame, msg); fx_finished == false) {
@@ -136,7 +140,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
     // notates rendered or silence in timeseries db
     frame->mark_rendered();
 
-    if (sync_wait >= Nanos::zero()) {
+    if (sync_wait >= Nanos::zero() && loop_active.load()) {
       // now we need to wait for the correct time to render the next frame
       frame_timer.expires_after(sync_wait);
       error_code ec;
@@ -148,11 +152,14 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       }
     }
   } // while loop
+
+  // when control reaches this point Desk is shutting down
+  shutdown();
 }
 
-void Desk::init() noexcept {
+void Desk::init(io_context &io_ctx_caller) noexcept {
   if (self.use_count() < 1) {
-    self = std::shared_ptr<Desk>(new Desk());
+    self = std::shared_ptr<Desk>(new Desk(io_ctx_caller));
 
     // grab reference to minimize shared_ptr dereferences
     auto &io_ctx = self->io_ctx;
@@ -162,21 +169,26 @@ void Desk::init() noexcept {
     Racked::init();
 
     const auto num_threads = config()->at("desk.threads"sv).value_or(3);
-    std::latch latch(num_threads);
+    auto latch = std::make_shared<std::latch>(num_threads);
 
     // note: work guard created by constructor
     for (auto n = 0; n < num_threads; n++) {
-      self->threads.emplace_back([s = self->ptr(), n = n, &latch]() {
+      self->threads.emplace_back([latch, s = self->ptr(), n = n]() {
         name_thread(TASK_NAME, n);
 
-        latch.arrive_and_wait();
+        latch->arrive_and_wait();
         s->io_ctx.run();
       });
     }
 
     // caller thread waits until all tasks are started
-    latch.wait();
-    self->log_init(num_threads);
+    latch->wait();
+
+    INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
+         sizeof(Desk),                                                    //
+         num_threads,                                                     //
+         self->threads.size(),                                            //
+         pet::humanize(InputInfo::lead_time_min));
 
     // all threads / strands are runing, fire up subsystems
     asio::post(io_ctx, [s = self->ptr()]() {
@@ -188,17 +200,26 @@ void Desk::init() noexcept {
 }
 
 void Desk::shutdown() noexcept {
-  // stop all threads
-  // release static supporting objects
-}
 
-// misc debug and logging API
-void Desk::log_init(int num_threads) const noexcept {
-  INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
-       sizeof(Desk),                                                    //
-       num_threads,                                                     //
-       threads.size(),                                                  //
-       pet::humanize(InputInfo::lead_time_min));
+  auto s = ptr();
+  auto &io_ctx_caller = s->io_ctx_caller;
+  self.reset();
+
+  asio::post(io_ctx_caller, [s = std::move(s)]() {
+    INFO(module_id, "SHUTDOWN", "initiated desk={}\n", fmt::ptr(s.get()));
+
+    s->guard.reset(); // reset work guard so io_ctx will finish
+
+    if (s->active_fx.use_count() > 0) s->active_fx->cancel(); // ask the active FX to finish
+    if (s->dmx_ctrl.use_count() > 0) s->dmx_ctrl->teardown(); // ask DmxCtrl to finish
+
+    std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) { t.join(); });
+    s->threads.clear();
+
+    INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(s->threads));
+
+    Racked::shutdown();
+  });
 }
 
 } // namespace pierre

@@ -72,27 +72,29 @@ void Rtsp::async_accept() noexcept {
 
 void Rtsp::init() noexcept {
   static constexpr csv threads_path("rtsp.threads");
-  static std::once_flag once_flag;
 
   self = std::shared_ptr<Rtsp>(new Rtsp());
 
   const auto thread_count = config()->at(threads_path).value_or(4);
-  std::latch latch{thread_count};
+
+  // create shared_ptrs to avoid spurious data races
+  auto once_flag = std::make_shared<std::once_flag>();
+  auto latch = std::make_shared<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
-    self->threads.emplace_back([n = n, &latch, s = self->ptr()]() mutable {
-      name_thread("RTSP", n);
+    self->threads.emplace_back([n, s = self->ptr(), latch, once_flag]() mutable {
+      name_thread("rtsp", n);
 
       // do special startup tasks once
-      std::call_once(once_flag, []() { rtsp::Info::init(); });
+      std::call_once(*once_flag, []() { rtsp::Info::init(); });
 
       // we want a syncronized start of all threads
-      latch.arrive_and_wait();
+      latch->arrive_and_wait();
       s->io_ctx.run();
     });
   }
 
-  latch.wait();
+  latch->wait();
 
   self->async_accept();
 

@@ -49,24 +49,27 @@ using racked_reels = std::map<reel_serial_num_t, Reel>;
 class Racked : public std::enable_shared_from_this<Racked> {
 private:
   Racked() noexcept
-      : guard(io::make_work_guard(io_ctx)), // ensure io_ctx has work
-        handoff_strand(io_ctx),             // unprocessed frame 'queue'
-        wip_strand(io_ctx),                 // guard work in progress reeel
-        frame_strand(io_ctx),               // used for next frame
-        flush_strand(io_ctx),               // used to isolate flush (and interrupt other strands)
-        wip_timer(io_ctx)                   // used to racked incomplete wip reels
+      : guard(asio::make_work_guard(io_ctx)), // ensure io_ctx has work
+        handoff_strand(io_ctx),               // unprocessed frame 'queue'
+        wip_strand(io_ctx),                   // guard work in progress reeel
+        frame_strand(io_ctx),                 // used for next frame
+        flush_strand(io_ctx),                 // used to isolate flush (and interrupt other strands)
+        wip_timer(io_ctx)                     // used to racked incomplete wip reels
   {}
 
   static auto ptr() noexcept { return self->shared_from_this(); }
 
 public:
   static void flush(FlushInfo request);
+  static void flush_all() noexcept;
 
   // handeff() allows the packet to be moved however expects the key to be a reference
   static void handoff(uint8v packet, const uint8v &key) noexcept {
-    auto s = ptr();
+    if (self.use_count() < 0) return; // quietly ignore packets when Racked is not ready
 
-    auto frame = Frame::create(packet);
+    auto s = ptr(); // get fresh shared_ptr to ourself, we'll move it into the lambda
+
+    auto frame = Frame::create(packet); // create frame, will also be moved in lambda (as needed)
 
     if (frame->state.header_parsed()) {
       if (s->flush_request.should_flush(frame)) {
@@ -124,7 +127,13 @@ public:
 
   static void init() noexcept;
 
+  /// @brief Get a shared_future to the next racked frame
+  /// @return shared_future containing the next frame (could be silent)
   static frame_future next_frame() noexcept;
+
+  /// @brief Request Racked to shutdown and notify complete via a promise/future
+  /// @return shared_future<bool> set to true when complete
+  static void shutdown() noexcept;
 
   static void spool(bool enable = true) noexcept { ptr()->spool_frames.store(enable); }
 
@@ -143,7 +152,7 @@ private:
 private:
   // order dependent
   io_context io_ctx;
-  work_guard_t guard;
+  work_guard guard;
   strand handoff_strand;
   strand wip_strand;
   strand frame_strand;

@@ -32,7 +32,7 @@ class Rtsp : public std::enable_shared_from_this<Rtsp> {
 private:
   Rtsp()
       : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-        guard(io::make_work_guard(io_ctx)) {}
+        guard(asio::make_work_guard(io_ctx)) {}
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
@@ -53,9 +53,8 @@ public:
       asio::post(io_ctx, [s = std::move(s)]() {
         [[maybe_unused]] error_code ec;
 
-        s->guard->reset();
+        s->guard.reset(); // allow the io_ctx to complete when other work is finished
         s->acceptor.close(ec);
-        s->guard->reset(); // allow the io_ctx to complete when other work is finished
       });
 
       // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
@@ -68,7 +67,7 @@ private:
   // order dependent
   io_context io_ctx;
   tcp_acceptor acceptor;
-  work_guard_t guard;
+  work_guard guard;
 
   // order independent
   static std::shared_ptr<Rtsp> self;

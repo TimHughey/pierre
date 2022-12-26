@@ -30,7 +30,6 @@
 #include <fmt/format.h>
 #include <functional>
 #include <iterator>
-#include <latch>
 #include <optional>
 #include <ranges>
 #include <string_view>
