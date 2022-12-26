@@ -44,6 +44,7 @@ public:
   static void init() noexcept; // in .cpp to hide DmxCtrl()
 
   static void shutdown() noexcept;
+  static void teardown() noexcept;
 
 private:
   void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;
@@ -55,7 +56,7 @@ private:
   // order dependent
   io_context io_ctx;
   strand frame_strand;
-  work_guard_t guard;
+  work_guard guard;
   std::atomic_bool loop_active;
 
   // order independent
@@ -67,7 +68,7 @@ private:
 
 public:
   static constexpr csv module_id{"DESK"};
-  static constexpr auto TASK_NAME{"Desk"};
+  static constexpr auto TASK_NAME{"desk"};
 };
 
 } // namespace pierre

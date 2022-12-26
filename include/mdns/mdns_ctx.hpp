@@ -34,7 +34,6 @@
 #include <avahi-common/thread-watch.h>
 #include <avahi-common/timeval.h>
 #include <future>
-#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -141,9 +140,9 @@ public:
   std::atomic_bool client_running;
   string domain;
 
-  AvahiClient *client;
-  AvahiThreadedPoll *tpoll;
-  AvahiEntryGroupState entry_group_state;
+  AvahiClient *client{nullptr};
+  AvahiThreadedPoll *tpoll{nullptr};
+  AvahiEntryGroupState entry_group_state{AVAHI_ENTRY_GROUP_UNCOMMITED};
   std::optional<AvahiEntryGroup *> entry_group;
 
   // pending and resolved names

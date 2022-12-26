@@ -19,92 +19,32 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 
-#include <algorithm>
-#include <functional>
-#include <mutex>
+#include <array>
+#include <fmt/format.h>
 #include <pthread.h>
-#include <ranges>
-#include <set>
-#include <stop_token>
 #include <thread>
-#include <type_traits>
-#include <vector>
 
 namespace pierre {
 
 using Threads = std::vector<Thread>;
 
 inline void name_thread(csv name) noexcept {
-  const auto handle = pthread_self();
+  const auto tid = pthread_self();
 
-  pthread_setname_np(handle, name.data());
+  // name the avahi thread (if needed)
+  std::array<char, 64> buff{};
+
+  pthread_getname_np(tid, buff.data(), buff.size());
+
+  if (csv(buff.data()) != name) {
+    pthread_setname_np(tid, name.data());
+  }
 }
 
 inline void name_thread(csv name, int num) noexcept {
-  name_thread(fmt::format("{} {}", name, num));
+  name_thread(fmt::format("{}_{}", name, num));
 }
-
-inline const string thread_id_short() noexcept {
-  static std::hash<std::thread::id> hasher;
-
-  const auto hashed = fmt::format("{:x}", hasher(std::this_thread::get_id()));
-
-  auto first = hashed.begin();
-  std::advance(first, std::ssize(hashed) - 8);
-
-  return string(first, hashed.end());
-}
-
-class stop_tokens {
-private:
-  static constexpr auto def_func = []() {};
-
-public:
-  stop_tokens() = default;
-
-  void add(std::stop_token &&tok) {
-    std::unique_lock lck(mtx, std::defer_lock);
-    lck.lock();
-
-    _tokens.emplace_back(tok);
-  }
-
-  bool any_requested() {
-    return std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
-  }
-
-  template <typename S, typename F> bool any_requested(S &&stoppable, F &&func = def_func) {
-    auto should_stop = std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
-
-    if (should_stop) {
-      stoppable.stop();
-    } else {
-      func();
-    }
-
-    return should_stop;
-  }
-
-  template <typename S, typename G, typename F>
-  bool any_requested(S &&stoppable, G &&guard, F &&func) {
-    auto should_stop = std::ranges::any_of(_tokens, [](auto &t) { return t.stop_requested(); });
-
-    if (should_stop) {
-      guard.reset();
-      stoppable.stop();
-    } else {
-      func();
-    }
-
-    return should_stop;
-  }
-
-private:
-  std::vector<std::stop_token> _tokens;
-  std::mutex mtx;
-};
 
 } // namespace pierre

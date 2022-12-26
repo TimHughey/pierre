@@ -47,9 +47,9 @@ std::shared_ptr<Desk> Desk::self;
 
 // must be defined in .cpp to hide mdns
 Desk::Desk() noexcept
-    : frame_strand(io_ctx),               // serialize spooler frame access
-      guard(io::make_work_guard(io_ctx)), // prevent io_ctx from ending
-      loop_active{true}                   // frame loop defaults to active at creation
+    : frame_strand(io_ctx),                 // serialize spooler frame access
+      guard(asio::make_work_guard(io_ctx)), // prevent io_ctx from ending
+      loop_active{true}                     // frame loop defaults to active at creation
 {}
 
 // general API
