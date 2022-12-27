@@ -75,7 +75,7 @@ void Rtsp::init() noexcept {
 
   self = std::shared_ptr<Rtsp>(new Rtsp());
 
-  const auto thread_count = config()->at(threads_path).value_or(4);
+  const auto thread_count = config_val<int>(threads_path, 4);
 
   // create shared_ptrs to avoid spurious data races
   auto once_flag = std::make_shared<std::once_flag>();

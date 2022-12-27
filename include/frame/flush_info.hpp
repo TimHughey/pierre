@@ -22,6 +22,7 @@
 #include "base/types.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <fmt/format.h>
 #include <ranges>
 #include <vector>
@@ -29,14 +30,19 @@
 namespace pierre {
 
 struct FlushInfo {
-  bool active = false;
-  seq_num_t from_seq = 0;
-  timestamp_t from_ts = 0;
-  seq_num_t until_seq = 0;
-  timestamp_t until_ts = 0;
-  bool deferred = false;
+  bool active{false};
+  seq_num_t from_seq{0};
+  timestamp_t from_ts{0};
+  seq_num_t until_seq{0};
+  timestamp_t until_ts{0};
+  bool deferred{false};
+  bool all{false};
 
   FlushInfo() = default;
+  FlushInfo(const FlushInfo &) = default;
+  FlushInfo(FlushInfo &&) = default;
+  // FlushInfo &operator=(const FlushInfo &) = default;
+  FlushInfo &operator=(FlushInfo &&) = default;
 
   constexpr FlushInfo(const seq_num_t from_seq, const timestamp_t from_ts, //
                       const seq_num_t until_seq, const timestamp_t until_ts) noexcept
@@ -51,50 +57,79 @@ struct FlushInfo {
     // if it's a flush that will be followed by a setanchor then stop render now.
   }
 
+  static FlushInfo make_flush_all() noexcept {
+    auto info = FlushInfo();
+    info.active = true;
+    info.all = true;
+
+    return info;
+  }
+
   bool operator()(seq_num_t seq_num, timestamp_t ts) const noexcept {
-    return (seq_num <= until_seq) && (ts <= until_ts);
+    return all || ((seq_num <= until_seq) && (ts <= until_ts));
   }
 
   bool operator()(auto item) const noexcept {
-    return (item->seq_num <= until_seq) && (item->timestamp <= until_ts);
+    return all || ((item->seq_num <= until_seq) && (item->timestamp <= until_ts));
   }
 
+  /// @brief Is this request inactive?
+  /// @return true if inactive, false if active
   bool operator!() const noexcept { return !active; }
 
+  /// @brief Determine if a list of items matches the flush criteria
+  /// @tparam T Any pointer that has public class memebers seq_num and timestamp
+  /// @param items A vector of items
+  /// @return boolean indicating if all items match this request
   template <typename T> bool matches(std::vector<T> items) const {
-    return std::ranges::all_of(items, [this](auto &x) { //
-      return (x->seq_num <= until_seq) && (x->timestamp <= until_ts);
-    });
+    return all || std::ranges::all_of(items, [this](auto &x) { //
+             return (x->seq_num <= until_seq) && (x->timestamp <= until_ts);
+           });
   }
 
+  /// @brief Determine if the item passed meets the flush criteria.  If not, set the
+  ///        flush request inactive.
+  /// @tparam T Any pointer that has public class memebers seq_num and timestamp
+  /// @param item What to examine
+  /// @return boolean indicating if item meets flush request criteria
   template <typename T> bool should_flush(T item) noexcept {
-    if (active) {
 
+    // flush all requests are single-shot. in other words, they go inactive once
+    // the initial flush is complete and do not apply to inbound frames. here we check
+    // if this is a single-shot all or standard request
+    if (active && !all) {
       active = ((item->seq_num <= until_seq) && (item->timestamp <= until_ts));
-
-      // if (!active) {
-      //   INFO("FLUSH_REQUEST", "COMPLETE", "{}\n", inspect());
-      // }
+    } else if (all) {
+      active = false;
     }
 
     return active;
   }
-
-  const string inspect() const {
-    string msg;
-    auto w = std::back_inserter(msg);
-    fmt::format_to(w, "{} ", active ? "ACTIVE" : "INACTIVE");
-
-    if (from_seq || from_ts) {
-      fmt::format_to(w, "from seq_num={:<8} timestamp={:<12} ", from_seq, from_ts);
-    }
-
-    fmt::format_to(w, "seq_num={:<8} timestamp={:<12}", until_seq, until_ts);
-
-    if (deferred) fmt::format_to(w, "DEFERRED");
-
-    return msg;
-  }
 };
 
 } // namespace pierre
+
+/// @brief Custom formatter for FlushInfo
+template <> struct fmt::formatter<pierre::FlushInfo> : formatter<std::string> {
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext>
+  auto format(const pierre::FlushInfo &info, FormatContext &ctx) const {
+    std::string msg;
+    auto w = std::back_inserter(msg);
+    fmt::format_to(w, "{}{}", info.active ? "ACTIVE" : "INACTIVE", info.deferred ? " DEFERRED " : " ");
+
+    if (info.all) {
+      fmt::format_to(w, "FLUSH ALL");
+    } else {
+
+      if (info.from_seq || info.from_ts) {
+        fmt::format_to(w, "from seq_num={:<8} timestamp={:<12} ", info.from_seq, info.from_ts);
+      }
+
+      fmt::format_to(w, "seq_num={:<8} timestamp={:<12}", info.until_seq, info.until_ts);
+    }
+
+    return formatter<std::string>::format(fmt::format("{}", msg), ctx);
+  }
+};

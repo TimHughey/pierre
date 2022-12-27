@@ -168,11 +168,11 @@ void Desk::init(io_context &io_ctx_caller) noexcept {
     self->active_fx = std::make_shared<fx::Standby>(io_ctx);
     Racked::init();
 
-    const auto num_threads = config()->at("desk.threads"sv).value_or(3);
-    auto latch = std::make_shared<std::latch>(num_threads);
+    const auto thread_count = config_val<int>("desk.threads"sv, 3);
+    auto latch = std::make_shared<std::latch>(thread_count);
 
     // note: work guard created by constructor
-    for (auto n = 0; n < num_threads; n++) {
+    for (auto n = 0; n < thread_count; n++) {
       self->threads.emplace_back([latch, s = self->ptr(), n = n]() {
         name_thread(TASK_NAME, n);
 
@@ -186,7 +186,7 @@ void Desk::init(io_context &io_ctx_caller) noexcept {
 
     INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
          sizeof(Desk),                                                    //
-         num_threads,                                                     //
+         thread_count,                                                    //
          self->threads.size(),                                            //
          pet::humanize(InputInfo::lead_time_min));
 
@@ -206,7 +206,9 @@ void Desk::shutdown() noexcept {
   self.reset();
 
   asio::post(io_ctx_caller, [s = std::move(s)]() {
-    INFO(module_id, "SHUTDOWN", "initiated desk={}\n", fmt::ptr(s.get()));
+    auto debug = debug_threads();
+
+    if (debug) INFO(module_id, "SHUTDOWN", "initiated desk={}\n", fmt::ptr(s.get()));
 
     s->guard.reset(); // reset work guard so io_ctx will finish
 
@@ -216,7 +218,7 @@ void Desk::shutdown() noexcept {
     std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) { t.join(); });
     s->threads.clear();
 
-    INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(s->threads));
+    if (debug) INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(s->threads));
 
     Racked::shutdown();
   });

@@ -21,7 +21,11 @@ batch_of = 150
 
 [debug]
 path = "../extra/debug"
+frames = { flush = false, racked = false }
+mdns = { callbacks = false }
 rtsp = { save = false, file = "rtsp.log", format = "pretty" }
+threads = false
+
 
 [dmx]
 # controller = "dmx"  # default

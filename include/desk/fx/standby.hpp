@@ -40,8 +40,6 @@ public:
   void cancel() noexcept override {
     [[maybe_unused]] error_code ec;
     silence_timer.cancel(ec);
-
-    INFO(module_id, "CANCEL", "cancel reason={}\n", ec.message());
   }
 
   void execute(Peaks &peaks) noexcept override;

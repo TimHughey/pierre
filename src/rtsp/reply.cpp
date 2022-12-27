@@ -171,6 +171,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
       mDNS::service().receiver_active(false);
       mDNS::update();
 
+      Racked::flush_all();
       ctx_naked->teardown();
     }
 

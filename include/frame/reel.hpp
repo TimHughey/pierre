@@ -49,6 +49,7 @@ public:
   {}
 
   friend class Racked;
+  friend struct fmt::formatter<Reel>;
 
   void add(frame_t frame) noexcept;
   void consume() noexcept;
@@ -68,15 +69,16 @@ public:
   auto peek_last() const noexcept { return frames.rbegin()->second; }
 
   template <typename T = reel_serial_num_t> const T serial_num() const noexcept {
-    if constexpr (std::is_same_v<T, reel_serial_num_t>) return _serial;
-    if constexpr (std::is_same_v<T, string>) return fmt::format("{:#5x}", _serial);
-
-    static_assert("unhandled reel serial num type");
+    if constexpr (std::is_same_v<T, reel_serial_num_t>) {
+      return _serial;
+    } else if constexpr (std::is_same_v<T, string>) {
+      return fmt::format("{:#5x}", _serial);
+    } else {
+      static_assert(always_false_v<T>, "unhandled reel serial num type");
+    }
   }
 
   auto size() const noexcept { return std::ssize(frames); }
-
-  const string inspect() const noexcept;
 
 protected:
   // order dependent
@@ -87,3 +89,27 @@ protected:
 };
 
 } // namespace pierre
+
+/// @brief Custom formatter for Reel
+template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext>
+  auto format(const pierre::Reel &reel, FormatContext &ctx) const {
+    std::string msg;
+    auto w = std::back_inserter(msg);
+
+    const auto size_now = std::ssize(reel.frames);
+    fmt::format_to(w, "REEL {:#5x} frames={:<3}", reel.serial_num(), size_now);
+
+    if (size_now) {
+      auto a = reel.frames.begin()->second;  // reel first frame
+      auto b = reel.frames.rbegin()->second; // reel last frame
+
+      fmt::format_to(w, "seq a/b={:>8}/{:<8}", a->seq_num, b->seq_num);
+      fmt::format_to(w, "ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);
+    }
+
+    return formatter<std::string>::format(fmt::format("{}", msg), ctx);
+  }
+};

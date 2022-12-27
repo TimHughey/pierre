@@ -40,8 +40,8 @@ public:
   static auto create() noexcept {
     auto self = std::shared_ptr<Dsp>(new Dsp());
 
-    static toml::path factor_path{"frame.dsp.concurrency_factor"sv};
-    double factor = config()->table().at_path(factor_path).value_or<double>(0.4);
+    static constexpr csv factor_path{"frame.dsp.concurrency_factor"};
+    auto factor = config_val<double>(factor_path, 0.4);
     const int thread_count = std::jthread::hardware_concurrency() * factor;
 
     auto latch = std::make_shared<std::latch>(thread_count);
@@ -105,12 +105,13 @@ public:
   }
 
   void shutdown() noexcept {
+
     guard.reset();
 
     std::for_each(threads.begin(), threads.end(), [](auto &t) { t.join(); });
     threads.clear();
 
-    INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(threads));
+    if (debug_threads()) INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(threads));
   }
 
 private:

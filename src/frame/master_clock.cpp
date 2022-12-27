@@ -54,7 +54,7 @@ void MasterClock::init() noexcept { // static
     auto s = self->ptr(); // grab a fresh shared_ptr for initialization
 
     // grab configured thread count
-    const auto thread_count = config()->at(cfg_thread_count).value_or<int>(1);
+    auto thread_count = config_val<int>(cfg_thread_count, 1);
     auto latch = std::make_shared<std::latch>(thread_count);
 
     for (auto n = 0; n < thread_count; n++) {

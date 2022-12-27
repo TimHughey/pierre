@@ -1,0 +1,72 @@
+       84.9ms CONFIG             INIT            sizeof=368 table size=10 elapsed=0.45ms
+       84.9ms APP                INIT            Pierre 00.01.02-17-gd1037f3 2022-12-26T17:22:55
+       86.3ms PIERRE_STATS       INIT            sizeof=136 db_uri=http://localhost:8086?db=pierre enabled=true
+       86.9ms mdns::SERVICE      INIT            sizeof=8 uuid=84fd5cde-a025-4a8a-8f80-1ef011859a86
+       90.3ms mdns::Ctx          CB_CLIENT       STORING, client=0x5555555d63e0 ctx=0x5555555adda0
+       90.6ms mdns::Ctx          CB_CLIENT       RUNNING, vsn='avahi 0.8' domain=local
+       91.2ms mdns::Ctx          CB_EVT_GRP      UNCOMMITTED, STORING group=0x5555555d55f0
+       93.9ms mdns::Ctx          CB_EVT_GRP      REGISTERING, group=0x5555555d55f0
+       94.3ms mdns::Ctx          INIT            sizeof=176 msg=<empty>
+       94.7ms MASTER CLOCK       INIT            shm_name=/nqptp dest=127.0.0.1:9000
+       96.9ms RACKED             INIT            sizeof=576 frame_sizeof=304 lead_time=23.22ms fps=43
+       98.0ms DESK               INIT            sizeof=136 threads=3/3 lead_time_min=7.66ms
+       98.1ms fx::Standby        CANCEL          cancel reason=Success
+       98.4ms reply::INFO        INIT            /home/thughey/devel/pierre/build/../share/plist/get_info_resp.plist size=1749
+       98.7ms RTSP               INIT            sizeof=256 threads=2/2 features=0x1c300405fc200
+      473.3ms DMX_CTRL           CONNECT         CTRL OPEN   192.168.2.4:53518 -> 192.168.2.162:49152 27 375.21ms
+      497.3ms DMX_CTRL           LISTEN          DATA OPEN   192.168.2.4:39721 -> 192.168.2.162:49927 28 399.27ms
+      964.9ms mdns::Ctx          CB_EVT_GRP      ESTABLISHED, group=0x5555555d55f0
+    60098.4ms fx::Standby        SILENCE_WATCH   timeout, setting finished
+    60143.3ms fx::Standby        CANCEL          cancel reason=Success
+    60143.3ms DESK               FRAME_LOOP      FX standby -> all_stop
+    60143.4ms DESK               SHUTDOWN        initiated desk=0x5555555ff180
+    60143.7ms DESK               SHUTDOWN        threads=0
+    60143.8ms DSP                SHUTDOWN        threads=0
+    60143.9ms RACKED             SHUTDOWN        threads=0
+   104620.7ms RTSP               LISTEN          ACCEPT OPEN   192.168.2.4:7000 -> 192.168.2.72:64845 9 1m 44s 521.97ms
+   104622.9ms RACKED             INIT            sizeof=576 frame_sizeof=304 lead_time=23.22ms fps=43
+   104623.9ms DESK               INIT            sizeof=136 threads=3/3 lead_time_min=7.66ms
+   104624.2ms RTSP_SESSION       RUN             SESSION OPEN   192.168.2.4:7000 -> 192.168.2.72:64845 9 1m 44s 525.52ms
+   104624.3ms fx::Standby        CANCEL          cancel reason=Success
+   104626.1ms DMX_CTRL           CONNECT         CTRL OPEN   192.168.2.4:48618 -> 192.168.2.162:49152 32 2.06ms
+   104637.8ms DMX_CTRL           LISTEN          DATA OPEN   192.168.2.4:37237 -> 192.168.2.162:49928 27 13.84ms
+   104713.4ms RTSP EVENT         LISTEN          192.168.2.72:64846 -> 192.168.2.4:34461 accepted
+   104752.1ms RTSP AUDIO         ACCEPT          SESSION OPEN   192.168.2.4:36029 -> 192.168.2.72:64847 37 7.12ms
+   104754.0ms AV                 INFO            audio plane/linesize 1=0x7fffe0035b30/8192 2=0x7fffe0037ba0/0 nb_samples=1024 format=8 flags=0
+   104842.4ms fx::Standby        CANCEL          cancel reason=Success
+   104842.4ms DESK               FRAME_LOOP      FX standby -> major_peak
+   181910.9ms RTSP AUDIO         ASYNC_READ      bytes=0 OPEN   End of file
+   181927.1ms RTSP_CTX           TEARDOWN        active_remote=2476087739 dacp_id=E285AFBE841B9232 client_name=xapham
+   181927.2ms RTSP_CTX           TEARDOWN        COMPLETE
+   181933.5ms RTSP_SESSION       ASYNC_READ      OPEN   End of file
+   194929.3ms DESK               FRAME_LOOP      FX major_peak -> standby
+   254929.7ms fx::Standby        SILENCE_WATCH   timeout, setting finished
+   254974.2ms fx::Standby        CANCEL          cancel reason=Success
+   254974.3ms DESK               FRAME_LOOP      FX standby -> all_stop
+   254974.5ms DESK               SHUTDOWN        initiated desk=0x7fffd0003000
+   254974.7ms DESK               SHUTDOWN        threads=0
+   254974.8ms DSP                SHUTDOWN        threads=0
+   254974.9ms RACKED             SHUTDOWN        threads=0
+   436991.4ms RTSP               LISTEN          ACCEPT OPEN   192.168.2.4:7000 -> 192.168.2.72:64991 9 5m 32s 367.15ms
+   436993.4ms RACKED             INIT            sizeof=576 frame_sizeof=304 lead_time=23.22ms fps=43
+   436994.3ms DESK               INIT            sizeof=136 threads=3/3 lead_time_min=7.66ms
+   436994.6ms RTSP_SESSION       RUN             SESSION OPEN   192.168.2.4:7000 -> 192.168.2.72:64991 9 5m 32s 370.41ms
+   436996.6ms fx::Standby        CANCEL          cancel reason=Success
+   437019.0ms DMX_CTRL           CONNECT         CTRL OPEN   192.168.2.4:33312 -> 192.168.2.162:49152 32 24.52ms
+   437047.1ms DMX_CTRL           LISTEN          DATA OPEN   192.168.2.4:39025 -> 192.168.2.162:49929 31 50.95ms
+   437128.7ms RTSP EVENT         LISTEN          192.168.2.72:64992 -> 192.168.2.4:32867 accepted
+   437190.0ms RTSP AUDIO         ACCEPT          SESSION OPEN   192.168.2.4:44855 -> 192.168.2.72:64993 37 9.75ms
+   437252.1ms fx::Standby        CANCEL          cancel reason=Success
+   437252.1ms DESK               FRAME_LOOP      FX standby -> major_peak
+   729288.3ms RTSP AUDIO         ASYNC_READ      bytes=0 OPEN   End of file
+   729310.6ms RTSP_CTX           TEARDOWN        active_remote=2700012001 dacp_id=BE3C3E8F83A0D817 client_name=xapham
+   729310.7ms RTSP_CTX           TEARDOWN        COMPLETE
+   729344.5ms RTSP_SESSION       ASYNC_READ      OPEN   End of file
+   742298.2ms DESK               FRAME_LOOP      FX major_peak -> standby
+   802298.5ms fx::Standby        SILENCE_WATCH   timeout, setting finished
+   802343.1ms fx::Standby        CANCEL          cancel reason=Success
+   802343.1ms DESK               FRAME_LOOP      FX standby -> all_stop
+   802343.2ms DESK               SHUTDOWN        initiated desk=0x7fffd40c0820
+   802343.3ms DESK               SHUTDOWN        threads=0
+   802343.4ms DSP                SHUTDOWN        threads=0
+   802343.7ms RACKED             SHUTDOWN        threads=0

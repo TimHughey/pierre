@@ -148,4 +148,17 @@ public:
 
 inline std::shared_ptr<Config> config() noexcept { return Config::ptr(); }
 
+template <typename T> T config_val(csv path, T &&def_val) noexcept {
+  return Config::ptr()->at(path).value_or<T>(std::forward<T>(def_val));
+}
+
+inline bool config_debug(csv path) noexcept {
+  toml::path full_path("debug");
+  full_path.append(path);
+
+  return Config::ptr()->at(full_path).value_or(false);
+}
+
+inline bool debug_threads() noexcept { return config_val("debug.threads", false); }
+
 } // namespace pierre

@@ -61,7 +61,7 @@ private:
 
 public:
   static void flush(FlushInfo request);
-  static void flush_all() noexcept;
+  static void flush_all() noexcept { flush(FlushInfo::make_flush_all()); }
 
   // handeff() allows the packet to be moved however expects the key to be a reference
   static void handoff(uint8v packet, const uint8v &key) noexcept {
@@ -131,8 +131,7 @@ public:
   /// @return shared_future containing the next frame (could be silent)
   static frame_future next_frame() noexcept;
 
-  /// @brief Request Racked to shutdown and notify complete via a promise/future
-  /// @return shared_future<bool> set to true when complete
+  /// @brief Shutdown Racked
   static void shutdown() noexcept;
 
   static void spool(bool enable = true) noexcept { ptr()->spool_frames.store(enable); }
@@ -146,8 +145,7 @@ private:
   void rack_wip() noexcept;
 
   // misc logging, debug
-  void log_racked() const noexcept { log_racked(string()); }
-  void log_racked(const string &wip_info, log_racked_rc rc = log_racked_rc::NONE) const noexcept;
+  void log_racked(log_racked_rc rc = log_racked_rc::NONE) const noexcept;
 
 private:
   // order dependent

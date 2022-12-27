@@ -18,6 +18,7 @@
 
 #include "frame/reel.hpp"
 #include "base/logger.hpp"
+#include "config/config.hpp"
 
 #include <tuple>
 
@@ -45,22 +46,21 @@ bool Reel::contains(timestamp_t timestamp) noexcept {
 }
 
 bool Reel::flush(FlushInfo &flush) noexcept {
-  if (frames.empty() == false) { // nothing to flush
+  auto debug = config_debug("frames.flush");
 
-    // grab how many frames we currently have for debug stats (below)
-    [[maybe_unused]] int64_t frames_before = std::ssize(frames);
+  if (frames.empty() == false) { // reel has frames, attempt to flush
 
     auto a = frames.begin()->second;  // reel first frame
     auto b = frames.rbegin()->second; // reel last frame
 
     if (flush(a) && flush(b)) {
-      INFOX(module_id, "FLUSH", "{}\n", inspect());
+      if (debug) INFO(module_id, "FLUSH", "{}\n", *this);
       Frames empty_map;
 
       std::swap(frames, empty_map);
 
     } else if (flush.matches<frame_t>({a, b})) {
-      INFO(module_id, "FLUSH", "SOME {}\n", inspect());
+      if (debug) INFO(module_id, "FLUSH", "SOME {}\n", *this);
 
       // partial match
       std::erase_if(frames, [&](const auto &item) { return flush(item.second); });
@@ -68,24 +68,6 @@ bool Reel::flush(FlushInfo &flush) noexcept {
   }
 
   return std::empty(frames);
-}
-
-const string Reel::inspect() const noexcept {
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  const auto size_now = std::ssize(frames);
-  fmt::format_to(w, "{} frames={:<3}", module_id, size_now);
-
-  if (size_now) {
-    auto a = frames.begin()->second;  // reel first frame
-    auto b = frames.rbegin()->second; // reel last frame
-
-    fmt::format_to(w, "seq a/b={:>8}/{:<8}", a->seq_num, b->seq_num);
-    fmt::format_to(w, "ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);
-  }
-
-  return msg;
 }
 
 } // namespace pierre

@@ -49,14 +49,15 @@ int64_t Racked::REEL_SERIAL_NUM{0x1000};
 std::shared_ptr<Racked> Racked::self;
 
 void Racked::flush(FlushInfo request) { // static
-
   if (self.use_count() < 1) return;
 
   auto s = ptr();
   auto &flush_strand = s->flush_strand;
 
   asio::post(flush_strand, [s = std::move(s), request = std::move(request)]() mutable {
-    INFOX(module_id, "FLUSH", "{}\n", request.inspect());
+    auto debug = config_debug("frames.flush");
+
+    if (debug) INFO(module_id, "FLUSH", "{}\n", request);
 
     // save shared_ptr dereferences for multiple use variables
     auto &flush_request = s->flush_request;
@@ -64,7 +65,7 @@ void Racked::flush(FlushInfo request) { // static
     auto &wip = s->wip;
 
     // record the flush request to check incoming frames (guarded by flush_strand)
-    flush_request = request;
+    flush_request = std::move(request);
 
     // flush wip first so we can unlock it quickly
     if (wip.has_value()) {
@@ -73,7 +74,11 @@ void Racked::flush(FlushInfo request) { // static
       lck_wip.lock();
 
       // if wip is completely flushed reset the optional
-      if (wip->flush(flush_request)) wip.reset();
+      if (wip->flush(flush_request)) {
+        [[maybe_unused]] error_code ec;
+        s->wip_timer.cancel(ec);
+        wip.reset();
+      }
     }
 
     std::unique_lock lck_rack{s->rack_mtx, std::defer_lock};
@@ -87,13 +92,14 @@ void Racked::flush(FlushInfo request) { // static
       auto first = racked.begin()->second.peek_first();
       auto last = racked.rbegin()->second.peek_last();
 
-      INFO(module_id, "FLUSH", "rack contains seq_num {:<8}/{:>8} before flush\n", //
-           first->seq_num, last->seq_num);
+      if (debug)
+        INFO(module_id, "FLUSH", "rack contains seq_num {:<8}/{:>8} before flush\n", //
+             first->seq_num, last->seq_num);
 
       if (flush_request.matches<frame_t>({first, last})) {
         // yes, the entire rack matches the flush request so we can
         // take a short-cut and clear the entire rack in oneshot
-        INFO(module_id, "FLUSH", "clearing all reels={}\n", initial_size);
+        if (debug) INFO(module_id, "FLUSH", "clearing all reels={}\n", initial_size);
 
         racked_reels cleared;
         std::swap(racked, cleared);
@@ -104,13 +110,12 @@ void Racked::flush(FlushInfo request) { // static
 
         for (auto it = racked.begin(); it != racked.end();) {
           auto &reel = it->second;
-          const auto reel_info = reel.inspect();
 
           if (reel.flush(flush_request)) { // true=reel empty
             it = racked.erase(it);         // returns it to next not erased entry
             Stats::write(stats::RACKED_REELS, std::ssize(racked));
           } else {
-            INFO(module_id, "FLUSH", "KEEPING {}\n", reel_info);
+            if (debug) INFO(module_id, "FLUSH", "KEEPING {}\n", reel);
           }
         }
       }
@@ -135,8 +140,8 @@ void Racked::init() noexcept {
     Anchor::init();
     self->av = Av::create(self->io_ctx);
 
-    static const toml::path cfg_threads_path{"frame.racked.threads"};
-    const int thread_count = config()->at(cfg_threads_path).value_or(3);
+    static constexpr csv cfg_threads_path{"frame.racked.threads"};
+    const int thread_count = config_val<int>(cfg_threads_path, 3);
 
     auto latch = std::make_shared<std::latch>(thread_count);
 
@@ -267,7 +272,6 @@ void Racked::rack_wip() noexcept {
 
   log_racked_rc rc{NONE};
 
-  const auto wip_info = wip->inspect();
   std::unique_lock lck{rack_mtx, std::defer_lock};
   if (!wip->empty()) {
 
@@ -287,49 +291,62 @@ void Racked::rack_wip() noexcept {
       rc = TIMEOUT;
     }
 
-    if (rc == COLLISION) Stats::write(stats::RACK_COLLISION, true);
-    if (rc == RACKED) Stats::write(stats::RACKED_REELS, std::ssize(racked));
-    if (rc == TIMEOUT) Stats::write(stats::RACK_WIP_TIMEOUT, true);
+    if (rc == COLLISION) {
+      Stats::write(stats::RACK_COLLISION, true);
+    } else if (rc == RACKED) {
+      Stats::write(stats::RACKED_REELS, std::ssize(racked));
+    } else if (rc == TIMEOUT) {
+      Stats::write(stats::RACK_WIP_TIMEOUT, true);
+    }
 
-    log_racked(wip_info, rc);
+    log_racked(rc);
 
     // regardless of the outcome above, reset wip
     wip.reset();
   }
 }
 
-void Racked::log_racked(const string &wip_info, log_racked_rc rc) const noexcept {
-  string msg;
-  auto w = std::back_inserter(msg);
+void Racked::log_racked(log_racked_rc rc) const noexcept {
 
-  auto reel_count = std::ssize(racked);
+  auto debug = config_debug("frames.racked");
 
-  switch (rc) {
-  case log_racked_rc::NONE:
-    if (reel_count == 0) {
-      auto frame_count = racked.cbegin()->second.size();
-      if (frame_count == 1) fmt::format_to(w, "LAST FRAME");
-    } else if ((reel_count >= 400) && ((reel_count % 10) == 0)) {
-      fmt::format_to(w, "HIGH REELS reels={:<3}", reel_count);
+  if (debug) {
+    string msg;
+    auto w = std::back_inserter(msg);
+
+    auto reel_count = std::ssize(racked);
+
+    switch (rc) {
+    case log_racked_rc::NONE: {
+      if (reel_count == 0) {
+        auto frame_count = racked.cbegin()->second.size();
+        if (frame_count == 1) fmt::format_to(w, "LAST FRAME");
+      } else if ((reel_count >= 400) && ((reel_count % 10) == 0)) {
+        fmt::format_to(w, "HIGH REELS reels={:<3}", reel_count);
+      }
+    } break;
+
+    case log_racked_rc::RACKED: {
+      if (reel_count == 1) {
+        fmt::format_to(w, "FIRST REEL reels={:<3}", reel_count);
+      }
+
+      if (wip.has_value() && !wip->empty()) {
+        fmt::format_to(w, " wip_reel={}", wip.value());
+      }
+    } break;
+
+    default:
+      break;
     }
 
-    break;
-
-  case log_racked_rc::RACKED:
-    if ((reel_count == 1) && !wip_info.empty()) {
-      // fmt::format_to(w, "FIRST REEL reels={:<3} wip_reel={}", 1, wip_info);
-    }
-
-    break;
-
-  default:
-    break;
+    if (!msg.empty()) INFO(module_id, "LOG_RACKED", "{}\n", msg);
   }
-
-  if (!msg.empty()) INFO(module_id, "LOG_RACKED", "{}\n", msg);
 }
 
 void Racked::shutdown() noexcept {
+
+  auto debug = debug_threads();
 
   self->av->shutdown();
   self->av.reset();
@@ -345,7 +362,7 @@ void Racked::shutdown() noexcept {
   std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) { t.join(); });
   s->threads.clear();
 
-  INFO(module_id, "SHUTDOWN", "threads={}\n", std::size(s->threads));
+  if (debug) INFO(module_id, "SHUTDOWN", "threads={}\n", std::size(s->threads));
 }
 
 } // namespace pierre

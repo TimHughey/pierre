@@ -99,10 +99,12 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
   static constexpr csv cb_id{"CB_CLIENT"};
 
   auto ctx = static_cast<Ctx *>(user_data);
+  auto debug = config_debug("mdns.callbacks");
 
   // is this the first invocation of the callback?
   if (client && (ctx->client == nullptr)) {
-    INFO(module_id, cb_id, "STORING, client={} ctx={}\n", fmt::ptr(client), fmt::ptr(ctx));
+    if (debug)
+      INFO(module_id, cb_id, "STORING, client={} ctx={}\n", fmt::ptr(client), fmt::ptr(ctx));
 
     ctx->client = client; // save the client (for comparison later)
     name_thread(thread_name);
@@ -113,11 +115,11 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
 
   switch (state) {
   case AVAHI_CLIENT_CONNECTING: {
-    INFO(module_id, cb_id, "CONNECTING, client={}\n", fmt::ptr(ctx->client));
+    if (debug) INFO(module_id, cb_id, "CONNECTING, client={}\n", fmt::ptr(ctx->client));
   } break;
 
   case AVAHI_CLIENT_S_REGISTERING: {
-    INFO(module_id, cb_id, "REGISTERING, client={}\n", fmt::ptr(ctx->client));
+    if (debug) INFO(module_id, cb_id, "REGISTERING, client={}\n", fmt::ptr(ctx->client));
 
     // if there is already a group, reset it
     if (ctx->entry_group.has_value()) {
@@ -139,18 +141,18 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
     ctx->domain = avahi_client_get_domain_name(client);
     string vsn(avahi_client_get_version_string(client));
 
-    INFO(module_id, cb_id, "RUNNING, vsn='{}' domain={}\n", vsn, ctx->domain);
+    if (debug) INFO(module_id, cb_id, "RUNNING, vsn='{}' domain={}\n", vsn, ctx->domain);
 
     ctx->client_running.store(true);
     ctx->client_running.notify_all();
   } break;
 
   case AVAHI_CLIENT_FAILURE: {
-    INFO(module_id, cb_id, "FAILED, reason={}\n", ctx->error_string(client));
+    if (debug) INFO(module_id, cb_id, "FAILED, reason={}\n", ctx->error_string(client));
   } break;
 
   case AVAHI_CLIENT_S_COLLISION: {
-    INFO(module_id, cb_id, "NAME COLLISION, reason={}\n", ctx->error_string(client));
+    if (debug) INFO(module_id, cb_id, "NAME COLLISION, reason={}\n", ctx->error_string(client));
   } break;
   }
 }
@@ -163,6 +165,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
   static constexpr csv fn_id{"CB_BROWSE"};
 
   auto ctx = static_cast<Ctx *>(user_data);
+  auto debug = config_debug("mdns.callbacks");
 
   switch (event) {
   case AVAHI_BROWSER_FAILURE: {
@@ -171,7 +174,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
   } break;
 
   case AVAHI_BROWSER_NEW: {
-    INFOX(module_id, fn_id, "NEW host={} type={} domain={}\n", name, type, domain);
+    if (debug) INFO(module_id, fn_id, "NEW host={} type={} domain={}\n", name, type, domain);
 
     // default flags (for clarity)
     AvahiLookupFlags flags{};
@@ -210,33 +213,36 @@ void Ctx::cb_entry_group(AvahiEntryGroup *group, AvahiEntryGroupState state, voi
   static constexpr csv cb_id{"CB_EVT_GRP"};
 
   auto ctx = static_cast<mdns::Ctx *>(user_data);
+  auto debug = config_debug("mdns.callbacks");
   auto &entry_group = ctx->entry_group;
 
   ctx->entry_group_state = state;
 
   switch (state) {
   case AVAHI_ENTRY_GROUP_ESTABLISHED: {
-    INFO(module_id, cb_id, "ESTABLISHED, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
+    if (debug)
+      INFO(module_id, cb_id, "ESTABLISHED, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
   } break;
 
   // do nothing special for these states
   case AVAHI_ENTRY_GROUP_COLLISION: {
-    INFO(module_id, cb_id, "COLLISION, group={}\n", fmt::ptr(group));
+    if (debug) INFO(module_id, cb_id, "COLLISION, group={}\n", fmt::ptr(group));
   } break;
 
   case AVAHI_ENTRY_GROUP_FAILURE: {
-    INFO(module_id, cb_id, "FAILURE, group={}\n", fmt::ptr(group));
+    if (debug) INFO(module_id, cb_id, "FAILURE, group={}\n", fmt::ptr(group));
   } break;
 
   case AVAHI_ENTRY_GROUP_UNCOMMITED: {
-    INFO(module_id, cb_id, "UNCOMMITTED, STORING group={}\n", fmt::ptr(group));
+    if (debug) INFO(module_id, cb_id, "UNCOMMITTED, STORING group={}\n", fmt::ptr(group));
     // new entry group created, save it
     entry_group.emplace(group);
 
   } break;
 
   case AVAHI_ENTRY_GROUP_REGISTERING: {
-    INFO(module_id, cb_id, "REGISTERING, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
+    if (debug)
+      INFO(module_id, cb_id, "REGISTERING, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
   } break;
   }
 }
@@ -300,7 +306,7 @@ const string Ctx::init(Service &service) noexcept {
     advertise(service);
 
     if (!err) {
-      string stype = config()->table().at_path("mdns.service"sv).value_or<string>("_ruth._tcp");
+      auto stype = config_val<string>("mdns.service", "_ruth._tcp");
       browse(stype);
     } else {
       msg = string(avahi_strerror(err));
