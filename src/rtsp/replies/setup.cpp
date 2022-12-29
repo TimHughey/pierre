@@ -21,6 +21,7 @@
 #include "config/config.hpp"
 #include "ctx.hpp"
 #include "frame/master_clock.hpp"
+#include "logger/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
 

@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "frame/peaks/peak.hpp"
 

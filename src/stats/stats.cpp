@@ -17,9 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "stats/stats.hpp"
-#include "base/logger.hpp"
 #include "config/config.hpp"
 
+#include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
@@ -72,12 +72,13 @@ Stats::Stats(io_context &io_ctx, bool enabled) noexcept
       } //
 {}
 
-void Stats::init(io_context &io_ctx) noexcept {
+const string Stats::init(io_context &io_ctx) noexcept {
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  fmt::format_to(w, "sizeof={} ", sizeof(Stats));
+
   if (self.use_count() < 1) {
-    static constexpr csv fn_id{"INIT"};
-
-    auto debug = debug_init();
-
     const auto db_uri = config_val("stats.db_uri", string());
     auto enabled = config_val("stats.enabled", false);
 
@@ -91,13 +92,12 @@ void Stats::init(io_context &io_ctx) noexcept {
         self->db->batchOf(bs);
       }
 
-      if (debug)
-        INFO(module_id, fn_id, "sizeof={} db_uri={} enabled={}\n", sizeof(Stats), db_uri, enabled);
-
-    } else {
-      if (debug) INFO(module_id, fn_id, "DISABLED\n");
+      fmt::format_to(w, "db_uri={} ", db_uri);
     }
+    fmt::format_to(w, "enabled={}", enabled);
   }
+
+  return msg;
 }
 
 } // namespace pierre

@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 
@@ -85,35 +84,12 @@ struct ClockInfo {
 
   Nanos sample_time() const { return Nanos(sampleTime); }
 
-  bool sample_old(auto age_max = SAMPLE_AGE_MAX) const {
-    if (sample_age >= age_max) {
-      INFO(module_id, "SAMPLE_OLD", "clock_id={:#x} sample_age={}\n", //
-           clock_id, sample_age.humanize());
-      return true;
-    }
-
-    return false;
-  }
+  bool old(auto age_max = SAMPLE_AGE_MAX) const noexcept { return sample_age >= age_max; }
 
   // misc debug
   const string inspect() const;
 
 private:
-  void log_clock_time([[maybe_unused]] csv category, [[maybe_unused]] Nanos actual) const {
-    INFOX(module_id, category, "clock_id={:#x} now={:02.3}\n", //
-          clock_id, pet::humanize(actual));
-  }
-
-  void log_clock_status() const {
-    INFOX(module_id, "STATUS", "clock_id={:#x} ok={} is_stable={} master_for={}\n", //
-          clock_id, is_stable(), ok(), pet::humanize(master_for()));
-  }
-
-  void log_timeout() const {
-    INFOX(module_id, "TIMEOUT", "waiting for clock_id={:#x} master_for={}\n", //
-          clock_id, pet::humanize(master_for()));
-  }
-
   static constexpr csv module_id{"CLOCK_INFO"};
 };
 

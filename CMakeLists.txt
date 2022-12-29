@@ -62,6 +62,7 @@ target_link_libraries(${_target} PUBLIC
   config
   desk
   frame
+  logger
   mdns
   rtsp
   sodium

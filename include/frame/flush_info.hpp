@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
@@ -117,7 +116,8 @@ template <> struct fmt::formatter<pierre::FlushInfo> : formatter<std::string> {
   auto format(const pierre::FlushInfo &info, FormatContext &ctx) const {
     std::string msg;
     auto w = std::back_inserter(msg);
-    fmt::format_to(w, "{}{}", info.active ? "ACTIVE" : "INACTIVE", info.deferred ? " DEFERRED " : " ");
+    fmt::format_to(w, "{}{}", info.active ? "ACTIVE" : "INACTIVE",
+                   info.deferred ? " DEFERRED " : " ");
 
     if (info.all) {
       fmt::format_to(w, "FLUSH ALL");

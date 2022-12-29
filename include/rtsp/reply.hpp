@@ -86,13 +86,13 @@ public:
   void operator()(RespCode::code_val val) noexcept { resp_code(val); }
 
   uint8v &packet() noexcept { return wire; }
-  void save() noexcept;
 
   void set_resp_code(RespCode::code_val val) noexcept { resp_code(val); }
 
 public:
   Headers headers;
   Content content;
+  string error;
 
 protected:
   RespCode resp_code{RespCode::NotImplemented};

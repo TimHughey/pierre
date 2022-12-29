@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "config/config.hpp"
 #include "mdns_ctx.hpp"
 #include "service.hpp"

@@ -20,9 +20,6 @@ add_library(${__target} SHARED
   # io (asio) helpers
   io.cpp
 
-  # logging (threaded)
-  logger.cpp
-
   # host info
   host.cpp
 

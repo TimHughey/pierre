@@ -21,7 +21,6 @@
 #include "base/elapsed.hpp"
 #include "base/host.hpp"
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "config/args.hpp"
@@ -64,18 +63,21 @@ Config::Config(io_context &io_ctx, int argc, char **argv) noexcept
     // full_path /= ".pierre";
     full_path /= args_map.cfg_file;
 
-    if (parse()) {
+    if (parse().empty()) {
       std::error_code ec;
       last_write = fs::last_write_time(full_path, ec);
 
       initialized = true;
       will_start = true;
 
-      if (table()["debug.init"sv])
-        INFO(module_id, "INIT", "sizeof={} table size={} elapsed={}\n", //
-             sizeof(Config),                                            //
-             tables.front().size(),                                     //
-             elapsed.humanize());
+      if (table()["debug.init"sv]) {
+        auto w = std::back_inserter(init_msg);
+
+        fmt::format_to(w, "sizeof={} table size={} elapsed={}\n", //
+                       sizeof(Config),                            //
+                       tables.front().size(),                     //
+                       elapsed.humanize());
+      }
     }
   }
 }
@@ -104,12 +106,14 @@ void Config::monitor_file() noexcept { // static
     auto now_last_write = fs::last_write_time(s->full_path);
 
     if (auto diff = now_last_write - s->last_write; diff != Nanos::zero()) {
-      INFOX(module_id, "MONITOR_FILE",
-            "CHANGED file={0} "                          //
-            "was={1:%F}T{1:%R%z} now={2:%F}T{2:%R%z}\n", //
-            full_path.c_str(),                           //
-            std::chrono::file_clock::to_sys(last_write),
-            std::chrono::file_clock::to_sys(now_last_write));
+      s->monitor_msg.clear();
+      auto w = std::back_inserter(s->monitor_msg);
+      fmt::format_to(w,
+                     "CHANGED file={0} "                          //
+                     "was={1:%F}T{1:%R%z} now={2:%F}T{2:%R%z}\n", //
+                     s->full_path.c_str(),                        //
+                     std::chrono::file_clock::to_sys(s->last_write),
+                     std::chrono::file_clock::to_sys(now_last_write));
 
       s->last_write = now_last_write;
 
@@ -126,8 +130,8 @@ void Config::monitor_file() noexcept { // static
   });
 }
 
-bool Config::parse() noexcept { // static
-  auto rc = false;
+const string Config::parse() noexcept { // static
+  string msg;
 
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
@@ -146,19 +150,17 @@ bool Config::parse() noexcept { // static
     cli->emplace("exec_path"sv, args_map.exec_path.c_str());
     cli->emplace("parent_path"sv, args_map.parent_path.c_str());
 
-    rc = true;
-
     // is this a reload of the config?
     if (tables.size() == 2) {
       tables.pop_front(); // discard the old table
     }
 
   } catch (const toml::parse_error &err) {
-    INFO(module_id, "ERROR", "parse failed file={} reason={}\n", full_path.c_str(),
-         err.description());
+    auto w = std::back_inserter(msg);
+    fmt::format_to(w, "parse failed file={} reason={}\n", full_path.c_str(), err.description());
   }
 
-  return rc;
+  return msg;
 }
 
 const string Config::receiver() noexcept {

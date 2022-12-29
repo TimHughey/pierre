@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "mdns/status_flags.hpp"

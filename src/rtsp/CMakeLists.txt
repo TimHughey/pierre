@@ -53,6 +53,7 @@ target_link_libraries(${__target} PRIVATE
   config
   frame
   io
+  logger
   mdns
   pair
   stats

@@ -19,9 +19,9 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
-#include "base/logger.hpp"
 #include "config/config.hpp"
 #include "desk/desk.hpp"
+#include "logger/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 #include "stats/stats.hpp"
@@ -48,6 +48,8 @@ int App::main(int argc, char *argv[]) noexcept {
     if (cfg->should_start()) {
       args_ok = true;
       INFO(module_id, "INIT", "{} {} {}\n", cfg->receiver(), cfg->build_vsn(), cfg->build_time());
+
+      if (debug_init()) INFO(Config::module_id, "INIT", "{}\n", Config::ptr()->init_msg);
 
       Stats::init(io_ctx);
       mDNS::init();

@@ -77,6 +77,7 @@ public:
   };
 
 public:
+  ZeroConf() = default;
   ZeroConf(Details d) noexcept;
 
   const auto findTxtByKey(csv key) const noexcept {

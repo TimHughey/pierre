@@ -20,7 +20,6 @@
 
 #include "base/input_info.hpp"
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
@@ -121,7 +120,6 @@ public:
         });
       }
     } else {
-      INFOX(module_id, "HANDOFF", "DISCARDING {}\n", frame->inspect());
       frame->state.record_state();
     }
   }

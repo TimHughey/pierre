@@ -19,6 +19,7 @@
 #include "mdns_ctx.hpp"
 #include "base/threads.hpp"
 #include "config/config.hpp"
+#include "logger/logger.hpp"
 
 namespace pierre {
 namespace mdns {

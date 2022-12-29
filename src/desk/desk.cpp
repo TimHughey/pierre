@@ -18,7 +18,7 @@
 
 #include "desk.hpp"
 #include "base/input_info.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "config/config.hpp"
 #include "dmx_ctrl.hpp"
 #include "dmx_data_msg.hpp"

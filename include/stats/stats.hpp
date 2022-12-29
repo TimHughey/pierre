@@ -20,7 +20,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "stats/stats_v.hpp"
@@ -46,7 +45,7 @@ private:
 
 public:
   // can safely be called multiple times
-  static void init(io_context &io_ctx) noexcept; // in .cpp to avoid parsing lookup table build
+  static const string init(io_context &io_ctx) noexcept; // see .cpp
 
   static void shutdown() noexcept { self.reset(); }
 

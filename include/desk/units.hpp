@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "desk/dmx_data_msg.hpp"
 #include "desk/unit.hpp"

@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "units.hpp"
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "unit/all.hpp"

@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "desk/fx.hpp"
-#include "base/logger.hpp"
 #include "desk/dmx_data_msg.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"

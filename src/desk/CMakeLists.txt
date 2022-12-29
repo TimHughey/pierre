@@ -40,8 +40,15 @@ target_include_directories(${__target} PRIVATE ${HEADER_PATH_LOCAL} ${HEADER_PAT
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
+  base
+  config
+  fader
+  frame
   InfluxData::InfluxDB
-  base config frame io fader mdns stats
+  io
+  logger
+  mdns
+  stats
 )
 
 target_link_libraries(${__target} PUBLIC

@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "dmx_ctrl.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "io/async_msg.hpp"

@@ -18,7 +18,7 @@
 
 #include "service.hpp"
 #include "base/host.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "features.hpp"

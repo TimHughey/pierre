@@ -17,6 +17,7 @@
 // https://www.wisslanding.com
 
 #include "io/msg.hpp"
+#include "logger/logger.hpp"
 
 namespace pierre {
 namespace io {
@@ -25,12 +26,20 @@ namespace io {
 string Msg::inspect() const noexcept {
   string msg;
 
-  fmt::format_to(std::back_inserter(msg), "packed_len={}\n", //
-                 measureMsgPack(doc));
+  fmt::format_to(std::back_inserter(msg), "packed_len={}\n", measureMsgPack(doc));
 
   serializeJsonPretty(doc, msg);
 
   return msg;
+}
+
+error_code Msg::log_rx(const error_code ec, const size_t bytes, const char *err) noexcept {
+  if (ec || (packed_len != bytes) || err) {
+    INFO(module_id, "LOG_RX", "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
+         ec.message(), err);
+  }
+
+  return ec;
 }
 
 error_code Msg::log_tx(const error_code ec, const size_t bytes) noexcept {

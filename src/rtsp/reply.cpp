@@ -17,7 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/reply.hpp"
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/master_clock.hpp"
@@ -35,6 +34,7 @@
 #include "rtsp/replies/setup.hpp"
 
 #include <algorithm>
+#include <fmt/format.h>
 #include <iterator>
 
 namespace pierre {
@@ -42,6 +42,8 @@ namespace pierre {
 namespace rtsp {
 
 void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
+  // clear previous error
+  error.clear();
 
   // get a naked pointer to ctx for use locally to save shared_ptr dereferences
   // this is OK because this function receives the shared_ptr and therefore keeps
@@ -192,9 +194,8 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     set_resp_code(RespCode::OK);
 
   } else if (resp_code == RespCode::NotImplemented) {
-
-    INFO(module_id, "FAILED", "method={} path={}]\n", //
-         method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
+    error = fmt::format("method={} path={}]\n", //
+                        method.empty() ? "<empty>" : method, path.empty() ? "<empty>" : path);
   }
 
   wire.clear();

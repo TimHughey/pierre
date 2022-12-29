@@ -18,7 +18,6 @@
 
 #include "desk/fx/majorpeak.hpp"
 #include "base/elapsed.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
@@ -75,8 +74,6 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
     silence_watch(); // restart silence watch in case silence timeout changes
 
     Config::want_changes(_cfg_changed);
-
-    INFOX(module_id, "EXECUTE", "config reloaded want_changes={}\n", _cfg_changed.has_value());
   }
 
   units(unit_name::AC_POWER)->activate();
@@ -313,8 +310,6 @@ void MajorPeak::load_config() noexcept {
         auto &wffg = wf.when_freq_greater;
         auto wffgt = wft["when_freq_greater"sv];
         wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
-      } else {
-        INFO("MAJOR_PEAK", "PINSPOT", "unrecognized type={}\n", cfg.type);
       }
     }
   }
@@ -382,10 +377,7 @@ void MajorPeak::silence_watch() noexcept {
 
   silence_timer.expires_after(_silence_timeout);
   silence_timer.async_wait([s = ptr()](const error_code ec) {
-    if (!ec) {
-      s->silence.store(true);
-      INFOX(module_id, "SILENCE_WATCH", "silence={}\n", s->silence.load());
-    }
+    if (!ec) s->silence.store(true);
   });
 }
 

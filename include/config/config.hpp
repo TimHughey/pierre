@@ -117,7 +117,7 @@ private:
   const toml::path cli(auto key) noexcept { return toml::path(CLI).append(key); }
   const toml::path base(csv key) noexcept { return toml::path{"base"sv}.append(key); }
 
-  bool parse() noexcept;
+  const string parse() noexcept;
 
 private:
   // order dependent
@@ -135,6 +135,11 @@ private:
   std::optional<std::promise<bool>> change_proms;
   std::shared_mutex mtx;
 
+public: // status messages
+  string init_msg;
+  string monitor_msg;
+
+private:
   // class static data
   static std::shared_ptr<Config> self;
   static constexpr csv BASE{"base"};

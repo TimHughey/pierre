@@ -162,6 +162,7 @@ public:
   csv protocol() const noexcept { return csv{_protocol}; }
 
 public:
+  string parse_err;
   bool parse_ok{false};
   std::set<string> unknown_headers; // allow direct access to unknown headers
 

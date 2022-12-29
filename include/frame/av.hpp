@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "config/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"

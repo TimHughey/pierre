@@ -61,10 +61,11 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   ${sodium_LIBRARY_RELEASE}
-  InfluxData::InfluxDB
-  PkgConfig::LIBAV
   base
   config
+  InfluxData::InfluxDB
   io
+  logger
+  PkgConfig::LIBAV
   stats
 )

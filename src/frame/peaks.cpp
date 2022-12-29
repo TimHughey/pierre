@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "peaks.hpp"
-#include "base/logger.hpp"
 #include "config/config.hpp"
 #include "peaks/peak_config.hpp"
 
@@ -39,11 +38,6 @@ bool Peaks::emplace(Magnitude m, Frequency f, CHANNEL channel) noexcept {
     auto node = map.try_emplace(m, f, m);
 
     rc = node.second; // was the peak inserted?
-
-    // if (!rc) {
-    //   const auto &peak = node.first->second;
-    //   INFO(module_id, "COLLISION", "keeping {} alt freq={:0.2f}\n", peak, f);
-    // }
   }
 
   return rc;

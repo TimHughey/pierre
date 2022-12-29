@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "service.hpp"
@@ -65,16 +64,26 @@ public:
     auto it = std::find_if(zcs_map.begin(), zcs_map.end(),
                            [&name](auto it) { return it.second.match_name(name); });
 
-    // the name is already resolved, we're done... immediately set the promise
     if (it != zcs_map.end()) {
+      // the name is already resolved, we're done... immediately set the promise
       prom.set_value(it->second);
     } else {
       // this name isn't yet resolved, save the promise for when it is
-      auto [it_known, inserted] = zcs_proms.try_emplace(name.data(), std::move(prom));
+      auto inserted{false};
 
-      if (!inserted) {
-        INFO(module_id, "ZSERVICE", "FAILED, promise for name={}\n", name);
-      }
+      do {
+        // if there is an existing promise for this name it's value is
+        // set to a default ZeroConf and the new promise is stored
+        auto try_rc = zcs_proms.try_emplace(name.data(), std::move(prom));
+
+        inserted = try_rc.second;
+
+        if (inserted == false) {
+          auto &existing_prom = try_rc.first->second;
+          existing_prom.set_value(ZeroConf());
+        }
+
+      } while (!inserted);
     }
 
     unlock();
@@ -96,8 +105,6 @@ private:
 
   void browse_remove(const string name) noexcept {
     if (auto it = zcs_map.find(name); it != zcs_map.end()) {
-      INFO(module_id, "BROWSE_REMOVE", "removing name={}\n", name);
-
       zcs_map.erase(it);
     }
   }

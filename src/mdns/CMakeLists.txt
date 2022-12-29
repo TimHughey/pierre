@@ -44,6 +44,7 @@ target_link_libraries(${__target} PRIVATE
   ${AVAHI_LIBRARIES}
   ${libUUID}
   config
+  logger
   pair
 )
 

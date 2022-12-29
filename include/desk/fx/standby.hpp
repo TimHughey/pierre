@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "desk/color.hpp"

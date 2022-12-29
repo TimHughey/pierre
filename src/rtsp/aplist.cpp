@@ -17,7 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "aplist.hpp"
-#include "base/logger.hpp"
 
 #include <algorithm>
 #include <array>
@@ -178,7 +177,8 @@ void Aplist::format_to(Content &content) const noexcept {
     auto w = std::back_inserter(content);
     std::copy_n(data, len, w);
   } else {
-    INFO(module_id, "FORMAT_TO", "failed, len={}\n", len);
+    auto w = std::back_inserter(content);
+    fmt::format_to(w, "formatting failed");
   }
 
   plist_to_bin_free(data);

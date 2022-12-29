@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "frame/anchor_data.hpp"

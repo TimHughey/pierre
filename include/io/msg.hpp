@@ -21,10 +21,10 @@
 
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "logger/logger.hpp"
 
 #include <ArduinoJson.h>
 #include <array>
@@ -102,7 +102,7 @@ public:
   auto deserialize(error_code ec, size_t bytes) {
     const auto err = deserializeMsgPack(doc, packed.data(), packed.capacity());
 
-    log_rx(ec, bytes, err);
+    if (ec || err) log_rx(ec, bytes, err.c_str());
 
     return !err;
   }
@@ -125,15 +125,7 @@ public:
   // misc logging, debug
   virtual string inspect() const noexcept;
 
-  error_code log_rx(const error_code ec, const size_t bytes, const auto err) noexcept {
-    if (ec || (packed_len != bytes) || err) {
-      INFO(module_id, "LOG_RX", "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
-           ec.message(), err.c_str());
-    }
-
-    return ec;
-  }
-
+  error_code log_rx(const error_code ec, const size_t bytes, const char *err) noexcept;
   error_code log_tx(const error_code ec, const size_t bytes) noexcept;
 
   // order dependent

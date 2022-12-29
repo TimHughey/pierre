@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "config/config.hpp"
 #include "rtsp/aplist.hpp"
@@ -83,7 +82,7 @@ public:
     }
   }
 
-  void write(const uint8v &buff) const noexcept {
+  void write(const uint8v &buff) noexcept {
     auto cfg = Config::ptr();
     const auto base = cfg->at("debug.path"sv).value_or(string());
     const auto file = cfg->at("debug.rtsp.file"sv).value_or(string());
@@ -103,7 +102,7 @@ public:
       out.write(buff.raw<char>(), buff.size());
 
     } catch (const std::exception &e) {
-      INFO(module_id, "RTSP_SAVE", "exception, {}\n", e.what());
+      msg.assign(e.what());
     }
   }
 
@@ -112,6 +111,7 @@ private:
   static constexpr csv separator{"\r\n"};
 
 public:
+  string msg;
   static constexpr csv module_id{"rtsp::SAVER"};
 };
 

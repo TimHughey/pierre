@@ -18,7 +18,7 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "config/config.hpp"
 #include "mdns/features.hpp"
 #include "replies/info.hpp"

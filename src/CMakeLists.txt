@@ -34,6 +34,9 @@ add_subdirectory(io)
 # influx-cxx wrapper
 add_subdirectory(stats)
 
+# custom logging subsystem
+add_subdirectory(logger)
+
 # mdns brought to you by Avahi
 add_subdirectory(mdns)
 

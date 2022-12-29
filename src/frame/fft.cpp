@@ -20,7 +20,6 @@
 
 #include "frame/fft.hpp"
 #include "base/elapsed.hpp"
-#include "base/logger.hpp"
 
 #include <algorithm>
 #include <cmath>

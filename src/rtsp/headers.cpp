@@ -17,7 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "headers.hpp"
-#include "base/logger.hpp"
 
 #include <algorithm>
 #include <array>
@@ -104,8 +103,9 @@ bool Headers::parse(uint8v &packet, const uint8v::delims_t &delims) noexcept {
 
       if (sm.ready() && (sm.size() == matches)) {
         add(sm[type_idx].str(), sm[val_idx].str());
+        parse_err.clear();
       } else {
-        INFO(module_id, "PARSE", "ready={} matches={} '{}'\n", sm.ready(), sm.size(), sm[0].str());
+        parse_err = fmt::format("ready={} matches={} '{}'\n", sm.ready(), sm.size(), sm[0].str());
       }
     }
   }

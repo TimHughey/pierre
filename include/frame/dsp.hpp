@@ -19,12 +19,12 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/threads.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
+#include "logger/logger.hpp"
 
 #include <latch>
 #include <memory>

@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/uint8v.hpp"
 
 #include <memory>
@@ -109,10 +108,9 @@ private:
       // note: the unique_ptr is moved into the closure so it remains in scope
       //       until the lambda finishes
       asio::async_read(*sock_session, buff, //
-                       asio::transfer_at_least(32),
-                       [raw = std::move(raw), s = ptr()](error_code ec, ssize_t bytes) //
-                       {
-                         if (!ec) INFO(module_id, "ASYNC_READ", "received {} bytes\n", bytes);
+                       asio::transfer_at_least(1),
+                       [raw = std::move(raw), s = ptr()](error_code ec, ssize_t bytes) {
+                         s->bytes_recv += bytes;
 
                          s->session_async_loop(ec); // recurse (which checks for errors)
                        });
@@ -128,6 +126,9 @@ private:
 
   std::optional<tcp_socket> sock_accept;  // socket for next accepted connection
   std::optional<tcp_socket> sock_session; // socket for active session
+
+public:
+  ssize_t bytes_recv;
 
 public:
   static constexpr csv module_id{"RTSP EVENT"};

@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
@@ -52,9 +51,7 @@ struct AnchorData {
         flags(flags),                                  // directly save flags
         rtp_time(static_cast<uint32_t>(rtp_time)),     // rtp time is 32 bits
         anchor_time(Seconds(secs) + nano_fracs(fracs)) // combine network time secs and fracs
-  {
-    INFOX(module_id, "DEBUG", "anchor_time={}\n", pet::humanize(anchor_time));
-  }
+  {}
 
   AnchorData() = default;
 

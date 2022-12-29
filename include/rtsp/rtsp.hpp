@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/threads.hpp"
 
 #include <cstdint>

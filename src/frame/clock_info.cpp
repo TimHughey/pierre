@@ -20,6 +20,8 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 
+#include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <iterator>
 
 namespace pierre {
@@ -31,7 +33,6 @@ const string ClockInfo::inspect() const {
 
   constexpr auto hex_fmt_str = FMT_STRING("{:>35}={:#x}\n");
   constexpr auto gen_fmt_str = FMT_STRING("{:>35}={}\n");
-  // constexpr auto flt_fmt_str = FMT_STRING("{:>35}={:>+.3}\n");
 
   fmt::format_to(w, hex_fmt_str, "clockId", clock_id);
   fmt::format_to(w, gen_fmt_str, "rawOffset", rawOffset);
@@ -44,4 +45,4 @@ const string ClockInfo::inspect() const {
   return msg;
 };
 
-}
+} // namespace pierre

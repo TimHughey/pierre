@@ -20,7 +20,7 @@
 
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "config/config.hpp"

@@ -20,7 +20,6 @@
 #pragma once
 
 #include "base/io.hpp"
-#include "base/logger.hpp"
 #include "base/types.hpp"
 
 #include <array>
@@ -49,8 +48,6 @@ auto async_read_msg(tcp_socket &socket, CompletionToken &&token) {
         error_code ec_local = ec;
 
         if (!ec_local) {
-
-          INFOX("ASYNC_READ_MSG", "DEBUG", "state={} bytes={} reason={}\n", state, n, ec.message());
 
           switch (state) {
           case msg_content: {

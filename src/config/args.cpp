@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "args.hpp"
-#include "base/logger.hpp"
 
 #include <boost/program_options.hpp>
 #include <filesystem>

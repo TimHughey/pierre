@@ -18,8 +18,8 @@
 
 #include "aes_ctx.hpp"
 #include "base/host.hpp"
-#include "base/logger.hpp"
 #include "base/uint8v.hpp"
+#include "logger/logger.hpp"
 #include "reply.hpp"
 
 #include <algorithm>

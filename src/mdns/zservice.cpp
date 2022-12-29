@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "zservice.hpp"
-#include "base/logger.hpp"
+#include "logger/logger.hpp"
 
 #include <exception>
 #include <fmt/format.h>
