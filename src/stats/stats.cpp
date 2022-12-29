@@ -74,9 +74,12 @@ Stats::Stats(io_context &io_ctx, bool enabled) noexcept
 
 void Stats::init(io_context &io_ctx) noexcept {
   if (self.use_count() < 1) {
-    auto cfg = config();
-    const auto db_uri = cfg->at("stats.db_uri"sv).value_or(string());
-    auto enabled = cfg->at("stats.enabled"sv).value_or(false);
+    static constexpr csv fn_id{"INIT"};
+
+    auto debug = debug_init();
+
+    const auto db_uri = config_val("stats.db_uri", string());
+    auto enabled = config_val("stats.enabled", false);
 
     self = std::shared_ptr<Stats>(new Stats(io_ctx, enabled));
 
@@ -84,14 +87,15 @@ void Stats::init(io_context &io_ctx) noexcept {
 
       self->db = influxdb::InfluxDBFactory::Get(db_uri);
 
-      if (const std::size_t bs = config()->at("stats.batch_of"sv).value_or(0); bs > 0) {
+      if (std::size_t bs = config_val("stats.batch_of", 0); bs > 0) {
         self->db->batchOf(bs);
       }
 
-      INFO(module_id, "INIT", "sizeof={} db_uri={} enabled={}\n", sizeof(Stats), db_uri, enabled);
+      if (debug)
+        INFO(module_id, fn_id, "sizeof={} db_uri={} enabled={}\n", sizeof(Stats), db_uri, enabled);
 
     } else {
-      INFO(module_id, "INIT", "stats are disabled\n");
+      if (debug) INFO(module_id, fn_id, "DISABLED\n");
     }
   }
 }

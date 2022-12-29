@@ -184,11 +184,12 @@ void Desk::init(io_context &io_ctx_caller) noexcept {
     // caller thread waits until all tasks are started
     latch->wait();
 
-    INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
-         sizeof(Desk),                                                    //
-         thread_count,                                                    //
-         self->threads.size(),                                            //
-         pet::humanize(InputInfo::lead_time_min));
+    if (debug_init())
+      INFO(module_id, "INIT", "sizeof={} threads={}/{} lead_time_min={}\n", //
+           sizeof(Desk),                                                    //
+           thread_count,                                                    //
+           self->threads.size(),                                            //
+           pet::humanize(InputInfo::lead_time_min));
 
     // all threads / strands are runing, fire up subsystems
     asio::post(io_ctx, [s = self->ptr()]() {

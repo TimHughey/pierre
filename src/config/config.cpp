@@ -71,8 +71,11 @@ Config::Config(io_context &io_ctx, int argc, char **argv) noexcept
       initialized = true;
       will_start = true;
 
-      INFO(module_id, "INIT", "sizeof={} table size={} elapsed={}\n", sizeof(Config),
-           tables.front().size(), elapsed.humanize());
+      if (table()["debug.init"sv])
+        INFO(module_id, "INIT", "sizeof={} table size={} elapsed={}\n", //
+             sizeof(Config),                                            //
+             tables.front().size(),                                     //
+             elapsed.humanize());
     }
   }
 }

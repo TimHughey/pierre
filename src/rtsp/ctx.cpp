@@ -18,6 +18,7 @@
 
 #include "ctx.hpp"
 #include "audio.hpp"
+#include "config/config.hpp"
 #include "control.hpp"
 #include "event.hpp"
 #include "frame/anchor.hpp"
@@ -60,7 +61,7 @@ Port Ctx::server_port(ports_t server_type) noexcept {
 
 void Ctx::teardown() noexcept {
 
-  INFO(module_id, "TEARDOWN", "active_remote={} dacp_id={} client_name={}\n", //
+  INFO(module_id, "TEARDOWN", "active_remote={} dacp_id={} client_name='{}'\n", //
        active_remote, dacp_id, client_name);
 
   group_contains_group_leader = false;
@@ -85,7 +86,7 @@ void Ctx::teardown() noexcept {
     [[maybe_unused]] error_code ec;
     s->feedback_timer.cancel(ec);
 
-    INFO(module_id, "TEARDOWN", "COMPLETE\n");
+    if (config_debug("rtsp.ctx.teardown")) INFO(module_id, "TEARDOWN", "COMPLETE\n");
   });
 }
 

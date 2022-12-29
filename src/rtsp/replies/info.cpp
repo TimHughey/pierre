@@ -89,7 +89,7 @@ void Info::init() noexcept { // static
 
     is.seekg(0);
     if (is.read(reply_xml.data(), reply_xml.size())) {
-      INFO(module_id, fn_id, "{} size={}\n", file_path.c_str(), reply_xml.size());
+      if (debug_init()) INFO(module_id, fn_id, "{} size={}\n", file_path.c_str(), reply_xml.size());
     }
   }
 

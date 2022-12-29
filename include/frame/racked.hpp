@@ -66,6 +66,7 @@ public:
   // handeff() allows the packet to be moved however expects the key to be a reference
   static void handoff(uint8v packet, const uint8v &key) noexcept {
     if (self.use_count() < 0) return; // quietly ignore packets when Racked is not ready
+    if (packet.empty()) return;       // quietly ignore empty packets
 
     auto s = ptr(); // get fresh shared_ptr to ourself, we'll move it into the lambda
 

@@ -79,14 +79,6 @@ private:
       acceptor.async_accept(*sock_accept, [s = ptr()](error_code ec) {
         if (!ec && s->sock_accept.has_value()) {
 
-          auto &sock = s->sock_accept;
-
-          const auto &l = sock->local_endpoint();
-          const auto &r = sock->remote_endpoint();
-
-          INFO(module_id, "LISTEN", "{}:{} -> {}:{} accepted\n", r.address().to_string(), r.port(),
-               l.address().to_string(), l.port());
-
           // if there was a previous session, clear it
           s->sock_session.reset();
           s->sock_accept.swap(s->sock_session); // swap the accepted socket into the session socket
@@ -120,7 +112,7 @@ private:
                        asio::transfer_at_least(32),
                        [raw = std::move(raw), s = ptr()](error_code ec, ssize_t bytes) //
                        {
-                         if (!ec) INFO("AIRPLAY", module_id, "received {} bytes\n", bytes);
+                         if (!ec) INFO(module_id, "ASYNC_READ", "received {} bytes\n", bytes);
 
                          s->session_async_loop(ec); // recurse (which checks for errors)
                        });

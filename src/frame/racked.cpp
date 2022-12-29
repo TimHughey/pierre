@@ -155,8 +155,9 @@ void Racked::init() noexcept {
 
     latch->wait(); // caller waits until all threads are started
 
-    INFO(module_id, "INIT", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
-         sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
+    if (debug_init())
+      INFO(module_id, "INIT", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
+           sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
   }
 }
 

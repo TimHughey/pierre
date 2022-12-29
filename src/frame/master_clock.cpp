@@ -69,8 +69,11 @@ void MasterClock::init() noexcept { // static
     latch->wait();     // caller waits until all threads are started
     s->peers(Peers()); // reset the peers (creates the shm name)}
 
-    INFO(module_id, "INIT", "shm_name={} dest={}:{}\n", //
-         s->shm_name, s->remote_endpoint.address().to_string(), s->remote_endpoint.port());
+    if (debug_init())
+      INFO(module_id, "INIT", "shm_name={} dest={}:{}\n", //
+           s->shm_name,                                   //
+           s->remote_endpoint.address().to_string(),      //
+           s->remote_endpoint.port());
   }
 }
 

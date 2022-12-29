@@ -77,9 +77,13 @@ void DmxCtrl::connect() noexcept {
                    endpoints,       //
                    [s = s->ptr(), e](const error_code ec, const tcp_endpoint r) mutable {
                      if (s->ctrl_sock.has_value()) {
+                       auto debug = config_debug(debug_path);
+
                        auto &ctrl_sock = s->ctrl_sock.value();
-                       INFO(module_id, "CONNECT", "{}\n",
-                            io::log_socket_msg("CTRL", ec, ctrl_sock, r, e));
+
+                       if (debug)
+                         INFO(module_id, "CONNECT", "{}\n",
+                              io::log_socket_msg("CTRL", ec, ctrl_sock, r, e));
 
                        if (!ec) {
 
@@ -132,9 +136,11 @@ void DmxCtrl::listen() noexcept {
 
         if (!ec && s->data_sock.has_value() && s->data_sock->is_open()) {
           auto &data_sock = s->data_sock.value();
-          const auto &r = data_sock.remote_endpoint();
 
-          INFO(module_id, "LISTEN", "{}\n", io::log_socket_msg("DATA", ec, data_sock, r, e));
+          if (config_debug(debug_path)) {
+            const auto &r = data_sock.remote_endpoint();
+            INFO(module_id, "LISTEN", "{}\n", io::log_socket_msg("DATA", ec, data_sock, r, e));
+          }
 
           if (!ec) {
             // success, set sock opts, connected and start msg_loop()

@@ -107,7 +107,7 @@ private:
   std::set<std::shared_ptr<influxdb::Point>> points;
 
 public:
-  static constexpr csv module_id{"PIERRE_STATS"};
+  static constexpr csv module_id{"STATS"};
 };
 
 } // namespace pierre

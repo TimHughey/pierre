@@ -43,9 +43,6 @@ public:
 private:
   AnchorLast get_data_impl(const ClockInfo &clock) noexcept;
 
-  // misc debug
-  void log_new_data(const AnchorData &ad, bool log = true) const;
-
 private:
   std::optional<AnchorData> source;
   AnchorLast last;

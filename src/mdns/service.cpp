@@ -103,7 +103,7 @@ void Service::init() noexcept {
 
   update_system_flags();
 
-  INFO(module_id, "INIT", "sizeof={} uuid={}\n", sizeof(Service), uuid);
+  if (debug_init()) INFO(module_id, "INIT", "sizeof={} uuid={}\n", sizeof(Service), uuid);
 }
 
 lookup_map_t Service::lookup_map{

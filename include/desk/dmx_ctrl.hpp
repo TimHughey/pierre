@@ -114,6 +114,7 @@ private:
   // misc debug
 public:
   static constexpr csv module_id{"DMX_CTRL"};
+  static constexpr csv debug_path{"desk.dmx_ctrl"};
 };
 
 } // namespace pierre

@@ -19,6 +19,7 @@
 #include "audio.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
+#include "config/config.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 
@@ -29,6 +30,21 @@ namespace pierre {
 namespace rtsp {
 
 static constexpr auto PACKET_LEN_BYTES = sizeof(uint16_t);
+
+void Audio::async_accept() noexcept {
+
+  // since the socket is wrapped in the optional and async_read() wants the actual
+  // socket we must deference or get the value of the optional
+  acceptor.async_accept(sock, endpoint, [s = ptr(), e = Elapsed()](const error_code ec) {
+    if (config_debug("rtsp.audio")) {
+      const auto msg = io::log_socket_msg("SESSION", ec, s->sock, s->endpoint, e);
+      INFO(module_id, "ACCEPT", "{}\n", msg);
+    }
+
+    // if the connected was accepted start the "session", otherwise fall through
+    if (!ec) s->async_read_packet();
+  });
+}
 
 void Audio::async_read_packet() noexcept {
 
@@ -46,7 +62,9 @@ void Audio::async_read_packet() noexcept {
 
             const auto msg = io::is_ready(sock, ec);
 
-            if (!msg.empty() || (bytes < std::ssize(s->packet_len))) {
+            auto debug = config_debug("rtsp.audio");
+
+            if (debug && (!msg.empty() || (bytes < std::ssize(s->packet_len)))) {
               INFO(module_id, "ASYNC_READ", "bytes={} {}\n", bytes, msg);
               return;
             }
@@ -68,7 +86,7 @@ void Audio::async_read_packet() noexcept {
 
                   const auto msg = io::is_ready(sock, ec);
 
-                  if (!msg.empty() || (bytes != len)) {
+                  if (debug && (!msg.empty() || (bytes != len))) {
                     INFO(module_id, "ASYNC_READ", "bytes={} msg\n", bytes, msg);
                     return;
                   }

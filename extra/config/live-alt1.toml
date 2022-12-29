@@ -21,10 +21,21 @@ batch_of = 150
 
 [debug]
 path = "../extra/debug"
-frames = { flush = false, racked = false }
+desk = { dmx_ctrl = false }
+frames = { av = false, flush = false, racked = false }
+init = false
 mdns = { callbacks = false }
-rtsp = { save = false, file = "rtsp.log", format = "pretty" }
 threads = false
+
+[debug.rtsp]
+audio = false
+ctx = { teardown = false }
+event = false
+server = false
+session = false
+save = false
+file = "rtsp.log"
+format = "pretty"
 
 
 [dmx]
@@ -50,13 +61,13 @@ cipher = { buffer_size = 0x2000 }  # bytes (4k)
 dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
 
 [frame.clock]
-host = "127.0.0.1"
-info = { min_wait_frames = 12 }
-shm_name = "/nqptp"
+host = "127.0.0.1"              # nqptp host
+info = { min_wait_frames = 12 } # wait frames before returning no clock
+shm_name = "/nqptp"             # path to nqptp shared memory directory
 threads = 1
 
 [frame.racked]
-threads = 3 # stats runs on this io_ctx
+threads = 3
 
 [frame.peaks.magnitudes] # only keep peaks in this range
 floor = 0.9

@@ -30,6 +30,7 @@ extern "C" {
 
 #include "base/io.hpp"
 #include "base/logger.hpp"
+#include "config/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
@@ -151,7 +152,7 @@ public:
                                  AV_NOPTS_VALUE); // pos
 
     if ((used <= 0) || std::cmp_not_equal(used, encoded_size) || (pkt->size == 0)) {
-      log_discard(frame, used, pkt);
+      log_discard(frame, used);
       return decode_failed(frame, &pkt);
     }
 
@@ -205,15 +206,17 @@ private:
     if (!reported) {
       const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-      INFO(module_id, "INFO",
-           "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}\n",
-           fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
-           audio_frame->nb_samples, audio_frame->format, audio_frame->flags);
+      if (config_debug("frames.av"))
+        INFO(module_id, "INFO",
+             "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}\n",
+             fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]),
+             audio_frame->linesize[1], audio_frame->nb_samples, audio_frame->format,
+             audio_frame->flags);
       reported = true;
     }
   }
 
-  static void log_discard(frame_t frame, int used, AVPacket *pkt) noexcept {
+  static void log_discard(frame_t frame, int used) noexcept {
     int32_t enc_size = std::ssize(frame->m.value()) + ADTS_HEADER_SIZE;
 
     string msg;
@@ -223,21 +226,9 @@ private:
       frame->state = frame::PARSE_FAILURE;
 
       fmt::format_to(w, "used={:<6} size={:<6} diff={:+6}", used, enc_size, enc_size - used);
-
-      if (pkt->size == 0) {
-        auto m = frame->m->data();
-        for (auto idx = 0; idx < enc_size; idx++) {
-          if ((idx % 5) || (idx == 0)) { // new bytes row
-            fmt::format_to(w, "\n");
-          }
-
-          fmt::format_to(w, "[{:<02}]0x{:<02x} ", idx, m[idx]);
-        }
-      }
     }
 
-    const auto chunk = INFO_FORMAT_CHUNK(msg.data(), msg.size());
-    INFO(module_id, "DISCARD", "{}\n{}", frame->state, msg);
+    INFO(module_id, "DISCARD", "{} {}", frame->state, msg);
   }
 
 private:

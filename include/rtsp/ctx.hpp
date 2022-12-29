@@ -31,8 +31,7 @@ namespace pierre {
 class Service; // forward decl to hide Service implementation details
 
 namespace rtsp {
-
-// forward decls for servers associated to this session
+// forward decls for servers provided by session
 class Audio;
 class Control;
 class Event;
@@ -137,7 +136,7 @@ public:
   std::shared_ptr<Event> event_srv;
 
 public:
-  static constexpr csv module_id{"RTSP_CTX"};
+  static constexpr csv module_id{"rtsp::Ctx"};
 };
 
 } // namespace rtsp

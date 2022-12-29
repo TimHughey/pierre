@@ -17,65 +17,34 @@
 //  https://www.wisslanding.com
 
 #include "logger.hpp"
-#include "elapsed.hpp"
-#include "io.hpp"
-#include "threads.hpp"
-#include "types.hpp"
-
-#include <algorithm>
-#include <chrono>
-#include <fmt/chrono.h>
-#include <fmt/compile.h>
-#include <fmt/core.h>
-#include <fmt/format.h>
-#include <functional>
-#include <iterator>
-#include <optional>
-#include <ranges>
-#include <string_view>
-
-namespace ranges = std::ranges;
-namespace views = std::ranges::views;
 
 namespace pierre {
 
 std::shared_ptr<Logger> Logger::self;
 Elapsed Logger::elapsed_runtime; // class static data
 
-const string Logger::format_chunk(ccs data, size_t bytes) const noexcept {
-  constexpr std::string_view delim{"\n"};
+Logger::Logger(io_context &io_ctx) noexcept // static
+    : io_ctx(io_ctx),                       // borrowed io_ctx
+      local_strand(io_ctx)                  // serialize log msgs
+{}
 
-  string chunk(data, bytes);
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  auto view = chunk                                     //
-              | ranges::views::split(delim)             //
-              | ranges::views::transform([](auto &&r) { //
-                  return std::string_view(&*r.begin(), ranges::distance(r));
-                });
-
-  for (const auto line : view) {
-    fmt::format_to(w, "{}{}\n", tab(), line);
-  }
-
-  return msg;
+void Logger::init(io_context &io_ctx) noexcept { // static
+  self = std::shared_ptr<Logger>(new Logger(io_ctx));
 }
 
-void Logger::print_chunk(const string &chunk) {
-  constexpr std::string_view delim{"\n"};
+void Logger::teardown() noexcept {      // static
+  auto s = self->ptr();                 // get a fresh shared_ptr to ourself
+  auto &local_strand = s->local_strand; // get a reference to our strand, we'll move s
 
-  auto view = chunk                                     //
-              | ranges::views::split(delim)             //
-              | ranges::views::transform([](auto &&r) { //
-                  return std::string_view(&*r.begin(), ranges::distance(r));
-                });
+  self.reset(); // reset our static shared_ptr to ourself
 
-  for (const auto line : view) {
-    fmt::print("{}{}\n", tab(), line);
-  }
+  asio::post(local_strand, [s = std::move(s)]() {
+    // keeps Logger in-scope until lambda completes
+    // future implementation
+  });
 }
-Logger::millis_fp Logger::runtime() { // static
+
+Logger::millis_fp Logger::runtime() noexcept { // static
   return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
 }
 

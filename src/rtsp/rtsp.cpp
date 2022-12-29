@@ -45,10 +45,12 @@ void Rtsp::async_accept() noexcept {
     e2.freeze();
 
     if ((ec == errc::success) && s->acceptor.is_open()) {
-      const auto &r = s->sock_accept->remote_endpoint();
+      if (config_debug("rtsp.server")) {
+        const auto &r = s->sock_accept->remote_endpoint();
 
-      const auto msg = io::log_socket_msg("ACCEPT", ec, s->sock_accept.value(), r, e2);
-      INFO(module_id, "LISTEN", "{}\n", msg);
+        const auto msg = io::log_socket_msg("ACCEPT", ec, s->sock_accept.value(), r, e2);
+        INFO(module_id, "LISTEN", "{}\n", msg);
+      }
 
       // create the session passing all the options
       // notes
@@ -98,8 +100,9 @@ void Rtsp::init() noexcept {
 
   self->async_accept();
 
-  INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Rtsp),
-       std::ssize(self->threads), thread_count, Features().ap2Default());
+  if (debug_init())
+    INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Rtsp),
+         std::ssize(self->threads), thread_count, Features().ap2Default());
 }
 
 } // namespace pierre

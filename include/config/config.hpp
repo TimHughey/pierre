@@ -159,6 +159,7 @@ inline bool config_debug(csv path) noexcept {
   return Config::ptr()->at(full_path).value_or(false);
 }
 
+inline bool debug_init() noexcept { return config_debug("init"); }
 inline bool debug_threads() noexcept { return config_val("debug.threads", false); }
 
 } // namespace pierre

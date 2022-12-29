@@ -26,9 +26,6 @@ add_library(${__target} SHARED
   # host info
   host.cpp
 
-  # generic vector of uint8_t (as a base class or standalone)
-  uint8v.cpp
-
   # time utilities
   pet.cpp
   

@@ -373,49 +373,4 @@ Aplist &Aplist::fromContent(const Content &content) {
   return *this;
 }
 
-// misc debug
-
-void Aplist::dump(csv prefix) const { dump(nullptr, prefix); }
-
-void Aplist::dump(plist_t sub_dict, csv prefix) const {
-  auto dump_dict = (sub_dict) ? sub_dict : _plist;
-
-  auto const prefix_str = prefix.size() ? string(prefix.data(), prefix.size()) : "DUMP";
-
-  if (dump_dict == nullptr) {
-    INFO(module_id, prefix_str, "DICT DUMP dict={}\n", fmt::ptr(dump_dict));
-    return;
-  }
-
-  char *buf = nullptr;
-  uint32_t bytes = 0;
-
-  plist_to_xml(dump_dict, &buf, &bytes);
-
-  if (bytes > 0) {
-    const auto chunk = INFO_FORMAT_CHUNK(buf, bytes);
-    INFO(module_id, prefix, "DICT DUMP dict={} bytes={}\n{}", buf, bytes, chunk);
-
-  } else {
-    INFO(module_id, prefix, "DICT DUMP FAILED dict={}\n", fmt::ptr(buf));
-    fmt::print("DUMP FAILED\n");
-  }
-
-  plist_to_xml_free(buf);
-}
-
-const string Aplist::inspect(plist_t what_dict) const {
-  auto dict = what_dict ? what_dict : _plist;
-
-  char *buf = nullptr;
-  uint32_t bytes = 0;
-
-  plist_to_xml(dict, &buf, &bytes);
-  const auto msg = INFO_FORMAT_CHUNK(buf, bytes);
-
-  plist_to_xml_free(buf);
-
-  return msg;
-}
-
 } // namespace pierre

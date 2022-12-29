@@ -23,6 +23,7 @@
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "config/config.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/ctx.hpp"
 #include "rtsp/headers.hpp"
@@ -82,15 +83,15 @@ private:
         [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
           if (s->packet.empty()) e.reset(); // start timing once we have data
 
+          auto debug = config_debug("rtsp.session");
           const auto msg = io::is_ready(s->sock, ec);
 
-          if (!msg.empty()) {
-
+          if (!msg.empty() && debug) {
             INFO(module_id, "ASYNC_READ", "{}\n", msg);
+
             // will fall out of scope when this function returns
           } else if (bytes < 1) {
-
-            INFO(module_id, "ASYNC_READ", "retry, bytes={}\n", bytes);
+            if (debug) INFO(module_id, "ASYNC_READ", "retry, bytes={}\n", bytes);
             s->async_read_request(asio::transfer_at_least(1), std::move(e));
 
           } else if (s->sock.available() > 0) {
@@ -131,9 +132,11 @@ public:
   static std::shared_ptr<Session> create(io_context &io_ctx, tcp_socket &&sock) noexcept;
 
   void run(Elapsed accept_e) noexcept {
-    const auto &r = sock.remote_endpoint();
-    const auto msg = io::log_socket_msg("SESSION", io::make_error(), sock, r, accept_e);
-    INFO(module_id, "RUN", "{}\n", msg);
+    if (config_debug("rtsp.session")) {
+      const auto &r = sock.remote_endpoint();
+      const auto msg = io::log_socket_msg("SESSION", io::make_error(), sock, r, accept_e);
+      INFO(module_id, "RUN", "{}\n", msg);
+    }
 
     async_read_request(transfer_initial());
   }
@@ -144,7 +147,9 @@ public:
       s->sock.shutdown(tcp_socket::shutdown_both, ec);
       s->sock.close(ec);
 
-      INFO(module_id, "TEARDOWN", "active_remote={} {}\n", s->ctx->active_remote, ec.message());
+      if (config_debug("rtsp.session")) {
+        INFO(module_id, "TEARDOWN", "active_remote={} {}\n", s->ctx->active_remote, ec.message());
+      }
     });
   }
 

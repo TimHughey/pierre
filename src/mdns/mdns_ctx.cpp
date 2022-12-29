@@ -316,7 +316,8 @@ const string Ctx::init(Service &service) noexcept {
     msg = fmt::format("client allocate failed");
   }
 
-  INFO(module_id, "INIT", "sizeof={} msg={}\n", sizeof(Ctx), msg.size() ? msg : "<empty>");
+  if (debug_init())
+    INFO(module_id, "INIT", "sizeof={} msg={}\n", sizeof(Ctx), msg.size() ? msg : "<empty>");
 
   return msg;
 }

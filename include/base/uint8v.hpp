@@ -81,9 +81,9 @@ public:
     return delims;
   }
 
-  bool is_multi_line() const noexcept {
-    return ranges::count_if(view(), [](const char c) { return c == '\n'; }) > 2;
-  }
+  // bool is_multi_line() const noexcept {
+  //   return ranges::count_if(view(), [](const char c) { return c == '\n'; }) > 2;
+  // }
 
   uint8v::iterator from_begin(std::ptrdiff_t bytes) { return begin() + bytes; }
   uint8v::iterator from_end(std::ptrdiff_t bytes) { return end() - bytes; }
@@ -112,9 +112,6 @@ public:
   }
 
   // debug, logging
-
-  virtual void dump() const;
-  virtual string inspect() const;
   virtual csv moduleId() const { return module_id_base; }
 
 protected:
@@ -127,7 +124,6 @@ protected:
 
     return false;
   }
-  string &toByteArrayString(string &msg) const;
 
 public:
   static constexpr csv module_id_base{"UINT8V"};

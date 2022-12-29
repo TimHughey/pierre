@@ -100,38 +100,7 @@ void Anchor::save(AnchorData ad) noexcept { // static
     }
   }
 
-  shared::anchor->log_new_data(ad, false);
-
   shared::anchor->source.emplace(ad);
-}
-
-// logging and debug
-void Anchor::log_new_data(const AnchorData &ad, bool log) const {
-
-  if (!log) return;
-
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  const auto clock = MasterClock::info().get();
-
-  if (source.has_value()) {
-    fmt::format_to(w, "{:<7}: clock={:#018x} rtp_time={} anchor={}\n", "OLD", source->clock_id,
-                   source->rtp_time, pet::humanize(source->anchor_time));
-  } else {
-    fmt::format_to(w, "{:<7}: NONE\n", "OLD");
-  }
-
-  fmt::format_to(w, "{:<7}: clock={:#018x} rtp_time={} anchor={}\n", "NEW", ad.clock_id,
-                 ad.rtp_time, ad.anchor_time > Nanos::zero() ? "OK" : "ZERO");
-
-  fmt::format_to(w, "{:<7}: clock={:#018x} sample_time={} master_for={}\n", "MASTER",
-                 clock.clock_id, clock.sample_time() > Nanos::zero() ? "OK" : "ZERO",
-                 pet::humanize((clock.master_for())));
-
-  const auto chunk = INFO_FORMAT_CHUNK(msg.data(), msg.size());
-
-  INFO_WITH_CHUNK(module_id, "SAVE", msg, "have existing source={}\n", source.has_value());
 }
 
 } // namespace pierre

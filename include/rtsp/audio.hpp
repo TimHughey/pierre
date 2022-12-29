@@ -66,18 +66,7 @@ private:
   // with this in mind we accept an error code that is checked before
   // starting the next async_accept.  when the error code is not specified
   // assume this is startup and all is well.
-  void async_accept() noexcept {
-
-    // since the socket is wrapped in the optional and async_read() wants the actual
-    // socket we must deference or get the value of the optional
-    acceptor.async_accept(sock, endpoint, [s = ptr(), e = Elapsed()](const error_code ec) {
-      const auto msg = io::log_socket_msg("SESSION", ec, s->sock, s->endpoint, e);
-      INFO(module_id, "ACCEPT", "{}\n", msg);
-
-      // if the connected was accepted start the "session", otherwise fall through
-      if (!ec) s->async_read_packet();
-    });
-  }
+  void async_accept() noexcept;
 
   void async_read_packet() noexcept;
 

@@ -96,10 +96,7 @@ void Standby::silence_watch() noexcept {
 
   silence_timer.expires_after(silence_timeout);
   silence_timer.async_wait([s = ptr()](const error_code ec) {
-    if (!ec) {
-      INFO(module_id, "SILENCE_WATCH", "timeout, setting finished\n");
-      s->set_finished(true);
-    }
+    if (!ec) s->set_finished(true);
   });
 }
 
