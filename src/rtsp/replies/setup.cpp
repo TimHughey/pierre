@@ -18,10 +18,10 @@
 
 #include "replies/setup.hpp"
 #include "base/host.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 #include "ctx.hpp"
 #include "frame/master_clock.hpp"
-#include "logger/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
 

@@ -25,17 +25,12 @@ FetchContent_MakeAvailable(ArduinoJson InfluxData tomlplusplus)
 # common types, logging, helpers and shared session key
 add_subdirectory(base)
 
-# config
-add_subdirectory(config)
+# config, args, logger, stats (cals)
+add_subdirectory(cals)
 
 # asio wrapper
 add_subdirectory(io)
 
-# influx-cxx wrapper
-add_subdirectory(stats)
-
-# custom logging subsystem
-add_subdirectory(logger)
 
 # mdns brought to you by Avahi
 add_subdirectory(mdns)

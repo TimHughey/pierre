@@ -24,12 +24,12 @@
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/stats.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
 #include "master_clock.hpp"
 #include "silent_frame.hpp"
-#include "stats/stats.hpp"
 
 #include <algorithm>
 #include <array>

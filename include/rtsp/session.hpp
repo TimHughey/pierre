@@ -20,10 +20,10 @@
 
 #include "base/elapsed.hpp"
 #include "base/io.hpp"
-#include "logger/logger.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/ctx.hpp"
 #include "rtsp/headers.hpp"

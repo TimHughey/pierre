@@ -18,9 +18,9 @@
 
 #include "service.hpp"
 #include "base/host.hpp"
-#include "logger/logger.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 #include "features.hpp"
 #include "pair/pair.h"
 

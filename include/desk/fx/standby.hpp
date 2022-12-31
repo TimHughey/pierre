@@ -20,7 +20,7 @@
 
 #include "base/io.hpp"
 #include "base/types.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 

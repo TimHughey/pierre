@@ -23,7 +23,7 @@
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "config/types.hpp"
+#include "cals/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "majorpeak/types.hpp"

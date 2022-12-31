@@ -18,12 +18,12 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
-#include "logger/logger.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
+#include "cals/stats.hpp"
 #include "mdns/features.hpp"
 #include "replies/info.hpp"
 #include "session.hpp"
-#include "stats/stats.hpp"
 
 #include <latch>
 #include <mutex>

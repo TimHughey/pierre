@@ -18,11 +18,11 @@
 
 #include "ctx.hpp"
 #include "audio.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 #include "control.hpp"
 #include "event.hpp"
 #include "frame/anchor.hpp"
-#include "logger/logger.hpp"
 #include "mdns/mdns.hpp"
 
 namespace pierre {

@@ -24,7 +24,7 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "logger/logger.hpp"
+#include "cals/logger.hpp"
 
 #include <ArduinoJson.h>
 #include <array>

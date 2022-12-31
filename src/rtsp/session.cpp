@@ -18,13 +18,13 @@
 
 #include "session.hpp"
 #include "base/elapsed.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/stats.hpp"
 #include "content.hpp"
 #include "desk/desk.hpp"
 #include "reply.hpp"
 #include "request.hpp"
 #include "saver.hpp"
-#include "stats/stats.hpp"
 
 #include <algorithm>
 #include <exception>

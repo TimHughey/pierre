@@ -20,13 +20,13 @@
 #include "base/elapsed.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/stats.hpp"
 #include "desk/desk.hpp"
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
 #include "fx/majorpeak/types.hpp"
-#include "stats/stats.hpp"
 
 namespace pierre {
 

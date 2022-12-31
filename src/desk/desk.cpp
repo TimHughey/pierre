@@ -18,8 +18,9 @@
 
 #include "desk.hpp"
 #include "base/input_info.hpp"
-#include "logger/logger.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
+#include "cals/stats.hpp"
 #include "dmx_ctrl.hpp"
 #include "dmx_data_msg.hpp"
 #include "frame/anchor_last.hpp"
@@ -29,7 +30,6 @@
 #include "fx/all.hpp"
 #include "io/async_msg.hpp"
 #include "mdns/mdns.hpp"
-#include "stats/stats.hpp"
 
 #include <exception>
 #include <functional>

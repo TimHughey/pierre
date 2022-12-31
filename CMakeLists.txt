@@ -59,14 +59,12 @@ target_link_libraries(${_target} PUBLIC
   Threads::Threads 
   ${GCRYPT}  
   base
-  config
+  cals
   desk
   frame
-  logger
   mdns
   rtsp
   sodium
-  stats
 )
 
 

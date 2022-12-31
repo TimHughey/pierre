@@ -17,13 +17,13 @@
 // https://www.wisslanding.com
 
 #include "dmx_ctrl.hpp"
-#include "logger/logger.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
+#include "cals/stats.hpp"
 #include "io/async_msg.hpp"
 #include "io/msg.hpp"
 #include "mdns/mdns.hpp"
-#include "stats/stats.hpp"
 
 #include <array>
 #include <iterator>

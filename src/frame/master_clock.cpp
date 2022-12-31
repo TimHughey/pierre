@@ -22,7 +22,7 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
 
 #include <algorithm>
 #include <errno.h>

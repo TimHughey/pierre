@@ -18,9 +18,9 @@
 
 #include "replies/info.hpp"
 #include "aplist.hpp"
-#include "logger/logger.hpp"
 #include "base/uint8v.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 #include "ctx.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"

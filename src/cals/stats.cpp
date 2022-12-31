@@ -16,8 +16,8 @@
 //
 //  https://www.wisslanding.com
 
-#include "stats/stats.hpp"
-#include "config/config.hpp"
+#include "stats.hpp"
+#include "config.hpp"
 
 #include <fmt/format.h>
 #include <memory>

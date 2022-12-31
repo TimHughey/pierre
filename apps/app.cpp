@@ -19,12 +19,12 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
+#include "cals/stats.hpp"
 #include "desk/desk.hpp"
-#include "logger/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
-#include "stats/stats.hpp"
 
 #include <signal.h>
 

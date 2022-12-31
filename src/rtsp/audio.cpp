@@ -17,9 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "audio.hpp"
-#include "logger/logger.hpp"
 #include "base/types.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 

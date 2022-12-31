@@ -18,8 +18,8 @@
 
 #include "mdns_ctx.hpp"
 #include "base/threads.hpp"
-#include "config/config.hpp"
-#include "logger/logger.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 
 namespace pierre {
 namespace mdns {

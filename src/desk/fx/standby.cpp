@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/standby.hpp"
+#include "cals/config.hpp"
 #include "color.hpp"
-#include "config/config.hpp"
 #include "desk.hpp"
 #include "unit/all.hpp"
 

@@ -17,13 +17,13 @@
 // https://www.wisslanding.com
 
 #define TOML_IMPLEMENTATION // this translation unit compiles actual library
-#include "config/config.hpp"
+#include "config.hpp"
+#include "args.hpp"
 #include "base/elapsed.hpp"
 #include "base/host.hpp"
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "config/args.hpp"
 #include "version.hpp"
 
 #include <cstdlib>

@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "frame/reel.hpp"
-#include "logger/logger.hpp"
-#include "config/config.hpp"
+#include "cals/config.hpp"
+#include "cals/logger.hpp"
 
 #include <tuple>
 

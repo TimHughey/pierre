@@ -41,14 +41,12 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   base
-  config
+  cals
   fader
   frame
   InfluxData::InfluxDB
   io
-  logger
   mdns
-  stats
 )
 
 target_link_libraries(${__target} PUBLIC

@@ -50,12 +50,10 @@ target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
   base
-  config
+  cals
   frame
   io
-  logger
   mdns
   pair
-  stats
 )
 

@@ -29,8 +29,8 @@ extern "C" {
 #endif
 
 #include "base/io.hpp"
-#include "logger/logger.hpp"
-#include "config/config.hpp"
+#include "cals/logger.hpp"
+#include "cals/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"

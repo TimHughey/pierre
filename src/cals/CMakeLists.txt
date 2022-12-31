@@ -2,7 +2,7 @@
 # config
 #
 
-set(__target config)
+set(__target cals)
 
 find_package(Boost 1.80 QUIET REQUIRED COMPONENTS program_options)
 
@@ -36,12 +36,15 @@ set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target} ${pierre_BINARY_DIR})
 
 file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS 
-  "${HEADER_PATH_LOCAL}/**/*.h*"
+  "${HEADER_PATH_LOCAL}/*.h*"
 )
 
 add_library(${__target} SHARED 
-  config.cpp args.cpp
   ${HEADER_LIST}
+  args.cpp
+  config.cpp
+  logger.cpp
+  stats.cpp
 )
 
 # source files compiled for the library can include headers
@@ -59,5 +62,6 @@ target_link_libraries(${__target} PRIVATE
 )
 
 target_link_libraries(${__target} PUBLIC 
+  InfluxData::InfluxDB
   tomlplusplus::tomlplusplus
 )
