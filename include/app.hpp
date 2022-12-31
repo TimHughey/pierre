@@ -25,13 +25,17 @@ namespace pierre {
 
 class App {
 public:
-  App() noexcept : guard(asio::make_work_guard(io_ctx)) {}
+  App() noexcept;
 
-  int main(int argc, char *argv[]) noexcept;
+  int main(int argc, char *argv[]);
+
+private:
+  void async_signal() noexcept;
 
 private:
   // order dependent
   io_context io_ctx;
+  asio::signal_set signal_set;
   work_guard guard;
 
   // order independent

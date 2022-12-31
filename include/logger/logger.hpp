@@ -43,7 +43,7 @@ public:
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
-    if (io_ctx.stopped()) {
+    if ((self.use_count() < 1) || io_ctx.stopped()) {
       fmt::print(line_format,                             //
                  runtime(), width_ts, width_ts_precision, //
                  mod_id, width_mod,                       //

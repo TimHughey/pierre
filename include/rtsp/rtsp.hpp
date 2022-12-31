@@ -46,19 +46,22 @@ public:
   /// @brief Shuts down the RTSP listener and releases shared_ptr to self
   static void shutdown() noexcept {
     if (self.use_count() > 1) {
-      auto s = self->ptr();     // grab a fresh shared_ptr (will reset self below)
-      auto &io_ctx = s->io_ctx; // grab a ref to the io_ctx (will move s into lambda)
-
-      asio::post(io_ctx, [s = std::move(s)]() {
-        [[maybe_unused]] error_code ec;
-
-        s->guard.reset(); // allow the io_ctx to complete when other work is finished
-        s->acceptor.close(ec);
-      });
+      auto s = self->ptr(); // grab a fresh shared_ptr (will reset self below)
 
       // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
       // when the above post completes we will be deallocated
       self.reset();
+
+      s->guard.reset(); // allow the io_ctx to complete when other work is finished
+
+      [[maybe_unused]] error_code ec;
+      s->acceptor.close(ec);
+
+      for (auto &t : s->threads) {
+        t.join();
+      }
+
+      s->threads.clear();
     }
   }
 

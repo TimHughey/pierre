@@ -26,6 +26,8 @@
 #include "rtsp/rtsp.hpp"
 #include "stats/stats.hpp"
 
+#include <signal.h>
+
 int main(int argc, char *argv[]) {
 
   auto app = pierre::App();
@@ -36,8 +38,40 @@ int main(int argc, char *argv[]) {
 
 namespace pierre {
 
-int App::main(int argc, char *argv[]) noexcept {
+App::App() noexcept                        //
+    : signal_set(io_ctx, SIGHUP, SIGINT),  //
+      guard(asio::make_work_guard(io_ctx)) //
+{}
+
+void App::async_signal() noexcept {
+
+  signal_set.async_wait([this](const error_code ec, int signal) {
+    if (!ec) {
+      INFO(module_id, "handle_signal", "caught signal={}\n", signal);
+
+      if (signal == SIGABRT) {
+        signal_set.clear();
+        abort();
+      } else if (signal == SIGINT) {
+
+        Logger::teardown();
+
+        Rtsp::shutdown();
+        INFO(module_id, "async_signal", "rtsp shutdown complete\n");
+
+        guard.reset();
+        io_ctx.stop();
+      } else {
+        async_signal();
+      }
+    }
+  });
+}
+
+int App::main(int argc, char *argv[]) {
   crypto::init(); // initialize sodium and gcrypt
+
+  async_signal();
 
   // we'll start the entire app via the io_context
   asio::post(io_ctx, [&, this]() {
@@ -67,7 +101,8 @@ int App::main(int argc, char *argv[]) noexcept {
   });
 
   io_ctx.run(); // start the app
-  Rtsp::shutdown();
+
+  INFO(module_id, "init", "io_ctx has returned\n");
 
   return 0;
 }

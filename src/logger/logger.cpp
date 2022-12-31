@@ -32,16 +32,8 @@ void Logger::init(io_context &io_ctx) noexcept { // static
   self = std::shared_ptr<Logger>(new Logger(io_ctx));
 }
 
-void Logger::teardown() noexcept {      // static
-  auto s = self->ptr();                 // get a fresh shared_ptr to ourself
-  auto &local_strand = s->local_strand; // get a reference to our strand, we'll move s
-
-  self.reset(); // reset our static shared_ptr to ourself
-
-  asio::post(local_strand, [s = std::move(s)]() {
-    // keeps Logger in-scope until lambda completes
-    // future implementation
-  });
+void Logger::teardown() noexcept { // static
+  self.reset();                    // reset our static shared_ptr to ourself
 }
 
 Logger::millis_fp Logger::runtime() noexcept { // static
