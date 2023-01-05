@@ -43,7 +43,7 @@ private:
   static constexpr ptrdiff_t setup2_suffix_len{20};
 
 public:
-  static constexpr csv module_id{"FAIRPLAY"};
+  static constexpr csv module_id{"rtsp.reply.fairplay"};
 };
 
 } // namespace rtsp

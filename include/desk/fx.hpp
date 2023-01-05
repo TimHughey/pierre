@@ -98,7 +98,7 @@ private:
   bool called_once{false};
 
 public:
-  static constexpr csv module_id{"FX"};
+  static constexpr csv module_id{"fx"};
 };
 
 } // namespace pierre

@@ -82,7 +82,7 @@ private:
   uint8v packet_len;
   uint8v packet;
 
-  static constexpr csv module_id{"RTSP AUDIO"};
+  static constexpr csv module_id{"rtsp.audio"};
 };
 
 } // namespace rtsp

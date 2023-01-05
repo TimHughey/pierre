@@ -37,7 +37,7 @@ public:
 public:
   // string type;
 
-  static constexpr csv module_id{"CONTENT"};
+  static constexpr csv module_id{"rtsp.content"};
 };
 
 } // namespace pierre

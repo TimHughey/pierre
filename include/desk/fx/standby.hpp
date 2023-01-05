@@ -20,9 +20,9 @@
 
 #include "base/io.hpp"
 #include "base/types.hpp"
-#include "cals/config.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+#include "lcs/config.hpp"
 
 #include <memory>
 
@@ -69,7 +69,7 @@ private:
   cfg_future cfg_change;
 
 public:
-  static constexpr csv module_id{"fx::Standby"};
+  static constexpr csv module_id{"fx.standby"};
 };
 
 } // namespace fx

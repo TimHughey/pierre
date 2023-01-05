@@ -19,9 +19,9 @@
 #include "replies/info.hpp"
 #include "aplist.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
 #include "ctx.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
 
@@ -78,8 +78,8 @@ Info::Info([[maybe_unused]] Request &request, Reply &reply) noexcept {
 
 /// @brief Initialize static data (reply pdict)
 void Info::init() noexcept { // static
-  static constexpr csv module_id{"reply::INFO"};
-  static constexpr csv fn_id{"INIT"};
+  static constexpr csv module_id{"rtsp.reply.info"};
+  static constexpr csv fn_id{"init"};
 
   auto file_path = config()->fs_parent_path();
   file_path /= "../share/plist/get_info_resp.plist"sv;
@@ -89,7 +89,7 @@ void Info::init() noexcept { // static
 
     is.seekg(0);
     if (is.read(reply_xml.data(), reply_xml.size())) {
-      if (debug_init()) INFO(module_id, fn_id, "{} size={}\n", file_path.c_str(), reply_xml.size());
+      INFO(module_id, fn_id, "{} size={}\n", file_path.c_str(), reply_xml.size());
     }
   }
 

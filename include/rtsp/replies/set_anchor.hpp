@@ -28,7 +28,7 @@ class SetAnchor {
 public:
   SetAnchor(Request &request, Reply &reply) noexcept;
 
-  static constexpr csv module_id{"SET_ANCHOR"};
+  static constexpr csv module_id{"rtsp.reply.set_anchor"};
 };
 
 } // namespace rtsp

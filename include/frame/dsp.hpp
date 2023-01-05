@@ -21,10 +21,10 @@
 #include "base/io.hpp"
 #include "base/threads.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 #include <latch>
 #include <memory>
@@ -53,6 +53,7 @@ public:
         name_thread(thread_prefix, n);
 
         latch->arrive_and_wait();
+        latch.reset();
         s->io_ctx.run();
       });
     }
@@ -66,7 +67,6 @@ public:
   }
 
   void process(frame_t frame, FFT left, FFT right) noexcept {
-
     auto s = ptr();
 
     // the caller sets the state to avoid a race condition with async processing
@@ -105,13 +105,12 @@ public:
   }
 
   void shutdown() noexcept {
-
     guard.reset();
 
     std::for_each(threads.begin(), threads.end(), [](auto &t) { t.join(); });
     threads.clear();
 
-    if (debug_threads()) INFO(module_id, "SHUTDOWN", "threads={}\n", std::ssize(threads));
+    INFO(module_id, "shutdown", "all stopped\n");
   }
 
 private:
@@ -124,7 +123,7 @@ private:
 
 public:
   static constexpr csv thread_prefix{"dsp"};
-  static constexpr csv module_id{"DSP"};
+  static constexpr csv module_id{"frame.dsp"};
 };
 
 } // namespace pierre

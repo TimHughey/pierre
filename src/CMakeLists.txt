@@ -25,12 +25,11 @@ FetchContent_MakeAvailable(ArduinoJson InfluxData tomlplusplus)
 # common types, logging, helpers and shared session key
 add_subdirectory(base)
 
-# config, args, logger, stats (cals)
-add_subdirectory(cals)
+# config, logger, stats (lcs)
+add_subdirectory(lcs)
 
 # asio wrapper
 add_subdirectory(io)
-
 
 # mdns brought to you by Avahi
 add_subdirectory(mdns)

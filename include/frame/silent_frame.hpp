@@ -74,7 +74,7 @@ private:
   static int64_t frame_num;
 
 public:
-  static constexpr csv module_id{"SILENT_FRAME"};
+  static constexpr csv module_id{"frame.silent"};
 };
 
 } // namespace pierre

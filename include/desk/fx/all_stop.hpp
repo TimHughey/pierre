@@ -46,7 +46,7 @@ public:
   }
 
 public:
-  static constexpr csv module_id{"ALL_STOP"};
+  static constexpr csv module_id{"fx.all_stop"};
 };
 
 } // namespace fx

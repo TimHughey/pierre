@@ -23,9 +23,9 @@
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "cals/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+#include "lcs/types.hpp"
 #include "majorpeak/types.hpp"
 
 #include <atomic>
@@ -90,7 +90,7 @@ private:
   Nanos _silence_timeout;
 
 public:
-  static constexpr csv module_id{"MAJOR_PEAK"};
+  static constexpr csv module_id{"major_peak"};
 };
 
 } // namespace fx

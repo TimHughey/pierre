@@ -18,11 +18,11 @@
 
 #include "dmx_ctrl.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
-#include "cals/stats.hpp"
 #include "io/async_msg.hpp"
 #include "io/msg.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
+#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 
 #include <array>
@@ -60,6 +60,7 @@ DmxCtrl::DmxCtrl(io_context &io_ctx) noexcept
 {}
 
 void DmxCtrl::connect() noexcept {
+  static constexpr csv cat{"ctrl_sock"};
 
   // now begin the control channel connect and handshake
   asio::post(io_ctx, // execute on any io_ctx, zero conf resolution may block
@@ -77,13 +78,10 @@ void DmxCtrl::connect() noexcept {
                    endpoints,       //
                    [s = s->ptr(), e](const error_code ec, const tcp_endpoint r) mutable {
                      if (s->ctrl_sock.has_value()) {
-                       auto debug = config_debug(debug_path);
 
                        auto &ctrl_sock = s->ctrl_sock.value();
 
-                       if (debug)
-                         INFO(module_id, "CONNECT", "{}\n",
-                              io::log_socket_msg("CTRL", ec, ctrl_sock, r, e));
+                       INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, ctrl_sock, r, e));
 
                        if (!ec) {
 
@@ -101,7 +99,7 @@ void DmxCtrl::connect() noexcept {
                        }
 
                      } else {
-                       INFO(module_id, "CONNECT", "no socket, {}\n", ec.message());
+                       INFO(module_id, cat, "no socket, {}\n", ec.message());
                      }
                    });
              });
@@ -126,6 +124,7 @@ void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
 }
 
 void DmxCtrl::listen() noexcept {
+  static constexpr csv cat{"data_sock"};
   // listen for inbound data connections and get our local port
   // when this async_accept is successful msg_loop() is invoked
   data_sock.emplace(io_ctx);
@@ -137,10 +136,8 @@ void DmxCtrl::listen() noexcept {
         if (!ec && s->data_sock.has_value() && s->data_sock->is_open()) {
           auto &data_sock = s->data_sock.value();
 
-          if (config_debug(debug_path)) {
-            const auto &r = data_sock.remote_endpoint();
-            INFO(module_id, "LISTEN", "{}\n", io::log_socket_msg("DATA", ec, data_sock, r, e));
-          }
+          const auto &r = data_sock.remote_endpoint();
+          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, data_sock, r, e));
 
           if (!ec) {
             // success, set sock opts, connected and start msg_loop()
@@ -152,7 +149,7 @@ void DmxCtrl::listen() noexcept {
           }
 
         } else {
-          INFO(module_id, "LISTEN", "ctrl_socket={} data_socket={} {}\n", //
+          INFO(module_id, cat, "ctrl_socket={} data_socket={} {}\n", //
                s->ctrl_sock.has_value(), s->data_sock.has_value(), ec.message());
         }
       });

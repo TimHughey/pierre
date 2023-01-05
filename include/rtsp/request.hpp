@@ -39,7 +39,7 @@ public:
   Content content;
   Headers headers;
 
-  static constexpr csv module_id{"rtsp::REQUEST"};
+  static constexpr csv module_id{"rtsp::request"};
 };
 
 } // namespace rtsp

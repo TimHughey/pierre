@@ -24,10 +24,10 @@
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
-#include "cals/config.hpp"
-#include "cals/stats.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
+#include "lcs/config.hpp"
+#include "lcs/stats.hpp"
 #include "master_clock.hpp"
 #include "silent_frame.hpp"
 
@@ -49,15 +49,15 @@ int64_t Racked::REEL_SERIAL_NUM{0x1000};
 std::shared_ptr<Racked> Racked::self;
 
 void Racked::flush(FlushInfo request) { // static
+  static constexpr csv fn_id{"flush"};
+
   if (self.use_count() < 1) return;
 
   auto s = ptr();
   auto &flush_strand = s->flush_strand;
 
   asio::post(flush_strand, [s = std::move(s), request = std::move(request)]() mutable {
-    auto debug = config_debug("frames.flush");
-
-    if (debug) INFO(module_id, "FLUSH", "{}\n", request);
+    INFO(module_id, fn_id, "{}\n", request);
 
     // save shared_ptr dereferences for multiple use variables
     auto &flush_request = s->flush_request;
@@ -92,14 +92,13 @@ void Racked::flush(FlushInfo request) { // static
       auto first = racked.begin()->second.peek_first();
       auto last = racked.rbegin()->second.peek_last();
 
-      if (debug)
-        INFO(module_id, "FLUSH", "rack contains seq_num {:<8}/{:>8} before flush\n", //
-             first->seq_num, last->seq_num);
+      INFO(module_id, fn_id, "rack contains seq_num {:<8}/{:>8} before flush\n", //
+           first->seq_num, last->seq_num);
 
       if (flush_request.matches<frame_t>({first, last})) {
         // yes, the entire rack matches the flush request so we can
         // take a short-cut and clear the entire rack in oneshot
-        if (debug) INFO(module_id, "FLUSH", "clearing all reels={}\n", initial_size);
+        INFO(module_id, fn_id, "clearing all reels={}\n", initial_size);
 
         racked_reels cleared;
         std::swap(racked, cleared);
@@ -115,7 +114,7 @@ void Racked::flush(FlushInfo request) { // static
             it = racked.erase(it);         // returns it to next not erased entry
             Stats::write(stats::RACKED_REELS, std::ssize(racked));
           } else {
-            if (debug) INFO(module_id, "FLUSH", "KEEPING {}\n", reel);
+            INFO(module_id, fn_id, "KEEPING {}\n", reel);
           }
         }
       }
@@ -149,15 +148,16 @@ void Racked::init() noexcept {
       self->threads.emplace_back([n = n, s = self->ptr(), latch = latch]() mutable {
         name_thread("racked", n);
         latch->arrive_and_wait();
+        latch.reset();
+
         s->io_ctx.run();
       });
     }
 
     latch->wait(); // caller waits until all threads are started
 
-    if (debug_init())
-      INFO(module_id, "INIT", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
-           sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
+    INFO(module_id, "init", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
+         sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
   }
 }
 
@@ -308,10 +308,9 @@ void Racked::rack_wip() noexcept {
 }
 
 void Racked::log_racked(log_racked_rc rc) const noexcept {
+  static constexpr csv cat{"debug"};
 
-  auto debug = config_debug("frames.racked");
-
-  if (debug) {
+  if (Logger::should_log_info(module_id, cat)) {
     string msg;
     auto w = std::back_inserter(msg);
 
@@ -341,13 +340,11 @@ void Racked::log_racked(log_racked_rc rc) const noexcept {
       break;
     }
 
-    if (!msg.empty()) INFO(module_id, "LOG_RACKED", "{}\n", msg);
+    if (!msg.empty()) INFO(module_id, cat, "{}\n", msg);
   }
 }
 
 void Racked::shutdown() noexcept {
-
-  auto debug = debug_threads();
 
   self->av->shutdown();
   self->av.reset();
@@ -363,7 +360,9 @@ void Racked::shutdown() noexcept {
   std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) { t.join(); });
   s->threads.clear();
 
-  if (debug) INFO(module_id, "SHUTDOWN", "threads={}\n", std::size(s->threads));
+  INFO(module_id, "shutdown", "threads={}\n", std::size(s->threads));
+
+  MasterClock::shutdown();
 }
 
 } // namespace pierre

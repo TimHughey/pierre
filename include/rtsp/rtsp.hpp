@@ -21,11 +21,16 @@
 #include "base/io.hpp"
 #include "base/threads.hpp"
 
+#include <any>
 #include <cstdint>
 #include <memory>
 #include <optional>
 
 namespace pierre {
+
+namespace rtsp {
+class Session;
+}
 
 class Rtsp : public std::enable_shared_from_this<Rtsp> {
 private:
@@ -44,26 +49,7 @@ public:
   static void init() noexcept;
 
   /// @brief Shuts down the RTSP listener and releases shared_ptr to self
-  static void shutdown() noexcept {
-    if (self.use_count() > 1) {
-      auto s = self->ptr(); // grab a fresh shared_ptr (will reset self below)
-
-      // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
-      // when the above post completes we will be deallocated
-      self.reset();
-
-      s->guard.reset(); // allow the io_ctx to complete when other work is finished
-
-      [[maybe_unused]] error_code ec;
-      s->acceptor.close(ec);
-
-      for (auto &t : s->threads) {
-        t.join();
-      }
-
-      s->threads.clear();
-    }
-  }
+  static void shutdown() noexcept;
 
 private:
   // order dependent
@@ -75,11 +61,12 @@ private:
   static std::shared_ptr<Rtsp> self;
   std::optional<tcp_socket> sock_accept;
   Threads threads;
+  std::optional<std::shared_ptr<rtsp::Session>> session_storage;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 
 public:
-  static constexpr csv module_id{"RTSP"};
+  static constexpr csv module_id{"rtsp"};
 };
 
 } // namespace pierre

@@ -19,10 +19,10 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
-#include "cals/stats.hpp"
 #include "desk/desk.hpp"
+#include "lcs/config.hpp"
+#include "lcs/lcs.hpp"
+#include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 
@@ -37,6 +37,8 @@ int main(int argc, char *argv[]) {
 }
 
 namespace pierre {
+
+static LoggerConfigStats lcs;
 
 App::App() noexcept                        //
     : signal_set(io_ctx, SIGHUP, SIGINT),  //
@@ -54,13 +56,17 @@ void App::async_signal() noexcept {
         abort();
       } else if (signal == SIGINT) {
 
-        Logger::teardown();
+        signal_set.clear();
 
         Rtsp::shutdown();
-        INFO(module_id, "async_signal", "rtsp shutdown complete\n");
+        Desk::shutdown(io_ctx);
+
+        mDNS::shutdown();
+
+        Config::shutdown();
+        Logger::teardown();
 
         guard.reset();
-        io_ctx.stop();
       } else {
         async_signal();
       }
@@ -71,38 +77,25 @@ void App::async_signal() noexcept {
 int App::main(int argc, char *argv[]) {
   crypto::init(); // initialize sodium and gcrypt
 
+  // exits if help requested, bad cli args or config parse failed
+  lcs.init(argc, argv);
+
+  // watch for signals
   async_signal();
 
-  // we'll start the entire app via the io_context
-  asio::post(io_ctx, [&, this]() {
-    Logger::init(io_ctx); // start logging, run on main process io_ctx
+  INFO(Config::module_id, "init", "{}\n", Config::ptr()->init_msg);
 
-    auto cfg = Config::init(io_ctx, argc, argv);
+  mDNS::init();
+  Desk::init(io_ctx);
 
-    if (cfg->should_start()) {
-      args_ok = true;
-      INFO(module_id, "INIT", "{} {} {}\n", cfg->receiver(), cfg->build_vsn(), cfg->build_time());
-
-      if (debug_init()) INFO(Config::module_id, "INIT", "{}\n", Config::ptr()->init_msg);
-
-      Stats::init(io_ctx);
-      mDNS::init();
-      Desk::init(io_ctx);
-
-      // create and start RTSP
-      Rtsp::init();
-
-      cfg->monitor_file();
-    } else {
-      // app is not starting, teardown Logger and remove the work guard
-      Logger::teardown();
-      guard.reset();
-    }
-  });
+  // create and start RTSP
+  Rtsp::init();
 
   io_ctx.run(); // start the app
 
   INFO(module_id, "init", "io_ctx has returned\n");
+
+  lcs.shutdown();
 
   return 0;
 }

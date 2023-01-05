@@ -61,7 +61,7 @@ public:
   string serial;
 
 public:
-  static constexpr csv module_id{"HOST"};
+  static constexpr csv module_id{"host"};
 };
 
 } // namespace pierre

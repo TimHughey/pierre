@@ -36,7 +36,7 @@ private:
   static std::vector<char> reply_xml;
 
 public:
-  static constexpr csv module_id{"rtsp::INFO"};
+  static constexpr csv module_id{"rtsp.reply.info"};
 };
 
 } // namespace rtsp

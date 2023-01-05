@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "state.hpp"
-#include "cals/stats.hpp"
+#include "lcs/stats.hpp"
 
 namespace pierre {
 namespace frame {

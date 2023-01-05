@@ -42,7 +42,7 @@ private:
   bool args_ok{false};
 
 public:
-  static constexpr csv module_id{"APP"};
+  static constexpr csv module_id{"app"};
 };
 
 } // namespace pierre

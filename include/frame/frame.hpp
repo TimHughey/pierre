@@ -150,7 +150,7 @@ private:
 
 public:
   static constexpr uint8_t RTPv2{0x02};
-  static constexpr csv module_id{"FRAME"};
+  static constexpr csv module_id{"frame"};
 };
 
 } // namespace pierre

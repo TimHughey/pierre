@@ -47,24 +47,24 @@ const string io::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept
   return msg;
 }
 
-const string io::log_socket_msg(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+const string io::log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
                                 Elapsed e) noexcept {
   e.freeze();
 
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "{} {} ", type, sock.is_open() ? "OPEN  " : "CLOSED");
+  auto open = sock.is_open();
+  fmt::format_to(w, "{} ", open ? "OPEN  " : "CLOSED");
 
   try {
-    if (sock.is_open()) {
+    if (open) {
 
       const auto &l = sock.local_endpoint();
 
-      fmt::format_to(w, "{}:{} -> {}:{} {}",            //
+      fmt::format_to(w, "{}:{} >> {}:{}",               //
                      l.address().to_string(), l.port(), //
-                     r.address().to_string(), r.port(), //
-                     sock.native_handle());
+                     r.address().to_string(), r.port());
     }
 
     if (ec != errc::success) fmt::format_to(w, " {}", ec.message());

@@ -82,7 +82,7 @@ private:
   uint_fast8_t _power;
 
 public:
-  static constexpr csv module_id{"FFT"};
+  static constexpr csv module_id{"frame.fft"};
 };
 
 } // namespace pierre

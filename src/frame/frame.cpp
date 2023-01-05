@@ -23,9 +23,9 @@
 #include "base/input_info.hpp"
 #include "base/io.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
-#include "cals/stats.hpp"
 #include "fft.hpp"
+#include "lcs/config.hpp"
+#include "lcs/stats.hpp"
 #include "master_clock.hpp"
 
 #include <iterator>

@@ -164,7 +164,7 @@ private:
   plist_t _plist{nullptr};
 
 public:
-  static constexpr csv module_id{"APLIST"};
+  static constexpr csv module_id{"rtsp.aplist"};
 };
 
 } // namespace pierre

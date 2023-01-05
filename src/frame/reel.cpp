@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "frame/reel.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 #include <tuple>
 
@@ -46,7 +46,7 @@ bool Reel::contains(timestamp_t timestamp) noexcept {
 }
 
 bool Reel::flush(FlushInfo &flush) noexcept {
-  auto debug = config_debug("frames.flush");
+  static constexpr csv fn_id{"flush"};
 
   if (frames.empty() == false) { // reel has frames, attempt to flush
 
@@ -54,13 +54,13 @@ bool Reel::flush(FlushInfo &flush) noexcept {
     auto b = frames.rbegin()->second; // reel last frame
 
     if (flush(a) && flush(b)) {
-      if (debug) INFO(module_id, "FLUSH", "{}\n", *this);
+      INFO(module_id, fn_id, "{}\n", *this);
       Frames empty_map;
 
       std::swap(frames, empty_map);
 
     } else if (flush.matches<frame_t>({a, b})) {
-      if (debug) INFO(module_id, "FLUSH", "SOME {}\n", *this);
+      INFO(module_id, fn_id, "SOME {}\n", *this);
 
       // partial match
       std::erase_if(frames, [&](const auto &item) { return flush(item.second); });

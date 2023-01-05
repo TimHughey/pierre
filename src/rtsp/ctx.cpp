@@ -18,11 +18,11 @@
 
 #include "ctx.hpp"
 #include "audio.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
 #include "control.hpp"
 #include "event.hpp"
 #include "frame/anchor.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
 
 namespace pierre {
@@ -62,33 +62,33 @@ Port Ctx::server_port(ports_t server_type) noexcept {
 
 void Ctx::teardown() noexcept {
 
-  INFO(module_id, "TEARDOWN", "active_remote={} dacp_id={} client_name='{}'\n", //
+  INFO(module_id, "teardown", "active_remote={} dacp_id={} client_name='{}'\n", //
        active_remote, dacp_id, client_name);
 
   group_contains_group_leader = false;
   active_remote = 0;
 
-  asio::post(io_ctx, [s = ptr()]() {
-    if (s->audio_srv) {
-      s->audio_srv->teardown();
-      s->audio_srv.reset();
-    }
+  // asio::post(io_ctx, [s = ptr()]() {
+  if (audio_srv) {
+    audio_srv->teardown();
+    audio_srv.reset();
+  }
 
-    if (s->control_srv) {
-      s->control_srv->teardown();
-      s->control_srv.reset();
-    }
+  if (control_srv) {
+    control_srv->teardown();
+    control_srv.reset();
+  }
 
-    if (s->event_srv) {
-      s->event_srv->teardown();
-      s->event_srv.reset();
-    }
+  if (event_srv) {
+    event_srv->teardown();
+    event_srv.reset();
+  }
 
-    [[maybe_unused]] error_code ec;
-    s->feedback_timer.cancel(ec);
+  [[maybe_unused]] error_code ec;
+  feedback_timer.cancel(ec);
 
-    if (config_debug("rtsp.ctx.teardown")) INFO(module_id, "TEARDOWN", "COMPLETE\n");
-  });
+  INFO(module_id, "teardown", "completed\n");
+  //});
 }
 
 void Ctx::update_from(const Headers &h) noexcept {

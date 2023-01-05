@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "cals/config.hpp"
+#include "lcs/config.hpp"
 #include "service.hpp"
 #include "zservice.hpp"
 
@@ -52,6 +52,8 @@ public:
   void browse(csv stype) noexcept;
 
   const string init(Service &service) noexcept;
+
+  void shutdown() noexcept;
 
   void update(Service &service) noexcept;
 
@@ -120,7 +122,7 @@ private:
                          const AvahiAddress *address, uint16_t port, AvahiStringList *txt,
                          AvahiLookupResultFlags flags, void *d);
 
-  template <typename T> string error_string(T t) {
+  template <typename T> static string error_string(T t) {
     using U = std::remove_pointer<T>::type;
 
     if constexpr (std::is_same_v<U, AvahiClient>) {
@@ -156,7 +158,7 @@ public:
   ZeroConfMap zcs_map;
   ZeroConfPromMap zcs_proms;
 
-  static constexpr csv module_id{"mdns::Ctx"};
+  static constexpr csv module_id{"mdns.ctx"};
   static constexpr csv thread_name{"mdns"};
 };
 

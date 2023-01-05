@@ -16,11 +16,13 @@
 //
 // https://www.wisslanding.com
 
-#include "args.hpp"
+#include "lcs/args.hpp"
+#include "base/types.hpp"
 
 #include <boost/program_options.hpp>
 #include <filesystem>
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -42,6 +44,7 @@ static constexpr ccs cfg_file_help{"config file"};
 static constexpr ccs daemon_arg{"daemon"};
 static constexpr ccs daemon_help{"run as daemon (background)"};
 static constexpr ccs dmx_host_arg{"dmx-host"};
+static constexpr ccs dmx_host_default{"dmx"};
 static constexpr ccs dmx_host_help{"where to stream dmx frames"};
 static constexpr ccs help_help{"display this help message"};
 static constexpr ccs help{"help"};
@@ -59,7 +62,7 @@ ArgsMap Args::parse(int argc, char *argv[]) {
 
     auto daemon_val = po::bool_switch(&am.daemon)->default_value(false);
     auto cfg_file_val = po::value(&am.cfg_file)->default_value(cfg_file_default);
-    auto dmx_host_val = po::value(&am.dmx_host);
+    auto dmx_host_val = po::value(&am.dmx_host)->default_value(dmx_host_default);
     auto pid_file_val = po::value(&am.pid_file)->default_value(pid_file_default);
 
     desc.add_options()                              // add allowed cmd line opts
@@ -69,21 +72,31 @@ ArgsMap Args::parse(int argc, char *argv[]) {
         (pid_file, pid_file_val, pid_file_help)     // pid file
         (help, help_help);                          // help
 
-    po::store(parse_command_line(argc, argv, desc), args);
+    // this will throw if parsing fails
+    auto parsed_opts = po::parse_command_line(argc, argv, desc);
+
+    // good, we have good command line args, store them
+    po::store(parsed_opts, args);
     po::notify(args);
 
     if (args.count(help) == 0) {
+
       am.parse_ok = true;
     } else {
+
       am.help = true;
 
-      std::cout << std::endl;
-      std::cout << desc;
-      std::cout << std::endl;
+      fmt::print(std::clog, "\n{}\n", desc);
+      std::clog.flush();
+
+      exit(0);
     }
 
   } catch (const po::error &ex) {
-    fmt::print("command line args error: {}\n", ex.what());
+
+    fmt::print(std::clog, "command line args error: {}\n", ex.what());
+    std::clog.flush();
+    exit(1);
   }
 
   am.exec_path = string(argv[0]);

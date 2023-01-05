@@ -18,8 +18,8 @@
 
 #include "session.hpp"
 #include "base/elapsed.hpp"
-#include "cals/config.hpp"
-#include "cals/stats.hpp"
+#include "lcs/config.hpp"
+#include "lcs/stats.hpp"
 #include "content.hpp"
 #include "desk/desk.hpp"
 #include "reply.hpp"

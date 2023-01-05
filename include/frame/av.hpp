@@ -29,11 +29,11 @@ extern "C" {
 #endif
 
 #include "base/io.hpp"
-#include "cals/logger.hpp"
-#include "cals/config.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 #include <atomic>
 #include <memory>
@@ -94,7 +94,7 @@ public:
 
               s->ready.store(true);
             } else {
-              INFO(module_id, "INIT", "failed to initialize AV functions\n");
+              INFO(module_id, "init", "failed to initialize AV functions\n");
             }
           } // end parser ctx
         }   // end open ctx
@@ -206,12 +206,10 @@ private:
     if (!reported) {
       const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-      if (config_debug("frames.av"))
-        INFO(module_id, "INFO",
-             "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}\n",
-             fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]),
-             audio_frame->linesize[1], audio_frame->nb_samples, audio_frame->format,
-             audio_frame->flags);
+      INFO(module_id, "debug",
+           "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}\n",
+           fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
+           audio_frame->nb_samples, audio_frame->format, audio_frame->flags);
       reported = true;
     }
   }
@@ -242,7 +240,7 @@ private:
   AVCodecParserContext *parser_ctx{nullptr};
 
 public:
-  static constexpr csv module_id{"AV"};
+  static constexpr csv module_id{"frame.av"};
 };
 
 } // namespace pierre

@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "cals/config.hpp"
+#include "lcs/config.hpp"
 #include "rtsp/aplist.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
@@ -57,7 +57,7 @@ private:
   }
 
 public:
-  Saver() noexcept : enable(config()->at("debug.rtsp.save"sv).value_or(false)) {}
+  Saver() noexcept : enable(config()->at("info.rtsp.save"sv).value_or(false)) {}
 
   template <typename T> void format_and_write(const T &r) noexcept {
 
@@ -84,8 +84,8 @@ public:
 
   void write(const uint8v &buff) noexcept {
     auto cfg = Config::ptr();
-    const auto base = cfg->at("debug.path"sv).value_or(string());
-    const auto file = cfg->at("debug.rtsp.file"sv).value_or(string());
+    const auto base = cfg->at("info.path"sv).value_or(string());
+    const auto file = cfg->at("info.rtsp.file"sv).value_or(string());
 
     namespace fs = std::filesystem;
     fs::path path{fs::current_path()};
@@ -112,7 +112,7 @@ private:
 
 public:
   string msg;
-  static constexpr csv module_id{"rtsp::SAVER"};
+  static constexpr csv module_id{"rtsp::saver"};
 };
 
 } // namespace rtsp

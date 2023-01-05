@@ -77,7 +77,7 @@ private:
   udp_socket socket;
 
 public:
-  static constexpr csv module_id{"RTSP CONTROL"};
+  static constexpr csv module_id{"rtsp.control"};
 };
 
 } // namespace rtsp

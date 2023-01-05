@@ -44,8 +44,7 @@ public:
 
 public:
   Reel(uint64_t serial_num) noexcept
-      : _serial(serial_num),                           // unique serial num (for debugging)
-        module_id(fmt::format("REEL {:#5x}", _serial)) // logging prefix
+      : _serial(serial_num) // unique serial num (for debugging)
   {}
 
   friend class Racked;
@@ -83,9 +82,11 @@ public:
 protected:
   // order dependent
   const reel_serial_num_t _serial;
-  string module_id;
 
   Frames frames;
+
+public:
+  static constexpr csv module_id{"desk.reel"};
 };
 
 } // namespace pierre

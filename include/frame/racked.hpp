@@ -176,7 +176,7 @@ private:
 
 public:
   static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};
-  static constexpr csv module_id{"RACKED"};
+  static constexpr csv module_id{"desk.racked"};
 
 }; // Racked
 

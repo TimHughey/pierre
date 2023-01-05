@@ -65,7 +65,7 @@ static constexpr error_code make_error(errc::errc_t val = errc::success) {
 
 const string is_ready(tcp_socket &sock, error_code ec = make_error(), bool cancel = true) noexcept;
 
-const string log_socket_msg(csv type, error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
                             Elapsed e = Elapsed()) noexcept;
 
 } // namespace io

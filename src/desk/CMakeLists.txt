@@ -41,11 +41,11 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   base
-  cals
   fader
   frame
   InfluxData::InfluxDB
   io
+  lcs
   mdns
 )
 

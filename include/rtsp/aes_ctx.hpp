@@ -93,7 +93,7 @@ private:
   pair_verify_context *verify_ctx{nullptr};
 
 public:
-  static constexpr csv module_id{"AES_CTX"};
+  static constexpr csv module_id{"rtsp.aes_ctx"};
 };
 
 } // namespace pierre

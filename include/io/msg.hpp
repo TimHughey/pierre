@@ -24,7 +24,7 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "cals/logger.hpp"
+#include "lcs/logger.hpp"
 
 #include <ArduinoJson.h>
 #include <array>
@@ -139,7 +139,7 @@ public:
   size_t tx_len = 0;
 
   // misc debug
-  static constexpr csv module_id{"MSG_BASE"};
+  static constexpr csv module_id{"io.msg.base"};
 };
 
 } // namespace io

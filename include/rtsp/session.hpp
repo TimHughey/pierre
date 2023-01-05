@@ -22,8 +22,8 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "rtsp/aes_ctx.hpp"
 #include "rtsp/ctx.hpp"
 #include "rtsp/headers.hpp"
@@ -56,6 +56,7 @@ private:
 
   template <typename CompletionCondition>
   void async_read_request(CompletionCondition &&cond, Elapsed &&e = Elapsed()) noexcept {
+    static constexpr csv fn_id{"async_read"};
     // notes:
     //  1. nothing within this function can be captured by the lamba
     //     because the scope of this function ends before
@@ -83,15 +84,14 @@ private:
         [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
           if (s->packet.empty()) e.reset(); // start timing once we have data
 
-          auto debug = config_debug("rtsp.session");
           const auto msg = io::is_ready(s->sock, ec);
 
-          if (!msg.empty() && debug) {
-            INFO(module_id, "ASYNC_READ", "{}\n", msg);
+          if (!msg.empty()) {
+            INFO(module_id, fn_id, "{}\n", msg);
 
             // will fall out of scope when this function returns
           } else if (bytes < 1) {
-            if (debug) INFO(module_id, "ASYNC_READ", "retry, bytes={}\n", bytes);
+            INFO(module_id, fn_id, "retry, bytes={}\n", bytes);
             s->async_read_request(asio::transfer_at_least(1), std::move(e));
 
           } else if (s->sock.available() > 0) {
@@ -132,25 +132,34 @@ public:
   static std::shared_ptr<Session> create(io_context &io_ctx, tcp_socket &&sock) noexcept;
 
   void run(Elapsed accept_e) noexcept {
-    if (config_debug("rtsp.session")) {
-      const auto &r = sock.remote_endpoint();
-      const auto msg = io::log_socket_msg("SESSION", io::make_error(), sock, r, accept_e);
-      INFO(module_id, "RUN", "{}\n", msg);
-    }
+    static constexpr csv cat{"run"};
+
+    const auto &r = sock.remote_endpoint();
+    const auto msg = io::log_socket_msg(io::make_error(), sock, r, accept_e);
+    INFO(module_id, cat, "{}\n", msg);
 
     async_read_request(transfer_initial());
   }
 
-  void teardown() noexcept {
-    asio::post(io_ctx, [s = ptr()]() {
-      [[maybe_unused]] error_code ec;
-      s->sock.shutdown(tcp_socket::shutdown_both, ec);
-      s->sock.close(ec);
+  // void teardown() noexcept {
+  //   asio::post(io_ctx, [s = ptr()]() {
+  //     [[maybe_unused]] error_code ec;
+  //     s->sock.shutdown(tcp_socket::shutdown_both, ec);
+  //     s->sock.close(ec);
+  //
+  //     INFO(module_id, "teardown", "active_remote={} {}\n", s->ctx->active_remote, ec.message());
+  //   });
+  // }
 
-      if (config_debug("rtsp.session")) {
-        INFO(module_id, "TEARDOWN", "active_remote={} {}\n", s->ctx->active_remote, ec.message());
-      }
-    });
+  void shutdown() noexcept {
+
+    error_code ec;
+    sock.shutdown(tcp_socket::shutdown_both, ec);
+    INFO(module_id, "shutdown", "active_remote={} {}\n", ctx->active_remote, ec.message());
+
+    sock.close(ec);
+
+    if (ctx.use_count() > 0) ctx->teardown();
   }
 
 private:
@@ -168,7 +177,7 @@ private:
   uint8v wire;     // socket data (maybe encrypted)
 
 public:
-  static constexpr csv module_id{"RTSP_SESSION"};
+  static constexpr csv module_id{"rtsp.session"};
 };
 
 } // namespace rtsp

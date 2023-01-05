@@ -79,7 +79,7 @@ private:
   bool silence{false};
 
 public:
-  static constexpr csv module_id{"DMX_CTRL_MSG"};
+  static constexpr csv module_id{"desk.dmx_data_msg"};
 };
 
 } // namespace pierre

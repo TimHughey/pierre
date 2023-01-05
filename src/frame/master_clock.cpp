@@ -22,11 +22,12 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
+#include "lcs/config.hpp"
 
 #include <algorithm>
 #include <errno.h>
 #include <fcntl.h>
+#include <fmt/ostream.h>
 #include <iterator>
 #include <latch>
 #include <ranges>
@@ -58,22 +59,23 @@ void MasterClock::init() noexcept { // static
     auto latch = std::make_shared<std::latch>(thread_count);
 
     for (auto n = 0; n < thread_count; n++) {
-
       s->threads.emplace_back([latch, n, s = s->ptr()]() mutable {
         name_thread("clock", n);
         latch->arrive_and_wait();
+        latch.reset();
+
         s->io_ctx.run();
       });
     }
 
-    latch->wait();     // caller waits until all threads are started
+    latch->wait(); // caller waits until all threads are started
+
     s->peers(Peers()); // reset the peers (creates the shm name)}
 
-    if (debug_init())
-      INFO(module_id, "INIT", "shm_name={} dest={}:{}\n", //
-           s->shm_name,                                   //
-           s->remote_endpoint.address().to_string(),      //
-           s->remote_endpoint.port());
+    INFO(module_id, "init", "shm_name={} dest={}:{}\n", //
+         s->shm_name,                                   //
+         s->remote_endpoint.address().to_string(),      //
+         s->remote_endpoint.port());
   }
 }
 
@@ -179,22 +181,25 @@ void MasterClock::peers_update(const Peers &new_peers) {
 }
 
 void MasterClock::shutdown() noexcept { // static
-  auto s = self->ptr();
-  auto &io_ctx = s->io_ctx;
+  static constexpr csv cat{"shutdown"};
+
+  INFO(module_id, cat, "initiated\n");
+
+  self->guard.reset();
+  if (self->is_mapped()) munmap(self->mapped, sizeof(nqptp));
+
+  [[maybe_unused]] error_code ec;
+  self->socket.close(ec);
+
+  auto &threads = self->threads;
+  std::for_each(threads.begin(), threads.end(), [](auto &t) mutable {
+    INFO(module_id, cat, "joining thread={}\n", t.get_id());
+    t.join();
+  });
 
   self.reset(); // reset our static shared_ptr (we have a fresh one)
 
-  // run our self-destruct via a post with the fresh shared_ptr
-  // to ourselves.  when this post completes the shared_ptr falls
-  // out of scope freeing the overall object
-  asio::post(io_ctx, [s = std::move(s)]() {
-    s->guard.reset(); // remove the work guard so io_ctx.run() returns ending the thread
-
-    if (s->is_mapped()) munmap(s->mapped, sizeof(nqptp));
-
-    [[maybe_unused]] error_code ec;
-    s->socket.close(ec);
-  });
+  INFO(module_id, cat, "complete, self.use_count({})\n", self.use_count());
 }
 
 // misc debug

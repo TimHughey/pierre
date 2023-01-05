@@ -18,34 +18,37 @@
 
 #pragma once
 
+#include "base/io.hpp"
+#include "base/threads.hpp"
 #include "base/types.hpp"
-
-#include <filesystem>
 
 namespace pierre {
 
-struct ArgsMap {
-  bool parse_ok{false};
-  bool help{false};
-  bool daemon{false};
-  std::filesystem::path exec_path{};
-  std::filesystem::path parent_path{};
-  string cfg_file{};
-  string dmx_host{};
-  string pid_file{};
-  string app_name;
-
-  // public api
-  bool ok() const { return parse_ok; }
-};
-
-class Args {
-public:
-  Args() = default;
-
-  ArgsMap parse(int argc, char *argv[]);
+class LoggerConfigStats {
 
 public:
-  static constexpr csv module_id{"ARGS"};
+  LoggerConfigStats() noexcept : guard(asio::make_work_guard(io_ctx)) {}
+  void init(int argc, char **argv) noexcept;
+
+  void shutdown() noexcept {
+    guard.reset();
+    io_ctx.stop();
+
+    for (auto &t : threads) {
+      t.join();
+    }
+  }
+
+private:
+  // order dependent
+  io_context io_ctx;
+  work_guard guard;
+
+  // order independent
+  Threads threads;
+
+public:
+  static constexpr csv module_id{"lcs"};
 };
+
 } // namespace pierre

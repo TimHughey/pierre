@@ -18,8 +18,8 @@
 
 #include "mdns_ctx.hpp"
 #include "base/threads.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 namespace pierre {
 namespace mdns {
@@ -97,15 +97,14 @@ void Ctx::browse(csv stype) noexcept {
 }
 
 void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data) {
-  static constexpr csv cb_id{"CB_CLIENT"};
+  static constexpr csv cb_id{"cb_client"};
 
   auto ctx = static_cast<Ctx *>(user_data);
-  auto debug = config_debug("mdns.callbacks");
 
   // is this the first invocation of the callback?
   if (client && (ctx->client == nullptr)) {
-    if (debug)
-      INFO(module_id, cb_id, "STORING, client={} ctx={}\n", fmt::ptr(client), fmt::ptr(ctx));
+
+    INFO(module_id, cb_id, "STORING, client={} ctx={}\n", fmt::ptr(client), fmt::ptr(ctx));
 
     ctx->client = client; // save the client (for comparison later)
     name_thread(thread_name);
@@ -116,11 +115,11 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
 
   switch (state) {
   case AVAHI_CLIENT_CONNECTING: {
-    if (debug) INFO(module_id, cb_id, "CONNECTING, client={}\n", fmt::ptr(ctx->client));
+    INFO(module_id, cb_id, "CONNECTING, client={}\n", fmt::ptr(ctx->client));
   } break;
 
   case AVAHI_CLIENT_S_REGISTERING: {
-    if (debug) INFO(module_id, cb_id, "REGISTERING, client={}\n", fmt::ptr(ctx->client));
+    INFO(module_id, cb_id, "REGISTERING, client={}\n", fmt::ptr(ctx->client));
 
     // if there is already a group, reset it
     if (ctx->entry_group.has_value()) {
@@ -142,18 +141,18 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
     ctx->domain = avahi_client_get_domain_name(client);
     string vsn(avahi_client_get_version_string(client));
 
-    if (debug) INFO(module_id, cb_id, "RUNNING, vsn='{}' domain={}\n", vsn, ctx->domain);
+    INFO(module_id, cb_id, "RUNNING, vsn='{}' domain={}\n", vsn, ctx->domain);
 
     ctx->client_running.store(true);
     ctx->client_running.notify_all();
   } break;
 
   case AVAHI_CLIENT_FAILURE: {
-    if (debug) INFO(module_id, cb_id, "FAILED, reason={}\n", ctx->error_string(client));
+    INFO(module_id, cb_id, "FAILED, reason={}\n", error_string(client));
   } break;
 
   case AVAHI_CLIENT_S_COLLISION: {
-    if (debug) INFO(module_id, cb_id, "NAME COLLISION, reason={}\n", ctx->error_string(client));
+    INFO(module_id, cb_id, "NAME COLLISION, reason={}\n", error_string(client));
   } break;
   }
 }
@@ -163,19 +162,18 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
                     AvahiBrowserEvent event, ccs name, ccs type, ccs domain, AvahiLookupResultFlags,
                     void *user_data) { // static
 
-  static constexpr csv fn_id{"CB_BROWSE"};
+  static constexpr csv fn_id{"cb_browse"};
 
   auto ctx = static_cast<Ctx *>(user_data);
-  auto debug = config_debug("mdns.callbacks");
 
   switch (event) {
   case AVAHI_BROWSER_FAILURE: {
-    INFO(module_id, "BROWSE", "browser={} error={}\n", fmt::ptr(b), ctx->error_string(b));
+    INFO(module_id, "BROWSE", "browser={} error={}\n", fmt::ptr(b), error_string(b));
     avahi_threaded_poll_quit(ctx->tpoll);
   } break;
 
   case AVAHI_BROWSER_NEW: {
-    if (debug) INFO(module_id, fn_id, "NEW host={} type={} domain={}\n", name, type, domain);
+    INFO(module_id, fn_id, "NEW host={} type={} domain={}\n", name, type, domain);
 
     // default flags (for clarity)
     AvahiLookupFlags flags{};
@@ -211,39 +209,36 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
 }
 
 void Ctx::cb_entry_group(AvahiEntryGroup *group, AvahiEntryGroupState state, void *user_data) {
-  static constexpr csv cb_id{"CB_EVT_GRP"};
+  static constexpr csv cb_id{"cb_evt_grp"};
 
   auto ctx = static_cast<mdns::Ctx *>(user_data);
-  auto debug = config_debug("mdns.callbacks");
   auto &entry_group = ctx->entry_group;
 
   ctx->entry_group_state = state;
 
   switch (state) {
   case AVAHI_ENTRY_GROUP_ESTABLISHED: {
-    if (debug)
-      INFO(module_id, cb_id, "ESTABLISHED, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
+    INFO(module_id, cb_id, "ESTABLISHED, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
   } break;
 
   // do nothing special for these states
   case AVAHI_ENTRY_GROUP_COLLISION: {
-    if (debug) INFO(module_id, cb_id, "COLLISION, group={}\n", fmt::ptr(group));
+    INFO(module_id, cb_id, "COLLISION, group={}\n", fmt::ptr(group));
   } break;
 
   case AVAHI_ENTRY_GROUP_FAILURE: {
-    if (debug) INFO(module_id, cb_id, "FAILURE, group={}\n", fmt::ptr(group));
+    INFO(module_id, cb_id, "FAILURE, group={}\n", fmt::ptr(group));
   } break;
 
   case AVAHI_ENTRY_GROUP_UNCOMMITED: {
-    if (debug) INFO(module_id, cb_id, "UNCOMMITTED, STORING group={}\n", fmt::ptr(group));
+    INFO(module_id, cb_id, "UNCOMMITTED, STORING group={}\n", fmt::ptr(group));
     // new entry group created, save it
     entry_group.emplace(group);
 
   } break;
 
   case AVAHI_ENTRY_GROUP_REGISTERING: {
-    if (debug)
-      INFO(module_id, cb_id, "REGISTERING, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
+    INFO(module_id, cb_id, "REGISTERING, group={}\n", fmt::ptr(entry_group.value_or(nullptr)));
   } break;
   }
 }
@@ -252,7 +247,7 @@ void Ctx::cb_resolve(AvahiServiceResolver *r, AvahiIfIndex, AvahiProtocol protoc
                      AvahiResolverEvent event, ccs name, ccs type, ccs domain, ccs host_name,
                      const AvahiAddress *address, uint16_t port, AvahiStringList *txt,
                      AvahiLookupResultFlags, void *user_data) {
-
+  static constexpr csv fn_id{"resolve"};
   auto ctx = static_cast<Ctx *>(user_data);
 
   switch (event) {
@@ -261,7 +256,7 @@ void Ctx::cb_resolve(AvahiServiceResolver *r, AvahiIfIndex, AvahiProtocol protoc
       ctx->browse_remove(name);
     }
 
-    INFO(module_id, "RESOLVE", "FAILED, reason={}\n", ctx->error_string(ctx->client));
+    INFO(module_id, fn_id, "FAILED, reason={}\n", error_string(ctx->client));
   } break;
 
   case AVAHI_RESOLVER_FOUND: {
@@ -317,8 +312,7 @@ const string Ctx::init(Service &service) noexcept {
     msg = fmt::format("client allocate failed");
   }
 
-  if (debug_init())
-    INFO(module_id, "INIT", "sizeof={} msg={}\n", sizeof(Ctx), msg.size() ? msg : "<empty>");
+  INFO(module_id, "init", "sizeof={} msg={}\n", sizeof(Ctx), msg.size() ? msg : "<empty>");
 
   return msg;
 }
@@ -354,6 +348,14 @@ void Ctx::resolved(const ZeroConf::Details zcd) noexcept {
     it->second.set_value(zc);
     zcs_proms.erase(it);
   }
+}
+
+void Ctx::shutdown() noexcept {
+  avahi_client_free(client);
+
+  auto rc = avahi_threaded_poll_stop(tpoll);
+
+  INFO(module_id, "shutdown", "{}\n", rc);
 }
 
 void Ctx::update(Service &service) noexcept {

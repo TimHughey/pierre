@@ -56,15 +56,15 @@ target_include_directories(${_target} PUBLIC
 )
 
 target_link_libraries(${_target} PUBLIC
-  Threads::Threads 
   ${GCRYPT}  
   base
-  cals
   desk
   frame
+  lcs
   mdns
   rtsp
   sodium
+  Threads::Threads 
 )
 
 

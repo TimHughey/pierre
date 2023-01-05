@@ -82,7 +82,7 @@ public:
   }
 
 public:
-  static constexpr csv module_id{"ANCHOR_LAST"};
+  static constexpr csv module_id{"anchor.last"};
 };
 
 } // namespace pierre

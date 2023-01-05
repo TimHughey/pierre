@@ -17,8 +17,8 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
-#include "cals/logger.hpp"
-#include "cals/config.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "mdns_ctx.hpp"
 #include "service.hpp"
 #include "zservice.hpp"
@@ -68,9 +68,15 @@ void mDNS::init() noexcept { // static
     auto err_msg = self->ctx->init(self->service_obj);
 
     if (err_msg.size()) {
-      INFO(module_id, "INIT", "FAILED, reason={}\n", err_msg);
+      INFO(module_id, "init", "FAILED, reason={}\n", err_msg);
     }
   }
+}
+
+void mDNS::shutdown() noexcept {
+  self->ctx->shutdown();
+
+  self.reset();
 }
 
 void mDNS::update() noexcept { // static

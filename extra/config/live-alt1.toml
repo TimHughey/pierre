@@ -19,28 +19,31 @@ enabled = true
 db_uri = "http://localhost:8086?db=pierre"
 batch_of = 150
 
-[debug]
+[info]
 path = "../extra/debug"
-desk = { dmx_ctrl = false }
+desk = { dmx_ctrl = true, reel = false }
 frames = { av = false, flush = false, racked = false }
-init = false
-mdns = { callbacks = false }
-threads = false
+mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
 
-[debug.rtsp]
+# category specific
+init = true
+threads = true
+debug = false
+
+[info.rtsp]
 audio = false
-ctx = { teardown = false }
+ctx = { teardown = true }
 event = false
-server = false
-session = false
-save = false
 file = "rtsp.log"
 format = "pretty"
-
+reply = false
+save = false
+server = true
+session = true
 
 [dmx]
-# controller = "dmx"  # default
-controller = "test-with-devs"
+# controller = "dmx" # default
+# controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
 idle = 60_000

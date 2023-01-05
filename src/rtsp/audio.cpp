@@ -18,10 +18,10 @@
 
 #include "audio.hpp"
 #include "base/types.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 #include <ranges>
 #include <vector>
@@ -32,14 +32,13 @@ namespace rtsp {
 static constexpr auto PACKET_LEN_BYTES = sizeof(uint16_t);
 
 void Audio::async_accept() noexcept {
+  static constexpr csv fn_id{"async_accept"};
 
   // since the socket is wrapped in the optional and async_read() wants the actual
   // socket we must deference or get the value of the optional
   acceptor.async_accept(sock, endpoint, [s = ptr(), e = Elapsed()](const error_code ec) {
-    if (config_debug("rtsp.audio")) {
-      const auto msg = io::log_socket_msg("SESSION", ec, s->sock, s->endpoint, e);
-      INFO(module_id, "ACCEPT", "{}\n", msg);
-    }
+    const auto msg = io::log_socket_msg(ec, s->sock, s->endpoint, e);
+    INFO(module_id, fn_id, "{}\n", msg);
 
     // if the connected was accepted start the "session", otherwise fall through
     if (!ec) s->async_read_packet();
@@ -47,6 +46,7 @@ void Audio::async_accept() noexcept {
 }
 
 void Audio::async_read_packet() noexcept {
+  static constexpr csv fn_id{"async_read"};
 
   packet_len.clear();
 
@@ -62,10 +62,8 @@ void Audio::async_read_packet() noexcept {
 
             const auto msg = io::is_ready(sock, ec);
 
-            auto debug = config_debug("rtsp.audio");
-
-            if (debug && (!msg.empty() || (bytes < std::ssize(s->packet_len)))) {
-              INFO(module_id, "ASYNC_READ", "bytes={} {}\n", bytes, msg);
+            if (!msg.empty() || (bytes < std::ssize(s->packet_len))) {
+              INFO(module_id, fn_id, "bytes={} {}\n", bytes, msg);
               return;
             }
 
@@ -86,8 +84,8 @@ void Audio::async_read_packet() noexcept {
 
                   const auto msg = io::is_ready(sock, ec);
 
-                  if (debug && (!msg.empty() || (bytes != len))) {
-                    INFO(module_id, "ASYNC_READ", "bytes={} msg\n", bytes, msg);
+                  if (!msg.empty() || (bytes != len)) {
+                    INFO(module_id, fn_id, "bytes={} msg\n", bytes, msg);
                     return;
                   }
 

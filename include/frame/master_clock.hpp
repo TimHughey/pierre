@@ -24,8 +24,8 @@
 #include "base/threads.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "cals/logger.hpp"
 #include "frame/clock_info.hpp"
+#include "lcs/logger.hpp"
 
 #include <array>
 #include <chrono>
@@ -138,7 +138,7 @@ private:
 
     if (!ok && attempts) {
       ++attempts;
-      INFO(module_id, "CLOCK_MAPPED", "nqptp data not mapped attempts={}\n", attempts);
+      INFO(module_id, "mapped", "nqptp data not mapped attempts={}\n", attempts);
     }
 
     return ok;
@@ -169,7 +169,7 @@ private:
   void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:
-  static constexpr csv module_id{"MASTER CLOCK"};
+  static constexpr csv module_id{"frame.clock"};
 };
 
 /*  The control port expects a UDP packet with the first space-delimited string

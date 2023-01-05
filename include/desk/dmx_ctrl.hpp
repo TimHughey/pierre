@@ -74,9 +74,9 @@ public:
       [[maybe_unused]] error_code ec;
 
       s->stalled_timer.cancel(ec);
-      s->acceptor.cancel(ec);
-      if (s->ctrl_sock.has_value()) s->ctrl_sock->cancel(ec);
-      if (s->data_sock.has_value()) s->data_sock->cancel(ec);
+      s->acceptor.close(ec);
+      if (s->ctrl_sock.has_value()) s->ctrl_sock->close(ec);
+      if (s->data_sock.has_value()) s->data_sock->close(ec);
     });
   }
 
@@ -112,8 +112,7 @@ private:
 
   // misc debug
 public:
-  static constexpr csv module_id{"DMX_CTRL"};
-  static constexpr csv debug_path{"desk.dmx_ctrl"};
+  static constexpr csv module_id{"desk.dmx_ctrl"};
 };
 
 } // namespace pierre

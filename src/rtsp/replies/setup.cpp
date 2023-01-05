@@ -18,8 +18,8 @@
 
 #include "replies/setup.hpp"
 #include "base/host.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "ctx.hpp"
 #include "frame/master_clock.hpp"
 #include "mdns/mdns.hpp"

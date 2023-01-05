@@ -16,28 +16,17 @@
 //
 //  https://www.wisslanding.com
 
-#include "logger.hpp"
+#include "lcs/logger.hpp"
+#include "lcs/config.hpp"
 
 namespace pierre {
 
 std::shared_ptr<Logger> Logger::self;
 Elapsed Logger::elapsed_runtime; // class static data
 
-Logger::Logger(io_context &io_ctx) noexcept // static
-    : io_ctx(io_ctx),                       // borrowed io_ctx
-      local_strand(io_ctx)                  // serialize log msgs
-{}
-
-void Logger::init(io_context &io_ctx) noexcept { // static
-  self = std::shared_ptr<Logger>(new Logger(io_ctx));
-}
-
-void Logger::teardown() noexcept { // static
-  self.reset();                    // reset our static shared_ptr to ourself
-}
-
-Logger::millis_fp Logger::runtime() noexcept { // static
-  return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
+bool Logger::should_log_info(csv mod, csv cat) noexcept { // static
+  // in .cpp to avoid pulling config.hpp into Logger
+  return cfg_info(mod, cat);
 }
 
 } // namespace pierre

@@ -82,7 +82,7 @@ private:
   std::array<peak_map_t, 2> peaks_map{peak_map_t(), peak_map_t()};
 
 public:
-  static constexpr csv module_id{"PEAKS"};
+  static constexpr csv module_id{"frame.peaks"};
 };
 
 } // namespace pierre

@@ -19,9 +19,9 @@
 #include "service.hpp"
 #include "base/host.hpp"
 #include "base/uint8v.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
 #include "features.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "pair/pair.h"
 
 #include <array>
@@ -103,7 +103,7 @@ void Service::init() noexcept {
 
   update_system_flags();
 
-  if (debug_init()) INFO(module_id, "INIT", "sizeof={} uuid={}\n", sizeof(Service), uuid);
+  INFO(module_id, "init", "sizeof={} uuid={}\n", sizeof(Service), uuid);
 }
 
 lookup_map_t Service::lookup_map{

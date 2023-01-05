@@ -133,7 +133,7 @@ private:
   std::any _resolver;
 
 public:
-  static constexpr csv module_id{"ZSERVICE"};
+  static constexpr csv module_id{"mdns.zservice"};
 };
 
 using ZeroConfMap = std::map<string, ZeroConf>;

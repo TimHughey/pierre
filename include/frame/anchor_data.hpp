@@ -94,7 +94,7 @@ public:
   void log_timing_change(const AnchorData &ad) const noexcept;
 
 public:
-  static constexpr csv module_id{"ANCHOR_DATA"};
+  static constexpr csv module_id{"anchor.data"};
 };
 
 } // namespace pierre

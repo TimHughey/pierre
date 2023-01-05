@@ -22,7 +22,7 @@
 #include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "cals/stats_v.hpp"
+#include "lcs/stats_v.hpp"
 
 #include <InfluxDBFactory.h>
 #include <atomic>
@@ -106,7 +106,7 @@ private:
   std::set<std::shared_ptr<influxdb::Point>> points;
 
 public:
-  static constexpr csv module_id{"STATS"};
+  static constexpr csv module_id{"lcs.stats"};
 };
 
 } // namespace pierre

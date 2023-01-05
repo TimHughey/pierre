@@ -18,13 +18,14 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
-#include "cals/config.hpp"
-#include "cals/logger.hpp"
-#include "cals/stats.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
+#include "lcs/stats.hpp"
 #include "mdns/features.hpp"
 #include "replies/info.hpp"
 #include "session.hpp"
 
+#include <fmt/ostream.h>
 #include <latch>
 #include <mutex>
 
@@ -34,6 +35,8 @@ namespace pierre {
 std::shared_ptr<Rtsp> Rtsp::self;
 
 void Rtsp::async_accept() noexcept {
+  static constexpr csv fn_id{"async_accept"};
+
   // this is the socket for the next accepted connection, store it in an
   // optional for the lamba
   sock_accept.emplace(io_ctx);
@@ -45,12 +48,11 @@ void Rtsp::async_accept() noexcept {
     e2.freeze();
 
     if ((ec == errc::success) && s->acceptor.is_open()) {
-      if (config_debug("rtsp.server")) {
-        const auto &r = s->sock_accept->remote_endpoint();
 
-        const auto msg = io::log_socket_msg("ACCEPT", ec, s->sock_accept.value(), r, e2);
-        INFO(module_id, "LISTEN", "{}\n", msg);
-      }
+      const auto &r = s->sock_accept->remote_endpoint();
+
+      const auto msg = io::log_socket_msg(ec, s->sock_accept.value(), r, e2);
+      INFO(module_id, fn_id, "{}\n", msg);
 
       // create the session passing all the options
       // notes
@@ -63,11 +65,11 @@ void Rtsp::async_accept() noexcept {
       auto session = rtsp::Session::create(s->io_ctx, std::move(s->sock_accept.value()));
       session->run(std::move(e));
 
+      s->session_storage.emplace(std::move(session));
+
       s->async_accept(); // schedule the next accept
     } else {
-
-      INFO(module_id, "RTSP", "accept failed, {}\n", ec.message());
-      shutdown();
+      INFO(module_id, fn_id, "failed, {}\n", ec.message());
     }
   });
 }
@@ -92,6 +94,8 @@ void Rtsp::init() noexcept {
 
       // we want a syncronized start of all threads
       latch->arrive_and_wait();
+      latch.reset();
+
       s->io_ctx.run();
     });
   }
@@ -100,9 +104,31 @@ void Rtsp::init() noexcept {
 
   self->async_accept();
 
-  if (debug_init())
-    INFO(module_id, "INIT", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Rtsp),
-         std::ssize(self->threads), thread_count, Features().ap2Default());
+  INFO(module_id, "init", "sizeof={} threads={}/{} features={:#x}\n", sizeof(Rtsp),
+       std::ssize(self->threads), thread_count, Features().ap2Default());
+}
+
+void Rtsp::shutdown() noexcept { // static
+  if (self.use_count() > 1) {
+
+    [[maybe_unused]] error_code ec;
+    self->acceptor.close(ec);
+
+    if (self->session_storage.has_value()) self->session_storage.value()->shutdown();
+
+    self->guard.reset(); // allow the io_ctx to complete when other work is finished
+
+    for (auto &t : self->threads) {
+      INFO(module_id, "shutdown", "joining {} self.use_count({})\n", t.get_id(), self.use_count());
+      t.join();
+    }
+
+    // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
+    // when the above post completes we will be deallocated
+    self.reset();
+
+    INFO(module_id, "shutdown", "complete self.use_count({})\n", self.use_count());
+  }
 }
 
 } // namespace pierre

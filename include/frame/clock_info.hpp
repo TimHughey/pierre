@@ -90,7 +90,7 @@ struct ClockInfo {
   const string inspect() const;
 
 private:
-  static constexpr csv module_id{"CLOCK_INFO"};
+  static constexpr csv module_id{"frame.clock.info"};
 };
 
 } // namespace pierre

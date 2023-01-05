@@ -232,6 +232,6 @@ private:
   static service_txt_map service_map;
 
 public:
-  static constexpr csv module_id{"mdns::SERVICE"};
+  static constexpr csv module_id{"mdns.service"};
 };
 } // namespace pierre

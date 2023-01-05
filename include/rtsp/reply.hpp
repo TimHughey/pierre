@@ -99,7 +99,7 @@ protected:
   uint8v wire;
 
 public:
-  static constexpr csv module_id{"REPLY"};
+  static constexpr csv module_id{"rtsp.reply"};
 };
 
 } // namespace rtsp

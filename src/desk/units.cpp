@@ -18,7 +18,7 @@
 
 #include "units.hpp"
 #include "base/types.hpp"
-#include "cals/config.hpp"
+#include "lcs/config.hpp"
 #include "unit/all.hpp"
 
 #include <algorithm>

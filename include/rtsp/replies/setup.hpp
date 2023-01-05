@@ -43,7 +43,7 @@ private:
   Aplist reply_dict; // entire reply dict
 
 public:
-  static constexpr csv module_id{"rtsp::SETUP"};
+  static constexpr csv module_id{"rtsp.reply.setup"};
 };
 
 } // namespace rtsp

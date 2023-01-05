@@ -48,6 +48,7 @@ public:
   static void init() noexcept;
 
   static Service &service() noexcept { return self->service_obj; }
+  static void shutdown() noexcept;
 
   static void update() noexcept;
   static ZeroConfFut zservice(csv name) noexcept;
@@ -61,7 +62,7 @@ public:
   static std::shared_ptr<mDNS> self;
 
 public:
-  static constexpr csv module_id{"mDNS"};
+  static constexpr csv module_id{"mdns.base"};
 };
 
 } // namespace pierre
