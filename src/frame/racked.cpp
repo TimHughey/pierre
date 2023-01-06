@@ -51,7 +51,7 @@ std::shared_ptr<Racked> Racked::self;
 void Racked::flush(FlushInfo request) { // static
   static constexpr csv fn_id{"flush"};
 
-  if (self.use_count() < 1) return;
+  if (!self) return;
 
   auto s = ptr();
   auto &flush_strand = s->flush_strand;

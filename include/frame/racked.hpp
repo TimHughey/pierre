@@ -133,7 +133,11 @@ public:
   /// @brief Shutdown Racked
   static void shutdown() noexcept;
 
-  static void spool(bool enable = true) noexcept { ptr()->spool_frames.store(enable); }
+  static void spool(bool enable = true) noexcept {
+    if (!self) return;
+
+    ptr()->spool_frames.store(enable);
+  }
 
 private:
   enum log_racked_rc { NONE, RACKED, COLLISION, TIMEOUT };

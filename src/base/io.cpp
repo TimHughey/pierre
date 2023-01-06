@@ -32,16 +32,14 @@ const string io::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept
   if (ec || !sock.is_open()) {
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "{}", sock.is_open() ? "OPEN  " : "CLOSED");
+    fmt::format_to(w, "{}", sock.is_open() ? "[O]" : "[X");
     if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
   }
 
   if (msg.size() && cancel) {
-    try {
-      sock.cancel();
-      sock.close();
-    } catch (...) {
-    }
+    [[maybe_unused]] error_code ec;
+    sock.shutdown(tcp_socket::shutdown_both, ec);
+    sock.close(ec);
   }
 
   return msg;
@@ -55,14 +53,14 @@ const string io::log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpo
   auto w = std::back_inserter(msg);
 
   auto open = sock.is_open();
-  fmt::format_to(w, "{} ", open ? "OPEN  " : "CLOSED");
+  fmt::format_to(w, "{} ", open ? "[O]" : "[X]");
 
   try {
     if (open) {
 
       const auto &l = sock.local_endpoint();
 
-      fmt::format_to(w, "{}:{} >> {}:{}",               //
+      fmt::format_to(w, "{:>15}:{:<5} {:<15}:{:<5}",    //
                      l.address().to_string(), l.port(), //
                      r.address().to_string(), r.port());
     }

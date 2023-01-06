@@ -57,7 +57,7 @@ void App::async_signal() noexcept {
       signal_set.clear();
 
       Rtsp::shutdown();
-      Desk::shutdown();
+      Desk::shutdown(Desk::WAIT_FOR_SHUTDOWN);
       mDNS::shutdown();
       Config::shutdown();
       Logger::teardown();

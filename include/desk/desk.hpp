@@ -43,7 +43,8 @@ private:
 public:
   static void init() noexcept; // in .cpp to hide DmxCtrl()
 
-  static void shutdown() noexcept;
+  static constexpr bool WAIT_FOR_SHUTDOWN{true};
+  static void shutdown(bool wait_for_shutdown = false) noexcept;
 
 private:
   void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;

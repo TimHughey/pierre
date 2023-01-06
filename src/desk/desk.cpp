@@ -71,7 +71,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
   // frame loop continues until loop_active is false
   // this is typically set once all FX have been executed and the system is
   // officially idle (no RTSP connection)
-  while (loop_active.load()) {
+  while (loop_active.load() && (io_ctx.stopped() == false)) {
     Elapsed next_wait;
     frame_t frame;
     Nanos sync_wait = wait;
@@ -119,7 +119,7 @@ void Desk::frame_loop(const Nanos wait) noexcept {
 
     if (loop_active.load() == false) {
       shutdown();
-      continue; // break out of the loop
+      break;
     }
 
     // render this frame and send to DMX controller
@@ -204,7 +204,7 @@ void Desk::init() noexcept {
   }
 }
 
-void Desk::shutdown() noexcept {
+void Desk::shutdown(bool wait_for_shutdown) noexcept {
   static constexpr csv fn_id{"shutdown"};
 
   if (self.use_count() > 0) {
@@ -216,7 +216,7 @@ void Desk::shutdown() noexcept {
 
     // must spawn a new thread since Desk could be shutting itself down
     auto latch = std::make_shared<std::latch>(1);
-    std::jthread([s = std::move(s), latch = latch]() mutable {
+    auto thread = std::jthread([s = std::move(s), latch = latch]() mutable {
       INFO(module_id, fn_id, "initiated, threads={} s.use_count={}\n", //
            std::ssize(s->threads), s.use_count());
 
@@ -237,7 +237,11 @@ void Desk::shutdown() noexcept {
       latch->count_down();
     });
 
-    latch->wait();
+    if (wait_for_shutdown) {
+      latch->wait();
+    } else {
+      thread.detach();
+    }
   }
 }
 

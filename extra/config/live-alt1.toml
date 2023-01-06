@@ -42,7 +42,7 @@ server = true
 session = true
 
 [dmx]
-# controller = "dmx" # default
+# controller = "dmx" # DEFAULT
 # controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
@@ -51,7 +51,7 @@ stalled = 5100
 
 [mdns]
 port = 7000
-receiver = "Pierre"    # %h uses hostname
+receiver = "Pierre"    # specify %h to use hostname
 service = "_ruth._tcp" # service advertised by rendering devices
 
 [rtsp]
