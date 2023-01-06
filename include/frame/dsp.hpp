@@ -26,6 +26,7 @@
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
+#include <fmt/ostream.h>
 #include <latch>
 #include <memory>
 
@@ -105,12 +106,22 @@ public:
   }
 
   void shutdown() noexcept {
-    guard.reset();
+    static constexpr csv fn_id{"shutdown"};
 
-    std::for_each(threads.begin(), threads.end(), [](auto &t) { t.join(); });
+    INFO(module_id, fn_id, "initiated, io_ctx.stopped()={}\n", io_ctx.stopped());
+
+    guard.reset();
+    io_ctx.stop();
+
+    std::for_each(threads.begin(), threads.end(), [](auto &t) {
+      INFO(module_id, fn_id, "joining thread={}\n", t.get_id());
+
+      t.join();
+    });
+
     threads.clear();
 
-    INFO(module_id, "shutdown", "all stopped\n");
+    INFO(module_id, fn_id, "io_ctx.stopped()={}\n", io_ctx.stopped());
   }
 
 private:

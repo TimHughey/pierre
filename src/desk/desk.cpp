@@ -47,9 +47,8 @@ namespace pierre {
 std::shared_ptr<Desk> Desk::self;
 
 // must be defined in .cpp to hide mdns
-Desk::Desk(io_context &io_ctx_caller) noexcept
-    : io_ctx_caller(io_ctx_caller),         // caller's io_ctx (for shutdown)
-      frame_strand(io_ctx),                 // serialize spooler frame access
+Desk::Desk() noexcept
+    : frame_strand(io_ctx),                 // serialize spooler frame access
       guard(asio::make_work_guard(io_ctx)), // prevent io_ctx from ending
       loop_active{true}                     // frame loop defaults to active at creation
 {}
@@ -118,6 +117,11 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       }
     }
 
+    if (loop_active.load() == false) {
+      shutdown();
+      continue; // break out of the loop
+    }
+
     // render this frame and send to DMX controller
     if (frame->state.ready()) {
       DmxDataMsg msg(frame, InputInfo::lead_time);
@@ -154,14 +158,11 @@ void Desk::frame_loop(const Nanos wait) noexcept {
       }
     }
   } // while loop
-
-  // when control reaches this point Desk is shutting down
-  shutdown(io_ctx_caller);
 }
 
-void Desk::init(io_context &io_ctx_caller) noexcept {
+void Desk::init() noexcept {
   if (self.use_count() < 1) {
-    self = std::shared_ptr<Desk>(new Desk(io_ctx_caller));
+    self = std::shared_ptr<Desk>(new Desk());
 
     // grab reference to minimize shared_ptr dereferences
     auto &io_ctx = self->io_ctx;
@@ -203,7 +204,7 @@ void Desk::init(io_context &io_ctx_caller) noexcept {
   }
 }
 
-void Desk::shutdown(io_context &via_io_ctx) noexcept {
+void Desk::shutdown() noexcept {
   static constexpr csv fn_id{"shutdown"};
 
   if (self.use_count() > 0) {
@@ -213,27 +214,30 @@ void Desk::shutdown(io_context &via_io_ctx) noexcept {
 
     self.reset();
 
-    asio::post(via_io_ctx, [s = std::move(s)]() {
-      INFO(module_id, fn_id, "initiated threads={} use_count={}\n", //
+    // must spawn a new thread since Desk could be shutting itself down
+    auto latch = std::make_shared<std::latch>(1);
+    std::jthread([s = std::move(s), latch = latch]() mutable {
+      INFO(module_id, fn_id, "initiated, threads={} s.use_count={}\n", //
            std::ssize(s->threads), s.use_count());
 
-      s->guard.reset(); // reset work guard so io_ctx will finish
       s->loop_active.store(false);
+      s->io_ctx.stop();
 
-      if (s->active_fx.use_count() > 0) s->active_fx->cancel(); // ask the active FX to finish
-      if (s->dmx_ctrl.use_count() > 0) s->dmx_ctrl->teardown(); // ask DmxCtrl to finish
-
-      std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) {
-        INFO(module_id, fn_id, "joining thread={} self.use_count=({})\n", //
-             t.get_id(), self.use_count());
+      std::for_each(s->threads.begin(), s->threads.end(), [&s](auto &t) mutable {
+        INFO(module_id, fn_id, "joining thread={} s.use_count=({})\n", //
+             t.get_id(), s.use_count());
 
         t.join();
       });
 
-      INFO(module_id, fn_id, "complete, self.use_count({})\n", s.use_count());
+      INFO(module_id, fn_id, "complete, s.use_count({})\n", s.use_count());
 
       Racked::shutdown();
+
+      latch->count_down();
     });
+
+    latch->wait();
   }
 }
 

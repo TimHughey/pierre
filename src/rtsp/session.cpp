@@ -18,10 +18,10 @@
 
 #include "session.hpp"
 #include "base/elapsed.hpp"
-#include "lcs/config.hpp"
-#include "lcs/stats.hpp"
 #include "content.hpp"
 #include "desk/desk.hpp"
+#include "lcs/config.hpp"
+#include "lcs/stats.hpp"
 #include "reply.hpp"
 #include "request.hpp"
 #include "saver.hpp"
@@ -43,7 +43,7 @@ Session::Session(io_context &io_ctx, tcp_socket sock) noexcept
 std::shared_ptr<Session> Session::create(io_context &io_ctx, tcp_socket &&sock) noexcept {
 
   // Desk may have shutdown if there hasn't been an active session, ensure it's running
-  Desk::init(io_ctx);
+  Desk::init();
 
   // creates the shared_ptr and starts the async loop
   // the asyncLoop holds onto the shared_ptr until an error on the

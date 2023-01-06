@@ -178,6 +178,8 @@ void DmxCtrl::msg_loop() noexcept {
 }
 
 void DmxCtrl::send_ctrl_msg(io::Msg msg) noexcept {
+  static constexpr csv fn_id{"send_ctrl_msg"};
+
   msg.serialize();
   const auto buf_seq = msg.buff_seq(); // calculates tx_len
   const auto tx_len = msg.tx_len;
@@ -193,7 +195,7 @@ void DmxCtrl::send_ctrl_msg(io::Msg msg) noexcept {
         if ((ec != errc::success) && (actual != msg.tx_len)) {
           Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
 
-          INFO(module_id, "SEND_CTRL_MSG", "write failed, reason={} bytes={}/{}\n", //
+          INFO(module_id, fn_id, "write failed, reason={} bytes={}/{}\n", //
                ec.message(), actual, msg.tx_len);
         }
       });
@@ -222,6 +224,8 @@ void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
 }
 
 void DmxCtrl::stalled_watchdog() noexcept {
+  static constexpr csv cat{"stalled"};
+
   stalled_timer.expires_after(stalled_timeout());
   stalled_timer.async_wait( //
       asio::bind_executor(  //
@@ -229,7 +233,7 @@ void DmxCtrl::stalled_watchdog() noexcept {
           [s = ptr(), was_connected = connected.load()](error_code ec) {
             if (ec == errc::success) {
 
-              if (was_connected) INFO(module_id, "STALLED", "was_connected={}\n", was_connected);
+              if (was_connected) INFO(module_id, cat, "was_connected={}\n", was_connected);
 
               s->acceptor.cancel(ec);
               if (s->ctrl_sock.has_value()) s->ctrl_sock->cancel(ec);
@@ -242,9 +246,26 @@ void DmxCtrl::stalled_watchdog() noexcept {
               s->stalled_watchdog(); // restart stalled watchdog
 
             } else if (ec != errc::operation_canceled) {
-              INFO(module_id, "STALLED", "falling through {}\n", ec.message());
+              INFO(module_id, cat, "falling through {}\n", ec.message());
             }
           }));
+}
+
+void DmxCtrl::teardown() noexcept {
+  static constexpr csv fn_id("teardown");
+
+  INFO(module_id, fn_id, "initiated\n");
+
+  asio::post(io_ctx, [s = ptr()]() mutable {
+    [[maybe_unused]] error_code ec;
+
+    s->stalled_timer.cancel(ec);
+    s->acceptor.close(ec);
+    if (s->ctrl_sock.has_value()) s->ctrl_sock->close(ec);
+    if (s->data_sock.has_value()) s->data_sock->close(ec);
+
+    INFO(module_id, fn_id, "complete\n");
+  });
 }
 
 } // namespace pierre

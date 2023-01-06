@@ -136,7 +136,7 @@ public:
   std::shared_ptr<Event> event_srv;
 
 public:
-  static constexpr csv module_id{"rtsp::Ctx"};
+  static constexpr csv module_id{"rtsp.ctx"};
 };
 
 } // namespace rtsp

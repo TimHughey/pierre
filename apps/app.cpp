@@ -46,35 +46,32 @@ App::App() noexcept                        //
 {}
 
 void App::async_signal() noexcept {
+  static constexpr csv fn_id{"async_signal"};
 
   signal_set.async_wait([this](const error_code ec, int signal) {
-    if (!ec) {
-      INFO(module_id, "handle_signal", "caught signal={}\n", signal);
+    if (ec) return;
 
-      if (signal == SIGABRT) {
-        signal_set.clear();
-        abort();
-      } else if (signal == SIGINT) {
+    INFO(module_id, fn_id, "caught {}\n", signal == SIGHUP ? "SIGHUP" : "SIGINT");
 
-        signal_set.clear();
+    if (signal == SIGINT) {
+      signal_set.clear();
 
-        Rtsp::shutdown();
-        Desk::shutdown(io_ctx);
+      Rtsp::shutdown();
+      Desk::shutdown();
+      mDNS::shutdown();
+      Config::shutdown();
+      Logger::teardown();
 
-        mDNS::shutdown();
-
-        Config::shutdown();
-        Logger::teardown();
-
-        guard.reset();
-      } else {
-        async_signal();
-      }
+      guard.reset();
+    } else {
+      async_signal();
     }
   });
 }
 
 int App::main(int argc, char *argv[]) {
+  static constexpr csv fn_id{"main"};
+
   crypto::init(); // initialize sodium and gcrypt
 
   // exits if help requested, bad cli args or config parse failed
@@ -83,17 +80,17 @@ int App::main(int argc, char *argv[]) {
   // watch for signals
   async_signal();
 
-  INFO(Config::module_id, "init", "{}\n", Config::ptr()->init_msg);
+  INFO(Config::module_id, fn_id, "{}\n", Config::ptr()->init_msg);
 
   mDNS::init();
-  Desk::init(io_ctx);
+  Desk::init();
 
   // create and start RTSP
   Rtsp::init();
 
   io_ctx.run(); // start the app
 
-  INFO(module_id, "init", "io_ctx has returned\n");
+  INFO(module_id, fn_id, "io_ctx has returned\n");
 
   lcs.shutdown();
 

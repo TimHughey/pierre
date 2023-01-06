@@ -39,6 +39,11 @@ class MajorPeak : public FX, public std::enable_shared_from_this<MajorPeak> {
 public:
   MajorPeak(io_context &io_ctx) noexcept;
 
+  void cancel() noexcept override {
+    [[maybe_unused]] error_code ec;
+    silence_timer.cancel(ec);
+  }
+
   void execute(Peaks &peaks) noexcept override;
   csv name() const override { return fx_name::MAJOR_PEAK; }
 

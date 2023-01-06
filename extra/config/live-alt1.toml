@@ -23,7 +23,7 @@ batch_of = 150
 path = "../extra/debug"
 desk = { dmx_ctrl = true, reel = false }
 frames = { av = false, flush = false, racked = false }
-mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
+mdns = { ctx = { cb_client = true, cb_browse = false, cb_evt_grp = true } }
 
 # category specific
 init = true

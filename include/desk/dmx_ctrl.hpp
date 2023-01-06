@@ -68,17 +68,7 @@ public:
 
   void send_data_msg(DmxDataMsg msg) noexcept;
 
-  void teardown() noexcept {
-
-    asio::post(io_ctx, [s = ptr()]() mutable {
-      [[maybe_unused]] error_code ec;
-
-      s->stalled_timer.cancel(ec);
-      s->acceptor.close(ec);
-      if (s->ctrl_sock.has_value()) s->ctrl_sock->close(ec);
-      if (s->data_sock.has_value()) s->data_sock->close(ec);
-    });
-  }
+  void teardown() noexcept;
 
 private:
   // lookup dmx controller and establish control connection

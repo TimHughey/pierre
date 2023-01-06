@@ -37,20 +37,19 @@ class FX;
 
 class Desk : public std::enable_shared_from_this<Desk> {
 private:
-  Desk(io_context &io_ctx_caller) noexcept; // must be defined in .cpp to hide FX includes
+  Desk() noexcept; // must be defined in .cpp to hide FX includes
   static auto ptr() noexcept { return self->shared_from_this(); }
 
 public:
-  static void init(io_context &io_ctx_caller) noexcept; // in .cpp to hide DmxCtrl()
+  static void init() noexcept; // in .cpp to hide DmxCtrl()
 
-  static void shutdown(io_context &via_io_ctx) noexcept;
+  static void shutdown() noexcept;
 
 private:
   void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;
 
 private:
   // order dependent
-  io_context &io_ctx_caller;
   io_context io_ctx;
   strand frame_strand;
   work_guard guard;

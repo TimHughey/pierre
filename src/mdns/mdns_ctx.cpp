@@ -351,11 +351,20 @@ void Ctx::resolved(const ZeroConf::Details zcd) noexcept {
 }
 
 void Ctx::shutdown() noexcept {
-  avahi_client_free(client);
+
+  if (entry_group.has_value()) {
+    avahi_entry_group_reset(entry_group.value());
+    avahi_entry_group_free(entry_group.value());
+    entry_group.reset();
+  }
+
+  std::this_thread::sleep_for(100ms);
 
   auto rc = avahi_threaded_poll_stop(tpoll);
 
-  INFO(module_id, "shutdown", "{}\n", rc);
+  avahi_client_free(client);
+
+  INFO(module_id, "shutdown", "threaded poll stopped rc={}\n", rc);
 }
 
 void Ctx::update(Service &service) noexcept {
