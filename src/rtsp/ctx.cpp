@@ -68,7 +68,6 @@ void Ctx::teardown() noexcept {
   group_contains_group_leader = false;
   active_remote = 0;
 
-  // asio::post(io_ctx, [s = ptr()]() {
   if (audio_srv) {
     audio_srv->teardown();
     audio_srv.reset();
@@ -88,7 +87,6 @@ void Ctx::teardown() noexcept {
   feedback_timer.cancel(ec);
 
   INFO(module_id, "teardown", "completed\n");
-  //});
 }
 
 void Ctx::update_from(const Headers &h) noexcept {

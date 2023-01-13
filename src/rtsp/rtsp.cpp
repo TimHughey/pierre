@@ -18,6 +18,7 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
+#include "desk/desk.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
@@ -37,8 +38,9 @@ std::shared_ptr<Rtsp> Rtsp::self;
 void Rtsp::async_accept() noexcept {
   static constexpr csv fn_id{"async_accept"};
 
-  // this is the socket for the next accepted connection, store it in an
-  // optional for the lamba
+  // this is the socket for the next accepted connection. the socket
+  // is move only so we store it in an optional and move it to session in
+  // the lambda
   sock_accept.emplace(io_ctx);
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
@@ -63,6 +65,10 @@ void Rtsp::async_accept() noexcept {
 
       Stats::write(stats::RTSP_SESSION_CONNECT, e2.freeze());
       auto session = rtsp::Session::create(s->io_ctx, std::move(s->sock_accept.value()));
+
+      // ensure Desk is running, it may be shutdown due to idle timeout
+      Desk::init();
+
       session->run(std::move(e));
 
       s->session_storage.emplace(std::move(session));

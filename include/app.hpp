@@ -39,6 +39,7 @@ private:
   work_guard guard;
 
   // order independent
+  io::contexts contexts;
   bool args_ok{false};
 
 public:

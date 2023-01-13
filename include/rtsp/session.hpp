@@ -62,10 +62,11 @@ private:
     //     because the scope of this function ends before
     //     the lamba executes
     //
-    //  2. the async_read_request call will attach the lamba to the io_ctx
-    //     then immediately return and then this function returns
+    //  2. the async_read_request call will queue the work to the
+    //     socket (via it's io_context) then immediately return and
+    //     subsequently this function returns
     //
-    //  3. we capture a shared_ptr (self) for access within the lamba,
+    //  3. we capture a shared_ptr to ourself for access within the lamba,
     //     that shared_ptr is kept in scope while async_read_request is
     //     waiting for socket data and while the lamba executes
     //
@@ -78,13 +79,13 @@ private:
     //     (e.g. error, natural completion, io_ctx is stopped)
 
     asio::async_read(
-        sock,                       // read from this socket
-        asio::dynamic_buffer(wire), // into wire buffer (could be encrypted)
-        std::move(cond),            // completion condition (bytes to transfer)
-        [s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
-          if (s->packet.empty()) e.reset(); // start timing once we have data
+        sock,                               // read from this socket
+        asio::dynamic_buffer(request.wire), // into wire buffer (could be encrypted)
+        std::move(cond),                    // completion condition (bytes to transfer)
+        [this, s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
+          if (request.packet.empty()) e.reset(); // start timing once we have data
 
-          const auto msg = io::is_ready(s->sock, ec);
+          const auto msg = io::is_ready(sock, ec);
 
           if (!msg.empty()) {
             INFO(module_id, fn_id, "{}\n", msg);
@@ -92,31 +93,27 @@ private:
             // will fall out of scope when this function returns
           } else if (bytes < 1) {
             INFO(module_id, fn_id, "retry, bytes={}\n", bytes);
-            s->async_read_request(asio::transfer_at_least(1), std::move(e));
+            async_read_request(asio::transfer_at_least(1), std::move(e));
 
           } else if (s->sock.available() > 0) {
 
             // read available bytes (if any)
-            s->async_read_request(std::forward<Elapsed>(e));
+            async_read_request(std::forward<Elapsed>(e));
           } else {
 
             // handoff for decipher, parsing and reply
-            s->do_packet(std::forward<Elapsed>(e));
+            do_packet(std::forward<Elapsed>(e));
           }
         });
 
     // misc notes:
-    // 1. the first return of this function traverses back to the Server that
-    //    created the Session (in the same io_ctx)
-    // 2. subsequent returns are to the io_ctx and match the required void return
-    //    signature
+    // 1. this function returns void to match returning to the io_ctx or the
+    //    original caller (on first invocation)
   }
 
-  // async_read_request:
-  //
-  // invokes async_read_request() with a specific number of bytes request based on
-  // bytes available on the socket or, when zero, a single byte
-  //
+  /// @brief Perform an async_read of exactly the bytes available (or a minimum of one)
+  ///        to continue collecting bytes that represent a complete packet
+  /// @param e Elapsed time of overall async_read calls
   void async_read_request(Elapsed &&e) noexcept {
 
     if (const auto avail = sock.available(); avail > 0) {
@@ -141,16 +138,6 @@ public:
     async_read_request(transfer_initial());
   }
 
-  // void teardown() noexcept {
-  //   asio::post(io_ctx, [s = ptr()]() {
-  //     [[maybe_unused]] error_code ec;
-  //     s->sock.shutdown(tcp_socket::shutdown_both, ec);
-  //     s->sock.close(ec);
-  //
-  //     INFO(module_id, "teardown", "active_remote={} {}\n", s->ctx->active_remote, ec.message());
-  //   });
-  // }
-
   void shutdown() noexcept {
 
     error_code ec;
@@ -173,8 +160,6 @@ private:
 
   // order independent
   Request request; // accummulation of headers and content
-  uint8v packet;   // deciphered
-  uint8v wire;     // socket data (maybe encrypted)
 
 public:
   static constexpr csv module_id{"rtsp.session"};

@@ -80,14 +80,13 @@ size_t AesCtx::encrypt(uint8v &packet) noexcept {
   return bytes_ciphered;
 }
 
-/// @brief decrypt a chunk of data once pairing is complete, passthrough otherwise
-/// @param packet destination of decrypted (or passed through) data chunk
-/// @param ciphered source data chunk
-/// @return ciphered bytes consumed by decryption
-ssize_t AesCtx::decrypt(uint8v &packet, uint8v &ciphered) noexcept {
+ssize_t AesCtx::decrypt(rtsp::Request &request) noexcept {
+  auto &ciphered = request.wire;
+  auto &packet = request.packet;
   ssize_t consumed{0};
 
   if (cipher_ctx) {
+
     // when we've decrypted an inbound packet we should always encrypt outbound
     encrypt_out = true;
 
@@ -102,7 +101,7 @@ ssize_t AesCtx::decrypt(uint8v &packet, uint8v &ciphered) noexcept {
     // them to the packet
 
     if (consumed > 0) {
-      std::copy(data, data + len, std::back_inserter(packet));
+      std::copy(data, data + len, std::back_inserter(request.packet));
 
       // create a new cipher packet of the unconsumed bytes
       uint8v cipher_rest;

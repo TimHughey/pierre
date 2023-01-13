@@ -19,7 +19,6 @@
 #include "session.hpp"
 #include "base/elapsed.hpp"
 #include "content.hpp"
-#include "desk/desk.hpp"
 #include "lcs/config.hpp"
 #include "lcs/stats.hpp"
 #include "reply.hpp"
@@ -42,9 +41,6 @@ Session::Session(io_context &io_ctx, tcp_socket sock) noexcept
 
 std::shared_ptr<Session> Session::create(io_context &io_ctx, tcp_socket &&sock) noexcept {
 
-  // Desk may have shutdown if there hasn't been an active session, ensure it's running
-  Desk::init();
-
   // creates the shared_ptr and starts the async loop
   // the asyncLoop holds onto the shared_ptr until an error on the
   // socket is detected
@@ -59,13 +55,13 @@ void Session::do_packet(Elapsed &&e) noexcept {
   //  3. ensure all content is received
   //  4. create/send the reply
 
-  if (const auto buffered = std::ssize(wire); buffered > 0) {
-    const ssize_t consumed = ctx->aes_ctx.decrypt(packet, wire);
+  if (const auto buffered = std::ssize(request.wire); buffered > 0) {
+    const ssize_t consumed = ctx->aes_ctx.decrypt(request);
 
     // incomplete decipher, read from socket
     if (consumed != buffered) {
       INFO(module_id, "DO_PACKET", "incomplete, buffered={} consumed={} wire={} packet={}\n", //
-           buffered, consumed, std::ssize(wire), std::ssize(packet));
+           buffered, consumed, std::ssize(request.wire), std::ssize(request.packet));
 
       async_read_request(std::move(e));
       return;
@@ -73,21 +69,21 @@ void Session::do_packet(Elapsed &&e) noexcept {
   }
 
   // now we have potentially a complete message, attempt to find the delimiters
-  uint8v::delims_t found_delims{packet.find_delims(std::array{CRLF, CRLFx2})};
+  uint8v::delims_t found_delims{request.find_delims(std::array{CRLF, CRLFx2})};
 
   if (const auto count = std::ssize(found_delims); count != 2) {
-    INFO(module_id, "DELIMS", "packet_size={} delims={}\n", std::ssize(packet), count);
+    INFO(module_id, "DELIMS", "packet_size={} delims={}\n", std::ssize(request.packet), count);
 
     // we need more data in the packet to continue
     async_read_request(std::move(e));
     return;
   }
 
-  Stats::write(stats::RTSP_SESSION_RX_PACKET, std::ssize(packet));
+  Stats::write(stats::RTSP_SESSION_RX_PACKET, std::ssize(request.packet));
 
   if (request.headers.parse_ok == false) {
     // we haven't parsed headers yet, do it now
-    auto parse_ok = request.headers.parse(packet, found_delims);
+    auto parse_ok = request.headers.parse(request.packet, found_delims);
 
     if (parse_ok == false) {
       INFO(module_id, "DO_PACKET", "FAILED parsing headers\n");
@@ -102,13 +98,13 @@ void Session::do_packet(Elapsed &&e) noexcept {
 
     // now, let's validate we have a packet that contains all the content
     const auto content_begin = found_delims[1].first + found_delims[1].second;
-    const auto content_avail = std::ssize(packet) - content_begin;
+    const auto content_avail = std::ssize(request.packet) - content_begin;
 
     // compare the content_end to the size of the packet
     if (content_avail == content_expected_len) {
       // packet contains all the content, create a span representing the content in the packet
       request.content.assign_span(
-          std::span(packet.from_begin(content_begin), content_expected_len));
+          std::span(request.packet.from_begin(content_begin), content_expected_len));
     } else {
       // packet does not contain all the content, read bytes from the socket
       const auto more_bytes = content_expected_len - content_avail;
@@ -159,8 +155,6 @@ void Session::do_packet(Elapsed &&e) noexcept {
           Stats::write(stats::RTSP_SESSION_TX_REPLY, bytes);
 
           // message handling complete, reset buffers
-          s->wire = uint8v();
-          s->packet = uint8v();
           s->request = Request();
 
           // continue processing messages

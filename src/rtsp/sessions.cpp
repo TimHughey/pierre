@@ -16,31 +16,16 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
+#include "sessions.hpp"
 
-#include "base/io.hpp"
-#include "base/types.hpp"
-#include "base/uint8v.hpp"
-#include "rtsp/content.hpp"
-#include "rtsp/headers.hpp"
+#include <fmt/format.h>
 
 namespace pierre {
 namespace rtsp {
 
-class Request {
-public:
-  Request() = default;
-
-  auto find_delims(const auto &delims_want) noexcept { return packet.find_delims(delims_want); }
-
-public:
-  Content content;
-  Headers headers;
-  uint8v packet; // always dedciphered
-  uint8v wire;   // maybe encrypted
-
-  static constexpr csv module_id{"rtsp::request"};
-};
+const string Sessions::snode::make_key(int64_t active_remote, const string &dacp_id) noexcept {
+  return fmt::format("{}@{}", active_remote, dacp_id);
+}
 
 } // namespace rtsp
 } // namespace pierre

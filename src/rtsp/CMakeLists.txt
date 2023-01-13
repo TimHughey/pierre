@@ -27,6 +27,7 @@ add_library(${__target} SHARED
   reply.cpp
   rtsp.cpp 
   session.cpp
+  sessions.cpp
 
   # rtsp replies (complex, requires .cpp)
   replies/info.cpp
