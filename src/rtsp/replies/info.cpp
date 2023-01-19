@@ -19,7 +19,6 @@
 #include "replies/info.hpp"
 #include "aplist.hpp"
 #include "base/uint8v.hpp"
-#include "ctx.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
