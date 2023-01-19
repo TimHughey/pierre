@@ -19,9 +19,9 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "io/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "rtsp/aes.hpp"
@@ -79,9 +79,9 @@ private:
     //     (e.g. error, natural completion, io_ctx is stopped)
 
     asio::async_read(
-        sock,                               // read from this socket
-        asio::dynamic_buffer(request.wire), // into wire buffer (could be encrypted)
-        std::move(cond),                    // completion condition (bytes to transfer)
+        sock,                     // read from this socket
+        request.dynamic_buffer(), // into wire buffer (could be encrypted)
+        std::move(cond),          // completion condition (bytes to transfer)
         [this, s = ptr(), e = std::forward<Elapsed>(e)](error_code ec, ssize_t bytes) mutable {
           if (request.packet.empty()) e.reset(); // start timing once we have data
 
@@ -95,7 +95,7 @@ private:
 
           if (auto avail = sock.available(); avail > 0) {
             // bytes available, read them
-            asio::read(sock, asio::dynamic_buffer(request.wire), asio::transfer_exactly(avail), ec);
+            asio::read(sock, request.dynamic_buffer(), asio::transfer_exactly(avail), ec);
 
             if (ec) return;
           }

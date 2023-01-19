@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 #include "rtsp/headers.hpp"
 
 namespace pierre {
@@ -31,6 +31,7 @@ public:
   Request() = default;
 
   auto buffered_bytes() const noexcept { return std::ssize(wire); }
+  auto dynamic_buffer() noexcept { return asio::dynamic_buffer(wire); }
 
   auto have_delims(const auto want_delims) const noexcept {
     return std::ssize(delims) == std::ssize(want_delims);
