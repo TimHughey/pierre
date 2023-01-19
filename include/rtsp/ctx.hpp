@@ -18,10 +18,10 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "rtsp/aes_ctx.hpp"
+#include "io/io.hpp"
+#include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 
 #include <memory>
@@ -111,7 +111,7 @@ private:
 
 public:
   std::shared_ptr<Service> service; // mdns and service info
-  AesCtx aes_ctx;
+  Aes aes;
 
 public:
   // from RTSP headers

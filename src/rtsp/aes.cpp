@@ -16,7 +16,7 @@
 //
 //  https://www.wisslanding.com
 
-#include "aes_ctx.hpp"
+#include "aes.hpp"
 #include "base/host.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/logger.hpp"
@@ -35,7 +35,7 @@ namespace pierre {
 
 static constexpr pair_type HOMEKIT{PAIR_SERVER_HOMEKIT};
 
-AesCtx::AesCtx() {
+Aes::Aes() {
   const auto device_id = Host().device_id().data();
 
   // allocate the setup and verify contexts
@@ -56,7 +56,7 @@ AesCtx::AesCtx() {
 
 // this function is a NOP until cipher is established and the first encrypted
 // packet is received
-size_t AesCtx::encrypt(uint8v &packet) noexcept {
+size_t Aes::encrypt(uint8v &packet) noexcept {
   ssize_t bytes_ciphered = packet.size();
 
   if (cipher_ctx && encrypt_out) {
@@ -80,7 +80,7 @@ size_t AesCtx::encrypt(uint8v &packet) noexcept {
   return bytes_ciphered;
 }
 
-ssize_t AesCtx::decrypt(rtsp::Request &request) noexcept {
+ssize_t Aes::decrypt(rtsp::Request &request) noexcept {
   auto &ciphered = request.wire;
   auto &packet = request.packet;
   ssize_t consumed{0};
@@ -117,7 +117,7 @@ ssize_t AesCtx::decrypt(rtsp::Request &request) noexcept {
   return consumed;
 }
 
-AesResult AesCtx::verify(const uint8v &in, uint8v &out) noexcept {
+AesResult Aes::verify(const uint8v &in, uint8v &out) noexcept {
   AesResult aes_result;
   uint8_t *body{nullptr};
   size_t body_bytes{0};
@@ -146,7 +146,7 @@ AesResult AesCtx::verify(const uint8v &in, uint8v &out) noexcept {
   return aes_result;
 }
 
-AesResult AesCtx::setup(const uint8v &in, uint8v &out) noexcept {
+AesResult Aes::setup(const uint8v &in, uint8v &out) noexcept {
   AesResult aes_result;
   uint8_t *body{nullptr};
   size_t body_bytes{0};

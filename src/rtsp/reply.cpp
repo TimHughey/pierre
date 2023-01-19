@@ -23,7 +23,7 @@
 #include "frame/racked.hpp"
 #include "headers.hpp"
 #include "mdns/mdns.hpp"
-#include "rtsp/aes_ctx.hpp"
+#include "rtsp/aes.hpp"
 #include "rtsp/aplist.hpp"
 #include "rtsp/ctx.hpp"
 #include "rtsp/replies/command.hpp"
@@ -82,9 +82,9 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
       AesResult aes_result;
 
       if (path.ends_with("setup")) {
-        aes_result = ctx_naked->aes_ctx.setup(request.content, content);
+        aes_result = ctx_naked->aes.setup(request.content, content);
       } else if (path.ends_with("verify")) {
-        aes_result = ctx_naked->aes_ctx.verify(request.content, content);
+        aes_result = ctx_naked->aes.verify(request.content, content);
       }
 
       if (has_content()) {

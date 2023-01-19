@@ -15,7 +15,7 @@ add_library(${__target} SHARED
   aplist.cpp
 
   # message cipher support
-  aes_ctx.cpp
+  aes.cpp
 
   # rtsp message support
   headers.cpp

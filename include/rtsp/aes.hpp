@@ -46,11 +46,11 @@ struct AesResult {
 };
 
 /// @brief Encapsulates RTSP encryption, decryption and pairing state
-class AesCtx {
+class Aes {
 public:
-  AesCtx();
+  Aes();
 
-  ~AesCtx() {
+  ~Aes() {
     pair_cipher_free(cipher_ctx);
     pair_setup_free(setup_ctx);
     pair_verify_free(verify_ctx);
@@ -97,7 +97,7 @@ private:
   pair_verify_context *verify_ctx{nullptr};
 
 public:
-  static constexpr csv module_id{"rtsp.aes_ctx"};
+  static constexpr csv module_id{"rtsp.aes"};
 };
 
 } // namespace pierre

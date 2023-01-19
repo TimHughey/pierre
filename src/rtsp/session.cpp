@@ -56,7 +56,7 @@ void Session::do_packet(Elapsed &&e) noexcept {
   //  4. create/send the reply
 
   if (const auto buffered = request.buffered_bytes(); buffered > 0) {
-    if (const ssize_t consumed = ctx->aes_ctx.decrypt(request); consumed != buffered) {
+    if (const ssize_t consumed = ctx->aes.decrypt(request); consumed != buffered) {
       // incomplete decipher, read from socket
       async_read_request(std::move(e));
       return;
@@ -106,7 +106,7 @@ void Session::do_packet(Elapsed &&e) noexcept {
   Saver().format_and_write(reply);
 
   // reply has content to send
-  ctx->aes_ctx.encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
+  ctx->aes.encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
 
   // get the buffer to send, we will move reply into async_write lambda
   auto reply_buffer = reply.buffer();
