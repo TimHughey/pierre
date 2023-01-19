@@ -45,15 +45,14 @@ void Rtsp::async_accept() noexcept {
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
   // io_ctx we must deference or get the value of the optional
-  acceptor.async_accept(*sock_accept, [s = ptr(), e = Elapsed()](error_code ec) {
-    Elapsed e2(e);
-    e2.freeze();
+  acceptor.async_accept(*sock_accept, [this, s = ptr()](error_code ec) {
+    Elapsed e;
 
-    if ((ec == errc::success) && s->acceptor.is_open()) {
+    if ((ec == errc::success) && acceptor.is_open()) {
 
-      const auto &r = s->sock_accept->remote_endpoint();
+      const auto &r = sock_accept->remote_endpoint();
 
-      const auto msg = io::log_socket_msg(ec, s->sock_accept.value(), r, e2);
+      const auto msg = io::log_socket_msg(ec, sock_accept.value(), r, e);
       INFO(module_id, fn_id, "{}\n", msg);
 
       // create the session passing all the options
@@ -63,17 +62,18 @@ void Rtsp::async_accept() noexcept {
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
 
-      Stats::write(stats::RTSP_SESSION_CONNECT, e2.freeze());
-      auto session = rtsp::Session::create(s->io_ctx, std::move(s->sock_accept.value()));
+      auto session = rtsp::Session::create(io_ctx, std::move(sock_accept.value()));
 
       // ensure Desk is running, it may be shutdown due to idle timeout
       Desk::init();
 
-      session->run(std::move(e));
+      session->run(e);
 
-      s->session_storage.emplace(std::move(session));
+      session_storage.emplace(std::move(session));
 
-      s->async_accept(); // schedule the next accept
+      Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
+
+      async_accept(); // schedule the next accept
     } else {
       INFO(module_id, fn_id, "failed, {}\n", ec.message());
     }

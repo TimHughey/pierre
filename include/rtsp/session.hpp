@@ -88,22 +88,20 @@ private:
           const auto msg = io::is_ready(sock, ec);
 
           if (!msg.empty()) {
-            INFO(module_id, fn_id, "{}\n", msg);
-
-            // will fall out of scope when this function returns
-          } else if (bytes < 1) {
-            INFO(module_id, fn_id, "retry, bytes={}\n", bytes);
-            async_read_request(asio::transfer_at_least(1), std::move(e));
-
-          } else if (s->sock.available() > 0) {
-
-            // read available bytes (if any)
-            async_read_request(std::forward<Elapsed>(e));
-          } else {
-
-            // handoff for decipher, parsing and reply
-            do_packet(std::forward<Elapsed>(e));
+            // log message and fall out of scope
+            INFO(module_id, fn_id, "{} bytes={}\n", msg, bytes);
+            return;
           }
+
+          if (auto avail = sock.available(); avail > 0) {
+            // bytes available, read them
+            asio::read(sock, asio::dynamic_buffer(request.wire), asio::transfer_exactly(avail), ec);
+
+            if (ec) return;
+          }
+
+          // handoff for decipher, parsing and reply
+          do_packet(std::forward<Elapsed>(e));
         });
 
     // misc notes:
@@ -115,7 +113,6 @@ private:
   ///        to continue collecting bytes that represent a complete packet
   /// @param e Elapsed time of overall async_read calls
   void async_read_request(Elapsed &&e) noexcept {
-
     if (const auto avail = sock.available(); avail > 0) {
       async_read_request(asio::transfer_exactly(avail), std::forward<Elapsed>(e));
     } else {
@@ -139,7 +136,6 @@ public:
   }
 
   void shutdown() noexcept {
-
     error_code ec;
     sock.shutdown(tcp_socket::shutdown_both, ec);
     INFO(module_id, "shutdown", "active_remote={} {}\n", ctx->active_remote, ec.message());

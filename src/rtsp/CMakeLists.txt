@@ -25,6 +25,7 @@ add_library(${__target} SHARED
   audio.cpp 
   ctx.cpp
   reply.cpp
+  request.cpp
   rtsp.cpp 
   session.cpp
   sessions.cpp

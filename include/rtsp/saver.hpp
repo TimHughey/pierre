@@ -37,7 +37,7 @@ namespace rtsp {
 class Saver {
 private:
   // early decl due to auto
-  void format_content(const Headers &headers, const Content &content, auto &w) const noexcept {
+  void format_content(const Headers &headers, const uint8v &content, auto &w) const noexcept {
 
     if (headers.contains(hdr_type::ContentType)) {
       const auto type = headers.val(hdr_type::ContentType);

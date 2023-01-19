@@ -49,7 +49,7 @@ Aplist::Aplist(const Aplist &src, const Steps &steps) {
   _plist = (node) ? plist_copy(node) : plist_new_dict();
 }
 
-Aplist &Aplist::operator=(const Content &content) { return fromContent(content); }
+Aplist &Aplist::operator=(const uint8v &content) { return from_uint8v(content); }
 
 Aplist &Aplist::operator=(Aplist &&ap) {
   _plist = ap._plist;
@@ -167,7 +167,7 @@ plist_t Aplist::fetchNode(const Steps &steps, plist_type type) const {
   return (node && (type == plist_get_node_type(node))) ? node : nullptr;
 }
 
-void Aplist::format_to(Content &content) const noexcept {
+void Aplist::format_to(uint8v &content) const noexcept {
   char *data = nullptr;
   uint32_t len = 0;
 
@@ -360,7 +360,7 @@ bool Aplist::checkType(plist_t node, plist_type type) const {
   return (node && (type == plist_get_node_type(node)));
 }
 
-Aplist &Aplist::fromContent(const Content &content) {
+Aplist &Aplist::from_uint8v(const uint8v &content) {
   clear(); // ensure there isn't an existing dict
 
   static constexpr csv header{"bplist00"};

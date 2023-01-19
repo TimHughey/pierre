@@ -21,7 +21,6 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
 
 namespace pierre {
@@ -31,13 +30,27 @@ class Request {
 public:
   Request() = default;
 
-  auto find_delims(const auto &delims_want) noexcept { return packet.find_delims(delims_want); }
+  auto buffered_bytes() const noexcept { return std::ssize(wire); }
+
+  auto have_delims(const auto want_delims) const noexcept {
+    return std::ssize(delims) == std::ssize(want_delims);
+  }
+
+  auto find_delims(const auto &&delims_want) noexcept {
+    delims = packet.find_delims(delims_want);
+
+    return std::ssize(delims) == std::ssize(delims_want);
+  }
+
+  void parse_headers();
+  size_t populate_content() noexcept;
 
 public:
-  Content content;
   Headers headers;
+  uint8v content;
   uint8v packet; // always dedciphered
   uint8v wire;   // maybe encrypted
+  uint8v::delims_t delims;
 
   static constexpr csv module_id{"rtsp::request"};
 };

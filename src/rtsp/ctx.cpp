@@ -93,13 +93,15 @@ void Ctx::update_from(const Headers &h) noexcept {
 
   cseq = h.val<int64_t>(hdr_type::CSeq);
   active_remote = h.val<int64_t>(hdr_type::DacpActiveRemote);
+  if (dacp_id.empty()) dacp_id = h.val<string>(hdr_type::DacpID);
 
   if (h.contains(hdr_type::XAppleProtocolVersion))
     proto_ver = h.val<int64_t>(hdr_type::XAppleProtocolVersion);
 
-  if (h.contains(hdr_type::XAppleClientName)) client_name = h.val(hdr_type::XAppleClientName);
+  if (h.contains(hdr_type::XAppleClientName) && client_name.empty())
+    client_name = h.val(hdr_type::XAppleClientName);
 
-  user_agent = h.val(hdr_type::UserAgent);
+  if (user_agent.empty()) user_agent = h.val(hdr_type::UserAgent);
 }
 
 } // namespace rtsp

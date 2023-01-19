@@ -21,7 +21,6 @@
 #include "base/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "rtsp/content.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/request.hpp"
 #include "rtsp/resp_code.hpp"
@@ -91,7 +90,7 @@ public:
 
 public:
   Headers headers;
-  Content content;
+  uint8v content;
   string error;
 
 protected:

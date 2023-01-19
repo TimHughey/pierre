@@ -20,7 +20,6 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "rtsp/content.hpp"
 
 #include <array>
 #include <cstdarg>
@@ -70,14 +69,14 @@ public:
   /// @param xml Vector of char data
   Aplist(const std::vector<char> &xml) noexcept { plist_from_xml(xml.data(), xml.size(), &_plist); }
 
-  Aplist(const Content &content) noexcept { fromContent(content); }
+  Aplist(const uint8v &content) noexcept { from_uint8v(content); }
   Aplist(const Dictionaries &dicts);
   Aplist(csv mem);
   Aplist(const Aplist &src, const Steps &steps); //
 
   Aplist &operator=(const Aplist &ap) = delete; // no copy assignment
   Aplist &operator=(Aplist &&ap);               // allow move assignment
-  Aplist &operator=(const Content &content);    // allow assignment from Content
+  Aplist &operator=(const uint8v &content);     // allow assignment from uint8v
 
   uint32_t arrayItemCount(const Steps &steps) const;
 
@@ -102,7 +101,7 @@ public:
 
   plist_t fetchNode(const Steps &steps, plist_type type = PLIST_DICT) const;
 
-  void format_to(Content &content) const noexcept;
+  void format_to(uint8v &content) const noexcept;
 
   void format_to(auto &w) const noexcept {
     char *xml{nullptr};
@@ -157,7 +156,7 @@ private:
   bool checkType(plist_t node, plist_type type) const;
   plist_t dict() { return _plist; }
 
-  Aplist &fromContent(const Content &content);
+  Aplist &from_uint8v(const uint8v &content);
   plist_t getItem(csv key) const;
 
 private:

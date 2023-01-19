@@ -65,11 +65,9 @@ struct stream_info_t {
 
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
-private:
+public:
   Ctx(io_context &io_ctx) noexcept;
 
-public:
-  static auto create(io_context &io_ctx) noexcept { return std::shared_ptr<Ctx>(new Ctx(io_ctx)); }
   auto ptr() noexcept { return shared_from_this(); }
 
   void feedback_msg() noexcept;

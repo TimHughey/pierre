@@ -117,7 +117,7 @@ ssize_t AesCtx::decrypt(rtsp::Request &request) noexcept {
   return consumed;
 }
 
-AesResult AesCtx::verify(const Content &in, Content &out) noexcept {
+AesResult AesCtx::verify(const uint8v &in, uint8v &out) noexcept {
   AesResult aes_result;
   uint8_t *body{nullptr};
   size_t body_bytes{0};
@@ -146,7 +146,7 @@ AesResult AesCtx::verify(const Content &in, Content &out) noexcept {
   return aes_result;
 }
 
-AesResult AesCtx::setup(const Content &in, Content &out) noexcept {
+AesResult AesCtx::setup(const uint8v &in, uint8v &out) noexcept {
   AesResult aes_result;
   uint8_t *body{nullptr};
   size_t body_bytes{0};

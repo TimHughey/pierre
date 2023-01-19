@@ -18,7 +18,6 @@
 
 #include "session.hpp"
 #include "base/elapsed.hpp"
-#include "content.hpp"
 #include "lcs/config.hpp"
 #include "lcs/stats.hpp"
 #include "reply.hpp"
@@ -34,9 +33,9 @@ namespace pierre {
 namespace rtsp {
 
 Session::Session(io_context &io_ctx, tcp_socket sock) noexcept
-    : io_ctx(io_ctx),          // shared io_ctx
-      sock(std::move(sock)),   // socket for this session
-      ctx(Ctx::create(io_ctx)) // create ctx for this session
+    : io_ctx(io_ctx),        // shared io_ctx
+      sock(std::move(sock)), // socket for this session
+      ctx(new Ctx(io_ctx))   // create ctx for this session
 {}
 
 std::shared_ptr<Session> Session::create(io_context &io_ctx, tcp_socket &&sock) noexcept {
@@ -48,6 +47,7 @@ std::shared_ptr<Session> Session::create(io_context &io_ctx, tcp_socket &&sock) 
 }
 
 void Session::do_packet(Elapsed &&e) noexcept {
+  static constexpr csv fn_id{"do_packet"};
 
   // this function is invoked to:
   //  1. find the message delims
@@ -55,67 +55,34 @@ void Session::do_packet(Elapsed &&e) noexcept {
   //  3. ensure all content is received
   //  4. create/send the reply
 
-  if (const auto buffered = std::ssize(request.wire); buffered > 0) {
-    const ssize_t consumed = ctx->aes_ctx.decrypt(request);
-
-    // incomplete decipher, read from socket
-    if (consumed != buffered) {
-      INFO(module_id, "DO_PACKET", "incomplete, buffered={} consumed={} wire={} packet={}\n", //
-           buffered, consumed, std::ssize(request.wire), std::ssize(request.packet));
-
+  if (const auto buffered = request.buffered_bytes(); buffered > 0) {
+    if (const ssize_t consumed = ctx->aes_ctx.decrypt(request); consumed != buffered) {
+      // incomplete decipher, read from socket
       async_read_request(std::move(e));
       return;
     }
   }
 
   // now we have potentially a complete message, attempt to find the delimiters
-  uint8v::delims_t found_delims{request.find_delims(std::array{CRLF, CRLFx2})};
-
-  if (const auto count = std::ssize(found_delims); count != 2) {
-    INFO(module_id, "DELIMS", "packet_size={} delims={}\n", std::ssize(request.packet), count);
+  if (request.find_delims(std::array{CRLF, CRLFx2}) == false) {
+    INFO(module_id, fn_id, "packet_size={} delims={}\n", std::ssize(request.packet),
+         std::ssize(request.delims));
 
     // we need more data in the packet to continue
     async_read_request(std::move(e));
     return;
   }
 
+  request.parse_headers();
+
+  const auto more_bytes = request.populate_content();
+
+  if (more_bytes > 0) {
+    async_read_request(asio::transfer_exactly(more_bytes), std::move(e));
+    return;
+  }
+
   Stats::write(stats::RTSP_SESSION_RX_PACKET, std::ssize(request.packet));
-
-  if (request.headers.parse_ok == false) {
-    // we haven't parsed headers yet, do it now
-    auto parse_ok = request.headers.parse(request.packet, found_delims);
-
-    if (parse_ok == false) {
-      INFO(module_id, "DO_PACKET", "FAILED parsing headers\n");
-      return;
-    }
-  }
-
-  // we now have complete headers, if there is content and we've not copied
-  // it yet, attempt to copy it now or determine the packet is incomplete
-  if (request.headers.contains(hdr_type::ContentLength)) {
-    const auto content_expected_len = request.headers.val<int64_t>(hdr_type::ContentLength);
-
-    // now, let's validate we have a packet that contains all the content
-    const auto content_begin = found_delims[1].first + found_delims[1].second;
-    const auto content_avail = std::ssize(request.packet) - content_begin;
-
-    // compare the content_end to the size of the packet
-    if (content_avail == content_expected_len) {
-      // packet contains all the content, create a span representing the content in the packet
-      request.content.assign_span(
-          std::span(request.packet.from_begin(content_begin), content_expected_len));
-    } else {
-      // packet does not contain all the content, read bytes from the socket
-      const auto more_bytes = content_expected_len - content_avail;
-
-      async_read_request(asio::transfer_exactly(more_bytes), std::move(e));
-      return;
-    }
-  }
-
-  // ok, we now have the headers and content (if applicable)
-  // create and send the reply
 
   Saver().format_and_write(request); // noop when config enable=false
 
@@ -127,8 +94,10 @@ void Session::do_packet(Elapsed &&e) noexcept {
   reply.build(request, ctx->ptr());
 
   if (reply.empty()) { // warn of empty reply
-    INFO(module_id, "SEND REPLY", "empty reply method={} path={}\n", request.headers.method(),
+    INFO(module_id, fn_id, "empty reply method={} path={}\n", request.headers.method(),
          request.headers.path());
+
+    request = Request();
 
     async_read_request(transfer_initial());
     return;
@@ -142,25 +111,26 @@ void Session::do_packet(Elapsed &&e) noexcept {
   // get the buffer to send, we will move reply into async_write lambda
   auto reply_buffer = reply.buffer();
 
-  asio::async_write(
-      sock, reply_buffer,
-      [s = ptr(), e = std::move(e), rp = std::move(reply)](error_code ec, ssize_t bytes) mutable {
-        const auto msg = io::is_ready(s->sock, ec);
+  asio::async_write(sock, //
+                    reply_buffer,
+                    [this, s = ptr(), e = std::move(e),
+                     rp = std::move(reply)](error_code ec, ssize_t bytes) mutable {
+                      // write stats
+                      Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
+                      Stats::write(stats::RTSP_SESSION_TX_REPLY, bytes);
 
-        if (!msg.empty()) {
-          INFO(module_id, "WRITE_REPLY", "{}\n", msg);
-        } else {
+                      const auto msg = io::is_ready(sock, ec);
 
-          Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
-          Stats::write(stats::RTSP_SESSION_TX_REPLY, bytes);
+                      if (!msg.empty()) {
+                        INFO(module_id, fn_id, "async_write failed, {}\n", msg);
+                      }
 
-          // message handling complete, reset buffers
-          s->request = Request();
+                      // message handling complete, reset buffers
+                      request = Request();
+                      async_read_request(transfer_initial());
+                    });
 
-          // continue processing messages
-          s->async_read_request(transfer_initial());
-        }
-      });
+  // continue processing messages
 }
 
 } // namespace rtsp

@@ -62,8 +62,8 @@ public:
   ssize_t decrypt(rtsp::Request &request) noexcept;
   size_t encrypt(uint8v &packet) noexcept;
 
-  AesResult setup(const Content &in, Content &out) noexcept;
-  AesResult verify(const Content &in, Content &out) noexcept;
+  AesResult setup(const uint8v &in, uint8v &out) noexcept;
+  AesResult verify(const uint8v &in, uint8v &out) noexcept;
 
 private:
   /// @brief Copies raw uint8_t array to container
@@ -71,7 +71,7 @@ private:
   /// @param data pointer to raw uint8_t array
   /// @param bytes num of bytes to copy
   /// @return reference to destination container
-  Content &copy_to(Content &out, uint8_t *data, ssize_t bytes) const {
+  uint8v &copy_to(uint8v &out, uint8_t *data, ssize_t bytes) const {
 
     if (data && (bytes > 0)) {
       std::unique_ptr<uint8_t> xxx(data);
