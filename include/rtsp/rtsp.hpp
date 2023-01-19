@@ -18,19 +18,21 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/threads.hpp"
+#include "io/io.hpp"
 
 #include <any>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace pierre {
 
 namespace rtsp {
+class Ctx;
 class Session;
-}
+} // namespace rtsp
 
 class Rtsp : public std::enable_shared_from_this<Rtsp> {
 private:
@@ -61,6 +63,7 @@ private:
   static std::shared_ptr<Rtsp> self;
   std::optional<tcp_socket> sock_accept;
   Threads threads;
+  std::vector<std::shared_ptr<rtsp::Ctx>> sessions;
   std::optional<std::shared_ptr<rtsp::Session>> session_storage;
 
   static constexpr uint16_t LOCAL_PORT{7000};

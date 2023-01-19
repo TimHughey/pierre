@@ -18,9 +18,9 @@
 
 #pragma once
 
+#include "base/uint8v.hpp"
 #include "rtsp/aplist.hpp"
 #include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
 
 #include <vector>
 
@@ -29,8 +29,8 @@ namespace rtsp {
 
 class Command {
 public:
-  Command(Request &request, Reply &reply) {
-    Aplist rdict = request.content;
+  Command(uint8v &request, Reply &reply) {
+    Aplist rdict(request);
 
     if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
       // we don't support updateMRSupportedCommands

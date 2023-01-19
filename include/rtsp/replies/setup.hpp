@@ -19,6 +19,7 @@
 #pragma once
 
 #include "aplist.hpp"
+#include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 
 namespace pierre {
@@ -26,7 +27,7 @@ namespace rtsp {
 
 class Setup {
 public:
-  Setup(Request &request, Reply &reply, Ctx *ctx) noexcept;
+  Setup(uint8v &content, Headers &headers, Reply &reply, Ctx *ctx) noexcept;
 
 private:
   bool has_streams() noexcept;
@@ -34,10 +35,10 @@ private:
 
 private:
   // order dependent
-  Request &request;
+  Aplist rdict;     // the request dict
+  Headers &headers; /// request headers
   Reply &reply;
   Ctx *ctx;
-  Aplist rdict; // the request dict
 
   // order independent
   Aplist reply_dict; // entire reply dict

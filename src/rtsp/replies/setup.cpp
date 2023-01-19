@@ -18,10 +18,10 @@
 
 #include "replies/setup.hpp"
 #include "base/host.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
 #include "ctx.hpp"
 #include "frame/master_clock.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
 
@@ -31,12 +31,10 @@
 namespace pierre {
 namespace rtsp {
 
-Setup::Setup(Request &request, Reply &reply, Ctx *ctx) noexcept
-    : request(request), reply(reply), ctx(ctx), reply_dict() {
+Setup::Setup(uint8v &content, Headers &headers, Reply &reply, Ctx *ctx) noexcept
+    : rdict(content), headers(headers), reply(reply), ctx(ctx), reply_dict() {
 
   reply(RespCode::BadRequest); // default response is BadRequest
-
-  rdict = request.content;
 
   auto rc = rdict.ready();
 
@@ -125,8 +123,8 @@ bool Setup::has_streams() noexcept {
     stream_info.audio_format = s0.uint({AUDIO_FORMAT});
     stream_info.client_id = s0.stringView({CLIENT_ID});
 
-    ctx->active_remote = request.headers.val<int64_t>(hdr_type::DacpActiveRemote);
-    ctx->dacp_id = request.headers.val(hdr_type::DacpID);
+    ctx->active_remote = headers.val<int64_t>(hdr_type::DacpActiveRemote);
+    ctx->dacp_id = headers.val(hdr_type::DacpID);
     ctx->shared_key = s0.dataArray({SHK}); // copy is ok here
 
     auto stream_type = ctx->setup_stream_type(s0.uint({TYPE}));

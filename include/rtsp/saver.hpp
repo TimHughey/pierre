@@ -49,7 +49,8 @@ private:
         std::copy_n(content.begin(), content.size(), w);
 
       } else if (type == hdr_val::OctetStream) {
-        fmt::format_to(w, "<<OCTET STREAM>>");
+        const auto len = headers.val<int64_t>(hdr_type::ContentLength);
+        fmt::format_to(w, "<<OCTET STREAM LENGTH={}>>", len);
       }
 
       fmt::format_to(w, "{}{}", separator, separator);
@@ -68,7 +69,6 @@ public:
       auto w = std::back_inserter(buff);
 
       if constexpr (std::is_same_v<U, Request>) {
-
         fmt::format_to(w, "{} {} RTSP/1.0{}", r.headers.method(), r.headers.path(), separator);
       } else if constexpr (std::is_same_v<U, Reply>) {
         fmt::format_to(w, "RTSP/1.0 {}{}", r.resp_code(), separator);
@@ -84,8 +84,8 @@ public:
 
   void write(const uint8v &buff) noexcept {
     auto cfg = Config::ptr();
-    const auto base = cfg->at("info.path"sv).value_or(string());
-    const auto file = cfg->at("info.rtsp.file"sv).value_or(string());
+    const auto base = cfg->at("info.rtsp.saver.path"sv).value_or(string("/tmp"));
+    const auto file = cfg->at("info.rtsp.saver.file"sv).value_or(string("rtsp.log"));
 
     namespace fs = std::filesystem;
     fs::path path{fs::current_path()};
@@ -112,7 +112,7 @@ private:
 
 public:
   string msg;
-  static constexpr csv module_id{"rtsp::saver"};
+  static constexpr csv module_id{"rtsp.saver"};
 };
 
 } // namespace rtsp

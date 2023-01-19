@@ -80,9 +80,7 @@ size_t Aes::encrypt(uint8v &packet) noexcept {
   return bytes_ciphered;
 }
 
-ssize_t Aes::decrypt(rtsp::Request &request) noexcept {
-  auto &ciphered = request.wire;
-  auto &packet = request.packet;
+ssize_t Aes::decrypt(uint8v &wire, uint8v &packet) noexcept {
   ssize_t consumed{0};
 
   if (cipher_ctx) {
@@ -94,23 +92,23 @@ ssize_t Aes::decrypt(rtsp::Request &request) noexcept {
     uint8_t *data = nullptr;
     size_t len = 0;
 
-    consumed = pair_decrypt(&data, &len, ciphered.data(), ciphered.size(), cipher_ctx);
+    consumed = pair_decrypt(&data, &len, wire.data(), wire.size(), cipher_ctx);
     std::unique_ptr<uint8_t> xxx(data); // auto free the data buffer
 
     // if any byte we're consumed we remove them from the ciphered buffer and append
     // them to the packet
 
     if (consumed > 0) {
-      std::copy(data, data + len, std::back_inserter(request.packet));
+      std::copy(data, data + len, std::back_inserter(packet));
 
       // create a new cipher packet of the unconsumed bytes
       uint8v cipher_rest;
-      cipher_rest.assign(ciphered.begin() + consumed, ciphered.end());
-      std::swap(ciphered, cipher_rest);
+      cipher_rest.assign(wire.begin() + consumed, wire.end());
+      std::swap(wire, cipher_rest);
     }
   } else {
     //  plain text, just swap the data
-    std::swap(ciphered, packet);
+    std::swap(wire, packet);
     consumed = std::ssize(packet);
   }
 

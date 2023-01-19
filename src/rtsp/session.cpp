@@ -56,7 +56,7 @@ void Session::do_packet(Elapsed &&e) noexcept {
   //  4. create/send the reply
 
   if (const auto buffered = request.buffered_bytes(); buffered > 0) {
-    if (const ssize_t consumed = ctx->aes.decrypt(request); consumed != buffered) {
+    if (auto consumed = ctx->aes.decrypt(request.wire, request.packet); consumed != buffered) {
       // incomplete decipher, read from socket
       async_read_request(std::move(e));
       return;

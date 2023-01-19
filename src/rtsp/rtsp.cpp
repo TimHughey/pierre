@@ -88,15 +88,11 @@ void Rtsp::init() noexcept {
   const auto thread_count = config_val<int>(threads_path, 4);
 
   // create shared_ptrs to avoid spurious data races
-  auto once_flag = std::make_shared<std::once_flag>();
   auto latch = std::make_shared<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
-    self->threads.emplace_back([n, s = self->ptr(), latch, once_flag]() mutable {
+    self->threads.emplace_back([n, s = self->ptr(), latch]() mutable {
       name_thread("rtsp", n);
-
-      // do special startup tasks once
-      std::call_once(*once_flag, []() { rtsp::Info::init(); });
 
       // we want a syncronized start of all threads
       latch->arrive_and_wait();

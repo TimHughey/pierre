@@ -17,17 +17,17 @@
 //  https://www.wisslanding.com
 
 #include "replies/set_anchor.hpp"
-#include "lcs/logger.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_data.hpp"
 #include "frame/racked.hpp"
+#include "lcs/logger.hpp"
 #include "replies/dict_kv.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-SetAnchor::SetAnchor(Request &request, Reply &reply) noexcept {
-  Aplist request_dict(request.content);
+SetAnchor::SetAnchor(uint8v &content, Reply &reply) noexcept {
+  Aplist request_dict(content);
 
   // a complete anchor message contains these keys
   static const Aplist::KeyList keys{NET_TIMELINE_ID, NET_TIME_SECS, NET_TIME_FRAC, NET_TIME_FLAGS,

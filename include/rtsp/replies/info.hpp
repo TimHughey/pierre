@@ -28,7 +28,7 @@ namespace rtsp {
 
 class Info {
 public:
-  Info(Request &request, Reply &reply) noexcept;
+  Info(Reply &reply) noexcept;
 
   static void init() noexcept;
 

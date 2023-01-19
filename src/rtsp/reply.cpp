@@ -62,15 +62,15 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     resp_code(RespCode::Continue); // trivial, only set reqponse code
 
   } else if (method == csv("GET") && (path == csv("/info"))) {
-    Info(request, *this);
+    Info(*this);
 
   } else if (method == csv("POST")) { // handle POST methods
 
     if (path == csv("/fp-setup")) {
-      FairPlay(request, *this);
+      FairPlay(request.content, *this);
 
     } else if (path == csv("/command")) {
-      Command(request, *this);
+      Command(request.content, *this);
 
     } else if (path == csv("/feedback")) {
       // trival, basic headers and response code of OK
@@ -104,7 +104,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     set_resp_code(RespCode::OK);
 
   } else if (method == csv("SETUP")) {
-    Setup(request, *this, ctx_naked);
+    Setup(request.content, request.headers, *this, ctx_naked);
 
   } else if (method.ends_with("_PARAMETER")) {
     if (method.starts_with("GET")) {
@@ -155,7 +155,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     MasterClock::peers(peer_list);
 
   } else if (method == csv("SETRATEANCHORTIME")) {
-    SetAnchor(request, *this);
+    SetAnchor(request.content, *this);
   } else if (method == csv("TEARDOWN")) {
 
     Aplist request_dict(request.content);

@@ -75,8 +75,7 @@ static constexpr auto reply4 = std::to_array<uint8_t>(
      0x31, 0x1e, 0x4b, 0xe6, 0xc0, 0x53, 0x51, 0x93, 0xe5, 0xef, 0x72, 0xe8, 0x68, 0x62, 0x33, 0x72,
      0x9c, 0x22, 0x7d, 0x82, 0x0c, 0x99, 0x94, 0x45, 0xd8, 0x92, 0x46, 0xc8, 0xc3, 0x59});
 
-FairPlay::FairPlay(Request &request, Reply &reply) noexcept {
-  const auto &content = request.content;
+FairPlay::FairPlay(uint8v &content, Reply &reply) noexcept {
 
   if (std::empty(content) == false) {
     // const auto vsn = content.at(vsn_idx);
@@ -95,11 +94,11 @@ FairPlay::FairPlay(Request &request, Reply &reply) noexcept {
       reply.copy_to_content(header); // add the server header for FairPlay
 
       // appears we need to send back part of the request
-      auto request_data = request.content.data();
-      auto request_len = std::size(request.content);
+      auto content_data = content.data();
+      auto content_len = std::size(content);
 
       // the part sent back is a suffix, calculate pointer to it
-      const auto *begin = request_data + request_len - setup2_suffix_len;
+      const auto *begin = content_data + content_len - setup2_suffix_len;
 
       // add the sliver of the content originally sent
       reply.copy_to_content(begin, setup2_suffix_len);

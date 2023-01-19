@@ -22,7 +22,6 @@
 #include "base/uint8v.hpp"
 #include "pair/pair.h"
 #include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
 
 #include <algorithm>
 #include <array>
@@ -50,6 +49,9 @@ class Aes {
 public:
   Aes();
 
+  // note: no implict copy/move constructors or assignment due to
+  // destructor definition
+
   ~Aes() {
     pair_cipher_free(cipher_ctx);
     pair_setup_free(setup_ctx);
@@ -59,7 +61,7 @@ public:
   /// @brief decrypt a chunk of data once pairing is complete otherwise passthrough
   /// @param request request containing ciphered data and deciphered destination
   /// @return ciphered bytes consumed by decryption
-  ssize_t decrypt(rtsp::Request &request) noexcept;
+  ssize_t decrypt(uint8v &wire, uint8v &packet) noexcept;
   size_t encrypt(uint8v &packet) noexcept;
 
   AesResult setup(const uint8v &in, uint8v &out) noexcept;

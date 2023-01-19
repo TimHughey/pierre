@@ -28,7 +28,7 @@ namespace rtsp {
 
 class FairPlay {
 public:
-  FairPlay(Request &request, Reply &reply) noexcept;
+  FairPlay(uint8v &request, Reply &reply) noexcept;
 
 private:
   // NOTE: these are all magic numbers; someday hunt down what they mean

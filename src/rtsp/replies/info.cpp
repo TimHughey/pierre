@@ -36,7 +36,7 @@ namespace rtsp {
 // class static data
 std::vector<char> Info::reply_xml;
 
-Info::Info([[maybe_unused]] Request &request, Reply &reply) noexcept {
+Info::Info(Reply &reply) noexcept {
 
   // notes:
   //  1. other open source implementations look for and build a stage 1
@@ -77,7 +77,6 @@ Info::Info([[maybe_unused]] Request &request, Reply &reply) noexcept {
 
 /// @brief Initialize static data (reply pdict)
 void Info::init() noexcept { // static
-  static constexpr csv module_id{"rtsp.reply.info"};
   static constexpr csv fn_id{"init"};
 
   auto file_path = config()->fs_parent_path();
