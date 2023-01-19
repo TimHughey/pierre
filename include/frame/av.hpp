@@ -28,7 +28,7 @@ extern "C" {
 }
 #endif
 
-#include "base/io.hpp"
+#include "io/io.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"

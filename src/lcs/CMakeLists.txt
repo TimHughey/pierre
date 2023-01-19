@@ -65,5 +65,6 @@ target_link_libraries(${__target} PRIVATE
 
 target_link_libraries(${__target} PUBLIC 
   InfluxData::InfluxDB
+  io
   tomlplusplus::tomlplusplus
 )

@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/io.hpp"
+#include "io/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"

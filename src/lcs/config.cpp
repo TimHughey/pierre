@@ -20,7 +20,7 @@
 #include "lcs/config.hpp"
 #include "base/elapsed.hpp"
 #include "base/host.hpp"
-#include "base/io.hpp"
+#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "lcs/args.hpp"

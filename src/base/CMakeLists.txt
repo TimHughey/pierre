@@ -17,9 +17,6 @@ find_package(GCRYPT                        REQUIRED)
 find_package(Sodium                        REQUIRED)
 
 add_library(${__target} SHARED
-  # io (asio) helpers
-  io.cpp
-
   # host info
   host.cpp
 

@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "io/msg.hpp"
-#include "lcs/logger.hpp"
 
 namespace pierre {
 namespace io {
@@ -33,24 +32,24 @@ string Msg::inspect() const noexcept {
   return msg;
 }
 
-error_code Msg::log_rx(const error_code ec, const size_t bytes, const char *err) noexcept {
-  if (ec || (packed_len != bytes) || err) {
-    INFO(module_id, "LOG_RX", "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
-         ec.message(), err);
-  }
+// error_code Msg::log_rx(const error_code ec, const size_t bytes, const char *err) noexcept {
+//   if (ec || (packed_len != bytes) || err) {
+//     INFO(module_id, "LOG_RX", "failed, bytes={}/{} reason={} deserialize={}\n", bytes, tx_len,
+//          ec.message(), err);
+//   }
 
-  return ec;
-}
+//   return ec;
+// }
 
-error_code Msg::log_tx(const error_code ec, const size_t bytes) noexcept {
-  if (ec || (tx_len != bytes)) {
-    if (ec != errc::operation_canceled) {
-      INFO(module_id, "LOG_TX", "bytes={}/{} {}\n", bytes, tx_len, ec.message());
-    }
-  }
+// error_code Msg::log_tx(const error_code ec, const size_t bytes) noexcept {
+//   if (ec || (tx_len != bytes)) {
+//     if (ec != errc::operation_canceled) {
+//       INFO(module_id, "LOG_TX", "bytes={}/{} {}\n", bytes, tx_len, ec.message());
+//     }
+//   }
 
-  return ec;
-}
+//   return ec;
+// }
 
 } // namespace io
 } // namespace pierre

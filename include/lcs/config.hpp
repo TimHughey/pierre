@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/io.hpp"
+#include "io/io.hpp"
 #include "base/types.hpp"
 #include "lcs/types.hpp"
 

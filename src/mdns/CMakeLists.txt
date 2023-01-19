@@ -43,6 +43,7 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PRIVATE 
   ${AVAHI_LIBRARIES}
   ${libUUID}
+  io
   lcs
   pair
 )

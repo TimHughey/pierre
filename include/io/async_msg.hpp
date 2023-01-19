@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include "base/io.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
 
 #include <array>
 #include <functional>
@@ -44,7 +44,7 @@ auto async_read_msg(tcp_socket &socket, CompletionToken &&token) {
       enum { msg_content, deserialize } state;
       typename std::decay<decltype(completion_handler)>::type handler;
 
-      void operator()(const error_code &ec, std::size_t n = 0) {
+      void operator()(const error_code &ec, [[maybe_unused]] std::size_t bytes = 0) {
         error_code ec_local = ec;
 
         if (!ec_local) {
@@ -62,7 +62,7 @@ auto async_read_msg(tcp_socket &socket, CompletionToken &&token) {
           }
 
           case deserialize:
-            if (msg.deserialize(ec_local, n) == false) {
+            if (msg.deserialize(bytes) == false) {
               ec_local = make_error(errc::protocol_error);
             }
           }
@@ -126,8 +126,8 @@ auto async_write_msg(tcp_socket &socket, M msg, CompletionToken &&token) {
 
       typename std::decay<decltype(completion_handler)>::type handler;
 
-      void operator()(const error_code &ec, std::size_t bytes) {
-        msg.log_tx(ec, bytes);
+      void operator()(const error_code &ec,  [[maybe_unused]] std::size_t bytes) {
+        // msg.log_tx(ec, bytes);
 
         handler(ec); // call user-supplied handler
       }

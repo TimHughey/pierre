@@ -20,10 +20,10 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 #include "lcs/logger.hpp"
 
 #include <ArduinoJson.h>
@@ -99,12 +99,12 @@ public:
                       const_buff(packed.data(), packed.capacity())};
   }
 
-  auto deserialize(error_code ec, size_t bytes) {
+  auto deserialize(size_t bytes) {
     const auto err = deserializeMsgPack(doc, packed.data(), packed.capacity());
 
-    if (ec || err) log_rx(ec, bytes, err.c_str());
+    // if (ec || err) log_rx(ec, bytes, err.c_str());
 
-    return !err;
+    return !err && (bytes > 0);
   }
 
   auto key_equal(csv key, csv val) const { return val == doc[key]; }
@@ -125,8 +125,8 @@ public:
   // misc logging, debug
   virtual string inspect() const noexcept;
 
-  error_code log_rx(const error_code ec, const size_t bytes, const char *err) noexcept;
-  error_code log_tx(const error_code ec, const size_t bytes) noexcept;
+  // error_code log_rx(const error_code ec, const size_t bytes, const char *err) noexcept;
+  // error_code log_tx(const error_code ec, const size_t bytes) noexcept;
 
   // order dependent
   string type;
