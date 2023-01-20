@@ -87,7 +87,8 @@ public:
 
       // if help requested, print and exit cleanly
       if (args.count("help")) {
-        fmt::print(std::cout, FMT_STRING("\n{}\n"), desc);
+        std::cout << std::endl << desc << std::endl;
+
         exit(0);
       }
 
@@ -110,25 +111,4 @@ private:
   po::variables_map args;
 };
 
-struct ArgsMap {
-  bool parse_ok{false};
-  bool help{false};
-  bool daemon{false};
-  std::filesystem::path exec_path{};
-  std::filesystem::path parent_path{};
-  string cfg_file{};
-  string dmx_host{};
-  string pid_file{};
-  string app_name;
-};
-
-class Args {
-public:
-  Args() = default;
-
-  ArgsMap parse(int argc, char *argv[]);
-
-public:
-  static constexpr csv module_id{"lcs.args"};
-};
 } // namespace pierre

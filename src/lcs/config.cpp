@@ -20,11 +20,11 @@
 #include "lcs/config.hpp"
 #include "base/elapsed.hpp"
 #include "base/host.hpp"
-#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "build_version.hpp"
+#include "io/io.hpp"
 #include "lcs/args.hpp"
-#include "version.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -39,10 +39,6 @@ namespace pierre {
 namespace {
 namespace fs = std::filesystem;
 }
-
-// ArgsMap is truly static as it is set once at startup
-// declare it here to avoid pulling into class header args_map.hpp
-static ArgsMap args_map;
 
 // static class data
 std::shared_ptr<Config> Config::self;

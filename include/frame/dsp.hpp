@@ -18,11 +18,11 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/threads.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
@@ -114,7 +114,7 @@ public:
     io_ctx.stop();
 
     std::for_each(threads.begin(), threads.end(), [](auto &t) {
-      INFO(module_id, fn_id, "joining thread={}\n", t.get_id());
+      INFO(module_id, fn_id, "joining thread={}\n", fmt::streamed(t.get_id()));
 
       t.join();
     });

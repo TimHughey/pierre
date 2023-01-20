@@ -225,7 +225,7 @@ void Desk::shutdown(bool wait_for_shutdown) noexcept {
 
       std::for_each(s->threads.begin(), s->threads.end(), [&s](auto &t) mutable {
         INFO(module_id, fn_id, "joining thread={} s.use_count=({})\n", //
-             t.get_id(), s.use_count());
+             fmt::streamed(t.get_id()), s.use_count());
 
         t.join();
       });

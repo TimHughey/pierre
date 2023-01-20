@@ -121,7 +121,8 @@ void Rtsp::shutdown() noexcept { // static
     self->guard.reset(); // allow the io_ctx to complete when other work is finished
 
     for (auto &t : self->threads) {
-      INFO(module_id, "shutdown", "joining {} self.use_count({})\n", t.get_id(), self.use_count());
+      INFO(module_id, "shutdown", "joining {} self.use_count({})\n", fmt::streamed(t.get_id()),
+           self.use_count());
       t.join();
     }
 

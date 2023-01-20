@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
 
 #include <chrono>
 #include <fmt/chrono.h>
@@ -52,20 +52,19 @@ public:
         auto s = ptr();
         auto &local_strand = s->local_strand;
 
-        asio::post(local_strand, [=, s = std::move(s), e = runtime(),
-                                  msg = fmt::vformat(format, fmt::make_args_checked<Args...>(
-                                                                 format, args...))]() mutable {
-          // print the log message
-          fmt::print(line_format,                     //
-                     e, width_ts, width_ts_precision, // runtime + width and precision
-                     mod_id, width_mod,               // module_id + width
-                     cat, width_cat,                  // category + width
-                     msg);
-        });
+        asio::post(local_strand,
+                   [=, s = std::move(s), e = runtime(),
+                    msg = fmt::vformat(format, fmt::make_format_args(args...))]() mutable {
+                     // print the log message
+                     fmt::print(line_format,                     //
+                                e, width_ts, width_ts_precision, // runtime + width and precision
+                                mod_id, width_mod,               // module_id + width
+                                cat, width_cat,                  // category + width
+                                msg);
+                   });
       } else {
         fmt::print(line_format, runtime(), width_ts, width_ts_precision, mod_id, width_mod, cat,
-                   width_cat,
-                   fmt::vformat(format, fmt::make_args_checked<Args...>(format, args...)));
+                   width_cat, fmt::vformat(format, fmt::make_format_args(args...)));
       }
     }
   }

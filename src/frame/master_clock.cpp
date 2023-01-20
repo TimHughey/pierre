@@ -19,9 +19,9 @@
 #include "master_clock.hpp"
 #include "base/host.hpp"
 #include "base/input_info.hpp"
-#include "io/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 
 #include <algorithm>
@@ -193,7 +193,7 @@ void MasterClock::shutdown() noexcept { // static
 
   auto &threads = self->threads;
   std::for_each(threads.begin(), threads.end(), [](auto &t) mutable {
-    INFO(module_id, cat, "joining thread={}\n", t.get_id());
+    INFO(module_id, cat, "joining thread={}\n", fmt::streamed(t.get_id()));
     t.join();
   });
 
