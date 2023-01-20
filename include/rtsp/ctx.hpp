@@ -28,8 +28,6 @@
 
 namespace pierre {
 
-class Service; // forward decl to hide Service implementation details
-
 namespace rtsp {
 // forward decls for servers provided by session
 class Audio;
@@ -110,7 +108,6 @@ private:
   steady_timer feedback_timer;
 
 public:
-  std::shared_ptr<Service> service; // mdns and service info
   Aes aes;
 
 public:
