@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# Copyright 1999-2012 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+
+depend() {
+	need net nqptp
+	use logger 
+}
+
+start() {
+	ebegin "Starting ${SVCNAME}"
+	start-stop-daemon --start --background \
+    --chdir /home/thughey/.pierre --user thughey:thughey \
+    --stderr /var/log/${SVCNAME}.log \
+    --pidfile /run/pierre/${SVCNAME}.pid --make-pidfile \
+		--exec /home/thughey/devel/pierre/build/${SVCNAME} -- -v
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping ${SVCNAME}"
+	start-stop-daemon --stop --pidfile /run/pierre/${SVCNAME}.pid
+	eend $?
+}

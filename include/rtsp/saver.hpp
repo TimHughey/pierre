@@ -58,7 +58,7 @@ private:
   }
 
 public:
-  Saver() noexcept : enable(config()->at("info.rtsp.save"sv).value_or(false)) {}
+  Saver() noexcept : enable(config()->at("info.rtsp.saver.enable"sv).value_or(false)) {}
 
   template <typename T> void format_and_write(const T &r) noexcept {
 

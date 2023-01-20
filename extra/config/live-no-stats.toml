@@ -15,7 +15,7 @@ working_dir = ".pierre" # cwd to this directory at startup
 # parent_path = "" # parent path of the executable
 
 [stats]
-enabled = true
+enabled = false
 db_uri = "http://localhost:8086?db=pierre"
 batch_of = 150
 
@@ -39,7 +39,7 @@ server = true
 session = true
 
 [dmx]
-# controller = "dmx" # DEFAULT
+controller = "dmx"
 # controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
@@ -48,8 +48,8 @@ stalled = 5100
 
 [mdns]
 port = 7000
-receiver = "Pierre"    # specify %h to use hostname
-service = "_ruth._tcp" # service advertised by rendering devices
+receiver = "Pierre Live" # specify %h to use hostname
+service = "_ruth._tcp"   # service advertised by rendering devices
 
 [rtsp]
 audio = { buffer_size = 0x800000 }   # bytes (8mb)
