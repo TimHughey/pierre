@@ -40,7 +40,7 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS
   "${HEADER_PATH_LOCAL}/**/*.h*"
 )
 
-add_library(${__target} SHARED 
+add_library(${__target}  
   ${HEADER_LIST}
   config.cpp
   lcs.cpp

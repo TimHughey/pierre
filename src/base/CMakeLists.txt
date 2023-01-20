@@ -16,7 +16,7 @@ find_package(Threads                       REQUIRED)
 find_package(GCRYPT                        REQUIRED)
 find_package(Sodium                        REQUIRED)
 
-add_library(${__target} SHARED
+add_library(${__target} 
   # host info
   host.cpp
 

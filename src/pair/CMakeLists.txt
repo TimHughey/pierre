@@ -10,7 +10,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.h*")
 
 find_library(libplist     NAMES plist       REQUIRED)
 
-add_library(${__target} SHARED
+add_library(${__target} 
   # pairing and cipher
   pair.c
   pair_fruit.c

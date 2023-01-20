@@ -6,6 +6,8 @@
 
 cmake_minimum_required(VERSION 3.24.3)
 
+option(BUILD_SHARED_LIBS "Build shared versions of libraries" ON)
+
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
@@ -18,10 +20,12 @@ set(THREADS_PREFER_PTHREAD_FLAG true)
 
 # set the project name and version
 project(pierre
-  VERSION 1.0
+  VERSION 1.1
   DESCRIPTION "Custom light show for Wiss Landing"
   LANGUAGES CXX C
 )
+
+message(STATUS "~~~ ${PROJECT_NAME} v${PROJECT_VERSION} ~~~")
 
 set(_target pierre)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

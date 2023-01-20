@@ -11,7 +11,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/*.hpp")
 find_package(Avahi                          REQUIRED)
 find_library(libUUID      NAMES uuid        REQUIRED)
 
-add_library(${__target} SHARED 
+add_library(${__target}  
   # features bits (for mdns advert and airplay rtsp)
   features.cpp
 

@@ -23,7 +23,7 @@ find_library(m      NAMES m REQUIRED)
 find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
-add_library(${__target} SHARED
+add_library(${__target} 
   # digital signal processing
   fft.cpp 
 
