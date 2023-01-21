@@ -40,7 +40,7 @@ session = true
 
 [dmx]
 # controller = "dmx" # DEFAULT
-# controller = "test-with-devs"
+controller = "test-with-devs"
 
 [dmx.timeouts.milliseconds]
 idle = 60_000

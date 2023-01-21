@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
 
 #include <memory>
 
@@ -39,7 +39,6 @@ private:
   work_guard guard;
 
   // order independent
-  io::contexts contexts;
   bool args_ok{false};
 
 public:

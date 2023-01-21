@@ -22,6 +22,7 @@
 #include "io/io.hpp"
 
 #include <chrono>
+#include <cstdio>
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
 #include <fmt/format.h>
@@ -56,15 +57,15 @@ public:
                    [=, s = std::move(s), e = runtime(),
                     msg = fmt::vformat(format, fmt::make_format_args(args...))]() mutable {
                      // print the log message
-                     fmt::print(line_format,                     //
+                     fmt::print(stdout, line_format,             //
                                 e, width_ts, width_ts_precision, // runtime + width and precision
                                 mod_id, width_mod,               // module_id + width
                                 cat, width_cat,                  // category + width
                                 msg);
                    });
       } else {
-        fmt::print(line_format, runtime(), width_ts, width_ts_precision, mod_id, width_mod, cat,
-                   width_cat, fmt::vformat(format, fmt::make_format_args(args...)));
+        fmt::print(stdout, line_format, runtime(), width_ts, width_ts_precision, mod_id, width_mod,
+                   cat, width_cat, fmt::vformat(format, fmt::make_format_args(args...)));
       }
     }
   }
@@ -84,7 +85,7 @@ public:
     self.reset(); // reset our static shared_ptr to ourself
   }
 
-  static millis_fp runtime() noexcept { // static
+  static millis_fp runtime() noexcept {
     return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
   }
 

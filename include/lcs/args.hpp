@@ -72,12 +72,12 @@ public:
               ->notifier([this](const string file) { cli_table.emplace("pid-file", file); })
               ->default_value("/run/pierre/pierre.pid");
 
-      desc.add_options()                                                      //
-          ("cfg-file,C", cfg_file_val, "config file name\n")                  //
-          ("daemon,b", daemon_val, "run in background\n")                     //
-          ("dmx-host, D", dmx_host_val, "host to stream dmx frames\n")        //
-          ("pid-file,P", pid_file_val, "full path where to write pid file\n") //
-          ("help,h", "command line options overview\n");                      //
+      desc.add_options()                                                    //
+          ("cfg-file,C", cfg_file_val, "config file name")                  //
+          ("daemon,b", daemon_val, "run in background")                     //
+          ("dmx-host, D", dmx_host_val, "host to stream dmx frames")        //
+          ("pid-file,P", pid_file_val, "full path where to write pid file") //
+          ("help,h", "command line options overview");                      //
 
       // this will throw if parsing fails
       auto parsed_opts = po::parse_command_line(argc, argv, desc);
