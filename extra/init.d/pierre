@@ -3,7 +3,7 @@
 # Distributed under the terms of the GNU General Public License v2
 
 depend() {
-	need net nqptp
+	need net nqptp avahi-daemon
 	use logger 
 }
 
@@ -11,7 +11,7 @@ start() {
 	ebegin "Starting ${SVCNAME}"
 	start-stop-daemon --start --background \
     --chdir /home/thughey/.pierre --user thughey:thughey \
-    --stderr /var/log/${SVCNAME}.log \
+    --stdout /var/log/${SVCNAME}.log --stderr /var/log/${SVCNAME}.log \
     --pidfile /run/pierre/${SVCNAME}.pid --make-pidfile \
 		--exec /home/thughey/devel/pierre/build/${SVCNAME} -- -v
 	eend $?
