@@ -24,12 +24,14 @@
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 
+#include <exception>
 #include <memory>
 
 namespace pierre {
 
 namespace rtsp {
-// forward decls for servers provided by session
+// forward decls to prevent excessive header includes
+class Aes;
 class Audio;
 class Control;
 class Event;
@@ -64,11 +66,22 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(io_context &io_ctx) noexcept;
+  Ctx(io_context &io_ctx, tcp_socket sock) noexcept;
 
   auto ptr() noexcept { return shared_from_this(); }
 
   void feedback_msg() noexcept;
+
+  /// @brief Primary entry point for a session via Ctx
+  void run() noexcept {
+    try {
+
+      asio::post(io_ctx, [this, self = shared_from_this()]() { msg_loop(); });
+
+    } catch (std::runtime_error &err) {
+      teardown();
+    }
+  }
 
   Port server_port(ports_t server_type) noexcept;
 
@@ -104,11 +117,19 @@ public:
   void update_from(const Headers &headers) noexcept;
 
 private:
+  /// @brief
+  /// @param yc
+  void msg_loop();
+
+private:
+  // order dependent
   io_context &io_ctx;
   steady_timer feedback_timer;
 
 public:
-  Aes aes;
+  // order dependent
+  tcp_socket sock;
+  std::shared_ptr<Aes> aes;
 
 public:
   // from RTSP headers

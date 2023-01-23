@@ -30,6 +30,7 @@
 #include <string_view>
 
 namespace pierre {
+namespace rtsp {
 
 /// @brief Consolidated view of pairing result including RTSP response code
 struct AesResult {
@@ -45,7 +46,7 @@ struct AesResult {
 };
 
 /// @brief Encapsulates RTSP encryption, decryption and pairing state
-class Aes {
+class Aes : public std::enable_shared_from_this<Aes> {
 public:
   Aes();
 
@@ -102,4 +103,5 @@ public:
   static constexpr csv module_id{"rtsp.aes"};
 };
 
+} // namespace rtsp
 } // namespace pierre

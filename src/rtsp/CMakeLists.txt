@@ -27,8 +27,6 @@ add_library(${__target}
   reply.cpp
   request.cpp
   rtsp.cpp 
-  session.cpp
-  sessions.cpp
 
   # rtsp replies (complex, requires .cpp)
   replies/info.cpp

@@ -18,6 +18,10 @@
 
 #include "io/io.hpp"
 
+#include <exception>
+#include <fmt/format.h>
+#include <iterator>
+
 namespace pierre {
 
 const string io::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept {

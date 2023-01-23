@@ -23,18 +23,81 @@
 #include "frame/anchor.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
+#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
+#include "rtsp/request.hpp"
+#include "saver.hpp"
+
+#include <exception>
 
 namespace pierre {
 
 namespace rtsp {
 
-Ctx::Ctx(io_context &io_ctx) noexcept
-    : io_ctx(io_ctx),        //
-      feedback_timer(io_ctx) // detect absence of routine feedback messages
+Ctx::Ctx(io_context &io_ctx, tcp_socket sock) noexcept
+    : io_ctx(io_ctx),                      //
+      feedback_timer(io_ctx),              // detect absence of routine feedback messages
+      sock(std::move(sock)),               //
+      aes(std::shared_ptr<Aes>(new Aes())) //
 {}
 
 void Ctx::feedback_msg() noexcept {}
+
+void Ctx::msg_loop() {
+  static constexpr csv fn_id{"msg_loop"};
+
+  try {
+
+    for (;;) {
+      Elapsed e; // track the elapsed time for this message
+
+      std::shared_ptr<Request> request(new Request(shared_from_this()));
+      auto fut = request->read_packet();
+
+      if (auto msg = fut.get(); msg.empty() == false) break;
+
+      Saver().format_and_write(*request);
+
+      update_from(request->headers);
+
+      Reply reply;
+      reply.build(*request, shared_from_this());
+
+      if (reply.empty()) { // throw on empty reply
+        auto err = fmt::format("empty reply method={} path={}", request->headers.method(),
+                               request->headers.path());
+
+        throw std::runtime_error(err);
+      }
+
+      Saver().format_and_write(reply);
+
+      // reply has content to send
+      aes->encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
+
+      auto reply_buff = reply.buffer();
+      asio::async_write(
+          sock,       //
+          reply_buff, //
+          [=, this, s = ptr(), reply = std::move(reply)](error_code ec, size_t bytes) mutable {
+            // write stats
+            Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
+            Stats::write(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
+
+            const auto msg = io::is_ready(sock, ec);
+
+            if (!msg.empty()) {
+              INFO(module_id, fn_id, "async_write failed, {}\n", msg);
+              teardown();
+            }
+          });
+    }
+  } catch (std::exception &err) {
+    INFO(module_id, fn_id, "{}\n", err.what());
+
+    teardown();
+  }
+}
 
 Port Ctx::server_port(ports_t server_type) noexcept {
   Port port{0};

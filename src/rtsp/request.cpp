@@ -17,6 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "request.hpp"
+#include "aes.hpp"
+#include "ctx.hpp"
+#include "lcs/logger.hpp"
+#include "lcs/stats.hpp"
 
 #include <exception>
 #include <span>
@@ -24,6 +28,69 @@
 
 namespace pierre {
 namespace rtsp {
+
+Request::Request(std::shared_ptr<Ctx> ctx) //
+    : ctx(ctx->shared_from_this()),        //
+      sock(ctx->sock)                      //
+{}
+
+void Request::do_packet(error_code ec, ssize_t bytes) {
+  static constexpr csv fn_id{"do_packet"};
+
+  if (packet.empty()) e.reset(); // start timing once we have data
+
+  const auto msg = io::is_ready(sock, ec);
+
+  if (!msg.empty()) {
+    // log message and fall out of scope
+    INFO(module_id, fn_id, "{} bytes={}\n", msg, bytes);
+    prom.set_value(msg);
+    return;
+  }
+
+  if (auto avail = sock.available(); avail > 0) {
+    error_code ec;
+    // bytes available, read them
+    asio::read(sock, dynamic_buffer(), asio::transfer_exactly(avail), ec);
+
+    if (ec) return;
+  }
+
+  // this function is invoked to:
+  //  1. find the message delims
+  //  2. parse the method / headers
+  //  3. ensure all content is received
+  //  4. create/send the reply
+
+  if (const auto buffered = buffered_bytes(); buffered > 0) {
+    auto aes = ctx->aes;
+    if (auto consumed = aes->decrypt(wire, packet); consumed != buffered) {
+      // incomplete decipher, read from socket
+      async_read();
+      return;
+    }
+  }
+
+  // we potentially have a complete message, attempt to find the delimiters
+  if (find_delims(std::array{CRLF, CRLFx2}) == false) {
+    INFO(module_id, fn_id, "packet_size={} delims={}\n", std::ssize(packet), std::ssize(delims));
+
+    // we need more data in the packet to continue
+    async_read();
+    return;
+  }
+
+  parse_headers();
+
+  const auto more_bytes = populate_content();
+
+  if (more_bytes > 0) {
+    async_read(asio::transfer_exactly(more_bytes));
+    return;
+  }
+
+  prom.set_value(string());
+}
 
 void Request::parse_headers() {
   if (headers.parse_ok == false) {

@@ -1,5 +1,5 @@
 [base]
-title = "Pierre Live"   # for identification purposes
+title = "Pierre Devel"  # for identification purposes
 config_vsn = 2          # config file format
 working_dir = ".pierre" # cwd to this directory at startup
 # build_vsn = ""        # (runtime) git version of executable

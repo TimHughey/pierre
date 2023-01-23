@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
 #include "lcs/types.hpp"
 
 #define TOML_ENABLE_FORMATTERS 0 // don't need formatters
@@ -46,23 +46,7 @@ private:
 
 public:
   static auto ptr() noexcept { return self->shared_from_this(); }
-  static auto init(io_context &io_ctx, toml::table &cli_table) noexcept {
-    if (self.use_count() < 1) {
-      self = std::shared_ptr<Config>(new Config(io_ctx, cli_table));
-      auto s = self.get();
-
-      s->parse(EXIT_ON_FAILURE);
-
-      // if we made it here cli and config are parsed, toml tables are ready for use so
-      // begin watching for changes
-
-      s->banner_msg = //
-          fmt::format("{} {} {} {}", s->receiver(), s->build_vsn(), s->build_time(),
-                      s->cli_table["pid"sv].ref<int64_t>());
-
-      s->monitor_file();
-    }
-  }
+  static void init(io_context &io_ctx, toml::table &cli_table) noexcept;
 
   // raw, direct access
   template <typename P> const auto at(P p) noexcept {

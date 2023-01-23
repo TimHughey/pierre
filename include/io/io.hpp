@@ -19,15 +19,14 @@
 
 #pragma once
 
+#define BOOST_ASIO_DISABLE_BOOST_COROUTINE
+
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 
-#include <array>
 #include <boost/asio.hpp>
 #include <boost/system.hpp>
 #include <cstdint>
-#include <fmt/format.h>
-#include <iterator>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
@@ -61,30 +60,6 @@ static constexpr uint16_t ANY_PORT{0};
 using Port = uint16_t;
 
 namespace io {
-
-struct contexts {
-
-  io_context &make(const string &key) noexcept {
-    std::unique_lock lck(mtx, std::defer_lock);
-    lck.lock();
-
-    auto [it, inserted] = map.try_emplace(key);
-
-    return it->second;
-  }
-
-  template <typename T> io_context &make() noexcept {
-    std::unique_lock lck(mtx, std::defer_lock);
-    lck.lock();
-
-    auto [it, inserted] = map.try_emplace(T::module_id.data());
-
-    return it->second;
-  }
-
-  std::map<string, io_context> map;
-  std::shared_mutex mtx;
-};
 
 static constexpr error_code make_error(errc::errc_t val = errc::success) {
   return error_code(val, sys::generic_category());

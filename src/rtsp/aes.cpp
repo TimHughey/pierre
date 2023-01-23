@@ -32,6 +32,7 @@
 #include <string>
 
 namespace pierre {
+namespace rtsp {
 
 static constexpr pair_type HOMEKIT{PAIR_SERVER_HOMEKIT};
 
@@ -169,4 +170,5 @@ AesResult Aes::setup(const uint8v &in, uint8v &out) noexcept {
   return aes_result;
 }
 
+} // namespace rtsp
 } // namespace pierre

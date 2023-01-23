@@ -18,13 +18,13 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
+#include "ctx.hpp"
 #include "desk/desk.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/features.hpp"
 #include "replies/info.hpp"
-#include "session.hpp"
 
 #include <fmt/ostream.h>
 #include <latch>
@@ -41,18 +41,21 @@ void Rtsp::async_accept() noexcept {
   // this is the socket for the next accepted connection. the socket
   // is move only so we store it in an optional and move it to session in
   // the lambda
-  sock_accept.emplace(io_ctx);
+  peer.emplace(io_ctx);
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
   // io_ctx we must deference or get the value of the optional
-  acceptor.async_accept(*sock_accept, [this, s = ptr()](error_code ec) {
+  acceptor.async_accept(*peer, [this, s = ptr()](error_code ec) {
     Elapsed e;
 
     if ((ec == errc::success) && acceptor.is_open()) {
 
-      const auto &r = sock_accept->remote_endpoint();
+      // ensure Desk is running, it may be shutdown due to idle timeout
+      Desk::init();
 
-      const auto msg = io::log_socket_msg(ec, sock_accept.value(), r, e);
+      const auto &r = peer->remote_endpoint();
+
+      const auto msg = io::log_socket_msg(ec, peer.value(), r, e);
       INFO(module_id, fn_id, "{}\n", msg);
 
       // create the session passing all the options
@@ -62,14 +65,9 @@ void Rtsp::async_accept() noexcept {
       //  3. Session::start() must ensure the shared_ptr pointer is captured in the
       //     async lamba so it doesn't go out of scope
 
-      auto session = rtsp::Session::create(io_ctx, std::move(sock_accept.value()));
+      auto ctx = sessions.emplace_back(new rtsp::Ctx(io_ctx, std::move(*peer)));
 
-      // ensure Desk is running, it may be shutdown due to idle timeout
-      Desk::init();
-
-      session->run(e);
-
-      session_storage.emplace(std::move(session));
+      ctx->run();
 
       Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
 
@@ -115,8 +113,13 @@ void Rtsp::shutdown() noexcept { // static
 
     [[maybe_unused]] error_code ec;
     self->acceptor.close(ec);
+    auto &sessions = self->sessions;
 
-    if (self->session_storage.has_value()) self->session_storage.value()->shutdown();
+    std::for_each(sessions.begin(), sessions.end(), [](auto ctx) {
+      [[maybe_unused]] error_code ec;
+      ctx->sock.shutdown(tcp_socket::shutdown_both, ec);
+      ctx->sock.close(ec);
+    });
 
     self->guard.reset(); // allow the io_ctx to complete when other work is finished
 

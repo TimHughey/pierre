@@ -31,14 +31,14 @@ namespace pierre {
 
 namespace rtsp {
 class Ctx;
-class Session;
 } // namespace rtsp
 
 class Rtsp : public std::enable_shared_from_this<Rtsp> {
 private:
   Rtsp()
       : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-        guard(asio::make_work_guard(io_ctx)) {}
+        guard(asio::make_work_guard(io_ctx)) //
+  {}
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
@@ -61,10 +61,9 @@ private:
 
   // order independent
   static std::shared_ptr<Rtsp> self;
-  std::optional<tcp_socket> sock_accept;
+  std::optional<tcp_socket> peer;
   Threads threads;
   std::vector<std::shared_ptr<rtsp::Ctx>> sessions;
-  std::optional<std::shared_ptr<rtsp::Session>> session_storage;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 
