@@ -19,6 +19,7 @@
 */
 
 #include "host.hpp"
+#include "lcs/logger.hpp"
 
 #include <arpa/inet.h>
 #include <array>
@@ -58,14 +59,21 @@ Host::Host() noexcept : name(255, 0x00) {
 }
 
 void Host::discover_ip_addrs() {
-  struct ifaddrs *addrs, *iap;
+  static constexpr csv fn_id{"discover"};
+
+  struct ifaddrs *addrs;
 
   if (getifaddrs(&addrs) < 0) {
     throw(std::runtime_error("Host getifaddrs() failed"));
   }
 
-  for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+  // loop through addrs to:
+  //   1. find our IP address
+  //   2. find the hardware mac address
 
+  for (auto iap = addrs; (iap != NULL) && ip_addrs.empty(); iap = iap->ifa_next) {
+
+    // find our IP address
     if (iap->ifa_addr                              // an actual address
         && iap->ifa_netmask                        // non-zero netmask
         && (iap->ifa_flags & IFF_UP)               // iterface is up
@@ -81,18 +89,24 @@ void Host::discover_ip_addrs() {
         // struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
         // inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf.data(), buf.size());
       } else {
+        // get our ip address
         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
         inet_ntop(AF_INET, (void *)&addr->sin_addr, buf.data(), buf.size());
+
+        if ((buf[0] != 0x00) && ip_addrs.empty()) {
+          ip_addrs.emplace_back(buf.data());
+        }
       }
+    }
 
-      if (buf[0] != 0) {
-        ip_addrs.emplace_back(buf.data());
+    // find our mac address
+    auto ifa = iap;
+    if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
 
-        // grab the interface mac addr if we don't have one yet
+      if (csv(ifa->ifa_name) != csv{"lo"}) {
         if (_hw_addr_bytes[0] == 0x00) {
-          // auto *s = (struct sockaddr_ll *)iap->ifa_addr;
-
-          std::memcpy(_hw_addr_bytes.data(), iap->ifa_addr, _hw_addr_bytes.size());
+          struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
+          std::memcpy(_hw_addr_bytes.data(), s->sll_addr, _hw_addr_bytes.size());
         }
       }
     }
