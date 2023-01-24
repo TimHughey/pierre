@@ -18,11 +18,10 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 #include "rtsp/headers.hpp"
-#include "rtsp/request.hpp"
 #include "rtsp/resp_code.hpp"
 
 #include <algorithm>
@@ -62,25 +61,27 @@ public:
   // <binary or plist content>
 
 public:
-  Reply() = default;
+  Reply(const Headers &headers_in, const uint8v &content_in) //
+      : headers_in(headers_in),                              //
+        content_in(content_in) {}
 
   auto buffer() const noexcept { return asio::buffer(wire); }
 
-  void build(Request &request, std::shared_ptr<Ctx> ctx) noexcept;
+  const string build(std::shared_ptr<Ctx> ctx) noexcept;
 
   void copy_to_content(const uint8_t *begin, const size_t bytes) noexcept {
-    auto w = std::back_inserter(content);
+    auto w = std::back_inserter(content_out);
     std::copy_n(begin, bytes, w);
   }
 
   void copy_to_content(const auto &buf) noexcept {
-    auto w = std::back_inserter(content);
+    auto w = std::back_inserter(content_out);
     std::copy_n(buf.begin(), std::size(buf), w);
   }
 
   bool empty() const noexcept { return std::empty(wire); }
 
-  bool has_content() noexcept { return content.empty() == false; }
+  bool has_content() noexcept { return content_out.empty() == false; }
 
   void operator()(RespCode::code_val val) noexcept { resp_code(val); }
 
@@ -89,12 +90,17 @@ public:
   void set_resp_code(RespCode::code_val val) noexcept { resp_code(val); }
 
 public:
-  Headers headers;
-  uint8v content;
+  // order dependent
+  const Headers &headers_in;
+  const uint8v &content_in;
+
+  // order independent
+  Headers headers_out;
+  uint8v content_out;
+  RespCode resp_code{RespCode::NotImplemented};
   string error;
 
 protected:
-  RespCode resp_code{RespCode::NotImplemented};
   uint8v wire;
 
 public:

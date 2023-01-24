@@ -29,8 +29,8 @@ namespace rtsp {
 
 class Command {
 public:
-  Command(uint8v &request, Reply &reply) {
-    Aplist rdict(request);
+  Command(const uint8v &content_in, Reply &reply) {
+    Aplist rdict(content_in);
 
     if (!rdict.empty() && rdict.compareString("type", "updateMRSupportedCommands")) {
       // we don't support updateMRSupportedCommands

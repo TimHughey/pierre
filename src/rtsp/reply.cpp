@@ -41,7 +41,7 @@ namespace pierre {
 
 namespace rtsp {
 
-void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
+const string Reply::build(std::shared_ptr<Ctx> ctx) noexcept {
   // clear previous error
   error.clear();
 
@@ -51,12 +51,12 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   auto *ctx_naked = ctx.get();
 
   // handle the various RTSP requests based on the method and path
-  const auto &method = request.headers.method();
-  const auto &path = request.headers.path();
+  const auto &method = headers_in.method();
+  const auto &path = headers_in.path();
 
   // all replies must include CSeq and Server headers, copy/add them now
-  headers.copy(hdr_type::CSeq, request.headers);
-  headers.add(hdr_type::Server, hdr_val::AirPierre);
+  headers_out.copy(hdr_type::CSeq, headers_in);
+  headers_out.add(hdr_type::Server, hdr_val::AirPierre);
 
   if (method.starts_with("CONTINUE")) {
     resp_code(RespCode::Continue); // trivial, only set reqponse code
@@ -67,10 +67,10 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   } else if (method == csv("POST")) { // handle POST methods
 
     if (path == csv("/fp-setup")) {
-      FairPlay(request.content, *this);
+      FairPlay(content_in, *this);
 
     } else if (path == csv("/command")) {
-      Command(request.content, *this);
+      Command(content_in, *this);
 
     } else if (path == csv("/feedback")) {
       // trival, basic headers and response code of OK
@@ -82,13 +82,13 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
       AesResult aes_result;
 
       if (path.ends_with("setup")) {
-        aes_result = ctx_naked->aes->setup(request.content, content);
+        aes_result = ctx_naked->aes->setup(content_in, content_out);
       } else if (path.ends_with("verify")) {
-        aes_result = ctx_naked->aes->verify(request.content, content);
+        aes_result = ctx_naked->aes->verify(content_in, content_out);
       }
 
       if (has_content()) {
-        headers.add(hdr_type::ContentType, hdr_val::OctetStream);
+        headers_out.add(hdr_type::ContentType, hdr_val::OctetStream);
       }
 
       resp_code = aes_result.resp_code;
@@ -100,21 +100,21 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
         "ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, "
         "TEARDOWN, OPTIONS, POST, GET, PUT"};
 
-    headers.add(hdr_type::Public, options);
+    headers_out.add(hdr_type::Public, options);
     set_resp_code(RespCode::OK);
 
   } else if (method == csv("SETUP")) {
-    Setup(request.content, request.headers, *this, ctx_naked);
+    Setup(content_in, headers_in, *this, ctx_naked);
 
   } else if (method.ends_with("_PARAMETER")) {
     if (method.starts_with("GET")) {
-      csv param = request.content.view();
+      csv param = content_in.view();
 
       if (param.starts_with("volume")) {
         constexpr csv full_volume("\r\nvolume: 0.0\r\n");
 
         copy_to_content(full_volume);
-        headers.add(hdr_type::ContentType, hdr_val::TextParameters);
+        headers_out.add(hdr_type::ContentType, hdr_val::TextParameters);
       }
 
     } else if (method.starts_with("SET")) {
@@ -129,7 +129,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
   } else if (method == csv("SETPEERS")) {
 
-    Aplist request_dict(request.content);
+    Aplist request_dict(content_in);
     auto peers = request_dict.stringArray({ROOT});
     if (peers.empty() == false) {
       MasterClock::peers(peers);   // set the peer lists
@@ -138,7 +138,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
   } else if (method == csv("SETPEERSX")) {
 
-    Aplist request_dict = request.content;
+    Aplist request_dict = content_in;
 
     MasterClock::Peers peer_list;
     const auto count = request_dict.arrayItemCount({ROOT});
@@ -155,12 +155,12 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
     MasterClock::peers(peer_list);
 
   } else if (method == csv("SETRATEANCHORTIME")) {
-    SetAnchor(request.content, *this);
+    SetAnchor(content_in, *this);
   } else if (method == csv("TEARDOWN")) {
 
-    Aplist request_dict(request.content);
+    Aplist request_dict(content_in);
 
-    headers.add(hdr_type::ContentSimple, hdr_val::ConnectionClosed);
+    headers_out.add(hdr_type::ContentSimple, hdr_val::ConnectionClosed);
     set_resp_code(RespCode::OK); // always OK
 
     // any TEARDOWN request (with streams key or not) always clears the shared key and
@@ -179,7 +179,7 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
 
   } else if (method == csv("FLUSHBUFFERED")) {
 
-    Aplist request_dict(request.content);
+    Aplist request_dict(content_in);
 
     // notes:
     // 1. from_seq and from_ts may not be present
@@ -206,18 +206,20 @@ void Reply::build(Request &request, std::shared_ptr<Ctx> ctx) noexcept {
   fmt::format_to(w, "RTSP/1.0 {}{}", resp_code(), seperator);
 
   // must add content length before calling headers list()
-  if (content.empty() == false) {
-    headers.add(hdr_type::ContentLength, content.size());
+  if (content_out.empty() == false) {
+    headers_out.add(hdr_type::ContentLength, content_out.size());
   }
 
-  headers.format_to(w);
+  headers_out.format_to(w);
 
   // always write the separator between headers and content
   fmt::format_to(w, "{}", seperator);
 
-  if (content.empty() == false) { // we have content, add it
-    std::copy(content.begin(), content.end(), w);
+  if (content_out.empty() == false) { // we have content, add it
+    std::copy(content_out.begin(), content_out.end(), w);
   }
+
+  return error;
 }
 
 } // namespace rtsp

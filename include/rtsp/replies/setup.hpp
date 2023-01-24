@@ -27,7 +27,7 @@ namespace rtsp {
 
 class Setup {
 public:
-  Setup(uint8v &content, Headers &headers, Reply &reply, Ctx *ctx) noexcept;
+  Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, Ctx *ctx) noexcept;
 
 private:
   bool has_streams() noexcept;
@@ -35,8 +35,8 @@ private:
 
 private:
   // order dependent
-  Aplist rdict;     // the request dict
-  Headers &headers; /// request headers
+  Aplist rdict;              // the request dict
+  const Headers &headers_in; /// request headers
   Reply &reply;
   Ctx *ctx;
 

@@ -98,6 +98,7 @@ void Ctx::browse(csv stype) noexcept {
 
 void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data) {
   static constexpr csv cb_id{"cb_client"};
+  static bool thread_named{false};
 
   auto ctx = static_cast<Ctx *>(user_data);
 
@@ -107,7 +108,7 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
     INFO(module_id, cb_id, "STORING, client={} ctx={}\n", fmt::ptr(client), fmt::ptr(ctx));
 
     ctx->client = client; // save the client (for comparison later)
-    name_thread(thread_name);
+
   } else if (client != ctx->client) {
     INFO(module_id, cb_id, "CLIENT MISMATCH, {}/{} \n", fmt::ptr(client), fmt::ptr(ctx->client));
     return;
@@ -120,6 +121,11 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
 
   case AVAHI_CLIENT_S_REGISTERING: {
     INFO(module_id, cb_id, "REGISTERING, client={}\n", fmt::ptr(ctx->client));
+
+    if (thread_named == false) {
+      name_thread(thread_name);
+      thread_named = true;
+    }
 
     // if there is already a group, reset it
     if (ctx->entry_group.has_value()) {

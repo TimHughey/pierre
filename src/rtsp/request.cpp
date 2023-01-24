@@ -22,7 +22,6 @@
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 
-#include <exception>
 #include <span>
 #include <utility>
 
@@ -37,7 +36,7 @@ Request::Request(std::shared_ptr<Ctx> ctx) //
 void Request::do_packet(error_code ec, ssize_t bytes) {
   static constexpr csv fn_id{"do_packet"};
 
-  if (packet.empty()) e.reset(); // start timing once we have data
+  if (!wire.empty() && packet.empty()) e.reset(); // start timing once we have data
 
   const auto msg = io::is_ready(sock, ec);
 
@@ -50,8 +49,8 @@ void Request::do_packet(error_code ec, ssize_t bytes) {
 
   if (auto avail = sock.available(); avail > 0) {
     error_code ec;
-    // bytes available, read them
-    asio::read(sock, dynamic_buffer(), asio::transfer_exactly(avail), ec);
+    // special case: we know bytes are available, do sync read
+    asio::read(sock, asio::dynamic_buffer(wire), asio::transfer_exactly(avail), ec);
 
     if (ec) return;
   }
@@ -62,7 +61,7 @@ void Request::do_packet(error_code ec, ssize_t bytes) {
   //  3. ensure all content is received
   //  4. create/send the reply
 
-  if (const auto buffered = buffered_bytes(); buffered > 0) {
+  if (const auto buffered = std::ssize(wire); buffered > 0) {
     auto aes = ctx->aes;
     if (auto consumed = aes->decrypt(wire, packet); consumed != buffered) {
       // incomplete decipher, read from socket
@@ -80,25 +79,25 @@ void Request::do_packet(error_code ec, ssize_t bytes) {
     return;
   }
 
-  parse_headers();
-
-  const auto more_bytes = populate_content();
-
-  if (more_bytes > 0) {
-    async_read(asio::transfer_exactly(more_bytes));
-    return;
-  }
-
-  prom.set_value(string());
-}
-
-void Request::parse_headers() {
+  // parse headers since we have all delims
   if (headers.parse_ok == false) {
     // we haven't parsed headers yet, do it now
     auto parse_ok = headers.parse(packet, delims);
 
-    if (parse_ok == false) throw(std::runtime_error(headers.parse_err));
+    if (parse_ok == false) {
+      prom.set_value(headers.parse_err);
+      return;
+    }
   }
+
+  // ensure we have all the content, reading more bytes as needed
+  if (const auto more_bytes = populate_content(); more_bytes > 0) {
+    async_read(asio::transfer_exactly(more_bytes));
+    return;
+  }
+
+  // if we've reached this point we're done, set prom with empty string
+  prom.set_value(string());
 }
 
 size_t Request::populate_content() noexcept {

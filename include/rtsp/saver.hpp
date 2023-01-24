@@ -19,10 +19,11 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "base/uint8v.hpp"
+#include "headers.hpp"
 #include "lcs/config.hpp"
 #include "rtsp/aplist.hpp"
-#include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
+#include "rtsp/resp_code.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -35,6 +36,10 @@ namespace pierre {
 namespace rtsp {
 
 class Saver {
+
+public:
+  enum Direction { IN, OUT };
+
 private:
   // early decl due to auto
   void format_content(const Headers &headers, const uint8v &content, auto &w) const noexcept {
@@ -58,25 +63,25 @@ private:
   }
 
 public:
-  Saver() noexcept : enable(config()->at("info.rtsp.saver.enable"sv).value_or(false)) {}
-
-  template <typename T> void format_and_write(const T &r) noexcept {
+  Saver(Saver::Direction direction, const Headers &headers, const uint8v &content,
+        const RespCode resp_code = RespCode(RespCode::code_val::OK))
+      : enable(config()->at("info.rtsp.saver.enable"sv).value_or(false)) {
 
     if (enable) {
-      using U = std::remove_cvref_t<T>;
 
       uint8v buff;
       auto w = std::back_inserter(buff);
 
-      if constexpr (std::is_same_v<U, Request>) {
-        fmt::format_to(w, "{} {} RTSP/1.0{}", r.headers.method(), r.headers.path(), separator);
-      } else if constexpr (std::is_same_v<U, Reply>) {
-        fmt::format_to(w, "RTSP/1.0 {}{}", r.resp_code(), separator);
+      if (direction == Saver::IN) {
+        fmt::format_to(w, "{} {} RTSP/1.0{}", headers.method(), headers.path(), separator);
+      } else {
+        fmt::format_to(w, "RTSP/1.0 {}{}", resp_code(), separator);
       }
 
-      r.headers.format_to(w);
+      headers.format_to(w);
+
       fmt::format_to(w, "{}", separator);
-      format_content(r.headers, r.content, w);
+      format_content(headers, content, w);
 
       write(buff);
     }

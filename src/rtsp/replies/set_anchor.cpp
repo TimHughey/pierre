@@ -26,8 +26,8 @@
 namespace pierre {
 namespace rtsp {
 
-SetAnchor::SetAnchor(uint8v &content, Reply &reply) noexcept {
-  Aplist request_dict(content);
+SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply) noexcept {
+  Aplist request_dict(content_in);
 
   // a complete anchor message contains these keys
   static const Aplist::KeyList keys{NET_TIMELINE_ID, NET_TIME_SECS, NET_TIME_FRAC, NET_TIME_FLAGS,

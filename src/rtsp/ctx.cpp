@@ -54,14 +54,15 @@ void Ctx::msg_loop() {
       std::shared_ptr<Request> request(new Request(shared_from_this()));
       auto fut = request->read_packet();
 
-      if (auto msg = fut.get(); msg.empty() == false) break;
+      if (auto msg = fut.get(); msg.empty() == false) throw std::runtime_error(msg);
 
-      Saver().format_and_write(*request);
+      Saver(Saver::IN, request->headers, request->content);
 
       update_from(request->headers);
 
-      Reply reply;
-      reply.build(*request, shared_from_this());
+      Reply reply(request->headers, request->content);
+
+      reply.build(shared_from_this());
 
       if (reply.empty()) { // throw on empty reply
         auto err = fmt::format("empty reply method={} path={}", request->headers.method(),
@@ -70,7 +71,7 @@ void Ctx::msg_loop() {
         throw std::runtime_error(err);
       }
 
-      Saver().format_and_write(reply);
+      Saver(Saver::OUT, reply.headers_out, reply.content_out, reply.resp_code);
 
       // reply has content to send
       aes->encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
@@ -88,12 +89,13 @@ void Ctx::msg_loop() {
 
             if (!msg.empty()) {
               INFO(module_id, fn_id, "async_write failed, {}\n", msg);
-              teardown();
+
+              throw std::runtime_error(msg);
             }
           });
     }
   } catch (std::exception &err) {
-    INFO(module_id, fn_id, "{}\n", err.what());
+    INFO(module_id, fn_id, "exception: {}\n", err.what());
 
     teardown();
   }
@@ -124,8 +126,9 @@ Port Ctx::server_port(ports_t server_type) noexcept {
 }
 
 void Ctx::teardown() noexcept {
+  static constexpr csv fn_id{"teardown"};
 
-  INFO(module_id, "teardown", "active_remote={} dacp_id={} client_name='{}'\n", //
+  INFO(module_id, fn_id, "active_remote={} dacp_id={} client_name='{}'\n", //
        active_remote, dacp_id, client_name);
 
   group_contains_group_leader = false;
@@ -149,7 +152,7 @@ void Ctx::teardown() noexcept {
   [[maybe_unused]] error_code ec;
   feedback_timer.cancel(ec);
 
-  INFO(module_id, "teardown", "completed\n");
+  INFO(module_id, fn_id, "completed\n");
 }
 
 void Ctx::update_from(const Headers &h) noexcept {

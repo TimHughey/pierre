@@ -1,5 +1,5 @@
 [base]
-title = "Pierre Devel"  # for identification purposes
+title = "Pierre"        # for identification purposes
 config_vsn = 2          # config file format
 working_dir = ".pierre" # cwd to this directory at startup
 # build_vsn = ""        # (runtime) git version of executable
@@ -22,7 +22,7 @@ batch_of = 150
 [info]
 desk = { dmx_ctrl = true, reel = false }
 frames = { av = false, flush = false, racked = false }
-mdns = { ctx = { cb_client = true, cb_browse = false, cb_evt_grp = true } }
+mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
 
 # category specific
 init = true
@@ -32,8 +32,10 @@ debug = false
 [info.rtsp]
 audio = false
 ctx = { teardown = true }
+info = false
 event = false
 reply = false
+request = true
 saver = { enable = false, path = "../extra/debug", file = "rtsp.log", format = "raw" }
 server = true
 session = true
@@ -48,8 +50,8 @@ stalled = 5100
 
 [mdns]
 port = 7000
-receiver = "Pierre"    # specify %h to use hostname
-service = "_ruth._tcp" # service advertised by rendering devices
+receiver = "Pierre Devel" # specify %h to use hostname
+service = "_ruth._tcp"    # service advertised by rendering devices
 
 [rtsp]
 audio = { buffer_size = 0x800000 }   # bytes (8mb)

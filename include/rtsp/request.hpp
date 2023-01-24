@@ -21,7 +21,6 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
-#include "lcs/logger.hpp"
 #include "rtsp/headers.hpp"
 
 #include <future>
@@ -50,86 +49,16 @@ class Request : public std::enable_shared_from_this<Request> {
 public:
   Request(std::shared_ptr<Ctx> ctx); // must be in .cpp to prevent header loop
 
-  template <typename CompletionCondition> void async_read(CompletionCondition &&cond) {
-    static constexpr csv fn_id{"async_read"};
+  std::shared_future<string> read_packet() {
+    std::shared_future<string> fut(prom.get_future());
 
-    asio::async_read(
-        sock, dynamic_buffer(), std::move(cond),
-        [this, s = shared_from_this()](error_code ec, ssize_t bytes) { do_packet(ec, bytes); });
+    async_read(transfer_initial());
+
+    return fut;
   }
 
-  // template <typename CompletionCondition> void async_read(CompletionCondition &&cond) {
-  //   static constexpr csv fn_id{"async_read"};
-  // notes:
-  //  1. nothing within this function can be captured by the lamba
-  //     because the scope of this function ends before
-  //     the lamba executes
-  //
-  //  2. the async_read_request call will queue the work to the
-  //     socket (via it's io_context) then immediately return and
-  //     subsequently this function returns
-  //
-  //  3. we capture a shared_ptr to ourself for access within the lamba,
-  //     that shared_ptr is kept in scope while async_read_request is
-  //     waiting for socket data and while the lamba executes
-  //
-  //  4. when called again from within the lamba the sequence of
-  //     events repeats (this function returns) and the shared_ptr
-  //     once again goes out of scope
-  //
-  //  5. the crucial point -- we must keep the use count
-  //     of the session above zero until the session ends
-  //     (e.g. error, natural completion, io_ctx is stopped)
-
-  // if (sock.is_open() == false) return;
-
-  // asio::async_read(sock,             // read from this socket
-  //                  dynamic_buffer(), // into wire buffer (could be encrypted)
-  //                  std::move(cond),  // completion condition (bytes to transfer)
-  //                  [this, s = shared_from_this()](error_code ec, ssize_t bytes) mutable {
-  //                    if (packet.empty()) e.reset(); // start timing once we have data
-
-  //                    const auto msg = io::is_ready(sock, ec);
-
-  //                    if (!msg.empty()) {
-  //                      // log message and fall out of scope
-  //                      INFO(module_id, fn_id, "{} bytes={}\n", msg, bytes);
-  //                      throw std::runtime_error(msg);
-  //                    }
-
-  //                    if (auto avail = sock.available(); avail > 0) {
-  //                      // bytes available, read them
-  //                      asio::read(sock, dynamic_buffer(), asio::transfer_exactly(avail), ec);
-
-  //                      if (ec) return;
-  //                    }
-
-  //                    // handoff for decipher, parsing and reply
-  //                    do_packet();
-  //                  });
-
-  // misc notes:
-  // 1. this function returns void to match returning to the io_ctx or the
-  //    original caller (on first invocation)
-  // }
-
-  /// @brief Perform an async_read of exactly the bytes available (or a minimum of one)
-  ///        to continue collecting bytes that represent a complete packet
-  /// @param e Elapsed time of overall async_read calls
-  void async_read() {
-    if (const auto avail = sock.available(); avail > 0) {
-
-      async_read(asio::transfer_exactly(avail));
-    } else {
-      async_read(asio::transfer_at_least(1));
-    }
-  }
-
-  auto buffered_bytes() const noexcept { return std::ssize(wire); }
-
+private: // early decls for auto
   void do_packet(error_code ec, ssize_t bytes);
-
-  auto dynamic_buffer() { return asio::dynamic_buffer(wire); }
 
   auto have_delims(const auto want_delims) const noexcept {
     return std::ssize(delims) == std::ssize(want_delims);
@@ -141,15 +70,28 @@ public:
     return std::ssize(delims) == std::ssize(delims_want);
   }
 
-  std::shared_future<string> read_packet() {
-    std::shared_future<string> fut = prom.get_future();
+private:
+  template <typename CompletionCondition> void async_read(CompletionCondition &&cond) {
+    static constexpr csv fn_id{"async_read"};
 
-    async_read(transfer_initial());
-
-    return fut;
+    asio::async_read(
+        sock, asio::dynamic_buffer(wire), std::move(cond),
+        // note: capturing this and shared_from_this() allows direct calls to
+        // member functions while also ensuring the object remains in scope
+        [this, s = shared_from_this()](error_code ec, ssize_t bytes) { do_packet(ec, bytes); });
   }
 
-  void parse_headers();
+  /// @brief Re-entry point for async_read when more data from socket is required
+  ///        This function will at read at least one byte or the exact number of
+  //         bytes available on the socket
+  void async_read() {
+    if (const auto avail = sock.available(); avail > 0) {
+      async_read(asio::transfer_exactly(avail));
+    } else {
+      async_read(asio::transfer_at_least(1));
+    }
+  }
+
   size_t populate_content() noexcept;
 
 private:

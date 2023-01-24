@@ -75,7 +75,7 @@ static constexpr auto reply4 = std::to_array<uint8_t>(
      0x31, 0x1e, 0x4b, 0xe6, 0xc0, 0x53, 0x51, 0x93, 0xe5, 0xef, 0x72, 0xe8, 0x68, 0x62, 0x33, 0x72,
      0x9c, 0x22, 0x7d, 0x82, 0x0c, 0x99, 0x94, 0x45, 0xd8, 0x92, 0x46, 0xc8, 0xc3, 0x59});
 
-FairPlay::FairPlay(uint8v &content, Reply &reply) noexcept {
+FairPlay::FairPlay(const uint8v &content, Reply &reply) noexcept {
 
   if (std::empty(content) == false) {
     // const auto vsn = content.at(vsn_idx);
@@ -105,7 +105,7 @@ FairPlay::FairPlay(uint8v &content, Reply &reply) noexcept {
     }
 
     if (reply.has_content()) {
-      reply.headers.add(hdr_type::ContentType, hdr_val::OctetStream);
+      reply.headers_out.add(hdr_type::ContentType, hdr_val::OctetStream);
       reply(RespCode::OK);
     } else {
       reply(RespCode::InternalServerError);

@@ -31,15 +31,18 @@ namespace pierre {
 using Threads = std::vector<Thread>;
 
 inline void name_thread(csv name) noexcept {
+  static constexpr csv prefix{"pierre"};
   const auto tid = pthread_self();
+
+  const auto thread_name = fmt::format("{}_{}", prefix, name);
 
   // name the avahi thread (if needed)
   std::array<char, 64> buff{};
 
   pthread_getname_np(tid, buff.data(), buff.size());
 
-  if (csv(buff.data()) != name) {
-    pthread_setname_np(tid, name.data());
+  if (csv(buff.data()) != csv(thread_name)) {
+    pthread_setname_np(tid, thread_name.c_str());
   }
 }
 

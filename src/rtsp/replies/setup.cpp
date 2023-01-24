@@ -31,8 +31,8 @@
 namespace pierre {
 namespace rtsp {
 
-Setup::Setup(uint8v &content, Headers &headers, Reply &reply, Ctx *ctx) noexcept
-    : rdict(content), headers(headers), reply(reply), ctx(ctx), reply_dict() {
+Setup::Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, Ctx *ctx) noexcept
+    : rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx), reply_dict() {
 
   reply(RespCode::BadRequest); // default response is BadRequest
 
@@ -48,8 +48,8 @@ Setup::Setup(uint8v &content, Headers &headers, Reply &reply, Ctx *ctx) noexcept
     }
 
     if (rc) { // all is well, finalize the reply
-      reply_dict.format_to(reply.content);
-      reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
+      reply_dict.format_to(reply.content_out);
+      reply.headers_out.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
       reply(RespCode::OK);
 
     } else {
@@ -123,8 +123,8 @@ bool Setup::has_streams() noexcept {
     stream_info.audio_format = s0.uint({AUDIO_FORMAT});
     stream_info.client_id = s0.stringView({CLIENT_ID});
 
-    ctx->active_remote = headers.val<int64_t>(hdr_type::DacpActiveRemote);
-    ctx->dacp_id = headers.val(hdr_type::DacpID);
+    ctx->active_remote = headers_in.val<int64_t>(hdr_type::DacpActiveRemote);
+    ctx->dacp_id = headers_in.val(hdr_type::DacpID);
     ctx->shared_key = s0.dataArray({SHK}); // copy is ok here
 
     auto stream_type = ctx->setup_stream_type(s0.uint({TYPE}));

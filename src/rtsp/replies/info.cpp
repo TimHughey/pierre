@@ -69,8 +69,8 @@ Info::Info(Reply &reply) noexcept {
 
   // finally, convert the plist dictionary to binary and store as
   // content for inclusion in reply
-  reply_dict.format_to(reply.content);
-  reply.headers.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
+  reply_dict.format_to(reply.content_out);
+  reply.headers_out.add(hdr_type::ContentType, hdr_val::AppleBinPlist);
 
   reply(RespCode::OK);
 }
