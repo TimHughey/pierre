@@ -17,13 +17,13 @@
 // https://www.wisslanding.com
 
 #include "dmx_ctrl.hpp"
+#include "async_msg.hpp"
 #include "base/uint8v.hpp"
-#include "io/async_msg.hpp"
-#include "io/msg.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
+#include "msg.hpp"
 
 #include <array>
 #include <iterator>
@@ -88,7 +88,7 @@ void DmxCtrl::connect() noexcept {
                          ctrl_sock.set_option(ip_tcp::no_delay(true));
                          Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
-                         io::Msg msg(HANDSHAKE);
+                         desk::Msg msg(HANDSHAKE);
 
                          msg.add_kv("idle_shutdown_ms", idle_shutdown());
                          msg.add_kv("lead_time_µs", InputInfo::lead_time);
@@ -159,14 +159,14 @@ void DmxCtrl::msg_loop() noexcept {
   // only attempt to read a message if we're connected
   if (connected.load() && ready()) {
 
-    io::async_read_msg( //
-        *ctrl_sock, [s = ptr(), e = Elapsed()](const error_code ec, io::Msg msg) mutable {
+    desk::async_read_msg( //
+        *ctrl_sock, [s = ptr(), e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
           Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
 
           if (ec == errc::success) {
             s->stalled_watchdog(); // restart stalled watchdog
             // handle the various message types
-            if (msg.key_equal(io::TYPE, FEEDBACK)) s->handle_feedback_msg(msg.doc);
+            if (msg.key_equal(desk::TYPE, FEEDBACK)) s->handle_feedback_msg(msg.doc);
 
             s->msg_loop(); // async handle next message
 
@@ -177,7 +177,7 @@ void DmxCtrl::msg_loop() noexcept {
   }
 }
 
-void DmxCtrl::send_ctrl_msg(io::Msg msg) noexcept {
+void DmxCtrl::send_ctrl_msg(desk::Msg msg) noexcept {
   static constexpr csv fn_id{"send_ctrl_msg"};
 
   msg.serialize();
@@ -206,8 +206,8 @@ void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
 
     msg.finalize();
 
-    io::async_write_msg( //
-        *data_sock,      //
+    desk::async_write_msg( //
+        *data_sock,        //
         std::move(msg), [s = ptr(), e = Elapsed()](const error_code ec) mutable {
           // better readability
 

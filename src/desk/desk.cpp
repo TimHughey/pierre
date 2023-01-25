@@ -17,6 +17,7 @@
 // https://www.wisslanding.com
 
 #include "desk.hpp"
+#include "async_msg.hpp"
 #include "base/input_info.hpp"
 #include "dmx_ctrl.hpp"
 #include "dmx_data_msg.hpp"
@@ -25,7 +26,6 @@
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
 #include "fx/all.hpp"
-#include "io/async_msg.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"

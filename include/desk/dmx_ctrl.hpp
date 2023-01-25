@@ -19,12 +19,12 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/dmx_data_msg.hpp"
-#include "io/msg.hpp"
+#include "desk/msg.hpp"
+#include "io/io.hpp"
 
 #include <atomic>
 #include <future>
@@ -81,7 +81,7 @@ private:
 
   void msg_loop() noexcept;
 
-  void send_ctrl_msg(io::Msg msg) noexcept;
+  void send_ctrl_msg(desk::Msg msg) noexcept;
   void stalled_watchdog() noexcept;
 
 private:

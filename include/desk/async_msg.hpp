@@ -20,6 +20,7 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "desk/msg.hpp"
 #include "io/io.hpp"
 
 #include <array>
@@ -29,7 +30,7 @@
 #include <utility>
 
 namespace pierre {
-namespace io {
+namespace desk {
 
 //
 // async_read_msg(): reads a message, prefixed by length
@@ -63,7 +64,7 @@ auto async_read_msg(tcp_socket &socket, CompletionToken &&token) {
 
           case deserialize:
             if (msg.deserialize(bytes) == false) {
-              ec_local = make_error(errc::protocol_error);
+              ec_local = io::make_error(errc::protocol_error);
             }
           }
         }
@@ -126,7 +127,7 @@ auto async_write_msg(tcp_socket &socket, M msg, CompletionToken &&token) {
 
       typename std::decay<decltype(completion_handler)>::type handler;
 
-      void operator()(const error_code &ec,  [[maybe_unused]] std::size_t bytes) {
+      void operator()(const error_code &ec, [[maybe_unused]] std::size_t bytes) {
         // msg.log_tx(ec, bytes);
 
         handler(ec); // call user-supplied handler
@@ -174,5 +175,5 @@ auto async_write_msg(tcp_socket &socket, M msg, CompletionToken &&token) {
   );
 }
 
-} // namespace io
+} // namespace desk
 } // namespace pierre

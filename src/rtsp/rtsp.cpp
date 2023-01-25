@@ -41,11 +41,11 @@ void Rtsp::async_accept() noexcept {
   // this is the socket for the next accepted connection. the socket
   // is move only so we store it in an optional and move it to session in
   // the lambda
-  peer.emplace(io_ctx);
+  auto peer = std::make_shared<tcp_socket>(io_ctx);
 
   // since the io_ctx is wrapped in the optional and async_accept wants the actual
   // io_ctx we must deference or get the value of the optional
-  acceptor.async_accept(*peer, [this, s = ptr()](error_code ec) {
+  acceptor.async_accept(*peer, [this, s = ptr(), peer = peer](error_code ec) {
     Elapsed e;
 
     if ((ec == errc::success) && acceptor.is_open()) {
@@ -55,23 +55,20 @@ void Rtsp::async_accept() noexcept {
 
       const auto &r = peer->remote_endpoint();
 
-      const auto msg = io::log_socket_msg(ec, peer.value(), r, e);
+      const auto msg = io::log_socket_msg(ec, *peer, r, e);
       INFO(module_id, fn_id, "{}\n", msg);
 
-      // create the session passing all the options
-      // notes
-      //  1: we move the socket (value of the optional) to session
-      //  2. we then start the session using the shared_ptr returned by Session::create()
-      //  3. Session::start() must ensure the shared_ptr pointer is captured in the
-      //     async lamba so it doesn't go out of scope
+      { // lock and unlock sessions as quickly as possible
+        std::unique_lock lck(sessions_mtx, std::defer_lock);
+        lck.lock();
+        auto ctx = sessions.emplace_back(new rtsp::Ctx(io_ctx, std::move(peer)));
 
-      auto ctx = sessions.emplace_back(new rtsp::Ctx(io_ctx, std::move(*peer)));
-
-      ctx->run();
-
-      Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
+        ctx->run();
+      }
 
       async_accept(); // schedule the next accept
+
+      Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
     } else {
       INFO(module_id, fn_id, "failed, {}\n", ec.message());
     }
@@ -117,8 +114,8 @@ void Rtsp::shutdown() noexcept { // static
 
     std::for_each(sessions.begin(), sessions.end(), [](auto ctx) {
       [[maybe_unused]] error_code ec;
-      ctx->sock.shutdown(tcp_socket::shutdown_both, ec);
-      ctx->sock.close(ec);
+      ctx->sock->shutdown(tcp_socket::shutdown_both, ec);
+      ctx->sock->close(ec);
     });
 
     self->guard.reset(); // allow the io_ctx to complete when other work is finished

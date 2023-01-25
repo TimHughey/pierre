@@ -25,10 +25,8 @@
 #include "rtsp/resp_code.hpp"
 
 #include <algorithm>
-#include <compare>
-#include <fmt/format.h>
-#include <map>
-#include <ranges>
+#include <future>
+#include <iterator>
 
 namespace pierre {
 
@@ -37,10 +35,7 @@ namespace rtsp {
 // forward decl to hide implementation details
 class Ctx;
 
-class Reply {
-
-public:
-  friend class Saver;
+class Reply : public std::enable_shared_from_this<Reply> {
 
   // Building the response:
   // 1. Include CSeq header from request
@@ -61,13 +56,13 @@ public:
   // <binary or plist content>
 
 public:
-  Reply(const Headers &headers_in, const uint8v &content_in) //
-      : headers_in(headers_in),                              //
-        content_in(content_in) {}
+  Reply(std::shared_ptr<Ctx> ctx) : ctx(ctx) {}
 
   auto buffer() const noexcept { return asio::buffer(wire); }
 
-  const string build(std::shared_ptr<Ctx> ctx) noexcept;
+  template <typename T> std::shared_future<error_code> write(T request) noexcept {
+    return write_impl(request->headers, request->content);
+  }
 
   void copy_to_content(const uint8_t *begin, const size_t bytes) noexcept {
     auto w = std::back_inserter(content_out);
@@ -81,24 +76,28 @@ public:
 
   bool empty() const noexcept { return std::empty(wire); }
 
-  bool has_content() noexcept { return content_out.empty() == false; }
+  bool has_content() noexcept { return !content_out.empty(); }
 
   void operator()(RespCode::code_val val) noexcept { resp_code(val); }
 
-  uint8v &packet() noexcept { return wire; }
+  // uint8v &packet() noexcept { return wire; }
 
   void set_resp_code(RespCode::code_val val) noexcept { resp_code(val); }
 
+private:
+  std::shared_future<error_code> write_impl(const Headers &headers_in,
+                                            const uint8v &content_in) noexcept;
+
 public:
   // order dependent
-  const Headers &headers_in;
-  const uint8v &content_in;
+  std::shared_ptr<Ctx> ctx;
 
   // order independent
   Headers headers_out;
   uint8v content_out;
   RespCode resp_code{RespCode::NotImplemented};
   string error;
+  std::promise<error_code> prom;
 
 protected:
   uint8v wire;

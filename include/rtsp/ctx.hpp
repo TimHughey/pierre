@@ -24,6 +24,7 @@
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 
+#include <atomic>
 #include <exception>
 #include <memory>
 
@@ -66,7 +67,7 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(io_context &io_ctx, tcp_socket sock) noexcept;
+  Ctx(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept;
 
   auto ptr() noexcept { return shared_from_this(); }
 
@@ -128,7 +129,7 @@ private:
 
 public:
   // order dependent
-  tcp_socket sock;
+  std::shared_ptr<tcp_socket> sock;
   std::shared_ptr<Aes> aes;
 
 public:
@@ -146,10 +147,13 @@ public:
   stream_info_t stream_info;
   string group_id; // airplay group id
 
-  // sessions
+  // workers
   std::shared_ptr<Audio> audio_srv;
   std::shared_ptr<Control> control_srv;
   std::shared_ptr<Event> event_srv;
+
+private:
+  std::atomic_bool teardown_in_progress{false};
 
 public:
   static constexpr csv module_id{"rtsp.ctx"};

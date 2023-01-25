@@ -16,10 +16,10 @@
 //
 // https://www.wisslanding.com
 
-#include "io/msg.hpp"
+#include "desk/msg.hpp"
 
 namespace pierre {
-namespace io {
+namespace desk {
 
 // misc logging, debug
 string Msg::inspect() const noexcept {
@@ -51,5 +51,5 @@ string Msg::inspect() const noexcept {
 //   return ec;
 // }
 
-} // namespace io
+} // namespace desk
 } // namespace pierre

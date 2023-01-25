@@ -34,11 +34,11 @@ namespace pierre {
 
 namespace rtsp {
 
-Ctx::Ctx(io_context &io_ctx, tcp_socket sock) noexcept
-    : io_ctx(io_ctx),                      //
-      feedback_timer(io_ctx),              // detect absence of routine feedback messages
-      sock(std::move(sock)),               //
-      aes(std::shared_ptr<Aes>(new Aes())) //
+Ctx::Ctx(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept
+    : io_ctx(io_ctx),              //
+      feedback_timer(io_ctx),      // detect absence of routine feedback messages
+      sock(std::move(sock)),       //
+      aes(std::make_shared<Aes>()) //
 {}
 
 void Ctx::feedback_msg() noexcept {}
@@ -46,59 +46,39 @@ void Ctx::feedback_msg() noexcept {}
 void Ctx::msg_loop() {
   static constexpr csv fn_id{"msg_loop"};
 
+  auto ec = io::make_error();
+
   try {
-
-    for (;;) {
+    while (!ec && !teardown_in_progress.load()) {
       Elapsed e; // track the elapsed time for this message
+      std::shared_future<error_code> fut;
 
-      std::shared_ptr<Request> request(new Request(shared_from_this()));
-      auto fut = request->read_packet();
+      auto request = std::make_shared<Request>(sock, aes, e);
+      fut = request->read_packet();
 
-      if (auto msg = fut.get(); msg.empty() == false) throw std::runtime_error(msg);
-
-      Saver(Saver::IN, request->headers, request->content);
+      if (ec = fut.get(); ec) continue;
 
       update_from(request->headers);
 
-      Reply reply(request->headers, request->content);
+      auto reply = std::make_shared<Reply>(shared_from_this());
 
-      reply.build(shared_from_this());
+      fut = reply->write(request);
 
-      if (reply.empty()) { // throw on empty reply
-        auto err = fmt::format("empty reply method={} path={}", request->headers.method(),
-                               request->headers.path());
+      if (ec = fut.get(); ec) continue;
 
-        throw std::runtime_error(err);
-      }
-
-      Saver(Saver::OUT, reply.headers_out, reply.content_out, reply.resp_code);
-
-      // reply has content to send
-      aes->encrypt(reply.packet()); // NOTE: noop until cipher exchange completed
-
-      auto reply_buff = reply.buffer();
-      asio::async_write(
-          sock,       //
-          reply_buff, //
-          [=, this, s = ptr(), reply = std::move(reply)](error_code ec, size_t bytes) mutable {
-            // write stats
-            Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
-            Stats::write(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
-
-            const auto msg = io::is_ready(sock, ec);
-
-            if (!msg.empty()) {
-              INFO(module_id, fn_id, "async_write failed, {}\n", msg);
-
-              throw std::runtime_error(msg);
-            }
-          });
+      Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
     }
+
   } catch (std::exception &err) {
     INFO(module_id, fn_id, "exception: {}\n", err.what());
 
     teardown();
   }
+
+  if (ec) INFO(module_id, fn_id, "exiting, error={}\n", ec.what());
+
+  sock->shutdown(tcp_socket::shutdown_both, ec);
+  sock->close(ec);
 }
 
 Port Ctx::server_port(ports_t server_type) noexcept {
@@ -128,31 +108,34 @@ Port Ctx::server_port(ports_t server_type) noexcept {
 void Ctx::teardown() noexcept {
   static constexpr csv fn_id{"teardown"};
 
-  INFO(module_id, fn_id, "active_remote={} dacp_id={} client_name='{}'\n", //
-       active_remote, dacp_id, client_name);
+  if (teardown_in_progress.exchange(true) == false) {
 
-  group_contains_group_leader = false;
-  active_remote = 0;
+    INFO(module_id, fn_id, "active_remote={} dacp_id={} client_name='{}'\n", //
+         active_remote, dacp_id, client_name);
 
-  if (audio_srv) {
-    audio_srv->teardown();
-    audio_srv.reset();
+    group_contains_group_leader = false;
+    active_remote = 0;
+
+    [[maybe_unused]] error_code ec;
+    feedback_timer.cancel(ec);
+
+    if (audio_srv) {
+      audio_srv->teardown();
+      audio_srv.reset();
+    }
+
+    if (control_srv) {
+      control_srv->teardown();
+      control_srv.reset();
+    }
+
+    if (event_srv) {
+      event_srv->teardown();
+      event_srv.reset();
+    }
+
+    INFO(module_id, fn_id, "completed\n");
   }
-
-  if (control_srv) {
-    control_srv->teardown();
-    control_srv.reset();
-  }
-
-  if (event_srv) {
-    event_srv->teardown();
-    event_srv.reset();
-  }
-
-  [[maybe_unused]] error_code ec;
-  feedback_timer.cancel(ec);
-
-  INFO(module_id, fn_id, "completed\n");
 }
 
 void Ctx::update_from(const Headers &h) noexcept {

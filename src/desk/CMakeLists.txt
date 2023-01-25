@@ -15,8 +15,9 @@ add_library(${__target}
   # color
   color.cpp
 
-  # desk DMX control session
+  # desk DMX control session and message
   dmx_ctrl.cpp
+  msg.cpp
   
   # collection of headunits
   units.cpp
@@ -27,6 +28,7 @@ add_library(${__target}
   fx/majorpeak.cpp
   fx/names.cpp
   fx/standby.cpp
+
 
   ${HEADER_LIST}
 )

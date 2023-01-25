@@ -36,7 +36,7 @@ const string io::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept
   if (ec || !sock.is_open()) {
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "{}", sock.is_open() ? "[O]" : "[X");
+    fmt::format_to(w, "{}", sock.is_open() ? "[O]" : "[X]");
     if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
   }
 

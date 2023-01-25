@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <shared_mutex>
 #include <vector>
 
 namespace pierre {
@@ -61,9 +62,9 @@ private:
 
   // order independent
   static std::shared_ptr<Rtsp> self;
-  std::optional<tcp_socket> peer;
   Threads threads;
   std::vector<std::shared_ptr<rtsp::Ctx>> sessions;
+  std::shared_mutex sessions_mtx;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 

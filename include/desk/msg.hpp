@@ -33,7 +33,7 @@
 #include <vector>
 
 namespace pierre {
-namespace io {
+namespace desk {
 
 static constexpr size_t DOC_DEFAULT_MAX_SIZE{7 * 1024};
 static constexpr size_t MSG_LEN_SIZE{sizeof(uint16_t)};
@@ -142,5 +142,5 @@ public:
   static constexpr csv module_id{"io.msg.base"};
 };
 
-} // namespace io
+} // namespace desk
 } // namespace pierre

@@ -17,10 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "request.hpp"
-#include "aes.hpp"
-#include "ctx.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
+#include "saver.hpp"
 
 #include <span>
 #include <utility>
@@ -28,31 +27,20 @@
 namespace pierre {
 namespace rtsp {
 
-Request::Request(std::shared_ptr<Ctx> ctx) //
-    : ctx(ctx->shared_from_this()),        //
-      sock(ctx->sock)                      //
-{}
-
-void Request::do_packet(error_code ec, ssize_t bytes) {
+void Request::do_packet() noexcept {
   static constexpr csv fn_id{"do_packet"};
 
   if (!wire.empty() && packet.empty()) e.reset(); // start timing once we have data
 
-  const auto msg = io::is_ready(sock, ec);
-
-  if (!msg.empty()) {
-    // log message and fall out of scope
-    INFO(module_id, fn_id, "{} bytes={}\n", msg, bytes);
-    prom.set_value(msg);
-    return;
-  }
-
-  if (auto avail = sock.available(); avail > 0) {
+  if (auto avail = sock->available(); avail > 0) {
     error_code ec;
     // special case: we know bytes are available, do sync read
-    asio::read(sock, asio::dynamic_buffer(wire), asio::transfer_exactly(avail), ec);
+    asio::read(*sock, asio::dynamic_buffer(wire), asio::transfer_exactly(avail), ec);
 
-    if (ec) return;
+    if (ec) {
+      prom.set_value(ec);
+      return;
+    };
   }
 
   // this function is invoked to:
@@ -62,7 +50,6 @@ void Request::do_packet(error_code ec, ssize_t bytes) {
   //  4. create/send the reply
 
   if (const auto buffered = std::ssize(wire); buffered > 0) {
-    auto aes = ctx->aes;
     if (auto consumed = aes->decrypt(wire, packet); consumed != buffered) {
       // incomplete decipher, read from socket
       async_read();
@@ -85,7 +72,7 @@ void Request::do_packet(error_code ec, ssize_t bytes) {
     auto parse_ok = headers.parse(packet, delims);
 
     if (parse_ok == false) {
-      prom.set_value(headers.parse_err);
+      prom.set_value(io::make_error(errc::bad_message));
       return;
     }
   }
@@ -97,7 +84,9 @@ void Request::do_packet(error_code ec, ssize_t bytes) {
   }
 
   // if we've reached this point we're done, set prom with empty string
-  prom.set_value(string());
+  prom.set_value(io::make_error());
+
+  Saver(Saver::IN, headers, content);
 }
 
 size_t Request::populate_content() noexcept {

@@ -22,14 +22,14 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "desk/msg.hpp"
 #include "frame/frame.hpp"
-#include "io/msg.hpp"
 
 #include <iterator>
 
 namespace pierre {
 
-class DmxDataMsg : public io::Msg {
+class DmxDataMsg : public desk::Msg {
 
 public:
   DmxDataMsg(frame_t frame, const Nanos lead_time)
