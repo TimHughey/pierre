@@ -39,12 +39,10 @@ void Rtsp::async_accept() noexcept {
   static constexpr csv fn_id{"async_accept"};
 
   // this is the socket for the next accepted connection. the socket
-  // is move only so we store it in an optional and move it to session in
-  // the lambda
+  // is move only so we create it as a shared_ptr for capture by the lamdba
   auto peer = std::make_shared<tcp_socket>(io_ctx);
 
-  // since the io_ctx is wrapped in the optional and async_accept wants the actual
-  // io_ctx we must deference or get the value of the optional
+  // note: must dereference the peer shared_ptr
   acceptor.async_accept(*peer, [this, s = ptr(), peer = peer](error_code ec) {
     Elapsed e;
 
@@ -127,7 +125,7 @@ void Rtsp::shutdown() noexcept { // static
     }
 
     // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
-    // when the above post completes we will be deallocated
+    // when this function returns this object falls out of scope
     self.reset();
 
     INFO(module_id, "shutdown", "complete self.use_count({})\n", self.use_count());
