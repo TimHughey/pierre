@@ -58,7 +58,7 @@ void Ctx::msg_loop() {
   request = std::make_shared<Request>();
   reply = std::make_shared<Reply>();
 
-  async_read_msg(ptr(), [ctx = shared_from_this()](error_code ec) mutable {
+  net::async_read_msg(ptr(), [ctx = shared_from_this()](error_code ec) mutable {
     if (ec) {
       ctx->teardown();
       ctx->msg_loop();
@@ -70,7 +70,7 @@ void Ctx::msg_loop() {
     auto req = ctx->request.get();
     ctx->reply->build(ctx->shared_from_this(), req->headers, req->content);
 
-    async_write_msg(ctx, [ctx = ctx->shared_from_this()](error_code ec) mutable {
+    net::async_write_msg(ctx, [ctx = ctx->shared_from_this()](error_code ec) mutable {
       if (ec) {
         ctx->teardown();
         ctx->msg_loop();

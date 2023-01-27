@@ -58,11 +58,6 @@ public:
     return asio::dynamic_buffer(wire);
   }
 
-  // early decls for auto
-  auto have_delims(const auto want_delims) const noexcept {
-    return std::ssize(delims) == std::ssize(want_delims);
-  }
-
   auto find_delims() noexcept {
     delims = packet.find_delims(delims_want);
 

@@ -20,14 +20,14 @@ db_uri = "http://localhost:8086?db=pierre"
 batch_of = 150
 
 [info]
-desk = { dmx_ctrl = true, reel = false }
-frames = { av = false, flush = false, racked = false }
-mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
-
-# category specific
+# category specific overrides
 init = true
 threads = true
 debug = false
+
+desk = { dmx_ctrl = true, monitor_wip = true, reel = false }
+frames = { av = false, flush = false, racked = false }
+mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
 
 [info.rtsp]
 audio = false

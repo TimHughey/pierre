@@ -20,12 +20,12 @@
 #include "racked.hpp"
 #include "anchor.hpp"
 #include "av.hpp"
-#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 #include "lcs/stats.hpp"
 #include "master_clock.hpp"
@@ -162,6 +162,8 @@ void Racked::init() noexcept {
 }
 
 void Racked::monitor_wip() noexcept {
+  static constexpr csv fn_id{"monitor_wip"};
+
   wip_timer.expires_from_now(10s);
 
   auto s = self->ptr();
@@ -178,12 +180,12 @@ void Racked::monitor_wip() noexcept {
             auto &wip = s->wip;
 
             if (!ec && !racked.contains(serial_num)) {
-              INFOX(module_id, "MONITOR_WIP", "INCOMPLETE {}\n", wip->inspect());
+              INFOX(module_id, fn_id, "INCOMPLETE {}\n", wip->inspect());
               Stats::write(stats::RACK_WIP_INCOMPLETE, wip->size());
               // not a timer error and reel is the same
               s->rack_wip();
             } else if (!ec) {
-              INFO(module_id, "MONITOR_WIP", "reel serial_num={} already racked\n", serial_num);
+              INFO(module_id, fn_id, "reel serial_num={} already racked\n", serial_num);
             }
           }));
 }
