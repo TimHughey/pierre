@@ -25,20 +25,22 @@
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
+#include "net.hpp"
+#include "rtsp/aes.hpp"
+#include "rtsp/headers.hpp"
+#include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
 #include "saver.hpp"
 
 #include <exception>
 
 namespace pierre {
-
 namespace rtsp {
 
 Ctx::Ctx(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept
-    : io_ctx(io_ctx),              //
-      feedback_timer(io_ctx),      // detect absence of routine feedback messages
-      sock(std::move(sock)),       //
-      aes(std::make_shared<Aes>()) //
+    : io_ctx(io_ctx),         //
+      feedback_timer(io_ctx), // detect absence of routine feedback messages
+      sock(std::move(sock))   //
 {}
 
 void Ctx::feedback_msg() noexcept {}
@@ -46,39 +48,43 @@ void Ctx::feedback_msg() noexcept {}
 void Ctx::msg_loop() {
   static constexpr csv fn_id{"msg_loop"};
 
-  auto ec = io::make_error();
+  if (teardown_in_progress == true) {
+    error_code ec;
+    sock->shutdown(tcp_socket::shutdown_both, ec);
+    sock->close(ec);
+    return;
+  };
 
-  try {
-    while (!ec && !teardown_in_progress.load()) {
-      Elapsed e; // track the elapsed time for this message
-      std::shared_future<error_code> fut;
+  request = std::make_shared<Request>();
+  reply = std::make_shared<Reply>();
 
-      auto request = std::make_shared<Request>(sock, aes, e);
-      fut = request->read_packet();
-
-      if (ec = fut.get(); ec) continue;
-
-      update_from(request->headers);
-
-      auto reply = std::make_shared<Reply>(shared_from_this());
-
-      fut = reply->write(request);
-
-      if (ec = fut.get(); ec) continue;
-
-      Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
+  async_read_msg(ptr(), [ctx = shared_from_this()](error_code ec) mutable {
+    if (ec) {
+      ctx->teardown();
+      ctx->msg_loop();
+      return;
     }
 
-  } catch (std::exception &err) {
-    INFO(module_id, fn_id, "exception: {}\n", err.what());
+    ctx->update_from_request();
 
-    teardown();
-  }
+    auto req = ctx->request.get();
+    ctx->reply->build(ctx->shared_from_this(), req->headers, req->content);
 
-  if (ec) INFO(module_id, fn_id, "exiting, error={}\n", ec.what());
+    async_write_msg(ctx, [ctx = ctx->shared_from_this()](error_code ec) mutable {
+      if (ec) {
+        ctx->teardown();
+        ctx->msg_loop();
+        return;
+      }
 
-  sock->shutdown(tcp_socket::shutdown_both, ec);
-  sock->close(ec);
+      Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, ctx->request->e.freeze());
+
+      ctx->request.reset();
+      ctx->reply.reset();
+
+      ctx->msg_loop();
+    });
+  });
 }
 
 Port Ctx::server_port(ports_t server_type) noexcept {
@@ -138,7 +144,9 @@ void Ctx::teardown() noexcept {
   }
 }
 
-void Ctx::update_from(const Headers &h) noexcept {
+void Ctx::update_from_request() noexcept {
+
+  const Headers &h = request->headers;
 
   cseq = h.val<int64_t>(hdr_type::CSeq);
   active_remote = h.val<int64_t>(hdr_type::DacpActiveRemote);

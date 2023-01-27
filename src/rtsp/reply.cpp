@@ -23,7 +23,6 @@
 #include "frame/racked.hpp"
 #include "headers.hpp"
 #include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/aplist.hpp"
@@ -34,7 +33,6 @@
 #include "rtsp/replies/info.hpp"
 #include "rtsp/replies/set_anchor.hpp"
 #include "rtsp/replies/setup.hpp"
-#include "rtsp/saver.hpp"
 
 #include <algorithm>
 #include <fmt/format.h>
@@ -44,18 +42,20 @@ namespace pierre {
 
 namespace rtsp {
 
-std::shared_future<error_code> Reply::write_impl(const Headers &headers_in,
-                                                 const uint8v &content_in) noexcept {
+void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
+                  const uint8v &content_in) noexcept {
   static constexpr csv fn_id{"build"};
 
   // get a naked pointer to ctx for use locally to save shared_ptr dereferences
-  // this is OK because this function receives the shared_ptr and therefore keeps
-  // it in scope until it returns.
+  // this is OK because the ctx is a member variable and stays in scope
+  // until this oject falls out of scope
   auto *ctx_naked = ctx.get();
 
   // handle the various RTSP requests based on the method and path
   const auto &method = headers_in.method();
   const auto &path = headers_in.path();
+
+  INFO(module_id, fn_id, "method={} path={}\n", method, path);
 
   // all replies must include CSeq and Server headers, copy/add them now
   headers_out.copy(hdr_type::CSeq, headers_in);
@@ -85,9 +85,9 @@ std::shared_future<error_code> Reply::write_impl(const Headers &headers_in,
       AesResult aes_result;
 
       if (path.ends_with("setup")) {
-        aes_result = ctx_naked->aes->setup(content_in, content_out);
+        aes_result = ctx_naked->aes.setup(content_in, content_out);
       } else if (path.ends_with("verify")) {
-        aes_result = ctx_naked->aes->verify(content_in, content_out);
+        aes_result = ctx_naked->aes.verify(content_in, content_out);
       }
 
       if (has_content()) {
@@ -202,8 +202,6 @@ std::shared_future<error_code> Reply::write_impl(const Headers &headers_in,
     INFO(module_id, fn_id, "{}\n", error);
   }
 
-  wire.clear();
-
   auto w = std::back_inserter(wire);
   constexpr csv seperator{"\r\n"};
 
@@ -222,25 +220,6 @@ std::shared_future<error_code> Reply::write_impl(const Headers &headers_in,
   if (content_out.empty() == false) { // we have content, add it
     std::copy(content_out.begin(), content_out.end(), w);
   }
-
-  Saver(Saver::OUT, headers_out, content_out, resp_code);
-
-  // reply has content to send
-  auto sock = ctx->sock;
-  auto aes = ctx->aes;
-
-  aes->encrypt(wire); // NOTE: noop until cipher exchange completed
-
-  asio::async_write(*sock,              //
-                    asio::buffer(wire), //
-                    [=, this, s = shared_from_this()](error_code ec, size_t bytes) mutable {
-                      // write stats
-                      Stats::write(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
-
-                      prom.set_value(ec);
-                    });
-
-  return prom.get_future();
 }
 
 } // namespace rtsp

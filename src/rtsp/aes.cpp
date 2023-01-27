@@ -20,7 +20,7 @@
 #include "base/host.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/logger.hpp"
-#include "reply.hpp"
+#include "pair/pair.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -36,7 +36,7 @@ namespace rtsp {
 
 static constexpr pair_type HOMEKIT{PAIR_SERVER_HOMEKIT};
 
-Aes::Aes() {
+Aes::Aes() : cipher_ctx{nullptr}, result{nullptr}, setup_ctx{nullptr}, verify_ctx{nullptr} {
   const auto device_id = Host().device_id().data();
 
   // allocate the setup and verify contexts
@@ -53,6 +53,26 @@ Aes::Aes() {
     static constexpr csv msg{"pair_verify_new() failed"};
     throw(std::runtime_error(msg.data()));
   }
+}
+
+Aes::~Aes() {
+  pair_cipher_free(cipher_ctx);
+  pair_setup_free(setup_ctx);
+  pair_verify_free(verify_ctx);
+}
+
+uint8v &Aes::copy_to(uint8v &out, uint8_t *data, ssize_t bytes) const {
+
+  if (data && (bytes > 0)) {
+    std::unique_ptr<uint8_t> xxx(data);
+
+    out.clear();
+    out.reserve(bytes); // reserve() NOT resize()
+
+    std::copy(data, data + bytes, std::back_inserter(out));
+  }
+
+  return out;
 }
 
 // this function is a NOP until cipher is established and the first encrypted
@@ -115,6 +135,8 @@ ssize_t Aes::decrypt(uint8v &wire, uint8v &packet) noexcept {
 
   return consumed;
 }
+
+bool Aes::have_shared_secret() const noexcept { return result->shared_secret_len > 0; }
 
 AesResult Aes::verify(const uint8v &in, uint8v &out) noexcept {
   AesResult aes_result;

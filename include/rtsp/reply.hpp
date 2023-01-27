@@ -25,7 +25,6 @@
 #include "rtsp/resp_code.hpp"
 
 #include <algorithm>
-#include <future>
 #include <iterator>
 
 namespace pierre {
@@ -56,13 +55,22 @@ class Reply : public std::enable_shared_from_this<Reply> {
   // <binary or plist content>
 
 public:
-  Reply(std::shared_ptr<Ctx> ctx) : ctx(ctx) {}
+  Reply() = default;
+
+  // prevent copy
+  Reply(Reply &) = delete;
+  Reply(const Reply &) = delete;
+  Reply &operator=(const Reply &) = delete;
+  Reply &operator=(Reply &) = delete;
+
+  // allow move
+  Reply(Reply &&) = default;
+  Reply &operator=(Reply &&) = default;
+
+  void build(const std::shared_ptr<Ctx> ctx, const Headers &headers_in,
+             const uint8v &content_in) noexcept;
 
   auto buffer() const noexcept { return asio::buffer(wire); }
-
-  template <typename T> std::shared_future<error_code> write(T request) noexcept {
-    return write_impl(request->headers, request->content);
-  }
 
   void copy_to_content(const uint8_t *begin, const size_t bytes) noexcept {
     auto w = std::back_inserter(content_out);
@@ -80,26 +88,14 @@ public:
 
   void operator()(RespCode::code_val val) noexcept { resp_code(val); }
 
-  // uint8v &packet() noexcept { return wire; }
-
   void set_resp_code(RespCode::code_val val) noexcept { resp_code(val); }
 
-private:
-  std::shared_future<error_code> write_impl(const Headers &headers_in,
-                                            const uint8v &content_in) noexcept;
-
 public:
-  // order dependent
-  std::shared_ptr<Ctx> ctx;
-
   // order independent
   Headers headers_out;
   uint8v content_out;
   RespCode resp_code{RespCode::NotImplemented};
   string error;
-  std::promise<error_code> prom;
-
-protected:
   uint8v wire;
 
 public:

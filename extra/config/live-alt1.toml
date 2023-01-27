@@ -31,10 +31,11 @@ debug = false
 
 [info.rtsp]
 audio = false
-ctx = { teardown = true }
+ctx = true
 info = false
 event = false
-reply = false
+net = false
+reply = { build = false }
 request = true
 saver = { enable = false, path = "../extra/debug", file = "rtsp.log", format = "raw" }
 server = true

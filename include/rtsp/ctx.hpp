@@ -37,6 +37,9 @@ class Audio;
 class Control;
 class Event;
 
+class Reply;
+class Request;
+
 enum ports_t { AudioPort, ControlPort, EventPort };
 
 struct stream_info_t {
@@ -75,13 +78,7 @@ public:
 
   /// @brief Primary entry point for a session via Ctx
   void run() noexcept {
-    try {
-
-      asio::post(io_ctx, [this, self = shared_from_this()]() { msg_loop(); });
-
-    } catch (std::runtime_error &err) {
-      teardown();
-    }
+    asio::post(io_ctx, [self = ptr()]() { self->msg_loop(); });
   }
 
   Port server_port(ports_t server_type) noexcept;
@@ -115,11 +112,10 @@ public:
 
   void teardown() noexcept;
 
-  void update_from(const Headers &headers) noexcept;
+  void update_from_request() noexcept;
 
 private:
-  /// @brief
-  /// @param yc
+  /// @brief Primary loop for RTSP message handling
   void msg_loop();
 
 private:
@@ -130,7 +126,11 @@ private:
 public:
   // order dependent
   std::shared_ptr<tcp_socket> sock;
-  std::shared_ptr<Aes> aes;
+  Aes aes;
+
+  // order independent
+  std::shared_ptr<Request> request;
+  std::shared_ptr<Reply> reply;
 
 public:
   // from RTSP headers

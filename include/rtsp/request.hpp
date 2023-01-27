@@ -21,10 +21,9 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
-#include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 
-#include <future>
+#include <array>
 #include <memory>
 
 namespace pierre {
@@ -41,82 +40,51 @@ class Request : public std::enable_shared_from_this<Request> {
   // Active-Remote: 1570223890
   // User-Agent: AirPlay/665.13.1
 
-  static auto transfer_initial() noexcept { return asio::transfer_at_least(117); }
-  static constexpr csv CRLF{"\r\n"};
-  static constexpr csv CRLFx2{"\r\n\r\n"};
-
 public:
-  Request(std::shared_ptr<tcp_socket> sock, std::shared_ptr<Aes> aes, Elapsed &e)
-      : sock(sock), aes(aes), e(e) {}
+  Request() = default;
+
+  // prevent copies
+  Request(Request &) = delete;
+  Request(const Request &) = delete;
+  Request &operator=(const Request &) = delete;
+  Request &operator=(Request &) = delete;
 
   Request(Request &&) = default;            // allow move
   Request &operator=(Request &&) = default; // allow move
 
-  auto read_packet() {
-    async_read(transfer_initial());
+  auto buffer() noexcept {
+    if (wire.size() && packet.empty()) e.reset();
 
-    return prom.get_future();
+    return asio::dynamic_buffer(wire);
   }
 
-private: // early decls for auto
+  // early decls for auto
   auto have_delims(const auto want_delims) const noexcept {
     return std::ssize(delims) == std::ssize(want_delims);
   }
 
-  auto find_delims(const auto &&delims_want) noexcept {
+  auto find_delims() noexcept {
     delims = packet.find_delims(delims_want);
 
     return std::ssize(delims) == std::ssize(delims_want);
   }
 
-private:
-  template <typename CompletionCondition> void async_read(CompletionCondition &&cond) {
-    static constexpr csv fn_id{"async_read"};
-
-    asio::async_read(*sock, asio::dynamic_buffer(wire), std::move(cond),
-                     // note: capturing this and shared_from_this() allows direct calls to
-                     // member functions while also ensuring the object remains in scope
-                     [this, s = shared_from_this()](error_code ec, [[maybe_unused]] ssize_t bytes) {
-                       if (!ec) {
-                         do_packet();
-                       } else {
-                         prom.set_value(ec);
-                         return;
-                       }
-                     });
-  }
-
-  /// @brief Re-entry point for async_read when more data from socket is required
-  ///        This function will at read at least one byte or the exact number of
-  //         bytes available on the socket
-  void async_read() {
-    if (const auto avail = sock->available(); avail > 0) {
-      async_read(asio::transfer_exactly(avail));
-    } else {
-      async_read(asio::transfer_at_least(1));
-    }
-  }
-
-  void do_packet() noexcept;
-
   size_t populate_content() noexcept;
-
-private:
-  // order dependent
-  std::shared_ptr<tcp_socket> sock;
-  std::shared_ptr<Aes> aes;
-  Elapsed &e;
-
-  // order independent
-  std::promise<error_code> prom;
 
 public:
   Headers headers;
   uint8v content;
-  uint8v packet; // always dedciphered
-  uint8v wire;   // maybe encrypted
+  uint8v packet; // always deciphered
+  uint8v wire;   // maybe ciphered
   uint8v::delims_t delims;
+  Elapsed e;
 
+private:
+  static constexpr csv CRLF{"\r\n"};
+  static constexpr csv CRLFx2{"\r\n\r\n"};
+  const std::array<csv, 2> delims_want{CRLF, CRLFx2};
+
+public:
   static constexpr csv module_id{"rtsp::request"};
 };
 

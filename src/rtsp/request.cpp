@@ -27,70 +27,7 @@
 namespace pierre {
 namespace rtsp {
 
-void Request::do_packet() noexcept {
-  static constexpr csv fn_id{"do_packet"};
-
-  if (!wire.empty() && packet.empty()) e.reset(); // start timing once we have data
-
-  if (auto avail = sock->available(); avail > 0) {
-    error_code ec;
-    // special case: we know bytes are available, do sync read
-    asio::read(*sock, asio::dynamic_buffer(wire), asio::transfer_exactly(avail), ec);
-
-    if (ec) {
-      prom.set_value(ec);
-      return;
-    };
-  }
-
-  // this function is invoked to:
-  //  1. find the message delims
-  //  2. parse the method / headers
-  //  3. ensure all content is received
-  //  4. create/send the reply
-
-  if (const auto buffered = std::ssize(wire); buffered > 0) {
-    if (auto consumed = aes->decrypt(wire, packet); consumed != buffered) {
-      // incomplete decipher, read from socket
-      async_read();
-      return;
-    }
-  }
-
-  // we potentially have a complete message, attempt to find the delimiters
-  if (find_delims(std::array{CRLF, CRLFx2}) == false) {
-    INFO(module_id, fn_id, "packet_size={} delims={}\n", std::ssize(packet), std::ssize(delims));
-
-    // we need more data in the packet to continue
-    async_read();
-    return;
-  }
-
-  // parse headers since we have all delims
-  if (headers.parse_ok == false) {
-    // we haven't parsed headers yet, do it now
-    auto parse_ok = headers.parse(packet, delims);
-
-    if (parse_ok == false) {
-      prom.set_value(io::make_error(errc::bad_message));
-      return;
-    }
-  }
-
-  // ensure we have all the content, reading more bytes as needed
-  if (const auto more_bytes = populate_content(); more_bytes > 0) {
-    async_read(asio::transfer_exactly(more_bytes));
-    return;
-  }
-
-  // if we've reached this point we're done, set prom with empty string
-  prom.set_value(io::make_error());
-
-  Saver(Saver::IN, headers, content);
-}
-
 size_t Request::populate_content() noexcept {
-
   long more_bytes{0}; // assume we have all content
 
   if (headers.contains(hdr_type::ContentLength)) {

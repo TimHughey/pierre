@@ -20,14 +20,13 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "pair/pair.h"
-#include "rtsp/reply.hpp"
+#include "rtsp/resp_code.hpp"
 
-#include <algorithm>
-#include <array>
-#include <cstdint>
-#include <string>
-#include <string_view>
+// forward decls for pair library in lieu of include
+struct pair_cipher_context;
+struct pair_result;
+struct pair_setup_context;
+struct pair_verify_context;
 
 namespace pierre {
 namespace rtsp {
@@ -46,18 +45,11 @@ struct AesResult {
 };
 
 /// @brief Encapsulates RTSP encryption, decryption and pairing state
-class Aes : public std::enable_shared_from_this<Aes> {
+class Aes {
 public:
   Aes();
 
-  // note: no implict copy/move constructors or assignment due to
-  // destructor definition
-
-  ~Aes() {
-    pair_cipher_free(cipher_ctx);
-    pair_setup_free(setup_ctx);
-    pair_verify_free(verify_ctx);
-  }
+  ~Aes(); // no implict copy/move due to destructor definition
 
   /// @brief decrypt a chunk of data once pairing is complete otherwise passthrough
   /// @param request request containing ciphered data and deciphered destination
@@ -74,30 +66,19 @@ private:
   /// @param data pointer to raw uint8_t array
   /// @param bytes num of bytes to copy
   /// @return reference to destination container
-  uint8v &copy_to(uint8v &out, uint8_t *data, ssize_t bytes) const {
+  uint8v &copy_to(uint8v &out, uint8_t *data, ssize_t bytes) const;
 
-    if (data && (bytes > 0)) {
-      std::unique_ptr<uint8_t> xxx(data);
-
-      out.clear();
-      out.reserve(bytes); // reserve() NOT resize()
-
-      std::copy(data, data + bytes, std::back_inserter(out));
-    }
-
-    return out;
-  }
-
-  bool have_shared_secret() const noexcept { return result->shared_secret_len > 0; }
+  bool have_shared_secret() const noexcept;
 
 private:
+  // order dependent
+  pair_cipher_context *cipher_ctx;
+  pair_result *result;
+  pair_setup_context *setup_ctx;
+  pair_verify_context *verify_ctx;
+
   bool decrypt_in{false};
   bool encrypt_out{false};
-
-  pair_cipher_context *cipher_ctx{nullptr};
-  pair_result *result{nullptr};
-  pair_setup_context *setup_ctx{nullptr};
-  pair_verify_context *verify_ctx{nullptr};
 
 public:
   static constexpr csv module_id{"rtsp.aes"};
