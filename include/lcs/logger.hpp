@@ -93,6 +93,7 @@ private:
   // order dependent
   io_context &io_ctx;
   strand local_strand;
+  FILE *out{stdout};
 
 public:
   // order independent

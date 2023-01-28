@@ -78,6 +78,11 @@ public:
         .value();
   }
 
+  static bool daemon() noexcept {
+    static constexpr csv path{"daemon"};
+    return self->cli_table[path].value_or(false);
+  }
+
   static const string build_time() noexcept {
     return self
         ->at(base_path("build_time"sv)) //
@@ -155,7 +160,6 @@ public:
   }
 
   static void want_changes(cfg_future &fut) noexcept;
-  const string working_dir() noexcept { return table_at("base.working_dir"sv).value_or(UNSET); }
 
 private:
   // path builders
