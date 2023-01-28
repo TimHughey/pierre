@@ -141,6 +141,8 @@ bool Setup::has_streams() noexcept {
                               {DATA_PORT, ctx->server_port(rtsp::AudioPort)}, // audio port
                               {BUFF_SIZE, buff_size}});                       // our buffer size
 
+      ctx->set_live();
+
     } else if (stream_info.is_realtime()) {
       rc = false;
       INFO(module_id, "STREAM", "realtime not supported\n");

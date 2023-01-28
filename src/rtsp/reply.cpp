@@ -128,7 +128,6 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     set_resp_code(RespCode::OK);
 
   } else if (method == csv("RECORD")) {
-    Rtsp::live_session(ctx->dacp_id, ctx->active_remote);
 
     // trivial, respond OK
     set_resp_code(RespCode::OK);

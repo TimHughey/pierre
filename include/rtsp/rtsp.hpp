@@ -20,6 +20,7 @@
 
 #include "base/threads.hpp"
 #include "io/io.hpp"
+#include "rtsp/sessions.hpp"
 
 #include <any>
 #include <cstdint>
@@ -38,8 +39,7 @@ class Rtsp : public std::enable_shared_from_this<Rtsp> {
 private:
   Rtsp()
       : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-        guard(asio::make_work_guard(io_ctx)) //
-  {}
+        guard(asio::make_work_guard(io_ctx)), sessions(std::make_shared<rtsp::Sessions>()) {}
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
@@ -54,19 +54,16 @@ public:
   /// @brief Shuts down the RTSP listener and releases shared_ptr to self
   static void shutdown() noexcept;
 
-  static void live_session(const string &dacp_id, int64_t active_remote) noexcept;
-
 private:
   // order dependent
   io_context io_ctx;
   tcp_acceptor acceptor;
   work_guard guard;
+  std::shared_ptr<rtsp::Sessions> sessions;
 
   // order independent
   static std::shared_ptr<Rtsp> self;
   Threads threads;
-  std::vector<std::shared_ptr<rtsp::Ctx>> sessions;
-  std::shared_mutex sessions_mtx;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 

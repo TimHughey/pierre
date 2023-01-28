@@ -25,6 +25,7 @@
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
+#include "rtsp/sessions.hpp"
 
 #include <atomic>
 #include <exception>
@@ -70,7 +71,11 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept;
+  Ctx(io_context &io_ctx, auto sock, auto sessions) noexcept
+      : io_ctx(io_ctx),         //
+        feedback_timer(io_ctx), // detect absence of routine feedback messages
+        sock(sock),             //
+        sessions(sessions) {}
 
   auto ptr() noexcept { return shared_from_this(); }
 
@@ -83,7 +88,9 @@ public:
     asio::post(io_ctx, [this]() { msg_loop(); });
   }
 
-  Port server_port(ports_t server_type) noexcept;
+    Port server_port(ports_t server_type) noexcept;
+
+  void set_live() noexcept;
 
   void setup_stream(const auto timing_protocol) noexcept {
     if (timing_protocol == csv{"PTP"}) {
@@ -128,9 +135,10 @@ private:
 public:
   // order dependent
   std::shared_ptr<tcp_socket> sock;
-  Aes aes;
+  const std::shared_ptr<Sessions> sessions;
 
   // order independent
+  Aes aes;
   std::optional<Request> request;
   std::optional<Reply> reply;
 

@@ -56,13 +56,9 @@ void Rtsp::async_accept() noexcept {
       const auto msg = io::log_socket_msg(ec, *peer, r, e);
       INFO(module_id, fn_id, "{}\n", msg);
 
-      { // lock and unlock sessions as quickly as possible
-        std::unique_lock lck(sessions_mtx, std::defer_lock);
-        lck.lock();
-        auto ctx = sessions.emplace_back(new rtsp::Ctx(io_ctx, std::move(peer)));
+      auto ctx = sessions->create(io_ctx, peer);
 
-        ctx->run();
-      }
+      ctx->run();
 
       async_accept(); // schedule the next accept
 
@@ -109,14 +105,7 @@ void Rtsp::shutdown() noexcept { // static
     [[maybe_unused]] error_code ec;
     self->acceptor.close(ec);
 
-    // new scope to lock sessions
-    {
-      std::unique_lock lck(self->sessions_mtx, std::defer_lock);
-      lck.lock();
-
-      auto &sessions = self->sessions;
-      std::for_each(sessions.begin(), sessions.end(), [](auto ctx) { ctx->close(); });
-    }
+    self->sessions->close_all();
 
     self->guard.reset(); // allow the io_ctx to complete when other work is finished
 
@@ -132,30 +121,6 @@ void Rtsp::shutdown() noexcept { // static
 
     INFO(module_id, "shutdown", "complete self.use_count({})\n", self.use_count());
   }
-}
-
-void Rtsp::live_session(const string &dacp_id, int64_t active_remote) noexcept {
-  static constexpr csv fn_id{"live_session"};
-
-  std::unique_lock lck(self->sessions_mtx, std::defer_lock);
-  lck.lock();
-
-  INFO(module_id, fn_id, "new session, dacp_id={} active_remote={}\n", dacp_id, active_remote);
-
-  std::erase_if(self->sessions, [&](const auto ctx) {
-    auto rc = false;
-
-    if ((ctx->dacp_id != dacp_id) && (ctx->active_remote != active_remote)) {
-      INFO(module_id, fn_id, "freeing session, dacp_id={} active_remote={}\n", ctx->dacp_id,
-           ctx->active_remote);
-
-      ctx->teardown();
-      ctx->close();
-      rc = true;
-    }
-
-    return rc;
-  });
 }
 
 } // namespace pierre

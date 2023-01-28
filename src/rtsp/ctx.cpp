@@ -37,12 +37,6 @@
 namespace pierre {
 namespace rtsp {
 
-Ctx::Ctx(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept
-    : io_ctx(io_ctx),         //
-      feedback_timer(io_ctx), // detect absence of routine feedback messages
-      sock(std::move(sock))   //
-{}
-
 void Ctx::close() noexcept {
   static constexpr csv fn_id{"close"};
 
@@ -140,6 +134,8 @@ Port Ctx::server_port(ports_t server_type) noexcept {
 
   return port;
 }
+
+void Ctx::set_live() noexcept { sessions->live(ptr()); }
 
 void Ctx::teardown() noexcept {
   static constexpr csv fn_id{"teardown"};
