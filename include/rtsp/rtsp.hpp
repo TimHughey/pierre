@@ -54,6 +54,8 @@ public:
   /// @brief Shuts down the RTSP listener and releases shared_ptr to self
   static void shutdown() noexcept;
 
+  static void live_session(const string &dacp_id, int64_t active_remote) noexcept;
+
 private:
   // order dependent
   io_context io_ctx;

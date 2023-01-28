@@ -23,10 +23,13 @@
 #include "io/io.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
+#include "rtsp/reply.hpp"
+#include "rtsp/request.hpp"
 
 #include <atomic>
 #include <exception>
 #include <memory>
+#include <optional>
 
 namespace pierre {
 
@@ -36,9 +39,6 @@ class Aes;
 class Audio;
 class Control;
 class Event;
-
-class Reply;
-class Request;
 
 enum ports_t { AudioPort, ControlPort, EventPort };
 
@@ -74,11 +74,13 @@ public:
 
   auto ptr() noexcept { return shared_from_this(); }
 
+  void close() noexcept;
+
   void feedback_msg() noexcept;
 
   /// @brief Primary entry point for a session via Ctx
   void run() noexcept {
-    asio::post(io_ctx, [self = ptr()]() { self->msg_loop(); });
+    asio::post(io_ctx, [this]() { msg_loop(); });
   }
 
   Port server_port(ports_t server_type) noexcept;
@@ -112,11 +114,11 @@ public:
 
   void teardown() noexcept;
 
-  void update_from_request() noexcept;
-
 private:
   /// @brief Primary loop for RTSP message handling
-  void msg_loop();
+  void msg_loop() noexcept;
+  void msg_loop_read() noexcept;
+  void msg_loop_write() noexcept;
 
 private:
   // order dependent
@@ -129,8 +131,8 @@ public:
   Aes aes;
 
   // order independent
-  std::shared_ptr<Request> request;
-  std::shared_ptr<Reply> reply;
+  std::optional<Request> request;
+  std::optional<Reply> reply;
 
 public:
   // from RTSP headers

@@ -29,7 +29,7 @@
 namespace pierre {
 namespace rtsp {
 
-class Request : public std::enable_shared_from_this<Request> {
+class Request {
 
   // the magic number of 117 represents the minimum size RTSP message expected
   // ** plain-text only, not accounting for encryption **
@@ -65,6 +65,8 @@ public:
   }
 
   size_t populate_content() noexcept;
+
+  void record_elapsed() noexcept;
 
 public:
   Headers headers;

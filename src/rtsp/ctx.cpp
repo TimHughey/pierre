@@ -43,47 +43,77 @@ Ctx::Ctx(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept
       sock(std::move(sock))   //
 {}
 
-void Ctx::feedback_msg() noexcept {}
-
-void Ctx::msg_loop() {
-  static constexpr csv fn_id{"msg_loop"};
+void Ctx::close() noexcept {
+  static constexpr csv fn_id{"close"};
 
   if (teardown_in_progress == true) {
     error_code ec;
     sock->shutdown(tcp_socket::shutdown_both, ec);
     sock->close(ec);
-    return;
-  };
+    sock.reset();
 
-  request = std::make_shared<Request>();
-  reply = std::make_shared<Reply>();
+    INFO(module_id, fn_id, "socket shutdown and closed, {}\n", ec.what());
+  }
+}
 
-  net::async_read_msg(ptr(), [ctx = shared_from_this()](error_code ec) mutable {
-    if (ec) {
-      ctx->teardown();
-      ctx->msg_loop();
-      return;
+void Ctx::feedback_msg() noexcept {}
+
+void Ctx::msg_loop() noexcept {
+
+  request.emplace();
+  reply.emplace();
+
+  msg_loop_read();
+}
+
+void Ctx::msg_loop_read() noexcept {
+
+  net::async_read_msg(ptr(), [this, ctx = ptr()](error_code ec) mutable {
+    if (!ec) {
+
+      // apply message header to ctx
+      const Headers &h = request->headers;
+
+      cseq = h.val<int64_t>(hdr_type::CSeq);
+      active_remote = h.val<int64_t>(hdr_type::DacpActiveRemote);
+      if (dacp_id.empty()) dacp_id = h.val<string>(hdr_type::DacpID);
+
+      if (h.contains(hdr_type::XAppleProtocolVersion))
+        proto_ver = h.val<int64_t>(hdr_type::XAppleProtocolVersion);
+
+      if (h.contains(hdr_type::XAppleClientName) && client_name.empty())
+        client_name = h.val(hdr_type::XAppleClientName);
+
+      if (user_agent.empty()) user_agent = h.val(hdr_type::UserAgent);
+
+      msg_loop_write(); // send the reply
+
+    } else { // error, teardown
+      teardown();
     }
+  });
+}
 
-    ctx->update_from_request();
+void Ctx::msg_loop_write() noexcept {
 
-    auto req = ctx->request.get();
-    ctx->reply->build(ctx->shared_from_this(), req->headers, req->content);
+  // build the reply from the request headers and content
+  reply->build(ptr(), request->headers, request->content);
 
-    net::async_write_msg(ctx, [ctx = ctx->shared_from_this()](error_code ec) mutable {
-      if (ec) {
-        ctx->teardown();
-        ctx->msg_loop();
-        return;
-      }
+  net::async_write_msg(ptr(), [this, ctx = ptr()](error_code ec) mutable {
+    if (!ec) {
 
-      Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, ctx->request->e.freeze());
+      request->record_elapsed();
 
-      ctx->request.reset();
-      ctx->reply.reset();
+      // clear request and reply
+      request.reset();
+      reply.reset();
 
-      ctx->msg_loop();
-    });
+      msg_loop(); // prepare for next message
+
+    } else { // error, teardown
+
+      teardown();
+    }
   });
 }
 
@@ -142,23 +172,6 @@ void Ctx::teardown() noexcept {
 
     INFO(module_id, fn_id, "completed\n");
   }
-}
-
-void Ctx::update_from_request() noexcept {
-
-  const Headers &h = request->headers;
-
-  cseq = h.val<int64_t>(hdr_type::CSeq);
-  active_remote = h.val<int64_t>(hdr_type::DacpActiveRemote);
-  if (dacp_id.empty()) dacp_id = h.val<string>(hdr_type::DacpID);
-
-  if (h.contains(hdr_type::XAppleProtocolVersion))
-    proto_ver = h.val<int64_t>(hdr_type::XAppleProtocolVersion);
-
-  if (h.contains(hdr_type::XAppleClientName) && client_name.empty())
-    client_name = h.val(hdr_type::XAppleClientName);
-
-  if (user_agent.empty()) user_agent = h.val(hdr_type::UserAgent);
 }
 
 } // namespace rtsp

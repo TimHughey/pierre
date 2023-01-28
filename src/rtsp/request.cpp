@@ -50,5 +50,9 @@ size_t Request::populate_content() noexcept {
   return more_bytes;
 }
 
+void Request::record_elapsed() noexcept {
+  Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
+}
+
 } // namespace rtsp
 } // namespace pierre

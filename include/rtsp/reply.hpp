@@ -34,7 +34,7 @@ namespace rtsp {
 // forward decl to hide implementation details
 class Ctx;
 
-class Reply : public std::enable_shared_from_this<Reply> {
+class Reply {
 
   // Building the response:
   // 1. Include CSeq header from request
