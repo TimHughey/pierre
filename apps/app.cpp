@@ -81,12 +81,12 @@ int App::main(int argc, char *argv[]) {
     }
 
     // actual daemon (child 2)
-    std::freopen("/dev/null", "r", stdin);
-    std::freopen("/dev/null", "a+", stdout);
-    std::freopen("/dev/null", "a+", stderr);
+    stdin = std::freopen("/dev/null", "r", stdin);
+    stdout = std::freopen("/dev/null", "a+", stdout);
+    stderr = std::freopen("/dev/null", "a+", stderr);
 
     umask(0);
-    chdir("/");
+    fs::current_path(fs::path("/"));
 
     { // write pid to file
       const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
