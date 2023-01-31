@@ -70,10 +70,10 @@ void Rtsp::async_accept() noexcept {
 }
 
 void Rtsp::init() noexcept {
-  static constexpr csv threads_path("rtsp.threads");
 
   self = std::shared_ptr<Rtsp>(new Rtsp());
 
+  static constexpr csv threads_path("rtsp.threads");
   const auto thread_count = config_val<int>(threads_path, 4);
 
   // create shared_ptrs to avoid spurious data races

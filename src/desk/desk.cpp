@@ -194,7 +194,7 @@ void Desk::init() noexcept {
          self->threads.size(),                                            //
          pet::humanize(InputInfo::lead_time_min));
 
-    // all threads / strands are runing, fire up subsystems
+    // all threads / strands are running, fire up subsystems
     asio::post(io_ctx, [s = self->ptr()]() {
       s->dmx_ctrl = DmxCtrl::create(s->io_ctx)->init();
 
@@ -209,7 +209,9 @@ void Desk::shutdown(bool wait_for_shutdown) noexcept {
   if (self.use_count() > 0) {
 
     auto s = ptr();
-    INFO(module_id, fn_id, "requested, self.use_count({})\n", self.use_count());
+    self.reset();
+
+    INFO(module_id, fn_id, "requested, self.use_count({})\n", s.use_count());
 
     // must spawn a new thread since Desk could be shutting itself down
     auto latch = std::make_shared<std::latch>(1);
@@ -229,7 +231,9 @@ void Desk::shutdown(bool wait_for_shutdown) noexcept {
         return true;
       });
 
-      INFO(module_id, fn_id, "complete,  use_count={}\n", self.use_count());
+      s.reset();
+
+      INFO(module_id, fn_id, "complete,  use_count={}\n", s.use_count());
 
       Racked::shutdown();
 
