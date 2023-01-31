@@ -18,96 +18,105 @@
 
 #pragma once
 
+#include "base/threads.hpp"
 #include "base/types.hpp"
 #include "io/io.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
 #include <fmt/format.h>
+#include <fmt/os.h>
+#include <fmt/ostream.h>
+#include <fmt/std.h>
 #include <memory>
 #include <optional>
 
 namespace pierre {
+class Logger;
 
-class Logger : public std::enable_shared_from_this<Logger> {
+namespace shared {
+extern Logger logger;
+}
+
+class Logger {
 private:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
-private:
-  Logger(io_context &io_ctx) noexcept // static
-      : io_ctx(io_ctx),               // borrowed io_ctx
-        local_strand(io_ctx)          // serialize log msgs
-  {}
-
-  static auto ptr() noexcept { return self->shared_from_this(); }
-
 public:
+  Logger() noexcept;
+  Logger(const Logger &) = delete;
+  Logger(Logger &) = delete;
+  Logger(Logger &&) = delete;
+
   template <typename M, typename C, typename S, typename... Args>
-  static void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
+  void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
     if (should_log_info(mod_id, cat)) {
-      if (self.use_count() > 1) {
 
-        auto s = ptr();
-        auto &local_strand = s->local_strand;
+      const auto prefix = fmt::format(prefix_format,      //
+                                      runtime(),          // millis since app start
+                                      width_ts,           // width of timsstap field,
+                                      width_ts_precision, // runtime + width and precision
+                                      mod_id, width_mod,  // module_id + width
+                                      cat, width_cat);    // category + width)
 
-        asio::post(local_strand,
-                   [=, s = std::move(s), e = runtime(),
-                    msg = fmt::vformat(format, fmt::make_format_args(args...))]() mutable {
-                     // print the log message
-                     fmt::print(stdout, line_format,             //
-                                e, width_ts, width_ts_precision, // runtime + width and precision
-                                mod_id, width_mod,               // module_id + width
-                                cat, width_cat,                  // category + width
-                                msg);
-                   });
+      const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
+
+      if (shutting_down.load() == false) {
+        asio::post(io_ctx, [this, prefix = std::move(prefix), msg = std::move(msg)]() mutable {
+          print(std::move(prefix), std::move(msg));
+        });
       } else {
-        fmt::print(stdout, line_format, runtime(), width_ts, width_ts_precision, mod_id, width_mod,
-                   cat, width_cat, fmt::vformat(format, fmt::make_format_args(args...)));
+        print(std::move(prefix), std::move(msg));
       }
     }
   }
 
-  template <typename M, typename C, typename S, typename... Args>
-  static void info_sync(const M &mod_id, const C &cat, const S &format, Args &&...args) {}
-
-  /// @brief Initialize Logger subsystem
-  /// @param io_ctx io_context to use to create local strand to serialize msgs
-  static void init(io_context &io_ctx) noexcept {
-    self = std::shared_ptr<Logger>(new Logger(io_ctx));
+  millis_fp runtime() noexcept {
+    return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
   }
 
   static bool should_log_info(csv mod, csv cat) noexcept; // see .cpp
 
-  static void teardown() noexcept {
-    self.reset(); // reset our static shared_ptr to ourself
-  }
+  static void shutdown() noexcept { shared::logger.shutdown_impl(); }
 
-  static millis_fp runtime() noexcept {
-    return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
-  }
+  static void startup() noexcept { shared::logger.startup_impl(); }
+
+private:
+  void print(const string prefix, const string msg) noexcept;
+
+  void shutdown_impl() noexcept;
+  void startup_impl() noexcept;
 
 private:
   // order dependent
-  io_context &io_ctx;
-  strand local_strand;
-  FILE *out{stdout};
+  io_context io_ctx;
+  work_guard guard;
+
+  // order independent
+  std::atomic_bool shutting_down{false};
+  Threads threads;
+  std::optional<fmt::ostream> out;
 
 public:
   // order independent
   static constexpr csv SPACE{" "};
-  static constexpr fmt::string_view line_format{"{:>{}.{}} {:<{}} {:<{}} {}"};
+  static constexpr fmt::string_view prefix_format{"{:>{}.{}} {:<{}} {:<{}}"};
   static constexpr int width_cat{15};
   static constexpr int width_mod{18};
   static constexpr int width_ts_precision{1};
   static constexpr int width_ts{13};
-  static Elapsed elapsed_runtime;
-  static std::shared_ptr<Logger> self; // must be public for macro
+  Elapsed elapsed_runtime;
+
+public:
+  static constexpr csv module_id{"logger"};
 };
 
-#define INFO(mod_id, cat, format, ...) Logger::info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
+#define INFO(mod_id, cat, format, ...)                                                             \
+  pierre::shared::logger.info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFOX(mod_id, cat, format, ...)
 

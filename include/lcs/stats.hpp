@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
 #include "lcs/stats_v.hpp"
 
 #include <InfluxDBFactory.h>
@@ -57,6 +57,8 @@ public:
     static constexpr csv MEASURE{"STATS"};
     static constexpr csv METRIC{"metric"};
     static constexpr csv NANOS{"nanos"};
+
+    if (self.use_count() < 1) return;
 
     auto s = ptr(); // get a fresh shared_ptr (we'll move it into the lambda)
 

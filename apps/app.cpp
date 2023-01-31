@@ -20,12 +20,17 @@
 #include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "desk/desk.hpp"
+#include "lcs/args.hpp"
 #include "lcs/config.hpp"
-#include "lcs/lcs.hpp"
 #include "lcs/logger.hpp"
+#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 
+#include <cstdio>
+#include <cstdlib>
+#include <errno.h>
+#include <fmt/os.h>
 #include <signal.h>
 
 int main(int argc, char *argv[]) {
@@ -38,63 +43,136 @@ int main(int argc, char *argv[]) {
 
 namespace pierre {
 
-static LoggerConfigStats lcs;
-
-App::App() noexcept                        //
-    : signal_set(io_ctx, SIGHUP, SIGINT),  //
-      guard(asio::make_work_guard(io_ctx)) //
-{}
-
-void App::async_signal() noexcept {
-  static constexpr csv fn_id{"async_signal"};
-
-  signal_set.async_wait([this](const error_code ec, int signal) {
-    if (ec) return;
-
-    INFO(module_id, fn_id, "caught {}\n", signal == SIGHUP ? "SIGHUP" : "SIGINT");
-
-    if (signal == SIGINT) {
-      signal_set.clear();
-
-      Rtsp::shutdown();
-      Desk::shutdown(Desk::WAIT_FOR_SHUTDOWN);
-      mDNS::shutdown();
-      Config::shutdown();
-      Logger::teardown();
-
-      guard.reset();
-    } else {
-      async_signal();
-    }
-  });
-}
-
 int App::main(int argc, char *argv[]) {
   static constexpr csv fn_id{"main"};
 
   crypto::init(); // initialize sodium and gcrypt
 
-  // exits if help requested, bad cli args or config parse failed
-  lcs.init(argc, argv);
+  // if construction of CliArgs returns then we are assured command line args
+  // are good and help was not requested
+  CliArgs cli_args(argc, argv);
 
-  // watch for signals
-  async_signal();
+  if (cli_args.daemon()) {
 
+    if (syscall(SYS_close_range, 3, ~0U, 0) == -1) {
+      perror("close_range failed");
+      exit(EXIT_FAILURE);
+    }
+
+    auto child_pid = fork();
+
+    // handle parent process or fork failure
+    if (child_pid > 0) { // initial parent process, exit cleanly
+      exit(EXIT_SUCCESS);
+    } else if (child_pid < 0) { // fork failed
+      perror("initial fork failed");
+      exit(EXIT_FAILURE);
+    }
+
+    // this is child process 1
+    setsid(); // create new session
+    child_pid = fork();
+
+    if (child_pid > 0) { // child process 1, exit cleanly
+      exit(EXIT_SUCCESS);
+    } else if (child_pid < 0) { // fork failed
+      perror("second fork failed");
+      exit(EXIT_FAILURE);
+    }
+
+    // actual daemon (child 2)
+    std::freopen("/dev/null", "r", stdin);
+    std::freopen("/dev/null", "a+", stdout);
+    std::freopen("/dev/null", "a+", stderr);
+    umask(0);
+
+    { // write pid to file
+      const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
+      auto os = fmt::output_file(cli_args.pid_file().c_str(), flags);
+
+      os.print("{}", getpid());
+      os.close();
+    }
+  }
+
+  // proceed with startup we are either running in the foreground or background
+  // create the asio io_context and signal sets
+  io_ctx.emplace();
+
+  Config::init(*io_ctx, cli_args.cli_table);
+  Logger::startup();
+  Stats::init(*io_ctx);
+
+  signal_set_ignore.emplace(*io_ctx, SIGHUP);
+  signal_set_shutdown.emplace(*io_ctx, SIGINT);
+
+  signals_ignore();   // ignore certain signals
+  signals_shutdown(); // catch certain signals for shutdown
+
+  INFO(module_id, fn_id, "{}\n", Config::ptr()->banner_msg);
   INFO(Config::module_id, fn_id, "{}\n", Config::ptr()->init_msg);
 
   mDNS::init();
   Desk::init();
-
-  // create and start RTSP
   Rtsp::init();
 
-  io_ctx.run(); // start the app
+  io_ctx->run(); // start the app, returns when shutdown signal received
 
   INFO(module_id, fn_id, "io_ctx has returned\n");
-
-  lcs.shutdown();
+  Logger::shutdown();
 
   return 0;
+}
+
+void App::signals_ignore() noexcept {
+  static constexpr csv fn_id{"sig_ignore"};
+
+  signal_set_ignore->async_wait([this](const error_code ec, int signal) {
+    if (!ec) {
+      signals_ignore();
+
+      INFO(module_id, fn_id, "caught SIGHUP ({})\n", signal);
+    }
+  });
+}
+
+void App::signals_shutdown() noexcept {
+  static constexpr csv fn_id{"shutdown"};
+
+  signal_set_shutdown->async_wait([this](const error_code ec, int signal) {
+    if (ec) return;
+
+    INFO(module_id, fn_id, "caught SIGINT ({}), shutting down\n", signal, Config::daemon());
+
+    if (Config::daemon()) {
+      const auto pid_path = Config::fs_pid_path();
+
+      try {
+
+        std::ifstream ifs(pid_path);
+        int64_t stored_pid;
+
+        ifs >> stored_pid;
+
+        if (stored_pid == getpid()) {
+          std::filesystem::remove(pid_path);
+        } else {
+          INFO(module_id, fn_id, "saved pid({}) does not match process pid({})\n", stored_pid,
+               getpid());
+        }
+      } catch (std::exception &except) {
+        INFO(module_id, fn_id, "removing {} {}\n", pid_path, except.what());
+      }
+    }
+
+    Rtsp::shutdown();
+    Desk::shutdown(Desk::WAIT_FOR_SHUTDOWN);
+    mDNS::shutdown();
+
+    signal_set_ignore->cancel(); // cancel the remaining work
+
+    Config::shutdown();
+  });
 }
 
 } // namespace pierre

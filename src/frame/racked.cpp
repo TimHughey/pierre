@@ -347,6 +347,7 @@ void Racked::log_racked(log_racked_rc rc) const noexcept {
 }
 
 void Racked::shutdown() noexcept {
+  static constexpr csv fn_id{"shutdown"};
 
   self->av->shutdown();
   self->av.reset();
@@ -359,10 +360,15 @@ void Racked::shutdown() noexcept {
   [[maybe_unused]] error_code ec;
   s->wip_timer.cancel(ec);
 
-  std::for_each(s->threads.begin(), s->threads.end(), [](auto &t) { t.join(); });
-  s->threads.clear();
+  std::erase_if(s->threads, [s = s](auto &t) {
+    INFO(module_id, fn_id, "joining thread={}, use_count={}\n", t.get_id(), s.use_count());
 
-  INFO(module_id, "shutdown", "threads={}\n", std::size(s->threads));
+    t.join();
+
+    return true;
+  });
+
+  INFO(module_id, "shutdown", "threads={}, use_count={}\n", std::size(s->threads), s.use_count());
 
   MasterClock::shutdown();
 }

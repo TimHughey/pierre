@@ -69,15 +69,21 @@ public:
 
       auto pid_file_val =
           po::value<string>()
-              ->notifier([this](const string file) { cli_table.emplace("pid-file", file); })
+              ->notifier([this](const string file) { cli_table.emplace("pid_file", file); })
               ->default_value("/run/pierre/pierre.pid");
 
-      desc.add_options()                                                    //
-          ("cfg-file,C", cfg_file_val, "config file name")                  //
-          ("daemon,b", daemon_val, "run in background")                     //
-          ("dmx-host, D", dmx_host_val, "host to stream dmx frames")        //
-          ("pid-file,P", pid_file_val, "full path where to write pid file") //
-          ("help,h", "command line options overview");                      //
+      auto log_file_val =
+          po::value<string>()
+              ->notifier([this](const string file) { cli_table.emplace("log_file", file); })
+              ->default_value("/var/log/pierre/pierre.log");
+
+      desc.add_options()                                            //
+          ("cfg-file,C", cfg_file_val, "config file name")          //
+          ("daemon,b", daemon_val, "run in background")             //
+          ("dmx-host,D", dmx_host_val, "host to stream dmx frames") //
+          ("pid-file,P", pid_file_val, "full path to pid file")     //
+          ("log-file,L", log_file_val, "full path to log file")     //
+          ("help,h", "command line options overview");              //
 
       // this will throw if parsing fails
       auto parsed_opts = po::parse_command_line(argc, argv, desc);
@@ -100,6 +106,16 @@ public:
       std::clog.flush();
       exit(1);
     }
+  }
+
+  bool daemon() const noexcept {
+    static constexpr csv path{"daemon"};
+    return cli_table[path].value_or(false);
+  }
+
+  const string pid_file() noexcept {
+    static constexpr csv path{"pid_file"};
+    return cli_table[path].ref<string>();
   }
 
 public:

@@ -113,15 +113,14 @@ public:
     guard.reset();
     io_ctx.stop();
 
-    std::for_each(threads.begin(), threads.end(), [](auto &t) {
-      INFO(module_id, fn_id, "joining thread={}\n", fmt::streamed(t.get_id()));
+    std::erase_if(threads, [s = shared_from_this()](auto &t) {
+      INFO(module_id, fn_id, "joining thread={}, use_count={}\n", t.get_id(), s.use_count());
 
       t.join();
+      return true;
     });
 
-    threads.clear();
-
-    INFO(module_id, fn_id, "io_ctx.stopped()={}\n", io_ctx.stopped());
+    INFO(module_id, fn_id, "threads={}\n", std::ssize(threads));
   }
 
 private:

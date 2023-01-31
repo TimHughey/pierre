@@ -357,6 +357,7 @@ void Ctx::resolved(const ZeroConf::Details zcd) noexcept {
 }
 
 void Ctx::shutdown() noexcept {
+  static constexpr csv fn_id{"shutdown"};
 
   if (entry_group.has_value()) {
     avahi_entry_group_reset(entry_group.value());
@@ -370,7 +371,7 @@ void Ctx::shutdown() noexcept {
 
   avahi_client_free(client);
 
-  INFO(module_id, "shutdown", "threaded poll stopped rc={}\n", rc);
+  INFO(module_id, fn_id, "threaded poll stopped rc={}\n", rc);
 }
 
 void Ctx::update(Service &service) noexcept {

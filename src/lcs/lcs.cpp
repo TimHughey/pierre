@@ -22,6 +22,7 @@
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 
+#include <algorithm>
 #include <boost/program_options.hpp>
 #include <filesystem>
 #include <fmt/format.h>
@@ -31,32 +32,47 @@
 
 namespace pierre {
 
-void LoggerConfigStats::init(int argc, char **argv) noexcept {
+void LoggerConfigStats::init(io_context &io_ctx, CliArgs cli_args) noexcept {
 
-  // if construction of CliArgs returns then we are assured command line args
-  // are good and help was not requested
-  CliArgs cli_args(argc, argv);
+   // if we've made it here then Config is parsed and ready; start our thread
+  // auto latch = std::make_shared<std::latch>(1);
 
-  Config::init(io_ctx, cli_args.cli_table);
+  // threads.emplace_back([this, latch]() mutable {
+  //   name_thread("lcs");
 
-  // if we've made it here then Config is parsed and ready; start our thread
-  auto latch = std::make_shared<std::latch>(1);
+  //   Logger::init(io_ctx);
+  //   Stats::init(io_ctx);
 
-  threads.emplace_back([this, latch]() mutable {
-    name_thread("lcs");
+  //   latch->arrive_and_wait();
+  //   latch.reset();
 
-    Logger::init(io_ctx);
-    Stats::init(io_ctx);
+  //   io_ctx.run();
+  // });
 
-    latch->arrive_and_wait();
-    latch.reset();
+  // latch->wait();
 
-    io_ctx.run();
-  });
+  // INFO(module_id, "info", "{}\n", Config::ptr()->banner_msg);
+}
 
-  latch->wait();
+void LoggerConfigStats::shutdown() noexcept {
+  // static constexpr csv fn_id{"shutdown"};
 
-  INFO(module_id, "info", "{}\n", Config::ptr()->banner_msg);
+  // INFO(module_id, fn_id, "shutdown requested\n");
+
+  Config::shutdown();
+  Logger::shutdown();
+
+  // guard.reset();
+  // io_ctx.stop();
+
+  // std::erase_if(threads, [](auto &t) {
+  //   INFO(module_id, fn_id, "joining thread={}\n", t.get_id());
+
+  //   t.join();
+  //   return true;
+  // });
+
+  // INFO(module_id, fn_id, "shutdown complete, threads={}\n", std::ssize(threads));
 }
 
 } // namespace pierre

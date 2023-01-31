@@ -18,34 +18,30 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
+#include "lcs/args.hpp"
 
 namespace pierre {
 
 class LoggerConfigStats {
 
 public:
-  LoggerConfigStats() noexcept : guard(asio::make_work_guard(io_ctx)) {}
-  void init(int argc, char **argv) noexcept;
+  LoggerConfigStats() = default;
+  void init(io_context &io_ctx, CliArgs cli_args) noexcept;
 
-  void shutdown() noexcept {
-    guard.reset();
-    io_ctx.stop();
-
-    for (auto &t : threads) {
-      t.join();
-    }
-  }
+  void shutdown() noexcept;
 
 private:
   // order dependent
-  io_context io_ctx;
-  work_guard guard;
+  // io_context &io_ctx;
+
+  // io_context io_ctx;
+  // work_guard guard;
 
   // order independent
-  Threads threads;
+  // Threads threads;
 
 public:
   static constexpr csv module_id{"lcs"};

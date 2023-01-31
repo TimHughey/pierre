@@ -79,7 +79,7 @@ void Config::init(io_context &io_ctx,
     // begin watching for changes
 
     s->banner_msg = //
-        fmt::format("{} {} {} {}", s->receiver(), s->build_vsn(), s->build_time(),
+        fmt::format("{} {} {} pid={}", s->receiver(), s->build_vsn(), s->build_time(),
                     s->cli_table["pid"sv].ref<int64_t>());
 
     s->monitor_file();

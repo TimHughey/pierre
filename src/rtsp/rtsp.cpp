@@ -26,7 +26,7 @@
 #include "mdns/features.hpp"
 #include "replies/info.hpp"
 
-#include <fmt/ostream.h>
+#include <algorithm>
 #include <latch>
 #include <mutex>
 
@@ -63,7 +63,7 @@ void Rtsp::async_accept() noexcept {
       async_accept(); // schedule the next accept
 
       Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
-    } else {
+    } else if (ec != errc::operation_canceled) {
       INFO(module_id, fn_id, "failed, {}\n", ec.message());
     }
   });
@@ -100,6 +100,8 @@ void Rtsp::init() noexcept {
 }
 
 void Rtsp::shutdown() noexcept { // static
+  static constexpr csv fn_id{"shutdown"};
+
   if (self.use_count() > 1) {
 
     [[maybe_unused]] error_code ec;
@@ -108,18 +110,20 @@ void Rtsp::shutdown() noexcept { // static
     self->sessions->close_all();
 
     self->guard.reset(); // allow the io_ctx to complete when other work is finished
+    self->io_ctx.stop();
 
-    for (auto &t : self->threads) {
-      INFO(module_id, "shutdown", "joining {} self.use_count({})\n", fmt::streamed(t.get_id()),
-           self.use_count());
+    std::erase_if(self->threads, [](auto &t) {
+      INFO(module_id, fn_id, "joining {}, use_count={}\n", t.get_id(), self.use_count());
       t.join();
-    }
+
+      return true;
+    });
 
     // reset the shared_ptr to ourself.  provided no other shared_ptrs exist
     // when this function returns this object falls out of scope
     self.reset();
 
-    INFO(module_id, "shutdown", "complete self.use_count({})\n", self.use_count());
+    INFO(module_id, fn_id, "complete use_count={}\n", self.use_count());
   }
 }
 

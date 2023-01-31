@@ -20,23 +20,25 @@
 #include "io/io.hpp"
 
 #include <memory>
+#include <optional>
 
 namespace pierre {
 
 class App {
 public:
-  App() noexcept;
+  App() = default;
 
   int main(int argc, char *argv[]);
 
 private:
-  void async_signal() noexcept;
+  void signals_ignore() noexcept;
+  void signals_shutdown() noexcept;
 
 private:
   // order dependent
-  io_context io_ctx;
-  asio::signal_set signal_set;
-  work_guard guard;
+  std::optional<io_context> io_ctx;
+  std::optional<asio::signal_set> signal_set_ignore;
+  std::optional<asio::signal_set> signal_set_shutdown;
 
   // order independent
   bool args_ok{false};

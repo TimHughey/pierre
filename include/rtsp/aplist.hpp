@@ -62,8 +62,9 @@ public:
   Aplist(Aplist &&ap) noexcept {
     if (_plist) plist_free(_plist); // ensure no memory leaks if default constructed
 
-    _plist = std::exchange(ap._plist, nullptr);
-  }
+    _plist = ap._plist;
+    ap._plist = nullptr;
+    }
 
   /// @brief Create Aplist from a vector of chars
   /// @param xml Vector of char data

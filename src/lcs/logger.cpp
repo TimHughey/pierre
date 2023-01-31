@@ -17,16 +17,72 @@
 //  https://www.wisslanding.com
 
 #include "lcs/logger.hpp"
+#include "base/threads.hpp"
 #include "lcs/config.hpp"
+
+#include <filesystem>
+#include <iostream>
+#include <latch>
 
 namespace pierre {
 
-std::shared_ptr<Logger> Logger::self;
-Elapsed Logger::elapsed_runtime; // class static data
+namespace shared {
+Logger logger;
+}
+
+namespace fs = std::filesystem;
+
+Logger::Logger() noexcept : guard(asio::make_work_guard(io_ctx)) {}
+
+void Logger::print(const string prefix, const string msg) noexcept {
+  if (out.has_value()) {
+    out->print("{} {}", prefix, msg);
+    out->flush();
+  } else {
+    fmt::print(std::cout, "{} {}", prefix, msg);
+  }
+}
 
 bool Logger::should_log_info(csv mod, csv cat) noexcept { // static
   // in .cpp to avoid pulling config.hpp into Logger
   return cfg_info(mod, cat);
+}
+
+void Logger::shutdown_impl() noexcept {
+  static constexpr csv fn_id{"shutdown"};
+
+  INFO(module_id, fn_id, "shutdown requested\n");
+
+  auto delay_timer = std::make_shared<steady_timer>(io_ctx);
+
+  delay_timer->expires_after(250ms);
+  delay_timer->async_wait([this, delay_timer = delay_timer](error_code ec) {
+    INFO(module_id, fn_id, "shutdown timer expired={} resetting work guard\n", ec.what());
+    guard.reset();
+    shutting_down.store(true);
+  });
+}
+
+void Logger::startup_impl() noexcept {
+
+  asio::post(io_ctx, [this]() {
+    const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
+    const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
+    out.emplace(fmt::output_file(path.c_str(), flags));
+
+    const auto now = std::chrono::system_clock::now();
+    out->print("\n{:%FT%H:%M:%S} START\n", now);
+  });
+
+  auto latch = std::make_shared<std::latch>(1);
+
+  std::jthread([this, latch = latch]() {
+    name_thread(module_id);
+    latch->count_down();
+    io_ctx.run();
+  }).detach();
+
+  latch->wait();
 }
 
 } // namespace pierre

@@ -32,7 +32,12 @@ void Sessions::close_all() noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::for_each(ctxs.begin(), ctxs.end(), [](const auto ctx) { ctx->close(); });
+  std::erase_if(ctxs, [](const auto ctx) {
+    ctx->teardown();
+    ctx->close();
+
+    return true;
+  });
 
   ctxs.clear();
 }

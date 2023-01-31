@@ -32,7 +32,6 @@
 #include "mdns/mdns.hpp"
 
 #include <exception>
-#include <fmt/ostream.h>
 #include <functional>
 #include <future>
 #include <latch>
@@ -212,25 +211,25 @@ void Desk::shutdown(bool wait_for_shutdown) noexcept {
     auto s = ptr();
     INFO(module_id, fn_id, "requested, self.use_count({})\n", self.use_count());
 
-    self.reset();
-
     // must spawn a new thread since Desk could be shutting itself down
     auto latch = std::make_shared<std::latch>(1);
     auto thread = std::jthread([s = std::move(s), latch = latch]() mutable {
-      INFO(module_id, fn_id, "initiated, threads={} s.use_count={}\n", //
+      INFO(module_id, fn_id, "initiated, threads={} use_count={}\n", //
            std::ssize(s->threads), s.use_count());
 
       s->loop_active.store(false);
       s->io_ctx.stop();
 
-      std::for_each(s->threads.begin(), s->threads.end(), [&s](auto &t) mutable {
-        INFO(module_id, fn_id, "joining thread={} s.use_count=({})\n", //
-             fmt::streamed(t.get_id()), s.use_count());
+      std::erase_if(s->threads, [s = s](auto &t) mutable {
+        INFO(module_id, fn_id, "joining thread={} use_count={}\n", //
+             t.get_id(), s.use_count());
 
         t.join();
+
+        return true;
       });
 
-      INFO(module_id, fn_id, "complete, s.use_count({})\n", s.use_count());
+      INFO(module_id, fn_id, "complete,  use_count={}\n", self.use_count());
 
       Racked::shutdown();
 

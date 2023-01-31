@@ -27,7 +27,6 @@
 #include <algorithm>
 #include <errno.h>
 #include <fcntl.h>
-#include <fmt/ostream.h>
 #include <iterator>
 #include <latch>
 #include <ranges>
@@ -191,15 +190,16 @@ void MasterClock::shutdown() noexcept { // static
   [[maybe_unused]] error_code ec;
   self->socket.close(ec);
 
-  auto &threads = self->threads;
-  std::for_each(threads.begin(), threads.end(), [](auto &t) mutable {
-    INFO(module_id, cat, "joining thread={}\n", fmt::streamed(t.get_id()));
+  std::erase_if(self->threads, [](auto &t) mutable {
+    INFO(module_id, cat, "joining thread={}, use_count={}\n", t.get_id(), self.use_count());
     t.join();
+
+    return true;
   });
 
   self.reset(); // reset our static shared_ptr (we have a fresh one)
 
-  INFO(module_id, cat, "complete, self.use_count({})\n", self.use_count());
+  INFO(module_id, cat, "complete, use_count({})\n", self.use_count());
 }
 
 // misc debug

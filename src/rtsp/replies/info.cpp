@@ -79,20 +79,20 @@ Info::Info(Reply &reply) noexcept {
 void Info::init() noexcept { // static
   static constexpr csv fn_id{"init"};
 
-  auto file_path = config()->fs_parent_path();
-  file_path /= "../share/plist/get_info_resp.plist"sv;
+  csv sub_path{"../share/plist/get_info_resp.plist"};
+  auto plist_path = config()->fs_exec_path().append(sub_path);
 
-  if (std::ifstream is{file_path, std::ios::binary | std::ios::ate}) {
+  if (std::ifstream is{plist_path, std::ios::binary | std::ios::ate}) {
     reply_xml.assign(is.tellg(), 0x00);
 
     is.seekg(0);
     if (is.read(reply_xml.data(), reply_xml.size())) {
-      INFO(module_id, fn_id, "{} size={}\n", file_path.c_str(), reply_xml.size());
+      INFO(module_id, "debug", "{} size={}\n", plist_path.c_str(), reply_xml.size());
     }
   }
 
   if (reply_xml.empty()) {
-    INFO(module_id, fn_id, "failed to load: {}\n", file_path.c_str());
+    INFO(module_id, fn_id, "failed to load: {}\n", plist_path.c_str());
   }
 }
 

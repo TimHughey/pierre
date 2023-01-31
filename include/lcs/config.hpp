@@ -109,8 +109,18 @@ public:
     return fs::path(self->cli_table[path].ref<string>());
   }
 
+  static fs::path fs_log_file() noexcept {
+    static constexpr csv path{"log-file"};
+    return fs::path(self->cli_table[path].ref<string>());
+  }
+
   static fs::path fs_parent_path() noexcept {
     static constexpr csv path{"parent_path"};
+    return fs::path(self->cli_table[path].ref<string>());
+  }
+
+  static fs::path fs_pid_path() noexcept {
+    static constexpr csv path{"pid_file"};
     return fs::path(self->cli_table[path].ref<string>());
   }
 
@@ -150,13 +160,9 @@ public:
   static const string receiver() noexcept; // see .cpp
 
   /// @brief Stop the file monitoring and reset the local self shared_ptr
-  static void shutdown() {
-    auto s = ptr();
-
-    self.reset();
-
+  static void shutdown() noexcept {
     [[maybe_unused]] error_code ec;
-    s->file_timer.cancel(ec);
+    self->file_timer.cancel(ec);
   }
 
   static void want_changes(cfg_future &fut) noexcept;

@@ -43,7 +43,6 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS
 add_library(${__target}  
   ${HEADER_LIST}
   config.cpp
-  lcs.cpp
   logger.cpp
   stats.cpp
 )
@@ -57,12 +56,12 @@ target_include_directories(${__target} PRIVATE
 target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
-  ${Boost_LIBRARIES}
   base
   stdc++fs
 )
 
 target_link_libraries(${__target} PUBLIC 
+  ${Boost_LIBRARIES}
   InfluxData::InfluxDB
   io
   tomlplusplus::tomlplusplus
