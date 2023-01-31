@@ -84,7 +84,9 @@ int App::main(int argc, char *argv[]) {
     std::freopen("/dev/null", "r", stdin);
     std::freopen("/dev/null", "a+", stdout);
     std::freopen("/dev/null", "a+", stderr);
+
     umask(0);
+    chdir("/");
 
     { // write pid to file
       const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
