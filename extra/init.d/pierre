@@ -10,8 +10,9 @@ depend() {
 start() {
 	ebegin "Starting ${SVCNAME}"
 	start-stop-daemon --start --background \
-    --chdir /home/thughey/.pierre --user thughey:thughey \
-    --stdout /var/log/${SVCNAME}.log --stderr /var/log/${SVCNAME}.log \
+		--chdir / \
+    --user thughey:thughey \
+    --stdout /var/log/${SVCNAME}.log \
     --pidfile /run/pierre/${SVCNAME}.pid --make-pidfile \
 		--exec /home/thughey/devel/pierre/build/${SVCNAME} -- 
 	eend $?
