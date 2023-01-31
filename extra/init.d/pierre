@@ -11,13 +11,15 @@ start() {
 	ebegin "Starting ${SVCNAME}"
 	start-stop-daemon --start \
     --user thughey:thughey \
-    --pidfile /run/pierre/${SVCNAME}.pid --make-pidfile \
-		--exec /home/thughey/devel/pierre/build/${SVCNAME} -- 
+    --pidfile /run/pierre/${SVCNAME}.pid \
+		--exec /home/thughey/devel/pierre/build/${SVCNAME} -- \
+	  --daemon
 	eend $?
 }
 
 stop() {
 	ebegin "Stopping ${SVCNAME}"
-	start-stop-daemon --stop --pidfile /run/pierre/${SVCNAME}.pid
+	start-stop-daemon --stop --pidfile /run/pierre/${SVCNAME}.pid \
+		--retry SIGINT/5 SIGTERM/5
 	eend $?
 }
