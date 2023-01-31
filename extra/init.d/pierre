@@ -20,6 +20,6 @@ start() {
 stop() {
 	ebegin "Stopping ${SVCNAME}"
 	start-stop-daemon --stop --pidfile /run/pierre/${SVCNAME}.pid \
-		--retry SIGINT/5 SIGTERM/5
+		--retry SIGINT/5
 	eend $?
 }
