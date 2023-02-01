@@ -28,10 +28,10 @@ extern "C" {
 }
 #endif
 
-#include "io/io.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
@@ -48,10 +48,7 @@ private:
   static constexpr std::ptrdiff_t ADTS_HEADER_SIZE{7};
 
 private:
-  Av() noexcept            //
-      : ready{false},      //
-        dsp(Dsp::create()) //
-  {}
+  Av() noexcept : ready{false}, dsp() {}
 
   bool decode_failed(const frame_t &frame, AVPacket **pkt,
                      AVFrame **audio_frame = nullptr) noexcept {
@@ -184,7 +181,7 @@ public:
       FFT right(data[1], frame->samples_per_channel, audio_frame->sample_rate);
 
       // this goes async
-      dsp->process(frame, std::move(left), std::move(right));
+      dsp.process(frame, std::move(left), std::move(right));
       rc = true;
     }
 
@@ -195,10 +192,7 @@ public:
     return rc;
   }
 
-  void shutdown() noexcept {
-    dsp->shutdown();
-    dsp.reset();
-  }
+  void shutdown() noexcept { dsp.shutdown(); }
 
 private:
   static void log_diag_info(AVFrame *audio_frame) noexcept {
@@ -231,8 +225,8 @@ private:
 
 private:
   // order dependent
-  std::atomic_bool ready;   // AV functionality setup and ready
-  std::shared_ptr<Dsp> dsp; // digital signal processing
+  std::atomic_bool ready; // AV functionality setup and ready
+  Dsp dsp;                // digital signal processing
 
   // order independent
   AVCodec *codec{nullptr};

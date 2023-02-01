@@ -30,7 +30,7 @@ namespace pierre {
 
 using Threads = std::vector<Thread>;
 
-inline void name_thread(csv name) noexcept {
+inline const string name_thread(csv name) noexcept {
   static constexpr csv prefix{"pierre"};
   const auto tid = pthread_self();
 
@@ -44,10 +44,12 @@ inline void name_thread(csv name) noexcept {
   if (csv(buff.data()) != csv(thread_name)) {
     pthread_setname_np(tid, thread_name.c_str());
   }
+
+  return thread_name;
 }
 
-inline void name_thread(csv name, int num) noexcept {
-  name_thread(fmt::format("{}_{}", name, num));
+inline const string name_thread(csv name, int num) noexcept {
+  return name_thread(fmt::format("{}_{}", name, num));
 }
 
 } // namespace pierre

@@ -30,7 +30,6 @@
 #include <numbers>
 #include <numeric>
 #include <ranges>
-#include <thread>
 
 namespace pierre {
 
