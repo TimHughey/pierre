@@ -20,6 +20,7 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "frame/clock_info.hpp"
 #include "io/io.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
@@ -74,11 +75,12 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(io_context &io_ctx, auto sock, auto sessions, Desk *desk) noexcept
-      : io_ctx(io_ctx),         //
-        feedback_timer(io_ctx), // detect absence of routine feedback messages
-        sock(sock),             //
-        sessions(sessions),     //
+  Ctx(io_context &io_ctx, auto sock, auto sessions, MasterClock *master_clock, Desk *desk) noexcept
+      : io_ctx(io_ctx),             //
+        feedback_timer(io_ctx),     // detect absence of routine feedback messages
+        sock(sock),                 //
+        sessions(sessions),         //
+        master_clock(master_clock), //
         desk(desk) {}
 
   auto ptr() noexcept { return shared_from_this(); }
@@ -89,6 +91,8 @@ public:
 
   /// @brief Primary entry point for a session via Ctx
   void run() noexcept { asio::post(io_ctx, std::bind(&Ctx::msg_loop, this)); }
+
+  void peers(const Peers &peer_list) noexcept;
 
   Port server_port(ports_t server_type) noexcept;
 
@@ -138,6 +142,7 @@ public:
   // order dependent
   std::shared_ptr<tcp_socket> sock;
   Sessions *sessions;
+  MasterClock *master_clock;
   Desk *desk;
 
   // order independent

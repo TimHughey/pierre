@@ -21,11 +21,36 @@
 #include "base/elapsed.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "base/uint8v.hpp"
 
 #include <future>
 #include <memory>
 
 namespace pierre {
+
+// forward decl
+class MasterClock;
+
+using Port = uint16_t;
+
+struct ClockPort {
+  string id;
+  Port port;
+};
+
+using ClockPorts = std::vector<ClockPort>;
+
+struct PeerInfo {
+  string id;
+  uint8v addresses;
+  ClockPorts clock_ports;
+  int device_type{0};
+  ClockID clock_id{0};
+  bool port_matching_override{false};
+};
+
+using Peers = std::vector<string>;
+using PeerList = std::vector<PeerInfo>;
 
 using MasterIP = std::string;
 

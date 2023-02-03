@@ -19,12 +19,12 @@
 #pragma once
 
 #include "base/input_info.hpp"
-#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/threads.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/clock_info.hpp"
+#include "io/io.hpp"
 #include "lcs/logger.hpp"
 
 #include <array>
@@ -34,6 +34,7 @@
 #include <exception>
 #include <functional>
 #include <future>
+#include <latch>
 #include <memory>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -41,32 +42,11 @@
 
 namespace pierre {
 
-struct ClockPort {
-  string id;
-  Port port;
-};
-
-using ClockPorts = std::vector<ClockPort>;
-
-struct PeerInfo {
-  string id;
-  uint8v addresses;
-  ClockPorts clock_ports;
-  int device_type{0};
-  ClockID clock_id{0};
-  bool port_matching_override{false};
-};
-
-using PeerList = std::vector<PeerInfo>;
-
-class MasterClock : public std::enable_shared_from_this<MasterClock> {
+class MasterClock {
 private:
   static constexpr auto LOCALHOST{"127.0.0.1"};
   static constexpr uint16_t CTRL_PORT{9000}; // see note
   static constexpr uint16_t NQPTP_VERSION{8};
-
-public:
-  using Peers = std::vector<string>;
 
 public:
   struct nqptp {
@@ -79,21 +59,19 @@ public:
     uint64_t master_clock_start_time;     // this is when the master clock became master}
   };
 
-private:
-  MasterClock() noexcept;
-  auto ptr() noexcept { return shared_from_this(); }
-
 public:
+  MasterClock() noexcept;
+  ~MasterClock() noexcept;
+
   /// @brief Get ClockInfo via a shared future. The minimum time allowed between requests is
   ///        configured via the external .toml file.  If called before the minimum time
   ///        has elpased this function will immediately set the future with an empty
   ///        ClockInfo object.
   /// @return std::shared_future<ClockInfo>
-  static clock_info_future info() noexcept { // static
+  clock_info_future info() noexcept { // static
     auto prom = std::make_shared<std::promise<ClockInfo>>();
 
-    auto s = self->ptr();
-    auto clock_info = s->load_info_from_mapped();
+    auto clock_info = load_info_from_mapped();
 
     if (clock_info.ok()) {
       // clock info is good, immediately set the future
@@ -102,15 +80,15 @@ public:
       // perform the retry on the MasterClock io_ctx enabling caller to continue other work
       // while the clock becomes useable and the future is set to ready
 
-      auto timer = std::make_unique<steady_timer>(s->io_ctx);
+      auto timer = std::make_unique<steady_timer>(io_ctx);
       // get a pointer to the timer since we move the timer into the async_wait
       auto t = timer.get();
 
       t->expires_after(InputInfo::lead_time_min);
-      t->async_wait([s = std::move(s), timer = std::move(timer), prom = prom](error_code ec) {
+      t->async_wait([this, timer = std::move(timer), prom = prom](error_code ec) {
         // if success get and return ClockInfo (could be ok() == false)
         if (!ec) {
-          prom->set_value(std::move(s->load_info_from_mapped()));
+          prom->set_value(std::move(load_info_from_mapped()));
         } else {
           prom->set_value(ClockInfo());
         }
@@ -120,13 +98,8 @@ public:
     return prom->get_future().share();
   }
 
-  /// @brief Initialize a singleton MasterClock instance
-  static void init() noexcept;
-
-  static void peers(const Peers &peer_list) noexcept { self->ptr()->peers_update(peer_list); }
-  static void peers_reset() noexcept { self->ptr()->peers_update(Peers()); }
-
-  static void shutdown() noexcept;
+  void peers(const Peers &peer_list) noexcept { peers_update(peer_list); }
+  void peers_reset() noexcept { peers_update(Peers()); }
 
   // misc debug
   void dump();
@@ -162,10 +135,10 @@ private:
   udp_socket socket;
   udp_endpoint remote_endpoint;
   const string shm_name; // shared memmory segment name (built by constructor)
+  const int thread_count;
+  std::shared_ptr<std::latch> shutdown_latch;
 
   // order independent
-  static std::shared_ptr<MasterClock> self;
-  Threads threads;
   void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:

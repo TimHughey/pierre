@@ -137,7 +137,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     Aplist request_dict(content_in);
     auto peers = request_dict.stringArray({ROOT});
     if (peers.empty() == false) {
-      MasterClock::peers(peers);   // set the peer lists
+      ctx_naked->peers(peers);     // set the peer lists
       set_resp_code(RespCode::OK); // indicate success
     }
 
@@ -145,7 +145,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
 
     Aplist request_dict = content_in;
 
-    MasterClock::Peers peer_list;
+    Peers peer_list;
     const auto count = request_dict.arrayItemCount({ROOT});
 
     for (uint32_t idx = 0; idx < count; idx++) {
@@ -157,7 +157,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
       }
     }
 
-    MasterClock::peers(peer_list);
+    ctx_naked->master_clock->peers(peer_list);
 
   } else if (method == csv("SETRATEANCHORTIME")) {
     SetAnchor(content_in, *this, ctx->desk);

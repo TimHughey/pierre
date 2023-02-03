@@ -33,6 +33,7 @@
 namespace pierre {
 
 class Desk;
+class MasterClock;
 
 namespace rtsp {
 class Ctx;
@@ -51,7 +52,9 @@ private:
   io_context io_ctx;
   tcp_acceptor acceptor;
   std::unique_ptr<rtsp::Sessions> sessions;
+  std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;
+
   const int thread_count;
   std::shared_ptr<std::latch> shutdown_latch;
 

@@ -30,52 +30,76 @@
 #include <iterator>
 #include <latch>
 #include <ranges>
+#include <thread>
 #include <time.h>
 #include <utility>
 
 namespace pierre {
 
-std::shared_ptr<MasterClock> MasterClock::self;
+static auto cfg_path(csv key_path) noexcept {
+  return toml::path(MasterClock::module_id).append(key_path);
+}
 
-static constexpr csv cfg_shm_name{"frame.clock.shm_name"};
-static constexpr csv cfg_thread_count{"frame.clock.threads"};
+static const auto cfg_shm_name() noexcept {
+  return config()->at(cfg_path("shm_name")).value_or<string>("/nqptp");
+}
+
+static const auto cfg_threads() noexcept {
+  return config()->at(cfg_path("threads")).value_or<int>(1);
+}
 
 // create the MasterClock
 MasterClock::MasterClock() noexcept
-    : guard(io_ctx.get_executor()),                                   // syncronize clock io
-      socket(io_ctx, ip_udp::v4()),                                   // construct and open
-      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),  // nqptp endpoint
-      shm_name(config()->at(cfg_shm_name).value_or<string>("/nqptp")) //
-{}
+    : guard(io_ctx.get_executor()),                                  // syncronize clock io
+      socket(io_ctx, ip_udp::v4()),                                  // construct and open
+      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
+      shm_name(cfg_shm_name()),                                      //
+      thread_count(cfg_threads()),                                   //
+      shutdown_latch(std::make_shared<std::latch>(thread_count))     //
+{
 
-void MasterClock::init() noexcept { // static
-  if (self.use_count() < 1) {
-    self = std::shared_ptr<MasterClock>(new MasterClock());
-    auto s = self->ptr(); // grab a fresh shared_ptr for initialization
+  INFO(module_id, "init", "shm_name={} dest={}:{}\n", //
+       shm_name,                                      //
+       remote_endpoint.address().to_string(),         //
+       remote_endpoint.port());
 
-    // grab configured thread count
-    auto thread_count = config_val<int>(cfg_thread_count, 1);
-    auto latch = std::make_shared<std::latch>(thread_count);
+  auto latch = std::make_unique<std::latch>(thread_count);
 
-    for (auto n = 0; n < thread_count; n++) {
-      s->threads.emplace_back([latch, n, s = s->ptr()]() mutable {
-        name_thread("clock", n);
-        latch->arrive_and_wait();
-        latch.reset();
+  for (auto n = 0; n < thread_count; n++) {
+    std::jthread([this, n = n, latch = latch.get(), shutdown_latch = shutdown_latch]() mutable {
+      const auto thread_name = name_thread("clock", n);
 
-        s->io_ctx.run();
-      });
-    }
+      latch->arrive_and_wait();
+      INFO(module_id, "init", "thread {}\n", thread_name);
 
-    latch->wait(); // caller waits until all threads are started
+      io_ctx.run();
 
-    s->peers(Peers()); // reset the peers (creates the shm name)}
-
-    INFO(module_id, "init", "shm_name={} dest={}:{}\n", //
-         s->shm_name,                                   //
-         s->remote_endpoint.address().to_string(),      //
-         s->remote_endpoint.port());
+      shutdown_latch->count_down();
+      INFO(module_id, "shutdown", "thread {}\n", thread_name);
+    }).detach();
   }
+
+  latch->wait(); // caller waits until all threads are started
+
+  peers(Peers()); // reset the peers (creates the shm name)}
+}
+
+MasterClock::~MasterClock() noexcept {
+  static constexpr csv fn_id("shutdown");
+
+  INFO(module_id, fn_id, "initiated\n");
+
+  guard.reset();
+  if (is_mapped()) munmap(mapped, sizeof(nqptp));
+
+  try {
+    socket.close();
+  } catch (...) {
+  }
+
+  shutdown_latch->wait();
+
+  INFO(module_id, fn_id, "complete, io_ctx stopped={}\n", io_ctx.stopped());
 }
 
 // NOTE: new data is available every 126ms
@@ -149,17 +173,16 @@ bool MasterClock::map_shm() {
 }
 
 void MasterClock::peers_update(const Peers &new_peers) {
-  INFOX(module_id, "NEW PEERS", "count={}\n", new_peers.size());
+  static constexpr csv fn_id{"new_peers"};
+  INFOX(module_id, fn_id, "count={}\n", new_peers.size());
 
   // queue the update to prevent collisions
-  auto s = ptr();
-  auto &io_ctx = s->io_ctx;
-  asio::post(io_ctx, [s = std::move(s), peers = std::move(new_peers)]() {
+  asio::post(io_ctx, [this, peers = std::move(new_peers)]() {
     // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
     uint8v msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "{} T", s->shm_name);
+    fmt::format_to(w, "{} T", shm_name);
 
     if (peers.empty() == false) {
       fmt::format_to(w, " {}", fmt::join(peers, " "));
@@ -167,39 +190,13 @@ void MasterClock::peers_update(const Peers &new_peers) {
 
     msg.push_back(0x00); // must be null terminated
 
-    INFOX(module_id, "PEERS UPDATE", "peers={}\n", msg.view());
+    INFOX(module_id, fn_id, "peers={}\n", msg.view());
 
     error_code ec;
-    auto bytes = s->socket.send_to(asio::buffer(msg), s->remote_endpoint, 0, ec);
+    auto bytes = socket.send_to(asio::buffer(msg), remote_endpoint, 0, ec);
 
-    if (ec) {
-      INFO(module_id, "PEERS_UPDATE", "send msg failed, reason={} bytes={}\n", //
-           ec.message(), bytes);
-    }
+    if (ec) INFO(module_id, fn_id, "send msg failed, reason={} bytes={}\n", ec.message(), bytes);
   });
-}
-
-void MasterClock::shutdown() noexcept { // static
-  static constexpr csv cat{"shutdown"};
-
-  INFO(module_id, cat, "initiated\n");
-
-  self->guard.reset();
-  if (self->is_mapped()) munmap(self->mapped, sizeof(nqptp));
-
-  [[maybe_unused]] error_code ec;
-  self->socket.close(ec);
-
-  std::erase_if(self->threads, [](auto &t) mutable {
-    INFO(module_id, cat, "joining thread={}, use_count={}\n", t.get_id(), self.use_count());
-    t.join();
-
-    return true;
-  });
-
-  self.reset(); // reset our static shared_ptr (we have a fresh one)
-
-  INFO(module_id, cat, "complete, use_count({})\n", self.use_count());
 }
 
 // misc debug

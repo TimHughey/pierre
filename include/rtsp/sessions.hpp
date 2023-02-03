@@ -27,6 +27,7 @@
 
 namespace pierre {
 class Desk;
+class MasterClock;
 
 namespace rtsp {
 
@@ -41,7 +42,7 @@ public:
   void close_all() noexcept;
 
   std::shared_ptr<Ctx> create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
-                              Desk *desk) noexcept;
+                              MasterClock *master_clock, Desk *desk) noexcept;
 
   void live(const std::shared_ptr<Ctx>) noexcept;
 

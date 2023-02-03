@@ -44,10 +44,11 @@
 namespace pierre {
 
 // must be defined in .cpp to hide mdns
-Desk::Desk() noexcept
+Desk::Desk(MasterClock *master_clock) noexcept
     : frame_strand(io_ctx),                                       // serialize spooler frame access
       frame_timer(io_ctx),                                        //
       guard(asio::make_work_guard(io_ctx)),                       //
+      master_clock(master_clock),                                 //
       loop_active{false},                                         //
       thread_count(config_val<int>("desk.threads"sv, 2)),         //
       startup_latch(std::make_shared<std::latch>(thread_count)),  //
@@ -93,7 +94,7 @@ void Desk::frame_loop() noexcept {
   }
 
   // initialize supporting objects
-  if (!racked) racked.emplace();
+  if (!racked) racked.emplace(master_clock);
   if (!active_fx) active_fx = std::move(std::make_unique<fx::Standby>(io_ctx));
 
   if (startup_latch) {
@@ -104,13 +105,16 @@ void Desk::frame_loop() noexcept {
   loop_active.store(true);
   std::atomic_bool dmx_starting{false};
 
+  // initial sync wait and fx_finished (used by loop below)
+  Nanos sync_wait = InputInfo::lead_time_min;
+  bool fx_finished{true};
+
   // frame loop continues until loop_active is false
   // this is typically set once all FX have been executed and the system is
   // officially idle (e.g. no live session)
   while (loop_active.load() && !io_ctx.stopped()) {
     Elapsed next_wait;
     frame_t frame;
-    Nanos sync_wait = InputInfo::lead_time_min;
 
     // Racked will always return a frame (from racked or silent)
     try {
@@ -148,7 +152,7 @@ void Desk::frame_loop() noexcept {
         active_fx = std::make_unique<fx::AllStop>();
 
         standby();
-        return;
+        break;
 
       } else { // default to Standby
         active_fx = std::make_unique<fx::Standby>(io_ctx);
@@ -185,10 +189,9 @@ void Desk::frame_loop() noexcept {
     // notates rendered or silence in timeseries db
     frame->mark_rendered();
 
-    if (sync_wait >= Nanos::zero() && loop_active.load()) {
+    if (sync_wait >= Nanos::zero() && loop_active) {
       // now we need to wait for the correct time to render the next frame
       frame_timer.expires_after(sync_wait);
-      error_code ec;
       auto timer_fut = frame_timer.async_wait(asio::use_future);
 
       try {

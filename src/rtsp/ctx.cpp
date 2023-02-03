@@ -21,6 +21,7 @@
 #include "control.hpp"
 #include "event.hpp"
 #include "frame/anchor.hpp"
+#include "frame/master_clock.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
@@ -110,6 +111,8 @@ void Ctx::msg_loop_write() noexcept {
     }
   });
 }
+
+void Ctx::peers(const Peers &peer_list) noexcept { master_clock->peers(peer_list); }
 
 Port Ctx::server_port(ports_t server_type) noexcept {
   Port port{0};

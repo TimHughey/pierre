@@ -70,7 +70,7 @@ bool Setup::no_streams() noexcept {
     ctx->group_contains_group_leader = rdict.boolVal({GROUP_LEADER});
 
     auto peers = rdict.stringArray({TIMING_PEER_INFO, ADDRESSES});
-    MasterClock::peers(peers);
+    ctx->peers(peers);
 
     Aplist peer_info;
 

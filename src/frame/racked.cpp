@@ -47,16 +47,19 @@ namespace pierre {
 // static class data
 int64_t Racked::REEL_SERIAL_NUM{0x1000};
 
-Racked::Racked() noexcept
+Racked::Racked(MasterClock *master_clock) noexcept
     : guard(asio::make_work_guard(io_ctx)), // ensure io_ctx has work
       handoff_strand(io_ctx),               // unprocessed frame 'queue'
       wip_strand(io_ctx),                   // guard work in progress reeel
       frame_strand(io_ctx),                 // used for next frame
       flush_strand(io_ctx),                 // used to isolate flush (and interrupt other strands)
-      wip_timer(io_ctx)                     // used to racked incomplete wip reels
+      wip_timer(io_ctx),                    // used to racked incomplete wip reels
+      master_clock(master_clock)            // inject master clock dependency
 {
+  INFO(module_id, "init", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
+       sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
+
   // initialize supporting objects
-  MasterClock::init();
   Anchor::init();
   av = std::make_unique<Av>(io_ctx);
 
@@ -72,7 +75,6 @@ Racked::Racked() noexcept
       latch->count_down();
 
       INFO(module_id, "init", "thread {}\n", thread_name);
-
       io_ctx.run();
 
       INFO(module_id, "shutdown", "thread {}\n", thread_name);
@@ -82,10 +84,9 @@ Racked::Racked() noexcept
 
   latch->wait(); // caller waits until all threads are started
 
-  ready.store(true);
+  ready = true;
 
-  INFO(module_id, "init", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
-       sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
+  INFO(module_id, "init", "complete, ready={}\n", ready.load());
 }
 
 Racked::~Racked() noexcept {
@@ -102,8 +103,6 @@ Racked::~Racked() noexcept {
   av.reset();
 
   INFO(module_id, fn_id, "io_ctx stopped={}\n", io_ctx.stopped());
-
-  MasterClock::shutdown();
 }
 
 void Racked::flush(FlushInfo &&request) {
@@ -274,7 +273,7 @@ frame_future Racked::next_frame() noexcept { // static
 
     // we have racked reels but need clock_info, unlock while we wait
     lck.unlock();
-    auto clock_info = MasterClock::info().get(); // wait for clock info BEFORE locking rack
+    auto clock_info = master_clock->info().get(); // wait for clock info BEFORE locking rack
 
     if (clock_info.ok() == false) {
       // no clock info, set promise to SilentFrame
@@ -282,7 +281,7 @@ frame_future Racked::next_frame() noexcept { // static
     } else [[likely]] {
       // we have ClockInfo and there are racked reels
       // refresh clock info and get anchor info
-      clock_info = MasterClock::info().get();
+      clock_info = master_clock->info().get();
       auto anchor = Anchor::get_data(clock_info);
 
       // anchor not ready yet or we haven't been instructed to spool

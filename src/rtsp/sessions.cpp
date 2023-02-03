@@ -41,11 +41,11 @@ void Sessions::close_all() noexcept {
 }
 
 std::shared_ptr<Ctx> Sessions::create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
-                                      Desk *desk) noexcept {
+                                      MasterClock *master_clock, Desk *desk) noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  return ctxs.emplace_back(new Ctx(io_ctx, sock, this, desk));
+  return ctxs.emplace_back(new Ctx(io_ctx, sock, this, master_clock, desk));
 }
 
 void Sessions::live(std::shared_ptr<Ctx> live_ctx) noexcept {

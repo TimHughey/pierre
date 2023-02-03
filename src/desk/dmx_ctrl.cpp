@@ -97,7 +97,7 @@ DmxCtrl::DmxCtrl() noexcept
 }
 
 DmxCtrl::~DmxCtrl() noexcept {
-  static constexpr csv fn_id("teardown");
+  static constexpr csv fn_id("shutdown");
 
   INFO(module_id, fn_id, "initiated\n");
 

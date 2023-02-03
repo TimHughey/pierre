@@ -21,6 +21,7 @@
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "frame/clock_info.hpp"
 #include "frame/racked.hpp"
 #include "io/io.hpp"
 
@@ -39,7 +40,7 @@ class Racked;
 class Desk {
 
 public:
-  Desk() noexcept; // must be defined in .cpp to hide FX includes
+  Desk(MasterClock *master_clock) noexcept; // must be defined in .cpp to hide FX includes
   ~Desk() noexcept;
 
   void flush(FlushInfo &&request) noexcept {
@@ -73,6 +74,7 @@ private:
   strand frame_strand;
   steady_timer frame_timer;
   work_guard guard;
+  MasterClock *master_clock;
   std::atomic_bool loop_active{false};
   const int thread_count;
   std::shared_ptr<std::latch> startup_latch;
@@ -80,7 +82,6 @@ private:
   std::atomic_bool started;
 
   // order independent
-  bool fx_finished{true};
   std::optional<Racked> racked;
 
   std::shared_ptr<DmxCtrl> dmx_ctrl{nullptr};

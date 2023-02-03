@@ -22,6 +22,7 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "frame/anchor_last.hpp"
+#include "frame/clock_info.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/reel.hpp"
@@ -48,7 +49,7 @@ using racked_reels = std::map<reel_serial_num_t, Reel>;
 class Racked {
 
 public:
-  Racked() noexcept;
+  Racked(MasterClock *master_clock) noexcept;
   ~Racked() noexcept;
 
   void flush(FlushInfo &&request);
@@ -86,6 +87,7 @@ private:
   strand frame_strand;
   strand flush_strand;
   steady_timer wip_timer;
+  MasterClock *master_clock;
 
   // order independent
   FlushInfo flush_request;

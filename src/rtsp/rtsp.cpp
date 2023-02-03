@@ -21,6 +21,7 @@
 #include "base/threads.hpp"
 #include "ctx.hpp"
 #include "desk/desk.hpp"
+#include "frame/master_clock.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
@@ -39,10 +40,12 @@ static const auto threads_path() noexcept { return cfg_path("threads"); }
 
 Rtsp::Rtsp() noexcept
     : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-      sessions(std::make_unique<rtsp::Sessions>()),           //
-      desk(std::make_unique<Desk>()),                         //
-      thread_count(config()->at(threads_path()).value_or(4)), //
-      shutdown_latch(std::make_shared<std::latch>(thread_count)) {
+      sessions(std::make_unique<rtsp::Sessions>()),     //
+      master_clock(std::make_unique<MasterClock>()),    //
+      desk(std::make_unique<Desk>(master_clock.get())), //
+      thread_count(config()->at(threads_path()).value_or(4)),
+      shutdown_latch(std::make_shared<std::latch>(thread_count)) //
+{
   INFO(module_id, "init", "sizeof={} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
 
   // once io_ctx is started begin accepting connections
@@ -84,6 +87,7 @@ Rtsp::~Rtsp() noexcept {
   sessions->close_all(); // close any existing connections
   sessions.reset();
   desk.reset(); // shutdown desk (and friends)
+  master_clock.reset();
 
   INFO(module_id, fn_id, "waiting for threads, stopped={}\n", io_ctx.stopped());
   shutdown_latch->wait(); // caller waits for all threads to finish
@@ -111,7 +115,7 @@ void Rtsp::async_accept() noexcept {
       const auto msg = io::log_socket_msg(ec, *peer, r, e);
       INFO(module_id, fn_id, "{}\n", msg);
 
-      auto ctx = sessions->create(io_ctx, peer, desk.get());
+      auto ctx = sessions->create(io_ctx, peer, master_clock.get(), desk.get());
 
       ctx->run();
 
