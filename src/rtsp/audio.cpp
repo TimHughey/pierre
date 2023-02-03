@@ -18,6 +18,7 @@
 
 #include "audio.hpp"
 #include "base/types.hpp"
+#include "desk/desk.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
 #include "lcs/config.hpp"
@@ -36,12 +37,12 @@ void Audio::async_accept() noexcept {
 
   // since the socket is wrapped in the optional and async_read() wants the actual
   // socket we must deference or get the value of the optional
-  acceptor.async_accept(sock, endpoint, [s = ptr(), e = Elapsed()](const error_code ec) {
-    const auto msg = io::log_socket_msg(ec, s->sock, s->endpoint, e);
+  acceptor.async_accept(sock, endpoint, [this, e = Elapsed()](const error_code ec) {
+    const auto msg = io::log_socket_msg(ec, sock, endpoint, e);
     INFO(module_id, fn_id, "{}\n", msg);
 
     // if the connected was accepted start the "session", otherwise fall through
-    if (!ec) s->async_read_packet();
+    if (!ec) async_read_packet();
   });
 }
 
@@ -57,41 +58,39 @@ void Audio::async_read_packet() noexcept {
       asio::transfer_exactly(PACKET_LEN_BYTES), // fill the entire buffer
       asio::bind_executor(                      // serialize so only one read is active
           local_strand,                         // of the local stand
-          [s = ptr()](error_code ec, ssize_t bytes) {
-            auto &sock = s->sock;
-
+          [this](error_code ec, ssize_t bytes) {
             const auto msg = io::is_ready(sock, ec);
 
-            if (!msg.empty() || (bytes < std::ssize(s->packet_len))) {
+            if (!msg.empty() || (bytes < std::ssize(packet_len))) {
               INFO(module_id, fn_id, "bytes={} {}\n", bytes, msg);
               return;
             }
 
-            s->packet.clear();
+            packet.clear();
 
             uint16_t len{0};
-            len += s->packet_len[0] << 8;
-            len += s->packet_len[1];
+            len += packet_len[0] << 8;
+            len += packet_len[1];
 
             if (len > 2) len -= sizeof(len);
 
-            asio::async_read(                    //
-                sock,                            //
-                asio::dynamic_buffer(s->packet), //
-                asio::transfer_exactly(len),
-                asio::bind_executor(s->local_strand, [=](error_code ec, ssize_t bytes) {
-                  auto &sock = s->sock;
+            auto s = shared_from_this();
 
-                  const auto msg = io::is_ready(sock, ec);
+            asio::async_read(                 //
+                sock,                         //
+                asio::dynamic_buffer(packet), //
+                asio::transfer_exactly(len),
+                asio::bind_executor(local_strand, [=, s = s](error_code ec, ssize_t bytes) {
+                  const auto msg = io::is_ready(s->sock, ec);
 
                   if (!msg.empty() || (bytes != len)) {
                     INFO(module_id, fn_id, "bytes={} msg\n", bytes, msg);
                     return;
                   }
 
-                  Racked::handoff(std::move(s->packet), s->rtsp_ctx->shared_key);
+                  s->rtsp_ctx->desk->handoff(std::move(s->packet), s->rtsp_ctx->shared_key);
 
-                  s->async_read_packet();
+                  if (s->sock.is_open()) s->async_read_packet();
                 }));
           }));
 }

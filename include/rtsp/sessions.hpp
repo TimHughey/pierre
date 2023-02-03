@@ -26,20 +26,22 @@
 #include <vector>
 
 namespace pierre {
+class Desk;
+
 namespace rtsp {
 
 // forward decl in lieu of #include
 class Ctx;
 
-class Sessions : public std::enable_shared_from_this<Sessions> {
+class Sessions {
 
 public:
   Sessions() = default;
-  auto ptr() noexcept { return shared_from_this(); }
 
   void close_all() noexcept;
 
-  std::shared_ptr<Ctx> create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock) noexcept;
+  std::shared_ptr<Ctx> create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
+                              Desk *desk) noexcept;
 
   void live(const std::shared_ptr<Ctx>) noexcept;
 

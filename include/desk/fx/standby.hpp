@@ -18,10 +18,10 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 
 #include <memory>
@@ -29,16 +29,21 @@
 namespace pierre {
 namespace fx {
 
-class Standby : public FX, public std::enable_shared_from_this<Standby> {
+class Standby : public FX {
+
 public:
   Standby(io_context &io_ctx) //
       : io_ctx(io_ctx),       //
         silence_timer(io_ctx) //
   {}
 
+  ~Standby() override { cancel(); }
+
   void cancel() noexcept override {
-    [[maybe_unused]] error_code ec;
-    silence_timer.cancel(ec);
+    try {
+      silence_timer.cancel();
+    } catch (...) {
+    }
   }
 
   void execute(Peaks &peaks) noexcept override;
@@ -46,11 +51,8 @@ public:
 
   void once() override;
 
-  std::shared_ptr<FX> ptr_base() noexcept { return std::static_pointer_cast<FX>(ptr()); }
-
 private:
   void load_config() noexcept;
-  std::shared_ptr<Standby> ptr() noexcept { return shared_from_this(); }
   void silence_watch() noexcept;
 
 private:

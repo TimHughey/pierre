@@ -38,16 +38,14 @@ void Sessions::close_all() noexcept {
 
     return true;
   });
-
-  ctxs.clear();
 }
 
-std::shared_ptr<Ctx> Sessions::create(io_context &io_ctx,
-                                      std::shared_ptr<tcp_socket> sock) noexcept {
+std::shared_ptr<Ctx> Sessions::create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
+                                      Desk *desk) noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  return ctxs.emplace_back(new Ctx(io_ctx, sock, shared_from_this()));
+  return ctxs.emplace_back(new Ctx(io_ctx, sock, this, desk));
 }
 
 void Sessions::live(std::shared_ptr<Ctx> live_ctx) noexcept {

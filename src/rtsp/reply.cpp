@@ -19,8 +19,8 @@
 #include "rtsp/reply.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "desk/desk.hpp"
 #include "frame/master_clock.hpp"
-#include "frame/racked.hpp"
 #include "headers.hpp"
 #include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
@@ -160,7 +160,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     MasterClock::peers(peer_list);
 
   } else if (method == csv("SETRATEANCHORTIME")) {
-    SetAnchor(content_in, *this);
+    SetAnchor(content_in, *this, ctx->desk);
   } else if (method == csv("TEARDOWN")) {
 
     Aplist request_dict(content_in);
@@ -171,14 +171,14 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     // any TEARDOWN request (with streams key or not) always clears the shared key and
     // informs Racked spooling should be stopped
     ctx_naked->shared_key.clear();
-    Racked::spool(false);
+    ctx->desk->spool(false);
 
     // when the streams key is not present this is a complete disconnect
     if (request_dict.exists(STREAMS) == false) {
       mDNS::service().receiver_active(false);
       mDNS::update();
 
-      Racked::flush_all();
+      ctx_naked->desk->flush_all();
       ctx_naked->teardown();
     }
 
@@ -188,7 +188,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     // notes:
     // 1. from_seq and from_ts may not be present
     // 2. until_seq and until_ts should always be present
-    Racked::flush(                                      //
+    ctx_naked->desk->flush(                             //
         FlushInfo(request_dict.uint({FLUSH_FROM_SEQ}),  //
                   request_dict.uint({FLUSH_FROM_TS}),   //
                   request_dict.uint({FLUSH_UNTIL_SEQ}), //

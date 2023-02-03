@@ -19,7 +19,6 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
-#include "desk/desk.hpp"
 #include "lcs/args.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
@@ -115,8 +114,7 @@ int App::main(int argc, char *argv[]) {
   INFO(Config::module_id, fn_id, "{}\n", Config::ptr()->init_msg);
 
   mDNS::init();
-  Desk::init();
-  Rtsp::init();
+  rtsp = std::make_unique<Rtsp>();
 
   io_ctx->run(); // start the app, returns when shutdown signal received
 
@@ -167,8 +165,7 @@ void App::signals_shutdown() noexcept {
       }
     }
 
-    Rtsp::shutdown();
-    Desk::shutdown(Desk::WAIT_FOR_SHUTDOWN);
+    rtsp.reset();
     mDNS::shutdown();
 
     signal_set_ignore->cancel(); // cancel the remaining work

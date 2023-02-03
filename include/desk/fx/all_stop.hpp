@@ -28,7 +28,7 @@
 namespace pierre {
 namespace fx {
 
-class AllStop : public FX, std::enable_shared_from_this<AllStop> {
+class AllStop : public FX {
 public:
   AllStop() noexcept : FX() {
 
@@ -40,10 +40,6 @@ public:
   }
 
   csv name() const override { return fx_name::ALL_STOP; }
-
-  std::shared_ptr<FX> ptr_base() noexcept override {
-    return std::static_pointer_cast<FX>(shared_from_this());
-  }
 
 public:
   static constexpr csv module_id{"fx.all_stop"};

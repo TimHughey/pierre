@@ -18,6 +18,7 @@
 
 #include "dmx_ctrl.hpp"
 #include "async_msg.hpp"
+#include "base/threads.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
@@ -33,76 +34,117 @@
 
 namespace pierre {
 
-static const auto controller_name() noexcept {
-  static constexpr csv PATH{"dmx.controller"};
+static auto cfg_path(csv key_path) noexcept {
+  return toml::path(DmxCtrl::module_id).append(key_path);
+}
 
-  return config()->at(PATH).value_or<string>("dmx");
+static const auto controller_name() noexcept {
+  return config()->at(cfg_path("controller")).value_or<string>("dmx");
 }
 
 static const auto idle_shutdown() noexcept {
-  static constexpr csv PATH{"dmx.timeouts.milliseconds.idle"};
-
-  return config()->at(PATH).value_or(30000);
+  return pet::from_val<Nanos, Millis>(
+      config()->at(cfg_path("timeouts.milliseconds.idle")).value_or(30000));
 }
 
 static const auto stalled_timeout() noexcept {
-  static constexpr csv PATH{"dmx.timeouts.milliseconds.stalled"};
+  static constexpr csv PATH{"timeouts.milliseconds.stalled"};
 
-  return pet::from_val<Nanos, Millis>(config()->at(PATH).value_or(2000));
+  return pet::from_val<Nanos, Millis>(config()->at(PATH).value_or(7500));
 }
 
+static const auto threads_path() noexcept { return cfg_path("threads"); }
+
 // general API
-DmxCtrl::DmxCtrl(io_context &io_ctx) noexcept
-    : io_ctx(io_ctx),       // use shared io_ctx
-      local_strand(io_ctx), // serialize
-      acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),
-      stalled_timer(io_ctx, Nanos::zero()) // stalled_watchdog() will start on first call
-{}
+DmxCtrl::DmxCtrl() noexcept
+    : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),                  //
+      stall_strand(io_ctx),                                                    //
+      stalled_timer(stall_strand.context().get_executor(), stalled_timeout()), //
+      thread_count(config()->at(threads_path()).value_or(2)),                  //
+      startup_latch(std::make_shared<std::latch>(thread_count)),               //
+      shutdown_latch(std::make_shared<std::latch>(thread_count))               //
+{
+  static constexpr csv fn_id{"init"};
+
+  INFO(module_id, "construct", "initiated\n");
+
+  // post work for the io_ctx (also serves as guard)
+  asio::post(io_ctx, [this, startup_latch = startup_latch]() mutable {
+    stalled_watchdog();
+    startup_latch->wait();
+    startup_latch.reset();
+
+    listen();
+    connect();
+  });
+
+  for (auto n = 0; n < thread_count; n++) {
+    std::jthread([this, n = n, startup_latch = startup_latch]() mutable {
+      const auto thread_name = name_thread(task_name, n);
+      INFO(module_id, fn_id, "thread {}\n", thread_name);
+
+      startup_latch->arrive_and_wait();
+      io_ctx.run();
+
+      INFO(module_id, "shutdown", "thread {}\n", thread_name);
+      shutdown_latch->count_down();
+    }).detach();
+  }
+
+  startup_latch.reset();
+
+  INFO(module_id, fn_id, "complete\n");
+}
+
+DmxCtrl::~DmxCtrl() noexcept {
+  static constexpr csv fn_id("teardown");
+
+  INFO(module_id, fn_id, "initiated\n");
+
+  io_ctx.stop();
+  shutdown_latch->wait();
+
+  INFO(module_id, fn_id, "complete\n");
+}
 
 void DmxCtrl::connect() noexcept {
   static constexpr csv cat{"ctrl_sock"};
 
   // now begin the control channel connect and handshake
-  asio::post(io_ctx, // execute on any io_ctx, zero conf resolution may block
-             [s = ptr(),
-              zcsf = mDNS::zservice(controller_name()), // zerconf resolve future
-              e = Elapsed()]() mutable {
-               auto zcs = zcsf.get(); // can BLOCK, as needed
+  auto zcsf = mDNS::zservice(controller_name()); // zerconf resolve future
+  Elapsed e;
+  auto zcs = zcsf.get(); // can BLOCK, as needed
 
-               auto &ctrl_sock = s->ctrl_sock.emplace(s->io_ctx); // create the socket
-               const auto addr = asio::ip::make_address_v4(zcs.address());
+  const auto addr = asio::ip::make_address_v4(zcs.address());
 
-               const std::array endpoints{tcp_endpoint{addr, zcs.port()}};
-               asio::async_connect( //
-                   ctrl_sock,       //
-                   endpoints,       //
-                   [s = s->ptr(), e](const error_code ec, const tcp_endpoint r) mutable {
-                     if (s->ctrl_sock.has_value()) {
+  const std::array endpoints{tcp_endpoint{addr, zcs.port()}};
+  asio::async_connect(           //
+      ctrl_sock.emplace(io_ctx), //
+      endpoints,                 //
+      [this, e](const error_code ec, const tcp_endpoint r) mutable {
+        if (ctrl_sock.has_value()) {
 
-                       auto &ctrl_sock = s->ctrl_sock.value();
+          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *ctrl_sock, r, e));
 
-                       INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, ctrl_sock, r, e));
+          if (!ec) {
 
-                       if (!ec) {
+            ctrl_sock->set_option(ip_tcp::no_delay(true));
+            Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
-                         ctrl_sock.set_option(ip_tcp::no_delay(true));
-                         Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
+            desk::Msg msg(HANDSHAKE);
 
-                         desk::Msg msg(HANDSHAKE);
+            msg.add_kv("idle_shutdown_ms", idle_shutdown());
+            msg.add_kv("lead_time_µs", InputInfo::lead_time);
+            msg.add_kv("ref_µs", pet::now_realtime<Micros>());
+            msg.add_kv("data_port", acceptor.local_endpoint().port());
 
-                         msg.add_kv("idle_shutdown_ms", idle_shutdown());
-                         msg.add_kv("lead_time_µs", InputInfo::lead_time);
-                         msg.add_kv("ref_µs", pet::now_realtime<Micros>());
-                         msg.add_kv("data_port", s->acceptor.local_endpoint().port());
+            send_ctrl_msg(std::move(msg));
+          }
 
-                         s->send_ctrl_msg(std::move(msg));
-                       }
-
-                     } else {
-                       INFO(module_id, cat, "no socket, {}\n", ec.message());
-                     }
-                   });
-             });
+        } else {
+          INFO(module_id, cat, "no socket, {}\n", ec.message());
+        }
+      });
 
   // NOTE: intentionally fall through
   //       listen() will start msg_loop() when data connection is available
@@ -130,27 +172,26 @@ void DmxCtrl::listen() noexcept {
   data_sock.emplace(io_ctx);
   acceptor.async_accept( //
       *data_sock,        //
-      [s = ptr(), e = Elapsed()](const error_code ec) mutable {
+      [this, e = Elapsed()](const error_code ec) mutable {
         Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
-        if (!ec && s->data_sock.has_value() && s->data_sock->is_open()) {
-          auto &data_sock = s->data_sock.value();
+        if (!ec && data_sock.has_value() && data_sock->is_open()) {
 
-          const auto &r = data_sock.remote_endpoint();
-          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, data_sock, r, e));
+          const auto &r = data_sock->remote_endpoint();
+          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *data_sock, r, e));
 
           if (!ec) {
             // success, set sock opts, connected and start msg_loop()
-            data_sock.set_option(ip_tcp::no_delay(true));
+            data_sock->set_option(ip_tcp::no_delay(true));
 
-            s->connected = s->ctrl_sock->is_open() && data_sock.is_open();
+            connected = ctrl_sock->is_open() && data_sock->is_open();
 
-            s->msg_loop(); // start the msg loop
+            msg_loop(); // start the msg loop
           }
 
         } else {
           INFO(module_id, cat, "ctrl_socket={} data_socket={} {}\n", //
-               s->ctrl_sock.has_value(), s->data_sock.has_value(), ec.message());
+               ctrl_sock.has_value(), data_sock.has_value(), ec.message());
         }
       });
 }
@@ -160,15 +201,15 @@ void DmxCtrl::msg_loop() noexcept {
   if (connected.load() && ready()) {
 
     desk::async_read_msg( //
-        *ctrl_sock, [s = ptr(), e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
+        *ctrl_sock, [this, e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
           Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
 
           if (ec == errc::success) {
-            s->stalled_watchdog(); // restart stalled watchdog
+            stalled_watchdog(); // restart stalled watchdog
             // handle the various message types
-            if (msg.key_equal(desk::TYPE, FEEDBACK)) s->handle_feedback_msg(msg.doc);
+            if (msg.key_equal(desk::TYPE, FEEDBACK)) handle_feedback_msg(msg.doc);
 
-            s->msg_loop(); // async handle next message
+            msg_loop(); // async handle next message
 
           } else {
             Stats::write(stats::CTRL_MSG_READ_ERROR, true);
@@ -188,8 +229,7 @@ void DmxCtrl::send_ctrl_msg(desk::Msg msg) noexcept {
       ctrl_sock.value(), //
       buf_seq,           //
       asio::transfer_exactly(tx_len),
-      [s = ptr(), msg = std::move(msg), e = Elapsed()](const error_code ec,
-                                                       const auto actual) mutable {
+      [this, msg = std::move(msg), e = Elapsed()](const error_code ec, const auto actual) mutable {
         Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
 
         if ((ec != errc::success) && (actual != msg.tx_len)) {
@@ -208,14 +248,14 @@ void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
 
     desk::async_write_msg( //
         *data_sock,        //
-        std::move(msg), [s = ptr(), e = Elapsed()](const error_code ec) mutable {
+        std::move(msg), [this, e = Elapsed()](const error_code ec) mutable {
           // better readability
 
           Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e.freeze());
 
           if (ec != errc::success) {
             Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
-            s->connected.store(false);
+            connected.store(false);
           }
 
           return ec;
@@ -227,44 +267,25 @@ void DmxCtrl::stalled_watchdog() noexcept {
   static constexpr csv cat{"stalled"};
 
   stalled_timer.expires_after(stalled_timeout());
-  stalled_timer.async_wait( //
-      asio::bind_executor(  //
-          local_strand,     // sync with connect and listen
-          [s = ptr(), was_connected = connected.load()](error_code ec) {
-            if (ec == errc::success) {
+  stalled_timer.async_wait([this](error_code ec) {
+    if (ec == errc::success) {
 
-              if (was_connected) INFO(module_id, cat, "was_connected={}\n", was_connected);
+      const auto was_connected = connected.load();
+      if (was_connected) INFO(module_id, cat, "was_connected={}\n", was_connected);
 
-              s->acceptor.cancel(ec);
-              if (s->ctrl_sock.has_value()) s->ctrl_sock->cancel(ec);
-              if (s->data_sock.has_value()) s->data_sock->cancel(ec);
-              s->connected = false;
+      acceptor.cancel(ec);
+      if (ctrl_sock.has_value()) ctrl_sock->cancel(ec);
+      if (data_sock.has_value()) data_sock->cancel(ec);
+      connected = false;
 
-              s->listen();
-              s->connect();
+      listen();
+      connect();
 
-              s->stalled_watchdog(); // restart stalled watchdog
+      stalled_watchdog(); // restart stalled watchdog
 
-            } else if (ec != errc::operation_canceled) {
-              INFO(module_id, cat, "falling through {}\n", ec.message());
-            }
-          }));
-}
-
-void DmxCtrl::teardown() noexcept {
-  static constexpr csv fn_id("teardown");
-
-  INFO(module_id, fn_id, "initiated\n");
-
-  asio::post(io_ctx, [s = ptr()]() mutable {
-    [[maybe_unused]] error_code ec;
-
-    s->stalled_timer.cancel(ec);
-    s->acceptor.close(ec);
-    if (s->ctrl_sock.has_value()) s->ctrl_sock->close(ec);
-    if (s->data_sock.has_value()) s->data_sock->close(ec);
-
-    INFO(module_id, fn_id, "complete\n");
+    } else if (ec != errc::operation_canceled) {
+      INFO(module_id, cat, "falling through {}\n", ec.message());
+    }
   });
 }
 

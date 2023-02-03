@@ -17,9 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/standby.hpp"
-#include "lcs/config.hpp"
 #include "color.hpp"
 #include "desk.hpp"
+#include "lcs/config.hpp"
 #include "unit/all.hpp"
 
 namespace pierre {
@@ -47,11 +47,12 @@ void Standby::execute(Peaks &peaks) noexcept {
 }
 
 void Standby::load_config() noexcept {
+
   static const auto base = toml::path{"fx.standby"};
   static const auto color_path = toml::path(base).append("color"sv);
   static const auto hue_path = toml::path(base).append("hue_step"sv);
   static const auto will_render_path = toml::path(base).append("will_render"sv);
-  static const auto silence_timeout_path = toml::path(base).append("silence.timeout");
+  static const auto silence_timeout_path = toml::path(base).append("silence.timeout"sv);
 
   auto cfg = config();
 
@@ -71,7 +72,7 @@ void Standby::load_config() noexcept {
   auto timeout_cfg = cfg->table_at(silence_timeout_path);
 
   const auto silence_timeout_old = silence_timeout;
-  silence_timeout = pet::from_val<Seconds, Minutes>(timeout_cfg["minutes"].value_or(30));
+  silence_timeout = pet::from_val<Seconds, Minutes>(timeout_cfg["minutes"sv].value_or(30));
 
   // start silence watch if timeout changed (at start or config reload)
   if (silence_timeout != silence_timeout_old) silence_watch();
@@ -95,8 +96,8 @@ void Standby::once() {
 void Standby::silence_watch() noexcept {
 
   silence_timer.expires_after(silence_timeout);
-  silence_timer.async_wait([s = ptr()](const error_code ec) {
-    if (!ec) s->set_finished(true);
+  silence_timer.async_wait([this](const error_code ec) {
+    if (!ec) set_finished(true);
   });
 }
 

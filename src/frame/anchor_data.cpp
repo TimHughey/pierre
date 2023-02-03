@@ -21,7 +21,6 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "lcs/logger.hpp"
-#include "master_clock.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -68,6 +67,8 @@ string AnchorData::inspect() const {
 }
 
 void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
+  static constexpr csv fn_id{"timing_change"};
+
   if ((clock_id != 0) && match_clock_id(ad)) {
     auto time_diff = ad.anchor_time.count() - anchor_time.count();
     auto frame_diff = ad.rtp_time - rtp_time;
@@ -75,8 +76,7 @@ void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
     double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / pet::NS_FACTOR.count();
     double frame_change = frame_diff - time_diff_in_frames;
 
-    INFO(module_id, "TIMING_CHANGE",                                       //
-         "clock={:#x} rtp_time={} anchor_time={} frame_adjustment={:f}\n", //
+    INFO(module_id, fn_id, "clock={:#x} rtp_time={} anchor_time={} frame_adjustment={:f}\n",
          clock_id, ad.rtp_time, pet::humanize(ad.anchor_time), frame_change);
   }
 }

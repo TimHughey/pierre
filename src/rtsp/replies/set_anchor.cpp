@@ -17,16 +17,16 @@
 //  https://www.wisslanding.com
 
 #include "replies/set_anchor.hpp"
+#include "desk/desk.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_data.hpp"
-#include "frame/racked.hpp"
 #include "lcs/logger.hpp"
 #include "replies/dict_kv.hpp"
 
 namespace pierre {
 namespace rtsp {
 
-SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply) noexcept {
+SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcept {
   Aplist request_dict(content_in);
 
   // a complete anchor message contains these keys
@@ -49,7 +49,7 @@ SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply) noexcept {
   if (request_dict.exists(RATE)) {
     // note: rate is misleading, it is actually the flag that controls playback
     bool rate = request_dict.uint({RATE});
-    Racked::spool(rate);
+    desk->spool(rate);
   } else {
     INFO(module_id, "NOTICE", "rate not present\n");
   }

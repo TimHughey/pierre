@@ -21,12 +21,11 @@
 #include "av.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
-#include "io/io.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
+#include "io/io.hpp"
 #include "lcs/config.hpp"
 #include "lcs/stats.hpp"
-#include "master_clock.hpp"
 
 #include <iterator>
 #include <ranges>
@@ -148,7 +147,7 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
   return state == frame::DECIPHERED;
 }
 
-bool Frame::decode(std::shared_ptr<Av> av) noexcept {
+bool Frame::decode(Av *av) noexcept {
   return state.deciphered() && av->parse(ptr()) && state.dsp_any();
 }
 

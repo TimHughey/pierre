@@ -19,10 +19,10 @@
 #pragma once
 
 #include "base/input_info.hpp"
-#include "io/io.hpp"
 #include "base/pet.hpp"
-#include "base/threads.hpp"
 #include "base/types.hpp"
+#include "frame/racked.hpp"
+#include "io/io.hpp"
 
 #include <atomic>
 #include <future>
@@ -34,34 +34,57 @@ namespace pierre {
 // forward decls to hide implementation details
 class DmxCtrl;
 class FX;
+class Racked;
 
-class Desk : public std::enable_shared_from_this<Desk> {
-private:
-  Desk() noexcept; // must be defined in .cpp to hide FX includes
-  static auto ptr() noexcept { return self->shared_from_this(); }
+class Desk {
 
 public:
-  static void init() noexcept; // in .cpp to hide DmxCtrl()
+  Desk() noexcept; // must be defined in .cpp to hide FX includes
+  ~Desk() noexcept;
 
-  static constexpr bool WAIT_FOR_SHUTDOWN{true};
-  static void shutdown(bool wait_for_shutdown = false) noexcept;
+  void flush(FlushInfo &&request) noexcept {
+    if (racked.has_value()) {
+      racked->flush(std::forward<FlushInfo>(request));
+    }
+  }
+
+  void flush_all() noexcept {
+    if (racked.has_value()) racked->flush_all();
+  }
+
+  void handoff(uint8v &&packet, const uint8v &key) noexcept {
+    if (racked.has_value()) racked->handoff(std::forward<uint8v>(packet), key);
+  }
+
+  void resume() noexcept;
+
+  void spool(bool enable = true) noexcept {
+    if (racked.has_value()) racked->spool(enable);
+  }
+
+  void standby() noexcept;
 
 private:
-  void frame_loop(Nanos wait = InputInfo::lead_time_min) noexcept;
+  void frame_loop() noexcept;
 
 private:
   // order dependent
   io_context io_ctx;
   strand frame_strand;
+  steady_timer frame_timer;
   work_guard guard;
-  std::atomic_bool loop_active;
+  std::atomic_bool loop_active{false};
+  const int thread_count;
+  std::shared_ptr<std::latch> startup_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
+  std::atomic_bool started;
 
   // order independent
   bool fx_finished{true};
-  static std::shared_ptr<Desk> self;
-  std::shared_ptr<DmxCtrl> dmx_ctrl;
-  std::shared_ptr<FX> active_fx;
-  Threads threads;
+  std::optional<Racked> racked;
+
+  std::shared_ptr<DmxCtrl> dmx_ctrl{nullptr};
+  std::unique_ptr<FX> active_fx{nullptr};
 
 public:
   static constexpr csv module_id{"desk"};

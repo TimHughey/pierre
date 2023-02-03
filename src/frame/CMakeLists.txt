@@ -24,6 +24,9 @@ find_package(Sodium         REQUIRED)
 find_package(ZLIB           REQUIRED)
 
 add_library(${__target} 
+  # audio packet parsing and decoding
+  av.cpp
+
   # digital signal processing
   fft.cpp 
 

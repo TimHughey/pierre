@@ -20,13 +20,13 @@
 #include "base/elapsed.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "lcs/config.hpp"
-#include "lcs/stats.hpp"
 #include "desk/desk.hpp"
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
 #include "fx/majorpeak/types.hpp"
+#include "lcs/config.hpp"
+#include "lcs/stats.hpp"
 
 namespace pierre {
 
@@ -376,8 +376,8 @@ const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_col
 void MajorPeak::silence_watch() noexcept {
 
   silence_timer.expires_after(_silence_timeout);
-  silence_timer.async_wait([s = ptr()](const error_code ec) {
-    if (!ec) s->silence.store(true);
+  silence_timer.async_wait([this](const error_code ec) {
+    if (!ec) silence.store(true);
   });
 }
 

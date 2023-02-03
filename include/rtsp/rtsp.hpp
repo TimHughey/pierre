@@ -24,6 +24,7 @@
 
 #include <any>
 #include <cstdint>
+#include <latch>
 #include <memory>
 #include <optional>
 #include <shared_mutex>
@@ -31,39 +32,28 @@
 
 namespace pierre {
 
+class Desk;
+
 namespace rtsp {
 class Ctx;
 } // namespace rtsp
 
-class Rtsp : public std::enable_shared_from_this<Rtsp> {
-private:
-  Rtsp()
-      : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-        guard(asio::make_work_guard(io_ctx)), sessions(std::make_shared<rtsp::Sessions>()) {}
+class Rtsp {
+public:
+  Rtsp() noexcept;
+  ~Rtsp() noexcept;
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
-
-  auto ptr() noexcept { return shared_from_this(); }
-
-public:
-  /// @brief Creates and starts the RTSP connection listener and worker threads
-  /// as specified in the external config
-  static void init() noexcept;
-
-  /// @brief Shuts down the RTSP listener and releases shared_ptr to self
-  static void shutdown() noexcept;
 
 private:
   // order dependent
   io_context io_ctx;
   tcp_acceptor acceptor;
-  work_guard guard;
-  std::shared_ptr<rtsp::Sessions> sessions;
-
-  // order independent
-  static std::shared_ptr<Rtsp> self;
-  Threads threads;
+  std::unique_ptr<rtsp::Sessions> sessions;
+  std::unique_ptr<Desk> desk;
+  const int thread_count;
+  std::shared_ptr<std::latch> shutdown_latch;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 

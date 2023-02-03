@@ -20,11 +20,11 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "io/io.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+#include "io/io.hpp"
 #include "lcs/types.hpp"
 #include "majorpeak/types.hpp"
 
@@ -35,21 +35,22 @@
 namespace pierre {
 namespace fx {
 
-class MajorPeak : public FX, public std::enable_shared_from_this<MajorPeak> {
+class MajorPeak : public FX {
 public:
   MajorPeak(io_context &io_ctx) noexcept;
+  ~MajorPeak() override { cancel(); }
 
   void cancel() noexcept override {
-    [[maybe_unused]] error_code ec;
-    silence_timer.cancel(ec);
+    try {
+      silence_timer.cancel();
+    } catch (...) {
+    }
   }
 
   void execute(Peaks &peaks) noexcept override;
   csv name() const override { return fx_name::MAJOR_PEAK; }
 
   void once() override; // must be in .cpp to limit units include
-
-  std::shared_ptr<FX> ptr_base() noexcept override { return std::static_pointer_cast<FX>(ptr()); }
 
 private:
   using ReferenceColors = std::vector<Color>;
@@ -64,10 +65,6 @@ private:
 
   const Color make_color(const Peak &peak) noexcept { return make_color(peak, base_color); }
   const Color make_color(const Peak &peak, const Color &ref) noexcept;
-
-  /// @brief Get a shared pointer to this object
-  /// @return A shared pointer to this object
-  std::shared_ptr<MajorPeak> ptr() noexcept { return shared_from_this(); }
 
   const Color &ref_color(size_t index) const noexcept;
 

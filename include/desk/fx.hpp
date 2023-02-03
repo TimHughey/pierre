@@ -60,10 +60,6 @@ public:
   /// @brief FX subclasses override to execute when FX called for the first time
   virtual void once() {}
 
-  /// @brief Get a shared_ptr to this FX (provided by subclasses)
-  /// @return Shared ptr of the subclassed type
-  virtual std::shared_ptr<FX> ptr_base() noexcept = 0;
-
   /// @brief Called for every frame to render the embedded peaks
   /// @param frame Audio frame containing peaks for rendering
   /// @param msg Data message to populate (sent to remote render controller)

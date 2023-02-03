@@ -46,23 +46,71 @@ namespace pierre {
 
 // static class data
 int64_t Racked::REEL_SERIAL_NUM{0x1000};
-std::shared_ptr<Racked> Racked::self;
 
-void Racked::flush(FlushInfo request) { // static
+Racked::Racked() noexcept
+    : guard(asio::make_work_guard(io_ctx)), // ensure io_ctx has work
+      handoff_strand(io_ctx),               // unprocessed frame 'queue'
+      wip_strand(io_ctx),                   // guard work in progress reeel
+      frame_strand(io_ctx),                 // used for next frame
+      flush_strand(io_ctx),                 // used to isolate flush (and interrupt other strands)
+      wip_timer(io_ctx)                     // used to racked incomplete wip reels
+{
+  // initialize supporting objects
+  MasterClock::init();
+  Anchor::init();
+  av = std::make_unique<Av>(io_ctx);
+
+  static constexpr csv cfg_threads_path{"frame.racked.threads"};
+  const int thread_count = config_val<int>(cfg_threads_path, 3);
+
+  auto latch = std::make_unique<std::latch>(thread_count);
+  shutdown_latch.emplace(thread_count);
+
+  for (auto n = 0; n < thread_count; n++) {
+    std::jthread([this, n = n, latch = latch.get()]() {
+      const auto thread_name = name_thread("racked", n);
+      latch->count_down();
+
+      INFO(module_id, "init", "thread {}\n", thread_name);
+
+      io_ctx.run();
+
+      INFO(module_id, "shutdown", "thread {}\n", thread_name);
+      shutdown_latch->count_down();
+    }).detach();
+  }
+
+  latch->wait(); // caller waits until all threads are started
+
+  ready.store(true);
+
+  INFO(module_id, "init", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
+       sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
+}
+
+Racked::~Racked() noexcept {
+  static constexpr csv fn_id{"shutdown"};
+  INFO(module_id, fn_id, "requested\n");
+
+  guard.reset();
+
+  [[maybe_unused]] error_code ec;
+  wip_timer.cancel(ec);
+
+  shutdown_latch->wait();
+
+  av.reset();
+
+  INFO(module_id, fn_id, "io_ctx stopped={}\n", io_ctx.stopped());
+
+  MasterClock::shutdown();
+}
+
+void Racked::flush(FlushInfo &&request) {
   static constexpr csv fn_id{"flush"};
 
-  if (!self) return;
-
-  auto s = ptr();
-  auto &flush_strand = s->flush_strand;
-
-  asio::post(flush_strand, [s = std::move(s), request = std::move(request)]() mutable {
+  asio::post(flush_strand, [this, request = std::move(request)]() mutable {
     INFO(module_id, fn_id, "{}\n", request);
-
-    // save shared_ptr dereferences for multiple use variables
-    auto &flush_request = s->flush_request;
-    auto &racked = s->racked;
-    auto &wip = s->wip;
 
     // record the flush request to check incoming frames (guarded by flush_strand)
     flush_request = std::move(request);
@@ -70,18 +118,18 @@ void Racked::flush(FlushInfo request) { // static
     // flush wip first so we can unlock it quickly
     if (wip.has_value()) {
       // lock both the wip and rack
-      std::unique_lock lck_wip(s->wip_mtx, std::defer_lock);
+      std::unique_lock lck_wip(wip_mtx, std::defer_lock);
       lck_wip.lock();
 
       // if wip is completely flushed reset the optional
       if (wip->flush(flush_request)) {
         [[maybe_unused]] error_code ec;
-        s->wip_timer.cancel(ec);
+        wip_timer.cancel(ec);
         wip.reset();
       }
     }
 
-    std::unique_lock lck_rack{s->rack_mtx, std::defer_lock};
+    std::unique_lock lck_rack{rack_mtx, std::defer_lock};
     lck_rack.lock();
 
     // now, to optimize the flush, let's first check if everything racked
@@ -125,39 +173,61 @@ void Racked::flush(FlushInfo request) { // static
 
     // has everything been flushed?
     if (racked.empty() && !wip) {
-      s->first_frame.reset(); // signal we're starting fresh
+      first_frame.reset(); // signal we're starting fresh
     }
   });
 }
 
-void Racked::init() noexcept {
-  if (self.use_count() < 1) {
-    self = std::shared_ptr<Racked>(new Racked());
+void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
+  if (ready.load() == false) return; // quietly ignore packets when Racked is not ready
+  if (packet.empty()) return;        // quietly ignore empty packets
 
-    // initialize supporting objects
-    MasterClock::init();
-    Anchor::init();
-    self->av = Av::create(self->io_ctx);
+  auto frame = Frame::create(packet); // create frame, will also be moved in lambda (as needed)
 
-    static constexpr csv cfg_threads_path{"frame.racked.threads"};
-    const int thread_count = config_val<int>(cfg_threads_path, 3);
+  if (frame->state.header_parsed()) {
+    if (flush_request.should_flush(frame)) {
+      frame->flushed();
+    } else if (frame->decipher(std::move(packet), key)) {
+      // notes:
+      //  1. we post to handoff_strand to control the concurrency of decoding
+      //  2. we move the packet since handoff() is done with it
+      //  3. we grab a reference to handoff strand since we move s
+      //  4. we move the frame since no code beyond this point needs it
 
-    auto latch = std::make_shared<std::latch>(thread_count);
+      asio::post(handoff_strand, [this, frame = std::move(frame)]() {
+        // here we do the decoding of the audio data, if decode succeeds we
+        // rack the frame into wip
 
-    for (auto n = 0; n < thread_count; n++) {
-      self->threads.emplace_back([n = n, s = self->ptr(), latch = latch]() mutable {
-        name_thread("racked", n);
-        latch->arrive_and_wait();
-        latch.reset();
+        if (frame->decode(av.get())) [[likely]] {
+          // decode success, rack the frame
 
-        s->io_ctx.run();
+          // we post to wip_strand to guard wip reel.  that said, we still use a mutex
+          // because of flushing and so next_frame can temporarily interrupt inbound
+          // decoded packet spooling.  this is important because once a wip is full it
+          // must be spooled into racked reels which is also being read from for next_frame()
+          asio::post(wip_strand, [this, frame = std::move(frame)]() mutable {
+            std::unique_lock lck(wip_mtx, std::defer_lock);
+            lck.lock();
+
+            // create the wip, if needed
+            if (wip.has_value() == false) wip.emplace(++REEL_SERIAL_NUM);
+
+            wip->add(frame);
+
+            if (wip->full()) {
+              rack_wip();
+            } else if (std::ssize(*wip) == 1) {
+              monitor_wip(); // handle incomplete wip reels
+            }
+          });
+
+        } else {
+          frame->state.record_state(); // save the failue to timeseries database
+        }
       });
     }
-
-    latch->wait(); // caller waits until all threads are started
-
-    INFO(module_id, "init", "sizeof={} frame_sizeof={} lead_time={} fps={}\n", sizeof(Racked),
-         sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps);
+  } else {
+    frame->state.record_state();
   }
 }
 
@@ -166,28 +236,20 @@ void Racked::monitor_wip() noexcept {
 
   wip_timer.expires_from_now(10s);
 
-  auto s = self->ptr();
-  auto &wip_strand = s->wip_strand;
-
   wip_timer.async_wait( // must run on wip_strand to protect containers
-      asio::bind_executor(
-          wip_strand, [s = std::move(s), serial_num = wip->serial_num()](const error_code ec) {
-            // note: serial_num is captured to ensure the same wip reel is active when
-            //       the timer fires
+      asio::bind_executor(wip_strand, [this, serial_num = wip->serial_num()](const error_code ec) {
+        // note: serial_num is captured to ensure the same wip reel is active when
+        //       the timer fires
 
-            // save shared_ptr dereferences for multiple use variables
-            auto &racked = s->racked;
-            auto &wip = s->wip;
-
-            if (!ec && !racked.contains(serial_num)) {
-              INFOX(module_id, fn_id, "INCOMPLETE {}\n", wip->inspect());
-              Stats::write(stats::RACK_WIP_INCOMPLETE, wip->size());
-              // not a timer error and reel is the same
-              s->rack_wip();
-            } else if (!ec) {
-              INFO(module_id, fn_id, "reel serial_num={} already racked\n", serial_num);
-            }
-          }));
+        if (!ec && !racked.contains(serial_num)) {
+          INFOX(module_id, fn_id, "INCOMPLETE {}\n", wip->inspect());
+          Stats::write(stats::RACK_WIP_INCOMPLETE, wip->size());
+          // not a timer error and reel is the same
+          rack_wip();
+        } else if (!ec) {
+          INFO(module_id, fn_id, "reel serial_num={} already racked\n", serial_num);
+        }
+      }));
 }
 
 frame_future Racked::next_frame() noexcept { // static
@@ -195,19 +257,13 @@ frame_future Racked::next_frame() noexcept { // static
   auto fut = prom.get_future().share();
 
   // when Racked isn't ready (doesn't exist) return SilentFrame
-  if (self.use_count() < 1) {
+  if (ready.load() == false) {
     prom.set_value(SilentFrame::create());
     return fut;
   }
 
-  auto s = self->ptr();
-
-  // grab a reference to the frame strand since we're moving the shared_ptr
-  auto &frame_strand = s->frame_strand;
-
-  asio::post(frame_strand, [s = std::move(s), prom = std::move(prom)]() mutable {
-    auto &racked = s->racked; // local reference limit shared_ptr dereferences
-    std::unique_lock lck{s->rack_mtx, std::defer_lock}; // don't lock yet
+  asio::post(frame_strand, [this, prom = std::move(prom)]() mutable {
+    std::unique_lock lck{rack_mtx, std::defer_lock}; // don't lock yet
 
     // do we have any racked reels? if not, return a SilentFrame
     lck.lock(); // guard std::empty(racked) call
@@ -236,7 +292,7 @@ frame_future Racked::next_frame() noexcept { // static
       // note:  we could have done this check very early and completely avoid
       // the asio::post but didn't so we could prime ClockInfo and Anchor.
       // plus the above code isn't really that expensive every ~23ms.
-      if ((anchor.ready() == false) || (s->spool_frames.load() == false)) {
+      if ((anchor.ready() == false) || (spool_frames.load() == false)) {
         prom.set_value(SilentFrame::create());
         return;
       }
@@ -260,7 +316,7 @@ frame_future Racked::next_frame() noexcept { // static
           Stats::write(stats::RACKED_REELS, std::ssize(racked));
         }
 
-        s->log_racked();
+        log_racked();
       }
     }
   });
@@ -344,33 +400,6 @@ void Racked::log_racked(log_racked_rc rc) const noexcept {
 
     if (!msg.empty()) INFO(module_id, cat, "{}\n", msg);
   }
-}
-
-void Racked::shutdown() noexcept {
-  static constexpr csv fn_id{"shutdown"};
-
-  self->av->shutdown();
-  self->av.reset();
-
-  auto s = self->ptr(); // get a fresh shared_ptr to ourselves
-  self.reset();         // decrement our local shared_ptr so we're deallocated
-
-  s->guard.reset();
-
-  [[maybe_unused]] error_code ec;
-  s->wip_timer.cancel(ec);
-
-  std::erase_if(s->threads, [s = s](auto &t) {
-    INFO(module_id, fn_id, "joining thread={}, use_count={}\n", t.get_id(), s.use_count());
-
-    t.join();
-
-    return true;
-  });
-
-  INFO(module_id, "shutdown", "threads={}, use_count={}\n", std::size(s->threads), s.use_count());
-
-  MasterClock::shutdown();
 }
 
 } // namespace pierre

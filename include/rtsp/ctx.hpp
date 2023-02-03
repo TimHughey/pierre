@@ -29,10 +29,13 @@
 
 #include <atomic>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <optional>
 
 namespace pierre {
+
+class Desk;
 
 namespace rtsp {
 // forward decls to prevent excessive header includes
@@ -71,11 +74,12 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(io_context &io_ctx, auto sock, auto sessions) noexcept
+  Ctx(io_context &io_ctx, auto sock, auto sessions, Desk *desk) noexcept
       : io_ctx(io_ctx),         //
         feedback_timer(io_ctx), // detect absence of routine feedback messages
         sock(sock),             //
-        sessions(sessions) {}
+        sessions(sessions),     //
+        desk(desk) {}
 
   auto ptr() noexcept { return shared_from_this(); }
 
@@ -84,11 +88,9 @@ public:
   void feedback_msg() noexcept;
 
   /// @brief Primary entry point for a session via Ctx
-  void run() noexcept {
-    asio::post(io_ctx, [this]() { msg_loop(); });
-  }
+  void run() noexcept { asio::post(io_ctx, std::bind(&Ctx::msg_loop, this)); }
 
-    Port server_port(ports_t server_type) noexcept;
+  Port server_port(ports_t server_type) noexcept;
 
   void set_live() noexcept;
 
@@ -135,10 +137,12 @@ private:
 public:
   // order dependent
   std::shared_ptr<tcp_socket> sock;
-  const std::shared_ptr<Sessions> sessions;
+  Sessions *sessions;
+  Desk *desk;
 
   // order independent
   Aes aes;
+
   std::optional<Request> request;
   std::optional<Reply> reply;
 

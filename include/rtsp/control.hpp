@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 
 #include <array>
 #include <memory>
@@ -68,6 +68,8 @@ public:
                                      const error_code ec, [[maybe_unused]] size_t rx_bytes) {
         s->async_loop(ec); // will detect errors and close socket
       });
+    } else {
+      teardown();
     }
   }
 

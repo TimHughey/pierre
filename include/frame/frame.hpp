@@ -74,7 +74,7 @@ public:
   // Public API
   bool decipher(uint8v packet, const uint8v key) noexcept;
   bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
-  bool decode(std::shared_ptr<Av> av) noexcept;
+  bool decode(Av *av) noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }
 
   static void init(); // Digital Signal Analysis (hidden in .cpp)

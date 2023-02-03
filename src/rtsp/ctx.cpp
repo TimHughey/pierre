@@ -141,9 +141,11 @@ void Ctx::teardown() noexcept {
   static constexpr csv fn_id{"teardown"};
 
   if (teardown_in_progress.exchange(true) == false) {
+    const auto sar = active_remote;
+    const auto sdi = dacp_id;
+    const auto scn = client_name;
 
-    INFO(module_id, fn_id, "active_remote={} dacp_id={} client_name='{}'\n", //
-         active_remote, dacp_id, client_name);
+    INFO(module_id, fn_id, "completed '{}' {} {} \n", scn, sar, sdi);
 
     group_contains_group_leader = false;
     active_remote = 0;
@@ -166,7 +168,7 @@ void Ctx::teardown() noexcept {
       event_srv.reset();
     }
 
-    INFO(module_id, fn_id, "completed\n");
+    INFO(module_id, fn_id, "completed '{}' {} {} \n", scn, sar, sdi);
   }
 }
 

@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/uint8v.hpp"
+#include "io/io.hpp"
 
 #include <memory>
 #include <optional>
@@ -33,13 +33,11 @@ public:
   Port port() noexcept { return acceptor.local_endpoint().port(); }
   void teardown() noexcept {
 
-    asio::post(io_ctx, [s = ptr()]() {
-      [[maybe_unused]] error_code ec;
-      s->acceptor.close(ec);
+    [[maybe_unused]] error_code ec;
+    acceptor.close(ec);
 
-      if (s->sock_accept) s->sock_accept->close(ec);
-      if (s->sock_session) s->sock_session->close(ec);
-    });
+    if (sock_accept.has_value()) sock_accept->close(ec);
+    if (sock_session.has_value()) sock_session->close(ec);
   }
 
   std::shared_ptr<Event> ptr() noexcept { return shared_from_this(); }

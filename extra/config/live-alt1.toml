@@ -28,6 +28,7 @@ debug = false
 desk = { dmx_ctrl = true, monitor_wip = true, reel = false }
 frames = { av = false, flush = false, racked = false }
 mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
+fx = { standby = true }
 
 [info.rtsp]
 audio = false
@@ -41,13 +42,6 @@ saver = { enable = false, path = "../extra/debug", file = "rtsp.log", format = "
 server = true
 session = true
 
-[dmx]
-# controller = "dmx" # DEFAULT
-controller = "test-with-devs"
-
-[dmx.timeouts.milliseconds]
-idle = 60_000
-stalled = 5100
 
 [mdns]
 port = 7000
@@ -77,7 +71,13 @@ floor = 0.9
 ceiling = 128.0
 
 [desk]
-threads = 3 # frame, dmx connect, dmx ctrl/data
+threads = 3 # frame loop
+
+[desk.dmx_ctrl]
+threads = 2
+#controller = "dmx" # DEFAULT
+controller = "test-with-devs"
+timeouts.milliseconds = { idle = 60_000, stalled = 7500 }
 
 [desk.dimmable]
 max = 8190

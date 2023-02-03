@@ -51,11 +51,11 @@ public:
 
 private:
   Audio(io_context &io_ctx, std::shared_ptr<Ctx> rtsp_ctx) noexcept
-      : io_ctx(io_ctx),                                         //
-        rtsp_ctx(rtsp_ctx),                                     //
-        acceptor{io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}}, //
-        sock(io_ctx),                                           //
-        local_strand(io_ctx)                                    //
+      : io_ctx(io_ctx),                                                                        //
+        local_strand(io_ctx),                                                                  //
+        rtsp_ctx(rtsp_ctx),                                                                    //
+        acceptor{local_strand.context().get_executor(), tcp_endpoint{ip_tcp::v4(), ANY_PORT}}, //
+        sock(local_strand.context().get_executor())                                            //
   {}
 
   // asyncLoop is invoked to:
@@ -72,10 +72,10 @@ private:
 private:
   // order dependent
   io_context &io_ctx;
+  strand local_strand;
   std::shared_ptr<Ctx> rtsp_ctx;
   tcp_acceptor acceptor;
   tcp_socket sock;
-  strand local_strand;
 
   // order independent
   tcp_endpoint endpoint;

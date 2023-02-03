@@ -34,9 +34,8 @@
 namespace pierre {
 
 class Dsp {
-  friend Av;
 
-protected:
+public:
   Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
 
     static constexpr csv factor_path{"frame.dsp.concurrency_factor"};
@@ -57,7 +56,6 @@ protected:
       // stay in-scope until all threads are started
       std::jthread([this, n = n, latch = latch.get()]() {
         auto const thread_name = name_thread(thread_prefix, n);
-
         INFO(module_id, "init", "thread {}\n", thread_name);
 
         latch->count_down();
@@ -72,7 +70,16 @@ protected:
     latch->wait();
   }
 
-public:
+  ~Dsp() {
+    static constexpr csv fn_id{"shutdown"};
+    INFO(module_id, fn_id, "requested\n");
+
+    guard.reset();
+    shutdown_latch->wait(); // caller waits for all threads to finish
+
+    INFO(module_id, fn_id, "io_ctx stopped={}\n", io_ctx.stopped());
+  }
+
   void process(const frame_t frame, FFT left, FFT right) noexcept {
 
     // the caller sets the state to avoid a race condition with async processing
@@ -88,7 +95,7 @@ public:
                  // detection.
 
                  if (frame->state == frame::DSP_IN_PROGRESS) {
-                   // the frame state changed so we can proceed with the left channel
+                   // the state hasn't changed, proceed with processing
                    left.process();
 
                    // check before starting the right channel (left required processing time)
@@ -103,25 +110,11 @@ public:
                      }
                    }
 
-                   // finding the peaks requires processing time so only change the state if
-                   // still DSP_IN_PROGRESS
+                   // atomically change the state to complete only if
+                   // it hasn't been changed elsewhere
                    frame->state.store_if_equal(frame::DSP_IN_PROGRESS, frame::DSP_COMPLETE);
                  }
                });
-  }
-
-  void run() noexcept {}
-
-  void shutdown() noexcept {
-    static constexpr csv fn_id{"shutdown"};
-
-    INFO(module_id, fn_id, "requested\n");
-
-    guard.reset();
-
-    shutdown_latch->wait(); // caller waits for all threads to finish
-
-    INFO(module_id, fn_id, "io_ctx stopped={}\n", io_ctx.stopped());
   }
 
 private:

@@ -28,36 +28,17 @@
 
 #include <atomic>
 #include <future>
+#include <latch>
 #include <memory>
 #include <optional>
+#include <thread>
 
 namespace pierre {
 
-class DmxCtrl : public std::enable_shared_from_this<DmxCtrl> {
-private:
-  DmxCtrl(io_context &io_ctx) noexcept;
-
+class DmxCtrl {
 public:
-  static auto create(io_context &io_ctx) noexcept {
-    return std::shared_ptr<DmxCtrl>(new DmxCtrl(io_ctx));
-  }
-
-  auto ptr() noexcept { return shared_from_this(); }
-
-  auto init() noexcept {
-    // start stalled_watchdog() to detect:
-    //  1. zeroconf resolution timeouts
-    //  2. unable to make initial handshake connection
-    //  3. failure by remote controller to make inbound data connection
-    //  4. failure to receive regular ctrl feedbacks
-
-    stalled_watchdog();
-
-    listen();
-    connect();
-
-    return shared_from_this();
-  }
+  DmxCtrl() noexcept;
+  ~DmxCtrl() noexcept;
 
   bool ready() noexcept {
     return ctrl_sock.has_value() && //
@@ -67,8 +48,6 @@ public:
   }
 
   void send_data_msg(DmxDataMsg msg) noexcept;
-
-  void teardown() noexcept;
 
 private:
   // lookup dmx controller and establish control connection
@@ -86,10 +65,13 @@ private:
 
 private:
   // order dependent
-  io_context &io_ctx;
-  strand local_strand;
+  io_context io_ctx;
   tcp_acceptor acceptor;
+  strand stall_strand;
   steady_timer stalled_timer;
+  const int64_t thread_count;
+  std::shared_ptr<std::latch> startup_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
 
   // order independent
   std::atomic_bool connected{false};
@@ -103,6 +85,7 @@ private:
   // misc debug
 public:
   static constexpr csv module_id{"desk.dmx_ctrl"};
+  static constexpr csv task_name{"dmx_ctrl"};
 };
 
 } // namespace pierre
