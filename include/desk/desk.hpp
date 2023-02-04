@@ -28,6 +28,7 @@
 #include <atomic>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <optional>
 
 namespace pierre {
@@ -67,24 +68,27 @@ public:
 
 private:
   void frame_loop() noexcept;
+  void frame_timer_cancel() noexcept;
+
+private:
+  enum state_t : int { Running = 0, Stopped };
 
 private:
   // order dependent
   io_context io_ctx;
-  strand frame_strand;
-  steady_timer frame_timer;
   work_guard guard;
+  steady_timer frame_timer;
   MasterClock *master_clock;
   std::atomic_bool loop_active{false};
+  std::atomic<state_t> state;
   const int thread_count;
-  std::shared_ptr<std::latch> startup_latch;
-  std::shared_ptr<std::latch> shutdown_latch;
-  std::atomic_bool started;
 
   // order independent
+  std::mutex run_state_mtx;
   std::optional<Racked> racked;
+  std::shared_ptr<std::latch> shutdown_latch;
 
-  std::shared_ptr<DmxCtrl> dmx_ctrl{nullptr};
+  std::unique_ptr<DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<FX> active_fx{nullptr};
 
 public:

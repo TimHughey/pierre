@@ -273,7 +273,16 @@ frame_future Racked::next_frame() noexcept { // static
 
     // we have racked reels but need clock_info, unlock while we wait
     lck.unlock();
-    auto clock_info = master_clock->info().get(); // wait for clock info BEFORE locking rack
+
+    auto master_clock_fut = master_clock->info();
+    auto clock_info = ClockInfo();
+
+    if (master_clock_fut.valid()) {
+      auto master_clock_result = master_clock_fut.wait_for(InputInfo::lead_time_min);
+      if (master_clock_result == std::future_status::ready) {
+        clock_info = master_clock_fut.get();
+      }
+    }
 
     if (clock_info.ok() == false) {
       // no clock info, set promise to SilentFrame
@@ -291,7 +300,7 @@ frame_future Racked::next_frame() noexcept { // static
       // note:  we could have done this check very early and completely avoid
       // the asio::post but didn't so we could prime ClockInfo and Anchor.
       // plus the above code isn't really that expensive every ~23ms.
-      if ((anchor.ready() == false) || (spool_frames.load() == false)) {
+      if ((anchor.ready() == false) || !spool_frames) {
         prom.set_value(SilentFrame::create());
         return;
       }

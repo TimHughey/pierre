@@ -25,6 +25,8 @@
 namespace pierre {
 namespace fx {
 
+Standby::~Standby() { cancel(); }
+
 void Standby::execute(Peaks &peaks) noexcept {
   if (cfg_change.has_value() && Config::has_changed(cfg_change)) {
     load_config();
@@ -43,7 +45,12 @@ void Standby::execute(Peaks &peaks) noexcept {
   }
 
   // unless completed (silence timeout fired) set finished to false
-  if (!completed()) set_finished(peaks.silence() == false);
+  if (!completed()) {
+    set_finished(peaks.silence() == false);
+    next_fx = fx_name::MAJOR_PEAK;
+  } else {
+    next_fx = fx_name::ALL_STOP;
+  }
 }
 
 void Standby::load_config() noexcept {
@@ -77,8 +84,6 @@ void Standby::load_config() noexcept {
   // start silence watch if timeout changed (at start or config reload)
   if (silence_timeout != silence_timeout_old) silence_watch();
 
-  next_fx = timeout_cfg["suggested_next_fx"].value_or(string("all_stop"));
-
   Config::want_changes(cfg_change);
 }
 
@@ -97,7 +102,10 @@ void Standby::silence_watch() noexcept {
 
   silence_timer.expires_after(silence_timeout);
   silence_timer.async_wait([this](const error_code ec) {
-    if (!ec) set_finished(true);
+    if (!ec) {
+      next_fx = fx_name::ALL_STOP;
+      set_finished(true);
+    }
   });
 }
 

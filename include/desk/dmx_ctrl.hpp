@@ -47,6 +47,8 @@ public:
            data_sock->is_open();
   }
 
+  void run() noexcept;
+
   void send_data_msg(DmxDataMsg msg) noexcept;
 
 private:

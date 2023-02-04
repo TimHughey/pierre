@@ -75,8 +75,8 @@ threads = 3 # frame loop
 
 [desk.dmx_ctrl]
 threads = 2
-#controller = "dmx" # DEFAULT
-controller = "test-with-devs"
+# controller = "dmx" # DEFAULT
+# controller = "test-with-devs"
 timeouts.milliseconds = { idle = 60_000, stalled = 7500 }
 
 [desk.dimmable]
@@ -102,7 +102,7 @@ units = [{ name = "ac power", addr = 1 }]
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 30, suggested_fx_next = "all_stop" } }
+silence = { timeout = { minutes = 1 } }
 will_render = true
 
 [fx.majorpeak]

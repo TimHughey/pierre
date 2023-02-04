@@ -12,7 +12,7 @@ if [[ -f ${PID_FILE} ]]; then
   if [[ ${PID_STATUS} != 0 ]]; then
 
   while kill -0 ${PID} 2> /dev/null; do 
-    sleep 0.10
+    sleep 0.25
     echo -n "."
   done
   echo 

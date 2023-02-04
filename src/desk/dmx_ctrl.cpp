@@ -63,38 +63,7 @@ DmxCtrl::DmxCtrl() noexcept
       thread_count(config()->at(threads_path()).value_or(2)),                  //
       startup_latch(std::make_shared<std::latch>(thread_count)),               //
       shutdown_latch(std::make_shared<std::latch>(thread_count))               //
-{
-  static constexpr csv fn_id{"init"};
-
-  INFO(module_id, "construct", "initiated\n");
-
-  // post work for the io_ctx (also serves as guard)
-  asio::post(io_ctx, [this, startup_latch = startup_latch]() mutable {
-    stalled_watchdog();
-    startup_latch->wait();
-    startup_latch.reset();
-
-    listen();
-    connect();
-  });
-
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, startup_latch = startup_latch]() mutable {
-      const auto thread_name = name_thread(task_name, n);
-      INFO(module_id, fn_id, "thread {}\n", thread_name);
-
-      startup_latch->arrive_and_wait();
-      io_ctx.run();
-
-      INFO(module_id, "shutdown", "thread {}\n", thread_name);
-      shutdown_latch->count_down();
-    }).detach();
-  }
-
-  startup_latch.reset();
-
-  INFO(module_id, fn_id, "complete\n");
-}
+{}
 
 DmxCtrl::~DmxCtrl() noexcept {
   static constexpr csv fn_id("shutdown");
@@ -122,24 +91,20 @@ void DmxCtrl::connect() noexcept {
       ctrl_sock.emplace(io_ctx), //
       endpoints,                 //
       [this, e](const error_code ec, const tcp_endpoint r) mutable {
-        if (ctrl_sock.has_value()) {
-
+        if (!ec && ctrl_sock.has_value()) {
           INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *ctrl_sock, r, e));
 
-          if (!ec) {
+          ctrl_sock->set_option(ip_tcp::no_delay(true));
+          Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
-            ctrl_sock->set_option(ip_tcp::no_delay(true));
-            Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
+          desk::Msg msg(HANDSHAKE);
 
-            desk::Msg msg(HANDSHAKE);
+          msg.add_kv("idle_shutdown_ms", idle_shutdown());
+          msg.add_kv("lead_time_µs", InputInfo::lead_time);
+          msg.add_kv("ref_µs", pet::now_realtime<Micros>());
+          msg.add_kv("data_port", acceptor.local_endpoint().port());
 
-            msg.add_kv("idle_shutdown_ms", idle_shutdown());
-            msg.add_kv("lead_time_µs", InputInfo::lead_time);
-            msg.add_kv("ref_µs", pet::now_realtime<Micros>());
-            msg.add_kv("data_port", acceptor.local_endpoint().port());
-
-            send_ctrl_msg(std::move(msg));
-          }
+          send_ctrl_msg(std::move(msg));
 
         } else {
           INFO(module_id, cat, "no socket, {}\n", ec.message());
@@ -180,14 +145,12 @@ void DmxCtrl::listen() noexcept {
           const auto &r = data_sock->remote_endpoint();
           INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *data_sock, r, e));
 
-          if (!ec) {
-            // success, set sock opts, connected and start msg_loop()
-            data_sock->set_option(ip_tcp::no_delay(true));
+          // success, set sock opts, connected and start msg_loop()
+          data_sock->set_option(ip_tcp::no_delay(true));
 
-            connected = ctrl_sock->is_open() && data_sock->is_open();
+          connected = ctrl_sock->is_open() && data_sock->is_open();
 
-            msg_loop(); // start the msg loop
-          }
+          msg_loop(); // start the msg loop
 
         } else {
           INFO(module_id, cat, "ctrl_socket={} data_socket={} {}\n", //
@@ -218,6 +181,41 @@ void DmxCtrl::msg_loop() noexcept {
   }
 }
 
+void DmxCtrl::run() noexcept {
+  static constexpr csv fn_id{"init"};
+
+  INFO(module_id, fn_id, "requested\n");
+
+  // post work for the io_ctx (also serves as guard)
+  asio::post(io_ctx, [this, startup_latch = startup_latch]() mutable {
+    stalled_watchdog();
+    listen();
+
+    // wait for all threads before connect()
+    startup_latch->wait();
+    startup_latch.reset();
+
+    connect();
+
+    INFO(module_id, fn_id, "complete\n");
+  });
+
+  for (auto n = 0; n < thread_count; n++) {
+    std::jthread([this, n = n, startup_latch = startup_latch]() mutable {
+      const auto thread_name = name_thread(task_name, n);
+      INFO(module_id, fn_id, "thread {}\n", thread_name);
+
+      startup_latch->count_down();
+      io_ctx.run();
+
+      INFO(module_id, "shutdown", "thread {}\n", thread_name);
+      shutdown_latch->count_down();
+    }).detach();
+  }
+
+  startup_latch.reset();
+}
+
 void DmxCtrl::send_ctrl_msg(desk::Msg msg) noexcept {
   static constexpr csv fn_id{"send_ctrl_msg"};
 
@@ -242,7 +240,7 @@ void DmxCtrl::send_ctrl_msg(desk::Msg msg) noexcept {
 }
 
 void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
-  if (connected.load()) { // only send msgs when connected
+  if (connected) { // only send msgs when connected
 
     msg.finalize();
 

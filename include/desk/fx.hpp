@@ -34,7 +34,7 @@ class FX {
 public:
   /// @brief Construct the base FX via the subclassed type
   FX() noexcept;
-  virtual ~FX() = default;
+  virtual ~FX() { cancel(); };
 
   /// @brief Cancel any pending io_ctx actions
   virtual void cancel() noexcept {}

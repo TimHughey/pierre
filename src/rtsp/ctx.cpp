@@ -148,7 +148,7 @@ void Ctx::teardown() noexcept {
     const auto sdi = dacp_id;
     const auto scn = client_name;
 
-    INFO(module_id, fn_id, "completed '{}' {} {} \n", scn, sar, sdi);
+    INFO(module_id, fn_id, "requested '{}' remote={} dacp={} \n", scn, sar, sdi);
 
     group_contains_group_leader = false;
     active_remote = 0;

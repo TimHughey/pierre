@@ -32,12 +32,10 @@ namespace fx {
 class Standby : public FX {
 
 public:
-  Standby(io_context &io_ctx) //
-      : io_ctx(io_ctx),       //
-        silence_timer(io_ctx) //
-  {}
+  Standby(io_context &io_ctx)
+      : io_ctx(io_ctx), silence_timer(io_ctx), next_color(Color()), silence_timeout{0} {}
 
-  ~Standby() override { cancel(); }
+  ~Standby() override final;
 
   void cancel() noexcept override {
     try {
@@ -59,14 +57,13 @@ private:
   // order dependent
   io_context &io_ctx;
   steady_timer silence_timer;
+  Color next_color;
+  Seconds silence_timeout;
 
   // order independent
   double hue_step{0.0};
   double max_brightness{0};
   double next_brightness{0};
-  Color next_color;
-
-  Seconds silence_timeout;
 
   cfg_future cfg_change;
 

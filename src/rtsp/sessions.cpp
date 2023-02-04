@@ -51,8 +51,7 @@ std::shared_ptr<Ctx> Sessions::create(io_context &io_ctx, std::shared_ptr<tcp_so
 void Sessions::live(std::shared_ptr<Ctx> live_ctx) noexcept {
   static constexpr csv fn_id{"live"};
 
-  INFO(module_id, fn_id, "dacp_id={} active_remote={}\n", live_ctx->dacp_id,
-       live_ctx->active_remote);
+  INFO(module_id, fn_id, "remote={} dacp={}\n", live_ctx->active_remote, live_ctx->dacp_id);
 
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
@@ -61,8 +60,8 @@ void Sessions::live(std::shared_ptr<Ctx> live_ctx) noexcept {
     auto rc = false;
 
     if (live_ctx != ctx) {
-      INFO(module_id, fn_id, "freeing dacp_id={} active_remote={}\n", ctx->dacp_id,
-           ctx->active_remote);
+      static constexpr csv fn_id{"freeing"};
+      INFO(module_id, fn_id, "remote={} dacp={}\n", ctx->active_remote, ctx->dacp_id);
       close(ctx);
       rc = true;
     }
