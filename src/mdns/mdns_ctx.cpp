@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "mdns_ctx.hpp"
-#include "base/threads.hpp"
+#include "base/thread_util.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
@@ -123,7 +123,7 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
     INFO(module_id, cb_id, "REGISTERING, client={}\n", fmt::ptr(ctx->client));
 
     if (thread_named == false) {
-      name_thread(thread_name);
+      thread_util::set_name(thread_name);
       thread_named = true;
     }
 

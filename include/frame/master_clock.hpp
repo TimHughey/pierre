@@ -20,7 +20,6 @@
 
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
-#include "base/threads.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/clock_info.hpp"
@@ -142,7 +141,7 @@ private:
   void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:
-  static constexpr csv module_id{"frame.clock"};
+  static constexpr csv module_id{"master_clock"};
 };
 
 /*  The control port expects a UDP packet with the first space-delimited string

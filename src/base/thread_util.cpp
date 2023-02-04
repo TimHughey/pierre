@@ -1,4 +1,3 @@
-
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -17,27 +16,28 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/types.hpp"
+#include "base/thread_util.hpp"
 
 #include <array>
 #include <fmt/format.h>
+#include <iterator>
 #include <pthread.h>
-#include <thread>
 
 namespace pierre {
 
-using Threads = std::vector<Thread>;
-
-inline const string name_thread(csv name) noexcept {
+const string thread_util::set_name(csv name, int num) noexcept {
   static constexpr csv prefix{"pierre"};
   const auto tid = pthread_self();
 
-  const auto thread_name = fmt::format("{}_{}", prefix, name);
+  string thread_name;
+  auto w = std::back_inserter(thread_name);
+
+  fmt::format_to(w, "{}_{}", prefix, name);
+
+  if (num >= 0) fmt::format_to(w, "{}", num);
 
   // name the avahi thread (if needed)
-  std::array<char, 64> buff{};
+  std::array<char, 64> buff{0x00};
 
   pthread_getname_np(tid, buff.data(), buff.size());
 
@@ -46,10 +46,6 @@ inline const string name_thread(csv name) noexcept {
   }
 
   return thread_name;
-}
-
-inline const string name_thread(csv name, int num) noexcept {
-  return name_thread(fmt::format("{}_{}", name, num));
 }
 
 } // namespace pierre

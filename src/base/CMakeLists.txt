@@ -22,6 +22,9 @@ add_library(${__target}
 
   # time utilities
   pet.cpp
+
+  # thread util
+  thread_util.cpp
   
   # headers
   ${HEADER_LIST}

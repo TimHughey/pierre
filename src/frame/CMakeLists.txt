@@ -28,6 +28,7 @@ add_library(${__target}
   av.cpp
 
   # digital signal processing
+  dsp.cpp
   fft.cpp 
 
   # anchor and master clock

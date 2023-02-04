@@ -19,6 +19,7 @@
 #include "master_clock.hpp"
 #include "base/host.hpp"
 #include "base/input_info.hpp"
+#include "base/thread_util.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
@@ -36,46 +37,31 @@
 
 namespace pierre {
 
-static auto cfg_path(csv key_path) noexcept {
-  return toml::path(MasterClock::module_id).append(key_path);
-}
-
-static const auto cfg_shm_name() noexcept {
-  return config()->at(cfg_path("shm_name")).value_or<string>("/nqptp");
-}
-
-static const auto cfg_threads() noexcept {
-  return config()->at(cfg_path("threads")).value_or<int>(1);
-}
-
 // create the MasterClock
 MasterClock::MasterClock() noexcept
-    : guard(io_ctx.get_executor()),                                  // syncronize clock io
-      socket(io_ctx, ip_udp::v4()),                                  // construct and open
-      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT), // nqptp endpoint
-      shm_name(cfg_shm_name()),                                      //
-      thread_count(cfg_threads()),                                   //
-      shutdown_latch(std::make_shared<std::latch>(thread_count))     //
+    : guard(io_ctx.get_executor()),                                     // syncronize clock io
+      socket(io_ctx, ip_udp::v4()),                                     // construct and open
+      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),    // nqptp endpoint
+      shm_name(config_val2<MasterClock, string>("shm_name", "/nqptp")), //
+      thread_count(config_threads<MasterClock>(1)),                     //
+      shutdown_latch(std::make_shared<std::latch>(thread_count))        //
 {
-
-  INFO(module_id, "init", "shm_name={} dest={}:{}\n", //
-       shm_name,                                      //
-       remote_endpoint.address().to_string(),         //
-       remote_endpoint.port());
+  INFO_INIT("sizeof={} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
+            remote_endpoint.address().to_string(), remote_endpoint.port());
 
   auto latch = std::make_unique<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
     std::jthread([this, n = n, latch = latch.get(), shutdown_latch = shutdown_latch]() mutable {
-      const auto thread_name = name_thread("clock", n);
+      const auto thread_name = thread_util::set_name("clock", n);
 
-      latch->arrive_and_wait();
-      INFO(module_id, "init", "thread {}\n", thread_name);
+      latch->count_down();
 
+      INFO_THREAD_START();
       io_ctx.run();
 
       shutdown_latch->count_down();
-      INFO(module_id, "shutdown", "thread {}\n", thread_name);
+      INFO_THREAD_STOP();
     }).detach();
   }
 
@@ -87,7 +73,7 @@ MasterClock::MasterClock() noexcept
 MasterClock::~MasterClock() noexcept {
   static constexpr csv fn_id("shutdown");
 
-  INFO(module_id, fn_id, "initiated\n");
+  INFO_SHUTDOWN_REQUESTED();
 
   guard.reset();
   if (is_mapped()) munmap(mapped, sizeof(nqptp));
@@ -98,12 +84,13 @@ MasterClock::~MasterClock() noexcept {
   }
 
   shutdown_latch->wait();
-
-  INFO(module_id, fn_id, "complete, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_SHUTDOWN_COMPLETE();
 }
 
 // NOTE: new data is available every 126ms
 const ClockInfo MasterClock::load_info_from_mapped() {
+  static constexpr csv fn_id{"load_mapped"};
+
   if (map_shm() == false) {
     return ClockInfo();
   }
@@ -124,7 +111,7 @@ const ClockInfo MasterClock::load_info_from_mapped() {
   if (data.version != NQPTP_VERSION) {
     static string msg;
     fmt::format_to(std::back_inserter(msg), "nqptp version mismatch vsn={}", data.version);
-    INFO("{}\n", module_id, "FATAL", msg);
+    INFO_AUTO("FATAL {}\n", msg);
     throw(std::runtime_error(msg.c_str()));
   }
 
@@ -144,6 +131,7 @@ const ClockInfo MasterClock::load_info_from_mapped() {
 }
 
 bool MasterClock::map_shm() {
+  static constexpr csv fn_id{"map_shm"};
   int prev_state;
 
   if (is_mapped() == false) {
@@ -161,9 +149,9 @@ bool MasterClock::map_shm() {
 
       close(shm_fd); // done with the shm memory fd
 
-      INFOX(module_id, "CLOCK_MAPPING", "complete={}\n", is_mapped());
+      INFO_AUTO("complete={}\n", is_mapped());
     } else {
-      INFO(module_id, "FATAL", "clock map failed shm={} error={}\n", shm_name, errno);
+      INFO_AUTO("clock map shm={} error={}\n", shm_name, strerror(errno));
     }
 
     pthread_setcancelstate(prev_state, nullptr);
@@ -173,8 +161,8 @@ bool MasterClock::map_shm() {
 }
 
 void MasterClock::peers_update(const Peers &new_peers) {
-  static constexpr csv fn_id{"new_peers"};
-  INFOX(module_id, fn_id, "count={}\n", new_peers.size());
+  static constexpr csv fn_id{"peers_update"};
+  INFO_AUTO("new peers count={}\n", new_peers.size());
 
   // queue the update to prevent collisions
   asio::post(io_ctx, [this, peers = std::move(new_peers)]() {
@@ -190,18 +178,19 @@ void MasterClock::peers_update(const Peers &new_peers) {
 
     msg.push_back(0x00); // must be null terminated
 
-    INFOX(module_id, fn_id, "peers={}\n", msg.view());
+    INFO_AUTO("peers msg={}\n", msg.view());
 
     error_code ec;
     auto bytes = socket.send_to(asio::buffer(msg), remote_endpoint, 0, ec);
 
-    if (ec) INFO(module_id, fn_id, "send msg failed, reason={} bytes={}\n", ec.message(), bytes);
+    if (ec) INFO_AUTO("send msg failed, reason={} bytes={}\n", ec.message(), bytes);
   });
 }
 
 // misc debug
 void MasterClock::dump() {
-  INFO(module_id, "DUMP", "inspect info\n{}\n", load_info_from_mapped().inspect());
+  static constexpr csv fn_id{"dump"};
+  INFO_AUTO("\n{}\n", load_info_from_mapped().inspect());
 }
 
 } // namespace pierre

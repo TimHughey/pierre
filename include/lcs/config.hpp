@@ -219,8 +219,26 @@ public:
 // Config free functions
 
 inline std::shared_ptr<Config> config() noexcept { return Config::ptr(); }
+
+template <typename T> toml::path config_path(csv key_path) noexcept {
+  return toml::path(T::module_id).append(key_path);
+}
+
 template <typename T> T config_val(csv path, T &&def_val) noexcept {
   return Config::ptr()->at(path).value_or<T>(std::forward<T>(def_val));
+}
+
+template <class C, typename T, typename D> inline auto config_val2(csv path, D &&def_val) noexcept {
+
+  return Config::ptr()
+      ->at(toml::path(C::module_id).append(path))
+      .value_or<T>(std::forward<D>(def_val));
+}
+
+template <class C> int config_threads(int &&def_val) noexcept {
+  return Config::ptr()
+      ->at(toml::path(C::module_id).append("threads"))
+      .value_or<int>(std::forward<int>(def_val));
 }
 
 /// @brief Lookup the boolean value at info.<mod>.<cat>

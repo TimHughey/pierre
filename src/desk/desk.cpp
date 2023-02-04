@@ -16,10 +16,10 @@
 //
 // https://www.wisslanding.com
 
-#include "desk.hpp"
-#include "async_msg.hpp"
+#include "desk/desk.hpp"
 #include "base/input_info.hpp"
-#include "base/threads.hpp"
+#include "base/thread_util.hpp"
+#include "desk/async_msg.hpp"
 #include "dmx_ctrl.hpp"
 #include "dmx_data_msg.hpp"
 #include "frame/anchor_last.hpp"
@@ -45,26 +45,24 @@ namespace pierre {
 
 // must be defined in .cpp to hide mdns
 Desk::Desk(MasterClock *master_clock) noexcept
-    : guard(asio::make_work_guard(io_ctx)),              //
-      frame_timer(io_ctx),                               //
-      master_clock(master_clock),                        //
-      loop_active{false},                                //
-      state{Stopped},                                    //
-      thread_count(config_val<int>("desk.threads"sv, 2)) //
+    : guard(asio::make_work_guard(io_ctx)), //
+      frame_timer(io_ctx),                  //
+      master_clock(master_clock),           //
+      loop_active{false},                   //
+      state{Stopped},                       //
+      thread_count(config_threads<Desk>(2)) //
 {
-  INFO(module_id, "init", "sizeof={} lead_time_min={}\n", sizeof(Desk),
-       pet::humanize(InputInfo::lead_time_min));
+  INFO_INIT("sizeof={} lead_time_min={}\n", sizeof(Desk), pet::humanize(InputInfo::lead_time_min));
 
   resume();
 }
 
 Desk::~Desk() noexcept {
-  static constexpr csv fn_id{"shutdown"};
-  INFO(module_id, fn_id, "requested, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_SHUTDOWN_REQUESTED();
 
   standby();
 
-  INFO(module_id, fn_id, "complete, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_SHUTDOWN_COMPLETE();
 }
 
 // general API
@@ -94,7 +92,7 @@ void Desk::frame_loop() noexcept {
     try {
       frame = racked->next_frame().get();
     } catch (...) {
-      INFO(module_id, fn_id, "next_frame exception\n");
+      INFO_AUTO("next_frame exception\n");
       loop_active = false;
     }
 
@@ -116,7 +114,7 @@ void Desk::frame_loop() noexcept {
 
       // when fx::Standby is finished initiate standby()
       if (fx_suggested_next == fx_name::ALL_STOP) {
-        INFO(module_id, fn_id, "fx::Standby finished, initiating standby\n");
+        INFO_AUTO("fx::Standby finished, initiating standby\n");
         standby();
         break;
 
@@ -135,7 +133,7 @@ void Desk::frame_loop() noexcept {
 
       // note in log switch to new FX, if needed
       if (!active_fx->match_name(fx_name_now)) {
-        INFO(module_id, fn_id, "FX {} -> {}\n", fx_name_now, active_fx->name());
+        INFO_AUTO("FX {} -> {}\n", fx_name_now, active_fx->name());
       }
     }
 
@@ -177,13 +175,13 @@ void Desk::frame_loop() noexcept {
           if (fut_status == std::future_status::ready) break;
         }
       } catch (const std::exception &err) {
-        INFO(module_id, fn_id, "timer_fut exception {}\n", err.what());
+        INFO_AUTO("timer_fut exception {}\n", err.what());
         loop_active = false;
       }
     }
   } // while loop
 
-  INFO(module_id, fn_id, "fell through, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_AUTO("fell through, io_ctx stopped={}\n", io_ctx.stopped());
 }
 
 void Desk::frame_timer_cancel() noexcept {}
@@ -198,13 +196,11 @@ void Desk::resume() noexcept {
 
   state = Running;
 
-  INFO(module_id, fn_id, "requested\n");
-
   // the io_ctx may have been stopped since Desk is intended to be allocated
   // once per app run
   if (io_ctx.stopped()) io_ctx.restart();
 
-  INFO(module_id, fn_id, "initiated, thread_count={}\n", thread_count);
+  INFO_AUTO("requested, thread_count={}\n", thread_count);
 
   shutdown_latch = std::make_shared<std::latch>(thread_count);
 
@@ -214,19 +210,19 @@ void Desk::resume() noexcept {
   // note: work guard created in constructor
   for (auto n = 0; n < thread_count; n++) {
     std::jthread([this, n = n, shut_latch = shutdown_latch]() mutable {
-      const auto thread_name = name_thread(TASK_NAME, n);
+      const auto thread_name = thread_util::set_name(TASK_NAME, n);
 
       // thread start syncronization not required
-      INFO(module_id, "init", "thread {}\n", thread_name);
+      INFO_THREAD_START();
       io_ctx.run();
 
-      INFO(module_id, "shutdown", "thread {}\n", thread_name);
       shut_latch->count_down();
+      INFO_THREAD_STOP();
     }).detach();
   }
 
   // all threads / strands are running, fire up subsystems
-  INFO(module_id, fn_id, "threads={}\n", thread_count);
+  INFO_AUTO("complete, threads={}\n", thread_count);
 }
 
 void Desk::standby() noexcept {
@@ -246,7 +242,7 @@ void Desk::standby() noexcept {
 
   loop_active = false;
 
-  INFO(module_id, fn_id, "requested, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_AUTO("requested, io_ctx stopped={}\n", io_ctx.stopped());
 
   guard.reset(); // allow io_ctx to run out of work
 
@@ -268,6 +264,6 @@ void Desk::standby() noexcept {
 
   shutdown_latch.reset();
 
-  INFO(module_id, fn_id, "complete, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_THREAD("complete, io_ctx stopped={}\n", io_ctx.stopped());
 }
 } // namespace pierre

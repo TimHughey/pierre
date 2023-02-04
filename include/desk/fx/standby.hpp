@@ -22,7 +22,7 @@
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "io/io.hpp"
-#include "lcs/config.hpp"
+#include "lcs/types.hpp"
 
 #include <memory>
 

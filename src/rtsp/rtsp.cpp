@@ -18,7 +18,7 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
-#include "base/threads.hpp"
+#include "base/thread_util.hpp"
 #include "ctx.hpp"
 #include "desk/desk.hpp"
 #include "frame/master_clock.hpp"
@@ -34,19 +34,15 @@
 
 namespace pierre {
 
-static auto cfg_path(csv key_path) noexcept { return toml::path(Rtsp::module_id).append(key_path); }
-
-static const auto threads_path() noexcept { return cfg_path("threads"); }
-
 Rtsp::Rtsp() noexcept
     : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
       sessions(std::make_unique<rtsp::Sessions>()),     //
       master_clock(std::make_unique<MasterClock>()),    //
       desk(std::make_unique<Desk>(master_clock.get())), //
-      thread_count(config()->at(threads_path()).value_or(4)),
+      thread_count(config_threads<Rtsp>(4)),
       shutdown_latch(std::make_shared<std::latch>(thread_count)) //
 {
-  INFO(module_id, "init", "sizeof={} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
+  INFO_INIT("sizeof={} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
 
   // once io_ctx is started begin accepting connections
   // queuing accept to the io_ctx also serves as the work guard
@@ -59,18 +55,17 @@ Rtsp::Rtsp() noexcept
   for (auto n = 0; n < thread_count; n++) {
     std::jthread([this, n, startup_latch = startup_latch,
                   shutdown_latch = shutdown_latch]() mutable {
-      const auto thread_name = name_thread("rtsp", n);
+      const auto thread_name = thread_util::set_name("rtsp", n);
 
       // we want a syncronized start of all threads
       startup_latch->arrive_and_wait();
       startup_latch.reset();
 
-      INFO(module_id, "init", "thread {}\n", thread_name);
-
+      INFO_THREAD_START();
       io_ctx.run();
 
       shutdown_latch->count_down();
-      INFO(module_id, "shutdown", "thread {}\n", thread_name);
+      INFO_THREAD_STOP();
     }).detach();
   }
 
@@ -78,9 +73,7 @@ Rtsp::Rtsp() noexcept
 }
 
 Rtsp::~Rtsp() noexcept {
-
-  static constexpr csv fn_id{"shutdown"};
-  INFO(module_id, fn_id, "requested\n");
+  INFO_SHUTDOWN_REQUESTED();
 
   [[maybe_unused]] error_code ec;
   acceptor.close(ec);    //  prevent new connections
@@ -89,10 +82,8 @@ Rtsp::~Rtsp() noexcept {
   desk.reset(); // shutdown desk (and friends)
   master_clock.reset();
 
-  INFO(module_id, fn_id, "waiting for threads, stopped={}\n", io_ctx.stopped());
   shutdown_latch->wait(); // caller waits for all threads to finish
-
-  INFO(module_id, fn_id, "io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_SHUTDOWN_COMPLETE();
 }
 
 void Rtsp::async_accept() noexcept {

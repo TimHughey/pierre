@@ -25,10 +25,28 @@ init = true
 threads = true
 debug = false
 
-desk = { dmx_ctrl = true, monitor_wip = true, reel = false }
 frames = { av = false, flush = false, racked = false }
 mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
 fx = { standby = true }
+
+[info.desk]
+thread = false
+resume = false
+shutdown = false
+dmx_ctrl = { run = false, thread = false }
+monitor_wip = true
+reel = false
+racked = { log_racked = false, thread = false }
+
+[info.frame]
+dsp = { thread = false }
+
+[info.master_clock]
+init = true
+shutdown = false
+peers_update = false
+thread = false
+map_shm = false
 
 [info.rtsp]
 audio = false
@@ -38,10 +56,9 @@ event = false
 net = false
 reply = { build = false }
 request = true
-saver = { enable = false, path = "../extra/debug", file = "rtsp.log", format = "raw" }
 server = true
 session = true
-
+thread = false
 
 [mdns]
 port = 7000
@@ -52,6 +69,11 @@ service = "_ruth._tcp"    # service advertised by rendering devices
 audio = { buffer_size = 0x800000 }   # bytes (8mb)
 connection = { timeout_ms = 30_000 }
 threads = 2
+
+[rtsp.saver]
+enable = false
+file = "/tmp/rtsp.log"
+format = "raw"
 
 [frame]
 cipher = { buffer_size = 0x2000 }  # bytes (4k)

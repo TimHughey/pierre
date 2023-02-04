@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/threads.hpp"
 #include "base/types.hpp"
 #include "io/io.hpp"
 
@@ -54,7 +53,7 @@ public:
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
-    if (should_log_info(mod_id, cat)) {
+    if (should_log(mod_id, cat)) {
 
       const auto prefix = fmt::format(prefix_format,      //
                                       runtime(),          // millis since app start
@@ -79,7 +78,7 @@ public:
     return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
   }
 
-  static bool should_log_info(csv mod, csv cat) noexcept; // see .cpp
+  static bool should_log(csv mod, csv cat) noexcept; // see .cpp
 
   static void shutdown() noexcept { shared::logger.shutdown_impl(); }
 
@@ -98,7 +97,6 @@ private:
 
   // order independent
   std::atomic_bool shutting_down{false};
-  Threads threads;
   std::optional<fmt::ostream> out;
 
 public:
@@ -117,6 +115,32 @@ public:
 
 #define INFO(mod_id, cat, format, ...)                                                             \
   pierre::shared::logger.info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
+
+#define INFO_AUTO(format, ...)                                                                     \
+  pierre::shared::logger.info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__)
+
+#define INFO_INIT(format, ...)                                                                     \
+  pierre::shared::logger.info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__)
+
+#define INFO_SHUTDOWN(format, ...)                                                                 \
+  pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING(format), ##__VA_ARGS__)
+
+#define INFO_SHUTDOWN_COMPLETE()                                                                   \
+  pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING("completed, io_ctx={}\n"),    \
+                              io_ctx.stopped())
+
+#define INFO_SHUTDOWN_REQUESTED()                                                                  \
+  pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING("requested, io_ctx={}\n"),    \
+                              io_ctx.stopped())
+
+#define INFO_THREAD(format, ...)                                                                   \
+  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING(format), ##__VA_ARGS__)
+
+#define INFO_THREAD_START()                                                                        \
+  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("started {}"), thread_name)
+
+#define INFO_THREAD_STOP()                                                                         \
+  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("stopped {}"), thread_name)
 
 #define INFOX(mod_id, cat, format, ...)
 

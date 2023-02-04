@@ -32,7 +32,6 @@ extern "C" {
 #include "fft.hpp"
 #include "frame.hpp"
 #include "io/io.hpp"
-#include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
 #include <atomic>

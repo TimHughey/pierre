@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -19,33 +20,13 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "base/uint8v.hpp"
-#include "headers.hpp"
-#include "rtsp/aplist.hpp"
-#include "rtsp/resp_code.hpp"
+
+#include <thread>
 
 namespace pierre {
-namespace rtsp {
 
-class Saver {
-
-public:
-  enum Direction { IN, OUT };
-
-public:
-  Saver(Saver::Direction direction, const Headers &headers, const uint8v &content,
-        const RespCode resp_code = RespCode(RespCode::code_val::OK)) noexcept;
-
-private:
-  bool enable{false};
-  const string file;
-  const string format;
-
-public:
-  string msg;
-  static constexpr csv module_id{"rtsp.saver"};
+struct thread_util {
+  static const string set_name(csv name, int num = -1) noexcept;
 };
-
-} // namespace rtsp
 
 } // namespace pierre

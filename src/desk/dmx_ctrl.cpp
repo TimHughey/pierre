@@ -18,7 +18,7 @@
 
 #include "dmx_ctrl.hpp"
 #include "async_msg.hpp"
-#include "base/threads.hpp"
+#include "base/thread_util.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
@@ -34,53 +34,39 @@
 
 namespace pierre {
 
-static auto cfg_path(csv key_path) noexcept {
-  return toml::path(DmxCtrl::module_id).append(key_path);
+static auto stalled_timeout() noexcept {
+  const auto ms = config_val2<DmxCtrl, int64_t>("timeouts.milliseconds.stalled", 7500);
+
+  return pet::from_val<Nanos, Millis>(ms);
 }
-
-static const auto controller_name() noexcept {
-  return config()->at(cfg_path("controller")).value_or<string>("dmx");
-}
-
-static const auto idle_shutdown() noexcept {
-  return pet::from_val<Nanos, Millis>(
-      config()->at(cfg_path("timeouts.milliseconds.idle")).value_or(30000));
-}
-
-static const auto stalled_timeout() noexcept {
-  static constexpr csv PATH{"timeouts.milliseconds.stalled"};
-
-  return pet::from_val<Nanos, Millis>(config()->at(PATH).value_or(7500));
-}
-
-static const auto threads_path() noexcept { return cfg_path("threads"); }
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
     : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),                  //
       stall_strand(io_ctx),                                                    //
       stalled_timer(stall_strand.context().get_executor(), stalled_timeout()), //
-      thread_count(config()->at(threads_path()).value_or(2)),                  //
+      thread_count(config_threads<DmxCtrl>(2)),                                //
       startup_latch(std::make_shared<std::latch>(thread_count)),               //
       shutdown_latch(std::make_shared<std::latch>(thread_count))               //
-{}
+{
+  INFO_INIT("sizeof={} threads={}\n", sizeof(DmxCtrl), thread_count);
+}
 
 DmxCtrl::~DmxCtrl() noexcept {
-  static constexpr csv fn_id("shutdown");
-
-  INFO(module_id, fn_id, "initiated\n");
+  INFO_SHUTDOWN_REQUESTED();
 
   io_ctx.stop();
   shutdown_latch->wait();
 
-  INFO(module_id, fn_id, "complete\n");
+  INFO_SHUTDOWN_COMPLETE();
 }
 
 void DmxCtrl::connect() noexcept {
   static constexpr csv cat{"ctrl_sock"};
 
   // now begin the control channel connect and handshake
-  auto zcsf = mDNS::zservice(controller_name()); // zerconf resolve future
+  // zerconf resolve future
+  auto zcsf = mDNS::zservice(config_val2<DmxCtrl, string>("controller", "dmx"));
   Elapsed e;
   auto zcs = zcsf.get(); // can BLOCK, as needed
 
@@ -99,7 +85,8 @@ void DmxCtrl::connect() noexcept {
 
           desk::Msg msg(HANDSHAKE);
 
-          msg.add_kv("idle_shutdown_ms", idle_shutdown());
+          msg.add_kv("idle_shutdown_ms",
+                     config_val2<DmxCtrl, int64_t>("timeouts.milliseconds.idle", 30000));
           msg.add_kv("lead_time_µs", InputInfo::lead_time);
           msg.add_kv("ref_µs", pet::now_realtime<Micros>());
           msg.add_kv("data_port", acceptor.local_endpoint().port());
@@ -182,9 +169,9 @@ void DmxCtrl::msg_loop() noexcept {
 }
 
 void DmxCtrl::run() noexcept {
-  static constexpr csv fn_id{"init"};
+  static constexpr csv fn_id{"run"};
 
-  INFO(module_id, fn_id, "requested\n");
+  INFO_AUTO("requested\n");
 
   // post work for the io_ctx (also serves as guard)
   asio::post(io_ctx, [this, startup_latch = startup_latch]() mutable {
@@ -197,19 +184,19 @@ void DmxCtrl::run() noexcept {
 
     connect();
 
-    INFO(module_id, fn_id, "complete\n");
+    INFO_AUTO("complete\n");
   });
 
   for (auto n = 0; n < thread_count; n++) {
     std::jthread([this, n = n, startup_latch = startup_latch]() mutable {
-      const auto thread_name = name_thread(task_name, n);
-      INFO(module_id, fn_id, "thread {}\n", thread_name);
+      const auto thread_name = thread_util::set_name(task_name, n);
 
       startup_latch->count_down();
+      INFO_THREAD_START();
       io_ctx.run();
 
-      INFO(module_id, "shutdown", "thread {}\n", thread_name);
       shutdown_latch->count_down();
+      INFO_THREAD_STOP();
     }).detach();
   }
 

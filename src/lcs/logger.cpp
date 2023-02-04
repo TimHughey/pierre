@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "lcs/logger.hpp"
-#include "base/threads.hpp"
+#include "base/thread_util.hpp"
 #include "lcs/config.hpp"
 
 #include <filesystem>
@@ -43,7 +43,7 @@ void Logger::print(const string prefix, const string msg) noexcept {
   }
 }
 
-bool Logger::should_log_info(csv mod, csv cat) noexcept { // static
+bool Logger::should_log(csv mod, csv cat) noexcept { // static
   // in .cpp to avoid pulling config.hpp into Logger
   return cfg_info(mod, cat);
 }
@@ -77,7 +77,7 @@ void Logger::startup_impl() noexcept {
   auto latch = std::make_shared<std::latch>(1);
 
   std::jthread([this, latch = latch]() {
-    name_thread(module_id);
+    thread_util::set_name(module_id);
     latch->count_down();
     io_ctx.run();
   }).detach();

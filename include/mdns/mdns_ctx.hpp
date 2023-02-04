@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "lcs/config.hpp"
 #include "service.hpp"
 #include "zservice.hpp"
 
