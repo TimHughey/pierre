@@ -31,8 +31,6 @@ namespace pierre {
 // forward decl
 class MasterClock;
 
-using Port = uint16_t;
-
 struct ClockPort {
   string id;
   Port port;

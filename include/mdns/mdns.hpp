@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "io/io.hpp"
 #include "base/types.hpp"
+#include "io/io.hpp"
 #include "mdns/service.hpp"
 #include "mdns/zservice.hpp"
 
@@ -31,38 +31,45 @@
 
 namespace pierre {
 
+class mDNS;
+
+namespace shared {
+extern std::unique_ptr<mDNS> mdns;
+}
+
 namespace mdns {
 class Ctx;
 }
 
-class mDNS : public std::enable_shared_from_this<mDNS> {
+class mDNS {
 
   friend class mdns::Ctx;
 
-private:
+public:
   mDNS() noexcept;
-  static auto ptr() noexcept { return self->shared_from_this(); }
+  ~mDNS() noexcept;
 
 public:
   static void browse(csv stype) noexcept;
-  static void init() noexcept;
 
-  static Service &service() noexcept { return self->service_obj; }
-  static void shutdown() noexcept;
+  static Service &service() noexcept { return shared::mdns->service_obj; }
 
   static void update() noexcept;
   static ZeroConfFut zservice(csv name) noexcept;
 
 public:
   // order dependent
+  const string receiver;
+  const string build_vsn;
+  const string stype;
+  const Port receiver_port;
   Service service_obj;
   std::unique_ptr<mdns::Ctx> ctx;
 
-  // static class data
-  static std::shared_ptr<mDNS> self;
-
 public:
-  static constexpr csv module_id{"mdns.base"};
+  static constexpr csv module_id{"mdns"};
 };
+
+auto inline mdns_ctx() noexcept { return shared::mdns->ctx.get(); }
 
 } // namespace pierre

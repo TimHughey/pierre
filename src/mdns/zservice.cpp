@@ -59,15 +59,16 @@ string ZeroConf::inspect() const noexcept {
   fmt::format_to(w, "{} hostname={} name={} short={} {} {}:{} TXT: ", _type, hostname, name_net,
                  _name_short, _protocol, _address, _port);
 
-  std::ranges::for_each(_txt_list, [w = std::back_inserter(msg)](const zc::Txt &txt) {
-    fmt::format_to(w, "{}=", txt.key());
+  std::for_each(_txt_list.begin(), _txt_list.end(),
+                [w = std::back_inserter(msg)](const zc::Txt &txt) {
+                  fmt::format_to(w, "{}=", txt.key());
 
-    if (txt.number()) {
-      fmt::format_to(w, "{} (number) ", txt.val<uint32_t>());
-    } else {
-      fmt::format_to(w, "{} ", txt.val());
-    }
-  });
+                  if (txt.number()) {
+                    fmt::format_to(w, "{} (number) ", txt.val<uint32_t>());
+                  } else {
+                    fmt::format_to(w, "{} ", txt.val());
+                  }
+                });
 
   return msg;
 }

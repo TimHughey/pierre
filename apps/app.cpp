@@ -118,7 +118,7 @@ int App::main(int argc, char *argv[]) {
   INFO_AUTO("{}\n", config()->banner_msg());
   INFO(Config::module_id, fn_id, "{}\n", config()->init_msg);
 
-  mDNS::init();
+  shared::mdns = std::make_unique<mDNS>();
   rtsp = std::make_unique<Rtsp>();
 
   io_ctx->run(); // start the app, returns when shutdown signal received
@@ -150,7 +150,7 @@ void App::signals_shutdown() noexcept {
     INFO_AUTO("caught SIGINT ({})\n", signal, Config::daemon());
 
     rtsp.reset();
-    mDNS::shutdown();
+    shared::mdns.reset();
 
     if (Config::daemon()) {
       const auto pid_path = Config::fs_pid_path();

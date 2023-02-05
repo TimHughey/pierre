@@ -53,4 +53,6 @@ concept IsAnyOf = (std::same_as<T, U> || ...);
 
 template <class> inline constexpr bool always_false_v = false;
 
+using Port = uint16_t;
+
 } // namespace pierre

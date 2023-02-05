@@ -57,7 +57,6 @@ using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::exe
 using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 
 static constexpr uint16_t ANY_PORT{0};
-using Port = uint16_t;
 
 namespace io {
 

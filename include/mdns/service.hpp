@@ -89,13 +89,9 @@ using service_txt_map = std::map<txt_type, service_def>;
 class Service {
 
 public:
-  Service() = default;
-
-  // calculate the runtime values (called once at start up)
-  void init() noexcept;
+  Service(const string &receiver, const string &build_vsn) noexcept;
 
   // general API
-
   template <typename T = string> const std::pair<string, T> key_val(txt_opt opt) const {
     const auto &[key, val] = lookup_map.at(opt);
 
@@ -226,6 +222,11 @@ private:
   }
 
 private:
+  // order dependent
+  const string receiver;
+  const string build_vsn;
+
+  // order independent
   StatusFlags _status_flags; // see status_flags.hpp
 
   static lookup_map_t lookup_map;

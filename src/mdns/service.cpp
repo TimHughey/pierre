@@ -20,7 +20,7 @@
 #include "base/host.hpp"
 #include "base/uint8v.hpp"
 #include "features.hpp"
-#include "lcs/config.hpp"
+
 #include "lcs/logger.hpp"
 #include "pair/pair.h"
 
@@ -30,7 +30,10 @@
 
 namespace pierre {
 
-void Service::init() noexcept {
+Service::Service(const string &receiver, const string &build_vsn) noexcept
+    : receiver(receiver),  //
+      build_vsn(build_vsn) //
+{
   const auto host = Host();
 
   update_key_val(txt_opt::apAirPlayPairingIdentity, host.hw_address());
@@ -49,8 +52,8 @@ void Service::init() noexcept {
   update_key_val(txt_opt::apGroupUUID, uuid);
   update_key_val(txt_opt::apSerialNumber, host.serial_num());
 
-  update_key_val(txt_opt::ServiceName, Config::receiver());
-  update_key_val(txt_opt::FirmwareVsn, Config::build_vsn());
+  update_key_val(txt_opt::ServiceName, receiver);
+  update_key_val(txt_opt::FirmwareVsn, build_vsn);
 
   // create the public key
   uint8v pk_bytes(32, 0x00);

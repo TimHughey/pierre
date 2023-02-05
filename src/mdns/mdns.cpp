@@ -43,54 +43,41 @@
 
 namespace pierre {
 
-using namespace mdns;
+namespace shared {
+std::unique_ptr<mDNS> mdns;
+}
 
-// static class data
-std::shared_ptr<mDNS> mDNS::self;
+using namespace mdns;
 
 // mDNS general API
 
 mDNS::mDNS() noexcept
-    : ctx(std::make_unique<mdns::Ctx>()) //
-{}
+    : receiver(config_val2<mDNS, string>("receiver", "Pierre Default")),  //
+      build_vsn(config()->build_vsn()),                                   //
+      stype(config_val2<mDNS, string>("service", "_ruth._tcp")),          //
+      receiver_port(config_val2<mDNS, Port>("port", 7000)),               //
+      service_obj(receiver, build_vsn),                                   //
+      ctx(std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)) //
+{
+  INFO_INIT("sizeof={:>4} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
 
-void mDNS::browse(csv stype) noexcept { // static
-  auto s = self->ptr();
-
-  s->ctx->browse(stype);
-}
-
-void mDNS::init() noexcept { // static
-  static constexpr csv fn_id{"init"};
-
-  if (self.use_count() < 1) {
-    self = std::shared_ptr<mDNS>(new mDNS());
-
-    self->service_obj.init();
-    auto err_msg = self->ctx->init(self->service_obj);
-
-    if (err_msg.size()) {
-      INFO_AUTO("FAILED, reason={}\n", err_msg);
-    }
+  if (!ctx->err_msg.empty()) {
+    INFO_INIT("FAILED, reason={}\n", ctx->err_msg);
   }
 }
 
-void mDNS::shutdown() noexcept {
-  self->ctx->shutdown();
+mDNS::~mDNS() noexcept { ctx.reset(); }
 
-  self.reset();
+void mDNS::browse(csv stype) noexcept { // static
+  mdns_ctx()->browse(stype);
 }
 
 void mDNS::update() noexcept { // static
-  auto s = self->ptr();
-
-  s->ctx->update(s->service_obj);
+  mdns_ctx()->update(shared::mdns->service_obj);
 }
 
 ZeroConfFut mDNS::zservice(csv name) noexcept { // static
-  auto s = self->ptr();
-
-  return s->ctx->zservice(name);
+  return mdns_ctx()->zservice(name);
 }
 
 } // namespace pierre
