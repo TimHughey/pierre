@@ -32,7 +32,6 @@ namespace pierre {
 
 void Service::init() noexcept {
   const auto host = Host();
-  const auto cfg = config();
 
   update_key_val(txt_opt::apAirPlayPairingIdentity, host.hw_address());
   update_key_val(txt_opt::apDeviceID, host.device_id());
@@ -50,8 +49,8 @@ void Service::init() noexcept {
   update_key_val(txt_opt::apGroupUUID, uuid);
   update_key_val(txt_opt::apSerialNumber, host.serial_num());
 
-  update_key_val(txt_opt::ServiceName, cfg->receiver());
-  update_key_val(txt_opt::FirmwareVsn, cfg->build_vsn());
+  update_key_val(txt_opt::ServiceName, Config::receiver());
+  update_key_val(txt_opt::FirmwareVsn, Config::build_vsn());
 
   // create the public key
   uint8v pk_bytes(32, 0x00);
@@ -103,7 +102,7 @@ void Service::init() noexcept {
 
   update_system_flags();
 
-  INFO(module_id, "init", "sizeof={} uuid={}\n", sizeof(Service), uuid);
+  INFO_INIT("sizeof={:>4} uuid={}\n", sizeof(Service), uuid);
 }
 
 lookup_map_t Service::lookup_map{

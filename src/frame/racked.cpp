@@ -58,7 +58,7 @@ Racked::Racked(MasterClock *master_clock) noexcept
       master_clock(master_clock)               // inject master clock dependency
 {
 
-  INFO_INIT("sizeof={} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
+  INFO_INIT("sizeof={:>4} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
             sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, thread_count);
 
   // initialize supporting objects
@@ -84,8 +84,6 @@ Racked::Racked(MasterClock *master_clock) noexcept
   latch->wait(); // caller waits until all threads are started
 
   ready = true;
-
-  INFO_INIT("complete, ready={}\n", ready.load());
 }
 
 Racked::~Racked() noexcept {

@@ -43,7 +43,6 @@ public:
   CliArgs(int argc, char **argv) noexcept : argv_0(argv[0]) {
     // get some base info and place into toml table
     cli_table.emplace("home"sv, string(std::getenv("HOME")));
-    cli_table.emplace("pid"sv, getpid());
     cli_table.emplace("exec_path", fs::path(argv_0).remove_filename().string());
     cli_table.emplace("app_name", fs::path(argv_0).filename().string());
     cli_table.emplace("parent_path", fs::path(argv_0).parent_path().string());
@@ -108,15 +107,8 @@ public:
     }
   }
 
-  bool daemon() const noexcept {
-    static constexpr csv path{"daemon"};
-    return cli_table[path].value_or(false);
-  }
-
-  const string pid_file() noexcept {
-    static constexpr csv path{"pid_file"};
-    return cli_table[path].ref<string>();
-  }
+  bool daemon() const noexcept { return cli_table["daemon"].value_or(false); }
+  const string pid_file() noexcept { return cli_table["pid_file"].ref<string>(); }
 
 public:
   // order dependent

@@ -26,7 +26,6 @@ threads = true
 debug = false
 
 frames = { av = false, flush = false, racked = false }
-mdns = { ctx = { cb_client = false, cb_browse = false, cb_evt_grp = false } }
 fx = { standby = true }
 
 [info.desk]
@@ -47,6 +46,9 @@ shutdown = false
 peers_update = false
 thread = false
 map_shm = false
+
+[info.mdns]
+ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
 
 [info.rtsp]
 audio = false

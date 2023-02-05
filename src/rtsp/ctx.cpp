@@ -47,7 +47,7 @@ void Ctx::close() noexcept {
     sock->close(ec);
     sock.reset();
 
-    INFO(module_id, fn_id, "socket shutdown and closed, {}\n", ec.what());
+    INFO_AUTO("socket shutdown and closed, {}\n", ec.what());
   }
 }
 
@@ -148,7 +148,7 @@ void Ctx::teardown() noexcept {
     const auto sdi = dacp_id;
     const auto scn = client_name;
 
-    INFO(module_id, fn_id, "requested '{}' remote={} dacp={} \n", scn, sar, sdi);
+    INFO_AUTO("requested '{}' remote={} dacp={} \n", scn, sar, sdi);
 
     group_contains_group_leader = false;
     active_remote = 0;
@@ -171,7 +171,7 @@ void Ctx::teardown() noexcept {
       event_srv.reset();
     }
 
-    INFO(module_id, fn_id, "completed '{}' {} {} \n", scn, sar, sdi);
+    INFO_AUTO("complete '{}' remote={} dacp={} \n", scn, sar, sdi);
   }
 }
 

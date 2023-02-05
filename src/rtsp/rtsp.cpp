@@ -42,7 +42,7 @@ Rtsp::Rtsp() noexcept
       thread_count(config_threads<Rtsp>(4)),
       shutdown_latch(std::make_shared<std::latch>(thread_count)) //
 {
-  INFO_INIT("sizeof={} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
+  INFO_INIT("sizeof={:>4} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
 
   // once io_ctx is started begin accepting connections
   // queuing accept to the io_ctx also serves as the work guard
@@ -104,7 +104,7 @@ void Rtsp::async_accept() noexcept {
       const auto &r = peer->remote_endpoint();
 
       const auto msg = io::log_socket_msg(ec, *peer, r, e);
-      INFO(module_id, fn_id, "{}\n", msg);
+      INFO_AUTO("{}\n", msg);
 
       auto ctx = sessions->create(io_ctx, peer, master_clock.get(), desk.get());
 
@@ -114,7 +114,7 @@ void Rtsp::async_accept() noexcept {
 
       Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
     } else if (ec != errc::operation_canceled) {
-      INFO(module_id, fn_id, "failed, {}\n", ec.message());
+      INFO_AUTO("failed, {}\n", ec.message());
     }
   });
 }

@@ -76,7 +76,7 @@ const string Stats::init(io_context &io_ctx) noexcept {
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "sizeof={} ", sizeof(Stats));
+  fmt::format_to(w, "sizeof={:>4} ", sizeof(Stats));
 
   if (self.use_count() < 1) {
     const auto db_uri = config_val("stats.db_uri", string());

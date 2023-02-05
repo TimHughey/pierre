@@ -52,7 +52,8 @@ Desk::Desk(MasterClock *master_clock) noexcept
       state{Stopped},                       //
       thread_count(config_threads<Desk>(2)) //
 {
-  INFO_INIT("sizeof={} lead_time_min={}\n", sizeof(Desk), pet::humanize(InputInfo::lead_time_min));
+  INFO_INIT("sizeof={:>4} lead_time_min={}\n", sizeof(Desk),
+            pet::humanize(InputInfo::lead_time_min));
 
   resume();
 }

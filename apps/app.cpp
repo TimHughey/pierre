@@ -96,11 +96,16 @@ int App::main(int argc, char *argv[]) {
     }
   }
 
+  //
   // proceed with startup we are either running in the foreground or background
-  // create the asio io_context and signal sets
+  //
+
   io_ctx.emplace();
 
-  Config::init(*io_ctx, cli_args.cli_table);
+  // allocate globally available singleton
+  shared::config = std::make_unique<Config>(*io_ctx, cli_args.cli_table);
+  config()->init();
+
   Logger::startup();
   Stats::init(*io_ctx);
 
@@ -110,15 +115,15 @@ int App::main(int argc, char *argv[]) {
   signals_ignore();   // ignore certain signals
   signals_shutdown(); // catch certain signals for shutdown
 
-  INFO(module_id, fn_id, "{}\n", Config::ptr()->banner_msg);
-  INFO(Config::module_id, fn_id, "{}\n", Config::ptr()->init_msg);
+  INFO_AUTO("{}\n", config()->banner_msg());
+  INFO(Config::module_id, fn_id, "{}\n", config()->init_msg);
 
   mDNS::init();
   rtsp = std::make_unique<Rtsp>();
 
   io_ctx->run(); // start the app, returns when shutdown signal received
 
-  INFO(module_id, fn_id, "io_ctx has returned\n");
+  INFO_AUTO("io_ctx stopped={}\n", io_ctx->stopped());
   Logger::shutdown();
 
   return 0;
@@ -131,7 +136,7 @@ void App::signals_ignore() noexcept {
     if (!ec) {
       signals_ignore();
 
-      INFO(module_id, fn_id, "caught SIGHUP ({})\n", signal);
+      INFO_AUTO("caught SIGHUP ({})\n", signal);
     }
   });
 }
@@ -142,13 +147,15 @@ void App::signals_shutdown() noexcept {
   signal_set_shutdown->async_wait([this](const error_code ec, int signal) {
     if (ec) return;
 
-    INFO(module_id, fn_id, "caught SIGINT ({}), shutting down\n", signal, Config::daemon());
+    INFO_AUTO("caught SIGINT ({})\n", signal, Config::daemon());
+
+    rtsp.reset();
+    mDNS::shutdown();
 
     if (Config::daemon()) {
       const auto pid_path = Config::fs_pid_path();
 
       try {
-
         std::ifstream ifs(pid_path);
         int64_t stored_pid;
 
@@ -156,21 +163,18 @@ void App::signals_shutdown() noexcept {
 
         if (stored_pid == getpid()) {
           std::filesystem::remove(pid_path);
+          INFO_AUTO("unlinking {}\n", pid_path);
         } else {
-          INFO(module_id, fn_id, "saved pid({}) does not match process pid({})\n", stored_pid,
-               getpid());
+          INFO_AUTO("saved pid({}) does not match process pid({})\n", stored_pid, getpid());
         }
       } catch (std::exception &except) {
-        INFO(module_id, fn_id, "removing {} {}\n", pid_path, except.what());
+        INFO_AUTO("{} while removing {}\n", except.what(), pid_path);
       }
     }
 
-    rtsp.reset();
-    mDNS::shutdown();
-
     signal_set_ignore->cancel(); // cancel the remaining work
 
-    Config::shutdown();
+    shared::config.reset();
   });
 }
 

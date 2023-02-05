@@ -29,7 +29,7 @@ Dsp::Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
   auto factor = config_val<double>(factor_path, 0.4);
   const int thread_count = std::jthread::hardware_concurrency() * factor;
 
-  INFO_INIT("sizeof={} thread_count={}\n", sizeof(Dsp), thread_count);
+  INFO_INIT("sizeof={:>4} thread_count={}\n", sizeof(Dsp), thread_count);
 
   auto latch = std::make_unique<std::latch>(thread_count);
   shutdown_latch = std::make_shared<std::latch>(thread_count);

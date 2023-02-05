@@ -61,6 +61,8 @@ void mDNS::browse(csv stype) noexcept { // static
 }
 
 void mDNS::init() noexcept { // static
+  static constexpr csv fn_id{"init"};
+
   if (self.use_count() < 1) {
     self = std::shared_ptr<mDNS>(new mDNS());
 
@@ -68,7 +70,7 @@ void mDNS::init() noexcept { // static
     auto err_msg = self->ctx->init(self->service_obj);
 
     if (err_msg.size()) {
-      INFO(module_id, "init", "FAILED, reason={}\n", err_msg);
+      INFO_AUTO("FAILED, reason={}\n", err_msg);
     }
   }
 }
