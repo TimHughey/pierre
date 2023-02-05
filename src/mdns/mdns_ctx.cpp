@@ -31,7 +31,7 @@ Ctx::Ctx(const string &stype, Service &service, Port receiver_port) noexcept
       threaded_poll_quit{false},       //
       tpoll(avahi_threaded_poll_new()) //
 {
-  INFO_INIT("sizeof={:>4} dmx_service={} status_flags={}\n", sizeof(Ctx), stype);
+  INFO_INIT("sizeof={:>4} dmx_service={}\n", sizeof(Ctx), stype);
 
   if (tpoll == nullptr) {
     err_msg.assign("failed to allocate threaded_poll");
