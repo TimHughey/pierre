@@ -107,7 +107,6 @@ int App::main(int argc, char *argv[]) {
   config()->init();
 
   Logger::startup();
-  Stats::init(*io_ctx);
 
   signal_set_ignore.emplace(*io_ctx, SIGHUP);
   signal_set_shutdown.emplace(*io_ctx, SIGINT);
@@ -116,14 +115,17 @@ int App::main(int argc, char *argv[]) {
   signals_shutdown(); // catch certain signals for shutdown
 
   INFO_AUTO("{}\n", config()->banner_msg());
+
   INFO(Config::module_id, fn_id, "{}\n", config()->init_msg);
 
+  shared::stats = std::make_unique<Stats>(*io_ctx);
   shared::mdns = std::make_unique<mDNS>();
   rtsp = std::make_unique<Rtsp>();
 
   io_ctx->run(); // start the app, returns when shutdown signal received
 
   INFO_AUTO("io_ctx stopped={}\n", io_ctx->stopped());
+
   Logger::shutdown();
 
   return 0;
@@ -174,6 +176,7 @@ void App::signals_shutdown() noexcept {
 
     signal_set_ignore->cancel(); // cancel the remaining work
 
+    shared::stats.reset();
     shared::config.reset();
   });
 }

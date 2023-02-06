@@ -35,19 +35,17 @@
 
 namespace pierre {
 
-class Stats : public std::enable_shared_from_this<Stats> {
-private:
-  Stats(io_context &io_ctx, bool enabled = false) noexcept;
+class Stats;
 
-  static auto ptr() noexcept { return self->shared_from_this(); }
+namespace shared {
+extern std::unique_ptr<Stats> stats;
+}
 
-  using stat_variant = std::variant<int32_t, int64_t, double>;
+class Stats {
 
 public:
-  // can safely be called multiple times
-  static const string init(io_context &io_ctx) noexcept; // see .cpp
-
-  static void shutdown() noexcept { self.reset(); }
+  Stats(io_context &io_ctx) noexcept;
+  ~Stats() = default;
 
   template <typename T>
   static void write(stats::stats_v vt, T v,
@@ -58,54 +56,62 @@ public:
     static constexpr csv METRIC{"metric"};
     static constexpr csv NANOS{"nanos"};
 
-    if (self.use_count() < 1) return;
+    if (!shared::stats) return;
 
-    auto s = ptr(); // get a fresh shared_ptr (we'll move it into the lambda)
+    auto s = shared::stats.get();
+    auto &strand = s->stats_strand;
 
-    if (s->enabled.load()) {
+    if (s->enabled && !strand.context().stopped()) {
 
-      // capture the time in the lambda so the point is most accurately recorded
+      // enabling stats does incur some overhead, primarily the creation of the data point
+      // and the call to asio::post
       auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC.data(), s->val_txt[vt].data());
 
+      // deliberately convert various types (e.g. chrono durations,
+      // Frequency, Magnitude) to the correct type for influx and sets the field key to
+      // an appropriate name to prevent different data types associated to the same key
+      // (violates influx design)
+
+      if constexpr (IsDuration<T>) {
+        const auto d = std::chrono::duration_cast<Nanos>(v);
+        pt.addField(NANOS, d.count());
+      } else if constexpr (std::is_integral_v<T>) {
+        pt.addField(INTEGRAL, v);
+      } else if constexpr (std::is_convertible_v<T, double>) {
+        pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
+      } else {
+        static_assert(always_false_v<T>, "unhandled type");
+      }
+
+      if (tag.first && tag.second) {
+        pt.addTag(tag.first, tag.second);
+      }
+
       // now post the pt and params for eventual write to influx
-      auto &io_ctx = s->io_ctx; // get reference to io_ctx since we're moving s
-      asio::post(io_ctx, [s = std::move(s), v = std::move(v), pt = std::move(pt),
-                          tag = std::move(tag)]() mutable {
-        // this closure deliberately converts various types (e.g. chrono durations,
-        // Frequency, Magnitude) to the correct type for influx and sets the field key to
-        // an appropriate name to prevent different data types associated to the same key
-        // which violates influx design
-
-        if constexpr (IsDuration<T>) {
-          const auto d = std::chrono::duration_cast<Nanos>(v);
-          pt.addField(NANOS, d.count());
-        } else if constexpr (std::is_integral_v<T>) {
-          pt.addField(INTEGRAL, v);
-        } else if constexpr (std::is_convertible_v<T, double>) {
-          pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
-        } else {
-          static_assert(always_false_v<T>, "unhandled type");
-        }
-
-        if (tag.first && tag.second) {
-          pt.addTag(tag.first, tag.second);
-        }
-
-        s->db->write(std::move(pt));
+      asio::post(strand, [s = s, pt = std::move(pt)]() mutable {
+        s->async_write(std::move(pt)); // in .cpp due to call to Config
       });
     }
   }
 
 private:
+  void async_write(influxdb::Point &&pt) noexcept;
+
+private:
   // order dependent
-  io_context &io_ctx;
+  strand stats_strand;
   std::atomic_bool enabled{false};
+  const string db_uri;
+  int batch_of;
   std::map<stats::stats_v, string> val_txt;
 
   // order independent
-  static std::shared_ptr<Stats> self;
   std::unique_ptr<influxdb::InfluxDB> db;
   std::set<std::shared_ptr<influxdb::Point>> points;
+
+public:
+  string init_msg;
+  string err_msg;
 
 public:
   static constexpr csv module_id{"lcs.stats"};

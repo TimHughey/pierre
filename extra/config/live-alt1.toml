@@ -13,10 +13,6 @@ config_vsn = 2   # config file format
 # exec_path = "" # executable path
 # parent_path = "" # parent path of the executable
 
-[stats]
-enabled = true
-db_uri = "http://localhost:8086?db=pierre"
-batch_of = 150
 
 [info]
 # category specific overrides
@@ -47,7 +43,7 @@ thread = false
 map_shm = false
 
 [info.mdns]
-ctx = { browse = false, cb_client = true, cb_browse = false, cb_evt_grp = true, resolved = false }
+ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
 
 [info.rtsp]
 audio = false
@@ -61,20 +57,22 @@ server = true
 session = true
 thread = false
 
+
+[lcs.stats]
+enabled = true
+db_uri = "http://localhost:8086?db=pierre"
+batch_of = 150
+
 [mdns]
 port = 7000
 receiver = "Pierre Devel" # specify %h to use hostname
 service = "_ruth._tcp"    # service advertised by rendering devices
 
 [rtsp]
-audio = { buffer_size = 0x800000 }   # bytes (8mb)
+audio = { buffer_size = 0x800000 }                                  # bytes (8mb)
 connection = { timeout_ms = 30_000 }
+saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }
 threads = 2
-
-[rtsp.saver]
-enable = false
-file = "/tmp/rtsp.log"
-format = "raw"
 
 [frame]
 cipher = { buffer_size = 0x2000 }  # bytes (4k)
@@ -125,14 +123,12 @@ units = [{ name = "ac power", addr = 1 }]
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 1 } }
+silence = { timeout = { minutes = 30 } }
 will_render = true
 
 [fx.majorpeak]
 will_render = true
-
-[fx.majorpeak.silence]
-timeout = { seconds = 13, suggested_fx_next = "standby" }
+silence = { timeout = { seconds = 13, suggested_fx_next = "standby" } }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }

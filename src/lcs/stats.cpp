@@ -18,18 +18,22 @@
 
 #include "lcs/stats.hpp"
 #include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 #include <fmt/format.h>
 #include <memory>
 
 namespace pierre {
 
-// class static data
-std::shared_ptr<Stats> Stats::self;
+namespace shared {
+std::unique_ptr<Stats> stats;
+}
 
-Stats::Stats(io_context &io_ctx, bool enabled) noexcept
-    : io_ctx(io_ctx),   //
-      enabled(enabled), //
+Stats::Stats(io_context &io_ctx) noexcept
+    : stats_strand(io_ctx),                                //
+      enabled(config_val2<Stats, bool>("enabled", false)), //
+      db_uri(config_val2<Stats, string>("db_uri", "http://localhost:8086?db=pierre")),
+      batch_of(config_val2<Stats, int>("batch_of", 150)),
       val_txt{
           // create map of stats val to text
           {stats::CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
@@ -45,6 +49,7 @@ Stats::Stats(io_context &io_ctx, bool enabled) noexcept
           {stats::FLUSH_ELAPSED, "flush_elapsed"},
           {stats::FPS, "fps"},
           {stats::FRAME, "frame"},
+          {stats::FRAME_LOOP_ELAPSED, "frame_loop_elapsded"},
           {stats::MAX_PEAK_FREQUENCY, "max_peak_frequency"},
           {stats::MAX_PEAK_MAGNITUDE, "max_peak_magnitude"},
           {stats::NEXT_FRAME_WAIT, "next_frame_wait"},
@@ -70,34 +75,39 @@ Stats::Stats(io_context &io_ctx, bool enabled) noexcept
           {stats::SYNC_WAIT, "sync_wait"},
           // comment allows for easy IDE sorting
       } //
-{}
+{
+  auto w = std::back_inserter(init_msg);
 
-const string Stats::init(io_context &io_ctx) noexcept {
-  string msg;
-  auto w = std::back_inserter(msg);
+  fmt::format_to(w, "sizeof={:>4} {} db_uri={} val_map={}",
+                 sizeof(Stats),                    //
+                 enabled ? "enabled" : "disabled", //
+                 db_uri.empty() ? "<unset" : "<set>", val_txt.size());
 
-  fmt::format_to(w, "sizeof={:>4} ", sizeof(Stats));
+  if (enabled && !db_uri.empty()) {
 
-  if (self.use_count() < 1) {
-    const auto db_uri = config_val("stats.db_uri", string());
-    auto enabled = config_val("stats.enabled", false);
+    fmt::format_to(w, " batch_of={}", batch_of);
 
-    self = std::shared_ptr<Stats>(new Stats(io_ctx, enabled));
+    try {
+      db = influxdb::InfluxDBFactory::Get(db_uri);
 
-    if (db_uri.size() && enabled) {
-
-      self->db = influxdb::InfluxDBFactory::Get(db_uri);
-
-      if (std::size_t bs = config_val("stats.batch_of", 0); bs > 0) {
-        self->db->batchOf(bs);
-      }
-
-      fmt::format_to(w, "db_uri={} ", db_uri);
+      if (db) db->batchOf(batch_of);
+    } catch (const std::exception &err) {
+      enabled = false;
+      err_msg.assign(err.what());
     }
-    fmt::format_to(w, "enabled={}", enabled);
+
+    if (!err_msg.empty()) fmt::format_to(w, " err={}", !err_msg.empty());
   }
 
-  return msg;
+  INFO_INIT("{}\n", init_msg);
+}
+
+void Stats::async_write(influxdb::Point &&pt) noexcept {
+
+  if (db) db->write(std::forward<influxdb::Point>(pt));
+
+  // updated enabled config
+  enabled = config_val2<Stats, bool>("enabled", false);
 }
 
 } // namespace pierre
