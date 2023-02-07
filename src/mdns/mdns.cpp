@@ -59,7 +59,7 @@ mDNS::mDNS() noexcept
       service_obj(receiver, build_vsn),                                   //
       ctx(std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)) //
 {
-  INFO_INIT("sizeof={:>4} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
+  INFO_INIT("sizeof={:>5} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
 
   if (!ctx->err_msg.empty()) {
     INFO_INIT("FAILED, reason={}\n", ctx->err_msg);

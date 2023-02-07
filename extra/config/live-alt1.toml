@@ -1,4 +1,10 @@
-[base]
+##
+## Pierre Config
+##
+
+#
+# general config and compile time information
+#
 title = "Pierre" # for identification purposes
 config_vsn = 2   # config file format
 # build_vsn = ""        # (runtime) git version of executable
@@ -13,86 +19,57 @@ config_vsn = 2   # config file format
 # exec_path = "" # executable path
 # parent_path = "" # parent path of the executable
 
-
-[info]
+## 
+## Logger
+##
+[logger]
 # category specific overrides
-init = true
-threads = true
-debug = false
+debug = false   # show any debug messages?
+init = true     # always log init messages from any module
+thread = false  # show any thread messages?
+shutdown = true # show any shutdown messages?
+
 
 frames = { av = false, flush = false, racked = false }
 fx = { standby = true }
 
-[info.desk]
+[logger.desk]
+dmx_ctrl = { run = false, thread = false }
 thread = false
 resume = false
 shutdown = false
-dmx_ctrl = { run = false, thread = false }
+standby = true
 monitor_wip = true
 reel = false
 racked = { log_racked = false, thread = false }
 
-[info.frame]
+[logger.frame]
 dsp = { thread = false }
 
-[info.master_clock]
+[logger.master_clock]
 init = true
 shutdown = false
 peers_update = false
 thread = false
 map_shm = false
 
-[info.mdns]
+[logger.mdns]
 ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
 
-[info.rtsp]
+[logger.rtsp]
 audio = false
 ctx = true
 info = false
 event = false
 net = false
 reply = { build = false }
-request = true
-server = true
-session = true
-thread = false
 
-
-[lcs.stats]
-enabled = true
-db_uri = "http://localhost:8086?db=pierre"
-batch_of = 150
-
-[mdns]
-port = 7000
-receiver = "Pierre Devel" # specify %h to use hostname
-service = "_ruth._tcp"    # service advertised by rendering devices
-
-[rtsp]
-audio = { buffer_size = 0x800000 }                                  # bytes (8mb)
-connection = { timeout_ms = 30_000 }
-saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }
-threads = 2
-
-[frame]
-cipher = { buffer_size = 0x2000 }  # bytes (4k)
-dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
-
-[frame.clock]
-host = "127.0.0.1"              # nqptp host
-info = { min_wait_frames = 12 } # wait frames before returning no clock
-shm_name = "/nqptp"             # path to nqptp shared memory directory
-threads = 1
-
-[frame.racked]
-threads = 3
-
-[frame.peaks.magnitudes] # only keep peaks in this range
-floor = 0.9
-ceiling = 128.0
+##
+## END LOGGING CONFIG
+##
 
 [desk]
-threads = 3 # frame loop
+threads = 3
 
 [desk.dmx_ctrl]
 threads = 2
@@ -119,6 +96,39 @@ units = [
 
 [desk.switch]
 units = [{ name = "ac power", addr = 1 }]
+
+[frame]
+cipher = { buffer_size = 0x2000 }  # bytes (4k)
+dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
+
+[frame.clock]
+host = "127.0.0.1"              # nqptp host
+info = { min_wait_frames = 12 } # wait frames before returning no clock
+shm_name = "/nqptp"             # path to nqptp shared memory directory
+threads = 1
+
+[frame.racked]
+threads = 3
+
+[frame.peaks.magnitudes] # only keep peaks in this range
+floor = 0.9
+ceiling = 128.0
+
+[lcs.stats]
+enabled = true
+db_uri = "http://localhost:8086?db=pierre"
+batch_of = 150
+
+[mdns]
+port = 7000
+receiver = "Pierre Devel" # specify %h to use hostname
+service = "_ruth._tcp"    # service advertised by rendering devices
+
+[rtsp]
+audio = { buffer_size = 0x800000 }                                  # bytes (8mb)
+connection = { timeout_ms = 30_000 }
+saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }
+threads = 1
 
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }

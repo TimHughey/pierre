@@ -46,7 +46,7 @@ MasterClock::MasterClock() noexcept
       thread_count(config_threads<MasterClock>(1)),                     //
       shutdown_latch(std::make_shared<std::latch>(thread_count))        //
 {
-  INFO_INIT("sizeof={:>4} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
+  INFO_INIT("sizeof={:>5} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
             remote_endpoint.address().to_string(), remote_endpoint.port());
 
   auto latch = std::make_unique<std::latch>(thread_count);

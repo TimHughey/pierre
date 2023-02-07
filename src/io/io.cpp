@@ -57,14 +57,14 @@ const string io::log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpo
   auto w = std::back_inserter(msg);
 
   auto open = sock.is_open();
-  fmt::format_to(w, "{} ", open ? "[O]" : "[X]");
+  fmt::format_to(w, "{} ", open ? "[OPEN]" : "[CLSD]");
 
   try {
     if (open) {
 
       const auto &l = sock.local_endpoint();
 
-      fmt::format_to(w, "{:>15}:{:<5} {:<15}:{:<5}",    //
+      fmt::format_to(w, "{:>15}:{:<5} {:>15}:{:<5}",    //
                      l.address().to_string(), l.port(), //
                      r.address().to_string(), r.port());
     }

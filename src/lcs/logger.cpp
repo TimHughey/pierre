@@ -45,7 +45,7 @@ void Logger::print(const string prefix, const string msg) noexcept {
 
 bool Logger::should_log(csv mod, csv cat) noexcept { // static
   // in .cpp to avoid pulling config.hpp into Logger
-  return cfg_info(mod, cat);
+  return cfg_logger(module_id, mod, cat);
 }
 
 void Logger::shutdown_impl() noexcept {

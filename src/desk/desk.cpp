@@ -53,7 +53,7 @@ Desk::Desk(MasterClock *master_clock) noexcept
       state{Stopped},                       //
       thread_count(config_threads<Desk>(2)) //
 {
-  INFO_INIT("sizeof={:>4} lead_time_min={}\n", sizeof(Desk),
+  INFO_INIT("sizeof={:>5} lead_time_min={}\n", sizeof(Desk),
             pet::humanize(InputInfo::lead_time_min));
 
   resume();
@@ -63,6 +63,8 @@ Desk::~Desk() noexcept {
   INFO_SHUTDOWN_REQUESTED();
 
   standby();
+
+  if (shutdown_latch) shutdown_latch->wait();
 
   INFO_SHUTDOWN_COMPLETE();
 }
@@ -239,9 +241,6 @@ void Desk::standby() noexcept {
 
   // we're committed to stopping now, set the state
   state = Stopped;
-
-  if (!shutdown_latch) return; // not running
-
   loop_active = false;
 
   INFO_AUTO("requested, io_ctx stopped={}\n", io_ctx.stopped());
@@ -259,13 +258,15 @@ void Desk::standby() noexcept {
   active_fx.reset();
   racked.reset();
 
-  for (auto n = 0; (n < 10) && !shutdown_latch->try_wait(); n++) {
-    std::this_thread::sleep_for(50ms);
-    io_ctx.stop();
+  if (shutdown_latch) {
+    for (auto n = 0; (n < 10) && !shutdown_latch->try_wait(); n++) {
+      std::this_thread::sleep_for(50ms);
+      io_ctx.stop();
+    }
+  } else {
+    INFO_AUTO("warning: shutdown_latch={}\n", (bool)shutdown_latch);
   }
 
-  shutdown_latch.reset();
-
-  INFO_THREAD("complete, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_AUTO("complete, io_ctx stopped={}\n", io_ctx.stopped());
 }
 } // namespace pierre

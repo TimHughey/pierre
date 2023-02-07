@@ -57,8 +57,7 @@ Racked::Racked(MasterClock *master_clock) noexcept
       wip_timer(io_ctx),                       // rack incomplete wip reels
       master_clock(master_clock)               // inject master clock dependency
 {
-
-  INFO_INIT("sizeof={:>4} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
+  INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
             sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, thread_count);
 
   // initialize supporting objects

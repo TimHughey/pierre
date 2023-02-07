@@ -40,12 +40,12 @@ namespace pierre {
 namespace rtsp {
 
 Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept
-    : sock(io_ctx),               //
-      sessions(sessions),         //
-      master_clock(master_clock), //
-      desk(desk),                 //
-      aes(),                      //
-      feedback_timer(io_ctx),     // detect absence of routine feedback messages
+    : sock(io_ctx),                                    //
+      sessions(sessions),                              //
+      master_clock(master_clock),                      //
+      desk(desk),                                      //
+      aes(),                                           //
+      feedback_timer(io_ctx),                          //
       shutdown_latch(std::make_shared<std::latch>(2)), //
       teardown_in_progress(false)                      //
 {
@@ -62,51 +62,45 @@ Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk 
 }
 
 Ctx::~Ctx() noexcept {
-  static constexpr csv fn_id{"destruct"};
 
-  INFO_AUTO("'{}' remote={} dacp={}\n", client_name, active_remote, dacp_id);
-}
-
-void Ctx::close() noexcept {
-  static constexpr csv fn_id{"close"};
-
-  if (teardown_in_progress == true) {
-    error_code ec;
-    sock.shutdown(tcp_socket::shutdown_both, ec);
-    sock.close(ec);
-
-    INFO_AUTO("socket shutdown and closed, {}\n", ec.what());
-
-    io_ctx.stop();
+  try {
+    if (sock.is_open()) {
+      sock.shutdown(tcp_socket::shutdown_both);
+      sock.close();
+    }
+  } catch (...) {
   }
 
-  shutdown_latch->wait();
+  if (shutdown_latch) shutdown_latch->wait();
 }
 
 void Ctx::feedback_msg() noexcept {}
 
 void Ctx::force_close() noexcept {
   static constexpr csv fn_id("force_close");
+  teardown_now = true;
+
+  INFO_AUTO("requested, teardown_now={}\n", teardown_now);
 
   teardown();
-  close();
-  io_ctx.stop();
+
+  INFO_AUTO("completed\n");
 }
 
 void Ctx::msg_loop() noexcept {
 
-  if (teardown_now == false) {
-    request.emplace();
-    reply.emplace();
+  if (teardown_now == true) {
+    teardown();
+    return;
+  };
 
-    msg_loop_read();
-  } else {
-    force_close();
-  }
+  request.emplace();
+  reply.emplace();
+
+  msg_loop_read();
 }
 
 void Ctx::msg_loop_read() noexcept {
-
   net::async_read_msg(sock, *request, aes, [this](error_code ec) mutable {
     if (!ec) {
 
@@ -133,17 +127,12 @@ void Ctx::msg_loop_read() noexcept {
 }
 
 void Ctx::msg_loop_write() noexcept {
-
   // build the reply from the request headers and content
   reply->build(this, request->headers, request->content);
 
   net::async_write_msg(sock, *reply, aes, [this](error_code ec) mutable {
     if (!ec) {
       request->record_elapsed();
-
-      // clear request and reply
-      request.reset();
-      reply.reset();
 
       msg_loop(); // prepare for next message
 
@@ -163,13 +152,13 @@ void Ctx::run() noexcept {
 
   // pass in a shared pointer to our self so we stay in scope until
   // io_ctx is out of work (thread exits)
-  std::jthread([this, s = shared_from_this(), shutdown_latch = shutdown_latch]() mutable {
-    const auto thread_name = thread_util::set_name(module_id);
+  std::jthread([this, s = shared_from_this(), latch = shutdown_latch]() mutable {
+    const auto thread_name = thread_util::set_name(Ctx::thread_name);
     INFO_THREAD_START();
 
     io_ctx.run();
-    shutdown_latch->count_down();
-    shutdown_latch.reset();
+    latch->count_down();
+    latch.reset();
     sessions->erase(s);
 
     INFO_THREAD_STOP();
@@ -212,6 +201,13 @@ void Ctx::teardown() noexcept {
     const auto scn = client_name;
 
     INFO_AUTO("requested '{}' remote={} dacp={} \n", scn, sar, sdi);
+
+    try {
+      sock.shutdown(tcp_socket::shutdown_receive);
+      sock.close();
+    } catch (const std::exception &e) {
+      INFO_AUTO("failed to shutdown, close socket reason={}\n", e.what());
+    }
 
     group_contains_group_leader = false;
     // active_remote = 0;

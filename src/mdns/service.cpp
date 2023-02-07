@@ -105,7 +105,7 @@ Service::Service(const string &receiver, const string &build_vsn) noexcept
 
   update_system_flags();
 
-  INFO_INIT("sizeof={:>4} uuid={}\n", sizeof(Service), uuid);
+  INFO_INIT("sizeof={:>5} uuid={}\n", sizeof(Service), uuid);
 }
 
 lookup_map_t Service::lookup_map{

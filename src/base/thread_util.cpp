@@ -26,7 +26,7 @@
 namespace pierre {
 
 const string thread_util::set_name(csv name, int num) noexcept {
-  static constexpr csv prefix{"pierre"};
+  static constexpr csv prefix{"pie"};
   const auto tid = pthread_self();
 
   string thread_name;

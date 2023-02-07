@@ -49,14 +49,14 @@ DmxCtrl::DmxCtrl() noexcept
       startup_latch(std::make_shared<std::latch>(thread_count)),               //
       shutdown_latch(std::make_shared<std::latch>(thread_count))               //
 {
-  INFO_INIT("sizeof={:>4} threads={}\n", sizeof(DmxCtrl), thread_count);
+  INFO_INIT("sizeof={:>5} threads={}\n", sizeof(DmxCtrl), thread_count);
 }
 
 DmxCtrl::~DmxCtrl() noexcept {
   INFO_SHUTDOWN_REQUESTED();
 
   io_ctx.stop();
-  shutdown_latch->wait();
+  if (shutdown_latch) shutdown_latch->wait();
 
   INFO_SHUTDOWN_COMPLETE();
 }

@@ -80,8 +80,6 @@ public:
 
   ~Ctx() noexcept;
 
-  void close() noexcept;
-
   void feedback_msg() noexcept;
 
   void force_close() noexcept;
@@ -175,6 +173,7 @@ private:
 
 public:
   static constexpr csv module_id{"rtsp.ctx"};
+  static constexpr csv thread_name{"rtsp_ctx"};
 };
 
 } // namespace rtsp

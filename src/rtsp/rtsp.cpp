@@ -42,7 +42,7 @@ Rtsp::Rtsp() noexcept
       thread_count(config_threads<Rtsp>(4)),
       shutdown_latch(std::make_shared<std::latch>(thread_count)) //
 {
-  INFO_INIT("sizeof={:>4} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
+  INFO_INIT("sizeof={:>5} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
 
   // once io_ctx is started begin accepting connections
   // queuing accept to the io_ctx also serves as the work guard
@@ -78,11 +78,12 @@ Rtsp::~Rtsp() noexcept {
   [[maybe_unused]] error_code ec;
   acceptor.close(ec);    //  prevent new connections
   sessions->close_all(); // close any existing connections
-  sessions.reset();
+
   desk.reset(); // shutdown desk (and friends)
   master_clock.reset();
 
   shutdown_latch->wait(); // caller waits for all threads to finish
+  sessions.reset();
   INFO_SHUTDOWN_COMPLETE();
 }
 

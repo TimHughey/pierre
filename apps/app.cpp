@@ -96,9 +96,9 @@ int App::main(int argc, char *argv[]) {
     }
   }
 
-  //
-  // proceed with startup we are either running in the foreground or background
-  //
+  ////
+  //// proceed with startup we are either running in the foreground or background
+  ////
 
   io_ctx.emplace();
 
@@ -107,6 +107,8 @@ int App::main(int argc, char *argv[]) {
   config()->init();
 
   Logger::startup();
+
+  if (!config()->parse_msg.empty()) INFO_AUTO("config parse msg={}\n", config()->parse_msg);
 
   signal_set_ignore.emplace(*io_ctx, SIGHUP);
   signal_set_shutdown.emplace(*io_ctx, SIGINT);

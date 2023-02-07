@@ -52,6 +52,8 @@ struct net {
         void operator()(const error_code &ec, std::size_t bytes = 0) {
           INFO("rtsp.net", "read", "bytes={}\n", bytes);
 
+          if (r.wire.empty() && r.packet.empty()) r.e.reset();
+
           if (ec) {
             handler(ec); // end of composed operation
             return;

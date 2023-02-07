@@ -78,7 +78,7 @@ Stats::Stats(io_context &io_ctx) noexcept
 {
   auto w = std::back_inserter(init_msg);
 
-  fmt::format_to(w, "sizeof={:>4} {} db_uri={} val_map={}",
+  fmt::format_to(w, "sizeof={:>5} {} db_uri={} val_map={}",
                  sizeof(Stats),                    //
                  enabled ? "enabled" : "disabled", //
                  db_uri.empty() ? "<unset" : "<set>", val_txt.size());

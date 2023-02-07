@@ -110,7 +110,7 @@ public:
 
   void init() noexcept;
 
-  bool info_bool(csv mod, csv cat) noexcept;
+  bool log_bool(csv logger_module_id, csv mod, csv cat) noexcept;
 
   void monitor_file() noexcept;
 
@@ -123,10 +123,6 @@ public:
   static void want_changes(cfg_future &fut) noexcept;
 
 private:
-  static inline auto base_path(csv key_path) noexcept {
-    return toml::path("base").append(key_path);
-  }
-
   const toml::table &live() noexcept;
 
   bool parse(bool exit_on_error = false) noexcept;
@@ -189,8 +185,8 @@ template <class C> int config_threads(int &&def_val) noexcept {
 /// @param mod module id
 /// @param cat categpry
 /// @return true or false
-inline bool cfg_info(csv mod, csv cat) noexcept {
-  return Config::ready() ? shared::config->info_bool(mod, cat) : true;
+inline bool cfg_logger(csv logger_mod, csv mod, csv cat) noexcept {
+  return Config::ready() ? shared::config->log_bool(logger_mod, mod, cat) : true;
 }
 
 } // namespace pierre

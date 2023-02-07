@@ -36,9 +36,7 @@
 
 namespace pierre {
 
-namespace {
 namespace fs = std::filesystem;
-}
 
 namespace shared {
 std::unique_ptr<Config> config{nullptr};
@@ -67,13 +65,9 @@ const string Config::banner_msg() noexcept {
   return fmt::format("{} {} {}", app_name(), build_vsn(), build_time());
 }
 
-const string Config::build_time() noexcept {
-  return config()->at(base_path("build_time")).value_or(UNSET);
-}
+const string Config::build_time() noexcept { return config()->at("build_time"sv).value_or(UNSET); }
 
-const string Config::build_vsn() noexcept {
-  return config()->at(base_path("build_vsn")).value_or(UNSET);
-}
+const string Config::build_vsn() noexcept { return config()->at("build_vsn"sv).value_or(UNSET); }
 
 bool Config::daemon() noexcept { return config()->cli_table["daemon"sv].value_or(false); }
 
@@ -91,7 +85,7 @@ bool Config::has_changed(cfg_future &fut) noexcept {
 }
 
 void Config::init() noexcept {
-  // we jave good cli args, build path to config file
+  // we have good cli args, build path to config file
   full_path = fs::path(cli_table["home"sv].ref<string>())
                   .append(".pierre")
                   .append(cli_table["cfg-file"sv].ref<string>());
@@ -103,7 +97,7 @@ void Config::init() noexcept {
 
     initialized = true;
 
-    init_msg = fmt::format("sizeof={:>4} table size={}", //
+    init_msg = fmt::format("sizeof={:>5} table size={}", //
                            sizeof(Config), tables.front().size());
 
     // if we made it here cli and config are parsed, toml tables are ready for use so
@@ -112,10 +106,10 @@ void Config::init() noexcept {
   }
 }
 
-bool Config::info_bool(csv mod, csv cat) noexcept {
+bool Config::log_bool(csv logger_module_id, csv mod, csv cat) noexcept {
   if (cat == csv{"info"}) return true;
 
-  auto path = toml::path("info"sv);
+  auto path = toml::path(logger_module_id);
 
   // order of precedence:
   //  1. info.<cat>       == boolean
@@ -184,9 +178,8 @@ bool Config::parse(bool exit_on_error) noexcept {
     auto &table = tables.emplace_back(toml::parse_file(full_path.c_str()));
 
     // populate static build info
-    auto base = table["base"].as_table();
-    base->emplace("build_vsn"sv, build::vsn);
-    base->emplace("build_time"sv, build::timestamp);
+    table.emplace("build_vsn"sv, build::vsn);
+    table.emplace("build_time"sv, build::timestamp);
 
     // is this a reload of the config?
     if (tables.size() == 2) {
