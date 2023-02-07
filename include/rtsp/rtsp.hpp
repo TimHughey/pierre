@@ -53,7 +53,6 @@ private:
   std::unique_ptr<rtsp::Sessions> sessions;
   std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;
-
   const int thread_count;
   std::shared_ptr<std::latch> shutdown_latch;
 

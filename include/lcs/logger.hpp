@@ -137,10 +137,10 @@ public:
   pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_THREAD_START()                                                                        \
-  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("started {}"), thread_name)
+  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("started {}\n"), thread_name)
 
 #define INFO_THREAD_STOP()                                                                         \
-  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("stopped {}"), thread_name)
+  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("stopped {}\n"), thread_name)
 
 #define INFOX(mod_id, cat, format, ...)
 

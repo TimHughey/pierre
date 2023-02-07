@@ -67,8 +67,7 @@ public:
   Reply(Reply &&) = default;
   Reply &operator=(Reply &&) = default;
 
-  void build(const std::shared_ptr<Ctx> ctx, const Headers &headers_in,
-             const uint8v &content_in) noexcept;
+  void build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in) noexcept;
 
   auto buffer() const noexcept { return asio::buffer(wire); }
 

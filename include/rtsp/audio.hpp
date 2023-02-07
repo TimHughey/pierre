@@ -34,8 +34,8 @@ public:
   Port port() noexcept { return acceptor.local_endpoint().port(); }
   std::shared_ptr<Audio> ptr() noexcept { return shared_from_this(); }
 
-  static auto start(io_context &io_ctx, std::shared_ptr<Ctx> rtsp_ctx) noexcept {
-    auto self = std::shared_ptr<Audio>(new Audio(io_ctx, rtsp_ctx));
+  static auto start(io_context &io_ctx, Ctx *ctx) noexcept {
+    auto self = std::shared_ptr<Audio>(new Audio(io_ctx, ctx));
 
     self->async_accept();
 
@@ -50,10 +50,10 @@ public:
   }
 
 private:
-  Audio(io_context &io_ctx, std::shared_ptr<Ctx> rtsp_ctx) noexcept
+  Audio(io_context &io_ctx, Ctx *ctx) noexcept
       : io_ctx(io_ctx),                                                                        //
         local_strand(io_ctx),                                                                  //
-        rtsp_ctx(rtsp_ctx),                                                                    //
+        ctx(ctx),                                                                              //
         acceptor{local_strand.context().get_executor(), tcp_endpoint{ip_tcp::v4(), ANY_PORT}}, //
         sock(local_strand.context().get_executor())                                            //
   {}
@@ -73,7 +73,7 @@ private:
   // order dependent
   io_context &io_ctx;
   strand local_strand;
-  std::shared_ptr<Ctx> rtsp_ctx;
+  Ctx *ctx;
   tcp_acceptor acceptor;
   tcp_socket sock;
 

@@ -25,8 +25,6 @@
 #include "lcs/stats.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
-#include "rtsp/reply.hpp"
-#include "rtsp/request.hpp"
 #include "rtsp/saver.hpp"
 
 namespace pierre {
@@ -41,17 +39,17 @@ struct net {
   /// @param ctx const shared_ptr to rtsp::Ctx
   /// @param token asio completion handler (passed only error_code)
   /// @return asio::async_result based on completion handler
-  template <typename CTX, typename CompletionToken>
-  static auto async_read_msg(const CTX ctx, CompletionToken &&token) {
+  template <typename R, typename CompletionToken>
+  static auto async_read_msg(tcp_socket &sock, R &r, Aes &aes, CompletionToken &&token) {
 
-    auto initiation = [](auto &&completion_handler, const CTX ctx, Request &request) {
+    auto initiation = [](auto &&completion_handler, tcp_socket &sock, R &r, Aes &aes) {
       struct intermediate_completion_handler {
-        const CTX ctx;
-        Request &request;
+        tcp_socket &sock;
+        R &r;
+        Aes &aes;
         typename std::decay<decltype(completion_handler)>::type handler;
 
-        void operator()(const error_code &ec, [[maybe_unused]] std::size_t bytes = 0) {
-
+        void operator()(const error_code &ec, std::size_t bytes = 0) {
           INFO("rtsp.net", "read", "bytes={}\n", bytes);
 
           if (ec) {
@@ -59,15 +57,12 @@ struct net {
             return;
           }
 
-          const auto sock = ctx->sock;
-          auto buff = request.buffer();
-
           // if there is more data waiting on the socket read it
-          if (size_t avail = sock->available(); avail > 0) {
+          if (size_t avail = sock.available(); avail > 0) {
             INFO("rtsp.net", "available", "bytes={}\n", avail);
             // special case: we know bytes are available, do sync read
             error_code ec;
-            size_t bytes = asio::read(*sock, buff, asio::transfer_exactly(avail), ec);
+            size_t bytes = asio::read(sock, r.buffer(), asio::transfer_exactly(avail), ec);
 
             if (ec || (bytes != avail)) {
               handler(ec ? ec : io::make_error(errc::message_size));
@@ -75,33 +70,31 @@ struct net {
             }
           }
 
-          if (const auto buffered = std::ssize(request.wire); buffered > 0) {
-            INFO("rtsp.net", "buffered", "buffered={}\n", request.wire.size());
-            if (auto consumed = ctx->aes.decrypt(request.wire, request.packet);
-                consumed != buffered) {
+          if (const auto buffered = std::ssize(r.wire); buffered > 0) {
+            INFO("rtsp.net", "buffered", "buffered={}\n", r.wire.size());
+            if (auto consumed = aes.decrypt(r.wire, r.packet); consumed != buffered) {
 
               // incomplete decipher, read from socket
-              asio::async_read(*sock, buff, asio::transfer_at_least(1), std::move(*this));
+              asio::async_read(sock, r.buffer(), asio::transfer_at_least(1), std::move(*this));
               return;
             }
           }
 
-          INFO("rtsp.net", "consumed", "wire={} packet={}\n", request.wire.size(),
-               request.packet.size());
+          INFO("rtsp.net", "consumed", "wire={} packet={}\n", r.wire.size(), r.packet.size());
 
           // we potentially have a complete message, attempt to find the delimiters
-          if (request.find_delims() == false) {
+          if (r.find_delims() == false) {
             // we need more data in the packet to continue
             // incomplete decipher, read from socket
-            asio::async_read(*sock, buff, asio::transfer_at_least(1), std::move(*this));
+            asio::async_read(sock, r.buffer(), asio::transfer_at_least(1), std::move(*this));
             return;
           }
 
-          INFO("rtsp.net", "find_delms", "delims={}\n", request.delims.size());
+          INFO("rtsp.net", "find_delms", "delims={}\n", r.delims.size());
 
-          if (request.headers.parse_ok == false) {
+          if (r.headers.parse_ok == false) {
             // we haven't parsed headers yet, do it now
-            auto parse_ok = request.headers.parse(request.packet, request.delims);
+            auto parse_ok = r.headers.parse(r.packet, r.delims);
 
             if (parse_ok == false) {
               handler(io::make_error(errc::bad_message));
@@ -109,14 +102,15 @@ struct net {
             }
           }
 
-          if (const auto more_bytes = request.populate_content(); more_bytes > 0) {
-            asio::async_read(*sock, buff, asio::transfer_exactly(more_bytes), std::move(*this));
+          if (const auto more_bytes = r.populate_content(); more_bytes > 0) {
+            asio::async_read(sock, r.buffer(), asio::transfer_exactly(more_bytes),
+                             std::move(*this));
             return;
           }
 
           if (!ec) {
-            Saver(Saver::IN, request.headers, request.content);
-            Stats::write(stats::RTSP_SESSION_RX_PACKET, std::ssize(request.packet));
+            Saver(Saver::IN, r.headers, r.content);
+            Stats::write(stats::RTSP_SESSION_RX_PACKET, std::ssize(r.packet));
           }
 
           handler(ec); // end of composed operation
@@ -128,7 +122,7 @@ struct net {
                                         tcp_socket::executor_type>;
 
         executor_type get_executor() const noexcept {
-          return asio::get_associated_executor(handler, ctx->sock->get_executor());
+          return asio::get_associated_executor(handler, sock.get_executor());
         }
 
         using allocator_type =
@@ -141,19 +135,21 @@ struct net {
       }; // end struct intermediate_completion_handler
 
       // initiate the underlying async_read using our intermediate completion handler
-      asio::async_read(*(ctx->sock), request.buffer(), asio::transfer_at_least(117),
+      asio::async_read(sock, r.buffer(), asio::transfer_at_least(117),
                        intermediate_completion_handler{
-                           ctx,
-                           request, // the request
+                           sock, // the socket
+                           r,    // the rquest
+                           aes,
                            std::forward<decltype(completion_handler)>(completion_handler) // handler
                        });
     }; // initiation lambda end
 
     return asio::async_initiate<CompletionToken, void(error_code)>(
-        initiation,               // initiation function object
-        token,                    // user supplied callback
-        ctx,                      // the overall context
-        std::ref(*(ctx->request)) // non-const reference to request
+        initiation,     // initiation function object
+        token,          // user supplied callback
+        std::ref(sock), // the socket to read from
+        std::ref(r),    // the request destination
+        std::ref(aes)   // the aes context
     );
   }
 
@@ -163,13 +159,14 @@ struct net {
   /// @param ctx const shared_ptr to rtsp::Ctx
   /// @param token asio completion handler (passed only error_code)
   /// @return  asio::async_result based on completion handler
-  template <typename CTX, typename CompletionToken>
-  static auto async_write_msg(const CTX ctx, CompletionToken &&token) {
+  template <typename R, typename CompletionToken>
+  static auto async_write_msg(tcp_socket &sock, R &r, Aes &aes, CompletionToken &&token) {
 
-    auto initiation = [](auto &&completion_handler, const CTX ctx, Reply &reply) {
-      struct intermediate_completion_handler {
-        const CTX ctx;
-        Reply &reply;
+    auto initiation = [](auto &&completion_handler, tcp_socket &sock, R &r, Aes &aes) {
+      struct intermediate_handler {
+        tcp_socket &sock;
+        R &r;
+        Aes &aes;
         typename std::decay<decltype(completion_handler)>::type handler;
 
         void operator()(const error_code &ec, std::size_t bytes) {
@@ -179,7 +176,7 @@ struct net {
           Stats::write(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
 
           if (!ec) {
-            Saver(Saver::OUT, reply.headers_out, reply.content_out, reply.resp_code);
+            Saver(Saver::OUT, r.headers_out, r.content_out, r.resp_code);
 
             handler(ec); // call user-supplied handler}
             return;
@@ -191,7 +188,7 @@ struct net {
                                         tcp_socket::executor_type>;
 
         executor_type get_executor() const noexcept {
-          return asio::get_associated_executor(handler, ctx->sock->get_executor());
+          return asio::get_associated_executor(handler, sock.get_executor());
         }
 
         using allocator_type =
@@ -203,22 +200,23 @@ struct net {
         }
       };
 
-      const auto sock = ctx->sock;
-      ctx->aes.encrypt(reply.wire); // NOTE: noop until cipher exchange completed
+      aes.encrypt(r.wire); // NOTE: noop until cipher exchange completed
 
       // initiate the actual async operation
-      asio::async_write(*sock, reply.buffer(),
-                        intermediate_completion_handler{ctx, reply,
-                                                        std::forward<decltype(completion_handler)>(
-                                                            completion_handler)}); // forward token
+      asio::async_write( //
+          sock, r.buffer(),
+          intermediate_handler{
+              sock, r, aes,
+              std::forward<decltype(completion_handler)>(completion_handler) //
+          });
     };
 
     // initiate the async operation
     return asio::async_initiate<CompletionToken, void(error_code)>(
         initiation, // initiation function object
         token,      // user supplied callback
-        ctx,
-        std::ref(*(ctx->reply))); // move the msg for use within the async operation
+        std::ref(sock), std::ref<R>(r),
+        std::ref(aes)); // move the msg for use within the async operation
   }
 };
 

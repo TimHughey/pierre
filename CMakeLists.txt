@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.24.3)
 
-option(BUILD_SHARED_LIBS "Build shared versions of libraries" ON)
+option(BUILD_SHARED_LIBS "Build shared versions of libraries" OFF)
 
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)

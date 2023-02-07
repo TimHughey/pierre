@@ -24,6 +24,7 @@
 #include "dmx_data_msg.hpp"
 #include "frame/anchor_last.hpp"
 #include "frame/frame.hpp"
+#include "frame/master_clock.hpp"
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
 #include "fx/all.hpp"

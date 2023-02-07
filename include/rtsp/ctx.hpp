@@ -31,6 +31,7 @@
 #include <atomic>
 #include <exception>
 #include <functional>
+#include <latch>
 #include <memory>
 #include <optional>
 
@@ -75,22 +76,18 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(io_context &io_ctx, auto sock, auto sessions, MasterClock *master_clock, Desk *desk) noexcept
-      : io_ctx(io_ctx),             //
-        feedback_timer(io_ctx),     // detect absence of routine feedback messages
-        sock(sock),                 //
-        sessions(sessions),         //
-        master_clock(master_clock), //
-        desk(desk) {}
+  Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept;
 
-  auto ptr() noexcept { return shared_from_this(); }
+  ~Ctx() noexcept;
 
   void close() noexcept;
 
   void feedback_msg() noexcept;
 
+  void force_close() noexcept;
+
   /// @brief Primary entry point for a session via Ctx
-  void run() noexcept { asio::post(io_ctx, std::bind(&Ctx::msg_loop, this)); }
+  void run() noexcept;
 
   void peers(const Peers &peer_list) noexcept;
 
@@ -133,23 +130,27 @@ private:
   void msg_loop_read() noexcept;
   void msg_loop_write() noexcept;
 
-private:
-  // order dependent
-  io_context &io_ctx;
-  steady_timer feedback_timer;
-
 public:
   // order dependent
-  std::shared_ptr<tcp_socket> sock;
+  io_context io_ctx;
+  tcp_socket sock;
   Sessions *sessions;
   MasterClock *master_clock;
   Desk *desk;
-
-  // order independent
   Aes aes;
+
+private:
+  // order dependent (private)
+  steady_timer feedback_timer;
+  std::shared_ptr<std::latch> shutdown_latch;
+  std::atomic_bool teardown_in_progress;
+
+public:
+  // order independent
 
   std::optional<Request> request;
   std::optional<Reply> reply;
+  std::atomic_bool teardown_now{false};
 
 public:
   // from RTSP headers
@@ -166,13 +167,11 @@ public:
   stream_info_t stream_info;
   string group_id; // airplay group id
 
+private:
   // workers
   std::shared_ptr<Audio> audio_srv;
   std::shared_ptr<Control> control_srv;
   std::shared_ptr<Event> event_srv;
-
-private:
-  std::atomic_bool teardown_in_progress{false};
 
 public:
   static constexpr csv module_id{"rtsp.ctx"};

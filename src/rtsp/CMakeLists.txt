@@ -54,6 +54,7 @@ target_link_libraries(${__target} PRIVATE
   ${Boost_LIBRARIES}
   ${libplist}
   base
+  desk
   frame
   io
   lcs

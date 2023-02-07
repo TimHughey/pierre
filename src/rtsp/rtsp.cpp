@@ -89,30 +89,26 @@ Rtsp::~Rtsp() noexcept {
 void Rtsp::async_accept() noexcept {
   static constexpr csv fn_id{"async_accept"};
 
-  // this is the socket for the next accepted connection. the socket
-  // is move only so we create it as a shared_ptr for capture by the lamdba
-  auto peer = std::make_shared<tcp_socket>(io_ctx);
-
   // note: must dereference the peer shared_ptr
-  acceptor.async_accept(*peer, [this, peer = peer](error_code ec) {
+  acceptor.async_accept([this](error_code ec, tcp_socket peer) mutable {
     Elapsed e;
 
     if ((ec == errc::success) && acceptor.is_open()) {
-      // ensure Desk is running, it may be shutdown due to idle timeout
       desk->resume();
 
-      const auto &r = peer->remote_endpoint();
+      auto ctx = std::make_shared<rtsp::Ctx>( //
+          std::move(peer),                    //
+          sessions.get(),                     //
+          master_clock.get(),                 //
+          desk.get()                          //
+      );
 
-      const auto msg = io::log_socket_msg(ec, *peer, r, e);
-      INFO_AUTO("{}\n", msg);
-
-      auto ctx = sessions->create(io_ctx, peer, master_clock.get(), desk.get());
-
+      sessions->add(ctx);
       ctx->run();
 
-      async_accept(); // schedule the next accept
-
       Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
+
+      async_accept(); // schedule the next accept
     } else if (ec != errc::operation_canceled) {
       INFO_AUTO("failed, {}\n", ec.message());
     }

@@ -23,32 +23,52 @@
 namespace pierre {
 namespace rtsp {
 
-void Sessions::close(const std::shared_ptr<Ctx> ctx) noexcept {
-  ctx->teardown();
-  ctx->close();
+void Sessions::add(std::shared_ptr<Ctx> ctx) noexcept {
+  std::unique_lock lck(mtx, std::defer_lock);
+  lck.lock();
+
+  ctxs.emplace_back(ctx);
 }
 
 void Sessions::close_all() noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [](const auto ctx) {
-    ctx->teardown();
-    ctx->close();
+  std::erase_if(ctxs, [](auto &ctx) {
+    ctx->force_close();
+    ctx.reset();
 
     return true;
   });
 }
 
-std::shared_ptr<Ctx> Sessions::create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
-                                      MasterClock *master_clock, Desk *desk) noexcept {
+void Sessions::erase(const std::shared_ptr<Ctx> ctx) noexcept {
+  static constexpr csv fn_id{"erase"};
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  return ctxs.emplace_back(new Ctx(io_ctx, sock, this, master_clock, desk));
+  std::erase_if(ctxs, [&ctx](const auto &a_ctx) {
+    static constexpr csv fn_id{"erase"};
+
+    auto rc = a_ctx == ctx;
+
+    if (rc) INFO_AUTO("remote={} dacp={}\n", ctx->active_remote, ctx->dacp_id);
+
+    return rc;
+  });
+
+  INFO_AUTO("ctxs={}\n", std::ssize(ctxs));
 }
 
-void Sessions::live(std::shared_ptr<Ctx> live_ctx) noexcept {
+// Ctx *Sessions::create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
+//                       MasterClock *master_clock, Desk *desk) noexcept {
+//   std::unique_lock lck(mtx, std::defer_lock);
+//   lck.lock();
+
+//   return ctxs.emplace_back(std::make_unique<Ctx>(io_ctx, sock, this, master_clock, desk)).get();
+// }
+
+void Sessions::live(Ctx *live_ctx) noexcept {
   static constexpr csv fn_id{"live"};
 
   INFO(module_id, fn_id, "remote={} dacp={}\n", live_ctx->active_remote, live_ctx->dacp_id);
@@ -56,13 +76,15 @@ void Sessions::live(std::shared_ptr<Ctx> live_ctx) noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [&](const auto ctx) {
+  std::erase_if(ctxs, [&](auto &ctx) mutable {
     auto rc = false;
 
-    if (live_ctx != ctx) {
+    if (live_ctx != ctx.get()) {
       static constexpr csv fn_id{"freeing"};
-      INFO(module_id, fn_id, "remote={} dacp={}\n", ctx->active_remote, ctx->dacp_id);
-      close(ctx);
+      INFO_AUTO("remote={} dacp={}\n", ctx->active_remote, ctx->dacp_id);
+
+      ctx->force_close();
+      ctx.reset();
       rc = true;
     }
 

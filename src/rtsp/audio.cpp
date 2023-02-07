@@ -88,7 +88,7 @@ void Audio::async_read_packet() noexcept {
                     return;
                   }
 
-                  s->rtsp_ctx->desk->handoff(std::move(s->packet), s->rtsp_ctx->shared_key);
+                  s->ctx->desk->handoff(std::move(s->packet), s->ctx->shared_key);
 
                   if (s->sock.is_open()) s->async_read_packet();
                 }));

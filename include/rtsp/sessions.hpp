@@ -39,15 +39,12 @@ class Sessions {
 public:
   Sessions() = default;
 
+  void add(std::shared_ptr<Ctx> ctx) noexcept;
+  void erase(const std::shared_ptr<Ctx> ctx) noexcept;
+
   void close_all() noexcept;
 
-  std::shared_ptr<Ctx> create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
-                              MasterClock *master_clock, Desk *desk) noexcept;
-
-  void live(const std::shared_ptr<Ctx>) noexcept;
-
-private:
-  void close(const std::shared_ptr<Ctx> ctx) noexcept;
+  void live(Ctx *ctx) noexcept;
 
 private:
   std::vector<std::shared_ptr<Ctx>> ctxs;

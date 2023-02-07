@@ -120,7 +120,7 @@ template <> struct fmt::formatter<pierre::FlushInfo> : formatter<std::string> {
                    info.deferred ? " DEFERRED " : " ");
 
     if (info.all) {
-      fmt::format_to(w, "FLUSH ALL");
+      fmt::format_to(w, "ALL (one-shot)");
     } else {
 
       if (info.from_seq || info.from_ts) {

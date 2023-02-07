@@ -37,24 +37,22 @@ namespace asio = boost::asio;
 namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
-using error_code = boost::system::error_code;
 using const_buff = asio::const_buffer;
 using deadline_timer = asio::deadline_timer;
+using error_code = boost::system::error_code;
 using io_context = asio::io_context;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using ip_udp = boost::asio::ip::udp;
-using socket_base = boost::asio::socket_base;
 using steady_timer = asio::steady_timer;
-using steady_timer_ptr = std::shared_ptr<steady_timer>;
 using strand = io_context::strand;
+using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
 using udp_endpoint = boost::asio::ip::udp::endpoint;
 using udp_socket = boost::asio::ip::udp::socket;
 using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
-using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 
 static constexpr uint16_t ANY_PORT{0};
 

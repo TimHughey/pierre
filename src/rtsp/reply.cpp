@@ -43,14 +43,8 @@ namespace pierre {
 
 namespace rtsp {
 
-void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
-                  const uint8v &content_in) noexcept {
+void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in) noexcept {
   static constexpr csv fn_id{"build"};
-
-  // get a naked pointer to ctx for use locally to save shared_ptr dereferences
-  // this is OK because the ctx is a member variable and stays in scope
-  // until this oject falls out of scope
-  auto *ctx_naked = ctx.get();
 
   // handle the various RTSP requests based on the method and path
   const auto &method = headers_in.method();
@@ -79,16 +73,16 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     } else if (path == csv("/feedback")) {
       // trival, basic headers and response code of OK
       resp_code(RespCode::OK);
-      ctx_naked->feedback_msg();
+      ctx->feedback_msg();
 
     } else if (path.starts_with("/pair-")) {
       // pairing setup and verify
       AesResult aes_result;
 
       if (path.ends_with("setup")) {
-        aes_result = ctx_naked->aes.setup(content_in, content_out);
+        aes_result = ctx->aes.setup(content_in, content_out);
       } else if (path.ends_with("verify")) {
-        aes_result = ctx_naked->aes.verify(content_in, content_out);
+        aes_result = ctx->aes.verify(content_in, content_out);
       }
 
       if (has_content()) {
@@ -108,7 +102,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     set_resp_code(RespCode::OK);
 
   } else if (method == csv("SETUP")) {
-    Setup(content_in, headers_in, *this, ctx_naked);
+    Setup(content_in, headers_in, *this, ctx);
 
   } else if (method.ends_with("_PARAMETER")) {
     if (method.starts_with("GET")) {
@@ -137,7 +131,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     Aplist request_dict(content_in);
     auto peers = request_dict.stringArray({ROOT});
     if (peers.empty() == false) {
-      ctx_naked->peers(peers);     // set the peer lists
+      ctx->peers(peers);           // set the peer lists
       set_resp_code(RespCode::OK); // indicate success
     }
 
@@ -157,7 +151,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
       }
     }
 
-    ctx_naked->master_clock->peers(peer_list);
+    ctx->master_clock->peers(peer_list);
 
   } else if (method == csv("SETRATEANCHORTIME")) {
     SetAnchor(content_in, *this, ctx->desk);
@@ -170,7 +164,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
 
     // any TEARDOWN request (with streams key or not) always clears the shared key and
     // informs Racked spooling should be stopped
-    ctx_naked->shared_key.clear();
+    ctx->shared_key.clear();
     ctx->desk->spool(false);
 
     // when the streams key is not present this is a complete disconnect
@@ -178,8 +172,8 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
       mDNS::service().receiver_active(false);
       mDNS::update();
 
-      ctx_naked->desk->flush_all();
-      ctx_naked->teardown();
+      ctx->desk->flush_all();
+      ctx->teardown_now = true;
     }
 
   } else if (method == csv("FLUSHBUFFERED")) {
@@ -188,7 +182,7 @@ void Reply::build(std::shared_ptr<Ctx> ctx, const Headers &headers_in,
     // notes:
     // 1. from_seq and from_ts may not be present
     // 2. until_seq and until_ts should always be present
-    ctx_naked->desk->flush(                             //
+    ctx->desk->flush(                                   //
         FlushInfo(request_dict.uint({FLUSH_FROM_SEQ}),  //
                   request_dict.uint({FLUSH_FROM_TS}),   //
                   request_dict.uint({FLUSH_UNTIL_SEQ}), //
