@@ -72,8 +72,8 @@ private:
   strand stall_strand;
   steady_timer stalled_timer;
   const int64_t thread_count;
-  std::shared_ptr<std::latch> startup_latch;
-  std::shared_ptr<std::latch> shutdown_latch;
+  std::unique_ptr<std::latch> startup_latch;
+  std::unique_ptr<std::latch> shutdown_latch;
 
   // order independent
   std::atomic_bool connected{false};

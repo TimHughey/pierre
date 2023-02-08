@@ -30,7 +30,7 @@
 
 namespace pierre {
 
-class PinSpot : public Unit, public std::enable_shared_from_this<PinSpot> {
+class PinSpot : public Unit {
 public:
   enum FX {
     None = 0x00,

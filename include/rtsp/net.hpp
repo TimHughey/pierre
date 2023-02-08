@@ -33,12 +33,14 @@ namespace rtsp {
 
 struct net {
 
-  /// @brief Read a RTSP message, parse headers and ensure content
-  /// @tparam CTX
+  /// @brief Read a full message async
+  /// @tparam R container for the read message
   /// @tparam CompletionToken
-  /// @param ctx const shared_ptr to rtsp::Ctx
-  /// @param token asio completion handler (passed only error_code)
-  /// @return asio::async_result based on completion handler
+  /// @param sock
+  /// @param r
+  /// @param aes
+  /// @param token
+  /// @return
   template <typename R, typename CompletionToken>
   static auto async_read_msg(tcp_socket &sock, R &r, Aes &aes, CompletionToken &&token) {
 
@@ -155,12 +157,14 @@ struct net {
     );
   }
 
-  /// @brief Write a RTSP message reply
-  /// @tparam CTX
+  /// @brief Write a complete message asuyn
+  /// @tparam R
   /// @tparam CompletionToken
-  /// @param ctx const shared_ptr to rtsp::Ctx
-  /// @param token asio completion handler (passed only error_code)
-  /// @return  asio::async_result based on completion handler
+  /// @param sock
+  /// @param r
+  /// @param aes
+  /// @param token
+  /// @return
   template <typename R, typename CompletionToken>
   static auto async_write_msg(tcp_socket &sock, R &r, Aes &aes, CompletionToken &&token) {
 

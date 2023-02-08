@@ -86,7 +86,7 @@ private:
   // order independent
   std::mutex run_state_mtx;
   std::optional<Racked> racked;
-  std::shared_ptr<std::latch> shutdown_latch;
+  std::unique_ptr<std::latch> shutdown_latch;
 
   std::unique_ptr<DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<FX> active_fx{nullptr};

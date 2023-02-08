@@ -206,14 +206,14 @@ void Desk::resume() noexcept {
 
   INFO_AUTO("requested, thread_count={}\n", thread_count);
 
-  shutdown_latch = std::make_shared<std::latch>(thread_count);
+  shutdown_latch = std::make_unique<std::latch>(thread_count);
 
   // submit work to io_ctx
   asio::post(io_ctx, std::bind(&Desk::frame_loop, this));
 
   // note: work guard created in constructor
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, shut_latch = shutdown_latch]() mutable {
+    std::jthread([this, n = n, shut_latch = shutdown_latch.get()]() mutable {
       const auto thread_name = thread_util::set_name(TASK_NAME, n);
 
       // thread start syncronization not required

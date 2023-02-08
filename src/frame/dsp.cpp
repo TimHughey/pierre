@@ -32,7 +32,7 @@ Dsp::Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(Dsp), thread_count);
 
   auto latch = std::make_unique<std::latch>(thread_count);
-  shutdown_latch = std::make_shared<std::latch>(thread_count);
+  shutdown_latch = std::make_unique<std::latch>(thread_count);
 
   // as soon as the io_ctx starts precompute FFT windowing
   asio::post(io_ctx, []() { FFT::init(); });

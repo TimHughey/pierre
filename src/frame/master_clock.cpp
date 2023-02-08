@@ -44,7 +44,7 @@ MasterClock::MasterClock() noexcept
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),    // nqptp endpoint
       shm_name(config_val2<MasterClock, string>("shm_name", "/nqptp")), //
       thread_count(config_threads<MasterClock>(1)),                     //
-      shutdown_latch(std::make_shared<std::latch>(thread_count))        //
+      shutdown_latch(std::make_unique<std::latch>(thread_count))        //
 {
   INFO_INIT("sizeof={:>5} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
             remote_endpoint.address().to_string(), remote_endpoint.port());
@@ -52,7 +52,7 @@ MasterClock::MasterClock() noexcept
   auto latch = std::make_unique<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, latch = latch.get(), shutdown_latch = shutdown_latch]() mutable {
+    std::jthread([this, n = n, latch = latch.get()]() mutable {
       const auto thread_name = thread_util::set_name("clock", n);
 
       latch->count_down();

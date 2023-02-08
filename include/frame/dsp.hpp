@@ -44,7 +44,7 @@ private:
   // order dependent
   io_context io_ctx;
   work_guard guard;
-  std::shared_ptr<std::latch> shutdown_latch;
+  std::unique_ptr<std::latch> shutdown_latch;
 
 private:
   void _process(const frame_t frame, FFT &&left, FFT &&right) noexcept;

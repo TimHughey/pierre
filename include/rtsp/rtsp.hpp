@@ -54,7 +54,7 @@ private:
   std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;
   const int thread_count;
-  std::shared_ptr<std::latch> shutdown_latch;
+  std::unique_ptr<std::latch> shutdown_latch;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 

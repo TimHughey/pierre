@@ -45,43 +45,43 @@ public:
   void for_each(auto f, std::initializer_list<string> exclude_list = empty_excludes) noexcept {
     std::set<string> excludes(exclude_list);
 
-    for (auto [name, unit] : map) {
-      if (excludes.contains(name) == false) f(unit);
+    for (auto &[name, unit] : map) {
+      if (excludes.contains(name) == false) f(unit.get());
     }
   }
 
   void dark(std::initializer_list<string> exclude_list = empty_excludes) noexcept {
-    for_each([](std::shared_ptr<Unit> unit) { unit->dark(); }, exclude_list);
+    for_each([](Unit *unit) { unit->dark(); }, exclude_list);
   }
 
   bool empty() const noexcept { return map.empty(); }
 
-  const auto operator()(const string &name) noexcept { return map.at(name); }
+  const auto operator()(const string &name) noexcept { return map.at(name).get(); }
 
   template <typename T = Unit> constexpr auto get(const string &name) noexcept {
-    auto unit = map[name];
+    auto *unit = map[name].get();
 
     if constexpr (std::is_same_v<T, Unit>) {
       return unit;
     } else if constexpr (std::is_base_of_v<Unit, T>) {
-      return static_pointer_cast<T>(unit);
+      return static_cast<T *>(unit);
     } else {
       static_assert(always_false_v<T>, "unhandled type");
     }
   }
 
   void prepare() noexcept {
-    for_each([](std::shared_ptr<Unit> unit) { unit->prepare(); });
+    for_each([](Unit *unit) { unit->prepare(); });
   }
 
   ssize_t ssize() const noexcept { return std::ssize(map); }
 
   void update_msg(DmxDataMsg &m) noexcept {
-    for_each([&](std::shared_ptr<Unit> unit) mutable { unit->update_msg(m); });
+    for_each([&](Unit *unit) mutable { unit->update_msg(m); });
   }
 
 private:
-  std::map<string, std::shared_ptr<Unit>> map;
+  std::map<string, std::unique_ptr<Unit>> map;
 
 public:
   static constexpr csv module_id{"desk::Units"};

@@ -46,8 +46,8 @@ DmxCtrl::DmxCtrl() noexcept
       stall_strand(io_ctx),                                                    //
       stalled_timer(stall_strand.context().get_executor(), stalled_timeout()), //
       thread_count(config_threads<DmxCtrl>(2)),                                //
-      startup_latch(std::make_shared<std::latch>(thread_count)),               //
-      shutdown_latch(std::make_shared<std::latch>(thread_count))               //
+      startup_latch(std::make_unique<std::latch>(thread_count)),               //
+      shutdown_latch(std::make_unique<std::latch>(thread_count))               //
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
 }
@@ -174,13 +174,12 @@ void DmxCtrl::run() noexcept {
   INFO_AUTO("requested\n");
 
   // post work for the io_ctx (also serves as guard)
-  asio::post(io_ctx, [this, startup_latch = startup_latch]() mutable {
+  asio::post(io_ctx, [this]() mutable {
     stalled_watchdog();
     listen();
 
     // wait for all workers before connect()
     startup_latch->wait();
-    startup_latch.reset();
 
     connect();
 
@@ -188,7 +187,7 @@ void DmxCtrl::run() noexcept {
   });
 
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, startup_latch = startup_latch]() mutable {
+    std::jthread([this, n = n]() mutable {
       const auto thread_name = thread_util::set_name(task_name, n);
 
       startup_latch->count_down();
@@ -199,8 +198,6 @@ void DmxCtrl::run() noexcept {
       INFO_THREAD_STOP();
     }).detach();
   }
-
-  startup_latch.reset();
 }
 
 void DmxCtrl::send_ctrl_msg(desk::Msg msg) noexcept {

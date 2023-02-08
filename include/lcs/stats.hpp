@@ -107,7 +107,6 @@ private:
 
   // order independent
   std::unique_ptr<influxdb::InfluxDB> db;
-  std::set<std::shared_ptr<influxdb::Point>> points;
 
 public:
   string init_msg;

@@ -40,26 +40,26 @@ void Units::create_all_from_cfg() noexcept {
     uint32_t max = cfg["max"sv].value_or(8190);
 
     for (auto &&e : *cfg["units"sv].as_array()) {
-      auto t = e.as_table();
+      const auto &t = *(e.as_table());
 
-      const auto name = (*t)["name"sv].value_or("unnamed");
-      const size_t addr = (*t)["addr"sv].value_or(0UL);
+      const auto name = t["name"sv].value_or("unnamed");
+      const size_t addr = t["addr"sv].value_or(0UL);
 
       const hdopts opts{.name = name, .type = unit_type::DIMMABLE, .address = addr};
 
-      auto [it, inserted] = map.try_emplace(name, std::make_shared<Dimmable>(std::move(opts)));
+      auto [it, inserted] = map.try_emplace(name, std::make_unique<Dimmable>(std::move(opts)));
 
       auto apply_percent = [=](float percent) -> uint32_t { return max * percent; };
 
       if (inserted) {
-        auto unit = static_pointer_cast<Dimmable>(it->second);
+        Dimmable *unit = static_cast<Dimmable *>(it->second.get());
 
-        unit->config.max = apply_percent((*t)["max"sv].value_or(1.0));
-        unit->config.min = apply_percent((*t)["min"sv].value_or(0.0));
-        unit->config.dim = apply_percent((*t)["dim"sv].value_or(0.0));
-        unit->config.bright = apply_percent((*t)["bright"sv].value_or(1.0));
-        unit->config.pulse_start = apply_percent((*t)["pulse.start"sv].value_or(1.0));
-        unit->config.pulse_end = apply_percent((*t)["pulse.end"sv].value_or(0.0));
+        unit->config.max = apply_percent(t["max"sv].value_or(1.0));
+        unit->config.min = apply_percent(t["min"sv].value_or(0.0));
+        unit->config.dim = apply_percent(t["dim"sv].value_or(0.0));
+        unit->config.bright = apply_percent(t["bright"sv].value_or(1.0));
+        unit->config.pulse_start = apply_percent(t["pulse.start"sv].value_or(1.0));
+        unit->config.pulse_end = apply_percent(t["pulse.end"sv].value_or(0.0));
       }
     }
   }
@@ -67,29 +67,29 @@ void Units::create_all_from_cfg() noexcept {
   { // load pinspot units
     auto cfg = cfg_desk["pinspot"sv];
     for (auto &&e : *cfg["units"sv].as_array()) {
-      auto t = e.as_table();
+      auto &t = *(e.as_table());
 
-      const auto name = (*t)["name"sv].value_or("unnamed");
-      const size_t addr = (*t)["addr"sv].value_or(0UL);
-      const size_t frame_len = (*t)["frame_len"sv].value_or(0UL);
+      const auto name = t["name"sv].value_or("unnamed");
+      const size_t addr = t["addr"sv].value_or(0UL);
+      const size_t frame_len = t["frame_len"sv].value_or(0UL);
 
       const hdopts opts{.name = name, .type = unit_type::PINSPOT, .address = addr};
 
-      map.try_emplace(name, std::make_shared<PinSpot>(std::move(opts), frame_len));
+      map.try_emplace(name, std::make_unique<PinSpot>(std::move(opts), frame_len));
     }
   }
 
   { // load pinspot units
     auto cfg = cfg_desk["switch"sv];
     for (auto &&e : *cfg["units"sv].as_array()) {
-      auto t = e.as_table();
+      const auto &t = *(e.as_table());
 
-      const auto name = (*t)["name"sv].value_or("unnamed");
-      const size_t addr = (*t)["addr"sv].value_or(0UL);
+      const auto name = t["name"sv].value_or("unnamed");
+      const size_t addr = t["addr"sv].value_or(0UL);
 
       const hdopts opts{.name = name, .type = unit_type::SWITCH, .address = addr};
 
-      map.try_emplace(name, std::make_shared<Switch>(std::move(opts)));
+      map.try_emplace(name, std::make_unique<Switch>(std::move(opts)));
     }
   }
 }

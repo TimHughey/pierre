@@ -40,7 +40,7 @@ Rtsp::Rtsp() noexcept
       master_clock(std::make_unique<MasterClock>()),    //
       desk(std::make_unique<Desk>(master_clock.get())), //
       thread_count(config_threads<Rtsp>(4)),
-      shutdown_latch(std::make_shared<std::latch>(thread_count)) //
+      shutdown_latch(std::make_unique<std::latch>(thread_count)) //
 {
   INFO_INIT("sizeof={:>5} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
 
@@ -49,18 +49,15 @@ Rtsp::Rtsp() noexcept
   asio::post(io_ctx, std::bind(&Rtsp::async_accept, this));
 
   // create shared_ptrs to avoid spurious data races
-  auto startup_latch = std::make_shared<std::latch>(thread_count);
-  shutdown_latch = std::make_shared<std::latch>(thread_count);
+  auto startup_latch = std::make_unique<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n, startup_latch = startup_latch,
-                  shutdown_latch = shutdown_latch]() mutable {
+    std::jthread([this, n, latch = startup_latch.get()]() mutable {
       const auto thread_name = thread_util::set_name("rtsp", n);
 
       // all workers are required to avoid deadlocks so use arrive_and_wait()
       // for a syncronized start
-      startup_latch->arrive_and_wait();
-      startup_latch.reset();
+      latch->arrive_and_wait();
 
       INFO_THREAD_START();
       io_ctx.run();
