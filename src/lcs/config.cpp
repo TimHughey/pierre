@@ -22,6 +22,7 @@
 #include "base/host.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
+#include "build_inject.hpp"
 #include "git_version.hpp"
 #include "io/io.hpp"
 #include "lcs/args.hpp"
@@ -106,7 +107,7 @@ bool Config::parse() noexcept {
     auto &table = tables.emplace_back(toml::parse_file(_full_path.c_str()));
 
     table.emplace("project", build::info.project);
-    table.emplace("git_describe", build::info.git_describe);
+    table.emplace("git_describe", build::git.describe);
     table.emplace("install_prefix", build::info.install_prefix);
     table.emplace("sysconf_dir"sv, build::info.sysconf_dir);
     table.emplace("data_dir", build::info.data_dir);

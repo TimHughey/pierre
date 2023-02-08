@@ -5,8 +5,7 @@
 namespace pierre {
 namespace build {
 
-const info_t info{"@CMAKE_PROJECT_NAME@", "@GIT_HASH@", "@CMAKE_INSTALL_PREFIX@",
-                  "@CMAKE_INSTALL_FULL_SYSCONFDIR@", "@CMAKE_INSTALL_FULL_DATADIR@"};
+const git_t git{"@GIT_HASH@"};
 
 } // namespace build
 } // namespace pierre

@@ -62,6 +62,7 @@ target_link_libraries(${__target} PRIVATE
 
 target_link_libraries(${__target} PUBLIC 
   ${Boost_LIBRARIES}
+  build_inject
   git_version
   InfluxData::InfluxDB
   io

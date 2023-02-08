@@ -23,11 +23,14 @@
 namespace pierre {
 namespace build {
 
-struct git_t {
-  const std::string describe;
+struct info_t {
+  const std::string project;
+  const std::string install_prefix;
+  const std::string sysconf_dir;
+  const std::string data_dir;
 };
 
-extern const git_t git;
+extern const info_t info;
 
 } // namespace build
 } // namespace pierre

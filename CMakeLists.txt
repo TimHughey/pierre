@@ -25,6 +25,8 @@ project(pierre
   LANGUAGES CXX C
 )
 
+include(GNUInstallDirs)
+
 message(STATUS "~~~ ${PROJECT_NAME} v${PROJECT_VERSION} ~~~")
 
 set(_target pierre)
@@ -45,8 +47,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   add_compile_options(-Wall -Wextra -pedantic -Werror)
 endif()
 
-include(GNUInstallDirs)
-
 # find pthreads
 set(THREADS_PREFER_PTHREAD_FLAG true)
 find_package(Threads    REQUIRED)
@@ -56,6 +56,7 @@ find_package(Sodium     REQUIRED)
 include(CheckGit)
 CheckGitSetup()
 
+include(InjectBuildInfo)
 add_subdirectory(src)
 
 add_executable(${_target} apps/app.cpp)
@@ -75,4 +76,5 @@ target_link_libraries(${_target} PUBLIC
   rtsp
   sodium
   Threads::Threads
+  git_version
 )
