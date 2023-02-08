@@ -31,7 +31,6 @@ configure_file(
   ${pierre_SOURCE_DIR}/cmake/version.hpp.in 
   ${pierre_BINARY_DIR}/include/build_version.hpp @ONLY)
 
-
 set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target})
 set(HEADER_PATH_BIN           ${pierre_BINARY_DIR}/include)
@@ -43,6 +42,7 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS
 add_library(${__target}  
   ${HEADER_LIST}
   config.cpp
+  config_watch.cpp
   logger.cpp
   stats.cpp
 )
@@ -62,6 +62,7 @@ target_link_libraries(${__target} PRIVATE
 
 target_link_libraries(${__target} PUBLIC 
   ${Boost_LIBRARIES}
+  git_version
   InfluxData::InfluxDB
   io
   tomlplusplus::tomlplusplus

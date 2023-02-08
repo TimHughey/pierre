@@ -22,7 +22,7 @@ namespace pierre {
 
 Av::Av(io_context &io_ctx) noexcept : ready{false} {
 
-  dsp.emplace(); // fire up the DSP threads
+  dsp.emplace(); // fire up DSP
 
   asio::post(io_ctx, [this]() {
     codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
@@ -32,14 +32,14 @@ Av::Av(io_context &io_ctx) noexcept : ready{false} {
 
       if (codec_ctx) {
         if (auto rc = avcodec_open2(codec_ctx, codec, nullptr); rc < 0) {
-          INFO(module_id, "CODEC_OPEN", "failed, rc={}\n", rc);
+          INFO(module_id, "codec_open", "failed, rc={}\n", rc);
         } else [[likely]] {
           parser_ctx = av_parser_init(codec->id);
 
           if (parser_ctx) {
             ready.store(true);
           } else {
-            INFO(module_id, "init", "failed to initialize AV functions\n");
+            INFO_INIT("failed to initialize AV functions\n");
           }
         } // end parser ctx
       }   // end open ctx

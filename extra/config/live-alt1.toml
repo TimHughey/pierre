@@ -29,7 +29,6 @@ init = true     # always log init messages from any module
 thread = false  # show any thread messages?
 shutdown = true # show any shutdown messages?
 
-
 frames = { av = false, flush = false, racked = false }
 fx = { standby = true }
 

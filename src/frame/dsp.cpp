@@ -37,12 +37,11 @@ Dsp::Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
   // as soon as the io_ctx starts precompute FFT windowing
   asio::post(io_ctx, []() { FFT::init(); });
 
-  // start the configured number of threads (detached)
-  // the threads will finish when we reset the work guard
+  // start the configured number of workers (detached)
+  // which will gracefully exit when work guard is reset
   for (auto n = 0; n < thread_count; n++) {
 
-    // pass in a raw pointer to latch since the unique_ptr will
-    // stay in-scope until all threads are started
+    // latch stays in scope until end of startup so a raw pointer is OK
     std::jthread([this, n = n, latch = latch.get()]() {
       auto const thread_name = thread_util::set_name(thread_prefix, n);
 
@@ -55,7 +54,7 @@ Dsp::Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
     }).detach();
   }
 
-  // caller thread waits until all threads are started
+  // caller thread waits until all workers are started
   latch->wait();
 }
 
@@ -63,7 +62,7 @@ Dsp::~Dsp() noexcept {
   INFO_SHUTDOWN_REQUESTED();
 
   guard.reset();
-  shutdown_latch->wait(); // caller waits for all threads to finish
+  shutdown_latch->wait(); // caller waits for all workers to finish
 
   INFO_SHUTDOWN_COMPLETE();
 }
@@ -85,10 +84,10 @@ void Dsp::_process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
   // go async and move eveything required into the lambda
   // note: we capture a const shared_ptr to frame since we don't take ownership
 
-  // due to limited threads processing of frames will queue (e.g. at start of play)
-  // it is possible that one or more of the queued frames could be marked as out of
-  // date by Racked. if the frame is anything other than decoded we skip peak
-  // detection.
+  // the processing of frames will queue based on the number of workers available
+  // (e.g. at start of play).  it is possible that one or more frames could be marked
+  // as out of date.  we check the status of the frame between each step to avoid
+  // unnecessary processing.
 
   if (frame->state == frame::DSP_IN_PROGRESS) {
     // the state hasn't changed, proceed with processing

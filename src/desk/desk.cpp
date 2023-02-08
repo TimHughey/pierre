@@ -185,7 +185,7 @@ void Desk::frame_loop() noexcept {
     }
   } // while loop
 
-  INFO_AUTO("fell through, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_AUTO("fell through, io_ctx={}\n", io_ctx.stopped());
 }
 
 void Desk::frame_timer_cancel() noexcept {}
@@ -208,7 +208,7 @@ void Desk::resume() noexcept {
 
   shutdown_latch = std::make_shared<std::latch>(thread_count);
 
-  // once io_ctx is running (by starting threads) kick off frame_loop
+  // submit work to io_ctx
   asio::post(io_ctx, std::bind(&Desk::frame_loop, this));
 
   // note: work guard created in constructor
@@ -225,8 +225,7 @@ void Desk::resume() noexcept {
     }).detach();
   }
 
-  // all threads / strands are running, fire up subsystems
-  INFO_AUTO("complete, threads={}\n", thread_count);
+  INFO_AUTO("completed, thread_count={}\n", thread_count);
 }
 
 void Desk::standby() noexcept {
@@ -243,7 +242,7 @@ void Desk::standby() noexcept {
   state = Stopped;
   loop_active = false;
 
-  INFO_AUTO("requested, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_AUTO("requested, io_ctx={}\n", io_ctx.stopped());
 
   guard.reset(); // allow io_ctx to run out of work
 
@@ -267,6 +266,6 @@ void Desk::standby() noexcept {
     INFO_AUTO("warning: shutdown_latch={}\n", (bool)shutdown_latch);
   }
 
-  INFO_AUTO("complete, io_ctx stopped={}\n", io_ctx.stopped());
+  INFO_AUTO("completed, io_ctx={}\n", io_ctx.stopped());
 }
 } // namespace pierre

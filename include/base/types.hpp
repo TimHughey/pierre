@@ -38,9 +38,6 @@ using string_view = std::string_view;
 typedef const std::string_view csv;
 typedef const char *ccs;
 
-// threads
-using Thread = std::jthread;
-
 // Vector of Floats
 using reals_t = std::vector<double>;
 

@@ -65,7 +65,7 @@ MasterClock::MasterClock() noexcept
     }).detach();
   }
 
-  latch->wait(); // caller waits until all threads are started
+  latch->wait(); // caller waits until all workers are started
 
   peers(Peers()); // reset the peers (creates the shm name)}
 }

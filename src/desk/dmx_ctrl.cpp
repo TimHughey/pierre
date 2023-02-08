@@ -49,7 +49,7 @@ DmxCtrl::DmxCtrl() noexcept
       startup_latch(std::make_shared<std::latch>(thread_count)),               //
       shutdown_latch(std::make_shared<std::latch>(thread_count))               //
 {
-  INFO_INIT("sizeof={:>5} threads={}\n", sizeof(DmxCtrl), thread_count);
+  INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
 }
 
 DmxCtrl::~DmxCtrl() noexcept {
@@ -178,7 +178,7 @@ void DmxCtrl::run() noexcept {
     stalled_watchdog();
     listen();
 
-    // wait for all threads before connect()
+    // wait for all workers before connect()
     startup_latch->wait();
     startup_latch.reset();
 

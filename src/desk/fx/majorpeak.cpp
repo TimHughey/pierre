@@ -26,6 +26,7 @@
 #include "fader/toblack.hpp"
 #include "fx/majorpeak/types.hpp"
 #include "lcs/config.hpp"
+#include "lcs/config_watch.hpp"
 #include "lcs/stats.hpp"
 
 namespace pierre {
@@ -69,11 +70,11 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
   // reset silence timer when peaks are not silent
   if (peaks.silence() == false) silence_watch();
 
-  if (_cfg_changed.has_value() && Config::has_changed(_cfg_changed)) {
+  if (_cfg_changed.has_value() && cfg_watch_has_changed(_cfg_changed)) {
     load_config();
     silence_watch(); // restart silence watch in case silence timeout changes
 
-    Config::want_changes(_cfg_changed);
+    cfg_watch_want_changes(_cfg_changed);
   }
 
   units(unit_name::AC_POWER)->activate();
@@ -320,7 +321,7 @@ void MajorPeak::load_config() noexcept {
   next_fx = st["suggested_fx_next"].value_or("standby");
 
   // register for changes
-  Config::want_changes(_cfg_changed);
+  cfg_watch_want_changes(_cfg_changed);
 }
 
 const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {

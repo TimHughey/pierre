@@ -50,7 +50,7 @@ Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk 
       teardown_in_progress(false)                      //
 {
   static constexpr csv fn_id{"construct"};
-  INFO_INIT("sizeof={} socket={}\n", sizeof(Ctx), peer.native_handle());
+  INFO_INIT("sizeof={:>5} socket={}\n", sizeof(Ctx), peer.native_handle());
 
   // transfer the accepted connection to our io_ctx
   error_code ec;

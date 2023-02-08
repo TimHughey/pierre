@@ -28,9 +28,7 @@
 
 #include <atomic>
 #include <filesystem>
-#include <future>
 #include <list>
-#include <optional>
 #include <shared_mutex>
 #include <type_traits>
 
@@ -46,11 +44,18 @@ namespace shared {
 extern std::unique_ptr<Config> config;
 }
 
+struct build_info_t {
+  const string vsn;
+  const string install_prefix;
+  const toml::table &cli_table;
+};
+
 class Config {
 public:
-  Config(io_context &io_ctx,
-         const toml::table &cli_table) noexcept; // must be in .cpp to hide ArgsMap
-  ~Config() noexcept;
+  Config(const toml::table &cli_table) noexcept;
+  ~Config() = default;
+
+  friend class ConfigWatch;
 
   // raw, direct access
   template <typename P> const auto at(P p) noexcept {
@@ -78,9 +83,6 @@ public:
 
   static bool daemon() noexcept;
 
-  static const string build_time() noexcept;
-  static const string build_vsn() noexcept;
-
   static fs::path fs_exec_path() noexcept {
     static constexpr csv path{"exec_path"};
     return fs::path(shared::config->cli_table[path].ref<string>());
@@ -106,59 +108,59 @@ public:
     return fs::path(shared::config->cli_table[path].ref<string>());
   }
 
-  static bool has_changed(cfg_future &fut) noexcept;
-
-  void init() noexcept;
-
   bool log_bool(csv logger_module_id, csv mod, csv cat) noexcept;
-
-  void monitor_file() noexcept;
 
   static bool ready() noexcept;
 
   static const string receiver() noexcept; // see .cpp
 
-  static const string vsn() noexcept;
-
-  static void want_changes(cfg_future &fut) noexcept;
+protected:
+  const auto file_path() const noexcept { return _full_path; }
+  bool parse() noexcept;
 
 private:
   const toml::table &live() noexcept;
 
-  bool parse(bool exit_on_error = false) noexcept;
-
 private:
   // order dependent
-  io_context &io_ctx;
   toml::table cli_table;
-  steady_timer file_timer;
+  const fs::path _full_path;
   std::atomic_bool initialized;
 
   // order independent
-  fs::path full_path;
-
-  cfg_future change_fut;
-  fs::file_time_type last_write;
   std::list<toml::table> tables;
-  std::optional<std::promise<bool>> change_proms;
   std::shared_mutex mtx;
-  std::shared_mutex want_changes_mtx;
 
 public: // status messages
   string init_msg;
-  string monitor_msg;
   string parse_msg;
-
-private:
-  // class static data
-  static constexpr auto EXIT_ON_FAILURE{true};
-  static constexpr ccs UNSET{"???"};
 
 public:
   static constexpr csv module_id{"config"};
+  static constexpr ccs UNSET{"???"};
 };
 
-// Config free functions
+////
+//// Config free functions
+////
+
+inline const auto app_name() noexcept {
+  return shared::config->at("app_name"sv).value_or<string>(Config::UNSET);
+}
+
+inline const auto banner_msg() noexcept { return shared::config->banner_msg(); }
+
+inline const auto cfg_build_vsn() noexcept {
+  return shared::config->at("git_describe"sv).value_or<string>(Config::UNSET);
+}
+
+/// @brief Lookup the boolean value at info.<mod>.<cat>
+/// @param mod module id
+/// @param cat categpry
+/// @return true or false
+inline bool cfg_logger(csv logger_mod, csv mod, csv cat) noexcept {
+  return Config::ready() ? shared::config->log_bool(logger_mod, mod, cat) : true;
+}
 
 inline auto config() noexcept { return shared::config.get(); }
 
@@ -171,7 +173,6 @@ template <typename T> T config_val(csv path, T &&def_val) noexcept {
 }
 
 template <class C, typename T, typename D> inline auto config_val2(csv path, D &&def_val) noexcept {
-
   return shared::config->at(toml::path(C::module_id).append(path))
       .value_or<T>(std::forward<D>(def_val));
 }
@@ -179,14 +180,6 @@ template <class C, typename T, typename D> inline auto config_val2(csv path, D &
 template <class C> int config_threads(int &&def_val) noexcept {
   return shared::config->at(toml::path(C::module_id).append("threads"))
       .value_or<int>(std::forward<int>(def_val));
-}
-
-/// @brief Lookup the boolean value at info.<mod>.<cat>
-/// @param mod module id
-/// @param cat categpry
-/// @return true or false
-inline bool cfg_logger(csv logger_mod, csv mod, csv cat) noexcept {
-  return Config::ready() ? shared::config->log_bool(logger_mod, mod, cat) : true;
 }
 
 } // namespace pierre

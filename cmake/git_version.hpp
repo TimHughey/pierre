@@ -23,9 +23,15 @@
 namespace pierre {
 namespace build {
 
-const std::string vsn("@_build_version_@");
-const std::string timestamp("@_build_timestamp_@");
-const std::string install_prefix("@CMAKE_INSTALL_FULL_DATADIR@");
-} // namespace build
+struct info_t {
+  const std::string project;
+  const std::string git_describe;
+  const std::string install_prefix;
+  const std::string sysconf_dir;
+  const std::string data_dir;
+};
 
+extern const info_t info;
+
+} // namespace build
 } // namespace pierre

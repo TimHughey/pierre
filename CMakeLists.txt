@@ -45,11 +45,16 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   add_compile_options(-Wall -Wextra -pedantic -Werror)
 endif()
 
+include(GNUInstallDirs)
+
 # find pthreads
 set(THREADS_PREFER_PTHREAD_FLAG true)
 find_package(Threads    REQUIRED)
 find_package(GCRYPT     REQUIRED)
 find_package(Sodium     REQUIRED)
+
+include(CheckGit)
+CheckGitSetup()
 
 add_subdirectory(src)
 
@@ -69,7 +74,5 @@ target_link_libraries(${_target} PUBLIC
   mdns
   rtsp
   sodium
-  Threads::Threads 
+  Threads::Threads
 )
-
-

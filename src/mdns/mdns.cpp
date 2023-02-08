@@ -53,7 +53,7 @@ using namespace mdns;
 
 mDNS::mDNS() noexcept
     : receiver(config_val2<mDNS, string>("receiver", "Pierre Default")),  //
-      build_vsn(config()->build_vsn()),                                   //
+      build_vsn(cfg_build_vsn()),                                         //
       stype(config_val2<mDNS, string>("service", "_ruth._tcp")),          //
       receiver_port(config_val2<mDNS, Port>("port", 7000)),               //
       service_obj(receiver, build_vsn),                                   //

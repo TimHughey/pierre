@@ -19,8 +19,10 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
+#include "git_version.hpp"
 #include "lcs/args.hpp"
 #include "lcs/config.hpp"
+#include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
@@ -51,6 +53,14 @@ int App::main(int argc, char *argv[]) {
   // are good and help was not requested
   CliArgs cli_args(argc, argv);
 
+  // allocate global Config object
+  shared::config = std::make_unique<Config>(cli_args.cli_table);
+
+  if (!config()->parse_msg.empty()) {
+    perror(config()->parse_msg.c_str());
+    exit(EXIT_FAILURE);
+  }
+
   if (cli_args.daemon()) {
 
     if (syscall(SYS_close_range, 3, ~0U, 0) == -1) {
@@ -62,6 +72,7 @@ int App::main(int argc, char *argv[]) {
 
     // handle parent process or fork failure
     if (child_pid > 0) { // initial parent process, exit cleanly
+
       exit(EXIT_SUCCESS);
     } else if (child_pid < 0) { // fork failed
       perror("initial fork failed");
@@ -97,18 +108,12 @@ int App::main(int argc, char *argv[]) {
   }
 
   ////
-  //// proceed with startup we are either running in the foreground or background
+  //// proceed with startup as either a background or foreground process
   ////
 
   io_ctx.emplace();
 
-  // allocate globally available singleton
-  shared::config = std::make_unique<Config>(*io_ctx, cli_args.cli_table);
-  config()->init();
-
   Logger::startup();
-
-  if (!config()->parse_msg.empty()) INFO_AUTO("config parse msg={}\n", config()->parse_msg);
 
   signal_set_ignore.emplace(*io_ctx, SIGHUP);
   signal_set_shutdown.emplace(*io_ctx, SIGINT);
@@ -116,9 +121,10 @@ int App::main(int argc, char *argv[]) {
   signals_ignore();   // ignore certain signals
   signals_shutdown(); // catch certain signals for shutdown
 
-  INFO_AUTO("{}\n", config()->banner_msg());
+  INFO_AUTO("{}\n", banner_msg());
 
-  INFO(Config::module_id, fn_id, "{}\n", config()->init_msg);
+  INFO(Config::module_id, "init", "{}\n", config()->init_msg);
+  shared::config_watch = std::make_unique<ConfigWatch>(*io_ctx);
 
   shared::stats = std::make_unique<Stats>(*io_ctx);
   shared::mdns = std::make_unique<mDNS>();
@@ -126,7 +132,7 @@ int App::main(int argc, char *argv[]) {
 
   io_ctx->run(); // start the app, returns when shutdown signal received
 
-  INFO_AUTO("io_ctx stopped={}\n", io_ctx->stopped());
+  INFO_AUTO("io_ctx={}\n", io_ctx->stopped());
 
   Logger::shutdown();
 
@@ -179,6 +185,7 @@ void App::signals_shutdown() noexcept {
     signal_set_ignore->cancel(); // cancel the remaining work
 
     shared::stats.reset();
+    shared::config_watch.reset();
     shared::config.reset();
   });
 }

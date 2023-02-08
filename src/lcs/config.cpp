@@ -22,7 +22,7 @@
 #include "base/host.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "build_version.hpp"
+#include "git_version.hpp"
 #include "io/io.hpp"
 #include "lcs/args.hpp"
 
@@ -30,6 +30,7 @@
 #include <filesystem>
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include <fmt/std.h>
 #include <iostream>
 #include <latch>
 #include <memory>
@@ -43,17 +44,19 @@ std::unique_ptr<Config> config{nullptr};
 }
 
 // Config API
-Config::Config(io_context &io_ctx, const toml::table &cli_table) noexcept
-    : io_ctx(io_ctx),                           //
-      cli_table(cli_table), file_timer(io_ctx), //
-      initialized(false)                        //
-{}
+Config::Config(const toml::table &cli_table) noexcept                //
+    : cli_table(cli_table),                                          //
+      _full_path(fs::path(build::info.sysconf_dir)                   //
+                     .append(build::info.project)                    //
+                     .append(cli_table["cfg-file"sv].ref<string>())) //
+{
+  if (parse() == true) {
+    initialized = true;
 
-Config::~Config() noexcept {
+    init_msg = fmt::format("sizeof={:>5} table size={}", //
+                           sizeof(Config), tables.front().size());
 
-  try {
-    file_timer.cancel();
-  } catch (...) {
+    // if we made it here cli and config are parsed, toml tables are ready for use
   }
 }
 
@@ -62,49 +65,11 @@ const string Config::app_name() noexcept {
 }
 
 const string Config::banner_msg() noexcept {
-  return fmt::format("{} {} {}", app_name(), build_vsn(), build_time());
+  const auto &table = tables.front();
+  return fmt::format("{} {}", table["project"].ref<string>(), table["git_describe"].ref<string>());
 }
-
-const string Config::build_time() noexcept { return config()->at("build_time"sv).value_or(UNSET); }
-
-const string Config::build_vsn() noexcept { return config()->at("build_vsn"sv).value_or(UNSET); }
 
 bool Config::daemon() noexcept { return config()->cli_table["daemon"sv].value_or(false); }
-
-bool Config::has_changed(cfg_future &fut) noexcept {
-  auto rc = false;
-
-  if (fut.has_value() && fut->valid()) {
-    if (auto status = fut->wait_for(0ms); status == std::future_status::ready) {
-      rc = fut->get();
-      fut.reset();
-    }
-  }
-
-  return rc;
-}
-
-void Config::init() noexcept {
-  // we have good cli args, build path to config file
-  full_path = fs::path(cli_table["home"sv].ref<string>())
-                  .append(".pierre")
-                  .append(cli_table["cfg-file"sv].ref<string>());
-
-  if (parse(EXIT_ON_FAILURE) == true) {
-
-    std::error_code ec;
-    last_write = fs::last_write_time(full_path, ec);
-
-    initialized = true;
-
-    init_msg = fmt::format("sizeof={:>5} table size={}", //
-                           sizeof(Config), tables.front().size());
-
-    // if we made it here cli and config are parsed, toml tables are ready for use so
-    // begin watching for changes
-    monitor_file();
-  }
-}
 
 bool Config::log_bool(csv logger_module_id, csv mod, csv cat) noexcept {
   if (cat == csv{"info"}) return true;
@@ -131,72 +96,33 @@ const toml::table &Config::live() noexcept {
   return tables.front();
 }
 
-void Config::monitor_file() noexcept {
-
-  file_timer.expires_after(1s);
-  file_timer.async_wait([this](const error_code ec) {
-    if (ec) return; // error or shutdown, bail immediately
-
-    auto now_last_write = fs::last_write_time(full_path);
-
-    if (auto diff = now_last_write - last_write; diff != Nanos::zero()) {
-      monitor_msg.clear();
-      auto w = std::back_inserter(monitor_msg);
-      fmt::format_to(w,
-                     "CHANGED file={0} "                        //
-                     "was={1:%F}T{1:%R%z} now={2:%F}T{2:%R%z}", //
-                     full_path.c_str(),                         //
-                     std::chrono::file_clock::to_sys(last_write),
-                     std::chrono::file_clock::to_sys(now_last_write));
-
-      last_write = now_last_write;
-
-      parse();
-
-      std::unique_lock lck(want_changes_mtx, std::defer_lock);
-      lck.lock();
-
-      if (change_proms) {
-        change_proms->set_value(true);
-        change_proms.reset();
-        change_fut.reset();
-      }
-
-      lck.unlock();
-    }
-
-    monitor_file();
-  });
-}
-
-bool Config::parse(bool exit_on_error) noexcept {
+bool Config::parse() noexcept {
+  auto rc = false;
 
   std::unique_lock lck(mtx, std::defer_lock);
-  if (!exit_on_error) lck.lock();
+  lck.lock();
 
   try {
-    auto &table = tables.emplace_back(toml::parse_file(full_path.c_str()));
+    auto &table = tables.emplace_back(toml::parse_file(_full_path.c_str()));
 
-    // populate static build info
-    table.emplace("build_vsn"sv, build::vsn);
-    table.emplace("build_time"sv, build::timestamp);
+    table.emplace("project", build::info.project);
+    table.emplace("git_describe", build::info.git_describe);
+    table.emplace("install_prefix", build::info.install_prefix);
+    table.emplace("sysconf_dir"sv, build::info.sysconf_dir);
+    table.emplace("data_dir", build::info.data_dir);
 
     // is this a reload of the config?
     if (tables.size() == 2) {
       tables.pop_front(); // discard the old table
     }
 
+    rc = true;
+
   } catch (const toml::parse_error &err) {
-
-    parse_msg = fmt::format("parse failed file={} reason={}", full_path.c_str(), err.description());
-
-    if (exit_on_error) {
-      fmt::print("\n{}\n", parse_msg);
-      exit(2);
-    }
+    parse_msg = fmt::format("{} parse failed: {}", _full_path, err.description());
   }
 
-  return true;
+  return rc;
 }
 
 bool Config::ready() noexcept { return config() && config()->initialized; }
@@ -206,27 +132,6 @@ const string Config::receiver() noexcept { // static
   auto val = config()->at("mdns.receiver"sv).value_or(fallback);
 
   return (val == fallback ? string(Host().hostname()) : string(val));
-}
-
-const string Config::vsn() noexcept {
-  return config()->live()["base.config_vsn"sv].value_or(UNSET);
-}
-
-void Config::want_changes(cfg_future &chg_fut) noexcept {
-  auto *s = config();
-
-  std::unique_lock lck(s->want_changes_mtx, std::defer_lock);
-  lck.lock();
-
-  auto &proms = s->change_proms;
-  auto &fut = s->change_fut;
-
-  if (!proms.has_value() && !fut.has_value()) {
-    proms.emplace();
-    fut.emplace(proms->get_future());
-  }
-
-  chg_fut.emplace(fut.value());
 }
 
 } // namespace pierre

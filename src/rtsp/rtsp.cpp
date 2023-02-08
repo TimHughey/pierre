@@ -57,7 +57,8 @@ Rtsp::Rtsp() noexcept
                   shutdown_latch = shutdown_latch]() mutable {
       const auto thread_name = thread_util::set_name("rtsp", n);
 
-      // we want a syncronized start of all threads
+      // all workers are required to avoid deadlocks so use arrive_and_wait()
+      // for a syncronized start
       startup_latch->arrive_and_wait();
       startup_latch.reset();
 
@@ -69,7 +70,7 @@ Rtsp::Rtsp() noexcept
     }).detach();
   }
 
-  startup_latch->wait(); // wait for all threads to start
+  startup_latch->wait(); // wait for all workers to start
 }
 
 Rtsp::~Rtsp() noexcept {
@@ -82,7 +83,7 @@ Rtsp::~Rtsp() noexcept {
   desk.reset(); // shutdown desk (and friends)
   master_clock.reset();
 
-  shutdown_latch->wait(); // caller waits for all threads to finish
+  shutdown_latch->wait(); // caller waits for all workers to finish
   sessions.reset();
   INFO_SHUTDOWN_COMPLETE();
 }
