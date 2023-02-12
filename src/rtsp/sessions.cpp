@@ -47,44 +47,35 @@ void Sessions::erase(const std::shared_ptr<Ctx> ctx) noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [&ctx](const auto &a_ctx) {
+  std::erase_if(ctxs, [&ctx](const auto a_ctx) {
     static constexpr csv fn_id{"erase"};
 
     auto rc = a_ctx == ctx;
 
-    if (rc) INFO_AUTO("remote={} dacp={}\n", ctx->active_remote, ctx->dacp_id);
+    if (rc) INFO_AUTO("{}\n", ctx);
 
     return rc;
   });
 
-  INFO_AUTO("ctxs={}\n", std::ssize(ctxs));
+  INFO_AUTO("ctxs count={}\n", std::ssize(ctxs));
 }
-
-// Ctx *Sessions::create(io_context &io_ctx, std::shared_ptr<tcp_socket> sock,
-//                       MasterClock *master_clock, Desk *desk) noexcept {
-//   std::unique_lock lck(mtx, std::defer_lock);
-//   lck.lock();
-
-//   return ctxs.emplace_back(std::make_unique<Ctx>(io_ctx, sock, this, master_clock, desk)).get();
-// }
 
 void Sessions::live(Ctx *live_ctx) noexcept {
   static constexpr csv fn_id{"live"};
 
-  INFO(module_id, fn_id, "remote={} dacp={}\n", live_ctx->active_remote, live_ctx->dacp_id);
+  INFO_AUTO("{}\n", *live_ctx);
 
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [&](auto &ctx) mutable {
+  std::erase_if(ctxs, [&](const auto ctx) mutable {
     auto rc = false;
 
     if (live_ctx != ctx.get()) {
       static constexpr csv fn_id{"freeing"};
-      INFO_AUTO("remote={} dacp={}\n", ctx->active_remote, ctx->dacp_id);
+      INFO_AUTO("{}}\n", ctx);
 
       ctx->force_close();
-      ctx.reset();
       rc = true;
     }
 

@@ -178,3 +178,34 @@ public:
 
 } // namespace rtsp
 } // namespace pierre
+
+/// @brief Custom formatter for Reel
+template <> struct fmt::formatter<pierre::rtsp::Ctx> : formatter<std::string> {
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext>
+  auto format(const pierre::rtsp::Ctx &rtsp_ctx, FormatContext &ctx) const {
+
+    const auto msg = fmt::format("remote={} dacp={} '{}'",
+                                 rtsp_ctx.active_remote, //
+                                 rtsp_ctx.dacp_id,       //
+                                 rtsp_ctx.client_name);
+
+    return formatter<std::string>::format(msg, ctx);
+  }
+};
+
+template <> struct fmt::formatter<std::shared_ptr<pierre::rtsp::Ctx>> : formatter<std::string> {
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext>
+  auto format(const std::shared_ptr<pierre::rtsp::Ctx> rtsp_ctx, FormatContext &ctx) const {
+
+    const auto msg = fmt::format("remote={} dacp={} '{}'",
+                                 rtsp_ctx->active_remote, //
+                                 rtsp_ctx->dacp_id,       //
+                                 rtsp_ctx->client_name);
+
+    return formatter<std::string>::format(msg, ctx);
+  }
+};

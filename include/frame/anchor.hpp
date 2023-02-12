@@ -47,7 +47,7 @@ private:
   AnchorLast last;
 
 public:
-  static constexpr auto module_id{"anchor"};
+  static constexpr auto module_id{"frame.anchor"};
 
 public:
   Anchor(const Anchor &) = delete;            // no copy

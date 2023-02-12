@@ -69,7 +69,6 @@ private:
   // order dependent
   io_context io_ctx;
   tcp_acceptor acceptor;
-  strand stall_strand;
   steady_timer stalled_timer;
   const int64_t thread_count;
   std::unique_ptr<std::latch> startup_latch;

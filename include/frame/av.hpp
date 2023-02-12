@@ -18,21 +18,12 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/opt.h>
-#ifdef __cplusplus
-}
-#endif
-
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
 #include "io/io.hpp"
 #include "lcs/logger.hpp"
+#include "libav.hpp"
 
 #include <atomic>
 #include <memory>

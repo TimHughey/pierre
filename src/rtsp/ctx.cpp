@@ -46,7 +46,7 @@ Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk 
       desk(desk),                                      //
       aes(),                                           //
       feedback_timer(io_ctx),                          //
-      shutdown_latch(std::make_shared<std::latch>(2)), //
+      shutdown_latch(std::make_shared<std::latch>(1)), //
       teardown_in_progress(false)                      //
 {
   static constexpr csv fn_id{"construct"};
@@ -70,6 +70,8 @@ Ctx::~Ctx() noexcept {
     }
   } catch (...) {
   }
+
+  if (!io_ctx.stopped()) io_ctx.stop();
 
   if (shutdown_latch) shutdown_latch->wait();
 }
@@ -196,21 +198,16 @@ void Ctx::teardown() noexcept {
 
   // only start the teardown if not already in progress
   if (teardown_in_progress.exchange(true) == false) {
-    const auto sar = active_remote;
-    const auto sdi = dacp_id;
-    const auto scn = client_name;
 
-    INFO_AUTO("requested '{}' remote={} dacp={} \n", scn, sar, sdi);
+    INFO_AUTO("requested {}\n", *this);
 
     try {
-      sock.shutdown(tcp_socket::shutdown_receive);
       sock.close();
     } catch (const std::exception &e) {
       INFO_AUTO("failed to shutdown, close socket reason={}\n", e.what());
     }
 
     group_contains_group_leader = false;
-    // active_remote = 0;
 
     [[maybe_unused]] error_code ec;
     feedback_timer.cancel(ec);
@@ -230,7 +227,7 @@ void Ctx::teardown() noexcept {
       event_srv.reset();
     }
 
-    INFO_AUTO("completed '{}' remote={} dacp={}\n", scn, sar, sdi);
+    INFO_AUTO("completed {}\n", *this);
   }
 }
 

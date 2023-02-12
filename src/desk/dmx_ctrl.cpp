@@ -35,19 +35,19 @@
 namespace pierre {
 
 static auto stalled_timeout() noexcept {
-  const auto ms = config_val2<DmxCtrl, int64_t>("timeouts.milliseconds.stalled", 7500);
+  static constexpr csv stalled_ms_path{"local.stalled.ms"};
+  const auto ms = config_val2<DmxCtrl, int64_t>(stalled_ms_path, 7500);
 
   return pet::from_val<Nanos, Millis>(ms);
 }
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
-    : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),                  //
-      stall_strand(io_ctx),                                                    //
-      stalled_timer(stall_strand.context().get_executor(), stalled_timeout()), //
-      thread_count(config_threads<DmxCtrl>(2)),                                //
-      startup_latch(std::make_unique<std::latch>(thread_count)),               //
-      shutdown_latch(std::make_unique<std::latch>(thread_count))               //
+    : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),    //
+      stalled_timer(io_ctx, stalled_timeout()),                  //
+      thread_count(config_threads<DmxCtrl>(2)),                  //
+      startup_latch(std::make_unique<std::latch>(thread_count)), //
+      shutdown_latch(std::make_unique<std::latch>(thread_count)) //
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
 }
@@ -63,10 +63,11 @@ DmxCtrl::~DmxCtrl() noexcept {
 
 void DmxCtrl::connect() noexcept {
   static constexpr csv cat{"ctrl_sock"};
+  static constexpr csv host_path{"remote.host"};
 
   // now begin the control channel connect and handshake
   // zerconf resolve future
-  auto zcsf = mDNS::zservice(config_val2<DmxCtrl, string>("controller", "dmx"));
+  auto zcsf = mDNS::zservice(config_val2<DmxCtrl, string>(host_path, "dmx"));
   Elapsed e;
   auto zcs = zcsf.get(); // can BLOCK, as needed
 
@@ -78,6 +79,8 @@ void DmxCtrl::connect() noexcept {
       endpoints,                 //
       [this, e](const error_code ec, const tcp_endpoint r) mutable {
         if (!ec && ctrl_sock.has_value()) {
+          static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
+          static constexpr csv stats_ms_path{"remote.stats.ms"};
           INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *ctrl_sock, r, e));
 
           ctrl_sock->set_option(ip_tcp::no_delay(true));
@@ -85,8 +88,8 @@ void DmxCtrl::connect() noexcept {
 
           desk::Msg msg(HANDSHAKE);
 
-          msg.add_kv("idle_shutdown_ms",
-                     config_val2<DmxCtrl, int64_t>("timeouts.milliseconds.idle", 30000));
+          msg.add_kv("idle_shutdown_ms", config_val2<DmxCtrl, int64_t>(idle_ms_path, 10000));
+          msg.add_kv("stats_ms", config_val2<DmxCtrl, int64_t>(stats_ms_path, 2000));
           msg.add_kv("lead_time_µs", InputInfo::lead_time);
           msg.add_kv("ref_µs", pet::now_realtime<Micros>());
           msg.add_kv("data_port", acceptor.local_endpoint().port());

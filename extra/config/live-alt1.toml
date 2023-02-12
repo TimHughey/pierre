@@ -24,18 +24,15 @@ config_vsn = 2   # config file format
 ##
 [logger]
 # category specific overrides
-debug = false   # show any debug messages?
-init = true     # always log init messages from any module
-thread = false  # show any thread messages?
-shutdown = true # show any shutdown messages?
-
-frames = { av = false, flush = false, racked = false }
-fx = { standby = true }
+debug = false    # show any debug messages?
+init = true      # always log init messages from any module
+thread = false   # show any thread messages?
+shutdown = false # show any shutdown messages?
 
 [logger.desk]
 dmx_ctrl = { run = false, thread = false }
 thread = false
-resume = false
+resume = true
 shutdown = false
 standby = true
 monitor_wip = true
@@ -43,14 +40,15 @@ reel = false
 racked = { log_racked = false, thread = false }
 
 [logger.frame]
+anchor = false
+av = false
+clock = { init = true, shutdown = false, peers_update = false, thread = false, map_shm = false }
+# clock_info = false
 dsp = { thread = false }
+# frame = false
 
-[logger.master_clock]
-init = true
-shutdown = false
-peers_update = false
-thread = false
-map_shm = false
+[logger.fx]
+standby = false
 
 [logger.mdns]
 ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
@@ -71,10 +69,10 @@ reply = { build = false }
 threads = 3
 
 [desk.dmx_ctrl]
+local = { stalled.ms = 7_500 }
+# remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
+# remote = { host = "test-with-devs", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
 threads = 2
-# controller = "dmx" # DEFAULT
-# controller = "test-with-devs"
-timeouts.milliseconds = { idle = 60_000, stalled = 7500 }
 
 [desk.dimmable]
 max = 8190
@@ -132,7 +130,7 @@ threads = 1
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 30 } }
+silence = { timeout = { minutes = 1 } }
 will_render = true
 
 [fx.majorpeak]
