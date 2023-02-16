@@ -21,6 +21,7 @@
 #include "base/thread_util.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"
+#include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
@@ -34,9 +35,12 @@
 
 namespace pierre {
 
+static const string get_cfg_host() noexcept {
+  return config_val2<DmxCtrl, string>("remote.host"sv, "dmx");
+}
+
 static auto stalled_timeout() noexcept {
-  static constexpr csv stalled_ms_path{"local.stalled.ms"};
-  const auto ms = config_val2<DmxCtrl, int64_t>(stalled_ms_path, 7500);
+  const auto ms = config_val2<DmxCtrl, int64_t>("local.stalled.ms"sv, 7500);
 
   return pet::from_val<Nanos, Millis>(ms);
 }
@@ -67,16 +71,14 @@ void DmxCtrl::connect() noexcept {
 
   // now begin the control channel connect and handshake
   // zerconf resolve future
-  auto zcsf = mDNS::zservice(config_val2<DmxCtrl, string>(host_path, "dmx"));
+  cfg_host = get_cfg_host();
+  auto zcsf = mDNS::zservice(cfg_host);
   Elapsed e;
   auto zcs = zcsf.get(); // can BLOCK, as needed
 
-  const auto addr = asio::ip::make_address_v4(zcs.address());
-
-  const std::array endpoints{tcp_endpoint{addr, zcs.port()}};
   asio::async_connect(           //
       ctrl_sock.emplace(io_ctx), //
-      endpoints,                 //
+      std::array{tcp_endpoint{asio::ip::make_address_v4(zcs.address()), zcs.port()}},
       [this, e](const error_code ec, const tcp_endpoint r) mutable {
         if (!ec && ctrl_sock.has_value()) {
           static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
@@ -95,9 +97,6 @@ void DmxCtrl::connect() noexcept {
           msg.add_kv("data_port", acceptor.local_endpoint().port());
 
           send_ctrl_msg(std::move(msg));
-
-        } else {
-          INFO(module_id, cat, "no socket, {}\n", ec.message());
         }
       });
 
@@ -178,6 +177,8 @@ void DmxCtrl::run() noexcept {
 
   // post work for the io_ctx (also serves as guard)
   asio::post(io_ctx, [this]() mutable {
+    cfg_watch_want_changes(cfg_fut);
+
     stalled_watchdog();
     listen();
 
@@ -203,7 +204,7 @@ void DmxCtrl::run() noexcept {
   }
 }
 
-void DmxCtrl::send_ctrl_msg(desk::Msg msg) noexcept {
+void DmxCtrl::send_ctrl_msg(desk::Msg &&msg) noexcept {
   static constexpr csv fn_id{"send_ctrl_msg"};
 
   msg.serialize();
@@ -251,7 +252,14 @@ void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
 void DmxCtrl::stalled_watchdog() noexcept {
   static constexpr csv cat{"stalled"};
 
-  stalled_timer.expires_after(stalled_timeout());
+  if (cfg_watch_has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
+    cfg_host = get_cfg_host();
+    stalled_timer.expires_after(0s);
+    cfg_watch_want_changes(cfg_fut);
+  } else {
+    stalled_timer.expires_after(stalled_timeout());
+  }
+
   stalled_timer.async_wait([this](error_code ec) {
     if (ec == errc::success) {
 

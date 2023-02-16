@@ -188,8 +188,6 @@ void Desk::frame_loop() noexcept {
   INFO_AUTO("fell through, io_ctx={}\n", io_ctx.stopped());
 }
 
-void Desk::frame_timer_cancel() noexcept {}
-
 void Desk::resume() noexcept {
   static constexpr csv fn_id{"resume"};
 

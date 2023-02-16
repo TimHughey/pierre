@@ -129,9 +129,6 @@ private:
   string name_mac;
   string _name_short;
 
-  std::any _browser;
-  std::any _resolver;
-
 public:
   static constexpr csv module_id{"mdns.zservice"};
 };

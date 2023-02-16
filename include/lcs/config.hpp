@@ -88,11 +88,6 @@ public:
     return fs::path(shared::config->cli_table[path].ref<string>());
   }
 
-  static fs::path fs_home() noexcept {
-    static constexpr csv path{"home"};
-    return fs::path(shared::config->cli_table[path].ref<string>());
-  }
-
   static fs::path fs_log_file() noexcept {
     static constexpr csv path{"log-file"};
     return fs::path(shared::config->cli_table[path].ref<string>());
@@ -108,6 +103,8 @@ public:
     return fs::path(shared::config->cli_table[path].ref<string>());
   }
 
+  const toml::table &live() noexcept;
+
   bool log_bool(csv logger_module_id, csv mod, csv cat) noexcept;
 
   static bool ready() noexcept;
@@ -119,8 +116,6 @@ protected:
   bool parse() noexcept;
 
 private:
-  const toml::table &live() noexcept;
-
 private:
   // order dependent
   toml::table cli_table;
@@ -144,6 +139,9 @@ public:
 //// Config free functions
 ////
 
+// must be first, others need it
+inline auto config() noexcept { return shared::config.get(); }
+
 inline const auto app_name() noexcept {
   return shared::config->at("app_name"sv).value_or<string>(Config::UNSET);
 }
@@ -154,6 +152,8 @@ inline const auto cfg_build_vsn() noexcept {
   return shared::config->at("git_describe"sv).value_or<string>(Config::UNSET);
 }
 
+inline const toml::table cfg_copy_live() noexcept { return toml::table(config()->live()); }
+
 /// @brief Lookup the boolean value at info.<mod>.<cat>
 /// @param mod module id
 /// @param cat categpry
@@ -161,8 +161,6 @@ inline const auto cfg_build_vsn() noexcept {
 inline bool cfg_logger(csv logger_mod, csv mod, csv cat) noexcept {
   return Config::ready() ? shared::config->log_bool(logger_mod, mod, cat) : true;
 }
-
-inline auto config() noexcept { return shared::config.get(); }
 
 template <typename T> toml::path config_path(csv key_path) noexcept {
   return toml::path(T::module_id).append(key_path);

@@ -42,7 +42,6 @@ class CliArgs {
 public:
   CliArgs(int argc, char **argv) noexcept : argv_0(argv[0]) {
     // get some base info and place into toml table
-    cli_table.emplace("home"sv, string(std::getenv("HOME")));
     cli_table.emplace("exec_path", fs::path(argv_0).remove_filename().string());
     cli_table.emplace("app_name", fs::path(argv_0).filename().string());
     cli_table.emplace("parent_path", fs::path(argv_0).parent_path().string());

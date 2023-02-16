@@ -131,7 +131,7 @@ bool Setup::has_streams() noexcept {
 
     // now handle the specific stream type
     if (stream_info.is_buffered()) {
-      static constexpr csv cfg_buff_size{"rtsp.audio.buffer_size"}; // 8mb default
+      static const toml::path cfg_buff_size{"rtsp.audio.buffer_size.bytes"};
       rc = true;
 
       const uint64_t buff_size = config()->at(cfg_buff_size).value_or(0x800000);

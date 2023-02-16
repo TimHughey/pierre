@@ -66,11 +66,13 @@ MajorPeak::MajorPeak(io_context &io_ctx) noexcept
 }
 
 void MajorPeak::execute(Peaks &peaks) noexcept {
+  static constexpr csv fn_id{"execute"};
 
   // reset silence timer when peaks are not silent
   if (peaks.silence() == false) silence_watch();
 
   if (_cfg_changed.has_value() && cfg_watch_has_changed(_cfg_changed)) {
+    INFO_AUTO("config change\n");
     load_config();
     silence_watch(); // restart silence watch in case silence timeout changes
 
@@ -231,8 +233,12 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
 }
 
 void MajorPeak::load_config() noexcept {
-  // cache the config
-  auto mp = config()->at("fx.majorpeak"sv);
+  // make a copy of the table (under the cover of the live mtx) so
+  // we are confident it isn't changing
+  const toml::table local_copy(cfg_copy_live());
+
+  // get just the majorpeak c
+  auto mp = local_copy.at_path("fx.majorpeak"sv);
 
   should_render = mp["will_render"sv].value_or(true);
 
@@ -243,10 +249,10 @@ void MajorPeak::load_config() noexcept {
                                             freqs.at_path("soft.ceiling"sv).value_or(10000.0));
 
   // load make colors config
-  for (auto cat : std::array{csv{"generic"}, csv{"above_soft_ceiling"}}) {
-    const string full_path = fmt::format("fx.majorpeak.makecolors.{}", cat);
+  for (auto cat : std::array{toml::path{"generic"sv}, toml::path{"above_soft_ceiling"sv}}) {
+    const auto full_path = toml::path{"makecolors"sv}.append(cat);
 
-    auto cc = config()->at(full_path);
+    auto cc = mp[full_path];
 
     _hue_cfg_map.try_emplace(
         string(cat),

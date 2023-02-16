@@ -68,7 +68,6 @@ public:
 
 private:
   void frame_loop() noexcept;
-  void frame_timer_cancel() noexcept;
 
 private:
   enum state_t : int { Running = 0, Stopped };
