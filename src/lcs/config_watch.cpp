@@ -90,28 +90,30 @@ void ConfigWatch::file_watch() noexcept {
 bool ConfigWatch::has_changed(cfg_future &fut) noexcept {
   auto rc = false;
 
-  if (fut.has_value() && fut->valid()) {
-    if (auto status = fut->wait_for(0ms); status == std::future_status::ready) {
-      rc = fut->get();
-      fut.reset();
-    }
+  // oops, an invalid future, no changes for you
+  if (!fut.valid()) return rc;
+
+  // is the future ready?  return it's value
+  if (auto status = fut.wait_for(0ms); status == std::future_status::ready) {
+    rc = fut.get();
   }
 
   return rc;
 }
 
-void ConfigWatch::want_changes(cfg_future &want_fut) noexcept {
+cfg_future ConfigWatch::want_changes() noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  // create our watch prom and future, if needed
-  if (!prom.has_value() && !watch_fut.has_value()) {
+  // is this the first request for change notifications?
+  // yes, create the promise and shared future
+  if (!prom) {
     prom.emplace();
     watch_fut.emplace(prom->get_future());
   }
 
-  // set the caller's future to our shared watch future
-  want_fut.emplace(watch_fut.value());
+  // return a copy of the shared future
+  return watch_fut.value();
 }
 
 } // namespace pierre

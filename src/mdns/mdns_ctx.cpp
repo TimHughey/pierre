@@ -139,6 +139,14 @@ void Ctx::advertise(Service &service) noexcept {
   }
 }
 
+void Ctx::all_for_now(bool next_val) noexcept {
+  static constexpr csv fn_id{"all_for_now"};
+
+  auto prev = std::atomic_exchange(&all_for_now_state, false);
+
+  INFO_AUTO("previous state={}\n", prev);
+}
+
 void Ctx::browse(csv stype) noexcept {
   static constexpr csv fn_id{"browse"};
   auto *self = this;
@@ -155,6 +163,23 @@ void Ctx::browse(csv stype) noexcept {
     INFO_AUTO("create failed reason={}\n", error_string(client));
   } else {
     INFO_AUTO("initiated browse for stype={}\n", stype);
+  }
+}
+
+void Ctx::browse_remove(const string name) noexcept {
+  // NOTE: this is called from an avahi callback while the ctx is locked
+  //       and is therefore protected from race conditions with zservice()
+
+  // first, clean up the promise map by setting the promise value to
+  // the default ZeroConf so the promise holder can take action
+  if (auto it = zcs_proms.find(name); it != zcs_proms.end()) {
+    it->second.set_value(ZeroConf());
+    zcs_proms.erase(it);
+  }
+
+  // now, remove from
+  if (auto it = zcs_map.find(name); it != zcs_map.end()) {
+    zcs_map.erase(it);
   }
 }
 
@@ -267,6 +292,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
   } break;
 
   case AVAHI_BROWSER_REMOVE: {
+    INFO_AUTO("REMOVE host={} type={} domain={}\n", name, type, domain);
     ctx->browse_remove(name);
   } break;
 
@@ -330,6 +356,7 @@ void Ctx::cb_resolve(AvahiServiceResolver *r, AvahiIfIndex, AvahiProtocol protoc
   switch (event) {
   case AVAHI_RESOLVER_FAILURE: {
     if (avahi_client_errno(ctx->client) == AVAHI_ERR_TIMEOUT) {
+      INFO_AUTO("failed for '{}'", name);
       ctx->browse_remove(name);
     }
 
@@ -422,6 +449,46 @@ void Ctx::update(Service &service) noexcept {
 
   unlock();                   // resume thread poll
   avahi_string_list_free(sl); // clean up the string list, avahi copied it
+}
+
+ZeroConfFut Ctx::zservice(csv name) noexcept {
+  static constexpr csv fn_id{"zservice"};
+
+  ZeroConfProm prom;
+  ZeroConfFut fut{prom.get_future()}; // get the
+
+  lock(); // lock the context to prevent changes while searching
+
+  auto it = std::find_if(zcs_map.begin(), zcs_map.end(),
+                         [&name](auto it) { return it.second.match_name(name); });
+
+  if (it != zcs_map.end()) {
+    INFO_AUTO("{} known, setting promise\n", name);
+    // the name is already resolved, we're done... immediately set the promise
+    prom.set_value(it->second);
+  } else {
+    // this name isn't yet resolved, save the promise for when it is
+    auto inserted{false};
+
+    do {
+      // if there is an existing promise for this name it's value is
+      // set to a default ZeroConf and the new promise is stored
+      auto try_rc = zcs_proms.try_emplace(name.data(), std::move(prom));
+
+      inserted = try_rc.second;
+
+      if (inserted == false) {
+        INFO_AUTO("found pending promise for {}, clearing it\n", name);
+        auto &existing_prom = try_rc.first->second;
+        existing_prom.set_value(ZeroConf());
+      }
+
+    } while (!inserted);
+  }
+
+  unlock();
+
+  return fut;
 }
 
 } // namespace mdns

@@ -53,59 +53,16 @@ public:
 
   void update(Service &service) noexcept;
 
-  ZeroConfFut zservice(csv name) noexcept {
-    ZeroConfProm prom;
-    ZeroConfFut fut{prom.get_future()}; // get the
-
-    lock(); // lock the context to prevent changes while searching
-
-    auto it = std::find_if(zcs_map.begin(), zcs_map.end(),
-                           [&name](auto it) { return it.second.match_name(name); });
-
-    if (it != zcs_map.end()) {
-      // the name is already resolved, we're done... immediately set the promise
-      prom.set_value(it->second);
-    } else {
-      // this name isn't yet resolved, save the promise for when it is
-      auto inserted{false};
-
-      do {
-        // if there is an existing promise for this name it's value is
-        // set to a default ZeroConf and the new promise is stored
-        auto try_rc = zcs_proms.try_emplace(name.data(), std::move(prom));
-
-        inserted = try_rc.second;
-
-        if (inserted == false) {
-          auto &existing_prom = try_rc.first->second;
-          existing_prom.set_value(ZeroConf());
-        }
-
-      } while (!inserted);
-    }
-
-    unlock();
-
-    return fut;
-  }
+  ZeroConfFut zservice(csv name) noexcept;
 
 private:
   /// @brief Advertise the service, invoked by cb_client() when client connection ready
   /// @param service shared_ptr to service to advertise
   void advertise(Service &service) noexcept;
 
-  void all_for_now(bool next_val) noexcept {
-    auto prev = all_for_now_state.load();
+  void all_for_now(bool next_val) noexcept;
 
-    if (next_val != prev) {
-    }
-  }
-
-  void browse_remove(const string name) noexcept {
-    if (auto it = zcs_map.find(name); it != zcs_map.end()) {
-      zcs_map.erase(it);
-    }
-  }
+  void browse_remove(const string name) noexcept;
 
   // avahi callbacks
   static void cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol protocol,

@@ -41,15 +41,6 @@ public:
   DmxCtrl() noexcept;
   ~DmxCtrl() noexcept;
 
-  bool ready() noexcept {
-    return ctrl_sock.has_value() && //
-           data_sock.has_value() && //
-           ctrl_sock->is_open() &&  //
-           data_sock->is_open();
-  }
-
-  void run() noexcept;
-
   void send_data_msg(DmxDataMsg msg) noexcept;
 
 private:
@@ -63,8 +54,10 @@ private:
 
   void msg_loop() noexcept;
 
+  void resolve_host() noexcept;
   void send_ctrl_msg(desk::Msg &&msg) noexcept;
-  void stalled_watchdog() noexcept;
+  void stalled_watchdog(Nanos wait = Nanos(0)) noexcept;
+  void unknown_host() noexcept;
 
 private:
   // order dependent
@@ -74,13 +67,14 @@ private:
   const int64_t thread_count;
   std::unique_ptr<std::latch> startup_latch;
   std::unique_ptr<std::latch> shutdown_latch;
+  cfg_future cfg_fut;
 
   // order independent
   std::atomic_bool connected{false};
   std::optional<tcp_socket> ctrl_sock;
   std::optional<tcp_socket> data_sock;
-  string cfg_host;
-  cfg_future cfg_fut;
+  string cfg_host;                           // dmx controller host name
+  std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint
 
   // ctrl message types
   static constexpr csv FEEDBACK{"feedback"};

@@ -112,6 +112,8 @@ public:
     throw(std::runtime_error("txt key not found"));
   }
 
+  bool valid() const noexcept { return _port && !_address.empty(); }
+
   // misc debug
   string inspect() const noexcept;
 

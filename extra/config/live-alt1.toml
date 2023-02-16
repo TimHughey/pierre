@@ -30,7 +30,7 @@ thread = false   # show any thread messages?
 shutdown = false # show any shutdown messages?
 
 [logger.desk]
-dmx_ctrl = { run = false, thread = false }
+dmx_ctrl = { run = false, thread = false, host = { resolve = false, unknown = true } }
 thread = false
 resume = true
 shutdown = false
@@ -69,7 +69,7 @@ reply = { build = false }
 threads = 3
 
 [desk.dmx_ctrl]
-local = { stalled.ms = 7_500 }
+local = { stalled.ms = 7_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
 # remote = { host = "test-with-devs", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
 threads = 2

@@ -23,6 +23,6 @@
 
 namespace pierre {
 
-using cfg_future = std::optional<std::shared_future<bool>>;
+using cfg_future = std::shared_future<bool>;
 
 } // namespace pierre

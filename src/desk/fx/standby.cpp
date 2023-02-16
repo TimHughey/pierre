@@ -29,7 +29,7 @@ namespace fx {
 Standby::~Standby() { cancel(); }
 
 void Standby::execute(Peaks &peaks) noexcept {
-  if (cfg_change.has_value() && cfg_watch_has_changed(cfg_change)) {
+  if (cfg_watch_has_changed(cfg_change)) {
     load_config();
   }
 
@@ -85,7 +85,7 @@ void Standby::load_config() noexcept {
   // start silence watch if timeout changed (at start or config reload)
   if (silence_timeout != silence_timeout_old) silence_watch();
 
-  cfg_watch_want_changes(cfg_change);
+  cfg_change = cfg_watch_want_changes();
 }
 
 void Standby::once() {

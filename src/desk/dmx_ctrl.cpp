@@ -47,13 +47,39 @@ static auto stalled_timeout() noexcept {
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
-    : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),    //
-      stalled_timer(io_ctx, stalled_timeout()),                  //
-      thread_count(config_threads<DmxCtrl>(2)),                  //
-      startup_latch(std::make_unique<std::latch>(thread_count)), //
-      shutdown_latch(std::make_unique<std::latch>(thread_count)) //
+    : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),     //
+      stalled_timer(io_ctx, stalled_timeout()),                   //
+      thread_count(config_threads<DmxCtrl>(2)),                   //
+      startup_latch(std::make_unique<std::latch>(thread_count)),  //
+      shutdown_latch(std::make_unique<std::latch>(thread_count)), //
+      cfg_fut(cfg_watch_want_changes()) // register for config change notifications
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
+
+  // add work to thje io_context we're about to start, specificially name resolution
+  // for the dmx host
+  //
+  // resolve_host() may BLOCK or FAIL
+  //  -if successful, connect() is invoked to the resolved host
+  //  -if failure, unknown_host() is invoked to retry resolution
+  resolve_host();
+
+  // NOTE: we do not start listening or the stalled timer at this point
+  //       they are handled as needed during the connect(), listen() and handshake()
+
+  // start threads and io_ctx
+  for (auto n = 0; n < thread_count; n++) {
+    std::jthread([this, n = n]() mutable {
+      const auto thread_name = thread_util::set_name(task_name, n);
+
+      startup_latch->count_down();
+      INFO_THREAD_START();
+      io_ctx.run();
+
+      shutdown_latch->count_down();
+      INFO_THREAD_STOP();
+    }).detach();
+  }
 }
 
 DmxCtrl::~DmxCtrl() noexcept {
@@ -67,19 +93,14 @@ DmxCtrl::~DmxCtrl() noexcept {
 
 void DmxCtrl::connect() noexcept {
   static constexpr csv cat{"ctrl_sock"};
-  static constexpr csv host_path{"remote.host"};
 
-  // now begin the control channel connect and handshake
-  // zerconf resolve future
-  cfg_host = get_cfg_host();
-  auto zcsf = mDNS::zservice(cfg_host);
-  Elapsed e;
-  auto zcs = zcsf.get(); // can BLOCK, as needed
+  // detect and handle connection timeout
+  stalled_watchdog();
 
   asio::async_connect(           //
       ctrl_sock.emplace(io_ctx), //
-      std::array{tcp_endpoint{asio::ip::make_address_v4(zcs.address()), zcs.port()}},
-      [this, e](const error_code ec, const tcp_endpoint r) mutable {
+      std::array{host_endpoint.value()},
+      [this, e = Elapsed()](const error_code ec, const tcp_endpoint r) mutable {
         if (!ec && ctrl_sock.has_value()) {
           static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
           static constexpr csv stats_ms_path{"remote.stats.ms"};
@@ -87,6 +108,10 @@ void DmxCtrl::connect() noexcept {
 
           ctrl_sock->set_option(ip_tcp::no_delay(true));
           Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
+
+          // listen for an incomming connection from the dmx controller as soon as
+          // we send the first ctrl msg
+          listen();
 
           desk::Msg msg(HANDSHAKE);
 
@@ -150,8 +175,7 @@ void DmxCtrl::listen() noexcept {
 
 void DmxCtrl::msg_loop() noexcept {
   // only attempt to read a message if we're connected
-  if (connected.load() && ready()) {
-
+  if (connected) {
     desk::async_read_msg( //
         *ctrl_sock, [this, e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
           Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
@@ -170,38 +194,40 @@ void DmxCtrl::msg_loop() noexcept {
   }
 }
 
-void DmxCtrl::run() noexcept {
-  static constexpr csv fn_id{"run"};
+void DmxCtrl::resolve_host() noexcept {
+  static constexpr csv fn_id{"host.resolve"};
 
-  INFO_AUTO("requested\n");
+  asio::post(io_ctx, [this]() {
+    // get the host we will connect to unless we already have it
+    if (cfg_host.empty()) cfg_host = get_cfg_host();
 
-  // post work for the io_ctx (also serves as guard)
-  asio::post(io_ctx, [this]() mutable {
-    cfg_watch_want_changes(cfg_fut);
+    INFO_AUTO("attempting to resolve '{}'\n", cfg_host);
 
-    stalled_watchdog();
-    listen();
+    // start name resolution via mdns
+    auto zcsf = mDNS::zservice(cfg_host);
 
-    // wait for all workers before connect()
-    startup_latch->wait();
+    if (auto zcs_status = zcsf.wait_for(15s); zcs_status != std::future_status::ready) {
+      INFO_AUTO("resolution timeout for '{}'\n", cfg_host);
+      unknown_host();
+      return;
+    }
 
-    connect();
+    auto zcs = zcsf.get();
 
-    INFO_AUTO("complete\n");
+    INFO_AUTO("resolution attempt complete, valid={}\n", zcs.valid());
+
+    if (zcs.valid()) {
+      // create the endpoint we'll connect
+      host_endpoint.emplace(asio::ip::make_address_v4(zcs.address()), zcs.port());
+
+      // kick-off connect sequence and handshake
+      connect();
+    } else {
+      // resolution failed, kick-off timer to retry
+      unknown_host();
+      return;
+    }
   });
-
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n]() mutable {
-      const auto thread_name = thread_util::set_name(task_name, n);
-
-      startup_latch->count_down();
-      INFO_THREAD_START();
-      io_ctx.run();
-
-      shutdown_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
 }
 
 void DmxCtrl::send_ctrl_msg(desk::Msg &&msg) noexcept {
@@ -249,37 +275,47 @@ void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
   }
 }
 
-void DmxCtrl::stalled_watchdog() noexcept {
-  static constexpr csv cat{"stalled"};
+void DmxCtrl::stalled_watchdog(Nanos wait) noexcept {
+  static constexpr csv fn_id{"stalled"};
+
+  // when passed a non-zero wait time we're handling a special
+  // case (e.g. host resolve failure), otherwise use configured
+  // stall timeout value
+  if (wait == Nanos::zero()) wait = stalled_timeout();
 
   if (cfg_watch_has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
-    cfg_host = get_cfg_host();
-    stalled_timer.expires_after(0s);
-    cfg_watch_want_changes(cfg_fut);
-  } else {
-    stalled_timer.expires_after(stalled_timeout());
+    cfg_host.clear(); // triggers pull from config on next name resolution
+    cfg_fut = cfg_watch_want_changes();
+    wait = 0s; // override wait, config has changed
   }
 
+  stalled_timer.expires_after(wait);
   stalled_timer.async_wait([this](error_code ec) {
     if (ec == errc::success) {
 
-      const auto was_connected = connected.load();
-      if (was_connected) INFO(module_id, cat, "was_connected={}\n", was_connected);
+      if (const auto was_connected = std::atomic_exchange(&connected, false)) {
+        INFO_AUTO("was_connected={}\n", was_connected);
+      }
 
       acceptor.cancel(ec);
       if (ctrl_sock.has_value()) ctrl_sock->cancel(ec);
       if (data_sock.has_value()) data_sock->cancel(ec);
-      connected = false;
 
-      listen();
-      connect();
-
-      stalled_watchdog(); // restart stalled watchdog
+      resolve_host(); // kick off name resolution, connect sequence
 
     } else if (ec != errc::operation_canceled) {
-      INFO(module_id, cat, "falling through {}\n", ec.message());
+      INFO_AUTO("falling through {}\n", ec.message());
     }
   });
+}
+
+void DmxCtrl::unknown_host() noexcept {
+  static constexpr csv fn_id{"host.unknown"};
+
+  INFO_AUTO("{} not found, next attempt in 60s\n", cfg_host);
+
+  cfg_host.clear();
+  stalled_watchdog(60s);
 }
 
 } // namespace pierre

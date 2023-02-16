@@ -42,7 +42,7 @@ public:
 
   bool has_changed(cfg_future &want_fut) noexcept;
 
-  void want_changes(cfg_future &want_fut) noexcept;
+  cfg_future want_changes() noexcept;
   const auto watch_msg() const noexcept { return _watch_msg; }
 
 private:
@@ -55,10 +55,10 @@ private:
   const string file_path;
 
   // order independent
-  cfg_future watch_fut;
   std::filesystem::file_time_type last_changed;
-  std::optional<std::promise<bool>> prom;
   std::mutex mtx;
+  std::optional<cfg_future> watch_fut;
+  std::optional<std::promise<bool>> prom;
   string _watch_msg;
 
 public:
@@ -73,8 +73,6 @@ inline auto cfg_watch_has_changed(cfg_future &want_fut) noexcept {
   return shared::config_watch->has_changed(want_fut);
 }
 
-inline void cfg_watch_want_changes(cfg_future &want_fut) noexcept {
-  shared::config_watch->want_changes(want_fut);
-}
+inline auto cfg_watch_want_changes() noexcept { return shared::config_watch->want_changes(); }
 
 } // namespace pierre

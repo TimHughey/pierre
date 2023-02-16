@@ -153,8 +153,6 @@ void Desk::frame_loop() noexcept {
 
         } else {
           dmx_ctrl = std::make_unique<DmxCtrl>();
-
-          asio::post(io_ctx, std::bind(&DmxCtrl::run, dmx_ctrl.get()));
         }
       }
     }
