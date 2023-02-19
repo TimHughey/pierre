@@ -25,64 +25,81 @@
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 
-#include <algorithm>
-#include <atomic>
-#include <map>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace pierre {
 
-using Frames = std::map<timestamp_t, frame_t>;
+using Frames = std::vector<frame_t>;
 
 /// @brief Container of Frames
 class Reel {
 public:
-  static constexpr ssize_t MAX_FRAMES = InputInfo::fps / 2;
+  static constexpr ssize_t MAX_FRAMES{InputInfo::fps / 2};
 
 public:
-  Reel(uint64_t serial_num) noexcept
-      : _serial(serial_num) // unique serial num (for debugging)
-  {}
+  Reel() noexcept;
+  ~Reel() = default;
 
   friend class Racked;
   friend struct fmt::formatter<Reel>;
 
   void add(frame_t frame) noexcept;
-  void consume() noexcept;
-  bool contains(timestamp_t timestamp) noexcept;
+  bool consume() noexcept {
+    consumed++;
 
-  bool empty() const noexcept { return frames.empty(); }
+    return empty();
+  }
+
+  bool empty() const noexcept {
+    return std::distance(frames.begin() + consumed, frames.end()) == 0;
+  }
 
   bool flush(FlushInfo &flush) noexcept; // returns true when reel empty
 
   bool full() const noexcept { return std::ssize(frames) >= MAX_FRAMES; }
 
-  friend bool operator==(const std::optional<Reel> &rhs, const uint64_t serial_num) {
-    return rhs.has_value() && (rhs->_serial == serial_num);
+  friend bool operator==(const std::optional<Reel> &rhs, const uint64_t serial_num) noexcept {
+    return rhs.has_value() && (rhs->serial == serial_num);
   }
 
-  auto peek_first() const noexcept { return frames.begin()->second; }
-  auto peek_last() const noexcept { return frames.rbegin()->second; }
+  friend bool operator<(const std::optional<Reel> &lhs, const frame_t frame) noexcept {
+    auto last_frame = lhs->peek_last();
+
+    return (frame->seq_num > last_frame->seq_num) && (frame->timestamp > last_frame->timestamp);
+  }
+
+  /// @brief The next available frame in the reel where the next Frame is adjusted
+  ///        based on consumption (calls to consume())
+  /// @return Raw pointer to the last frame in the reel
+  frame_t peek_next() const noexcept { return *(frames.begin() + consumed); }
+
+  /// @brief The last Frame in the reel
+  /// @return
+  frame_t peek_last() const noexcept { return *frames.rbegin(); }
 
   template <typename T = reel_serial_num_t> const T serial_num() const noexcept {
     if constexpr (std::is_same_v<T, reel_serial_num_t>) {
-      return _serial;
+      return serial;
     } else if constexpr (std::is_same_v<T, string>) {
-      return fmt::format("{:#5x}", _serial);
+      return fmt::format("{:#5x}", serial);
     } else {
       static_assert(always_false_v<T>, "unhandled reel serial num type");
     }
   }
 
-  auto size() const noexcept { return std::ssize(frames); }
+  auto size() const noexcept { return std::distance(frames.begin() + consumed, frames.end()); }
 
 protected:
   // order dependent
-  const reel_serial_num_t _serial;
+  const reel_serial_num_t serial;
+  ssize_t consumed;
 
+  // order independent
   Frames frames;
 
 public:
@@ -100,12 +117,12 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    const auto size_now = std::ssize(reel.frames);
+    const auto size_now = reel.size();
     fmt::format_to(w, "REEL {:#5x} frames={:<3}", reel.serial_num(), size_now);
 
     if (size_now) {
-      auto a = reel.frames.begin()->second;  // reel first frame
-      auto b = reel.frames.rbegin()->second; // reel last frame
+      auto a = reel.peek_next(); // reel next frame
+      auto b = reel.peek_last(); // reel last frame
 
       fmt::format_to(w, "seq a/b={:>8}/{:<8}", a->seq_num, b->seq_num);
       fmt::format_to(w, "ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);

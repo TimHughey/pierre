@@ -32,7 +32,7 @@
 #include <atomic>
 #include <future>
 #include <latch>
-#include <map>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -44,7 +44,7 @@ namespace pierre {
 // forward decls to hide implementation details
 class Av;
 
-using racked_reels = std::map<reel_serial_num_t, Reel>;
+using racked_reels = std::list<Reel>;
 
 class Racked {
 
@@ -69,7 +69,7 @@ public:
   }
 
 private:
-  enum log_racked_rc { NONE, RACKED, COLLISION, TIMEOUT };
+  enum log_racked_rc { NONE, RACKED, TIMEOUT };
 
 private:
   void monitor_wip() noexcept;
@@ -87,7 +87,7 @@ private:
   strand wip_strand;
   strand frame_strand;
   strand flush_strand;
-  steady_timer wip_timer;
+  system_timer wip_timer;
   MasterClock *master_clock;
 
   // order independent
@@ -104,7 +104,6 @@ private:
 
 private:
   std::optional<std::latch> shutdown_latch;
-  static int64_t REEL_SERIAL_NUM; // ever incrementing, no dups
 
 public:
   static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};

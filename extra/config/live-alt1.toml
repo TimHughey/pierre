@@ -40,7 +40,7 @@ shutdown = false
 standby = true
 monitor_wip = true
 reel = false
-racked = { log_racked = false, thread = false }
+racked = { monitor_wip = false, log_racked = false, thread = false }
 
 [logger.frame]
 anchor = false
@@ -118,7 +118,7 @@ ceiling = 128.0
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 1 } }
+silence = { timeout = { minutes = 21 } }
 will_render = true
 
 [fx.majorpeak]

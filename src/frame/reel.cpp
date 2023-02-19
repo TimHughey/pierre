@@ -20,54 +20,44 @@
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
-#include <tuple>
+#include <iterator>
 
 namespace pierre {
 
+static uint64_t NEXT_SERIAL_NUM{0x1000};
+
+Reel::Reel() noexcept
+    : serial(NEXT_SERIAL_NUM++), // unique serial num (for debugging)
+      consumed{0}                // number of consumed frames
+{}
+
 void Reel::add(frame_t frame) noexcept {
-  if (frame->state.dsp_any()) {
-    frame->reel = serial_num();
-    frames.emplace_hint(frames.end(), std::make_pair(frame->timestamp, frame));
-  }
-}
-
-void Reel::consume() noexcept {
-  if (!frames.empty()) {
-    frames.erase(frames.begin());
-  } else {
-    INFO(module_id, "WARN", "consume() called on reel size={}\n", size());
-  }
-}
-
-bool Reel::contains(timestamp_t timestamp) noexcept {
-  auto it = frames.lower_bound(timestamp);
-
-  return it != frames.end();
+  if (frame->state.dsp_any()) frames.emplace_back(frame);
 }
 
 bool Reel::flush(FlushInfo &flush) noexcept {
   static constexpr csv fn_id{"flush"};
 
-  if (frames.empty() == false) { // reel has frames, attempt to flush
+  if (empty() == false) { // reel has frames, attempt to flush
 
-    auto a = frames.begin()->second;  // reel first frame
-    auto b = frames.rbegin()->second; // reel last frame
+    auto a = peek_next().get(); // reel first frame
+    auto b = peek_last().get(); // reel last frame
 
     if (flush(a) && flush(b)) {
-      INFO(module_id, fn_id, "{}\n", *this);
-      Frames empty_map;
+      INFO_AUTO("{}\n", *this);
+      Frames empty;
 
-      std::swap(frames, empty_map);
+      std::swap(frames, empty);
+    } else if (flush.matches<decltype(a)>({a, b})) {
+      INFO_AUTO("SOME {}\n", *this);
 
-    } else if (flush.matches<frame_t>({a, b})) {
-      INFO(module_id, fn_id, "SOME {}\n", *this);
-
-      // partial match
-      std::erase_if(frames, [&](const auto &item) { return flush(item.second); });
+      std::for_each(frames.begin() + consumed, frames.end(), [&, this](const auto &item) {
+        if (flush(item)) consume();
+      });
     }
   }
 
-  return std::empty(frames);
+  return empty();
 }
 
 } // namespace pierre

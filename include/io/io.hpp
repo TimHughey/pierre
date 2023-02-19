@@ -45,6 +45,7 @@ using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using ip_udp = boost::asio::ip::udp;
 using steady_timer = asio::steady_timer;
+using system_timer = asio::system_timer;
 using strand = io_context::strand;
 using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;

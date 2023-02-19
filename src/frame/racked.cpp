@@ -44,9 +44,6 @@
 
 namespace pierre {
 
-// static class data
-int64_t Racked::REEL_SERIAL_NUM{0x1000};
-
 Racked::Racked(MasterClock *master_clock) noexcept
     : thread_count(config_threads<Racked>(3)), // thread count
       guard(asio::make_work_guard(io_ctx)),    // ensure io_ctx has work
@@ -132,8 +129,8 @@ void Racked::flush(FlushInfo &&request) {
     auto initial_size = std::ssize(racked);
     if (initial_size > 0) {
 
-      auto first = racked.begin()->second.peek_first();
-      auto last = racked.rbegin()->second.peek_last();
+      auto first = racked.begin()->peek_next();
+      auto last = racked.rbegin()->peek_last();
 
       INFO_AUTO("rack contains seq_num {:<8}/{:>8} before flush\n", first->seq_num, last->seq_num);
 
@@ -149,20 +146,12 @@ void Racked::flush(FlushInfo &&request) {
         // the entire rack did not match the flush request so now
         // we must use maximum effort and look at each reel
 
-        for (auto it = racked.begin(); it != racked.end();) {
-          auto &reel = it->second;
-
-          if (reel.flush(flush_request)) { // true=reel empty
-            it = racked.erase(it);         // returns it to next not erased entry
-            Stats::write(stats::RACKED_REELS, std::ssize(racked));
-          } else {
-            INFO_AUTO("KEEPING {}\n", reel);
-          }
-        }
+        std::erase_if(racked, [this](auto &reel) { return reel.flush(flush_request); });
       }
 
       const auto flushed = initial_size - std::ssize(racked);
-      Stats::write(stats::REELS_FLUSHED, int64_t{flushed > 0 ? flushed : initial_size});
+      Stats::write(stats::REELS_FLUSHED, flushed);
+      Stats::write(stats::RACKED_REELS, std::ssize(racked));
     }
 
     // has everything been flushed?
@@ -204,9 +193,17 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
             lck.lock();
 
             // create the wip, if needed
-            if (wip.has_value() == false) wip.emplace(++REEL_SERIAL_NUM);
+            if (wip.has_value() == false) wip.emplace();
 
-            wip->add(frame);
+            // all frames in a reel must be in ascending order for proper flushing
+            if ((!wip->empty() && (*wip < frame)) || wip->empty()) {
+              wip->add(frame);
+            } else {
+              // not in ascending order, rack the current wip and begin a new one
+              rack_wip();
+
+              wip.emplace().add(frame);
+            }
 
             if (wip->full()) {
               rack_wip();
@@ -232,16 +229,21 @@ void Racked::monitor_wip() noexcept {
 
   wip_timer.async_wait( // must run on wip_strand to protect containers
       asio::bind_executor(wip_strand, [this, serial_num = wip->serial_num()](const error_code ec) {
-        // note: serial_num is captured to ensure the same wip reel is active when
-        //       the timer fires
+        if (ec) return; // wip timer error, bail out
 
-        if (!ec && !racked.contains(serial_num)) {
-          INFOX(module_id, fn_id, "INCOMPLETE {}\n", wip->inspect());
-          Stats::write(stats::RACK_WIP_INCOMPLETE, wip->size());
-          // not a timer error and reel is the same
+        // note: serial_num is captured to compare to active wip serial number to
+        //       prevent duplicate racking
+
+        const auto serial_num = wip.has_value() ? wip->serial_num() : 0;
+
+        if (wip.has_value() && (wip->serial_num() == serial_num)) {
+          const auto msg = fmt::format("{}", *wip);
+
           rack_wip();
-        } else if (!ec) {
-          INFO_AUTO("reel serial_num={} already racked\n", serial_num);
+
+          INFO_AUTO("INCOMPLETE {}\n", msg);
+        } else {
+          INFO_AUTO("PREVIOUSLY RACKED serial_num={}\n", serial_num);
         }
       }));
 }
@@ -288,22 +290,22 @@ frame_future Racked::next_frame() noexcept { // static
       clock_info = master_clock->info().get();
       auto anchor = Anchor::get_data(clock_info);
 
-      // anchor not ready yet or we haven't been instructed to spool
-      // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
-      // play yet or disconnected)
-      //
-      // note:  we could have done this check very early and completely avoid
-      // the asio::post but didn't so we could prime ClockInfo and Anchor.
-      // plus the above code isn't really that expensive every ~23ms.
       if ((anchor.ready() == false) || !spool_frames) {
+        // anchor not ready yet or we haven't been instructed to spool
+        // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
+        // play yet or disconnected)
+        //
+        // note:  we could have done this check very early and completely avoid
+        // the asio::post but didn't so we could prime ClockInfo and Anchor.
+        // plus the above code isn't really that expensive every ~23ms.
         prom.set_value(SilentFrame::create());
         return;
       }
 
       lck.lock(); // lock since since we're looking at racked reels
 
-      auto &reel = racked.begin()->second; // avoid multiple begin()->second
-      auto frame = reel.peek_first();
+      auto &reel = *racked.begin();
+      auto frame = reel.peek_next();
 
       // calc the frame state (Frame caches the anchor)
       auto state = frame->state_now(anchor, InputInfo::lead_time);
@@ -311,10 +313,8 @@ frame_future Racked::next_frame() noexcept { // static
 
       if (state.ready() || state.outdated() || state.future()) {
         // consume the ready or outdated frame
-        reel.consume();
-
-        // if the reel is empty, discard it
-        if (reel.empty()) {
+        if (auto reel_empty = reel.consume(); reel_empty == true) {
+          // reel is empty after the consume, erase it
           racked.erase(racked.begin());
           Stats::write(stats::RACKED_REELS, std::ssize(racked));
         }
@@ -340,31 +340,21 @@ void Racked::rack_wip() noexcept {
     if (lck.try_lock_for(InputInfo::lead_time)) [[likely]] {
 
       // get a copy of serial_num since emplace moving can be unpredictable
-      const auto serial_num = wip->serial_num();
-
-      auto it = racked.try_emplace( //
-          racked.cend(),            // hint: at end
-          serial_num,               // key: serial num,
-          std::move(wip.value()));
-
-      rc = it->first == serial_num ? RACKED : COLLISION;
+      racked.emplace_back(std::move(wip.value()));
+      wip.reset();
+      rc = RACKED;
 
     } else {
       rc = TIMEOUT;
     }
 
-    if (rc == COLLISION) {
-      Stats::write(stats::RACK_COLLISION, true);
-    } else if (rc == RACKED) {
+    if (rc == RACKED) {
       Stats::write(stats::RACKED_REELS, std::ssize(racked));
     } else if (rc == TIMEOUT) {
       Stats::write(stats::RACK_WIP_TIMEOUT, true);
     }
 
     log_racked(rc);
-
-    // regardless of the outcome above, reset wip
-    wip.reset();
   }
 }
 
@@ -380,7 +370,7 @@ void Racked::log_racked(log_racked_rc rc) const noexcept {
     switch (rc) {
     case log_racked_rc::NONE: {
       if (reel_count == 0) {
-        auto frame_count = racked.cbegin()->second.size();
+        auto frame_count = racked.cbegin()->size();
         if (frame_count == 1) fmt::format_to(w, "LAST FRAME");
       } else if ((reel_count >= 400) && ((reel_count % 10) == 0)) {
         fmt::format_to(w, "HIGH REELS reels={:<3}", reel_count);
