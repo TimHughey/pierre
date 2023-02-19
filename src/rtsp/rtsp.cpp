@@ -34,6 +34,10 @@
 
 namespace pierre {
 
+namespace shared {
+std::unique_ptr<Rtsp> rtsp;
+}
+
 Rtsp::Rtsp() noexcept
     : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
       sessions(std::make_unique<rtsp::Sessions>()),     //

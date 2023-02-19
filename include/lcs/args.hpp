@@ -27,6 +27,7 @@
 #include <fmt/ostream.h>
 #include <iostream>
 #include <libgen.h>
+#include <tuple>
 
 #define TOML_ENABLE_FORMATTERS 0 // don't need formatters
 #define TOML_HEADER_ONLY 0       // reduces compile times
@@ -62,8 +63,13 @@ public:
 
       auto dmx_host_val =
           po::value<string>()
-              ->notifier([this](const string host) { cli_table.emplace("dmx-host"sv, host); })
+              ->notifier([this](const string host) { cli_table.emplace("dmx_host"sv, host); })
               ->default_value("dmx");
+
+      auto force_restart_val =
+          po::bool_switch()
+              ->notifier([this](bool enable) { cli_table.emplace("force_restart"sv, enable); })
+              ->default_value(false);
 
       auto pid_file_val =
           po::value<string>()
@@ -75,13 +81,14 @@ public:
               ->notifier([this](const string file) { cli_table.emplace("log_file", file); })
               ->default_value("/var/log/pierre/pierre.log");
 
-      desc.add_options()                                            //
-          ("cfg-file,C", cfg_file_val, "config file name")          //
-          ("daemon,b", daemon_val, "run in background")             //
-          ("dmx-host,D", dmx_host_val, "host to stream dmx frames") //
-          ("pid-file,P", pid_file_val, "full path to pid file")     //
-          ("log-file,L", log_file_val, "full path to log file")     //
-          ("help,h", "command line options overview");              //
+      desc.add_options()                                                           //
+          ("cfg-file,C", cfg_file_val, "config file name")                         //
+          ("daemon,b", daemon_val, "run in background")                            //
+          ("force-restart", force_restart_val, "force restart if already running") //
+          ("dmx-host,D", dmx_host_val, "host to stream dmx frames")                //
+          ("pid-file,P", pid_file_val, "full path to pid file")                    //
+          ("log-file,L", log_file_val, "full path to log file")                    //
+          ("help,h", "command line options overview");                             //
 
       // this will throw if parsing fails
       auto parsed_opts = po::parse_command_line(argc, argv, desc);
@@ -106,8 +113,9 @@ public:
     }
   }
 
-  bool daemon() const noexcept { return cli_table["daemon"].value_or(false); }
-  const string pid_file() noexcept { return cli_table["pid_file"].ref<string>(); }
+  bool daemon() const noexcept { return cli_table["daemon"sv].value_or(false); }
+  bool force_restart() const noexcept { return cli_table["force_restart"sv].value_or(false); }
+  const string pid_file() const noexcept { return cli_table["pid_file"].ref<string>(); }
 
 public:
   // order dependent

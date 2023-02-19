@@ -23,6 +23,7 @@
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
 #include "frame/racked.hpp"
+#include "frame/state.hpp"
 #include "io/io.hpp"
 
 #include <atomic>
@@ -67,18 +68,20 @@ public:
   void standby() noexcept;
 
 private:
-  void frame_loop() noexcept;
+  void frame_loop(bool fx_finished = true) noexcept;
+  void fx_select(const frame::state &frame_state, bool silent) noexcept;
+  bool stopped() const noexcept { return state == Stopped; }
+  bool running() const noexcept { return !io_ctx.stopped() && (state == Running); }
 
 private:
-  enum state_t : int { Running = 0, Stopped };
+  enum state_t : int { Running = 0, Stopped, Stopping };
 
 private:
   // order dependent
   io_context io_ctx;
-  work_guard guard;
+  // work_guard guard;
   steady_timer frame_timer;
   MasterClock *master_clock;
-  std::atomic_bool loop_active{false};
   std::atomic<state_t> state;
   const int thread_count;
 

@@ -47,12 +47,14 @@ static auto stalled_timeout() noexcept {
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
-    : acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),     //
+    : ctrl_sock(io_ctx),                                          // ctrl channel socket
+      acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),     // data channel listener
+      data_sock(io_ctx),                                          // accepted data channel sock
       stalled_timer(io_ctx, stalled_timeout()),                   //
       thread_count(config_threads<DmxCtrl>(2)),                   //
       startup_latch(std::make_unique<std::latch>(thread_count)),  //
       shutdown_latch(std::make_unique<std::latch>(thread_count)), //
-      cfg_fut(cfg_watch_want_changes()) // register for config change notifications
+      cfg_fut(ConfigWatch::want_changes()) // register for config change notifications
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
 
@@ -97,16 +99,16 @@ void DmxCtrl::connect() noexcept {
   // detect and handle connection timeout
   stalled_watchdog();
 
-  asio::async_connect(           //
-      ctrl_sock.emplace(io_ctx), //
+  asio::async_connect( //
+      ctrl_sock,       //
       std::array{host_endpoint.value()},
       [this, e = Elapsed()](const error_code ec, const tcp_endpoint r) mutable {
-        if (!ec && ctrl_sock.has_value()) {
+        if (!ec) {
           static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
           static constexpr csv stats_ms_path{"remote.stats.ms"};
-          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *ctrl_sock, r, e));
+          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, ctrl_sock, r, e));
 
-          ctrl_sock->set_option(ip_tcp::no_delay(true));
+          ctrl_sock.set_option(ip_tcp::no_delay(true));
           Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
 
           // listen for an incomming connection from the dmx controller as soon as
@@ -148,27 +150,26 @@ void DmxCtrl::listen() noexcept {
   static constexpr csv cat{"data_sock"};
   // listen for inbound data connections and get our local port
   // when this async_accept is successful msg_loop() is invoked
-  data_sock.emplace(io_ctx);
   acceptor.async_accept( //
-      *data_sock,        //
+      data_sock,         //
       [this, e = Elapsed()](const error_code ec) mutable {
         Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
-        if (!ec && data_sock.has_value() && data_sock->is_open()) {
+        if (!ec) {
 
-          const auto &r = data_sock->remote_endpoint();
-          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, *data_sock, r, e));
+          const auto &r = data_sock.remote_endpoint();
+          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, data_sock, r, e));
 
           // success, set sock opts, connected and start msg_loop()
-          data_sock->set_option(ip_tcp::no_delay(true));
+          data_sock.set_option(ip_tcp::no_delay(true));
 
-          connected = ctrl_sock->is_open() && data_sock->is_open();
+          connected = ctrl_sock.is_open() && data_sock.is_open();
 
           msg_loop(); // start the msg loop
 
         } else {
           INFO(module_id, cat, "ctrl_socket={} data_socket={} {}\n", //
-               ctrl_sock.has_value(), data_sock.has_value(), ec.message());
+               ctrl_sock.is_open(), data_sock.is_open(), ec.message());
         }
       });
 }
@@ -177,7 +178,7 @@ void DmxCtrl::msg_loop() noexcept {
   // only attempt to read a message if we're connected
   if (connected) {
     desk::async_read_msg( //
-        *ctrl_sock, [this, e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
+        ctrl_sock, [this, e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
           Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
 
           if (ec == errc::success) {
@@ -237,9 +238,9 @@ void DmxCtrl::send_ctrl_msg(desk::Msg &&msg) noexcept {
   const auto buf_seq = msg.buff_seq(); // calculates tx_len
   const auto tx_len = msg.tx_len;
 
-  asio::async_write(     //
-      ctrl_sock.value(), //
-      buf_seq,           //
+  asio::async_write( //
+      ctrl_sock,     //
+      buf_seq,       //
       asio::transfer_exactly(tx_len),
       [this, msg = std::move(msg), e = Elapsed()](const error_code ec, const auto actual) mutable {
         Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
@@ -259,7 +260,7 @@ void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
     msg.finalize();
 
     desk::async_write_msg( //
-        *data_sock,        //
+        data_sock,         //
         std::move(msg), [this, e = Elapsed()](const error_code ec) mutable {
           // better readability
 
@@ -283,10 +284,10 @@ void DmxCtrl::stalled_watchdog(Nanos wait) noexcept {
   // stall timeout value
   if (wait == Nanos::zero()) wait = stalled_timeout();
 
-  if (cfg_watch_has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
-    cfg_host.clear(); // triggers pull from config on next name resolution
-    cfg_fut = cfg_watch_want_changes();
-    wait = 0s; // override wait, config has changed
+  if (ConfigWatch::has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
+    cfg_host.clear();                      // triggers pull from config on next name resolution
+    cfg_fut = ConfigWatch::want_changes(); // get a fresh future
+    wait = 0s;                             // override wait, config has changed
   }
 
   stalled_timer.expires_after(wait);
@@ -298,8 +299,8 @@ void DmxCtrl::stalled_watchdog(Nanos wait) noexcept {
       }
 
       acceptor.cancel(ec);
-      if (ctrl_sock.has_value()) ctrl_sock->cancel(ec);
-      if (data_sock.has_value()) data_sock->cancel(ec);
+      ctrl_sock.close(ec);
+      data_sock.close(ec);
 
       resolve_host(); // kick off name resolution, connect sequence
 

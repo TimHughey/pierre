@@ -52,10 +52,9 @@ struct build_info_t {
 
 class Config {
 public:
+public:
   Config(const toml::table &cli_table) noexcept;
   ~Config() = default;
-
-  friend class ConfigWatch;
 
   // raw, direct access
   template <typename P> const auto at(P p) noexcept {
@@ -79,9 +78,11 @@ public:
   // specific accessors
   static const string app_name() noexcept;
 
-  const string banner_msg() noexcept;
+  static const string banner_msg() noexcept;
 
   static bool daemon() noexcept;
+
+  static fs::path fs_data_path() noexcept;
 
   static fs::path fs_exec_path() noexcept {
     static constexpr csv path{"exec_path"};
@@ -89,7 +90,7 @@ public:
   }
 
   static fs::path fs_log_file() noexcept {
-    static constexpr csv path{"log-file"};
+    static constexpr csv path{"log_file"};
     return fs::path(shared::config->cli_table[path].ref<string>());
   }
 
@@ -112,10 +113,12 @@ public:
   static const string receiver() noexcept; // see .cpp
 
 protected:
+  friend class ConfigWatch;
+
+  static fs::path fs_path(csv path) noexcept; // return non-const to allow append
   const auto file_path() const noexcept { return _full_path; }
   bool parse() noexcept;
 
-private:
 private:
   // order dependent
   toml::table cli_table;
@@ -146,8 +149,6 @@ inline const auto app_name() noexcept {
   return shared::config->at("app_name"sv).value_or<string>(Config::UNSET);
 }
 
-inline const auto banner_msg() noexcept { return shared::config->banner_msg(); }
-
 inline const auto cfg_build_vsn() noexcept {
   return shared::config->at("git_describe"sv).value_or<string>(Config::UNSET);
 }
@@ -164,10 +165,6 @@ inline bool cfg_logger(csv logger_mod, csv mod, csv cat) noexcept {
 
 template <typename T> toml::path config_path(csv key_path) noexcept {
   return toml::path(T::module_id).append(key_path);
-}
-
-template <typename T> T config_val(csv path, T &&def_val) noexcept {
-  return shared::config->at(path).value_or<T>(std::forward<T>(def_val));
 }
 
 template <class C, typename T, typename D> inline auto config_val2(csv path, D &&def_val) noexcept {

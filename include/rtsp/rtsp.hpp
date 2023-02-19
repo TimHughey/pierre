@@ -33,6 +33,11 @@ namespace pierre {
 
 class Desk;
 class MasterClock;
+class Rtsp;
+
+namespace shared {
+extern std::unique_ptr<Rtsp> rtsp;
+}
 
 namespace rtsp {
 class Ctx;

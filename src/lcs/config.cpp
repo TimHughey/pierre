@@ -62,15 +62,45 @@ Config::Config(const toml::table &cli_table) noexcept                //
 }
 
 const string Config::app_name() noexcept {
-  return config()->cli_table["app_name"sv].value<string>().value();
+  return shared::config->cli_table["app_name"sv].value<string>().value();
 }
 
 const string Config::banner_msg() noexcept {
-  const auto &table = tables.front();
-  return fmt::format("{} {}", table["project"].ref<string>(), table["git_describe"].ref<string>());
+
+  auto wrapped = [&table = shared::config->tables.front()]() -> const string {
+    return string(table["project"].ref<string>())
+        .append(" ")
+        .append(table["git_describe"].ref<string>());
+  };
+
+  return wrapped();
 }
 
 bool Config::daemon() noexcept { return config()->cli_table["daemon"sv].value_or(false); }
+
+fs::path Config::fs_data_path() noexcept { return shared::config->fs_path("data_dir"sv); }
+
+fs::path Config::fs_path(csv path) noexcept {
+
+  // create lamba for accessing shared::config
+  auto wrapped = [s = shared::config.get()](csv p) -> fs::path {
+    std::shared_lock slk(s->mtx, std::defer_lock);
+    slk.lock();
+
+    auto &t = s->tables.front();
+    const auto &app_name = s->cli_table["app_name"sv].ref<string>();
+
+    // /use/local/share/pierre
+    if (p == csv{"data_dir"}) {
+      return fs::path(t[p].ref<string>()).append(app_name);
+    }
+
+    return fs::path(t["install_prefix"sv].ref<string>());
+  };
+
+  // invoke lambsa
+  return wrapped(path);
+}
 
 bool Config::log_bool(csv logger_module_id, csv mod, csv cat) noexcept {
   if (cat == csv{"info"}) return true;

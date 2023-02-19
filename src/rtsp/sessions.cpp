@@ -57,7 +57,7 @@ void Sessions::erase(const std::shared_ptr<Ctx> ctx) noexcept {
     return rc;
   });
 
-  INFO_AUTO("ctxs count={}\n", std::ssize(ctxs));
+  INFO_AUTO("remaining={}\n", std::ssize(ctxs));
 }
 
 void Sessions::live(Ctx *live_ctx) noexcept {

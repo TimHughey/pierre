@@ -31,8 +31,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <errno.h>
+#include <filesystem>
 #include <fmt/os.h>
+#include <fstream>
+#include <iostream>
 #include <signal.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[]) {
 
@@ -44,12 +48,61 @@ int main(int argc, char *argv[]) {
 
 namespace pierre {
 
+// startup / runtime support
+
+static void check_pid_file(const CliArgs &args) noexcept {
+  namespace fs = std::filesystem;
+
+  fs::path file{args.pid_file()};
+  bool force{args.force_restart()};
+
+  // pid file doesn't exist
+  if (!fs::exists(file)) return;
+
+  std::ifstream istrm(file);
+  if (istrm.is_open()) {
+    int64_t pid;
+
+    istrm >> pid; // read the pid
+
+    auto kill_rc = kill(pid, 0);
+
+    if ((kill_rc == 0) && !force) { // pid is alive and we can signal it
+      std::cout << file << "contains live pid " << pid;
+      std::cout << ", use --force-restart to restart" << std::endl;
+
+    } else if (kill_rc == 0) {
+      kill(pid, SIGINT);
+      sleep(1);
+      check_pid_file(std::move(args));
+
+    } else if (errno == ESRCH) {
+      fs::remove(file);
+
+    } else {
+      std::cout << file << "contains" << pid << ":" << std::strerror(errno) << std::endl;
+    }
+  }
+}
+
+static void write_pid_file(const string pid_file) noexcept {
+  const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
+  auto os = fmt::output_file(pid_file.c_str(), flags);
+
+  os.print("{}", getpid());
+  os.close();
+}
+
+////
+//// App
+////
+
 int App::main(int argc, char *argv[]) {
   static constexpr csv fn_id{"main"};
 
   crypto::init(); // initialize sodium and gcrypt
 
-  // if construction of CliArgs returns then we are assured command line args
+  // if construction of CliArgs succeds then we are assured command line args
   // are good and help was not requested
   CliArgs cli_args(argc, argv);
 
@@ -60,6 +113,8 @@ int App::main(int argc, char *argv[]) {
     perror(config()->parse_msg.c_str());
     exit(EXIT_FAILURE);
   }
+
+  check_pid_file(cli_args);
 
   if (cli_args.daemon()) {
 
@@ -98,13 +153,7 @@ int App::main(int argc, char *argv[]) {
     umask(0);
     fs::current_path(fs::path("/"));
 
-    { // write pid to file
-      const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
-      auto os = fmt::output_file(cli_args.pid_file().c_str(), flags);
-
-      os.print("{}", getpid());
-      os.close();
-    }
+    write_pid_file(cli_args.pid_file());
   }
 
   ////
@@ -121,14 +170,14 @@ int App::main(int argc, char *argv[]) {
   signals_ignore();   // ignore certain signals
   signals_shutdown(); // catch certain signals for shutdown
 
-  INFO_AUTO("{}\n", banner_msg());
+  INFO_AUTO("{}\n", Config::banner_msg());
 
   INFO(Config::module_id, "init", "{}\n", config()->init_msg);
-  shared::config_watch = std::make_unique<ConfigWatch>(*io_ctx);
 
+  shared::config_watch = std::make_unique<ConfigWatch>(*io_ctx);
   shared::stats = std::make_unique<Stats>(*io_ctx);
   shared::mdns = std::make_unique<mDNS>();
-  rtsp = std::make_unique<Rtsp>();
+  shared::rtsp = std::make_unique<Rtsp>();
 
   io_ctx->run(); // start the app, returns when shutdown signal received
 
@@ -159,7 +208,7 @@ void App::signals_shutdown() noexcept {
 
     INFO_AUTO("caught SIGINT ({})\n", signal, Config::daemon());
 
-    rtsp.reset();
+    shared::rtsp.reset();
     shared::mdns.reset();
 
     if (Config::daemon()) {

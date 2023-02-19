@@ -142,7 +142,7 @@ void Ctx::advertise(Service &service) noexcept {
 void Ctx::all_for_now(bool next_val) noexcept {
   static constexpr csv fn_id{"all_for_now"};
 
-  auto prev = std::atomic_exchange(&all_for_now_state, false);
+  auto prev = std::atomic_exchange(&all_for_now_state, next_val);
 
   INFO_AUTO("previous state={}\n", prev);
 }

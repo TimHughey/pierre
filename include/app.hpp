@@ -24,8 +24,6 @@
 
 namespace pierre {
 
-class Rtsp;
-
 class App {
 public:
   App() = default;
@@ -41,7 +39,6 @@ private:
   std::optional<io_context> io_ctx;
   std::optional<asio::signal_set> signal_set_ignore;
   std::optional<asio::signal_set> signal_set_shutdown;
-  std::unique_ptr<Rtsp> rtsp;
 
   // order independent
   bool args_ok{false};

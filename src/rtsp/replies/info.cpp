@@ -25,6 +25,7 @@
 #include "replies/dict_kv.hpp"
 
 #include <filesystem>
+#include <fmt/os.h>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -79,20 +80,23 @@ Info::Info(Reply &reply) noexcept {
 void Info::init() noexcept { // static
   static constexpr csv fn_id{"init"};
 
-  csv sub_path{"../share/plist/get_info_resp.plist"};
-  auto plist_path = config()->fs_exec_path().append(sub_path);
+  const auto plist_path = Config::fs_data_path().append("plist/get_info_resp.plist"sv);
 
-  if (std::ifstream is{plist_path, std::ios::binary | std::ios::ate}) {
-    reply_xml.assign(is.tellg(), 0x00);
+  // seek to end of file at open to determine file size without
+  // additional calls to the stream
+  std::ifstream ifs{plist_path, std::ios::binary | std::ios::ate};
 
-    is.seekg(0);
-    if (is.read(reply_xml.data(), reply_xml.size())) {
-      INFO(module_id, "debug", "{} size={}\n", plist_path.c_str(), reply_xml.size());
+  if (ifs.is_open()) {
+    reply_xml.assign(ifs.tellg(), 0x00); // preallocate container for direct read
+    ifs.seekg(0);                        // seek back to beginning of file
+
+    if (ifs.read(reply_xml.data(), reply_xml.size())) {
+      INFO_AUTO("{}: size={}\n", plist_path, reply_xml.size());
     }
   }
 
   if (reply_xml.empty()) {
-    INFO(module_id, fn_id, "failed to load: {}\n", plist_path.c_str());
+    INFO_AUTO("{}: load failed\n", plist_path);
   }
 }
 

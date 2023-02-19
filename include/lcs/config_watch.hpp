@@ -40,9 +40,9 @@ public:
   ConfigWatch(io_context &io_ctx) noexcept;
   ~ConfigWatch() noexcept;
 
-  bool has_changed(cfg_future &want_fut) noexcept;
+  static bool has_changed(cfg_future &want_fut) noexcept;
 
-  cfg_future want_changes() noexcept;
+  static cfg_future want_changes() noexcept;
   const auto watch_msg() const noexcept { return _watch_msg; }
 
 private:
@@ -64,15 +64,5 @@ private:
 public:
   static constexpr csv module_id{"config_watch"};
 };
-
-////
-//// free functions
-////
-
-inline auto cfg_watch_has_changed(cfg_future &want_fut) noexcept {
-  return shared::config_watch->has_changed(want_fut);
-}
-
-inline auto cfg_watch_want_changes() noexcept { return shared::config_watch->want_changes(); }
 
 } // namespace pierre

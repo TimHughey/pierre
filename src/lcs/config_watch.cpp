@@ -102,18 +102,25 @@ bool ConfigWatch::has_changed(cfg_future &fut) noexcept {
 }
 
 cfg_future ConfigWatch::want_changes() noexcept {
-  std::unique_lock lck(mtx, std::defer_lock);
-  lck.lock();
 
-  // is this the first request for change notifications?
-  // yes, create the promise and shared future
-  if (!prom) {
-    prom.emplace();
-    watch_fut.emplace(prom->get_future());
-  }
+  // static function, create a lambda to access shared::config_watch
+  auto wrapped = [s = shared::config_watch.get()]() -> cfg_future {
+    std::unique_lock lck(s->mtx, std::defer_lock);
+    lck.lock();
 
-  // return a copy of the shared future
-  return watch_fut.value();
+    // is this the first request for change notifications?
+    // yes, create the promise and shared future
+    if (!s->prom) {
+      s->prom.emplace();
+      s->watch_fut.emplace(s->prom->get_future());
+    }
+
+    // return a copy of the shared future
+    return s->watch_fut.value();
+  };
+
+  // invoke the lambda
+  return wrapped();
 }
 
 } // namespace pierre

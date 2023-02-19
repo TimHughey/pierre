@@ -62,7 +62,9 @@ private:
 private:
   // order dependent
   io_context io_ctx;
+  tcp_socket ctrl_sock;
   tcp_acceptor acceptor;
+  tcp_socket data_sock;
   steady_timer stalled_timer;
   const int64_t thread_count;
   std::unique_ptr<std::latch> startup_latch;
@@ -71,8 +73,7 @@ private:
 
   // order independent
   std::atomic_bool connected{false};
-  std::optional<tcp_socket> ctrl_sock;
-  std::optional<tcp_socket> data_sock;
+
   string cfg_host;                           // dmx controller host name
   std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint
 

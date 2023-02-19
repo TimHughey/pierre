@@ -25,8 +25,7 @@ namespace pierre {
 
 Dsp::Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
 
-  static constexpr csv factor_path{"frame.dsp.concurrency_factor"};
-  auto factor = config_val<double>(factor_path, 0.4);
+  auto factor = config_val2<Dsp, double>("concurrency_factor"sv, 0.4);
   const int thread_count = std::jthread::hardware_concurrency() * factor;
 
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(Dsp), thread_count);
