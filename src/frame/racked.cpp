@@ -44,20 +44,19 @@
 
 namespace pierre {
 
-Racked::Racked(MasterClock *master_clock) noexcept
+Racked::Racked(MasterClock *master_clock, Anchor *anchor) noexcept
     : thread_count(config_threads<Racked>(3)), // thread count
       guard(asio::make_work_guard(io_ctx)),    // ensure io_ctx has work
       handoff_strand(io_ctx),                  // unprocessed frame 'queue'
       wip_strand(io_ctx),                      // guard wip reel
       flush_strand(io_ctx),                    // isolate flush (and interrupt other strands)
       wip_timer(io_ctx),                       // rack incomplete wip reels
-      master_clock(master_clock)               // inject master clock dependency
-{
+      master_clock(master_clock),              // inject master clock dependency
+      anchor(anchor) {
   INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
             sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, thread_count);
 
   // initialize supporting objects
-  Anchor::init();
   av = std::make_unique<Av>(io_ctx);
 
   auto latch = std::make_unique<std::latch>(thread_count);
@@ -331,9 +330,9 @@ void Racked::next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept 
   } else [[likely]] {
     // we have ClockInfo, get AnchorLast
     clock_info = master_clock->info().get();
-    auto anchor = Anchor::get_data(clock_info);
+    auto anchor_now = anchor->get_data(clock_info);
 
-    if ((anchor.ready() == false) || !spool_frames) {
+    if ((anchor_now.ready() == false) || !spool_frames) {
       // anchor not ready yet or we haven't been instructed to spool
       // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
       // play or disconnected)
@@ -361,7 +360,7 @@ void Racked::next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept 
     auto frame = reel.peek_next();
 
     // calc the frame state (Frame caches the anchor)
-    auto state = frame->state_now(anchor, InputInfo::lead_time);
+    auto state = frame->state_now(anchor_now, InputInfo::lead_time);
     prom.set_value(frame);
 
     if (state.ready() || state.outdated() || state.future()) {

@@ -42,6 +42,7 @@
 namespace pierre {
 
 // forward decls to hide implementation details
+class Anchor;
 class Av;
 
 using racked_reels = std::list<Reel>;
@@ -49,7 +50,7 @@ using racked_reels = std::list<Reel>;
 class Racked {
 
 public:
-  Racked(MasterClock *master_clock) noexcept;
+  Racked(MasterClock *master_clock, Anchor *anchor) noexcept;
   ~Racked() noexcept;
 
   void flush(FlushInfo &&request) noexcept;
@@ -92,6 +93,7 @@ private:
   strand flush_strand;
   system_timer wip_timer;
   MasterClock *master_clock;
+  Anchor *anchor;
 
   // order independent
   FlushInfo flush_request;

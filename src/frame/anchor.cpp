@@ -37,20 +37,10 @@
 
 namespace pierre {
 
-namespace shared {
-std::optional<Anchor> anchor;
-} // namespace shared
-
-// destructor, singleton static functions
-void Anchor::init() { shared::anchor.emplace(); }
-
 // general API and member functions
 
 AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
-  return shared::anchor->get_data_impl(clock);
-}
-
-AnchorLast Anchor::get_data_impl(const ClockInfo &clock) noexcept {
+  static constexpr csv fn_id{"get_data"};
 
   // must have source anchor data to calculate last
   if (source.has_value()) {
@@ -61,7 +51,7 @@ AnchorLast Anchor::get_data_impl(const ClockInfo &clock) noexcept {
 
     } else if (last.age_check(5s)) {
       // master clock has changed relative to anchor
-      INFO(module_id, "INFO", "new master_clock={:#x}\n", clock.clock_id);
+      INFO_AUTO("new master_clock={:#x}\n", clock.clock_id);
 
       // the anchor and master clock for a buffered session start sync'ed.
       // at anytime, however, the master clock can change while the anchor
@@ -78,30 +68,27 @@ AnchorLast Anchor::get_data_impl(const ClockInfo &clock) noexcept {
 }
 
 void Anchor::reset() noexcept {
-  shared::anchor->source.reset();
-  shared::anchor->last.reset();
+  source.reset();
+  last.reset();
 }
 
-void Anchor::save(AnchorData ad) noexcept { // static
+void Anchor::save(AnchorData &&ad) noexcept {
+  static constexpr csv fn_id{"save"};
 
-  if (shared::anchor->source.has_value()) {
-    auto &source = shared::anchor->source.value();
-    auto &last = shared::anchor->last;
+  if (source.has_value()) {
+    source->log_timing_change(ad);
 
-    source.log_timing_change(ad);
-
-    if (source.match_clock_id(ad) &&
-        ((source.rtp_time != ad.rtp_time) || (source.anchor_time != ad.anchor_time))) {
+    if (source->match_clock_id(ad) &&
+        ((source->rtp_time != ad.rtp_time) || (source->anchor_time != ad.anchor_time))) {
 
       if (!last.age_check(5s)) {
-        INFO(module_id, "WARN", "parameters have changed before clock={:#x} stablized\n",
-             ad.clock_id);
+        INFO_AUTO("parameters have changed before clock={:#x} stablized\n", ad.clock_id);
         last.reset();
       }
     }
   }
 
-  shared::anchor->source.emplace(ad);
+  source.emplace(std::move(ad));
 }
 
 } // namespace pierre

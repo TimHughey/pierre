@@ -20,6 +20,7 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/desk.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/master_clock.hpp"
 #include "headers.hpp"
 #include "lcs/logger.hpp"

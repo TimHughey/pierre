@@ -25,7 +25,6 @@
 #include "frame/anchor_data.hpp"
 #include "frame/clock_info.hpp"
 
-#include <tuple>
 #include <utility>
 
 namespace pierre {

@@ -22,11 +22,14 @@
 #include "desk/async_msg.hpp"
 #include "dmx_ctrl.hpp"
 #include "dmx_data_msg.hpp"
+#include "frame/anchor.hpp"
 #include "frame/anchor_last.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
+#include "frame/state.hpp"
 #include "fx/all.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
@@ -38,7 +41,6 @@
 #include <future>
 #include <latch>
 #include <math.h>
-#include <optional>
 #include <ranges>
 #include <tuple>
 
@@ -46,9 +48,10 @@ namespace pierre {
 
 // must be defined in .cpp to hide mdns
 Desk::Desk(MasterClock *master_clock) noexcept
-    :                                       // guard(asio::make_work_guard(io_ctx)), //
-      frame_timer(io_ctx),                  //
+    : frame_timer(io_ctx),                  //
+      racked{nullptr},                      //
       master_clock(master_clock),           //
+      anchor(std::make_unique<Anchor>()),   //
       state{Stopped},                       //
       thread_count(config_threads<Desk>(2)) //
 {
@@ -69,6 +72,17 @@ Desk::~Desk() noexcept {
 }
 
 // general API
+
+void Desk::anchor_reset() noexcept { anchor->reset(); }
+void Desk::anchor_save(AnchorData &&ad) noexcept { anchor->save(std::forward<AnchorData>(ad)); }
+
+void Desk::flush(FlushInfo &&request) noexcept {
+  if (racked) racked->flush(std::forward<FlushInfo>(request));
+}
+
+void Desk::flush_all() noexcept {
+  if (racked) racked->flush_all();
+}
 
 void Desk::frame_loop(bool fx_finished) noexcept {
   static constexpr csv fn_id{"frame_loop"};
@@ -132,7 +146,7 @@ void Desk::frame_loop(bool fx_finished) noexcept {
 void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   static constexpr csv fn_id{"fx_select"};
 
-  const auto fx_name_now = active_fx ? active_fx->name() : csv{"****"};
+  const auto fx_name_now = active_fx ? active_fx->name() : csv{"none"};
   const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : fx_name::STANDBY;
 
   if (active_fx) active_fx->cancel(); // stop any pending io_ctx work
@@ -161,6 +175,10 @@ void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   }
 }
 
+void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
+  if (racked) racked->handoff(std::forward<uint8v>(packet), key);
+}
+
 void Desk::resume() noexcept {
   static constexpr csv fn_id{"resume"};
 
@@ -179,7 +197,7 @@ void Desk::resume() noexcept {
 
   // submit work to io_ctx
   asio::post(io_ctx, [this]() {
-    if (!racked) racked.emplace(master_clock);
+    if (!racked) racked = std::make_unique<Racked>(master_clock, anchor.get());
 
     frame_loop();
   });
@@ -198,6 +216,10 @@ void Desk::resume() noexcept {
   }
 
   INFO_AUTO("completed, thread_count={}\n", thread_count);
+}
+
+void Desk::spool(bool enable) noexcept {
+  if (racked) racked->spool(enable);
 }
 
 void Desk::standby() noexcept {

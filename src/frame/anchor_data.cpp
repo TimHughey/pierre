@@ -32,22 +32,19 @@
 
 namespace pierre {
 
-/*
- Using PTP, here is what is necessary
-   * The local (monotonic system up)time in nanos (arbitrary reference)
-   * The remote (monotonic system up)time in nanos (arbitrary reference)
-   * (symmetric) link delay
-     1. calculate link delay (PTP)
-     2. get local time (PTP)
-     3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
-        we know how remote timestamps align to local ones. Now these
-        network times are meaningful.
-     4. determine how many nanos elapsed since anchorTime msg egress.
-        Note: remote monotonic nanos for iPhones stops when they sleep, though
-        not when casting media.
- */
+//  Using PTP, here is what is necessary
+//    * The local (monotonic system up)time in nanos (arbitrary reference)
+//    * The remote (monotonic system up)time in nanos (arbitrary reference)
+//    * (symmetric) link delay
+//      1. calculate link delay (PTP)
+//      2. get local time (PTP)
+//      3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
+//         we know how remote timestamps align to local ones. Now these
+//         network times are meaningful.
+//      4. determine how many nanos elapsed since anchorTime msg egress.
+//         Note: remote monotonic nanos for iPhones stops when they sleep, though
+//         not when casting media.
 
-// misc debug
 string AnchorData::inspect() const {
   const auto hex_fmt_str = FMT_STRING("{:>35}={:#02x}\n");
   const auto gen_fmt_str = FMT_STRING("{:>35}={}\n");

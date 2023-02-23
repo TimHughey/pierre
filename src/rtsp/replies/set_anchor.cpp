@@ -30,12 +30,12 @@ SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcep
   Aplist request_dict(content_in);
 
   // a complete anchor message contains these keys
-  static const Aplist::KeyList keys{NET_TIMELINE_ID, NET_TIME_SECS, NET_TIME_FRAC, NET_TIME_FLAGS,
-                                    RTP_TIME};
+  static Aplist::KeyList keys{NET_TIMELINE_ID, NET_TIME_SECS, NET_TIME_FRAC, NET_TIME_FLAGS,
+                              RTP_TIME};
 
   if (request_dict.existsAll(keys)) {
     // this is a complete anchor data set
-    Anchor::save(                                        // submit the new anchor data
+    desk->anchor_save(                                   // submit the new anchor data
         AnchorData(request_dict.uint({NET_TIMELINE_ID}), // network timeline id (aka source clk)
                    request_dict.uint({NET_TIME_SECS}),   // source clock seconds
                    request_dict.uint({NET_TIME_FRAC}),   // source clock fractional nanos
@@ -43,7 +43,7 @@ SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcep
                    request_dict.uint({NET_TIME_FLAGS})   // flags (from source)
                    ));
   } else {
-    Anchor::reset();
+    desk->anchor_reset();
   }
 
   if (request_dict.exists(RATE)) {

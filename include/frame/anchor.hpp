@@ -33,27 +33,18 @@ namespace pierre {
 class Anchor {
 public:
   Anchor() = default;
-  static void init(); // create shared Anchor
+  ~Anchor() noexcept {} // prevent default copy/move
 
-  static AnchorLast get_data(const ClockInfo &clock) noexcept;
-  static void save(AnchorData ad) noexcept;
-  static void reset() noexcept;
-
-private:
-  AnchorLast get_data_impl(const ClockInfo &clock) noexcept;
+  AnchorLast get_data(const ClockInfo &clock) noexcept;
+  void save(AnchorData &&ad) noexcept;
+  void reset() noexcept;
 
 private:
   std::optional<AnchorData> source;
   AnchorLast last;
 
 public:
-  static constexpr auto module_id{"frame.anchor"};
-
-public:
-  Anchor(const Anchor &) = delete;            // no copy
-  Anchor(Anchor &&) = delete;                 // no move
-  Anchor &operator=(const Anchor &) = delete; // no copy assignment
-  Anchor &operator=(Anchor &&) = delete;      // no move assignment
+  static constexpr csv module_id{"frame.anchor"};
 };
 
 } // namespace pierre

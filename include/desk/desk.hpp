@@ -18,26 +18,31 @@
 
 #pragma once
 
-#include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "frame/clock_info.hpp"
-#include "frame/racked.hpp"
-#include "frame/state.hpp"
+#include "base/uint8v.hpp"
 #include "io/io.hpp"
 
 #include <atomic>
 #include <future>
+#include <latch>
 #include <memory>
 #include <mutex>
-#include <optional>
 
 namespace pierre {
 
-// forward decls to hide implementation details
+// forward decls to hide implementation details, limit include dependencies
+class Anchor;
+class AnchorData;
 class DmxCtrl;
+class FlushInfo;
 class FX;
+class MasterClock;
 class Racked;
+
+namespace frame {
+class state;
+}
 
 class Desk {
 
@@ -45,25 +50,18 @@ public:
   Desk(MasterClock *master_clock) noexcept; // must be defined in .cpp to hide FX includes
   ~Desk() noexcept;
 
-  void flush(FlushInfo &&request) noexcept {
-    if (racked.has_value()) {
-      racked->flush(std::forward<FlushInfo>(request));
-    }
-  }
+  void anchor_reset() noexcept;
+  void anchor_save(AnchorData &&ad) noexcept;
 
-  void flush_all() noexcept {
-    if (racked.has_value()) racked->flush_all();
-  }
+  void flush(FlushInfo &&request) noexcept;
 
-  void handoff(uint8v &&packet, const uint8v &key) noexcept {
-    if (racked.has_value()) racked->handoff(std::forward<uint8v>(packet), key);
-  }
+  void flush_all() noexcept;
+
+  void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
   void resume() noexcept;
 
-  void spool(bool enable = true) noexcept {
-    if (racked.has_value()) racked->spool(enable);
-  }
+  void spool(bool enable = true) noexcept;
 
   void standby() noexcept;
 
@@ -79,15 +77,15 @@ private:
 private:
   // order dependent
   io_context io_ctx;
-  // work_guard guard;
   steady_timer frame_timer;
+  std::unique_ptr<Racked> racked;
   MasterClock *master_clock;
+  std::unique_ptr<Anchor> anchor;
   std::atomic<state_t> state;
   const int thread_count;
 
   // order independent
   std::mutex run_state_mtx;
-  std::optional<Racked> racked;
   std::unique_ptr<std::latch> shutdown_latch;
 
   std::unique_ptr<DmxCtrl> dmx_ctrl{nullptr};
