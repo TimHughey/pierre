@@ -23,10 +23,6 @@
 #include "mdns/service.hpp"
 #include "mdns/zservice.hpp"
 
-#include <atomic>
-#include <future>
-#include <list>
-#include <map>
 #include <memory>
 
 namespace pierre {
@@ -64,12 +60,12 @@ public:
   const string stype;
   const Port receiver_port;
   Service service_obj;
+
+protected:
   std::unique_ptr<mdns::Ctx> ctx;
 
 public:
   static constexpr csv module_id{"mdns"};
 };
-
-auto inline mdns_ctx() noexcept { return shared::mdns->ctx.get(); }
 
 } // namespace pierre

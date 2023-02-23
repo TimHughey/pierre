@@ -17,14 +17,13 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
+#include "base/thread_util.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "mdns_ctx.hpp"
 #include "service.hpp"
 #include "zservice.hpp"
 
-#include <algorithm>
-#include <array>
 #include <avahi-client/client.h>
 #include <avahi-client/lookup.h>
 #include <avahi-client/publish.h>
@@ -33,13 +32,7 @@
 #include <avahi-common/malloc.h>
 #include <avahi-common/thread-watch.h>
 #include <avahi-common/timeval.h>
-#include <list>
-#include <memory>
-#include <mutex>
-#include <pthread.h>
-#include <ranges>
-#include <stdlib.h>
-#include <vector>
+#include <thread>
 
 namespace pierre {
 
@@ -52,32 +45,39 @@ using namespace mdns;
 // mDNS general API
 
 mDNS::mDNS() noexcept
-    : receiver(config_val2<mDNS, string>("receiver", "Pierre Default")),  //
-      build_vsn(cfg_build_vsn()),                                         //
-      stype(config_val2<mDNS, string>("service", "_ruth._tcp")),          //
-      receiver_port(config_val2<mDNS, Port>("port", 7000)),               //
-      service_obj(receiver, build_vsn),                                   //
-      ctx(std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)) //
+    : receiver(config_val2<mDNS, string>("receiver", "Pierre Default")), //
+      build_vsn(cfg_build_vsn()),                                        //
+      stype(config_val2<mDNS, string>("service", "_ruth._tcp")),         //
+      receiver_port(config_val2<mDNS, Port>("port", 7000)),              //
+      service_obj(receiver, build_vsn),                                  //
+      ctx{nullptr}                                                       //
 {
-  INFO_INIT("sizeof={:>5} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
+  std::jthread([this]() {
+    INFO_INIT("sizeof={:>5} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
 
-  if (!ctx->err_msg.empty()) {
-    INFO_INIT("FAILED, reason={}\n", ctx->err_msg);
-  }
+    thread_util::set_name(module_id);
+
+    // start avahi cliet
+    ctx = std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port);
+
+    if (!ctx->err_msg.empty()) {
+      INFO_INIT("FAILED, reason={}\n", ctx->err_msg);
+    }
+  }).join(); // wait for startup to complete
 }
 
 mDNS::~mDNS() noexcept { ctx.reset(); }
 
 void mDNS::browse(csv stype) noexcept { // static
-  mdns_ctx()->browse(stype);
+  shared::mdns->ctx->browse(stype);
 }
 
 void mDNS::update() noexcept { // static
-  mdns_ctx()->update(shared::mdns->service_obj);
+  shared::mdns->ctx->update(shared::mdns->service_obj);
 }
 
 ZeroConfFut mDNS::zservice(csv name) noexcept { // static
-  return mdns_ctx()->zservice(name);
+  return shared::mdns->ctx->zservice(name);
 }
 
 } // namespace pierre
