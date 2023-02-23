@@ -48,8 +48,7 @@ Racked::Racked(MasterClock *master_clock) noexcept
     : thread_count(config_threads<Racked>(3)), // thread count
       guard(asio::make_work_guard(io_ctx)),    // ensure io_ctx has work
       handoff_strand(io_ctx),                  // unprocessed frame 'queue'
-      wip_strand(io_ctx),                      // guard work in progress reeel
-      frame_strand(io_ctx),                    // used for next frame
+      wip_strand(io_ctx),                      // guard wip reel
       flush_strand(io_ctx),                    // isolate flush (and interrupt other strands)
       wip_timer(io_ctx),                       // rack incomplete wip reels
       master_clock(master_clock)               // inject master clock dependency
@@ -83,7 +82,6 @@ Racked::Racked(MasterClock *master_clock) noexcept
 }
 
 Racked::~Racked() noexcept {
-
   INFO_SHUTDOWN_REQUESTED();
 
   guard.reset();
@@ -98,72 +96,99 @@ Racked::~Racked() noexcept {
   INFO_SHUTDOWN_COMPLETE();
 }
 
-void Racked::flush(FlushInfo &&request) {
-  static constexpr csv fn_id{"flush"};
+void Racked::emplace_frame(frame_t frame) noexcept {
 
+  std::shared_lock<std::shared_timed_mutex> lck(flush_mtx, std::defer_lock);
+  lck.lock();
+
+  // create the wip, if needed
+  if (wip.has_value() == false) wip.emplace();
+
+  // all frames in a reel must be in ascending order for proper flushing
+  if ((!wip->empty() && (*wip < frame)) || wip->empty()) {
+    wip->add(frame);
+  } else {
+    // not in ascending order, rack the current wip and begin a new one
+    rack_wip();
+
+    wip.emplace().add(frame);
+  }
+
+  if (wip->full()) {
+    rack_wip();
+  } else if (std::ssize(*wip) == 1) {
+    monitor_wip(); // handle incomplete wip reels
+  }
+}
+
+void Racked::flush(FlushInfo &&request) noexcept {
+
+  // post the flush request to the flush strand to serialize flush requests
   asio::post(flush_strand, [this, request = std::move(request)]() mutable {
-    INFO_AUTO("{}\n", request);
-
     // record the flush request to check incoming frames (guarded by flush_strand)
     flush_request = std::move(request);
 
-    // flush wip first so we can unlock it quickly
-    if (wip.has_value()) {
-      // lock both the wip and rack
-      std::unique_lock lck_wip(wip_mtx, std::defer_lock);
-      lck_wip.lock();
-
-      // if wip is completely flushed reset the optional
-      if (wip->flush(flush_request)) {
-        [[maybe_unused]] error_code ec;
-        wip_timer.cancel(ec);
-        wip.reset();
-      }
-    }
-
-    std::unique_lock lck_rack{rack_mtx, std::defer_lock};
-    lck_rack.lock();
-
-    // now, to optimize the flush, let's first check if everything racked
-    // is within the request.  if so, we can simply clear all racked reels
-    auto initial_size = std::ssize(racked);
-    if (initial_size > 0) {
-
-      auto first = racked.begin()->peek_next();
-      auto last = racked.rbegin()->peek_last();
-
-      INFO_AUTO("rack contains seq_num {:<8}/{:>8} before flush\n", first->seq_num, last->seq_num);
-
-      if (flush_request.matches<frame_t>({first, last})) {
-        // yes, the entire rack matches the flush request so we can
-        // take a short-cut and clear the entire rack in oneshot
-        INFO_AUTO("clearing all reels={}\n", initial_size);
-
-        racked_reels cleared;
-        std::swap(racked, cleared);
-
-      } else {
-        // the entire rack did not match the flush request so now
-        // we must use maximum effort and look at each reel
-
-        std::erase_if(racked, [this](auto &reel) { return reel.flush(flush_request); });
-      }
-
-      const auto flushed = initial_size - std::ssize(racked);
-      Stats::write(stats::REELS_FLUSHED, flushed);
-      Stats::write(stats::RACKED_REELS, std::ssize(racked));
-    }
-
-    // has everything been flushed?
-    if (racked.empty() && !wip) {
-      first_frame.reset(); // signal we're starting fresh
-    }
+    flush_impl();
   });
 }
 
+void Racked::flush_impl() noexcept {
+  static constexpr csv fn_id{"flush"};
+
+  INFO_AUTO("{}\n", flush_request);
+
+  std::unique_lock lck(flush_mtx, std::defer_lock);
+  lck.lock();
+
+  // rack wip so it is handled while processing racked
+  rack_wip(LOCK_FREE);
+
+  // now, to optimize the flush, let's first check if everything racked
+  // is within the request.  if so, we can simply clear all racked reels
+  int64_t reel_count = std::ssize(racked);
+  int64_t flush_count = 0;
+
+  if (reel_count > 0) {
+
+    auto first = racked.begin()->peek_next();
+    auto last = racked.rbegin()->peek_last();
+
+    INFO_AUTO("rack contains seq_num {:<8}/{:>8} before flush\n", first->seq_num, last->seq_num);
+
+    if (flush_request.matches<frame_t>({first, last})) {
+      // yes, the entire rack matches the flush request so we can
+      // take a short-cut and clear the entire rack in oneshot
+      INFO_AUTO("clearing all reels={}\n", reel_count);
+
+      racked_reels cleared;
+      std::swap(racked, cleared);
+      flush_count = reel_count;
+
+    } else {
+      // the entire rack did not match the flush request so now
+      // we must use maximum effort and look at each reel
+
+      std::erase_if(racked, [&flush_count, this](auto &reel) mutable {
+        auto rc = reel.flush(flush_request);
+
+        if (rc) flush_count++;
+
+        return rc;
+      });
+    }
+
+    const auto reels_now = std::ssize(racked);
+
+    lck.unlock(); // unlock, container actions complete
+
+    Stats::write(stats::REELS_FLUSHED, flush_count);
+    Stats::write(stats::RACKED_REELS, reels_now);
+  }
+}
+
 void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
-  if (ready.load() == false) return; // quietly ignore packets when Racked is not ready
-  if (packet.empty()) return;        // quietly ignore empty packets
+  if (!ready) return;         // quietly ignore packets when Racked is not ready
+  if (packet.empty()) return; // quietly ignore empty packets
 
   auto frame = Frame::create(packet); // create frame, will also be moved in lambda (as needed)
 
@@ -174,8 +199,7 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
       // notes:
       //  1. we post to handoff_strand to control the concurrency of decoding
       //  2. we move the packet since handoff() is done with it
-      //  3. we grab a reference to handoff strand since we move s
-      //  4. we move the frame since no code beyond this point needs it
+      //  3. we move the frame since no code beyond this point needs it
 
       asio::post(handoff_strand, [this, frame = std::move(frame)]() {
         // here we do the decoding of the audio data, if decode succeeds we
@@ -189,27 +213,7 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
           // decoded packet spooling.  this is important because once a wip is full it
           // must be spooled into racked reels which is also being read from for next_frame()
           asio::post(wip_strand, [this, frame = std::move(frame)]() mutable {
-            std::unique_lock lck(wip_mtx, std::defer_lock);
-            lck.lock();
-
-            // create the wip, if needed
-            if (wip.has_value() == false) wip.emplace();
-
-            // all frames in a reel must be in ascending order for proper flushing
-            if ((!wip->empty() && (*wip < frame)) || wip->empty()) {
-              wip->add(frame);
-            } else {
-              // not in ascending order, rack the current wip and begin a new one
-              rack_wip();
-
-              wip.emplace().add(frame);
-            }
-
-            if (wip->full()) {
-              rack_wip();
-            } else if (std::ssize(*wip) == 1) {
-              monitor_wip(); // handle incomplete wip reels
-            }
+            emplace_frame(std::move(frame));
           });
 
         } else {
@@ -237,7 +241,9 @@ void Racked::monitor_wip() noexcept {
         const auto serial_num = wip.has_value() ? wip->serial_num() : 0;
 
         if (wip.has_value() && (wip->serial_num() == serial_num)) {
-          const auto msg = fmt::format("{}", *wip);
+          string msg;
+
+          if (Logger::should_log(module_id, fn_id)) msg = fmt::format("{}", *wip);
 
           rack_wip();
 
@@ -246,116 +252,6 @@ void Racked::monitor_wip() noexcept {
           INFO_AUTO("PREVIOUSLY RACKED serial_num={}\n", serial_num);
         }
       }));
-}
-
-frame_future Racked::next_frame() noexcept { // static
-  auto prom = frame_promise();
-  auto fut = prom.get_future().share();
-
-  // when Racked isn't ready (doesn't exist) return SilentFrame
-  if (ready.load() == false) {
-    prom.set_value(SilentFrame::create());
-    return fut;
-  }
-
-  asio::post(frame_strand, [this, prom = std::move(prom)]() mutable {
-    std::unique_lock lck{rack_mtx, std::defer_lock}; // don't lock yet
-
-    // do we have any racked reels? if not, return a SilentFrame
-    lck.lock(); // guard std::empty(racked) call
-    if (std::empty(racked)) {
-      prom.set_value(SilentFrame::create());
-      return;
-    }
-
-    // we have racked reels but need clock_info, unlock while we wait
-    lck.unlock();
-
-    auto master_clock_fut = master_clock->info();
-    auto clock_info = ClockInfo();
-
-    if (master_clock_fut.valid()) {
-      auto master_clock_result = master_clock_fut.wait_for(InputInfo::lead_time_min);
-      if (master_clock_result == std::future_status::ready) {
-        clock_info = master_clock_fut.get();
-      }
-    }
-
-    if (clock_info.ok() == false) {
-      // no clock info, set promise to SilentFrame
-      prom.set_value(SilentFrame::create());
-    } else [[likely]] {
-      // we have ClockInfo and there are racked reels
-      // refresh clock info and get anchor info
-      clock_info = master_clock->info().get();
-      auto anchor = Anchor::get_data(clock_info);
-
-      if ((anchor.ready() == false) || !spool_frames) {
-        // anchor not ready yet or we haven't been instructed to spool
-        // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
-        // play yet or disconnected)
-        //
-        // note:  we could have done this check very early and completely avoid
-        // the asio::post but didn't so we could prime ClockInfo and Anchor.
-        // plus the above code isn't really that expensive every ~23ms.
-        prom.set_value(SilentFrame::create());
-        return;
-      }
-
-      lck.lock(); // lock since since we're looking at racked reels
-
-      auto &reel = *racked.begin();
-      auto frame = reel.peek_next();
-
-      // calc the frame state (Frame caches the anchor)
-      auto state = frame->state_now(anchor, InputInfo::lead_time);
-      prom.set_value(frame);
-
-      if (state.ready() || state.outdated() || state.future()) {
-        // consume the ready or outdated frame
-        if (auto reel_empty = reel.consume(); reel_empty == true) {
-          // reel is empty after the consume, erase it
-          racked.erase(racked.begin());
-          Stats::write(stats::RACKED_REELS, std::ssize(racked));
-        }
-
-        log_racked();
-      }
-    }
-  });
-
-  // return the future
-  return fut;
-}
-
-void Racked::rack_wip() noexcept {
-  [[maybe_unused]] error_code ec;
-  wip_timer.cancel(ec); // wip reel is full, cancel the incomplete spool timer
-
-  log_racked_rc rc{NONE};
-
-  std::unique_lock lck{rack_mtx, std::defer_lock};
-  if (!wip->empty()) {
-
-    if (lck.try_lock_for(InputInfo::lead_time)) [[likely]] {
-
-      // get a copy of serial_num since emplace moving can be unpredictable
-      racked.emplace_back(std::move(wip.value()));
-      wip.reset();
-      rc = RACKED;
-
-    } else {
-      rc = TIMEOUT;
-    }
-
-    if (rc == RACKED) {
-      Stats::write(stats::RACKED_REELS, std::ssize(racked));
-    } else if (rc == TIMEOUT) {
-      Stats::write(stats::RACK_WIP_TIMEOUT, true);
-    }
-
-    log_racked(rc);
-  }
 }
 
 void Racked::log_racked(log_racked_rc rc) const noexcept {
@@ -393,6 +289,115 @@ void Racked::log_racked(log_racked_rc rc) const noexcept {
 
     if (!msg.empty()) INFO_AUTO("{}\n", msg);
   }
+}
+
+frame_future Racked::next_frame(const Nanos max_wait) noexcept { // static
+  auto prom = frame_promise();
+  auto fut = prom.get_future().share();
+
+  // when Racked isn't ready (doesn't exist) return SilentFrame
+  if (ready.load() == false) {
+    prom.set_value(SilentFrame::create());
+    return fut;
+  }
+
+  asio::post(io_ctx, [=, this, prom = std::move(prom)]() mutable { //
+    next_frame_impl(std::move(prom), max_wait);
+  });
+
+  // return the future
+  return fut;
+}
+
+void Racked::next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept {
+  const Nanos wait_half(max_wait / 2);
+
+  std::shared_lock<std::shared_timed_mutex> flush_lck(flush_mtx, std::defer_lock);
+  std::unique_lock rack_lck{rack_mtx, std::defer_lock}; // don't lock yet
+
+  auto master_clock_fut = master_clock->info();
+  auto clock_info = ClockInfo();
+
+  if (master_clock_fut.valid()) {
+    if (master_clock_fut.wait_for(wait_half) == std::future_status::ready) {
+      clock_info = master_clock_fut.get();
+    }
+  }
+
+  if (clock_info.ok() == false) {
+    // no clock info, set promise to SilentFrame
+    prom.set_value(SilentFrame::create());
+    return;
+  } else [[likely]] {
+    // we have ClockInfo, get AnchorLast
+    clock_info = master_clock->info().get();
+    auto anchor = Anchor::get_data(clock_info);
+
+    if ((anchor.ready() == false) || !spool_frames) {
+      // anchor not ready yet or we haven't been instructed to spool
+      // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
+      // play or disconnected)
+      prom.set_value(SilentFrame::create());
+      return;
+    }
+
+    if (!flush_lck.try_lock()) { // we're flushing
+      prom.set_value(SilentFrame::create());
+      return;
+    }
+
+    if (!rack_lck.try_lock_for(wait_half)) { // racked contention
+      prom.set_value(SilentFrame::create());
+      return;
+    }
+
+    // do we have any racked reels? if not, return a SilentFrame
+    if (std::empty(racked)) {
+      prom.set_value(SilentFrame::create());
+      return;
+    }
+
+    auto &reel = *racked.begin();
+    auto frame = reel.peek_next();
+
+    // calc the frame state (Frame caches the anchor)
+    auto state = frame->state_now(anchor, InputInfo::lead_time);
+    prom.set_value(frame);
+
+    if (state.ready() || state.outdated() || state.future()) {
+      // consume the ready or outdated frame
+      if (auto reel_empty = reel.consume(); reel_empty == true) {
+        // reel is empty after the consume, erase it
+        racked.erase(racked.begin());
+        Stats::write(stats::RACKED_REELS, std::ssize(racked));
+      }
+
+      log_racked();
+    }
+  }
+}
+
+void Racked::rack_wip(use_lock_t use_lock) noexcept {
+  [[maybe_unused]] error_code ec;
+  wip_timer.cancel(ec); // wip reel is full, cancel the incomplete spool timer
+
+  log_racked_rc rc{NONE};
+
+  std::unique_lock lck{rack_mtx, std::defer_lock};
+  if (wip && !wip->empty()) {
+
+    if (use_lock == LOCK) lck.lock();
+
+    racked.emplace_back(std::move(wip.value()));
+    wip.reset();
+    rc = RACKED;
+  }
+
+  if (use_lock == LOCK) lck.unlock();
+
+  if (rc == RACKED) Stats::write(stats::RACKED_REELS, std::ssize(racked));
+
+  log_racked(rc);
 }
 
 } // namespace pierre

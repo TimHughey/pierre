@@ -52,7 +52,7 @@ public:
   Racked(MasterClock *master_clock) noexcept;
   ~Racked() noexcept;
 
-  void flush(FlushInfo &&request);
+  void flush(FlushInfo &&request) noexcept;
   void flush_all() noexcept { flush(FlushInfo::make_flush_all()); }
 
   // handeff() allows the packet to be moved however expects the key to be a reference
@@ -60,7 +60,7 @@ public:
 
   /// @brief Get a shared_future to the next racked frame
   /// @return shared_future containing the next frame (could be silent)
-  frame_future next_frame() noexcept;
+  frame_future next_frame(const Nanos max_wait = InputInfo::lead_time_min) noexcept;
 
   void spool(bool enable = true) noexcept {
     if (ready.load() == false) return;
@@ -69,14 +69,18 @@ public:
   }
 
 private:
-  enum log_racked_rc { NONE, RACKED, TIMEOUT };
+  enum log_racked_rc { NONE, RACKED };
+  enum use_lock_t { LOCK_FREE, LOCK };
 
 private:
-  void monitor_wip() noexcept;
-  void rack_wip() noexcept;
-
-  // misc logging, debug
+  void emplace_frame(frame_t frame) noexcept;
+  void flush_impl() noexcept;
   void log_racked(log_racked_rc rc = log_racked_rc::NONE) const noexcept;
+
+  void monitor_wip() noexcept;
+  void next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept;
+
+  void rack_wip(use_lock_t use_lock = LOCK) noexcept;
 
 private:
   // order dependent
@@ -85,7 +89,6 @@ private:
   work_guard guard;
   strand handoff_strand;
   strand wip_strand;
-  strand frame_strand;
   strand flush_strand;
   system_timer wip_timer;
   MasterClock *master_clock;
@@ -94,13 +97,12 @@ private:
   FlushInfo flush_request;
   std::atomic_bool ready{false};
   std::atomic_bool spool_frames{false};
-  std::shared_timed_mutex rack_mtx;
-  std::shared_timed_mutex wip_mtx;
+  mutable std::shared_timed_mutex flush_mtx;
+  mutable std::shared_timed_mutex rack_mtx;
   std::unique_ptr<Av> av;
 
   racked_reels racked;
   std::optional<Reel> wip;
-  frame_t first_frame;
 
 private:
   std::optional<std::latch> shutdown_latch;

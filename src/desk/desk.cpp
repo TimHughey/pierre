@@ -101,11 +101,9 @@ void Desk::frame_loop(bool fx_finished) noexcept {
       fx_finished = active_fx->render(frame, msg);
 
       if (!fx_finished) {
-        if (dmx_ctrl) {
-          dmx_ctrl->send_data_msg(std::move(msg));
-        } else {
-          dmx_ctrl = std::make_unique<DmxCtrl>();
-        }
+        if (!dmx_ctrl) dmx_ctrl = std::make_unique<DmxCtrl>();
+
+        dmx_ctrl->send_data_msg(std::move(msg));
       }
     }
   }
