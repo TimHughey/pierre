@@ -132,6 +132,10 @@ void DmxCtrl::connect() noexcept {
 }
 
 void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
+  const int64_t echo_now_us = doc["echo_now_µs"].as<int64_t>();
+  const auto roundtrip = pet::now_realtime() - pet::from_val<Nanos, Micros>(echo_now_us);
+  Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
+
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
   Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
   Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
@@ -140,10 +144,6 @@ void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
 
   const int64_t fps = doc["fps"].as<int64_t>();
   Stats::write(stats::FPS, fps);
-
-  const int64_t echo_now_us = doc["echo_now_µs"].as<int64_t>();
-  const auto roundtrip = pet::now_realtime() - pet::from_val<Nanos, Micros>(echo_now_us);
-  Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
 }
 
 void DmxCtrl::listen() noexcept {
