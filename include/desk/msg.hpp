@@ -102,8 +102,6 @@ public:
   auto deserialize(size_t bytes) {
     const auto err = deserializeMsgPack(doc, packed.data(), packed.capacity());
 
-    // if (ec || err) log_rx(ec, bytes, err.c_str());
-
     return !err && (bytes > 0);
   }
 
