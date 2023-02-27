@@ -87,6 +87,10 @@ struct pet {
     return diff_abs(d2, d1);
   }
 
+  template <typename AS> static inline AS elapsed_from_raw(auto raw) noexcept {
+    return pet::now_monotonic<AS>() - AS(raw);
+  }
+
   template <typename T = Nanos> static T floor(const T &d, const T min = T::zero()) noexcept {
     return d >= min ? d : min;
   }

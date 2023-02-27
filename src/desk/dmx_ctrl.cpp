@@ -120,7 +120,7 @@ void DmxCtrl::connect() noexcept {
           msg.add_kv("idle_shutdown_ms", config_val2<DmxCtrl, int64_t>(idle_ms_path, 10000));
           msg.add_kv("stats_ms", config_val2<DmxCtrl, int64_t>(stats_ms_path, 2000));
           msg.add_kv("lead_time_µs", InputInfo::lead_time);
-          msg.add_kv("ref_µs", pet::now_realtime<Micros>());
+          msg.add_kv("ref_µs", pet::now_monotonic<Micros>());
           msg.add_kv("data_port", acceptor.local_endpoint().port());
 
           send_ctrl_msg(std::move(msg));
@@ -133,7 +133,7 @@ void DmxCtrl::connect() noexcept {
 
 void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
   const int64_t echo_now_us = doc["echo_now_µs"].as<int64_t>();
-  const auto roundtrip = pet::now_realtime() - pet::from_val<Nanos, Micros>(echo_now_us);
+  const auto roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
   Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
 
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
