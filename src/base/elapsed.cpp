@@ -16,34 +16,18 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
+#include "elapsed.hpp"
+#include "base/pet.hpp"
 
-#include "base/types.hpp"
-#include "frame/anchor_data.hpp"
-#include "frame/anchor_last.hpp"
-#include "frame/clock_info.hpp"
-
-#include <array>
-#include <memory>
-#include <optional>
+#include <chrono>
+#include <compare>
+#include <cstdint>
+#include <time.h>
+#include <type_traits>
 
 namespace pierre {
 
-class Anchor {
-public:
-  Anchor() = default;
-  ~Anchor() noexcept {} // prevent default copy/move
-
-  AnchorLast get_data(const ClockInfo &clock) noexcept;
-  void save(AnchorData &&ad) noexcept;
-  void reset() noexcept;
-
-private:
-  std::optional<AnchorData> source;
-  AnchorLast last;
-
-public:
-  static constexpr csv module_id{"frame.anchor"};
-};
+const string Elapsed::humanize() const noexcept { return pet::humanize(elapsed()); }
+Nanos Elapsed::monotonic() noexcept { return pet::now_monotonic(); }
 
 } // namespace pierre

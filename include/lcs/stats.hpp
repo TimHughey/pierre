@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "io/io.hpp"
 #include "lcs/stats_v.hpp"

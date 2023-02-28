@@ -18,6 +18,7 @@
 
 #include "dmx_ctrl.hpp"
 #include "async_msg.hpp"
+#include "base/pet.hpp"
 #include "base/thread_util.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"
@@ -34,6 +35,7 @@
 #include <utility>
 
 namespace pierre {
+namespace desk {
 
 static const string get_cfg_host() noexcept {
   return config_val2<DmxCtrl, string>("remote.host"sv, "dmx");
@@ -94,7 +96,7 @@ DmxCtrl::~DmxCtrl() noexcept {
 }
 
 void DmxCtrl::connect() noexcept {
-  static constexpr csv cat{"ctrl_sock"};
+  static constexpr csv fn_id{"connect"};
 
   // detect and handle connection timeout
   stalled_watchdog();
@@ -106,7 +108,7 @@ void DmxCtrl::connect() noexcept {
         if (!ec) {
           static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
           static constexpr csv stats_ms_path{"remote.stats.ms"};
-          INFO(module_id, cat, "{}\n", io::log_socket_msg(ec, ctrl_sock, r, e));
+          INFO_AUTO("{}\n", io::log_socket_msg(ec, ctrl_sock, r, e));
 
           ctrl_sock.set_option(ip_tcp::no_delay(true));
           Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
@@ -119,9 +121,19 @@ void DmxCtrl::connect() noexcept {
 
           msg.add_kv("idle_shutdown_ms", config_val2<DmxCtrl, int64_t>(idle_ms_path, 10000));
           msg.add_kv("stats_ms", config_val2<DmxCtrl, int64_t>(stats_ms_path, 2000));
-          msg.add_kv("lead_time_µs", InputInfo::lead_time);
           msg.add_kv("ref_µs", pet::now_monotonic<Micros>());
           msg.add_kv("data_port", acceptor.local_endpoint().port());
+
+          async::write_msg(ctrl_sock, std::move(msg), [this](Msg msg) {
+            Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, msg.elapsed());
+
+            if (msg.xfer_error()) {
+              static constexpr csv fn_id{"handshake"};
+              Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
+
+              INFO_AUTO("write failed, reason={}\n", msg.ec.message());
+            }
+          });
 
           send_ctrl_msg(std::move(msg));
         }
@@ -132,9 +144,8 @@ void DmxCtrl::connect() noexcept {
 }
 
 void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
-  const int64_t echo_now_us = doc["echo_now_µs"].as<int64_t>();
-  const auto roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
-  Stats::write(stats::REMOTE_ROUNDTRIP, roundtrip);
+  const auto echo_now_us = doc["echo_now_µs"].as<int64_t>();
+  Stats::write(stats::REMOTE_ROUNDTRIP, pet::elapsed_from_raw<Micros>(echo_now_us));
 
   Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
   Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
@@ -177,21 +188,20 @@ void DmxCtrl::listen() noexcept {
 void DmxCtrl::msg_loop() noexcept {
   // only attempt to read a message if we're connected
   if (connected) {
-    desk::async_read_msg( //
-        ctrl_sock, [this, e = Elapsed()](const error_code ec, desk::Msg msg) mutable {
-          Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
+    desk::async::read_msg(ctrl_sock, [this](Msg msg) {
+      Stats::write(stats::CTRL_MSG_READ_ELAPSED, msg.elapsed());
 
-          if (ec == errc::success) {
-            stalled_watchdog(); // restart stalled watchdog
-            // handle the various message types
-            if (msg.key_equal(desk::TYPE, FEEDBACK)) handle_feedback_msg(msg.doc);
+      if (msg.xfer_ok()) {
+        stalled_watchdog(); // restart stalled watchdog
+        // handle the various message types
+        if (msg.key_equal(desk::TYPE, FEEDBACK)) handle_feedback_msg(msg.doc);
 
-            msg_loop(); // async handle next message
+        msg_loop(); // async handle next message
 
-          } else {
-            Stats::write(stats::CTRL_MSG_READ_ERROR, true);
-          }
-        });
+      } else {
+        Stats::write(stats::CTRL_MSG_READ_ERROR, true);
+      }
+    });
   }
 }
 
@@ -254,24 +264,18 @@ void DmxCtrl::send_ctrl_msg(desk::Msg &&msg) noexcept {
       });
 }
 
-void DmxCtrl::send_data_msg(DmxDataMsg msg) noexcept {
+void DmxCtrl::send_data_msg(desk::Msg &&msg) noexcept {
   if (connected) { // only send msgs when connected
 
-    msg.finalize();
+    desk::async::write_msg( //
+        data_sock,          //
+        std::forward<desk::Msg>(msg), [this](Msg msg) {
+          Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
-    desk::async_write_msg( //
-        data_sock,         //
-        std::move(msg), [this, e = Elapsed()](const error_code ec) mutable {
-          // better readability
-
-          Stats::write(stats::DATA_MSG_WRITE_ELAPSED, e.freeze());
-
-          if (ec != errc::success) {
+          if (msg.xfer_error()) {
             Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
             connected.store(false);
           }
-
-          return ec;
         });
   }
 }
@@ -319,4 +323,5 @@ void DmxCtrl::unknown_host() noexcept {
   stalled_watchdog(60s);
 }
 
+} // namespace desk
 } // namespace pierre

@@ -19,10 +19,9 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "desk/dmx_data_msg.hpp"
 #include "desk/msg.hpp"
 #include "io/io.hpp"
 #include "lcs/types.hpp"
@@ -35,13 +34,14 @@
 #include <thread>
 
 namespace pierre {
+namespace desk {
 
 class DmxCtrl {
 public:
   DmxCtrl() noexcept;
   ~DmxCtrl() noexcept;
 
-  void send_data_msg(DmxDataMsg msg) noexcept;
+  void send_data_msg(desk::Msg &&msg) noexcept;
 
 private:
   // lookup dmx controller and establish control connection
@@ -56,7 +56,7 @@ private:
 
   void resolve_host() noexcept;
   void send_ctrl_msg(desk::Msg &&msg) noexcept;
-  void stalled_watchdog(Nanos wait = Nanos(0)) noexcept;
+  void stalled_watchdog(Nanos wait = Nanos()) noexcept;
   void unknown_host() noexcept;
 
 private:
@@ -87,4 +87,5 @@ public:
   static constexpr csv task_name{"dmx_ctrl"};
 };
 
+} // namespace desk
 } // namespace pierre

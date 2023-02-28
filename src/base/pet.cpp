@@ -53,15 +53,15 @@ string pet::humanize(Nanos d) {
   return msg;
 }
 
-static Nanos __clock_now(int clock_type) { // .cpp static function
+static Nanos clock_now(int clock_type) noexcept { // .cpp static function
   struct timespec tn;
   clock_gettime(clock_type, &tn);
 
   return Nanos(tn.tv_sec * pet::NS_FACTOR.count() + tn.tv_nsec);
 }
 
-Nanos pet::_monotonic() { return __clock_now(CLOCK_MONOTONIC_RAW); } // static
-Nanos pet::_realtime() { return __clock_now(CLOCK_REALTIME); }       // static
-Nanos pet::_boottime() { return __clock_now(CLOCK_BOOTTIME); }       // static
+Nanos pet::_monotonic() noexcept { return clock_now(CLOCK_MONOTONIC_RAW); } // static
+Nanos pet::_realtime() noexcept { return clock_now(CLOCK_REALTIME); }       // static
+Nanos pet::_boottime() noexcept { return clock_now(CLOCK_BOOTTIME); }       // static
 
 } // namespace pierre

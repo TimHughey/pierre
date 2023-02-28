@@ -18,6 +18,7 @@
 
 #include "desk/desk.hpp"
 #include "base/input_info.hpp"
+#include "base/pet.hpp"
 #include "base/thread_util.hpp"
 #include "desk/async_msg.hpp"
 #include "dmx_ctrl.hpp"
@@ -115,7 +116,7 @@ void Desk::frame_loop(bool fx_finished) noexcept {
       fx_finished = active_fx->render(frame, msg);
 
       if (!fx_finished) {
-        if (!dmx_ctrl) dmx_ctrl = std::make_unique<DmxCtrl>();
+        if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
 
         dmx_ctrl->send_data_msg(std::move(msg));
       }

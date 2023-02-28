@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "fader/fader.hpp"
+#include "base/pet.hpp"
 
 namespace pierre {
 

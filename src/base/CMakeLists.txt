@@ -21,6 +21,7 @@ add_library(${__target}
   host.cpp
 
   # time utilities
+  elapsed.cpp
   pet.cpp
 
   # thread util

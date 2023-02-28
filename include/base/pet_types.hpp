@@ -19,38 +19,33 @@
 #pragma once
 
 #include "base/helpers.hpp"
-#include "base/pet.hpp"
 #include "base/types.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <memory>
+#include <chrono>
+#include <concepts>
+#include <numeric>
 #include <type_traits>
 
 namespace pierre {
 
-struct InputInfo {
-  static constexpr uint32_t rate{44100}; // max available at the moment
-  static constexpr uint8_t channels{2};
-  static constexpr uint8_t bit_depth{16};
-  static constexpr uint8_t bytes_per_frame{4};
+using namespace std::chrono_literals;
 
-  static constexpr Nanos frame{pet::from_val<Nanos>(1e+9 / rate)};
+using Days = std::chrono::days;
+using Hours = std::chrono::hours;
+using Micros = std::chrono::microseconds;
+using Millis = std::chrono::milliseconds;
+using Minutes = std::chrono::minutes;
+using Nanos = std::chrono::nanoseconds;
+using Seconds = std::chrono::seconds;
+using steady_clock = std::chrono::steady_clock;
+using steady_timepoint = std::chrono::time_point<steady_clock, Nanos>;
+using system_clock = std::chrono::system_clock;
+using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
 
-  static constexpr Nanos lead_time{frame * 1024};
-  static constexpr Nanos lead_time_min{pet::percent(lead_time, 33)};
+typedef uint64_t ClockID; // master clock id
 
-  static constexpr int fps{Millis(1000) / pet::as<Millis>(lead_time)};
-
-  template <typename T> static constexpr auto frame_count(T v) noexcept {
-    if constexpr (std::is_same_v<T, Nanos>) {
-      return v / lead_time;
-    } else if constexpr (IsDuration<T>) {
-      return std::chrono::duration_cast<Nanos>(v) / lead_time;
-    } else {
-      static_assert("unhandled type");
-    }
-  }
-};
+template <typename T>
+concept IsDuration = IsAnyOf<std::remove_cvref_t<std::remove_pointer_t<std::decay_t<T>>>, Nanos,
+                             Micros, Millis, Seconds, Minutes, Hours, Days>;
 
 } // namespace pierre

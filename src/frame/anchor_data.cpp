@@ -22,14 +22,6 @@
 #include "base/types.hpp"
 #include "lcs/logger.hpp"
 
-#include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <exception>
-#include <fmt/format.h>
-#include <memory>
-#include <optional>
-
 namespace pierre {
 
 //  Using PTP, here is what is necessary

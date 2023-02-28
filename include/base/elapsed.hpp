@@ -18,18 +18,18 @@
 
 #pragma once
 
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 
-#include <chrono>
 #include <compare>
 #include <cstdint>
+#include <time.h>
 #include <type_traits>
 
 namespace pierre {
 
 class Elapsed {
 public:
-  Elapsed(void) noexcept : nanos(pet::now_monotonic()), frozen(false) {}
+  Elapsed(void) noexcept : nanos(monotonic()), frozen(false) {}
   constexpr operator auto() noexcept { return elapsed(); }
 
   template <typename TO> TO as() const { return TO(elapsed()); }
@@ -40,7 +40,7 @@ public:
     return nanos;
   }
 
-  const string humanize() const noexcept { return pet::humanize(elapsed()); }
+  const string humanize() const noexcept;
 
   constexpr std::strong_ordering operator<=>(auto rhs) const noexcept {
     if (elapsed() < rhs) return std::strong_ordering::less;
@@ -57,7 +57,8 @@ public:
   }
 
 private:
-  constexpr Nanos elapsed() const noexcept { return frozen ? nanos : pet::now_monotonic() - nanos; }
+  static Nanos monotonic() noexcept;
+  constexpr Nanos elapsed() const noexcept { return frozen ? nanos : monotonic() - nanos; }
 
 private:
   Nanos nanos;

@@ -40,7 +40,7 @@ shutdown = false
 standby = true
 monitor_wip = true
 reel = false
-racked = { monitor_wip = false, log_racked = false, thread = false }
+racked = { flush = false, monitor_wip = false, log_racked = false, thread = false }
 
 [logger.frame]
 anchor = false
@@ -76,7 +76,7 @@ threads = 2 # frame loop and frame timer
 local = { stalled.ms = 7_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
 remote = { host = "test-with-devs", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
-threads = 1
+threads = 2
 
 [desk.dimmable]
 max = 8190

@@ -18,12 +18,12 @@
 
 #pragma once
 
-#include "base/pet.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <compare>
+#include <concepts>
 #include <fmt/format.h>
 #include <map>
 #include <memory>
@@ -63,31 +63,36 @@ enum state_now_t : size_t {
 class state {
 public:
   state() = default;
-  state(state_now_t val) noexcept : _val(val) {}
-  state(const state &s) noexcept : _val(s._val.load()) {}
+  state(state_now_t val) noexcept : val(val) {}
+  state(const state &s) noexcept : val(s.val.load()) {}
 
   state &operator=(const state &rhs) noexcept {
-    _val.store(rhs._val);
+    val.store(rhs.val);
     return *this;
   }
 
-  auto &&operator=(state_now_t val) noexcept {
-    _val = val;
+  auto &&operator=(state_now_t new_val) noexcept {
+    val = new_val;
     return *this;
   }
 
   // allow comparison to state_now_t, another state or a set of state_now_t
   // note:  this must be a friend implementation to align with operator<=>
   template <typename T> friend bool operator==(const state &lhs, const T &rhs) noexcept {
-    if constexpr (std::is_same_v<T, state_now_t>) return lhs._val == rhs;
-    if constexpr (std::is_same_v<T, state>) return lhs._val == rhs._val;
-    if constexpr (std::is_same_v<T, std::set<state_now_t>>) return rhs.contains(lhs._val);
-
-    static_assert("comparison to state_now_t, another state or a set of state_now_t only");
+    if constexpr (std::same_as<T, state_now_t>) {
+      return lhs.val == rhs;
+    } else if constexpr (std::is_same_v<T, state>) {
+      return lhs.val == rhs.val;
+    } else if constexpr (std::is_same_v<T, std::set<state_now_t>>) {
+      return rhs.contains(lhs.val);
+    } else {
+      static_assert(always_false_v<T>,
+                    "comparison to state_now_t, another state or a set of state_now_t only");
+    }
   }
 
   friend std::strong_ordering operator<=>(const state &lhs, const state &rhs) noexcept {
-    return lhs._val.load() <=> rhs._val;
+    return lhs.val.load() <=> rhs.val;
   }
 
   bool deciphered() const noexcept { return *this == DECIPHERED; };
@@ -109,9 +114,9 @@ public:
   bool future() const noexcept { return *this == FUTURE; }
   bool header_parsed() const noexcept { return *this == HEADER_PARSED; }
 
-  csv inspect() const noexcept { return csv{val_to_txt_map.at(_val)}; }
+  csv inspect() const noexcept { return csv{val_to_txt_map.at(val)}; }
 
-  auto now() const noexcept { return _val.load(); }
+  auto now() const noexcept { return val.load(); }
 
   bool outdated() const noexcept { return *this == OUTDATED; }
   bool ready() const noexcept { return *this == READY; }
@@ -126,7 +131,7 @@ public:
 
   // returns true if the state was the wanted val
   bool store_if_equal(state_now_t want_val, state_now_t next_val) noexcept {
-    return std::atomic_compare_exchange_strong(&_val, &want_val, next_val);
+    return std::atomic_compare_exchange_strong(&val, &want_val, next_val);
   }
 
   auto tag() const noexcept { return std::make_pair("state", inspect().data()); }
@@ -141,13 +146,13 @@ public:
     return rc;
   }
 
-  bool updatable() const { // frame states that can be changed
+  bool updatable() const noexcept { // frame states that can be changed
     static const auto want = std::set{DSP_COMPLETE, FUTURE, READY};
     return *this == want;
   }
 
 private:
-  std::atomic<state_now_t> _val{state_now_t::NONE};
+  std::atomic<state_now_t> val{state_now_t::NONE};
   static std::map<state_now_t, string> val_to_txt_map;
 };
 

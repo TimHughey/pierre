@@ -21,6 +21,7 @@
 #include "av.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
+#include "base/pet.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "io/io.hpp"

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 

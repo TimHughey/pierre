@@ -19,34 +19,14 @@
 #pragma once
 
 #include "base/helpers.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 
-#include <chrono>
 #include <concepts>
 #include <numeric>
 #include <type_traits>
 
 namespace pierre {
-
-using namespace std::chrono_literals;
-
-using Days = std::chrono::days;
-using Hours = std::chrono::hours;
-using Micros = std::chrono::microseconds;
-using Millis = std::chrono::milliseconds;
-using Minutes = std::chrono::minutes;
-using Nanos = std::chrono::nanoseconds;
-using Seconds = std::chrono::seconds;
-using steady_clock = std::chrono::steady_clock;
-using steady_timepoint = std::chrono::time_point<steady_clock, Nanos>;
-using system_clock = std::chrono::system_clock;
-using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
-
-typedef uint64_t ClockID; // master clock id
-
-template <typename T>
-concept IsDuration = IsAnyOf<std::remove_cvref_t<std::remove_pointer_t<std::decay_t<T>>>, Nanos,
-                             Micros, Millis, Seconds, Minutes, Hours, Days>;
 
 struct pet {
   static constexpr Nanos NS_FACTOR{upow(10, 9)};
@@ -140,9 +120,9 @@ struct pet {
   }
 
 private:
-  static Nanos _monotonic();
-  static Nanos _realtime();
-  static Nanos _boottime();
+  static Nanos _monotonic() noexcept;
+  static Nanos _realtime() noexcept;
+  static Nanos _boottime() noexcept;
 };
 
 } // namespace pierre

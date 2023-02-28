@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/input_info.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/clock_info.hpp"
@@ -27,7 +27,6 @@
 #include "lcs/logger.hpp"
 
 #include <array>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>

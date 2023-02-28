@@ -76,49 +76,54 @@ public:
   }
 
   // for Msg RX
-  auto buff_msg_len() { return asio::buffer(len_buff.data(), len_buff.size()); }
+  auto buff_msg_len() noexcept { return asio::buffer(len_buff); }
 
   // for Msg RX
-  auto buff_packed() {
+  auto buff_packed() noexcept {
     auto *p = reinterpret_cast<uint16_t *>(len_buff.data());
     packed_len = ntohs(*p);
 
-    packed.reserve(packed_len); // we know the size of the incoming message
+    packed.assign(packed_len, 0x00); // we know the size of the incoming message
 
     return asio::buffer(packed.data(), packed.capacity());
   }
 
   // for Msg TX
-  auto buff_seq() {
+  auto buff_seq() noexcept {
     uint16_t msg_len = htons(packed_len);
     memcpy(len_buff.data(), &msg_len, len_buff.size());
 
-    tx_len = packed_len + len_buff.size();
+    // note: packed should be previously allocated by serialize
 
-    return std::array{const_buff(len_buff.data(), len_buff.size()), //
-                      const_buff(packed.data(), packed.capacity())};
+    return std::array{asio::buffer(len_buff), asio::buffer(packed)};
   }
 
-  auto deserialize(size_t bytes) {
-    const auto err = deserializeMsgPack(doc, packed.data(), packed.capacity());
+  auto deserialize(size_t bytes) noexcept {
+    const auto err = deserializeMsgPack(doc, packed.data(), packed.size());
 
     return !err && (bytes > 0);
   }
 
-  auto key_equal(csv key, csv val) const { return val == doc[key]; }
+  auto elapsed() noexcept { return e.freeze(); }
+  auto elapsed_restart() noexcept { return e.reset(); }
+
+  auto key_equal(csv key, csv val) const noexcept { return val == doc[key]; }
 
   virtual void finalize() {} // override for additional work prior to serialization
 
-  auto serialize() {
+  auto serialize() noexcept {
     finalize();
 
     doc[NOW_US] = pet::now_monotonic<Micros>().count();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
-    packed.reserve(PACKED_DEFAULT_MAX_SIZE);
+    packed.assign(measureMsgPack(doc), 0x00);
 
-    packed_len = serializeMsgPack(doc, packed.data(), packed.capacity());
+    packed_len = serializeMsgPack(doc, packed.data(), packed.size());
   }
+
+  bool xfer_error() const noexcept { return !xfer_ok(); }
+  bool xfer_ok() const noexcept { return !ec && (xfr.bytes == (packed_len + MSG_LEN_SIZE)); }
 
   // misc logging, debug
   virtual string inspect() const noexcept;
@@ -133,10 +138,22 @@ public:
   Packed packed;
 
   // order independent
-  size_t packed_len = 0;
-  size_t tx_len = 0;
+  size_t packed_len{0};
+  size_t tx_len{0};
 
-  // misc debug
+  // async call result
+  error_code ec;
+  union {
+    std::size_t in;
+    std::size_t out;
+    std::size_t bytes;
+  } xfr{0};
+
+  // duration tracking
+private:
+  Elapsed e;
+
+public:
   static constexpr csv module_id{"io.msg.base"};
 };
 

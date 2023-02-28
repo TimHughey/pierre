@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
@@ -34,7 +33,6 @@ namespace pierre {
 // forward decls to hide implementation details, limit include dependencies
 class Anchor;
 class AnchorData;
-class DmxCtrl;
 class FlushInfo;
 class FX;
 class MasterClock;
@@ -42,6 +40,10 @@ class Racked;
 
 namespace frame {
 class state;
+}
+
+namespace desk {
+  class DmxCtrl;
 }
 
 class Desk {
@@ -88,7 +90,7 @@ private:
   std::mutex run_state_mtx;
   std::unique_ptr<std::latch> shutdown_latch;
 
-  std::unique_ptr<DmxCtrl> dmx_ctrl{nullptr};
+  std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<FX> active_fx{nullptr};
 
 public:
