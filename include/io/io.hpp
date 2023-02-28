@@ -24,7 +24,20 @@
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 
-#include <boost/asio.hpp>
+#include <boost/asio/bind_executor.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/connect.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/system_timer.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/system.hpp>
 #include <cstdint>
 #include <map>
@@ -38,7 +51,6 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using const_buff = asio::const_buffer;
-using deadline_timer = asio::deadline_timer;
 using error_code = boost::system::error_code;
 using io_context = asio::io_context;
 using ip_address = boost::asio::ip::address;
@@ -47,7 +59,6 @@ using ip_udp = boost::asio::ip::udp;
 using steady_timer = asio::steady_timer;
 using system_timer = asio::system_timer;
 using strand = io_context::strand;
-using streambuf_it = boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
