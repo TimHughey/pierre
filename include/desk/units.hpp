@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/dmx_data_msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit.hpp"
 
 #include <algorithm>
@@ -31,6 +31,7 @@
 #include <type_traits>
 
 namespace pierre {
+namespace desk {
 
 class Units {
 
@@ -76,7 +77,7 @@ public:
 
   ssize_t ssize() const noexcept { return std::ssize(map); }
 
-  void update_msg(DmxDataMsg &m) noexcept {
+  void update_msg(DataMsg &m) noexcept {
     for_each([&](Unit *unit) mutable { unit->update_msg(m); });
   }
 
@@ -87,4 +88,5 @@ public:
   static constexpr csv module_id{"desk::Units"};
 };
 
+} // namespace desk
 } // namespace pierre

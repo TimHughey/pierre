@@ -34,7 +34,7 @@
 #include <optional>
 
 namespace pierre {
-namespace fx {
+namespace desk {
 
 class MajorPeak : public FX {
 public:
@@ -49,7 +49,7 @@ public:
   }
 
   void execute(Peaks &peaks) noexcept override;
-  csv name() const override { return fx_name::MAJOR_PEAK; }
+  csv name() const override { return fx::MAJOR_PEAK; }
 
   void once() override; // must be in .cpp to limit units include
 

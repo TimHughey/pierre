@@ -28,15 +28,16 @@
 #include <iterator>
 
 namespace pierre {
+namespace desk {
 
-class DmxDataMsg : public desk::Msg {
+class DataMsg : public Msg {
 
 public:
-  DmxDataMsg(frame_t frame) noexcept;
-  ~DmxDataMsg() noexcept {} // prevent default copy/move
+  DataMsg(frame_t frame) noexcept;
+  ~DataMsg() noexcept {} // prevent default copy/move
 
-  DmxDataMsg(DmxDataMsg &&m) = default;           // allow move construct
-  DmxDataMsg &operator=(DmxDataMsg &&) = default; // allow move assignment
+  DataMsg(DataMsg &&m) = default;           // allow move construct
+  DataMsg &operator=(DataMsg &&) = default; // allow move assignment
 
 public:
   uint8_t *dmxFrame() { return dmx_frame.data(); }
@@ -72,4 +73,5 @@ public:
   static constexpr csv module_id{"desk.dmx_data_msg"};
 };
 
+} // namespace desk
 } // namespace pierre

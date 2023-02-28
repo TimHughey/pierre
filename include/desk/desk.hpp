@@ -20,6 +20,8 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
+#include "desk/fdecls.hpp"
+#include "frame/fdecls.hpp"
 #include "io/context.hpp"
 #include "io/timer.hpp"
 
@@ -30,22 +32,6 @@
 #include <mutex>
 
 namespace pierre {
-
-// forward decls to hide implementation details, limit include dependencies
-class Anchor;
-class AnchorData;
-class FlushInfo;
-class FX;
-class MasterClock;
-class Racked;
-
-namespace frame {
-class state;
-}
-
-namespace desk {
-class DmxCtrl;
-}
 
 class Desk {
 
@@ -92,7 +78,7 @@ private:
   std::unique_ptr<std::latch> shutdown_latch;
 
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
-  std::unique_ptr<FX> active_fx{nullptr};
+  std::unique_ptr<desk::FX> active_fx{nullptr};
 
 public:
   static constexpr csv module_id{"desk"};

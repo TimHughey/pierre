@@ -19,18 +19,17 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/dmx_data_msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit/names.hpp"
 
 namespace pierre {
+namespace desk {
 
-namespace unit {
 constexpr size_t no_frame{0};
-}
 
 class Unit {
 public:
-  Unit(const hdopts &opts, size_t frame_len = unit::no_frame)
+  Unit(const hdopts &opts, size_t frame_len = no_frame)
       : name(opts.name),       // need to store an actual string so we can make
         type(opts.type),       // type of unit (switch, dimmable, etc)
         address(opts.address), // abstract address (used by subclasses as needed)
@@ -44,7 +43,7 @@ public:
 
   // message processing loop
   virtual void prepare() noexcept {}
-  virtual void update_msg(DmxDataMsg &msg) noexcept { msg.noop(); }
+  virtual void update_msg(DataMsg &msg) noexcept { msg.noop(); }
 
 protected:
   // order dependent
@@ -54,4 +53,5 @@ protected:
   const size_t frame_len;
 };
 
+} // namespace desk
 } // namespace pierre

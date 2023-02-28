@@ -19,10 +19,12 @@
 #include "desk/fx/names.hpp"
 
 namespace pierre {
+namespace desk {
 
-const string fx_name::ALL_STOP{"all_stop"};
-const string fx_name::MAJOR_PEAK{"major_peak"};
-const string fx_name::SILENCE{"silence"};
-const string fx_name::STANDBY{"standby"};
+const string fx::ALL_STOP{"all_stop"};
+const string fx::MAJOR_PEAK{"major_peak"};
+const string fx::SILENCE{"silence"};
+const string fx::STANDBY{"standby"};
 
+} // namespace desk
 } // namespace pierre

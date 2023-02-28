@@ -25,7 +25,7 @@
 #include "unit/all.hpp"
 
 namespace pierre {
-namespace fx {
+namespace desk {
 
 Standby::~Standby() { cancel(); }
 
@@ -39,8 +39,8 @@ void Standby::execute(Peaks &peaks) noexcept {
     next_color.setBrightness(next_brightness);
   }
 
-  units.get<PinSpot>(unit_name::MAIN_SPOT)->colorNow(next_color);
-  units.get<PinSpot>(unit_name::FILL_SPOT)->colorNow(next_color);
+  units.get<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
+  units.get<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
 
   if (next_brightness >= max_brightness) {
     next_color.rotateHue(hue_step);
@@ -49,9 +49,9 @@ void Standby::execute(Peaks &peaks) noexcept {
   // unless completed (silence timeout fired) set finished to false
   if (!completed()) {
     set_finished(peaks.silence() == false);
-    next_fx = fx_name::MAJOR_PEAK;
+    next_fx = fx::MAJOR_PEAK;
   } else {
-    next_fx = fx_name::ALL_STOP;
+    next_fx = fx::ALL_STOP;
   }
 }
 
@@ -92,12 +92,12 @@ void Standby::load_config() noexcept {
 void Standby::once() {
   load_config();
 
-  units(unit_name::AC_POWER)->activate();
-  units(unit_name::DISCO_BALL)->dark();
+  units(unit::AC_POWER)->activate();
+  units(unit::DISCO_BALL)->dark();
 
-  units.get<Dimmable>(unit_name::EL_DANCE)->dim();
-  units.get<Dimmable>(unit_name::EL_DANCE)->dim();
-  units.get<Dimmable>(unit_name::LED_FOREST)->dim();
+  units.get<Dimmable>(unit::EL_DANCE)->dim();
+  units.get<Dimmable>(unit::EL_DANCE)->dim();
+  units.get<Dimmable>(unit::LED_FOREST)->dim();
 }
 
 void Standby::silence_watch() noexcept {
@@ -105,11 +105,11 @@ void Standby::silence_watch() noexcept {
   silence_timer.expires_after(silence_timeout);
   silence_timer.async_wait([this](const error_code ec) {
     if (!ec) {
-      next_fx = fx_name::ALL_STOP;
+      next_fx = fx::ALL_STOP;
       set_finished(true);
     }
   });
 }
 
-} // namespace fx
+} // namespace desk
 } // namespace pierre

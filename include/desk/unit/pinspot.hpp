@@ -20,7 +20,7 @@
 
 #include "base/types.hpp"
 #include "desk/color.hpp"
-#include "desk/dmx_data_msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit.hpp"
 #include "fader/color_travel.hpp"
 
@@ -29,6 +29,7 @@
 #include <memory>
 
 namespace pierre {
+namespace desk {
 
 class PinSpot : public Unit {
 public:
@@ -84,7 +85,7 @@ public:
   void prepare() noexcept override { faderMove(); }
   inline bool isFading() const { return (bool)fader; }
 
-  void update_msg(DmxDataMsg &msg) noexcept override {
+  void update_msg(DataMsg &msg) noexcept override {
     auto snippet = msg.dmxFrame() + address;
 
     color.copyRgbToByteArray(snippet + 1);
@@ -122,4 +123,5 @@ private:
   static constexpr size_t FRAME_LEN{6};
 };
 
+} // namespace desk
 } // namespace pierre

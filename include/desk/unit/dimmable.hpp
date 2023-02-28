@@ -32,6 +32,8 @@
 
 namespace pierre {
 
+namespace desk {
+
 using duty_val_t = uint32_t;
 using duty_percent_t = float;
 
@@ -41,7 +43,7 @@ private:
   enum mode_t : uint8_t { FIXED = 0, PULSE_INIT, PULSE_RUNNING };
 
 public:
-  Dimmable(const auto &opts) : Unit(opts, unit::no_frame) {
+  Dimmable(const auto &opts) : Unit(opts, no_frame) {
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);
@@ -104,7 +106,7 @@ public:
     }
   }
 
-  virtual void update_msg(DmxDataMsg &msg) noexcept override {
+  virtual void update_msg(DataMsg &msg) noexcept override {
     _duty = _duty_next;
 
     msg.doc[name] = _duty;
@@ -149,4 +151,5 @@ private:
   float _velocity = 0.0; // change per frame when fx is active
 };
 
+} // namespace desk
 } // namespace pierre

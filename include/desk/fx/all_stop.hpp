@@ -26,7 +26,7 @@
 #include <memory>
 
 namespace pierre {
-namespace fx {
+namespace desk {
 
 class AllStop : public FX {
 public:
@@ -39,11 +39,11 @@ public:
     set_finished(false);
   }
 
-  csv name() const override { return fx_name::ALL_STOP; }
+  csv name() const override { return fx::ALL_STOP; }
 
 public:
   static constexpr csv module_id{"fx.all_stop"};
 };
 
-} // namespace fx
+} // namespace desk
 } // namespace pierre

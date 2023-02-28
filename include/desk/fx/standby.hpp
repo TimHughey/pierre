@@ -28,7 +28,7 @@
 #include <memory>
 
 namespace pierre {
-namespace fx {
+namespace desk {
 
 class Standby : public FX {
 
@@ -46,7 +46,7 @@ public:
   }
 
   void execute(Peaks &peaks) noexcept override;
-  csv name() const override { return fx_name::STANDBY; };
+  csv name() const override { return fx::STANDBY; };
 
   void once() override;
 
@@ -72,5 +72,5 @@ public:
   static constexpr csv module_id{"fx.standby"};
 };
 
-} // namespace fx
+} // namespace desk
 } // namespace pierre

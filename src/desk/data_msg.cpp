@@ -16,13 +16,15 @@
 //
 // https://www.wisslanding.com
 
-#include "dmx_data_msg.hpp"
+#include "data_msg.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 
 namespace pierre {
 
-DmxDataMsg::DmxDataMsg(frame_t frame) noexcept
+namespace desk {
+
+DataMsg::DataMsg(frame_t frame) noexcept
     : Msg(TYPE),               // init base class
       dmx_frame(16, 0x00),     // init the dmx frame to all zeros
       silence(frame->silent()) // is this silence?
@@ -34,4 +36,5 @@ DmxDataMsg::DmxDataMsg(frame_t frame) noexcept
   add_kv("sync_wait_µs", pet::as<Micros>(frame->sync_wait()).count());
 }
 
+} // namespace desk
 } // namespace pierre

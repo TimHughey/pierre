@@ -34,7 +34,7 @@ namespace pierre {
 using FillFader = fader::ToBlack<fader::SimpleLinear>;
 using MainFader = fader::ToBlack<fader::SimpleLinear>;
 
-namespace fx {
+namespace desk {
 
 namespace {
 namespace stats = pierre::stats;
@@ -79,8 +79,8 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
     _cfg_changed = ConfigWatch::want_changes();
   }
 
-  units(unit_name::AC_POWER)->activate();
-  units.get<Dimmable>(unit_name::DISCO_BALL)->dim();
+  units(unit::AC_POWER)->activate();
+  units.get<Dimmable>(unit::DISCO_BALL)->dim();
 
   handle_el_wire(peaks);
   handle_main_pinspot(peaks);
@@ -91,15 +91,15 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
 
   // detect if FX is in finished position (nothing is fading) and the silence
   // timeout has expired
-  set_finished((units.get<PinSpot>(unit_name::MAIN_SPOT)->isFading() == false) &&
-               (units.get<PinSpot>(unit_name::FILL_SPOT)->isFading() == false) && silence.load());
+  set_finished((units.get<PinSpot>(unit::MAIN_SPOT)->isFading() == false) &&
+               (units.get<PinSpot>(unit::FILL_SPOT)->isFading() == false) && silence.load());
 }
 
 void MajorPeak::handle_el_wire(Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{units.get<Dimmable>(unit_name::EL_DANCE),
-                     units.get<Dimmable>(unit_name::EL_ENTRY)};
+  std::array elwires{units.get<Dimmable>(unit::EL_DANCE),
+                     units.get<Dimmable>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
@@ -115,7 +115,7 @@ void MajorPeak::handle_el_wire(Peaks &peaks) {
 }
 
 void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
-  auto fill = units.get<PinSpot>(unit_name::FILL_SPOT);
+  auto fill = units.get<PinSpot>(unit::FILL_SPOT);
   auto cfg = _pspot_cfg_map.at("fill pinspot");
 
   const auto peak = peaks.major_peak();
@@ -182,7 +182,7 @@ void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
 }
 
 void MajorPeak::handle_main_pinspot(Peaks &peaks) {
-  auto main = units.get<PinSpot>(unit_name::MAIN_SPOT);
+  auto main = units.get<PinSpot>(unit::MAIN_SPOT);
   const auto &cfg = _pspot_cfg_map.at("main pinspot");
 
   const auto freq_min = cfg.freq_min;
@@ -372,8 +372,8 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 
 // must be in .cpp to avoid including Desk in .hpp
 void MajorPeak::once() {
-  units(unit_name::AC_POWER)->activate();
-  units(unit_name::LED_FOREST)->dark();
+  units(unit::AC_POWER)->activate();
+  units(unit::LED_FOREST)->dark();
 
   silence_watch();
 }
@@ -391,5 +391,5 @@ void MajorPeak::silence_watch() noexcept {
 // static class members
 MajorPeak::ReferenceColors MajorPeak::_ref_colors;
 
-} // namespace fx
+} // namespace desk
 } // namespace pierre

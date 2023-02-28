@@ -22,7 +22,9 @@
 
 namespace pierre {
 
-struct unit_name {
+namespace desk {
+
+struct unit {
   static const string AC_POWER;
   static const string MAIN_SPOT;
   static const string FILL_SPOT;
@@ -45,4 +47,5 @@ struct hdopts {
   size_t address;
 };
 
+} // namespace desk
 } // namespace pierre

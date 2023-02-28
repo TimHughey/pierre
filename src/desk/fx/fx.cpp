@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "desk/fx.hpp"
-#include "desk/dmx_data_msg.hpp"
+#include "desk/data_msg.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
 #include "frame/frame.hpp"
@@ -26,6 +26,7 @@
 #include <ranges>
 
 namespace pierre {
+namespace desk {
 
 Units FX::units; // headunits available for FX (static class data)
 
@@ -38,7 +39,7 @@ bool FX::match_name(const std::initializer_list<csv> names) const noexcept {
                              [this](const auto &n) { return n == name(); });
 }
 
-bool FX::render(frame_t frame, DmxDataMsg &msg) noexcept {
+bool FX::render(frame_t frame, DataMsg &msg) noexcept {
 
   if (should_render) {
     if (called_once == false) {
@@ -57,4 +58,5 @@ bool FX::render(frame_t frame, DmxDataMsg &msg) noexcept {
   return finished.load();
 }
 
+} // namespace desk
 } // namespace pierre

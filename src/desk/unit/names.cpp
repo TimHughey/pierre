@@ -20,16 +20,19 @@
 
 namespace pierre {
 
-const string unit_name::AC_POWER{"ac power"};
-const string unit_name::MAIN_SPOT{"main pinspot"};
-const string unit_name::FILL_SPOT{"fill pinspot"};
-const string unit_name::EL_ENTRY{"el entry"};
-const string unit_name::EL_DANCE{"el dance"};
-const string unit_name::LED_FOREST{"led forest"};
-const string unit_name::DISCO_BALL{"disco ball"};
+namespace desk {
+
+const string unit::AC_POWER{"ac power"};
+const string unit::MAIN_SPOT{"main pinspot"};
+const string unit::FILL_SPOT{"fill pinspot"};
+const string unit::EL_ENTRY{"el entry"};
+const string unit::EL_DANCE{"el dance"};
+const string unit::LED_FOREST{"led forest"};
+const string unit::DISCO_BALL{"disco ball"};
 
 const string unit_type::PINSPOT{"pinspot"};
 const string unit_type::DIMMABLE{"dimmable"};
 const string unit_type::SWITCH{"switch"};
 
+} // namespace desk
 } // namespace pierre

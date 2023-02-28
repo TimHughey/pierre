@@ -31,6 +31,8 @@
 
 namespace pierre {
 
+namespace desk {
+
 void Units::create_all_from_cfg() noexcept {
   auto cfg_desk = config()->at("desk"sv);
 
@@ -94,4 +96,5 @@ void Units::create_all_from_cfg() noexcept {
   }
 }
 
+} // namespace desk
 } // namespace pierre

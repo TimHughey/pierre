@@ -20,9 +20,9 @@
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
+#include "data_msg.hpp"
 #include "desk/async_msg.hpp"
 #include "dmx_ctrl.hpp"
-#include "dmx_data_msg.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_last.hpp"
 #include "frame/flush_info.hpp"
@@ -111,7 +111,7 @@ void Desk::frame_loop(bool fx_finished) noexcept {
 
   // render this frame and send to DMX controller
   if (frame->state.ready()) {
-    DmxDataMsg msg(frame);
+    desk::DataMsg msg(frame);
 
     if (active_fx) {
       fx_finished = active_fx->render(frame, msg);
@@ -148,32 +148,32 @@ void Desk::frame_loop(bool fx_finished) noexcept {
 void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   static constexpr csv fn_id{"fx_select"};
 
-  const auto fx_name_now = active_fx ? active_fx->name() : csv{"none"};
-  const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : fx_name::STANDBY;
+  const auto fx_now = active_fx ? active_fx->name() : csv{"none"};
+  const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : desk::fx::STANDBY;
 
   if (active_fx) active_fx->cancel(); // stop any pending io_ctx work
 
   // when fx::Standby is finished initiate standby()
-  if (fx_suggested_next == fx_name::ALL_STOP) {
+  if (fx_suggested_next == desk::fx::ALL_STOP) {
     INFO_AUTO("fx::Standby finished, initiating Desk::standby()\n");
     state = Stopping;
 
-  } else if ((fx_suggested_next == fx_name::STANDBY) && silent) {
-    active_fx = std::make_unique<fx::Standby>(io_ctx);
+  } else if ((fx_suggested_next == desk::fx::STANDBY) && silent) {
+    active_fx = std::make_unique<desk::Standby>(io_ctx);
 
-  } else if ((fx_suggested_next == fx_name::MAJOR_PEAK) && !silent) {
-    active_fx = std::make_unique<fx::MajorPeak>(io_ctx);
+  } else if ((fx_suggested_next == desk::fx::MAJOR_PEAK) && !silent) {
+    active_fx = std::make_unique<desk::MajorPeak>(io_ctx);
 
   } else if (!silent && (frame_state.ready() || frame_state.future())) {
-    active_fx = std::make_unique<fx::MajorPeak>(io_ctx);
+    active_fx = std::make_unique<desk::MajorPeak>(io_ctx);
 
   } else { // default to Standby
-    active_fx = std::make_unique<fx::Standby>(io_ctx);
+    active_fx = std::make_unique<desk::Standby>(io_ctx);
   }
 
   // note in log selected FX, if needed
-  if (active_fx && !active_fx->match_name(fx_name_now)) {
-    INFO_AUTO("FX {} -> {}\n", fx_name_now, active_fx->name());
+  if (active_fx && !active_fx->match_name(fx_now)) {
+    INFO_AUTO("FX {} -> {}\n", fx_now, active_fx->name());
   }
 }
 

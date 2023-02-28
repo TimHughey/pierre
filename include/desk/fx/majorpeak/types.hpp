@@ -29,7 +29,7 @@
 #include <map>
 
 namespace pierre {
-namespace fx {
+namespace desk {
 namespace major_peak {
 
 using freq_limits_t = hard_soft_limit<Frequency>;
@@ -91,5 +91,5 @@ using pspot_cfg_map = std::map<string, pspot_cfg>;
 using hue_cfg_map = std::map<string, hue_cfg>;
 
 } // namespace major_peak
-} // namespace fx
+} // namespace desk
 } // namespace pierre

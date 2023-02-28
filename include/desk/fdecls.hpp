@@ -18,16 +18,12 @@
 
 #pragma once
 
-#include "base/types.hpp"
-
 namespace pierre {
-namespace desk {
-struct fx {
-  static const string ALL_STOP;
-  static const string MAJOR_PEAK;
-  static const string SILENCE;
-  static const string STANDBY;
-};
 
+// forward decls to hide implementation details, limit include dependencies
+namespace desk {
+class DmxCtrl;
+class FX;
 } // namespace desk
+
 } // namespace pierre
