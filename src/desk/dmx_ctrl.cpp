@@ -21,6 +21,7 @@
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
 #include "base/uint8v.hpp"
+#include "io/log_socket.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"

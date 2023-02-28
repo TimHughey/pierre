@@ -21,9 +21,11 @@
 
 #include "base/clock_now.hpp"
 #include "base/elapsed.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "io/io.hpp"
+#include "io/buffer.hpp"
+#include "io/error.hpp"
 #include "lcs/logger.hpp"
 
 #include <ArduinoJson.h>

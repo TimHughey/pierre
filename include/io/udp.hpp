@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -18,39 +19,26 @@
 
 #pragma once
 
-#include <concepts>
-#include <cstdint>
-#include <string>
-#include <string_view>
-#include <thread>
-#include <type_traits>
-#include <vector>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/connect.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/write.hpp>
+#include <boost/system.hpp>
 
 namespace pierre {
 
-using namespace std::literals;
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
 
-// string, string_view and const char *
-using string = std::string;
-typedef const std::string &csr;
-
-using string_view = std::string_view;
-typedef const std::string_view csv;
-typedef const char *ccs;
-
-// Vector of Floats
-using reals_t = std::vector<double>;
-
-using reel_serial_num_t = uint64_t;
-using seq_num_t = uint32_t;   // frame sequence num
-using timestamp_t = uint32_t; // frame timestamp
-
-template <typename T, typename... U>
-concept IsAnyOf = (std::same_as<T, U> || ...);
-
-template <class> inline constexpr bool always_false_v = false;
-
-static constexpr uint16_t ANY_PORT{0};
-using Port = uint16_t;
+using error_code = boost::system::error_code;
+using io_context = asio::io_context;
+using ip_address = boost::asio::ip::address;
+using ip_udp = boost::asio::ip::udp;
+using udp_endpoint = boost::asio::ip::udp::endpoint;
+using udp_socket = boost::asio::ip::udp::socket;
 
 } // namespace pierre

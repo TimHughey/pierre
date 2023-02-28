@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "io/io.hpp"
 #include "lcs/types.hpp"
 
 #define TOML_ENABLE_FORMATTERS 0 // don't need formatters

@@ -32,6 +32,7 @@
 #include "frame/silent_frame.hpp"
 #include "frame/state.hpp"
 #include "fx/all.hpp"
+#include "io/post.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"

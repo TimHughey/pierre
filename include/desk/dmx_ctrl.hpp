@@ -23,7 +23,9 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/msg.hpp"
-#include "io/io.hpp"
+#include "io/context.hpp"
+#include "io/tcp.hpp"
+#include "io/timer.hpp"
 #include "lcs/types.hpp"
 
 #include <atomic>

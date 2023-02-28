@@ -21,6 +21,7 @@
 #include "desk/desk.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
+#include "io/log_socket.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
@@ -59,7 +60,7 @@ void Audio::async_read_packet() noexcept {
       asio::bind_executor(                      // serialize so only one read is active
           local_strand,                         // of the local stand
           [this](error_code ec, ssize_t bytes) {
-            const auto msg = io::is_ready(sock, ec);
+            const auto msg = is_ready(sock, ec);
 
             if (!msg.empty() || (bytes < std::ssize(packet_len))) {
               INFO(module_id, fn_id, "bytes={} {}\n", bytes, msg);
@@ -81,7 +82,7 @@ void Audio::async_read_packet() noexcept {
                 asio::dynamic_buffer(packet), //
                 asio::transfer_exactly(len),
                 asio::bind_executor(local_strand, [=, s = s](error_code ec, ssize_t bytes) {
-                  const auto msg = io::is_ready(s->sock, ec);
+                  const auto msg = is_ready(s->sock, ec);
 
                   if (!msg.empty() || (bytes != len)) {
                     INFO(module_id, fn_id, "bytes={} msg\n", bytes, msg);
@@ -93,6 +94,31 @@ void Audio::async_read_packet() noexcept {
                   if (s->sock.is_open()) s->async_read_packet();
                 }));
           }));
+}
+
+const string Audio::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept {
+
+  // errc::operation_canceled:
+  // errc::resource_unavailable_try_again:
+  // errc::no_such_file_or_directory:
+
+  string msg;
+
+  // only generate log string on error or socket closed
+  if (ec || !sock.is_open()) {
+    auto w = std::back_inserter(msg);
+
+    fmt::format_to(w, "{}", sock.is_open() ? "[O]" : "[X]");
+    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+  }
+
+  if (msg.size() && cancel) {
+    [[maybe_unused]] error_code ec;
+    sock.shutdown(tcp_socket::shutdown_both, ec);
+    sock.close(ec);
+  }
+
+  return msg;
 }
 
 } // namespace rtsp

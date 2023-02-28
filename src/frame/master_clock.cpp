@@ -23,7 +23,6 @@
 #include "base/thread_util.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "io/io.hpp"
 #include "lcs/config.hpp"
 
 #include <algorithm>

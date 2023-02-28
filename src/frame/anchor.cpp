@@ -22,7 +22,6 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "clock_info.hpp"
-#include "io/io.hpp"
 #include "lcs/logger.hpp"
 
 #include <chrono>

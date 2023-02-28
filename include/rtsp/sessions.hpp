@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "io/io.hpp"
 
 #include <memory>
 #include <shared_mutex>

@@ -23,6 +23,7 @@
 #include "event.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
+#include "io/log_socket.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"

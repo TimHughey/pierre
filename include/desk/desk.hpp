@@ -20,7 +20,8 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "io/io.hpp"
+#include "io/context.hpp"
+#include "io/timer.hpp"
 
 #include <atomic>
 #include <future>
@@ -43,7 +44,7 @@ class state;
 }
 
 namespace desk {
-  class DmxCtrl;
+class DmxCtrl;
 }
 
 class Desk {

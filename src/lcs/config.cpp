@@ -24,7 +24,6 @@
 #include "base/types.hpp"
 #include "build_inject.hpp"
 #include "git_version.hpp"
-#include "io/io.hpp"
 #include "lcs/args.hpp"
 
 #include <cstdlib>

@@ -16,38 +16,13 @@
 //
 //  https://www.wisslanding.com
 
-#include "io/io.hpp"
+#include "io/log_socket.hpp"
 
 #include <exception>
 #include <fmt/format.h>
 #include <iterator>
 
 namespace pierre {
-
-const string io::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept {
-
-  // errc::operation_canceled:
-  // errc::resource_unavailable_try_again:
-  // errc::no_such_file_or_directory:
-
-  string msg;
-
-  // only generate log string on error or socket closed
-  if (ec || !sock.is_open()) {
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "{}", sock.is_open() ? "[O]" : "[X]");
-    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
-  }
-
-  if (msg.size() && cancel) {
-    [[maybe_unused]] error_code ec;
-    sock.shutdown(tcp_socket::shutdown_both, ec);
-    sock.close(ec);
-  }
-
-  return msg;
-}
 
 const string io::log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
                                 Elapsed e) noexcept {

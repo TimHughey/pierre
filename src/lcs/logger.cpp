@@ -17,7 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "lcs/logger.hpp"
+#include "base/elapsed.hpp"
 #include "base/thread_util.hpp"
+#include "io/timer.hpp"
 #include "lcs/config.hpp"
 
 #include <filesystem>
@@ -30,6 +32,8 @@ namespace shared {
 Logger logger;
 }
 
+Elapsed elapsed_runtime;
+
 namespace fs = std::filesystem;
 
 Logger::Logger() noexcept : guard(asio::make_work_guard(io_ctx)) {}
@@ -41,6 +45,10 @@ void Logger::print(const string prefix, const string msg) noexcept {
   } else {
     fmt::print(std::cout, "{} {}", prefix, msg);
   }
+}
+
+Logger::millis_fp Logger::runtime() noexcept { // static
+  return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
 }
 
 bool Logger::should_log(csv mod, csv cat) noexcept { // static

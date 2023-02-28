@@ -19,7 +19,9 @@
 #pragma once
 
 #include "base/uint8v.hpp"
-#include "io/io.hpp"
+#include "io/error.hpp"
+#include "io/strand.hpp"
+#include "io/tcp.hpp"
 #include "rtsp/ctx.hpp"
 
 #include <memory>
@@ -68,6 +70,9 @@ private:
   void async_accept() noexcept;
 
   void async_read_packet() noexcept;
+
+  static const string is_ready(tcp_socket &sock, error_code ec = io::make_error(),
+                               bool cancel = true) noexcept;
 
 private:
   // order dependent

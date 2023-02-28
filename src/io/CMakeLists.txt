@@ -12,7 +12,7 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
 
 add_library(${__target}  
   ${HEADER_LIST}
-  io.cpp
+  log_socket.cpp
 )
 
 # all includes are relative to base includes

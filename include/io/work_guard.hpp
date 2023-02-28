@@ -1,3 +1,4 @@
+
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -18,41 +19,18 @@
 
 #pragma once
 
-#include "base/thread_util.hpp"
-#include "base/uint8v.hpp"
-#include "fft.hpp"
-#include "frame.hpp"
-#include "io/context.hpp"
-#include "io/work_guard.hpp"
-#include "lcs/logger.hpp"
+#define BOOST_ASIO_DISABLE_BOOST_COROUTINE
 
-#include <array>
-#include <fmt/ostream.h>
-#include <latch>
-#include <memory>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/system/errc.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace pierre {
 
-class Dsp {
+namespace asio = boost::asio;
 
-public:
-  Dsp() noexcept;
-  ~Dsp() noexcept;
-
-  void process(const frame_t frame, FFT &&left, FFT &&right) noexcept;
-
-private:
-  // order dependent
-  io_context io_ctx;
-  work_guard guard;
-  std::unique_ptr<std::latch> shutdown_latch;
-
-private:
-  void _process(const frame_t frame, FFT &&left, FFT &&right) noexcept;
-
-public:
-  static constexpr csv thread_prefix{"dsp"};
-  static constexpr csv module_id{"frame.dsp"};
-};
+using io_context = asio::io_context;
+using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
 } // namespace pierre

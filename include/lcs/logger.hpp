@@ -18,8 +18,10 @@
 
 #pragma once
 
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "io/io.hpp"
+#include "io/post.hpp"
+#include "io/work_guard.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -41,7 +43,7 @@ extern Logger logger;
 }
 
 class Logger {
-private:
+public:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
 public:
@@ -74,9 +76,7 @@ public:
     }
   }
 
-  millis_fp runtime() noexcept {
-    return std::chrono::duration_cast<millis_fp>((Nanos)elapsed_runtime);
-  }
+  millis_fp runtime() noexcept;
 
   static bool should_log(csv mod, csv cat) noexcept; // see .cpp
 
@@ -107,7 +107,6 @@ public:
   static constexpr int width_mod{18};
   static constexpr int width_ts_precision{1};
   static constexpr int width_ts{13};
-  Elapsed elapsed_runtime;
 
 public:
   static constexpr csv module_id{"logger"};

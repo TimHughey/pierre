@@ -20,6 +20,7 @@
 #include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "git_version.hpp"
+#include "io/error.hpp"
 #include "lcs/args.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"

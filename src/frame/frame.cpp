@@ -24,7 +24,6 @@
 #include "base/pet.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
-#include "io/io.hpp"
 #include "lcs/config.hpp"
 #include "lcs/stats.hpp"
 
