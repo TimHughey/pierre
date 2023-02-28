@@ -33,7 +33,6 @@
 #include <latch>
 #include <ranges>
 #include <thread>
-#include <time.h>
 #include <utility>
 
 namespace pierre {

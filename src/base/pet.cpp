@@ -22,7 +22,6 @@
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <iterator>
-#include <time.h>
 
 namespace pierre {
 

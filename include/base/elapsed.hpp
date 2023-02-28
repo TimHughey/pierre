@@ -22,7 +22,6 @@
 
 #include <compare>
 #include <cstdint>
-#include <time.h>
 #include <type_traits>
 
 namespace pierre {

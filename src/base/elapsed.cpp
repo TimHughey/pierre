@@ -19,12 +19,6 @@
 #include "elapsed.hpp"
 #include "base/pet.hpp"
 
-#include <chrono>
-#include <compare>
-#include <cstdint>
-#include <time.h>
-#include <type_traits>
-
 namespace pierre {
 
 const string Elapsed::humanize() const noexcept { return pet::humanize(elapsed()); }
