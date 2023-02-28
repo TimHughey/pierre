@@ -110,7 +110,7 @@ void Desk::frame_loop(bool fx_finished) noexcept {
 
   // render this frame and send to DMX controller
   if (frame->state.ready()) {
-    DmxDataMsg msg(frame, InputInfo::lead_time);
+    DmxDataMsg msg(frame);
 
     if (active_fx) {
       fx_finished = active_fx->render(frame, msg);

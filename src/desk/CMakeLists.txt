@@ -17,6 +17,7 @@ add_library(${__target}
 
   # desk DMX control session and message
   dmx_ctrl.cpp
+  dmx_data_msg.cpp
   msg.cpp
   
   # collection of headunits

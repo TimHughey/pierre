@@ -16,35 +16,22 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include <cmath>
-#include <cstdint>
+#include "anchor_last.hpp"
+#include "base/pet.hpp"
 
 namespace pierre {
 
-constexpr uint64_t upow(uint64_t base, uint64_t exp) {
-  uint64_t result = 1;
+void AnchorLast::update(const AnchorData &ad, const ClockInfo &clock) noexcept {
 
-  for (;;) {
-    if (exp & 1) {
-      result *= base;
-    }
+  rtp_time = ad.rtp_time;
+  anchor_time = ad.anchor_time;
+  localized = pet::subtract_offset(anchor_time, clock.rawOffset);
+  since_update.reset();
 
-    exp >>= 1;
-
-    if (!exp) {
-      break;
-    }
-
-    base *= base;
+  if (clock_id == 0x00) { // only update master when AnchorLast isn't ready
+    master_at = clock.mastershipStartTime;
+    clock_id = ad.clock_id; // denotes AnchorLast is ready
   }
-
-  return result;
-}
-
-template <typename T> constexpr T scale_val(T val) { //
-  return (val <= 0.0) ? 0.0 : 10.0 * std::log10(val);
 }
 
 } // namespace pierre

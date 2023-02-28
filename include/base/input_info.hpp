@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "base/helpers.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
+#include "base/qpow10.hpp"
 #include "base/types.hpp"
 
 #include <cstddef>
@@ -35,12 +35,14 @@ struct InputInfo {
   static constexpr uint8_t bit_depth{16};
   static constexpr uint8_t bytes_per_frame{4};
 
-  static constexpr Nanos frame{pet::from_val<Nanos>(1e+9 / rate)};
+  static constexpr Nanos frame{static_cast<int64_t>(1e+9 / rate)};
 
   static constexpr Nanos lead_time{frame * 1024};
-  static constexpr Nanos lead_time_min{pet::percent(lead_time, 33)};
+  static constexpr Nanos lead_time_min{static_cast<int64_t>(lead_time.count() * 0.33)};
+  static constexpr int64_t lead_time_us{std::chrono::duration_cast<Micros>(lead_time).count()};
 
-  static constexpr int fps{Millis(1000) / pet::as<Millis>(lead_time)};
+  static constexpr int fps{Millis(1000).count() /
+                           std::chrono::duration_cast<Millis>(lead_time).count()};
 
   template <typename T> static constexpr auto frame_count(T v) noexcept {
     if constexpr (std::is_same_v<T, Nanos>) {
@@ -48,7 +50,7 @@ struct InputInfo {
     } else if constexpr (IsDuration<T>) {
       return std::chrono::duration_cast<Nanos>(v) / lead_time;
     } else {
-      static_assert("unhandled type");
+      static_assert(always_false_v<T>, "unhandled type");
     }
   }
 };

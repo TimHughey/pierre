@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/standby.hpp"
+#include "base/pet.hpp"
 #include "color.hpp"
 #include "desk.hpp"
 #include "lcs/config.hpp"

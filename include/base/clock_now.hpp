@@ -16,21 +16,26 @@
 //
 //  https://www.wisslanding.com
 
-#include "frame/silent_frame.hpp"
+#pragma once
 
-#include <optional>
+#include "base/qpow10.hpp"
+
+#include <time.h>
 
 namespace pierre {
+struct clock_now {
 
-// static class data
+  static int64_t ns_raw(int clock_type) noexcept {
+    struct timespec tn;
+    clock_gettime(clock_type, &tn);
 
-// since_frame represents when the last frame was generated.  it is used to
-// calculate the sync_wait for the next frame to simulate the correct
-// frame rate in absence of the master clock and/or anchor
+    return tn.tv_sec * qpow10(9) + tn.tv_nsec;
+  }
 
-// Elapsed SilentFrame::since_frame; // establish a reference time
-// steady_timepoint SilentFrame::epoch{steady_clock::now()};
-Nanos SilentFrame::epoch{clock_now::mono::ns()};
-int64_t SilentFrame::frame_num{0};
+  struct mono {
+    static int64_t ns() noexcept { return ns_raw(CLOCK_MONOTONIC_RAW); }
+    static int64_t us() noexcept { return ns_raw(CLOCK_MONOTONIC_RAW) / 1000; }
+  }; // namespace mono
+};
 
 } // namespace pierre

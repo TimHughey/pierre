@@ -18,8 +18,9 @@
 
 #pragma once
 
+#include "base/clock_now.hpp"
 #include "base/elapsed.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 
@@ -70,18 +71,10 @@ struct ClockInfo {
 
   ClockInfo() = default;
 
-  ClockInfo(ClockID clock_id,                        //
-            const MasterIP &master_clock_ip,         //
-            uint64_t sample_time,                    //
-            uint64_t raw_offset,                     //
-            const Nanos &master_start_time) noexcept //
-      : clock_id(clock_id),                          //
-        masterClockIp(master_clock_ip),              //
-        sampleTime(sample_time),                     //
-        rawOffset(raw_offset),                       //
-        mastershipStartTime(master_start_time),      //
-        status(READ)                                 //
-  {
+  ClockInfo(ClockID clock_id, const MasterIP &master_clock_ip, uint64_t sample_time,
+            uint64_t raw_offset, const Nanos &master_start_time) noexcept
+      : clock_id(clock_id), masterClockIp(master_clock_ip), sampleTime(sample_time),
+        rawOffset(raw_offset), mastershipStartTime(master_start_time), status(READ) {
     if (is_stable()) {
       status = ClockInfo::STABLE;
     } else if (ok()) {
@@ -91,18 +84,16 @@ struct ClockInfo {
 
   bool is_stable() const { return master_for_at_least(AGE_STABLE); }
 
-  Nanos master_for(Nanos ref = pet::now_monotonic()) const {
-    return pet::not_zero(mastershipStartTime) ? pet::elapsed(mastershipStartTime, ref)
-                                              : Nanos::zero();
-  }
+  Nanos master_for(Nanos ref = Nanos{clock_now::mono::ns()}) const noexcept;
 
-  bool master_for_at_least(const Nanos min, Nanos ref = pet::now_monotonic()) const {
+  bool master_for_at_least(const Nanos min,
+                           Nanos ref = Nanos{clock_now::mono::ns()}) const noexcept {
     return (master_for(ref) >= min) ? true : false;
   }
 
   bool match_clock_id(const ClockID id) const { return id == clock_id; }
 
-  bool ok() const { return clock_id && pet::not_zero(mastershipStartTime); }
+  bool ok() const noexcept;
 
   Nanos sample_time() const { return Nanos(sampleTime); }
 

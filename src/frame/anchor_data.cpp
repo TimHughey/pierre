@@ -62,7 +62,7 @@ void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
     auto time_diff = ad.anchor_time.count() - anchor_time.count();
     auto frame_diff = ad.rtp_time - rtp_time;
 
-    double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / pet::NS_FACTOR.count();
+    double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / qpow10(9);
     double frame_change = frame_diff - time_diff_in_frames;
 
     INFO_AUTO("clock={:#x} rtp_time={} frame_adj={:f}\n", clock_id, ad.rtp_time, frame_change);

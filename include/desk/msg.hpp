@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include "base/clock_now.hpp"
 #include "base/elapsed.hpp"
-#include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "io/io.hpp"
@@ -114,7 +114,7 @@ public:
   auto serialize() noexcept {
     finalize();
 
-    doc[NOW_US] = pet::now_monotonic<Micros>().count();
+    doc[NOW_US] = clock_now::mono::us();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
     packed.assign(measureMsgPack(doc), 0x00);

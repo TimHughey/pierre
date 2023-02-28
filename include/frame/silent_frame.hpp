@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "base/clock_now.hpp"
+#include "base/pet_types.hpp"
 #include "frame/frame.hpp"
 #include "frame/state.hpp"
 
@@ -33,7 +35,7 @@ private:
   SilentFrame() noexcept : Frame(frame::DSP_COMPLETE) {
 
     // lambda since we may need to recalculate
-    auto calc_diff = [now = pet::now_monotonic(), this](const auto frame_num) {
+    auto calc_diff = [now = Nanos{clock_now::mono::ns()}, this](const auto frame_num) {
       return (epoch + (InputInfo::lead_time * frame_num)) - now;
     };
 
@@ -58,7 +60,7 @@ public:
 
   static void reset() noexcept {
     frame_num = 0;
-    epoch = pet::now_monotonic();
+    epoch = Nanos{clock_now::mono::ns()};
   }
 
 public:

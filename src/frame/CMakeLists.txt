@@ -32,8 +32,9 @@ add_library(${__target}
   fft.cpp 
 
   # anchor and master clock
-  anchor_data.cpp
   anchor.cpp
+  anchor_data.cpp
+  anchor_last.cpp
   clock_info.cpp
   master_clock.cpp
   

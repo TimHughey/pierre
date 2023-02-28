@@ -16,21 +16,15 @@
 //
 //  https://www.wisslanding.com
 
-#include "frame/silent_frame.hpp"
+#pragma once
 
-#include <optional>
+#include <cmath>
+#include <cstdint>
 
 namespace pierre {
 
-// static class data
-
-// since_frame represents when the last frame was generated.  it is used to
-// calculate the sync_wait for the next frame to simulate the correct
-// frame rate in absence of the master clock and/or anchor
-
-// Elapsed SilentFrame::since_frame; // establish a reference time
-// steady_timepoint SilentFrame::epoch{steady_clock::now()};
-Nanos SilentFrame::epoch{clock_now::mono::ns()};
-int64_t SilentFrame::frame_num{0};
+template <typename T> constexpr T scale_val(T val) {
+  return (val <= 0.0) ? 0.0 : 10.0 * std::log10(val);
+}
 
 } // namespace pierre

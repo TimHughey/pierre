@@ -19,7 +19,8 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
+#include "base/qpow10.hpp"
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
 
@@ -81,9 +82,7 @@ struct AnchorData {
   }
 
 private:
-  static Nanos nano_fracs(uint64_t fracs) {
-    return Nanos(((fracs >> 32) * pet::NS_FACTOR.count()) >> 32);
-  }
+  static Nanos nano_fracs(uint64_t fracs) { return Nanos(((fracs >> 32) * qpow10(9)) >> 32); }
 
 public:
   // misc debug

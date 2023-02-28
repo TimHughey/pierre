@@ -1,4 +1,4 @@
-//  Pierre - Custom Light Show for Wiss Landing
+//  Pierre
 //  Copyright (C) 2022  Tim Hughey
 //
 //  This program is free software: you can redistribute it and/or modify
@@ -16,21 +16,17 @@
 //
 //  https://www.wisslanding.com
 
-#include "frame/silent_frame.hpp"
+#pragma once
 
-#include <optional>
+#include <cstdint>
 
 namespace pierre {
 
-// static class data
+constexpr int64_t qpow10(int n) noexcept {
+  constexpr int64_t p10[] = {1,       10,        100,        1000,        10'000,
+                             10'0000, 1'000'000, 10'000'000, 100'000'000, 1'000'000'000};
 
-// since_frame represents when the last frame was generated.  it is used to
-// calculate the sync_wait for the next frame to simulate the correct
-// frame rate in absence of the master clock and/or anchor
-
-// Elapsed SilentFrame::since_frame; // establish a reference time
-// steady_timepoint SilentFrame::epoch{steady_clock::now()};
-Nanos SilentFrame::epoch{clock_now::mono::ns()};
-int64_t SilentFrame::frame_num{0};
+  return p10[n];
+}
 
 } // namespace pierre

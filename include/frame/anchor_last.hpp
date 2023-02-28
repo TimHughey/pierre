@@ -18,9 +18,10 @@
 
 #pragma once
 
+#include "base/clock_now.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "frame/anchor_data.hpp"
 #include "frame/clock_info.hpp"
@@ -43,38 +44,28 @@ public:
   bool age_check(const auto age_min) const noexcept { return ready() && (since_update > age_min); }
 
   Nanos frame_local_time_diff(uint32_t timestamp) const noexcept {
-    return frame_to_local_time(timestamp) - pet::now_monotonic();
+    return frame_to_local_time(timestamp) - Nanos{clock_now::mono::ns()};
   }
 
   Nanos frame_to_local_time(timestamp_t timestamp) const noexcept {
     int32_t frame_diff = timestamp - rtp_time;
-    Nanos time_diff = Nanos((frame_diff * pet::NS_FACTOR.count()) / InputInfo::rate);
+    Nanos time_diff = Nanos((frame_diff * qpow10(9)) / InputInfo::rate);
 
     return localized + time_diff;
   }
 
-  timestamp_t local_to_frame_time(const Nanos local_time = pet::now_monotonic()) const noexcept {
+  timestamp_t local_to_frame_time(const Nanos local_time = Nanos{
+                                      clock_now::mono::ns()}) const noexcept {
     Nanos time_diff = local_time - localized;
     Nanos frame_diff = time_diff * InputInfo::rate;
 
-    return rtp_time + (frame_diff.count() / pet::NS_FACTOR.count());
+    return rtp_time + (frame_diff.count() / qpow10(9));
   }
 
   bool ready() const noexcept { return clock_id != 0; }
   void reset() noexcept { *this = AnchorLast(); }
 
-  void update(const AnchorData &ad, const ClockInfo &clock) noexcept {
-
-    rtp_time = ad.rtp_time;
-    anchor_time = ad.anchor_time;
-    localized = pet::subtract_offset(anchor_time, clock.rawOffset);
-    since_update.reset();
-
-    if (clock_id == 0x00) { // only update master when AnchorLast isn't ready
-      master_at = clock.mastershipStartTime;
-      clock_id = ad.clock_id; // denotes AnchorLast is ready
-    }
-  }
+  void update(const AnchorData &ad, const ClockInfo &clock) noexcept;
 
 public:
   static constexpr csv module_id{"anchor.last"};

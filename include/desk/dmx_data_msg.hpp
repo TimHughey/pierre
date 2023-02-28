@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/msg.hpp"
@@ -32,21 +32,11 @@ namespace pierre {
 class DmxDataMsg : public desk::Msg {
 
 public:
-  DmxDataMsg(frame_t frame, const Nanos lead_time)
-      : Msg(TYPE),               // init base class
-        dmx_frame(16, 0x00),     // init the dmx frame to all zeros
-        silence(frame->silent()) // is this silence?
-  {
-    add_kv("seq_num", frame->seq_num);
-    add_kv("timestamp", frame->timestamp); // RTSP timestamp
-    add_kv("silence", silence);
-    add_kv("lead_time_µs", pet::as<Micros>(lead_time).count());
-    add_kv("sync_wait_µs", pet::as<Micros>(frame->sync_wait()).count());
-  }
+  DmxDataMsg(frame_t frame) noexcept;
+  ~DmxDataMsg() noexcept {} // prevent default copy/move
 
-  DmxDataMsg(Msg &m) = delete;
-  DmxDataMsg(const Msg &m) = delete;
-  DmxDataMsg(DmxDataMsg &&m) = default;
+  DmxDataMsg(DmxDataMsg &&m) = default;           // allow move construct
+  DmxDataMsg &operator=(DmxDataMsg &&) = default; // allow move assignment
 
 public:
   uint8_t *dmxFrame() { return dmx_frame.data(); }

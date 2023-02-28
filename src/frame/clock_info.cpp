@@ -45,4 +45,11 @@ const string ClockInfo::inspect() const {
   return msg;
 };
 
+Nanos ClockInfo::master_for(Nanos ref) const noexcept {
+  return pet::not_zero(mastershipStartTime) ? pet::elapsed(mastershipStartTime, ref)
+                                            : Nanos::zero();
+}
+
+bool ClockInfo::ok() const noexcept { return clock_id && pet::not_zero(mastershipStartTime); }
+
 } // namespace pierre

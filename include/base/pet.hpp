@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "base/helpers.hpp"
 #include "base/pet_types.hpp"
+#include "base/qpow10.hpp"
 #include "base/types.hpp"
 
 #include <concepts>
@@ -29,8 +29,6 @@
 namespace pierre {
 
 struct pet {
-  static constexpr Nanos NS_FACTOR{upow(10, 9)};
-
   static constexpr auto abs(const auto &d1) { return std::chrono::abs(d1); }
 
   static constexpr Nanos apply_offset(const Nanos &d, uint64_t offset) {
@@ -61,9 +59,9 @@ struct pet {
     return val == Nanos::zero();
   }
 
-  static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::_monotonic()) { return d2 - d1; }
+  static Nanos elapsed(const Nanos &d1, const Nanos d2 = pet::monotonic()) { return d2 - d1; }
 
-  static Nanos elapsed_abs(const Nanos &d1, const Nanos d2 = pet::_monotonic()) {
+  static Nanos elapsed_abs(const Nanos &d1, const Nanos d2 = pet::monotonic()) {
     return diff_abs(d2, d1);
   }
 
@@ -104,8 +102,8 @@ struct pet {
 
   template <typename T> static constexpr bool not_zero(const T &d) { return d != T::zero(); }
 
-  template <typename T = Nanos> static T now_realtime() { return as<T, Nanos>(_realtime()); }
-  template <typename T = Nanos> static T now_monotonic() { return as<T>(_monotonic()); }
+  template <typename T = Nanos> static T now_realtime() { return as<T>(realtime()); }
+  template <typename T = Nanos> static T now_monotonic() { return as<T>(monotonic()); }
 
   template <typename T = Nanos> static constexpr T percent(T x, int val) {
     return percent(x, val / 100.0);
@@ -120,9 +118,9 @@ struct pet {
   }
 
 private:
-  static Nanos _monotonic() noexcept;
-  static Nanos _realtime() noexcept;
-  static Nanos _boottime() noexcept;
+  static Nanos monotonic() noexcept;
+  static Nanos realtime() noexcept;
+  static Nanos boottime() noexcept;
 };
 
 } // namespace pierre

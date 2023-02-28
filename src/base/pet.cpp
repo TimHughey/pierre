@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "base/pet.hpp"
+#include "base/clock_now.hpp"
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
@@ -53,15 +54,8 @@ string pet::humanize(Nanos d) {
   return msg;
 }
 
-static Nanos clock_now(int clock_type) noexcept { // .cpp static function
-  struct timespec tn;
-  clock_gettime(clock_type, &tn);
-
-  return Nanos(tn.tv_sec * pet::NS_FACTOR.count() + tn.tv_nsec);
-}
-
-Nanos pet::_monotonic() noexcept { return clock_now(CLOCK_MONOTONIC_RAW); } // static
-Nanos pet::_realtime() noexcept { return clock_now(CLOCK_REALTIME); }       // static
-Nanos pet::_boottime() noexcept { return clock_now(CLOCK_BOOTTIME); }       // static
+Nanos pet::monotonic() noexcept { return Nanos{clock_now::ns_raw(CLOCK_MONOTONIC_RAW)}; } // static
+Nanos pet::realtime() noexcept { return Nanos{clock_now::ns_raw(CLOCK_REALTIME)}; }       // static
+Nanos pet::boottime() noexcept { return Nanos{clock_now::ns_raw(CLOCK_BOOTTIME)}; }       // static
 
 } // namespace pierre
