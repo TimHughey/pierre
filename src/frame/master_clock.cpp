@@ -18,14 +18,15 @@
 
 #include "master_clock.hpp"
 #include "base/host.hpp"
-#include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"
+#include "lcs/logger.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <errno.h>
 #include <fcntl.h>
 #include <iterator>
@@ -86,8 +87,51 @@ MasterClock::~MasterClock() noexcept {
   INFO_SHUTDOWN_COMPLETE();
 }
 
+clock_info_future MasterClock::info() noexcept {
+  auto prom = std::make_shared<std::promise<ClockInfo>>();
+
+  auto clock_info = load_info_from_mapped();
+
+  if (clock_info.ok()) {
+    // clock info is good, immediately set the future
+    prom->set_value(clock_info);
+  } else {
+    // perform the retry on the MasterClock io_ctx enabling caller to continue other work
+    // while the clock becomes useable and the future is set to ready
+
+    auto timer = std::make_unique<steady_timer>(io_ctx);
+    // get a pointer to the timer since we move the timer into the async_wait
+    auto t = timer.get();
+
+    t->expires_after(InputInfo::lead_time_min);
+    t->async_wait([this, timer = std::move(timer), prom = prom](error_code ec) {
+      // if success get and return ClockInfo (could be ok() == false)
+      if (!ec) {
+        prom->set_value(std::move(load_info_from_mapped()));
+      } else {
+        prom->set_value(ClockInfo());
+      }
+    });
+  }
+
+  return prom->get_future().share();
+}
+
+bool MasterClock::is_mapped() const noexcept {
+  static constexpr csv fn_id{"is_mapped"};
+  static uint32_t attempts = 0;
+  auto ok = (mapped && (mapped != MAP_FAILED));
+
+  if (!ok && attempts) {
+    ++attempts;
+    INFO_AUTO("nqptp is not mapped after {} attempts\n", attempts);
+  }
+
+  return ok;
+}
+
 // NOTE: new data is available every 126ms
-const ClockInfo MasterClock::load_info_from_mapped() {
+const ClockInfo MasterClock::load_info_from_mapped() noexcept {
   static constexpr csv fn_id{"load_mapped"};
 
   if (map_shm() == false) {
@@ -108,10 +152,10 @@ const ClockInfo MasterClock::load_info_from_mapped() {
   nqptp data;
   memcpy(&data, (char *)mapped, sizeof(nqptp));
   if (data.version != NQPTP_VERSION) {
-    static string msg;
-    fmt::format_to(std::back_inserter(msg), "nqptp version mismatch vsn={}", data.version);
-    INFO_AUTO("FATAL {}\n", msg);
-    throw(std::runtime_error(msg.c_str()));
+    INFO_AUTO("FATA: nqptp version mismatch vsn={}", data.version);
+
+    std::this_thread::sleep_for(2s);
+    std::abort();
   }
 
   // release the mutex
@@ -129,7 +173,7 @@ const ClockInfo MasterClock::load_info_from_mapped() {
                    pet::from_val<Nanos>(data.master_clock_start_time));
 }
 
-bool MasterClock::map_shm() {
+bool MasterClock::map_shm() noexcept {
   static constexpr csv fn_id{"map_shm"};
   int prev_state;
 
@@ -159,7 +203,7 @@ bool MasterClock::map_shm() {
   return is_mapped();
 }
 
-void MasterClock::peers_update(const Peers &new_peers) {
+void MasterClock::peers_update(const Peers &new_peers) noexcept {
   static constexpr csv fn_id{"peers_update"};
   INFO_AUTO("new peers count={}\n", new_peers.size());
 

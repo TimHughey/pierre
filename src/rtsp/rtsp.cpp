@@ -44,7 +44,7 @@ Rtsp::Rtsp() noexcept
       master_clock(std::make_unique<MasterClock>()),    //
       desk(std::make_unique<Desk>(master_clock.get())), //
       thread_count(config_threads<Rtsp>(4)),
-      shutdown_latch(std::make_unique<std::latch>(thread_count)) //
+      shutdown_latch(std::make_shared<std::latch>(thread_count)) //
 {
   INFO_INIT("sizeof={:>5} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
 

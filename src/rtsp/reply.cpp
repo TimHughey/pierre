@@ -21,7 +21,6 @@
 #include "base/uint8v.hpp"
 #include "desk/desk.hpp"
 #include "frame/flush_info.hpp"
-#include "frame/master_clock.hpp"
 #include "headers.hpp"
 #include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
@@ -152,7 +151,7 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
       }
     }
 
-    ctx->master_clock->peers(peer_list);
+    ctx->peers(peer_list);
 
   } else if (method == csv("SETRATEANCHORTIME")) {
     SetAnchor(content_in, *this, ctx->desk);

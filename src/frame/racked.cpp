@@ -226,34 +226,6 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
   }
 }
 
-void Racked::monitor_wip() noexcept {
-  static constexpr csv fn_id{"monitor_wip"};
-
-  wip_timer.expires_from_now(10s);
-
-  wip_timer.async_wait( // must run on wip_strand to protect containers
-      asio::bind_executor(wip_strand, [this, serial_num = wip->serial_num()](const error_code ec) {
-        if (ec) return; // wip timer error, bail out
-
-        // note: serial_num is captured to compare to active wip serial number to
-        //       prevent duplicate racking
-
-        const auto serial_num = wip.has_value() ? wip->serial_num() : 0;
-
-        if (wip.has_value() && (wip->serial_num() == serial_num)) {
-          string msg;
-
-          if (Logger::should_log(module_id, fn_id)) msg = fmt::format("{}", *wip);
-
-          rack_wip();
-
-          INFO_AUTO("INCOMPLETE {}\n", msg);
-        } else {
-          INFO_AUTO("PREVIOUSLY RACKED serial_num={}\n", serial_num);
-        }
-      }));
-}
-
 void Racked::log_racked(log_racked_rc rc) const noexcept {
   static constexpr csv fn_id{"log_racked"};
 
@@ -291,6 +263,34 @@ void Racked::log_racked(log_racked_rc rc) const noexcept {
   }
 }
 
+void Racked::monitor_wip() noexcept {
+  static constexpr csv fn_id{"monitor_wip"};
+
+  wip_timer.expires_from_now(10s);
+
+  wip_timer.async_wait( // must run on wip_strand to protect containers
+      asio::bind_executor(wip_strand, [this, serial_num = wip->serial_num()](const error_code ec) {
+        if (ec) return; // wip timer error, bail out
+
+        // note: serial_num is captured to compare to active wip serial number to
+        //       prevent duplicate racking
+
+        const auto serial_num = wip.has_value() ? wip->serial_num() : 0;
+
+        if (wip.has_value() && (wip->serial_num() == serial_num)) {
+          string msg;
+
+          if (Logger::should_log(module_id, fn_id)) msg = fmt::format("{}", *wip);
+
+          rack_wip();
+
+          INFO_AUTO("INCOMPLETE {}\n", msg);
+        } else {
+          INFO_AUTO("PREVIOUSLY RACKED serial_num={}\n", serial_num);
+        }
+      }));
+}
+
 frame_future Racked::next_frame(const Nanos max_wait) noexcept { // static
   auto prom = frame_promise();
   auto fut = prom.get_future().share();
@@ -307,6 +307,43 @@ frame_future Racked::next_frame(const Nanos max_wait) noexcept { // static
 
   // return the future
   return fut;
+}
+
+frame_t Racked::next_frame_no_wait(const Nanos &max_wait) noexcept {
+  if (!ready.load()) return SilentFrame::create();
+
+  const auto clock_info = master_clock->info_no_wait();
+  if (!clock_info.ok()) return SilentFrame::create();
+
+  auto anchor_now = anchor->get_data(clock_info);
+  if (!anchor_now.ready() || !spool_frames.load()) return SilentFrame::create();
+
+  std::shared_lock<std::shared_timed_mutex> flush_lck(flush_mtx, std::defer_lock);
+  if (!flush_lck.try_lock()) return SilentFrame::create();
+
+  std::unique_lock rack_lck{rack_mtx, std::defer_lock};
+  if (!rack_lck.try_lock_for(max_wait)) return SilentFrame::create();
+
+  if (std::empty(racked)) return SilentFrame::create();
+
+  auto &reel = *racked.begin();
+  auto frame = reel.peek_next();
+
+  // calc the frame state (Frame caches the anchor)
+  auto state = frame->state_now(anchor_now, InputInfo::lead_time);
+
+  if (state.ready() || state.outdated() || state.future()) {
+    // consume the ready or outdated frame
+    if (auto reel_empty = reel.consume(); reel_empty == true) {
+      // reel is empty after the consume, erase it
+      racked.erase(racked.begin());
+      Stats::write(stats::RACKED_REELS, std::ssize(racked));
+    }
+
+    log_racked();
+  }
+
+  return frame;
 }
 
 void Racked::next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept {

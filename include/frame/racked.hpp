@@ -65,6 +65,8 @@ public:
   /// @return shared_future containing the next frame (could be silent)
   frame_future next_frame(const Nanos max_wait = InputInfo::lead_time_min) noexcept;
 
+  frame_t next_frame_no_wait(const Nanos &max_wait) noexcept;
+
   void spool(bool enable = true) noexcept {
     if (ready.load() == false) return;
 

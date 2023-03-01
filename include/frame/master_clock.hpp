@@ -21,12 +21,10 @@
 #include "base/input_info.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "base/uint8v.hpp"
 #include "frame/clock_info.hpp"
 #include "io/timer.hpp"
 #include "io/udp.hpp"
 #include "io/work_guard.hpp"
-#include "lcs/logger.hpp"
 
 #include <array>
 #include <cstddef>
@@ -68,35 +66,9 @@ public:
   ///        has elpased this function will immediately set the future with an empty
   ///        ClockInfo object.
   /// @return std::shared_future<ClockInfo>
-  clock_info_future info() noexcept { // static
-    auto prom = std::make_shared<std::promise<ClockInfo>>();
+  clock_info_future info() noexcept;
 
-    auto clock_info = load_info_from_mapped();
-
-    if (clock_info.ok()) {
-      // clock info is good, immediately set the future
-      prom->set_value(clock_info);
-    } else {
-      // perform the retry on the MasterClock io_ctx enabling caller to continue other work
-      // while the clock becomes useable and the future is set to ready
-
-      auto timer = std::make_unique<steady_timer>(io_ctx);
-      // get a pointer to the timer since we move the timer into the async_wait
-      auto t = timer.get();
-
-      t->expires_after(InputInfo::lead_time_min);
-      t->async_wait([this, timer = std::move(timer), prom = prom](error_code ec) {
-        // if success get and return ClockInfo (could be ok() == false)
-        if (!ec) {
-          prom->set_value(std::move(load_info_from_mapped()));
-        } else {
-          prom->set_value(ClockInfo());
-        }
-      });
-    }
-
-    return prom->get_future().share();
-  }
+  const ClockInfo info_no_wait() noexcept { return load_info_from_mapped(); }
 
   void peers(const Peers &peer_list) noexcept { peers_update(peer_list); }
   void peers_reset() noexcept { peers_update(Peers()); }
@@ -105,22 +77,12 @@ public:
   void dump();
 
 private:
-  bool is_mapped() const {
-    static uint32_t attempts = 0;
-    auto ok = (mapped && (mapped != MAP_FAILED));
+  bool is_mapped() const noexcept;
 
-    if (!ok && attempts) {
-      ++attempts;
-      INFO(module_id, "mapped", "nqptp data not mapped attempts={}\n", attempts);
-    }
+  const ClockInfo load_info_from_mapped() noexcept;
+  bool map_shm() noexcept;
 
-    return ok;
-  }
-
-  const ClockInfo load_info_from_mapped();
-  bool map_shm();
-
-  void peers_update(const Peers &peers);
+  void peers_update(const Peers &peers) noexcept;
 
   bool ready() noexcept {
     const auto &clock_info = load_info_from_mapped();

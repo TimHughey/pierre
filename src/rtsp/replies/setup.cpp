@@ -19,7 +19,6 @@
 #include "replies/setup.hpp"
 #include "base/host.hpp"
 #include "ctx.hpp"
-#include "frame/master_clock.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"

@@ -20,12 +20,10 @@
 
 namespace pierre {
 
-class Desk;
+class Rtsp;
 
-// forward decls to hide implementation details, limit include dependencies
-namespace desk {
-class DmxCtrl;
-class FX;
-} // namespace desk
+namespace rtsp {
+class Ctx;
+}
 
 } // namespace pierre

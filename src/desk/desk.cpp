@@ -27,7 +27,6 @@
 #include "frame/anchor_last.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
-#include "frame/master_clock.hpp"
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
 #include "frame/state.hpp"
@@ -97,7 +96,8 @@ void Desk::frame_loop(bool fx_finished) noexcept {
   Elapsed next_wait;
 
   // Racked will always return a frame (from racked or silent)
-  auto frame = racked->next_frame().get();
+  auto frame = racked->next_frame_no_wait(InputInfo::lead_time_min);
+  // auto frame = racked->next_frame().get();
 
   // we now have a valid frame:
   //  1. rendering = from Racked (peaks or silent)

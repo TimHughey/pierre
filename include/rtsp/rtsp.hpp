@@ -18,7 +18,10 @@
 
 #pragma once
 
+#include "desk/fdecls.hpp"
+#include "frame/fdecls.hpp"
 #include "io/tcp.hpp"
+#include "rtsp/fdecls.hpp"
 #include "rtsp/sessions.hpp"
 
 #include <any>
@@ -31,17 +34,9 @@
 
 namespace pierre {
 
-class Desk;
-class MasterClock;
-class Rtsp;
-
 namespace shared {
 extern std::unique_ptr<Rtsp> rtsp;
 }
-
-namespace rtsp {
-class Ctx;
-} // namespace rtsp
 
 class Rtsp {
 public:
@@ -59,7 +54,7 @@ private:
   std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;
   const int thread_count;
-  std::unique_ptr<std::latch> shutdown_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
 
   static constexpr uint16_t LOCAL_PORT{7000};
 
