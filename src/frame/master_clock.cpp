@@ -39,12 +39,12 @@ namespace pierre {
 
 // create the MasterClock
 MasterClock::MasterClock() noexcept
-    : guard(io_ctx.get_executor()),                                     // syncronize clock io
-      socket(io_ctx, ip_udp::v4()),                                     // construct and open
-      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),    // nqptp endpoint
-      shm_name(config_val2<MasterClock, string>("shm_name", "/nqptp")), //
-      thread_count(config_threads<MasterClock>(1)),                     //
-      shutdown_latch(std::make_unique<std::latch>(thread_count))        //
+    : guard(io_ctx.get_executor()),                                    // syncronize clock io
+      socket(io_ctx, ip_udp::v4()),                                    // construct and open
+      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),   // nqptp endpoint
+      shm_name(config_val<MasterClock, string>("shm_name", "/nqptp")), //
+      thread_count(config_threads<MasterClock>(1)),                    //
+      shutdown_latch(std::make_unique<std::latch>(thread_count))       //
 {
   INFO_INIT("sizeof={:>5} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
             remote_endpoint.address().to_string(), remote_endpoint.port());

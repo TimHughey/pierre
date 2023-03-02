@@ -30,10 +30,10 @@ std::unique_ptr<Stats> stats;
 }
 
 Stats::Stats(io_context &io_ctx) noexcept
-    : stats_strand(io_ctx),                                //
-      enabled(config_val2<Stats, bool>("enabled", false)), //
-      db_uri(config_val2<Stats, string>("db_uri", "http://localhost:8086?db=pierre")),
-      batch_of(config_val2<Stats, int>("batch_of", 150)),
+    : stats_strand(io_ctx),                               //
+      enabled(config_val<Stats, bool>("enabled", false)), //
+      db_uri(config_val<Stats, string>("db_uri", "http://localhost:8086?db=pierre")),
+      batch_of(config_val<Stats, int>("batch_of", 150)),
       val_txt{
           // create map of stats val to text
           {stats::CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
@@ -107,7 +107,7 @@ void Stats::async_write(influxdb::Point &&pt) noexcept {
   if (db) db->write(std::forward<influxdb::Point>(pt));
 
   // updated enabled config
-  enabled = config_val2<Stats, bool>("enabled", false);
+  enabled = config_val<Stats, bool>("enabled", false);
 }
 
 } // namespace pierre

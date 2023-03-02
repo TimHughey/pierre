@@ -90,11 +90,11 @@ private:
   major_peak::hue_cfg_map _hue_cfg_map;
   mag_min_max _mag_limits;
   major_peak::pspot_cfg_map _pspot_cfg_map;
-  Nanos _silence_timeout;
+  Seconds _silence_timeout;
 
 public:
-  static constexpr csv module_id{"major_peak"};
+  static constexpr csv module_id{"fx.majorpeak"};
 };
 
-} // namespace fx
+} // namespace desk
 } // namespace pierre

@@ -38,14 +38,12 @@
 namespace pierre {
 namespace desk {
 
-static const string get_cfg_host() noexcept {
-  return config_val2<DmxCtrl, string>("remote.host"sv, "dmx");
+inline const string get_cfg_host() noexcept {
+  return config_val<DmxCtrl, string>("remote.host"sv, "dmx");
 }
 
-static auto stalled_timeout() noexcept {
-  const auto ms = config_val2<DmxCtrl, int64_t>("local.stalled.ms"sv, 7500);
-
-  return pet::from_val<Nanos, Millis>(ms);
+inline auto stalled_timeout() noexcept {
+  return config_val<DmxCtrl, Millis>("local.stalled.ms"sv, 7500);
 }
 
 // general API
@@ -120,8 +118,8 @@ void DmxCtrl::connect() noexcept {
 
           desk::Msg msg(HANDSHAKE);
 
-          msg.add_kv("idle_shutdown_ms", config_val2<DmxCtrl, int64_t>(idle_ms_path, 10000));
-          msg.add_kv("stats_ms", config_val2<DmxCtrl, int64_t>(stats_ms_path, 2000));
+          msg.add_kv("idle_shutdown_ms", config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
+          msg.add_kv("stats_ms", config_val<DmxCtrl, int64_t>(stats_ms_path, 2000));
           msg.add_kv("ref_µs", pet::now_monotonic<Micros>());
           msg.add_kv("data_port", acceptor.local_endpoint().port());
 
@@ -281,13 +279,13 @@ void DmxCtrl::send_data_msg(desk::Msg &&msg) noexcept {
   }
 }
 
-void DmxCtrl::stalled_watchdog(Nanos wait) noexcept {
+void DmxCtrl::stalled_watchdog(Millis wait) noexcept {
   static constexpr csv fn_id{"stalled"};
 
   // when passed a non-zero wait time we're handling a special
   // case (e.g. host resolve failure), otherwise use configured
   // stall timeout value
-  if (wait == Nanos::zero()) wait = stalled_timeout();
+  if (wait == Millis::zero()) wait = stalled_timeout();
 
   if (ConfigWatch::has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
     cfg_host.clear();                      // triggers pull from config on next name resolution

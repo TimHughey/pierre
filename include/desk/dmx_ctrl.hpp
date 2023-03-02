@@ -58,7 +58,7 @@ private:
 
   void resolve_host() noexcept;
   void send_ctrl_msg(desk::Msg &&msg) noexcept;
-  void stalled_watchdog(Nanos wait = Nanos()) noexcept;
+  void stalled_watchdog(Millis wait = Millis()) noexcept;
   void unknown_host() noexcept;
 
 private:

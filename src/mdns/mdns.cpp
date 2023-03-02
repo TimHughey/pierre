@@ -45,12 +45,12 @@ using namespace mdns;
 // mDNS general API
 
 mDNS::mDNS() noexcept
-    : receiver(config_val2<mDNS, string>("receiver", "Pierre Default")), //
-      build_vsn(cfg_build_vsn()),                                        //
-      stype(config_val2<mDNS, string>("service", "_ruth._tcp")),         //
-      receiver_port(config_val2<mDNS, Port>("port", 7000)),              //
-      service_obj(receiver, build_vsn),                                  //
-      ctx{nullptr}                                                       //
+    : receiver(config_val<mDNS, string>("receiver", "Pierre Default")), //
+      build_vsn(cfg_build_vsn()),                                       //
+      stype(config_val<mDNS, string>("service", "_ruth._tcp")),         //
+      receiver_port(config_val<mDNS, Port>("port", 7000)),              //
+      service_obj(receiver, build_vsn),                                 //
+      ctx{nullptr}                                                      //
 {
   std::jthread([this]() {
     INFO_INIT("sizeof={:>5} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);

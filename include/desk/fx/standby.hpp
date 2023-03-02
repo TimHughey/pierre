@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
@@ -33,10 +34,10 @@ namespace desk {
 class Standby : public FX {
 
 public:
-  Standby(io_context &io_ctx)
+  Standby(io_context &io_ctx) noexcept
       : io_ctx(io_ctx), silence_timer(io_ctx), next_color(Color()), silence_timeout{0} {}
 
-  ~Standby() override final;
+  ~Standby() noexcept override final;
 
   void cancel() noexcept override {
     try {
@@ -59,7 +60,7 @@ private:
   io_context &io_ctx;
   steady_timer silence_timer;
   Color next_color;
-  Seconds silence_timeout;
+  Minutes silence_timeout;
 
   // order independent
   double hue_step{0.0};

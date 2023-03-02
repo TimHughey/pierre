@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "lcs/types.hpp"
 
@@ -26,6 +27,7 @@
 #include "toml++/toml.h"
 
 #include <atomic>
+#include <concepts>
 #include <filesystem>
 #include <list>
 #include <shared_mutex>
@@ -50,7 +52,6 @@ struct build_info_t {
 };
 
 class Config {
-public:
 public:
   Config(const toml::table &cli_table) noexcept;
   ~Config() = default;
@@ -166,9 +167,30 @@ template <typename T> toml::path config_path(csv key_path) noexcept {
   return toml::path(T::module_id).append(key_path);
 }
 
-template <class C, typename T, typename D> inline auto config_val2(csv path, D &&def_val) noexcept {
-  return shared::config->at(toml::path(C::module_id).append(path))
-      .value_or<T>(std::forward<D>(def_val));
+template <class Caller, typename DefaultVal>
+inline auto config_val(const toml::table &t, csv path, DefaultVal &&def_val) noexcept {
+  using ReturnType = decltype(def_val);
+  const auto full_path = toml::path(Caller::module_id).append(path);
+
+  if constexpr (IsDuration<ReturnType> && std::integral<DefaultVal>) {
+    return ReturnType(t[full_path].value_or(std::forward<DefaultVal>(def_val)));
+  } else {
+    return t[full_path].value_or<ReturnType>(std::forward<DefaultVal>(def_val));
+  }
+}
+
+template <class Caller, typename ReturnType, typename DefaultVal>
+inline auto config_val(csv path, DefaultVal &&def_val) noexcept {
+
+  if constexpr (IsDuration<ReturnType> && std::integral<DefaultVal>) {
+    const auto raw = shared::config->at(toml::path(Caller::module_id).append(path))
+                         .value_or(std::forward<DefaultVal>(def_val));
+
+    return ReturnType(raw);
+  } else {
+    return shared::config->at(toml::path(Caller::module_id).append(path))
+        .value_or<ReturnType>(std::forward<DefaultVal>(def_val));
+  }
 }
 
 template <class C> int config_threads(int &&def_val) noexcept {

@@ -27,7 +27,7 @@
 namespace pierre {
 namespace desk {
 
-Standby::~Standby() { cancel(); }
+Standby::~Standby() noexcept { cancel(); }
 
 void Standby::execute(Peaks &peaks) noexcept {
   if (ConfigWatch::has_changed(cfg_change)) {
@@ -57,34 +57,22 @@ void Standby::execute(Peaks &peaks) noexcept {
 
 void Standby::load_config() noexcept {
 
-  static const auto base = toml::path{"fx.standby"};
-  static const auto color_path = toml::path(base).append("color"sv);
-  static const auto hue_path = toml::path(base).append("hue_step"sv);
-  static const auto will_render_path = toml::path(base).append("will_render"sv);
-  static const auto silence_timeout_path = toml::path(base).append("silence.timeout"sv);
+  should_render = config_val<Standby, bool>("will_render"sv, true);
 
-  auto cfg = config();
+  next_color = Color({.hue = config_val<Standby, double>("color.hue"sv, 0),
+                      .sat = config_val<Standby, double>("color.sat"sv, 0),
+                      .bri = config_val<Standby, double>("color.bri"sv, 0)});
 
-  should_render = cfg->at(will_render_path).value_or(true);
-
-  auto color_cfg = cfg->table_at(color_path);
-
-  next_color = Color({.hue = color_cfg["hue"sv].value_or(0.0),
-                      .sat = color_cfg["sat"sv].value_or(0.0),
-                      .bri = color_cfg["bri"sv].value_or(0.0)});
-
-  hue_step = cfg->at(hue_path).value_or(0.0);
+  hue_step = config_val<Standby, double>("hue_step", 0.0);
 
   next_brightness = 0.0;
   max_brightness = next_color.brightness();
 
-  auto timeout_cfg = cfg->table_at(silence_timeout_path);
-
-  const auto silence_timeout_old = silence_timeout;
-  silence_timeout = pet::from_val<Seconds, Minutes>(timeout_cfg["minutes"sv].value_or(30));
-
-  // start silence watch if timeout changed (at start or config reload)
-  if (silence_timeout != silence_timeout_old) silence_watch();
+  auto silence_timeout_next = config_val<Standby, Minutes, int64_t>("silence.timeout.minutes", 30);
+  if (std::exchange(silence_timeout, silence_timeout_next) != silence_timeout_next) {
+    // start silence watch if timeout changed (at start or config reload)
+    silence_watch();
+  }
 
   cfg_change = ConfigWatch::want_changes();
 }

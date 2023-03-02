@@ -35,9 +35,8 @@ struct pet {
     return Nanos{static_cast<uint64_t>(d.count()) + offset};
   }
 
-  template <typename TO, typename FROM = Nanos> //
-  static constexpr TO as(FROM x) {
-    if constexpr (std::is_same_v<TO, FROM>) {
+  template <typename TO, typename FROM = Nanos> static constexpr TO as(FROM x) {
+    if constexpr (std::same_as<TO, FROM>) {
       return x;
     } else if constexpr (IsDuration<FROM> && IsDuration<TO>) {
       return std::chrono::duration_cast<TO>(x);

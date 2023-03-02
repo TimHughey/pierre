@@ -98,8 +98,7 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
 void MajorPeak::handle_el_wire(Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{units.get<Dimmable>(unit::EL_DANCE),
-                     units.get<Dimmable>(unit::EL_ENTRY)};
+  std::array elwires{units.get<Dimmable>(unit::EL_DANCE), units.get<Dimmable>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
@@ -237,68 +236,68 @@ void MajorPeak::load_config() noexcept {
   // we are confident it isn't changing
   const toml::table local_copy(cfg_copy_live());
 
-  // get just the majorpeak c
-  auto mp = local_copy.at_path("fx.majorpeak"sv);
+  should_render = config_val<MajorPeak, bool>(local_copy, "will_render"sv, true);
 
-  should_render = mp["will_render"sv].value_or(true);
+  // lambda helper to retrieve frequencies config
+  auto freqs = [&](csv path, double def_val) {
+    return local_copy[config_path<MajorPeak>("frequencies"sv).append(path)].value_or(def_val);
+  };
 
-  auto freqs = mp["frequencies"sv];
-  _freq_limits = hard_soft_limit<Frequency>(freqs.at_path("hard.floor"sv).value_or(40.0),
-                                            freqs.at_path("hard.ceiling"sv).value_or(11500.0),
-                                            freqs.at_path("soft.floor"sv).value_or(110.0),
-                                            freqs.at_path("soft.ceiling"sv).value_or(10000.0));
+  _freq_limits = hard_soft_limit<Frequency>( //
+      freqs("hard.floor"sv, 40.0),           //
+      freqs("hard.ceiling"sv, 11500.0),      //
+      freqs("soft.floor"sv, 110.0),          //
+      freqs("soft.ceiling"sv, 10000.0));
 
   // load make colors config
-  for (auto cat : std::array{toml::path{"generic"sv}, toml::path{"above_soft_ceiling"sv}}) {
-    const auto full_path = toml::path{"makecolors"sv}.append(cat);
+  for (auto cat : std::array{csv{"generic"sv}, csv{"above_soft_ceiling"sv}}) {
 
-    auto cc = mp[full_path];
+    // lambda helper to retrieve make color configs
+    auto cc = [&](csv path, auto &&def_val) {
+      return local_copy[config_path<MajorPeak>("makecolors").append(cat).append(path)].value_or(
+          std::forward<decltype(def_val)>(def_val));
+    };
 
     _hue_cfg_map.try_emplace(
         string(cat),
-        major_peak::hue_cfg{
-            .hue = {.min = cc.at_path("hue.min"sv).value_or(0.0),
-                    .max = cc.at_path("hue.max"sv).value_or(0.0),
-                    .step = cc.at_path("hue.step"sv).value_or(0.001)},
-            .brightness = {.max = cc.at_path("bri.max"sv).value_or(0.0),
-                           .mag_scaled = cc.at_path("hue.mag_scaled"sv).value_or(true)}});
+        major_peak::hue_cfg{.hue = {.min = cc("hue.min"sv, 0.0),
+                                    .max = cc("hue.max"sv, 0.0),
+                                    .step = cc("hue.step"sv, 0.001)},
+                            .brightness = {.max = cc("bri.max"sv, 0.0),
+                                           .mag_scaled = cc("hue.mag_scaled"sv, true)}});
   }
 
-  // load magnitudes
-  auto mags = mp["magnitudes"sv];
-
-  _mag_limits = mag_min_max(                 //
-      mags.at_path("floor").value_or(2.009), //
-      mags.at_path("ceiling").value_or(64.0));
+  _mag_limits = mag_min_max(config_val<MajorPeak>(local_copy, "magnitudes.floor"sv, 2.009),
+                            config_val<MajorPeak>(local_copy, "magnitudes.ceiling"sv, 2.009));
 
   // load pinspot config
   static constexpr csv BRI_MIN{"bri_min"};
 
-  for (auto &&el : *mp["pinspots"sv].as_array()) {
-    auto tbl = el.as_table();
+  auto pspots = local_copy[config_path<MajorPeak>("pinspots"sv)];
 
-    auto entry_name = (*tbl)["name"sv].value_or(string("unnamed"));
+  for (auto &&el : *pspots.as_array()) {
+    // we need this twice
+    const auto pspot_name = el.at_path("name"sv).value_or(string("unnamed"));
 
-    auto [it, inserted] = _pspot_cfg_map.try_emplace(                 //
-        entry_name,                                                   //
-        entry_name,                                                   //
-        (*tbl)["type"sv].value_or(string("unknown")),                 //
-        pet::from_val<Millis>((*tbl)["fade_max_ms"sv].value_or(100)), //
-        (*tbl)["freq_min"sv].value_or(0.0),                           //
-        (*tbl)["freq_max"sv].value_or(0.0));
+    auto [it, inserted] = //
+        _pspot_cfg_map.try_emplace(pspot_name, pspot_name,
+                                   el.at_path("type"sv).value_or(string("unknown")),
+                                   Millis(el.at_path("fade_max_ms").value_or(100)),
+                                   el.at_path("freq_min"sv).value_or(0.0), //
+                                   el.at_path("freq_max"sv).value_or(0.0));
 
     if (inserted) {
       auto &cfg = it->second;
 
       // populate 'when_less_than' (common for main and fill)
-      auto wltt = (*tbl)["when_less_than"sv];
+      auto wltt = el.at_path("when_less_than"sv);
       auto &wlt = cfg.when_less_than;
 
       wlt.freq = wltt["freq"sv].value_or(0.0);
       wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
 
       if (csv{cfg.type} == csv{"fill"}) { // fill specific
-        auto wgt = (*tbl)["when_greater"sv];
+        auto wgt = el.at_path("when_greater"sv);
 
         auto &wg = cfg.when_greater;
         wg.freq = wgt["freq"sv].value_or(0.0);
@@ -309,7 +308,7 @@ void MajorPeak::load_config() noexcept {
         whf.bri_min = whft[BRI_MIN].value_or(0.0);
 
       } else if (csv(cfg.type) == csv{"main"}) { // main specific
-        auto wft = (*tbl)["when_fading"sv];
+        auto wft = el.at_path("when_fading"sv);
 
         auto &wf = cfg.when_fading;
         wf.bri_min = wft[BRI_MIN].value_or(0.0);
@@ -322,9 +321,8 @@ void MajorPeak::load_config() noexcept {
   }
 
   // load silence config
-  auto st = mp["silence.timeout"sv];
-  _silence_timeout = pet::from_val<Millis, Seconds>(st["seconds"].value_or(13));
-  next_fx = st["suggested_fx_next"].value_or("standby");
+  _silence_timeout = config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13);
+  next_fx = config_val<MajorPeak, string>("silence.timeout.suggested_fx_next"sv, "standby");
 
   // register for changes
   _cfg_changed = ConfigWatch::want_changes();

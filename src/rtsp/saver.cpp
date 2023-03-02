@@ -28,9 +28,9 @@ namespace rtsp {
 
 Saver::Saver(Saver::Direction direction, const Headers &headers, const uint8v &content,
              const RespCode resp_code) noexcept
-    : enable(config_val2<Saver, bool>("enable", false)),         //
-      file{config_val2<Saver, string>("file", "/tmp/rtsp.log")}, //
-      format(config_val2<Saver, string>("format", "raw"))        //
+    : enable(config_val<Saver, bool>("enable", false)),         //
+      file{config_val<Saver, string>("file", "/tmp/rtsp.log")}, //
+      format(config_val<Saver, string>("format", "raw"))        //
 {
   static constexpr csv separator{"\r\n"};
   if (!enable) return;
