@@ -18,33 +18,33 @@
 
 #pragma once
 
-#include "base/types.hpp"
+#include <cinttypes>
+#include <string>
 
 namespace pierre {
 
 namespace desk {
 
-struct unit {
-  static const string AC_POWER;
-  static const string MAIN_SPOT;
-  static const string FILL_SPOT;
-  static const string EL_ENTRY;
-  static const string EL_DANCE;
-  static const string LED_FOREST;
-  static const string DISCO_BALL;
-};
+namespace unit {
+constexpr std::string AC_POWER{"ac power"};
+constexpr std::string MAIN_SPOT{"main pinspot"};
+constexpr std::string FILL_SPOT{"fill pinspot"};
+constexpr std::string EL_ENTRY{"el entry"};
+constexpr std::string EL_DANCE{"el dance"};
+constexpr std::string LED_FOREST{"led forest"};
+constexpr std::string DISCO_BALL{"disco ball"};
+} // namespace unit
 
-struct unit_type {
-  static const string PINSPOT;
-  static const string DIMMABLE;
-  static const string SWITCH;
-  static const string VAR_SPEED;
-};
+namespace unit_type {
+constexpr std::string PINSPOT{"pinspot"};
+constexpr std::string DIMMABLE{"dimmable"};
+constexpr std::string SWITCH{"switch"};
+}; // namespace unit_type
 
 struct hdopts {
-  const string name;
-  const string type;
-  size_t address;
+  const std::string name;
+  const std::string type;
+  std::size_t address;
 };
 
 } // namespace desk

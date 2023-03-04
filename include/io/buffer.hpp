@@ -20,9 +20,12 @@
 #pragma once
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/streambuf.hpp>
 
 namespace pierre {
 
 namespace asio = boost::asio;
-
+namespace io {
+using streambuf = asio::streambuf;
+}
 } // namespace pierre

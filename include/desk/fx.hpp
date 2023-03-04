@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/msg/data.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
 #include "fx/names.hpp"

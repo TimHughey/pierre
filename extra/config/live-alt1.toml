@@ -63,7 +63,7 @@ ctx = true
 info = false
 event = false
 net = false
-reply = { build = false }
+reply = { build = false, info = false }
 
 ##
 ## END LOGGING CONFIG

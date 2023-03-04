@@ -20,8 +20,9 @@
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
-#include "data_msg.hpp"
-#include "desk/async_msg.hpp"
+#include "desk/async/read.hpp"
+#include "desk/async/write.hpp"
+#include "desk/msg/data.hpp"
 #include "dmx_ctrl.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_last.hpp"
@@ -195,7 +196,7 @@ void Desk::resume() noexcept {
 
   INFO_AUTO("requested, thread_count={}\n", thread_count);
 
-  shutdown_latch = std::make_unique<std::latch>(thread_count);
+  shutdown_latch = std::make_shared<std::latch>(thread_count);
 
   // submit work to io_ctx
   asio::post(io_ctx, [this]() {
@@ -205,7 +206,7 @@ void Desk::resume() noexcept {
   });
 
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, shut_latch = shutdown_latch.get()]() mutable {
+    std::jthread([this, n = n, shut_latch = shutdown_latch]() mutable {
       const auto thread_name = thread_util::set_name(TASK_NAME, n);
 
       // thread start syncronization not required
@@ -244,16 +245,8 @@ void Desk::standby() noexcept {
   dmx_ctrl.reset();
   racked.reset();
 
-  if (shutdown_latch) {
-    auto n = 0;
-    for (n = 0; (n < 10) && !shutdown_latch->try_wait(); n++) {
-      std::this_thread::sleep_for(10ms);
-    }
-
-    if (n > 9) {
-      INFO_AUTO("warning, threads did not stop n={}\n", n);
-    }
-
+  if ((bool)shutdown_latch) {
+    shutdown_latch->arrive_and_wait();
   } else {
     INFO_AUTO("warning, shutdown_latch={}\n", (bool)shutdown_latch);
   }

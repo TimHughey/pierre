@@ -16,23 +16,24 @@
 //
 // https://www.wisslanding.com
 
-#include "dmx_ctrl.hpp"
-#include "async_msg.hpp"
+#include "desk/dmx_ctrl.hpp"
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
-#include "base/uint8v.hpp"
+#include "desk/async/read.hpp"
+#include "desk/async/write.hpp"
+#include "desk/msg/data.hpp"
+#include "desk/msg/in.hpp"
+#include "desk/msg/out.hpp"
 #include "io/log_socket.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
-#include "msg.hpp"
 
 #include <array>
 #include <iterator>
 #include <latch>
-#include <ranges>
 #include <utility>
 
 namespace pierre {
@@ -51,15 +52,16 @@ DmxCtrl::DmxCtrl() noexcept
     : ctrl_sock(io_ctx),                                          // ctrl channel socket
       acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),     // data channel listener
       data_sock(io_ctx),                                          // accepted data channel sock
+      read_buff(2048),                                            //
+      write_buff(2048),                                           //
       stalled_timer(io_ctx, stalled_timeout()),                   //
       thread_count(config_threads<DmxCtrl>(2)),                   //
-      startup_latch(std::make_unique<std::latch>(thread_count)),  //
-      shutdown_latch(std::make_unique<std::latch>(thread_count)), //
+      shutdown_latch(std::make_shared<std::latch>(thread_count)), //
       cfg_fut(ConfigWatch::want_changes()) // register for config change notifications
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
 
-  // add work to thje io_context we're about to start, specificially name resolution
+  // add work to the io_context we're about to start, specificially name resolution
   // for the dmx host
   //
   // resolve_host() may BLOCK or FAIL
@@ -75,7 +77,6 @@ DmxCtrl::DmxCtrl() noexcept
     std::jthread([this, n = n]() mutable {
       const auto thread_name = thread_util::set_name(task_name, n);
 
-      startup_latch->count_down();
       INFO_THREAD_START();
       io_ctx.run();
 
@@ -116,14 +117,14 @@ void DmxCtrl::connect() noexcept {
           // we send the first ctrl msg
           listen();
 
-          desk::Msg msg(HANDSHAKE);
+          desk::MsgOut msg(write_buff, HANDSHAKE);
 
-          msg.add_kv("idle_shutdown_ms", config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
-          msg.add_kv("stats_ms", config_val<DmxCtrl, int64_t>(stats_ms_path, 2000));
-          msg.add_kv("ref_µs", pet::now_monotonic<Micros>());
-          msg.add_kv("data_port", acceptor.local_endpoint().port());
+          msg.add_kv(desk::IDLE_SHUTDOWN_MS, config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
+          msg.add_kv(desk::STATS_MS, config_val<DmxCtrl, int64_t>(stats_ms_path, 2000));
+          msg.add_kv(desk::REF_US, pet::now_monotonic<Micros>());
+          msg.add_kv(desk::DATA_PORT, acceptor.local_endpoint().port());
 
-          async::write_msg(ctrl_sock, std::move(msg), [this](Msg msg) {
+          async::write_msg(ctrl_sock, std::move(msg), [this](MsgOut msg) {
             Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, msg.elapsed());
 
             if (msg.xfer_error()) {
@@ -133,27 +134,11 @@ void DmxCtrl::connect() noexcept {
               INFO_AUTO("write failed, reason={}\n", msg.ec.message());
             }
           });
-
-          send_ctrl_msg(std::move(msg));
         }
       });
 
   // NOTE: intentionally fall through
   //       listen() will start msg_loop() when data connection is available
-}
-
-void DmxCtrl::handle_feedback_msg(JsonDocument &doc) noexcept {
-  const auto echo_now_us = doc["echo_now_µs"].as<int64_t>();
-  Stats::write(stats::REMOTE_ROUNDTRIP, pet::elapsed_from_raw<Micros>(echo_now_us));
-
-  Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
-  Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
-  Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
-  Stats::write(stats::REMOTE_DMX_QRF, doc["dmx_qrf"].as<int64_t>());
-  Stats::write(stats::REMOTE_DMX_QSF, doc["dmx_qsf"].as<int64_t>());
-
-  const int64_t fps = doc["fps"].as<int64_t>();
-  Stats::write(stats::FPS, fps);
 }
 
 void DmxCtrl::listen() noexcept {
@@ -187,13 +172,28 @@ void DmxCtrl::listen() noexcept {
 void DmxCtrl::msg_loop() noexcept {
   // only attempt to read a message if we're connected
   if (connected) {
-    desk::async::read_msg(ctrl_sock, [this](Msg msg) {
+    async::read_msg(ctrl_sock, desk::MsgIn(read_buff), [this](desk::MsgIn msg) {
       Stats::write(stats::CTRL_MSG_READ_ELAPSED, msg.elapsed());
+
+      DynamicJsonDocument doc(desk::Msg::default_doc_size);
+      msg.deserialize_into(doc);
 
       if (msg.xfer_ok()) {
         stalled_watchdog(); // restart stalled watchdog
+
         // handle the various message types
-        if (msg.key_equal(desk::TYPE, FEEDBACK)) handle_feedback_msg(msg.doc);
+        if (msg.is_msg_type(doc, desk::FEEDBACK)) {
+          const auto echo_now_us = doc["echo_now_µs"].as<int64_t>();
+          Stats::write(stats::REMOTE_ROUNDTRIP, pet::elapsed_from_raw<Micros>(echo_now_us));
+          Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
+          Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
+
+        } else if (msg.is_msg_type(doc, desk::STATS)) {
+          Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
+          Stats::write(stats::REMOTE_DMX_QRF, doc["dmx_qrf"].as<int64_t>());
+          Stats::write(stats::REMOTE_DMX_QSF, doc["dmx_qsf"].as<int64_t>());
+          Stats::write(stats::FPS, doc["fps"].as<int64_t>());
+        }
 
         msg_loop(); // async handle next message
 
@@ -240,42 +240,20 @@ void DmxCtrl::resolve_host() noexcept {
   });
 }
 
-void DmxCtrl::send_ctrl_msg(desk::Msg &&msg) noexcept {
-  static constexpr csv fn_id{"send_ctrl_msg"};
-
-  msg.serialize();
-  const auto buf_seq = msg.buff_seq(); // calculates tx_len
-  const auto tx_len = msg.tx_len;
-
-  asio::async_write( //
-      ctrl_sock,     //
-      buf_seq,       //
-      asio::transfer_exactly(tx_len),
-      [this, msg = std::move(msg), e = Elapsed()](const error_code ec, const auto actual) mutable {
-        Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, e.freeze());
-
-        if ((ec != errc::success) && (actual != msg.tx_len)) {
-          Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
-
-          INFO(module_id, fn_id, "write failed, reason={} bytes={}/{}\n", //
-               ec.message(), actual, msg.tx_len);
-        }
-      });
-}
-
-void DmxCtrl::send_data_msg(desk::Msg &&msg) noexcept {
+void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
   if (connected) { // only send msgs when connected
 
-    desk::async::write_msg( //
-        data_sock,          //
-        std::forward<desk::Msg>(msg), [this](Msg msg) {
-          Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+    MsgOut msg(write_buff, desk::DATA);
+    data_msg.populate_doc(msg.doc);
 
-          if (msg.xfer_error()) {
-            Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
-            connected.store(false);
-          }
-        });
+    async::write_msg(data_sock, std::move(msg), [this](MsgOut msg) {
+      Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+
+      if (msg.xfer_error()) {
+        Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
+        connected.store(false);
+      }
+    });
   }
 }
 
@@ -301,7 +279,7 @@ void DmxCtrl::stalled_watchdog(Millis wait) noexcept {
         INFO_AUTO("was_connected={}\n", was_connected);
       }
 
-      acceptor.cancel(ec);
+      acceptor.close(ec);
       ctrl_sock.close(ec);
       data_sock.close(ec);
 

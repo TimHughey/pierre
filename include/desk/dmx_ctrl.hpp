@@ -18,11 +18,9 @@
 
 #pragma once
 
-#include "base/elapsed.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "base/uint8v.hpp"
-#include "desk/msg.hpp"
+#include "io/buffer.hpp"
 #include "io/context.hpp"
 #include "io/tcp.hpp"
 #include "io/timer.hpp"
@@ -33,31 +31,31 @@
 #include <latch>
 #include <memory>
 #include <optional>
+#include <streambuf>
 #include <thread>
 
 namespace pierre {
 namespace desk {
+
+// forward decl
+class DataMsg;
 
 class DmxCtrl {
 public:
   DmxCtrl() noexcept;
   ~DmxCtrl() noexcept;
 
-  void send_data_msg(desk::Msg &&msg) noexcept;
+  void send_data_msg(DataMsg &&msg) noexcept;
 
 private:
   // lookup dmx controller and establish control connection
   void connect() noexcept;
-
-  // handle received feedback msgs
-  void handle_feedback_msg(JsonDocument &doc) noexcept;
 
   void listen() noexcept;
 
   void msg_loop() noexcept;
 
   void resolve_host() noexcept;
-  void send_ctrl_msg(desk::Msg &&msg) noexcept;
   void stalled_watchdog(Millis wait = Millis()) noexcept;
   void unknown_host() noexcept;
 
@@ -67,10 +65,11 @@ private:
   tcp_socket ctrl_sock;
   tcp_acceptor acceptor;
   tcp_socket data_sock;
+  io::streambuf read_buff;
+  io::streambuf write_buff;
   steady_timer stalled_timer;
   const int64_t thread_count;
-  std::unique_ptr<std::latch> startup_latch;
-  std::unique_ptr<std::latch> shutdown_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
   cfg_future cfg_fut;
 
   // order independent
@@ -78,10 +77,6 @@ private:
 
   string cfg_host;                           // dmx controller host name
   std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint
-
-  // ctrl message types
-  static constexpr csv FEEDBACK{"feedback"};
-  static constexpr csv HANDSHAKE{"handshake"};
 
   // misc debug
 public:

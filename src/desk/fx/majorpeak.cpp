@@ -27,6 +27,7 @@
 #include "fx/majorpeak/types.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
+#include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 
 namespace pierre {

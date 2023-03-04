@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/msg/data.hpp"
 #include "desk/unit.hpp"
 
 #include <algorithm>

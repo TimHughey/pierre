@@ -6,30 +6,25 @@ set(__target desk)
 
 set(HEADER_PATH                                   ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL                             ${HEADER_PATH}/${__target})
-file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/*.h*")
+file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/**/*.h*")
 
 add_library(${__target} 
-  # public API
-  desk.cpp 
-
   # color
   color.cpp
 
-  # desk DMX control session and message
+  # public API
+  desk.cpp 
+
+  # desk DMX control session
   dmx_ctrl.cpp
-  data_msg.cpp
-  msg.cpp
-  
-  # collection of headunits
-  units.cpp
-  unit/names.cpp
 
   # FX
   fx/fx.cpp
   fx/majorpeak.cpp
-  fx/names.cpp
   fx/standby.cpp
-
+  
+  # collection of headunits
+  units.cpp
 
   ${HEADER_LIST}
 )

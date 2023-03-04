@@ -20,13 +20,11 @@
 
 #include "base/types.hpp"
 #include "desk/color.hpp"
-#include "desk/data_msg.hpp"
+#include "desk/msg/data.hpp"
 #include "desk/unit.hpp"
 #include "fader/color_travel.hpp"
 
 #include <cstdint>
-#include <fmt/format.h>
-#include <memory>
 
 namespace pierre {
 namespace desk {

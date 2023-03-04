@@ -75,7 +75,7 @@ private:
 
   // order independent
   std::mutex run_state_mtx;
-  std::unique_ptr<std::latch> shutdown_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
 
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<desk::FX> active_fx{nullptr};

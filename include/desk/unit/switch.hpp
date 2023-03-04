@@ -18,7 +18,6 @@
 #pragma once
 
 #include "desk/unit.hpp"
-#include <memory>
 
 namespace pierre {
 namespace desk {
@@ -36,7 +35,7 @@ public:
   void on() noexcept { powered = true; }
   void off() noexcept { powered = false; }
 
-  void update_msg(DataMsg &msg) noexcept override { msg.doc[name] = powered; }
+  void update_msg(DataMsg &msg) noexcept override { msg.add(name, powered); }
 
 private:
   bool powered;

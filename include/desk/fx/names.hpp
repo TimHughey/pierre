@@ -18,16 +18,16 @@
 
 #pragma once
 
-#include "base/types.hpp"
+#include <string>
 
 namespace pierre {
 namespace desk {
-struct fx {
-  static const string ALL_STOP;
-  static const string MAJOR_PEAK;
-  static const string SILENCE;
-  static const string STANDBY;
-};
+namespace fx {
+constexpr std::string ALL_STOP{"all_stop"};
+constexpr std::string MAJOR_PEAK{"major_peak"};
+constexpr std::string SILENCE{"silence"};
+constexpr std::string STANDBY{"standby"};
+}; // namespace fx
 
 } // namespace desk
 } // namespace pierre
