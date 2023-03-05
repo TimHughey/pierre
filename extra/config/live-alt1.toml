@@ -24,23 +24,30 @@ config_vsn = 2   # config file format
 ##
 [logger]
 # category specific overrides
-debug = false    # show any debug messages?
-init = true      # always log init messages from any module
-thread = false   # show any thread messages?
-shutdown = false # show any shutdown messages?
+debug = false   # show any debug messages?
+init = true     # always log init messages from any module
+thread = false  # show any thread messages?
+shutdown = true # show any shutdown messages?
 
 [logger.config_watch]
 file_watch = false
 
 [logger.desk]
-dmx_ctrl = { run = false, thread = false, host = { resolve = false, unknown = true } }
 thread = false
 resume = true
 shutdown = false
 standby = true
 monitor_wip = true
 reel = false
-racked = { flush = false, monitor_wip = false, log_racked = false, thread = false }
+
+[logger.desk.dmx_ctrl]
+run = false
+host = { connect = true, resolve = false, unknown = true }
+
+[logger.desk.racked]
+flush = false
+monitor_wip = false
+log_racked = false
 
 [logger.frame]
 anchor = false

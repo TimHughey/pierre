@@ -39,11 +39,12 @@ namespace async {
 /// @param socket
 /// @param token
 /// @return
-template <typename M, typename CompletionToken>
-auto read_msg(tcp_socket &sock, M &&msg, CompletionToken &&token) {
-  auto initiation = [](auto &&completion_handler, tcp_socket &sock, M msg) {
+template <typename M, typename Storage, typename CompletionToken>
+auto read_msg(tcp_socket &sock, Storage &storage, M &&msg, CompletionToken &&token) {
+  auto initiation = [](auto &&completion_handler, tcp_socket &sock, Storage &storage, M msg) {
     struct intermediate_completion_handler {
       tcp_socket &sock;
+      Storage &storage;
       M msg; // hold the in-flight M
       enum { msg_header, msg_content } state;
       typename std::decay<decltype(completion_handler)>::type handler;
@@ -57,13 +58,11 @@ auto read_msg(tcp_socket &sock, M &&msg, CompletionToken &&token) {
 
           switch (state) {
           case msg_header:
-            if (msg.calc_packed_len(n) == false) {
-              auto &buffer = msg.buffer();
+            if (msg.calc_packed_len(storage, n) == false) {
+              state = msg_content;
               auto read_bytes = msg.read_bytes();
 
-              state = msg_content;
-
-              asio::async_read(sock, buffer, std::move(read_bytes), std::move(*this));
+              asio::async_read(sock, storage, std::move(read_bytes), std::move(*this));
               return;
             }
 
@@ -97,19 +96,20 @@ auto read_msg(tcp_socket &sock, M &&msg, CompletionToken &&token) {
     // Initiate the underlying async_read operation using our intermediate
     // completion handler.
 
-    auto &buffer = msg.buffer();
-
-    asio::async_read(sock, buffer, asio::transfer_at_least(msg.hdr_bytes),
+    asio::async_read(sock, storage, asio::transfer_at_least(msg.hdr_bytes),
                      intermediate_completion_handler{
-                         sock,
-                         std::move(msg),                              // the msg
-                         intermediate_completion_handler::msg_header, // initial state
-                         std::forward<decltype(completion_handler)>(completion_handler) // handler
-                     });
+                         // references to socket and storage
+                         sock, storage,
+                         // the message (logic)
+                         std::move(msg),
+                         // initial state
+                         intermediate_completion_handler::msg_header,
+                         // handler
+                         std::forward<decltype(completion_handler)>(completion_handler)});
   };
 
   // check if there is already a message waiting in the stream buffer
-  if (msg.calc_packed_len()) {
+  if (msg.calc_packed_len(storage)) {
     // yes, replicate asio behavior and post to the handler
 
     asio::post(sock.get_executor(), [msg = std::move(msg), token = std::move(token)]() mutable {
@@ -120,10 +120,10 @@ auto read_msg(tcp_socket &sock, M &&msg, CompletionToken &&token) {
   } else {
 
     return asio::async_initiate<CompletionToken, void(M msg)>(
-        initiation,          // initiation function object
-        token,               // user supplied callback
-        std::ref(sock),      //
-        std::forward<M>(msg) // create for use within the async operation
+        initiation,                        // initiation function object
+        token,                             // user supplied callback
+        std::ref(sock), std::ref(storage), // socket and data storage
+        std::forward<M>(msg)               // user supplied message
     );
   }
 }

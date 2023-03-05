@@ -103,9 +103,7 @@ public:
   }
 
   virtual void update_msg(DataMsg &msg) noexcept override {
-    //_duty = _duty_next;
-
-    msg.add(name, std::exchange(_duty, _duty_next));
+    msg.add_kv(name, std::exchange(_duty, _duty_next));
   }
 
   void pulse(float intensity = 1.0, float secs = 0.2) {

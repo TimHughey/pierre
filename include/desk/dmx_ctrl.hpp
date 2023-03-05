@@ -22,6 +22,7 @@
 #include "base/types.hpp"
 #include "io/buffer.hpp"
 #include "io/context.hpp"
+#include "io/error.hpp"
 #include "io/tcp.hpp"
 #include "io/timer.hpp"
 #include "lcs/types.hpp"
@@ -45,12 +46,16 @@ public:
   DmxCtrl() noexcept;
   ~DmxCtrl() noexcept;
 
+  /// @brief send the DataMsg to the remote host
+  /// @param msg assembled DataMsg for remote host
   void send_data_msg(DataMsg &&msg) noexcept;
 
 private:
-  // lookup dmx controller and establish control connection
-  void connect() noexcept;
+  /// @brief send the initial handshake to the remote host
+  void handshake() noexcept;
 
+  /// @brief wait for and accept incoming data connection
+  ///        once connected start the msg_loop()
   void listen() noexcept;
 
   void msg_loop() noexcept;

@@ -31,22 +31,17 @@ namespace desk {
 class MsgIn : public Msg {
 public:
   // outbound messages
-  MsgIn(io::streambuf &buffer) noexcept : Msg(buffer) {
-    // check if the stream buffer already contains a complete packed message
-    // in the stream buffer from a previous async_read
-    calc_packed_len();
-  }
-
+  MsgIn() = default;
   ~MsgIn() noexcept {} // prevent default copy/move
 
   MsgIn(MsgIn &&) = default;
   MsgIn &operator=(MsgIn &&) = default;
 
-  bool calc_packed_len(size_t n = 0) noexcept {
+  bool calc_packed_len(io::streambuf &storage, std::size_t n = 0) noexcept {
     static constexpr csv fn_id{"calc_packed"};
 
     bool complete{false};
-    auto hdr_buffer = stream_buffer.get().data();
+    auto hdr_buffer = storage.data();
 
     // simulate n from async_read when called by the constructor (n == 0)
     xfr.in += (n == 0) ? hdr_buffer.size() : n;
@@ -63,7 +58,7 @@ public:
     }
 
     // now check if the buffer contains packed data
-    if (auto rest_size = stream_buffer.get().size(); rest_size > hdr_bytes) {
+    if (auto rest_size = storage.size(); rest_size > hdr_bytes) {
       complete = (rest_size - hdr_bytes) >= packed_len;
 
       if (!complete) need_bytes = packed_len - rest_size - hdr_bytes;
@@ -74,17 +69,17 @@ public:
     return complete; // invert to signal more bytes required
   }
 
-  auto deserialize_into(JsonDocument &doc) noexcept {
+  auto deserialize_from(auto &storage, JsonDocument &doc) noexcept {
     static constexpr csv fn_id{"deserialize"};
 
     // asio allows buffer math, add hdr_bytes so we get back
     // a buffer that points to the packed data
-    auto buffer = stream_buffer.get().data() + hdr_bytes;
+    auto buffer = storage.data() + hdr_bytes;
 
     auto raw = static_cast<const char *>(buffer.data());
 
     const auto err = deserializeMsgPack(doc, raw, packed_len);
-    stream_buffer.get().consume(hdr_bytes + packed_len);
+    storage.consume(hdr_bytes + packed_len);
 
     if (err) {
       INFO_AUTO("deserialize err={}\n", err.c_str());
@@ -93,7 +88,6 @@ public:
     return !err;
   }
 
-  auto &read_buffer() noexcept { return stream_buffer.get(); }
   auto read_bytes() noexcept { return asio::transfer_at_least(need_bytes); }
 
 public:

@@ -98,7 +98,7 @@ private:
   udp_endpoint remote_endpoint;
   const string shm_name; // shared memmory segment name (built by constructor)
   const int thread_count;
-  std::unique_ptr<std::latch> shutdown_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
 
   // order independent
   void *mapped{nullptr}; // mmapped region of nqptp data struct

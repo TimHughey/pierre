@@ -41,12 +41,13 @@ namespace async {
 /// @param msg
 /// @param token
 /// @return
-template <typename M, typename CompletionToken>
-auto write_msg(tcp_socket &sock, M &&msg, CompletionToken &&token) {
+template <typename M, typename Storage, typename CompletionToken>
+auto write_msg(tcp_socket &sock, Storage &storage, M &&msg, CompletionToken &&token) {
 
-  auto initiation = [](auto &&completion_handler, tcp_socket &sock, M msg) {
+  auto initiation = [](auto &&completion_handler, tcp_socket &sock, Storage &storage, M msg) {
     struct intermediate_completion_handler {
       tcp_socket &sock;
+      Storage &storage;
       M msg;
       typename std::decay<decltype(completion_handler)>::type handler;
 
@@ -76,24 +77,25 @@ auto write_msg(tcp_socket &sock, M &&msg, CompletionToken &&token) {
       }
     };
 
-    // must grab the buff_seq and tx_len BEFORE moving the msg
-    auto &buffer = msg.buffer();
-
     // initiate the actual async operation
-    asio::async_write(
-        sock, buffer,
-        intermediate_completion_handler{
-            sock, std::move(msg), std::forward<decltype(completion_handler)>(completion_handler)});
+    asio::async_write(sock, storage,
+                      intermediate_completion_handler{
+                          // references to socket and storage
+                          sock, storage,
+                          // the message (provides logic)
+                          std::move(msg),
+                          // handler
+                          std::forward<decltype(completion_handler)>(completion_handler)});
   };
 
-  msg.serialize();
+  msg.serialize_to(storage);
 
   // initiate the async operation
   return asio::async_initiate<CompletionToken, void(M msg)>(
-      initiation,          // initiation function object
-      token,               // user supplied callback
-      std::ref(sock),      //
-      std::forward<M>(msg) // move the msg for use within the async operation
+      initiation,                        // initiation function object
+      token,                             // user supplied callback
+      std::ref(sock), std::ref(storage), // socket and storage
+      std::forward<M>(msg)               // move the msg for use within the async operation
   );
 }
 

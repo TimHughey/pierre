@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/msg/kv.hpp"
+#include "desk/msg/out.hpp"
 #include "frame/frame.hpp"
 
 #include <variant>
@@ -28,19 +28,12 @@
 namespace pierre {
 namespace desk {
 
-class DataMsg {
-private:
-  // note: these are the only types that Units set
-  using val_t = std::variant<uint32_t, float, bool>;
-
-  struct key_val_entry {
-    string key;
-    val_t val;
-  };
+class DataMsg : public MsgOut {
 
 public:
   DataMsg(frame_t frame) noexcept
-      : seq_num{frame->seq_num},  // grab the frame seq_num
+      : desk::MsgOut(desk::DATA), //
+        seq_num{frame->seq_num},  // grab the frame seq_num
         silence{frame->silent()}, // grab if the frame is silent
         dmx_frame(16, 0x00)       // init the dmx frame
   {}
@@ -50,14 +43,13 @@ public:
   DataMsg(DataMsg &&m) = default;           // allow move construct
   DataMsg &operator=(DataMsg &&) = default; // allow move assignment
 
-public:
-  void add(auto key, auto &&val) noexcept { key_vals.emplace_back(key_val_entry{key, val}); }
-
+public: // API
   uint8_t *dmxFrame() noexcept { return dmx_frame.data(); }
 
   void noop() noexcept {}
 
-  void populate_doc(auto &doc) noexcept {
+protected:
+  void serialize_hook(JsonDocument &doc) noexcept override {
     doc[desk::SEQ_NUM] = seq_num;
     doc[desk::SILENCE] = silence;
 
@@ -65,18 +57,12 @@ public:
     for (uint8_t byte : dmx_frame) {
       dframe.add(byte);
     }
-
-    for (const auto &entry : key_vals) {
-      // visit each entry value and add them to the document at the entry key
-      std::visit([&](auto &&_val) { doc[entry.key] = _val; }, entry.val);
-    }
   }
 
 private:
   const seq_num_t seq_num;
   const bool silence;
   std::vector<uint8_t> dmx_frame;
-  std::vector<key_val_entry> key_vals;
 
 public:
   static constexpr csv module_id{"desk.msg.data"};

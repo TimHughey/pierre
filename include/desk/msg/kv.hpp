@@ -35,14 +35,13 @@ static constexpr auto ELAPSED_US{"elapsed_µs"};
 static constexpr auto FEEDBACK{"feedback"};
 static constexpr auto FPS{"fps"};
 static constexpr auto IDLE_SHUTDOWN_MS{"idle_shutdown_ms"};
-static constexpr auto MAGIC{"magic"};
+static constexpr auto MAGIC{"ma"};    // short for msg end detection
+static constexpr auto MSG_TYPE{"mt"}; // short for msg start detection
 static constexpr auto NOW_US{"now_µs"};
-static constexpr auto READ_MSG{"read_msg"};
 static constexpr auto REF_US{"ref_µs"};
 static constexpr auto SEQ_NUM{"seq_num"};
 static constexpr auto SILENCE{"silence"};
 static constexpr auto STATS_MS{"stats_ms"};
-static constexpr auto MSG_TYPE{"msg_type"};
 
 // predefined msg types
 static constexpr auto DATA{"data"};

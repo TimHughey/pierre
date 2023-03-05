@@ -380,10 +380,14 @@ void MajorPeak::once() {
 const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_colors.at(index); }
 
 void MajorPeak::silence_watch() noexcept {
+  static constexpr csv fn_id{"silence_watch"};
 
-  silence_timer.expires_after(_silence_timeout);
+  silence_timer.expires_from_now(_silence_timeout);
   silence_timer.async_wait([this](const error_code ec) {
-    if (!ec) silence.store(true);
+    if (!ec) {
+      silence.store(true);
+      INFO_AUTO("silence timeout ({})\n", _silence_timeout);
+    }
   });
 }
 

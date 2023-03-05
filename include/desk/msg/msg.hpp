@@ -22,11 +22,9 @@
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "desk/msg/kv.hpp"
-#include "io/buffer.hpp"
 #include "io/error.hpp"
 
 #include <ArduinoJson.h>
-#include <functional>
 
 namespace pierre {
 namespace desk {
@@ -34,14 +32,11 @@ namespace desk {
 class Msg {
 
 public:
-  Msg(io::streambuf &buffer) noexcept : stream_buffer(buffer) {}
-
+  Msg() noexcept {}
   virtual ~Msg() noexcept {} // prevent implicit copy/move
 
-  Msg(Msg &&m) = default;
-  Msg &operator=(Msg &&msg) = default;
-
-  auto &buffer() noexcept { return stream_buffer.get(); }
+  Msg(Msg &&m) = default;              // allow move construct
+  Msg &operator=(Msg &&msg) = default; // allow move assignment
 
   auto elapsed() noexcept { return e.freeze(); }
   auto elapsed_restart() noexcept { return e.reset(); }
@@ -54,9 +49,6 @@ public:
   bool xfer_ok() const noexcept { return !ec && (xfr.bytes >= (packed_len + hdr_bytes)); }
 
 public:
-  // order dependent
-  std::reference_wrapper<io::streambuf> stream_buffer;
-
   // order independent
   uint16_t packed_len{0};
 

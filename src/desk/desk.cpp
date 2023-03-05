@@ -245,11 +245,8 @@ void Desk::standby() noexcept {
   dmx_ctrl.reset();
   racked.reset();
 
-  if ((bool)shutdown_latch) {
-    shutdown_latch->arrive_and_wait();
-  } else {
-    INFO_AUTO("warning, shutdown_latch={}\n", (bool)shutdown_latch);
-  }
+  shutdown_latch->count_down();
+  shutdown_latch.reset();
 
   INFO_AUTO("completed, io_ctx={}\n", io_ctx.stopped());
 }

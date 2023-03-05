@@ -44,7 +44,7 @@ MasterClock::MasterClock() noexcept
       remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),   // nqptp endpoint
       shm_name(config_val<MasterClock, string>("shm_name", "/nqptp")), //
       thread_count(config_threads<MasterClock>(1)),                    //
-      shutdown_latch(std::make_unique<std::latch>(thread_count))       //
+      shutdown_latch(std::make_shared<std::latch>(thread_count))       //
 {
   INFO_INIT("sizeof={:>5} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
             remote_endpoint.address().to_string(), remote_endpoint.port());
@@ -75,8 +75,9 @@ MasterClock::~MasterClock() noexcept {
 
   INFO_SHUTDOWN_REQUESTED();
 
-  guard.reset();
   if (is_mapped()) munmap(mapped, sizeof(nqptp));
+
+  io_ctx.stop();
 
   try {
     socket.close();

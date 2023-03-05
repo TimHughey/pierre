@@ -35,7 +35,7 @@ public:
   void on() noexcept { powered = true; }
   void off() noexcept { powered = false; }
 
-  void update_msg(DataMsg &msg) noexcept override { msg.add(name, powered); }
+  void update_msg(DataMsg &msg) noexcept override { msg.add_kv(name, powered); }
 
 private:
   bool powered;

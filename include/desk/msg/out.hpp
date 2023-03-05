@@ -19,18 +19,21 @@
 
 #pragma once
 
+#include "desk/msg/kv.hpp"
+#include "desk/msg/kv_store.hpp"
 #include "desk/msg/msg.hpp"
 
+#include "arpa/inet.h"
 #include <ArduinoJson.h>
 
 namespace pierre {
 namespace desk {
 
 class MsgOut : public Msg {
+
 public:
   // outbound messages
-  MsgOut(io::streambuf &buffer, auto &&type) noexcept
-      : Msg(buffer), doc(Msg::default_doc_size), type(type) {}
+  MsgOut(auto &type) noexcept : Msg(), type(type) {}
 
   // inbound messages
   virtual ~MsgOut() noexcept {} // prevent implicit copy/move
@@ -38,23 +41,33 @@ public:
   MsgOut(MsgOut &&m) = default;
   MsgOut &operator=(MsgOut &&) = default;
 
-  void add_kv(csv key, auto val) noexcept {
-    if constexpr (IsDuration<decltype(val)>) {
-      doc[key] = val.count(); // convert durations
+  template <typename Val> void add_kv(auto &&key, Val &&val) noexcept {
+    if constexpr (IsDuration<Val>) {
+      kvs.add(std::forward<decltype(key)>(key), val.count());
     } else {
-      doc[key] = val;
+      kvs.add(std::forward<decltype(key)>(key), std::forward<Val>(val));
     }
   }
 
-  auto serialize() noexcept {
+  auto serialize_to(auto &storage) noexcept {
+    DynamicJsonDocument doc(Msg::default_doc_size);
 
-    doc[MSG_TYPE] = type;
+    // first, add MSG_TYPE as it is used to detect start of message
+    doc[desk::MSG_TYPE] = type;
+
+    // allow subclasses to add special data directly to the doc
+    serialize_hook(doc);
+
+    // put added key/vals into the document
+    kvs.populate_doc(doc);
+
+    // finally, add the trailer
     doc[NOW_US] = clock_now::mono::us();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
     packed_len = measureMsgPack(doc);
 
-    auto buffer1 = stream_buffer.get().prepare(packed_len + hdr_bytes);
+    auto buffer1 = storage.prepare(packed_len + hdr_bytes);
 
     net_packed_len = htons(packed_len);
     memcpy(buffer1.data(), &net_packed_len, hdr_bytes);
@@ -62,15 +75,18 @@ public:
     auto buffer2 = buffer1 + hdr_bytes;
 
     serializeMsgPack(doc, static_cast<char *>(buffer2.data()), buffer2.size());
-    stream_buffer.get().commit(packed_len + hdr_bytes);
+    storage.commit(packed_len + hdr_bytes);
   }
+
+protected:
+  virtual void serialize_hook(JsonDocument &) noexcept {}
 
 public:
   // order dependent
-  DynamicJsonDocument doc;
   string type;
 
   // order independent
+  kv_store kvs;
   uint16_t net_packed_len;
 
 public:
