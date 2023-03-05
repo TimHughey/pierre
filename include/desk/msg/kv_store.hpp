@@ -20,7 +20,6 @@
 
 #include "base/types.hpp"
 #include "desk/msg/kv.hpp"
-#include "frame/frame.hpp"
 
 #include <variant>
 #include <vector>
