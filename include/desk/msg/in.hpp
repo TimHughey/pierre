@@ -45,6 +45,18 @@ public:
   inline MsgIn(MsgIn &&) = default;
   MsgIn &operator=(MsgIn &&) = default;
 
+  void operator()(const error_code &op_ec, size_t n) noexcept {
+    static constexpr csv fn_id{"async_result"};
+
+    xfr.in += n;
+    ec = op_ec;
+    packed_len = n; // should we need to set this?
+
+    if (n == 0) {
+      INFO_AUTO("SHORT READ  n={} err={}\n", xfr.in, ec.message());
+    }
+  }
+
   void consume(std::size_t n) noexcept { storage->consume(n); }
 
   auto deserialize_into(JsonDocument &doc) noexcept {

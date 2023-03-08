@@ -26,17 +26,15 @@
 #include "io/tcp.hpp"
 #include "lcs/logger.hpp"
 
-#include <functional>
 #include <memory>
 #include <type_traits>
-#include <utility>
 
 namespace pierre {
 namespace desk {
 namespace async {
 
 template <typename Socket, typename M, typename CompletionToken>
-inline auto write_msg(Socket &socket, M &&msg, CompletionToken &&token) {
+auto write_msg(Socket &socket, M &&msg, CompletionToken &&token) {
 
   auto initiation = [](auto &&completion_handler, Socket &socket, M &&msg) {
     struct intermediate_completion_handler {
@@ -45,15 +43,7 @@ inline auto write_msg(Socket &socket, M &&msg, CompletionToken &&token) {
       typename std::decay<decltype(completion_handler)>::type handler;
 
       void operator()(const error_code &ec, std::size_t n) noexcept {
-        static constexpr csv module_id{"desk.async"};
-        static constexpr csv fn_id{"write_msg"};
-
-        msg.ec = ec;
-        msg.xfr.out = n;
-
-        if (n == 0) {
-          INFO_AUTO("SHORT WRITE n={} err={}\n", msg.xfr.out, ec.message());
-        }
+        msg(ec, n);
 
         handler(std::move(msg)); // call user-supplied handler
       }

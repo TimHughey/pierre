@@ -23,6 +23,7 @@
 #include "desk/msg/kv.hpp"
 #include "desk/msg/kv_store.hpp"
 #include "desk/msg/msg.hpp"
+#include "lcs/logger.hpp"
 
 #include "arpa/inet.h"
 #include <ArduinoJson.h>
@@ -44,6 +45,17 @@ public:
 
   MsgOut(MsgOut &&m) = default;
   MsgOut &operator=(MsgOut &&) = default;
+
+  void operator()(const error_code &op_ec, std::size_t n) noexcept {
+    static constexpr csv fn_id{"async_result"};
+
+    ec = op_ec;
+    xfr.out = n;
+
+    if (n == 0) {
+      INFO_AUTO("SHORT WRITE n={} err={}\n", xfr.out, ec.message());
+    }
+  }
 
   template <typename Val> void add_kv(auto &&key, Val &&val) noexcept {
     if constexpr (IsDuration<Val>) {

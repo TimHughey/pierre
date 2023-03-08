@@ -25,13 +25,10 @@
 #include "io/error.hpp"
 #include "io/read_write.hpp"
 #include "io/tcp.hpp"
-#include "lcs/logger.hpp"
 
 #include <boost/asio/read_until.hpp>
-#include <functional>
 #include <memory>
 #include <type_traits>
-#include <utility>
 
 namespace pierre {
 namespace desk {
@@ -54,18 +51,8 @@ auto read_msg(Socket &sock, M &&msg, CompletionToken &&token) {
       typename std::decay<decltype(completion_handler)>::type handler;
 
       void operator()(const error_code &ec, size_t n = 0) noexcept {
-        constexpr csv module_id{"desk.async"};
-        constexpr csv fn_id{"read_msg"};
-
-        // all we're doing here is converting the async_read_until handler
-        // to something that fits our use case
-        msg.xfr.in += n;
-        msg.ec = ec;
-        msg.packed_len = n;
-
-        if (n == 0) {
-          INFO_AUTO("SHORT READ  n={} err={}\n", msg.xfr.in, ec.message());
-        }
+        // convert the async operation to our preferred handler
+        msg(ec, n);
 
         handler(std::move(msg));
       }
@@ -90,14 +77,7 @@ auto read_msg(Socket &sock, M &&msg, CompletionToken &&token) {
     msg.reuse();
     auto &buffer = msg.buffer(); // get the buffer, it may have pending data
 
-    // if (const auto avail = msg.in_avail(); avail) {
-    //   INFO_AUTO("pending bytes={}\n", avail);
-    // } else if (!sock.is_open()) {
-    //   INFO_AUTO("socket={} not open\n", sock.native_handle());
-    // }
-
     // ok, we have everything we need kick-off async_read_until()
-
     asio::async_read_until( //
         sock, buffer,       //
         async::matcher(),   //
