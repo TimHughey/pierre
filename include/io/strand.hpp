@@ -22,6 +22,7 @@
 #define BOOST_ASIO_DISABLE_BOOST_COROUTINE
 
 #include <boost/asio/io_context_strand.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 

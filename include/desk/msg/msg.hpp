@@ -21,10 +21,13 @@
 
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
+#include "base/uint8v.hpp"
 #include "desk/msg/kv.hpp"
+#include "io/buffer.hpp"
 #include "io/error.hpp"
 
 #include <ArduinoJson.h>
+#include <memory>
 
 namespace pierre {
 namespace desk {
@@ -32,27 +35,31 @@ namespace desk {
 class Msg {
 
 public:
-  Msg() noexcept {}
+  Msg(std::size_t capacity) noexcept : storage(std::make_unique<io::streambuf>(capacity)) {}
   virtual ~Msg() noexcept {} // prevent implicit copy/move
 
   Msg(Msg &&m) = default;              // allow move construct
   Msg &operator=(Msg &&msg) = default; // allow move assignment
 
+  auto &buffer() noexcept { return *storage; }
+
   auto elapsed() noexcept { return e.freeze(); }
   auto elapsed_restart() noexcept { return e.reset(); }
 
-  bool is_msg_type(const JsonDocument &doc, csv want_type) const noexcept {
+  static bool is_msg_type(const JsonDocument &doc, csv want_type) noexcept {
     return want_type == csv{doc[MSG_TYPE].as<const char *>()};
   }
 
   bool xfer_error() const noexcept { return !xfer_ok(); }
-  bool xfer_ok() const noexcept { return !ec && (xfr.bytes >= (packed_len + hdr_bytes)); }
+  bool xfer_ok() const noexcept { return !ec && (xfr.bytes >= packed_len); }
+
+protected:
+  // order dependent
+  std::unique_ptr<io::streambuf> storage;
 
 public:
   // order independent
   uint16_t packed_len{0};
-
-  // async call result
   error_code ec;
 
   union {
@@ -61,13 +68,11 @@ public:
     size_t bytes;
   } xfr{0};
 
-  // duration tracking
-private:
-  Elapsed e;
+protected:
+  Elapsed e; // duration tracking
 
 public:
   static constexpr size_t default_doc_size{7 * 1024};
-  static constexpr size_t hdr_bytes{sizeof(packed_len)};
   static constexpr csv module_id{"desk.msg"};
 };
 

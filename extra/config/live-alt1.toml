@@ -25,7 +25,7 @@ config_vsn = 2   # config file format
 [logger]
 # category specific overrides
 debug = false   # show any debug messages?
-init = true     # always log init messages from any module
+init = true     # always log init messages from any module, when true
 thread = false  # show any thread messages?
 shutdown = true # show any shutdown messages?
 

@@ -20,6 +20,7 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "io/buffer.hpp"
 #include "io/error.hpp"
 #include "io/read_write.hpp"
 #include "io/tcp.hpp"
@@ -34,38 +35,35 @@ namespace pierre {
 namespace desk {
 namespace async {
 
-/// @brief Async write desk msg
-/// @tparam M
-/// @tparam CompletionToken
-/// @param socket
-/// @param msg
-/// @param token
-/// @return
-template <typename M, typename Storage, typename CompletionToken>
-auto write_msg(tcp_socket &sock, Storage &storage, M &&msg, CompletionToken &&token) {
+template <typename Socket, typename M, typename CompletionToken>
+inline auto write_msg(Socket &socket, M &&msg, CompletionToken &&token) {
 
-  auto initiation = [](auto &&completion_handler, tcp_socket &sock, Storage &storage, M msg) {
+  auto initiation = [](auto &&completion_handler, Socket &socket, M &&msg) {
     struct intermediate_completion_handler {
-      tcp_socket &sock;
-      Storage &storage;
+      Socket &socket; // for multiple write ops and obtaining I/O executor
       M msg;
       typename std::decay<decltype(completion_handler)>::type handler;
 
-      void operator()(const error_code &ec, size_t n) noexcept {
+      void operator()(const error_code &ec, std::size_t n) noexcept {
+        static constexpr csv module_id{"desk.async"};
+        static constexpr csv fn_id{"write_msg"};
+
         msg.ec = ec;
         msg.xfr.out = n;
 
-        // INFO("desk.async", "write_msg", "wrote {} bytes\n", n);
+        if (n == 0) {
+          INFO_AUTO("SHORT WRITE n={} err={}\n", msg.xfr.out, ec.message());
+        }
 
         handler(std::move(msg)); // call user-supplied handler
       }
 
       using executor_type =
           asio::associated_executor_t<typename std::decay<decltype(completion_handler)>::type,
-                                      tcp_socket::executor_type>;
+                                      typename Socket::executor_type>;
 
       executor_type get_executor() const noexcept {
-        return asio::get_associated_executor(handler, sock.get_executor());
+        return asio::get_associated_executor(handler, socket.get_executor());
       }
 
       using allocator_type =
@@ -77,25 +75,22 @@ auto write_msg(tcp_socket &sock, Storage &storage, M &&msg, CompletionToken &&to
       }
     };
 
+    msg.serialize();
+    auto &buffer = msg.buffer();
+
     // initiate the actual async operation
-    asio::async_write(sock, storage,
+    asio::async_write(socket, buffer,
                       intermediate_completion_handler{
-                          // references to socket and storage
-                          sock, storage,
-                          // the message (provides logic)
-                          std::move(msg),
-                          // handler
+                          socket, std::move(msg),
                           std::forward<decltype(completion_handler)>(completion_handler)});
   };
 
-  msg.serialize_to(storage);
-
   // initiate the async operation
   return asio::async_initiate<CompletionToken, void(M msg)>(
-      initiation,                        // initiation function object
-      token,                             // user supplied callback
-      std::ref(sock), std::ref(storage), // socket and storage
-      std::forward<M>(msg)               // move the msg for use within the async operation
+      initiation,       // initiation function object
+      token,            // user supplied callback
+      std::ref(socket), // wrap non-const args to prevent incorrect decay-copies
+      std::move(msg)    // move the msg for use within the async operation
   );
 }
 

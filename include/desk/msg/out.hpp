@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "base/clock_now.hpp"
 #include "desk/msg/kv.hpp"
 #include "desk/msg/kv_store.hpp"
 #include "desk/msg/msg.hpp"
@@ -30,10 +31,13 @@ namespace pierre {
 namespace desk {
 
 class MsgOut : public Msg {
+protected:
+  auto *raw_out(auto &buffer) noexcept { return static_cast<char *>(buffer.data()); }
+  virtual void serialize_hook(JsonDocument &) noexcept {}
 
 public:
   // outbound messages
-  MsgOut(auto &type) noexcept : Msg(), type(type) {}
+  MsgOut(auto &type) noexcept : Msg(2048), type(type) {}
 
   // inbound messages
   virtual ~MsgOut() noexcept {} // prevent implicit copy/move
@@ -49,7 +53,11 @@ public:
     }
   }
 
-  auto serialize_to(auto &storage) noexcept {
+  void commit(std::size_t n) noexcept { storage->commit(n); }
+
+  auto prepare() noexcept { return storage->prepare(storage->max_size()); }
+
+  auto serialize() noexcept {
     DynamicJsonDocument doc(Msg::default_doc_size);
 
     // first, add MSG_TYPE as it is used to detect start of message
@@ -65,21 +73,11 @@ public:
     doc[NOW_US] = clock_now::mono::us();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
-    packed_len = measureMsgPack(doc);
+    auto buffer = prepare();
 
-    auto buffer1 = storage.prepare(packed_len + hdr_bytes);
-
-    net_packed_len = htons(packed_len);
-    memcpy(buffer1.data(), &net_packed_len, hdr_bytes);
-
-    auto buffer2 = buffer1 + hdr_bytes;
-
-    serializeMsgPack(doc, static_cast<char *>(buffer2.data()), buffer2.size());
-    storage.commit(packed_len + hdr_bytes);
+    packed_len = serializeMsgPack(doc, raw_out(buffer), buffer.size());
+    commit(packed_len);
   }
-
-protected:
-  virtual void serialize_hook(JsonDocument &) noexcept {}
 
 public:
   // order dependent
@@ -87,7 +85,6 @@ public:
 
   // order independent
   kv_store kvs;
-  uint16_t net_packed_len;
 
 public:
   static constexpr csv module_id{"desk.msg.out"};

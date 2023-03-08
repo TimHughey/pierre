@@ -40,6 +40,7 @@ namespace desk {
 
 // forward decl
 class DataMsg;
+class MsgIn;
 
 class DmxCtrl {
 public:
@@ -58,10 +59,11 @@ private:
   ///        once connected start the msg_loop()
   void listen() noexcept;
 
-  void msg_loop() noexcept;
+  void msg_loop(MsgIn &&msg) noexcept;
 
   void resolve_host() noexcept;
-  void stalled_watchdog(Millis wait = Millis()) noexcept;
+  void stall_watchdog(Millis wait = Millis::zero()) noexcept;
+  void stall_watchdog_cancel() noexcept;
   void unknown_host() noexcept;
 
 private:
@@ -70,9 +72,8 @@ private:
   tcp_socket ctrl_sock;
   tcp_acceptor acceptor;
   tcp_socket data_sock;
-  io::streambuf read_buff;
-  io::streambuf write_buff;
   steady_timer stalled_timer;
+  steady_timer resolve_retry_timer;
   const int64_t thread_count;
   std::shared_ptr<std::latch> shutdown_latch;
   cfg_future cfg_fut;

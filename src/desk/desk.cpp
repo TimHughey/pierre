@@ -20,7 +20,6 @@
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
-#include "desk/async/read.hpp"
 #include "desk/async/write.hpp"
 #include "desk/msg/data.hpp"
 #include "dmx_ctrl.hpp"

@@ -1,5 +1,5 @@
 {
-  "type": "data",
+  "mt": "data",
   "seq_num": 11037836,
   "timestamp": 2687679983,
   "silence": false,
@@ -29,5 +29,5 @@
     0
   ],
   "now_µs": 442136295993,
-  "magic": 51666
+  "ma": 828
 }

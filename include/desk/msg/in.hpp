@@ -20,81 +20,54 @@
 #pragma once
 
 #include "desk/msg/msg.hpp"
+#include "io/buffer.hpp"
 #include "lcs/logger.hpp"
 
 #include <ArduinoJson.h>
+#include <algorithm>
+#include <iterator>
 #include <memory>
+#include <ranges>
+#include <vector>
 
 namespace pierre {
 namespace desk {
 
 class MsgIn : public Msg {
-public:
-  // outbound messages
-  MsgIn() = default;
-  ~MsgIn() noexcept {} // prevent default copy/move
 
-  MsgIn(MsgIn &&) = default;
+protected:
+  auto *raw_in() noexcept { return static_cast<const char *>(storage->data().data()); }
+
+public:
+  MsgIn() : Msg(512) {}
+  ~MsgIn() noexcept {}
+
+  inline MsgIn(MsgIn &&) = default;
   MsgIn &operator=(MsgIn &&) = default;
 
-  bool calc_packed_len(io::streambuf &storage, std::size_t n = 0) noexcept {
-    static constexpr csv fn_id{"calc_packed"};
+  void consume(std::size_t n) noexcept { storage->consume(n); }
 
-    bool complete{false};
-    auto hdr_buffer = storage.data();
-
-    // simulate n from async_read when called by the constructor (n == 0)
-    xfr.in += (n == 0) ? hdr_buffer.size() : n;
-
-    if ((packed_len == 0) && (hdr_buffer.size() >= hdr_bytes)) {
-      memcpy(&packed_len, hdr_buffer.data(), hdr_bytes);
-
-      packed_len = ntohs(packed_len); // convert to host byte order
-
-      // we leave the header bytes in the stream buffer until
-      // deserialization so future creations of MsgIn can
-      // assess if this is a complete message when the stream_bufffer
-      // already contains data
-    }
-
-    // now check if the buffer contains packed data
-    if (auto rest_size = storage.size(); rest_size > hdr_bytes) {
-      complete = (rest_size - hdr_bytes) >= packed_len;
-
-      if (!complete) need_bytes = packed_len - rest_size - hdr_bytes;
-    }
-
-    // INFO_AUTO("n={} packed_len={} complete={}\n", n, packed_len, complete);
-
-    return complete; // invert to signal more bytes required
-  }
-
-  auto deserialize_from(auto &storage, JsonDocument &doc) noexcept {
+  auto deserialize_into(JsonDocument &doc) noexcept {
     static constexpr csv fn_id{"deserialize"};
+    const auto err = deserializeMsgPack(doc, raw_in(), xfr.in);
+    consume(xfr.in);
 
-    // asio allows buffer math, add hdr_bytes so we get back
-    // a buffer that points to the packed data
-    auto buffer = storage.data() + hdr_bytes;
-
-    auto raw = static_cast<const char *>(buffer.data());
-
-    const auto err = deserializeMsgPack(doc, raw, packed_len);
-    storage.consume(hdr_bytes + packed_len);
-
-    if (err) {
-      INFO_AUTO("deserialize err={}\n", err.c_str());
-    }
+    if (err) INFO_AUTO("deserialize err={}\n", err.c_str());
 
     return !err;
   }
 
-  auto read_bytes() noexcept { return asio::transfer_at_least(need_bytes); }
+  auto in_avail() noexcept { return storage->in_avail(); }
+
+  void reuse() noexcept {
+    packed_len = 0;
+    ec = error_code();
+    xfr.bytes = 0;
+    e.reset();
+  }
 
 public:
-  size_t need_bytes{0};
-
-public:
-  static constexpr csv module_id{"desk.msgin"};
+  static constexpr csv module_id{"desk.msg.in"};
 };
 
 } // namespace desk
