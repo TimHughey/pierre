@@ -55,10 +55,6 @@ private:
   /// @brief send the initial handshake to the remote host
   void handshake() noexcept;
 
-  /// @brief wait for and accept incoming data connection
-  ///        once connected start the msg_loop()
-  void listen() noexcept;
-
   void msg_loop(MsgIn &&msg) noexcept;
 
   void resolve_host() noexcept;
@@ -69,8 +65,6 @@ private:
 private:
   // order dependent
   io_context io_ctx;
-  tcp_socket ctrl_sock;
-  tcp_acceptor acceptor;
   tcp_socket data_sock;
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;

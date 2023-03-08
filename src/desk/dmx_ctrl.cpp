@@ -57,9 +57,7 @@ inline auto stall_timeout() noexcept {
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
-    : ctrl_sock(io_ctx),                                          //
-      acceptor(io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}),     //
-      data_sock(io_ctx),                                          // accepted data channel sock
+    : data_sock(io_ctx),                                          //
       stalled_timer(io_ctx, stall_timeout()),                     //
       resolve_retry_timer(io_ctx, resolve_retry_wait()),          //
       thread_count(config_threads<DmxCtrl>(thread_count)),        //
@@ -106,46 +104,19 @@ void DmxCtrl::handshake() noexcept {
   static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
   static constexpr csv stats_ms_path{"remote.stats.ms"};
 
-  // start listening on the data port we're preparing to send to
-  // the remote host which will initiate a connection, upon receipt.
-  listen();
-
   MsgOut msg(HANDSHAKE);
 
   msg.add_kv(desk::IDLE_SHUTDOWN_MS, config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
   msg.add_kv(desk::STATS_MS, config_val<DmxCtrl, int64_t>(stats_ms_path, 2000));
   msg.add_kv(desk::REF_US, pet::now_monotonic<Micros>());
-  msg.add_kv(desk::DATA_PORT, acceptor.local_endpoint().port());
 
-  async::write_msg(ctrl_sock, std::move(msg), [this](MsgOut msg) {
-    Stats::write(stats::CTRL_MSG_WRITE_ELAPSED, msg.elapsed());
+  async::write_msg(data_sock, std::move(msg), [this](MsgOut msg) {
+    Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
     if (msg.xfer_error()) {
-      Stats::write(stats::CTRL_MSG_WRITE_ERROR, true);
+      Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
 
       INFO_AUTO("write failed, err={}\n", msg.ec.message());
-    }
-  });
-}
-
-void DmxCtrl::listen() noexcept {
-  static constexpr csv fn_id{"listen"};
-  // listen for inbound data connections and get our local port
-  // when this async_accept is successful msg_loop() is invoked
-  acceptor.async_accept(data_sock, [this, e = Elapsed()](const error_code ec) mutable {
-    Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
-
-    if (!ec) {
-      const auto &r = data_sock.remote_endpoint();
-      INFO_AUTO("{}\n", io::log_socket_msg(ec, data_sock, r, e));
-
-      // success, set sock opts, connected and start msg_loop()
-      data_sock.set_option(ip_tcp::no_delay(true));
-      connected = ctrl_sock.is_open() && data_sock.is_open();
-
-      msg_loop(MsgIn()); // start the msg loop
-    } else {
-      INFO_AUTO("ctrl={} data={} {}\n", ctrl_sock.is_open(), data_sock.is_open(), ec.message());
     }
   });
 }
@@ -157,8 +128,8 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   if (connected) {
     stall_watchdog();
 
-    async::read_msg(ctrl_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
-      Stats::write(stats::CTRL_MSG_READ_ELAPSED, msg.elapsed());
+    async::read_msg(data_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
+      Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
         DynamicJsonDocument doc(desk::Msg::default_doc_size);
@@ -183,45 +154,10 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
         }
 
       } else {
-        Stats::write(stats::CTRL_MSG_READ_ERROR, true);
+        Stats::write(stats::DATA_MSG_READ_ERROR, true);
         connected = false;
       }
     });
-
-    // MsgIn msg;
-    // auto &buffer = msg.buffer();
-    //
-    // asio::async_read_until(
-    //     ctrl_sock, buffer, async::matcher(),
-    //     [this, e = Elapsed(), msg = std::move(msg)](error_code ec, std::size_t n) mutable {
-    //       Stats::write(stats::CTRL_MSG_READ_ELAPSED, e.freeze());
-    //
-    //       if (!ec) {
-    //         msg_loop(); // immediately start waiting for the next message
-    //
-    //         DynamicJsonDocument doc(desk::Msg::default_doc_size);
-    //         if (msg.deserialize_into(doc, n)) {
-    //
-    //           // handle the various message types
-    //           if (msg.is_msg_type(doc, desk::FEEDBACK)) {
-    //             const auto echo_now_us = doc["echo_now_µs"].as<int64_t>();
-    //             Stats::write(stats::REMOTE_ROUNDTRIP,
-    //             pet::elapsed_from_raw<Micros>(echo_now_us));
-    //             Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
-    //             Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
-    //
-    //           } else if (msg.is_msg_type(doc, desk::STATS)) {
-    //             Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
-    //             Stats::write(stats::REMOTE_DMX_QRF, doc["dmx_qrf"].as<int64_t>());
-    //             Stats::write(stats::REMOTE_DMX_QSF, doc["dmx_qsf"].as<int64_t>());
-    //             Stats::write(stats::FPS, doc["fps"].as<int64_t>());
-    //           }
-    //         }
-    //
-    //       } else {
-    //         Stats::write(stats::CTRL_MSG_READ_ERROR, true);
-    //       }
-    //     });
   }
 }
 
@@ -263,18 +199,21 @@ void DmxCtrl::resolve_host() noexcept {
     // kick-off an async connect. once connected we'll send the handshake
     // that contains the data port for the remote host to connect
     asio::async_connect( //
-        ctrl_sock, std::array{host_endpoint.value()},
+        data_sock, std::array{host_endpoint.value()},
         [this, e = Elapsed()](const error_code ec, const tcp_endpoint r) mutable {
           static constexpr csv fn_id{"host.connect"};
 
-          INFO_AUTO("{}\n", io::log_socket_msg(ec, ctrl_sock, r, e));
+          INFO_AUTO("{}\n", io::log_socket_msg(ec, data_sock, r, e));
 
-          if (ec) return;
+          if (!ec) {
+            data_sock.set_option(ip_tcp::no_delay(true));
+            Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
-          ctrl_sock.set_option(ip_tcp::no_delay(true));
-          Stats::write(stats::CTRL_CONNECT_ELAPSED, e.freeze());
+            connected = true;
 
-          handshake();
+            msg_loop(MsgIn());
+            handshake();
+          }
         });
   });
 }
@@ -317,8 +256,6 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
         INFO_AUTO("was_connected={} stall_timeout={}\n", was_connected, wait);
       }
 
-      acceptor.cancel(ec);
-      ctrl_sock.close(ec);
       data_sock.close(ec);
 
       resolve_host(); // kick off name resolution, connect sequence

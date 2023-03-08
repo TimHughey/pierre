@@ -36,14 +36,10 @@ Stats::Stats(io_context &io_ctx) noexcept
       batch_of(config_val<Stats, int>("batch_of", 150)),
       val_txt{
           // create map of stats val to text
-          {stats::CTRL_CONNECT_ELAPSED, "ctrl_connect_elapsed"},
-          {stats::CTRL_CONNECT_TIMEOUT, "ctrl_connect_timeout"},
-          {stats::CTRL_MSG_READ_ELAPSED, "ctrl_msg_read_elapsed"},
-          {stats::CTRL_MSG_READ_ERROR, "ctrl_msg_read_error"},
-          {stats::CTRL_MSG_WRITE_ELAPSED, "ctrl_msg_write_elapsed"},
-          {stats::CTRL_MSG_WRITE_ERROR, "ctrl_msg_write_error"},
           {stats::DATA_CONNECT_ELAPSED, "data_connect_elapsed"},
           {stats::DATA_CONNECT_FAILED, "data_connect_failed"},
+          {stats::DATA_MSG_READ_ELAPSED, "data_msg_read_elapsed"},
+          {stats::DATA_MSG_READ_ERROR, "data_msg_read_error"},
           {stats::DATA_MSG_WRITE_ELAPSED, "data_msg_write_elapsed"},
           {stats::DATA_MSG_WRITE_ERROR, "data_msg_write_error"},
           {stats::FLUSH_ELAPSED, "flush_elapsed"},
