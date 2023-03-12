@@ -23,33 +23,52 @@
 namespace pierre {
 namespace desk {
 
-// predefined msg keys
-static constexpr auto DATA_WAIT_US{"data_wait_µs"};
-static constexpr auto DFRAME{"dframe"};
-static constexpr auto DMX_QOK{"dmx_qok"}; // dmx queue operation ok
-static constexpr auto DMX_QRF{"dmx_qrf"}; // dmx queue recv failure count
-static constexpr auto DMX_QSF{"dmx_qsf"}; // dmx queue send failure count
-static constexpr auto ECHO_NOW_US{"echo_now_µs"};
-static constexpr auto ELAPSED_US{"elapsed_µs"};
-static constexpr auto FPS{"fps"};
-static constexpr auto IDLE_SHUTDOWN_MS{"idle_shutdown_ms"};
-static constexpr auto MAGIC{"ma"};    // short for msg end detection
-static constexpr auto MSG_TYPE{"mt"}; // short for msg start detection
-static constexpr auto NOW_US{"now_µs"};
-static constexpr auto REF_US{"ref_µs"};
-static constexpr auto SEQ_NUM{"seq_num"};
-static constexpr auto SILENCE{"silence"};
-static constexpr auto STATS_MS{"stats_ms"};
+//
+// msg keys
+//
 
-// predefined msg types
+// common local -> remote
+static constexpr auto NOW_US{"now_µs"}; // all msgs
+static constexpr auto REF_US{"ref_µs"}; // all msgs
+static constexpr auto MAGIC{"ma"};      // msg end detection
+static constexpr auto MSG_TYPE{"mt"};   // msg start detection
+
+// handshake local -> remote
+static constexpr auto FRAME_LEN{"frame_len"}; // handshake
+static constexpr auto IDLE_MS{"idle_ms"};     // handshake
+static constexpr auto STATS_MS{"stats_ms"};   // handshake
+
+// data msg local -> remote
+static constexpr auto FRAME{"frame"};     // data msg
+static constexpr auto SEQ_NUM{"seq_num"}; // data msg
+static constexpr auto SILENCE{"silence"}; // data msg
+
+// data msg reply remote -> local
+static constexpr auto ECHO_NOW_US{"echo_now_µs"}; // echoed
+static constexpr auto ELAPSED_US{"elapsed_µs"};   // data_reply msg
+static constexpr auto DATA_WAIT_US{"data_wait_µs"};
+
+// stats msg remote -> local
+static constexpr auto FPS{"fps"};   // frames per second
+static constexpr auto QOK{"qok"};   // frame queue ok
+static constexpr auto QRF{"qrf"};   // rame queue recv failure count
+static constexpr auto QSF{"qsf"};   // queue send failure count
+static constexpr auto UART{"uart"}; // uart overrun (timeout)
+
+//
+// msg types
+//
+
 static constexpr auto DATA{"data"};
-static constexpr auto FEEDBACK{"feedback"};
+static constexpr auto DATA_REPLY{"data_reply"};
 static constexpr auto HANDSHAKE{"handshake"};
 static constexpr auto SHUTDOWN{"shutdown"};
 static constexpr auto STATS{"stats"};
 static constexpr auto UNKNOWN{"unknown"};
 
-// predefined msg values
+//
+// msg values
+//
 static constexpr uint16_t MAGIC_VAL{0x033c};
 
 } // namespace desk

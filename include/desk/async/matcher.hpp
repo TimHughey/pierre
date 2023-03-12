@@ -32,6 +32,14 @@ namespace pierre {
 namespace desk {
 namespace async {
 
+//
+// matcher uses the msgpack spec to find the beginning and end
+// of a complete message by identifying the encoded representation
+// of the 'mt' and 'ma' keys.
+//
+// https://github.com/msgpack/msgpack/blob/master/spec.md
+//
+
 class matcher {
 public:
   explicit matcher() noexcept {}

@@ -32,6 +32,7 @@
 #include "mdns/mdns.hpp"
 
 #include <array>
+#include <boost/asio.hpp>
 #include <iterator>
 #include <latch>
 #include <utility>
@@ -106,7 +107,8 @@ void DmxCtrl::handshake() noexcept {
 
   MsgOut msg(HANDSHAKE);
 
-  msg.add_kv(desk::IDLE_SHUTDOWN_MS, config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
+  msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
+  msg.add_kv(desk::IDLE_MS, config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
   msg.add_kv(desk::STATS_MS, config_val<DmxCtrl, int64_t>(stats_ms_path, 2000));
   msg.add_kv(desk::REF_US, pet::now_monotonic<Micros>());
 
@@ -139,17 +141,17 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
           msg_loop(std::move(msg));
 
           // handle the various message types
-          if (Msg::is_msg_type(doc, desk::FEEDBACK)) {
-            const auto echo_now_us = doc["echo_now_µs"].as<int64_t>();
+          if (Msg::is_msg_type(doc, desk::DATA_REPLY)) {
+            const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
             Stats::write(stats::REMOTE_ROUNDTRIP, pet::elapsed_from_raw<Micros>(echo_now_us));
-            Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc["data_wait_µs"] | 0));
-            Stats::write(stats::REMOTE_ELAPSED, Micros(doc["elapsed_µs"] | 0));
+            Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc[desk::DATA_WAIT_US] | 0));
+            Stats::write(stats::REMOTE_ELAPSED, Micros(doc[desk::ELAPSED_US] | 0));
 
           } else if (Msg::is_msg_type(doc, desk::STATS)) {
-            Stats::write(stats::REMOTE_DMX_QOK, doc["dmx_qok"].as<int64_t>());
-            Stats::write(stats::REMOTE_DMX_QRF, doc["dmx_qrf"].as<int64_t>());
-            Stats::write(stats::REMOTE_DMX_QSF, doc["dmx_qsf"].as<int64_t>());
-            Stats::write(stats::FPS, doc["fps"].as<int64_t>());
+            Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
+            Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
+            Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
+            Stats::write(stats::FPS, doc[desk::FPS].as<int64_t>());
           }
         }
 
@@ -195,6 +197,23 @@ void DmxCtrl::resolve_host() noexcept {
 
     // we'll connect to this endpoint
     host_endpoint.emplace(asio::ip::make_address_v4(zcs.address()), zcs.port());
+
+    asio::post(data_sock.get_executor(), [this, ep = host_endpoint]() {
+      auto resolver = std::make_unique<ip_tcp::resolver>(data_sock.get_executor());
+
+      resolver->async_resolve(*ep, //
+                              [this, resolver = std::move(resolver)](
+                                  error_code ec, ip_tcp::resolver::results_type results) {
+                                if (ec) {
+                                  INFO_AUTO("resolve err={}\n", ec.message());
+                                } else {
+
+                                  std::for_each(results.begin(), results.end(), [](const auto &r) {
+                                    INFO_AUTO("hostname: {}\n", r.host_name());
+                                  });
+                                }
+                              });
+    });
 
     // kick-off an async connect. once connected we'll send the handshake
     // that contains the data port for the remote host to connect

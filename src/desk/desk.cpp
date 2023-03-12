@@ -111,7 +111,7 @@ void Desk::frame_loop(bool fx_finished) noexcept {
 
   // render this frame and send to DMX controller
   if (frame->state.ready()) {
-    desk::DataMsg msg(frame);
+    desk::DataMsg msg(frame->seq_num, frame->silent());
 
     if (active_fx) {
       fx_finished = active_fx->render(frame, msg);

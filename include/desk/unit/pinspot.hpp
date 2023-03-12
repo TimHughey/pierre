@@ -84,7 +84,7 @@ public:
   inline bool isFading() const { return (bool)fader; }
 
   void update_msg(DataMsg &msg) noexcept override {
-    auto snippet = msg.dmxFrame() + address;
+    auto snippet = msg.frame() + address;
 
     color.copyRgbToByteArray(snippet + 1);
 

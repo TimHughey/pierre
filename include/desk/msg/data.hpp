@@ -20,22 +20,23 @@
 
 #include "base/types.hpp"
 #include "desk/msg/out.hpp"
-#include "frame/frame.hpp"
 
-#include <variant>
+#include <algorithm>
 #include <vector>
 
 namespace pierre {
 namespace desk {
 
 class DataMsg : public MsgOut {
+public:
+  static constexpr uint32_t frame_len{12};
 
 public:
-  DataMsg(frame_t frame) noexcept
-      : desk::MsgOut(desk::DATA), //
-        seq_num{frame->seq_num},  // grab the frame seq_num
-        silence{frame->silent()}, // grab if the frame is silent
-        dmx_frame(16, 0x00)       // init the dmx frame
+  DataMsg(const seq_num_t seq_num, bool silence) noexcept
+      : desk::MsgOut(desk::DATA),  //
+        seq_num{seq_num},          // grab the frame seq_num
+        silence{silence},          // grab if the frame is silent
+        dmx_frame(frame_len, 0x00) // init the dmx frame
   {}
 
   ~DataMsg() noexcept {} // prevent default copy/move
@@ -44,7 +45,7 @@ public:
   DataMsg &operator=(DataMsg &&) = default; // allow move assignment
 
 public: // API
-  uint8_t *dmxFrame() noexcept { return dmx_frame.data(); }
+  uint8_t *frame() noexcept { return dmx_frame.data(); }
 
   void noop() noexcept {}
 
@@ -53,10 +54,8 @@ protected:
     doc[desk::SEQ_NUM] = seq_num;
     doc[desk::SILENCE] = silence;
 
-    auto dframe = doc.createNestedArray("dframe");
-    for (uint8_t byte : dmx_frame) {
-      dframe.add(byte);
-    }
+    auto dframe = doc.createNestedArray(desk::FRAME);
+    std::for_each(dmx_frame.begin(), dmx_frame.end(), [&](const auto b) mutable { dframe.add(b); });
   }
 
 private:
