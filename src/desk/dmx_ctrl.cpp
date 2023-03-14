@@ -147,6 +147,13 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
             Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc[desk::DATA_WAIT_US] | 0));
             Stats::write(stats::REMOTE_ELAPSED, Micros(doc[desk::ELAPSED_US] | 0));
 
+            if (doc[desk::SUPP]) {
+              Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
+              Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
+              Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
+              Stats::write(stats::FPS, doc[desk::FPS].as<int64_t>());
+            }
+
           } else if (Msg::is_msg_type(doc, desk::STATS)) {
             Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
             Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());

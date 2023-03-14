@@ -33,6 +33,9 @@ static constexpr auto REF_US{"ref_µs"}; // all msgs
 static constexpr auto MAGIC{"ma"};      // msg end detection
 static constexpr auto MSG_TYPE{"mt"};   // msg start detection
 
+// periodic
+static constexpr const auto SUPP{"supp"}; // msg contains supplemental metrics
+
 // handshake local -> remote
 static constexpr auto FRAME_LEN{"frame_len"}; // handshake
 static constexpr auto IDLE_MS{"idle_ms"};     // handshake
