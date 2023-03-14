@@ -158,7 +158,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
             Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
             Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
             Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
-            Stats::write(stats::FPS, doc[desk::FPS].as<int64_t>());
+            Stats::write(stats::FPS, doc[desk::FPS].as<double>());
           }
         }
 
