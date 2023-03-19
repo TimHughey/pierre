@@ -150,8 +150,8 @@ void Racked::flush_impl() noexcept {
 
   if (reel_count > 0) {
 
-    auto first = racked.begin()->peek_next();
-    auto last = racked.rbegin()->peek_last();
+    auto first = racked.front().peek_next();
+    auto last = racked.back().peek_last();
 
     INFO_AUTO("rack contains seq_num {:<8}/{:>8} before flush\n", first->seq_num, last->seq_num);
 
@@ -199,7 +199,6 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
       // notes:
       //  1. we post to handoff_strand to control the concurrency of decoding
       //  2. we move the packet since handoff() is done with it
-      //  3. we move the frame since no code beyond this point needs it
 
       asio::post(handoff_strand, [this, frame = std::move(frame)]() {
         // here we do the decoding of the audio data, if decode succeeds we
@@ -291,25 +290,8 @@ void Racked::monitor_wip() noexcept {
       }));
 }
 
-frame_future Racked::next_frame(const Nanos max_wait) noexcept { // static
-  auto prom = frame_promise();
-  auto fut = prom.get_future().share();
-
-  // when Racked isn't ready (doesn't exist) return SilentFrame
-  if (ready.load() == false) {
-    prom.set_value(SilentFrame::create());
-    return fut;
-  }
-
-  asio::post(io_ctx, [=, this, prom = std::move(prom)]() mutable { //
-    next_frame_impl(std::move(prom), max_wait);
-  });
-
-  // return the future
-  return fut;
-}
-
 frame_t Racked::next_frame_no_wait(const Nanos &max_wait) noexcept {
+
   if (!ready.load()) return SilentFrame::create();
 
   const auto clock_info = master_clock->info_no_wait();
@@ -344,74 +326,6 @@ frame_t Racked::next_frame_no_wait(const Nanos &max_wait) noexcept {
   }
 
   return frame;
-}
-
-void Racked::next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept {
-  const Nanos wait_half(max_wait / 2);
-
-  std::shared_lock<std::shared_timed_mutex> flush_lck(flush_mtx, std::defer_lock);
-  std::unique_lock rack_lck{rack_mtx, std::defer_lock}; // don't lock yet
-
-  auto master_clock_fut = master_clock->info();
-  auto clock_info = ClockInfo();
-
-  if (master_clock_fut.valid()) {
-    if (master_clock_fut.wait_for(wait_half) == std::future_status::ready) {
-      clock_info = master_clock_fut.get();
-    }
-  }
-
-  if (clock_info.ok() == false) {
-    // no clock info, set promise to SilentFrame
-    prom.set_value(SilentFrame::create());
-    return;
-  } else [[likely]] {
-    // we have ClockInfo, get AnchorLast
-    clock_info = master_clock->info().get();
-    auto anchor_now = anchor->get_data(clock_info);
-
-    if ((anchor_now.ready() == false) || !spool_frames) {
-      // anchor not ready yet or we haven't been instructed to spool
-      // so set the promise to a SilentFrame. (i.e. user hit pause, hasn't hit
-      // play or disconnected)
-      prom.set_value(SilentFrame::create());
-      return;
-    }
-
-    if (!flush_lck.try_lock()) { // we're flushing
-      prom.set_value(SilentFrame::create());
-      return;
-    }
-
-    if (!rack_lck.try_lock_for(wait_half)) { // racked contention
-      prom.set_value(SilentFrame::create());
-      return;
-    }
-
-    // do we have any racked reels? if not, return a SilentFrame
-    if (std::empty(racked)) {
-      prom.set_value(SilentFrame::create());
-      return;
-    }
-
-    auto &reel = *racked.begin();
-    auto frame = reel.peek_next();
-
-    // calc the frame state (Frame caches the anchor)
-    auto state = frame->state_now(anchor_now, InputInfo::lead_time);
-    prom.set_value(frame);
-
-    if (state.ready() || state.outdated() || state.future()) {
-      // consume the ready or outdated frame
-      if (auto reel_empty = reel.consume(); reel_empty == true) {
-        // reel is empty after the consume, erase it
-        racked.erase(racked.begin());
-        Stats::write(stats::RACKED_REELS, std::ssize(racked));
-      }
-
-      log_racked();
-    }
-  }
 }
 
 void Racked::rack_wip(use_lock_t use_lock) noexcept {

@@ -80,7 +80,7 @@ public:
 
   /// @brief The last Frame in the reel
   /// @return
-  frame_t peek_last() const noexcept { return *frames.rbegin(); }
+  frame_t peek_last() const noexcept { return frames.back(); }
 
   template <typename T = reel_serial_num_t> const T serial_num() const noexcept {
     if constexpr (std::is_same_v<T, reel_serial_num_t>) {

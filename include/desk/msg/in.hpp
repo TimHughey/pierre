@@ -52,7 +52,7 @@ public:
     ec = op_ec;
     packed_len = n; // should we need to set this?
 
-    if (n == 0) {
+    if (!n && (ec.value() != errc::operation_canceled)) {
       INFO_AUTO("SHORT READ  n={} err={}\n", xfr.in, ec.message());
     }
   }

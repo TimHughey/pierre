@@ -58,12 +58,7 @@ public:
   void flush(FlushInfo &&request) noexcept;
   void flush_all() noexcept { flush(FlushInfo::make_flush_all()); }
 
-  // handeff() allows the packet to be moved however expects the key to be a reference
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
-
-  /// @brief Get a shared_future to the next racked frame
-  /// @return shared_future containing the next frame (could be silent)
-  frame_future next_frame(const Nanos max_wait = InputInfo::lead_time_min) noexcept;
 
   frame_t next_frame_no_wait(const Nanos &max_wait) noexcept;
 
@@ -83,7 +78,6 @@ private:
   void log_racked(log_racked_rc rc = log_racked_rc::NONE) const noexcept;
 
   void monitor_wip() noexcept;
-  void next_frame_impl(frame_promise prom, const Nanos max_wait) noexcept;
 
   void rack_wip(use_lock_t use_lock = LOCK) noexcept;
 

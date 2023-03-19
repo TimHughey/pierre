@@ -97,13 +97,11 @@ void Desk::frame_loop(bool fx_finished) noexcept {
 
   // Racked will always return a frame (from racked or silent)
   auto frame = racked->next_frame_no_wait(InputInfo::lead_time_min);
-  // auto frame = racked->next_frame().get();
 
-  // we now have a valid frame:
-  //  1. rendering = from Racked (peaks or silent)
-  //  2. not rendering = generated SilentFrame
-
-  Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+  // we are assured the frame can be rendered (slient or peaks)
+  if (next_wait.freeze() > 100us) {
+    Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+  }
 
   frame->state.record_state();
 
@@ -128,18 +126,15 @@ void Desk::frame_loop(bool fx_finished) noexcept {
   frame->mark_rendered();
 
   // now we need to wait for the correct time to render the next frame
-  auto sync_wait = frame->sync_wait_recalc();
-
-  error_code ec = io::make_error();
-  if (sync_wait >= Nanos::zero()) {
+  if (auto sync_wait = frame->sync_wait_recalc(); sync_wait >= Nanos::zero()) {
 
     frame_timer.expires_after(sync_wait);
-    frame_timer.wait(ec);
-  }
-
-  if (!ec) {
+    frame_timer.async_wait([this, fx_finished](const error_code &ec) {
+      if (!ec) frame_loop(fx_finished);
+    });
+  } else {
+    INFO_AUTO("negative sync wait {}\n", frame->sync_wait());
     asio::post(io_ctx, [this, fx_finished]() { frame_loop(fx_finished); });
-    return;
   }
 
   if (state == Stopping) standby();

@@ -113,7 +113,9 @@ void DmxCtrl::handshake() noexcept {
   msg.add_kv(desk::REF_US, pet::now_monotonic<Micros>());
 
   async::write_msg(data_sock, std::move(msg), [this](MsgOut msg) {
-    Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+    if (msg.elapsed() > 750us) {
+      Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+    }
 
     if (msg.xfer_error()) {
       Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
@@ -131,7 +133,9 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
     stall_watchdog();
 
     async::read_msg(data_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
-      Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
+      if (msg.elapsed() > 30ms) {
+        Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
+      }
 
       if (msg.xfer_ok()) {
         DynamicJsonDocument doc(desk::Msg::default_doc_size);
@@ -143,9 +147,15 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
           // handle the various message types
           if (Msg::is_msg_type(doc, desk::DATA_REPLY)) {
             const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
-            Stats::write(stats::REMOTE_ROUNDTRIP, pet::elapsed_from_raw<Micros>(echo_now_us));
-            Stats::write(stats::REMOTE_DATA_WAIT, Micros(doc[desk::DATA_WAIT_US] | 0));
-            Stats::write(stats::REMOTE_ELAPSED, Micros(doc[desk::ELAPSED_US] | 0));
+            const auto remote_roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
+
+            if (remote_roundtrip > 13ms) Stats::write(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
+
+            const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0);
+            if (data_wait > 30ms) Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
+
+            const auto remote_elapsed = Micros(doc[desk::ELAPSED_US] | 0);
+            if (remote_elapsed > 225us) Stats::write(stats::REMOTE_ELAPSED, remote_elapsed);
 
             if (doc[desk::SUPP]) {
               Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
@@ -248,7 +258,7 @@ void DmxCtrl::send_data_msg(DataMsg &&msg) noexcept {
   if (connected) { // only send msgs when connected
 
     async::write_msg(data_sock, std::forward<DataMsg>(msg), [this](DataMsg msg) {
-      Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+      if (msg.elapsed() > 200us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
         stall_watchdog();

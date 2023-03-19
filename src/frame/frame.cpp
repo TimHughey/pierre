@@ -192,7 +192,7 @@ frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept
   state.update_if(initial_state, new_state);
   set_sync_wait(diff);
 
-  Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+  if (sync_wait() > InputInfo::lead_time) Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
 
   return state;
 }

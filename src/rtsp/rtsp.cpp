@@ -77,6 +77,8 @@ Rtsp::Rtsp() noexcept
 Rtsp::~Rtsp() noexcept {
   INFO_SHUTDOWN_REQUESTED();
 
+  io_ctx.stop();
+
   [[maybe_unused]] error_code ec;
   acceptor.close(ec);    //  prevent new connections
   sessions->close_all(); // close any existing connections

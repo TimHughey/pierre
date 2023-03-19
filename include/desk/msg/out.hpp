@@ -52,8 +52,8 @@ public:
     ec = op_ec;
     xfr.out = n;
 
-    if (n == 0) {
-      INFO_AUTO("SHORT WRITE n={} err={}\n", xfr.out, ec.message());
+    if (!n && (ec.value() != errc::operation_canceled)) {
+      INFO_AUTO("SHORT WRITE  n={} err={}\n", xfr.out, ec.message());
     }
   }
 

@@ -38,7 +38,7 @@ struct InputInfo {
   static constexpr Nanos frame{static_cast<int64_t>(1e+9 / rate)};
 
   static constexpr Nanos lead_time{frame * 1024};
-  static constexpr Nanos lead_time_min{static_cast<int64_t>(lead_time.count() * 0.33)};
+  static constexpr Nanos lead_time_min{static_cast<int64_t>(lead_time.count() * 0.15)};
   static constexpr int64_t lead_time_us{std::chrono::duration_cast<Micros>(lead_time).count()};
 
   static constexpr int fps{Millis(1000).count() /
