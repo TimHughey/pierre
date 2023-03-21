@@ -93,51 +93,48 @@ void Desk::frame_loop(bool fx_finished) noexcept {
     return;
   }
 
-  Elapsed next_wait;
+  racked->next_frame(io_ctx, [this, fx_finished, next_wait = Elapsed()](frame_t frame) mutable {
+    // we are assured the frame can be rendered (slient or peaks)
+    if (next_wait.freeze() > 100us) {
+      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+    }
 
-  // Racked will always return a frame (from racked or silent)
-  auto frame = racked->next_frame_no_wait(InputInfo::lead_time_min);
+    frame->state.record_state();
 
-  // we are assured the frame can be rendered (slient or peaks)
-  if (next_wait.freeze() > 100us) {
-    Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
-  }
+    if (fx_finished) fx_select(frame->state, frame->silent());
 
-  frame->state.record_state();
+    // render this frame and send to DMX controller
+    if (frame->state.ready()) {
+      desk::DataMsg msg(frame->seq_num, frame->silent());
 
-  if (fx_finished) fx_select(frame->state, frame->silent());
+      if (active_fx) {
+        fx_finished = active_fx->render(frame, msg);
 
-  // render this frame and send to DMX controller
-  if (frame->state.ready()) {
-    desk::DataMsg msg(frame->seq_num, frame->silent());
+        if (!fx_finished) {
+          if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
 
-    if (active_fx) {
-      fx_finished = active_fx->render(frame, msg);
-
-      if (!fx_finished) {
-        if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
-
-        dmx_ctrl->send_data_msg(std::move(msg));
+          dmx_ctrl->send_data_msg(std::move(msg));
+        }
       }
     }
-  }
 
-  // notates rendered or silence in timeseries db
-  frame->mark_rendered();
+    // notates rendered or silence in timeseries db
+    frame->mark_rendered();
 
-  // now we need to wait for the correct time to render the next frame
-  if (auto sync_wait = frame->sync_wait_recalc(); sync_wait >= Nanos::zero()) {
+    // now we need to wait for the correct time to render the next frame
+    if (auto sync_wait = frame->sync_wait_recalc(); sync_wait >= Nanos::zero()) {
 
-    frame_timer.expires_after(sync_wait);
-    frame_timer.async_wait([this, fx_finished](const error_code &ec) {
-      if (!ec) frame_loop(fx_finished);
-    });
-  } else {
-    INFO_AUTO("negative sync wait {}\n", frame->sync_wait());
-    asio::post(io_ctx, [this, fx_finished]() { frame_loop(fx_finished); });
-  }
+      frame_timer.expires_after(sync_wait);
+      frame_timer.async_wait([this, fx_finished](const error_code &ec) {
+        if (!ec) frame_loop(fx_finished);
+      });
+    } else {
+      // INFO_AUTO("negative sync wait {}\n", frame->sync_wait());
+      asio::post(io_ctx, [this, fx_finished]() { frame_loop(fx_finished); });
+    }
 
-  if (state == Stopping) standby();
+    if (state == Stopping) standby();
+  });
 }
 
 void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
@@ -216,6 +213,7 @@ void Desk::resume() noexcept {
 }
 
 void Desk::spool(bool enable) noexcept {
+  //// TODO: check this!
   if (racked) racked->spool(enable);
 }
 

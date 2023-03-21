@@ -60,35 +60,67 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  frame_t next_frame_no_wait(const Nanos &max_wait) noexcept;
+  template <typename Executor, typename CompletionToken>
+  void next_frame(Executor &handler_executor, CompletionToken &&token) noexcept {
+    constexpr csv fn_id{"next_frame"};
 
-  void spool(bool enable = true) noexcept {
-    if (ready.load() == false) return;
+    auto initiation = [](auto &&completion_handler, Executor &handler_executor, Racked &self) {
+      struct ic_handler {
+        Executor &handler_executor;
+        Racked &self;
+        typename std::decay<decltype(completion_handler)>::type handler;
 
-    spool_frames.store(enable);
+        void operator()() noexcept { handler(self.next_frame_no_wait()); }
+
+        using executor_type =
+            asio::associated_executor_t<typename std::decay<decltype(completion_handler)>::type,
+                                        typename Executor::executor_type>;
+
+        executor_type get_executor() const noexcept {
+          return asio::get_associated_executor(handler, handler_executor.get_executor());
+        }
+
+        using allocator_type =
+            asio::associated_allocator_t<typename std::decay<decltype(completion_handler)>::type,
+                                         std::allocator<void>>;
+
+        allocator_type get_allocator() const noexcept {
+          return asio::get_associated_allocator(handler, std::allocator<void>{});
+        }
+
+      }; // end struct ic_handler
+
+      asio::post(self.racked_strand,
+                 ic_handler{handler_executor, self,
+                            std::forward<decltype(completion_handler)>(completion_handler)});
+    }; // end initiation
+
+    return asio::async_initiate<CompletionToken, void(frame_t frame)>(
+        initiation, token, std::ref(handler_executor), std::ref(*this));
   }
 
-private:
-  enum log_racked_rc { NONE, RACKED };
-  enum use_lock_t { LOCK_FREE, LOCK };
+  void spool(bool enable = true) noexcept { std::atomic_exchange(&spool_frames, enable); }
 
 private:
-  void emplace_frame(frame_t frame) noexcept;
-  void flush_impl() noexcept;
-  void log_racked(log_racked_rc rc = log_racked_rc::NONE) const noexcept;
+  enum log_rc { NONE, RACKED };
+
+private:
+  void log_racked(log_rc rc = log_rc::NONE) const noexcept;
 
   void monitor_wip() noexcept;
+  frame_t next_frame_no_wait() noexcept;
 
-  void rack_wip(use_lock_t use_lock = LOCK) noexcept;
+  void rack_wip() noexcept;
 
 private:
   // order dependent
   io_context io_ctx;
   const int thread_count;
   work_guard guard;
+  strand flush_strand;
   strand handoff_strand;
   strand wip_strand;
-  strand flush_strand;
+  strand racked_strand;
   system_timer wip_timer;
   MasterClock *master_clock;
   Anchor *anchor;
@@ -97,15 +129,15 @@ private:
   FlushInfo flush_request;
   std::atomic_bool ready{false};
   std::atomic_bool spool_frames{false};
-  mutable std::shared_timed_mutex flush_mtx;
-  mutable std::shared_timed_mutex rack_mtx;
   std::unique_ptr<Av> av;
 
+  ClockInfo clock_info;
+
   racked_reels racked;
-  std::optional<Reel> wip;
+  Reel wip;
 
 private:
-  std::optional<std::latch> shutdown_latch;
+  std::shared_ptr<std::latch> shutdown_latch;
 
 public:
   static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};

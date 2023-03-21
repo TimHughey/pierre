@@ -41,7 +41,6 @@ typedef const char *ccs;
 // Vector of Floats
 using reals_t = std::vector<double>;
 
-using reel_serial_num_t = uint64_t;
 using seq_num_t = uint32_t;   // frame sequence num
 using timestamp_t = uint32_t; // frame timestamp
 

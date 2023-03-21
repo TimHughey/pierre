@@ -18,15 +18,7 @@
 
 #pragma once
 
-#include "base/clock_now.hpp"
-#include "base/pet_types.hpp"
 #include "frame/frame.hpp"
-#include "frame/state.hpp"
-
-#include <algorithm>
-#include <optional>
-#include <ranges>
-#include <set>
 
 namespace pierre {
 
@@ -42,9 +34,8 @@ private:
     Nanos diff = calc_diff(frame_num);
 
     // silent frames are only READY or FUTURE (never OUTDATED)
-    // if oOUTDATED  then there has been a gap in this silence frame
-    // sequence so reset the epoch and frame_num and recalculate diff
-    // before calling state_now()
+    // if OUTDATED then there has been a gap in the silence frame sequence
+    // so reset the epoch / frame_num and recalculate diff before calling state_now()
     if (diff < Nanos::zero()) {
       reset();
 

@@ -38,16 +38,16 @@ resume = true
 shutdown = false
 standby = true
 monitor_wip = true
-reel = false
+reel = true
 
 [logger.desk.dmx_ctrl]
 run = false
 host = { connect = true, resolve = true, unknown = true }
 
 [logger.desk.racked]
-flush = false
-monitor_wip = false
-log_racked = false
+flush = true
+monitor_wip = true
+log = true
 
 [logger.frame]
 anchor = false
@@ -82,7 +82,7 @@ threads = 2 # frame loop and frame timer
 [desk.dmx_ctrl]
 local = { stalled.ms = 7_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
-remote = { host = "test-with-devs", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
+# remote = { host = "test-with-devs", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
 threads = 3
 
 [desk.dimmable]

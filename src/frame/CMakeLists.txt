@@ -49,6 +49,7 @@ add_library(${__target}
   state.cpp
 
   # racks and reels of frames
+  silent_reel.cpp
   racked.cpp
   reel.cpp
 

@@ -27,7 +27,8 @@
 #include "frame/peaks.hpp"
 #include "frame/state.hpp"
 
-#include <array>
+#include <algorithm>
+#include <compare>
 #include <future>
 #include <memory>
 #include <optional>
@@ -71,13 +72,14 @@ public:
 
   auto ptr() noexcept { return shared_from_this(); }
 
-  // Public API
+  std::weak_ordering operator<=>(const Frame &rhs) const noexcept {
+    return timestamp <=> rhs.timestamp;
+  }
+
   bool decipher(uint8v packet, const uint8v key) noexcept;
   bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
   bool decode(Av *av) noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }
-
-  static void init(); // Digital Signal Analysis (hidden in .cpp)
 
   void mark_rendered() noexcept {
     state = silent() ? frame::SILENCE : frame::RENDERED;
@@ -133,9 +135,6 @@ public:
 
   // populated by DSP or empty (silent)
   Peaks peaks;
-
-  // populated by Reel
-  reel_serial_num_t reel{0};
 
 protected:
   // calculated by state_now() or recalculated by sync_wait_recalc()

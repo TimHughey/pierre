@@ -24,18 +24,32 @@
 
 namespace pierre {
 
-static uint64_t NEXT_SERIAL_NUM{0x1000};
+uint64_t Reel::next_serial_num{0x1000};
 
-Reel::Reel() noexcept
-    : serial(NEXT_SERIAL_NUM++), // unique serial num (for debugging)
+Reel::Reel(ssize_t max_frames) noexcept
+    : serial(next_serial_num++), // unique serial num (for debugging)
+      max_frames{max_frames},    // max frames in the reel
       consumed{0}                // number of consumed frames
 {}
 
-void Reel::add(frame_t frame) noexcept {
-  if (frame->state.dsp_any()) frames.emplace_back(frame);
+bool Reel::add(frame_t frame) noexcept {
+
+  // first, is the reel full?
+  auto rc = !full();
+
+  // note: back() of empty container is undefined
+  if (empty() == false) {
+
+    // confirm the next frame is in timestamp sequence
+    rc &= frame->timestamp == (back()->timestamp + 1024);
+  }
+
+  if (rc) frames.emplace_back(std::move(frame));
+
+  return rc;
 }
 
-bool Reel::flush(FlushInfo &flush) noexcept {
+bool Reel::flush(FlushInfo &flush_info) noexcept {
   static constexpr csv fn_id{"flush"};
 
   if (empty() == false) { // reel has frames, attempt to flush
@@ -43,16 +57,15 @@ bool Reel::flush(FlushInfo &flush) noexcept {
     auto a = peek_next().get(); // reel first frame
     auto b = peek_last().get(); // reel last frame
 
-    if (flush(a) && flush(b)) {
+    if (flush_info(a) && flush_info(b)) {
       INFO_AUTO("{}\n", *this);
-      Frames empty;
+      consumed = std::ssize(frames); // simulate empty condition (this is quick)
 
-      std::swap(frames, empty);
-    } else if (flush.matches<decltype(a)>({a, b})) {
+    } else if (flush_info.matches<decltype(a)>({a, b})) {
       INFO_AUTO("SOME {}\n", *this);
 
-      std::for_each(frames.begin() + consumed, frames.end(), [&, this](const auto &item) {
-        if (flush(item)) consume();
+      std::for_each(begin(), end(), [&, this](const auto &item) {
+        if (flush_info(item)) consume();
       });
     }
   }

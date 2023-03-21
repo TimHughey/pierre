@@ -356,7 +356,7 @@ void Ctx::cb_resolve(AvahiServiceResolver *r, AvahiIfIndex, AvahiProtocol protoc
   switch (event) {
   case AVAHI_RESOLVER_FAILURE: {
     if (avahi_client_errno(ctx->client) == AVAHI_ERR_TIMEOUT) {
-      INFO_AUTO("failed for '{}'", name);
+      INFO_AUTO("failed for {}\n", name);
       ctx->browse_remove(name);
     }
 

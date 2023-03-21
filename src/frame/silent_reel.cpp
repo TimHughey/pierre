@@ -16,19 +16,20 @@
 //
 //  https://www.wisslanding.com
 
+#include "frame/silent_reel.hpp"
 #include "frame/silent_frame.hpp"
+#include "lcs/config.hpp"
+#include "lcs/logger.hpp"
+
+#include <iterator>
 
 namespace pierre {
 
-// static class data
+SilentReel::SilentReel(ssize_t max_frames) noexcept : Reel(max_frames) {
 
-// since_frame represents when the last frame was generated.  it is used to
-// calculate the sync_wait for the next frame to simulate the correct
-// frame rate in absence of the master clock and/or anchor
-
-// Elapsed SilentFrame::since_frame; // establish a reference time
-// steady_timepoint SilentFrame::epoch{steady_clock::now()};
-Nanos SilentFrame::epoch{clock_now::mono::ns()};
-int64_t SilentFrame::frame_num{0};
+  for (auto i = 0; i < max_frames; i++) {
+    add(SilentFrame::create());
+  }
+}
 
 } // namespace pierre

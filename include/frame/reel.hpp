@@ -25,6 +25,8 @@
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 
+#include <array>
+#include <compare>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -38,52 +40,60 @@ using Frames = std::vector<frame_t>;
 
 /// @brief Container of Frames
 class Reel {
-public:
-  static constexpr ssize_t MAX_FRAMES{InputInfo::fps / 2};
+
+private:
+  static constexpr ssize_t AUDIO_FRAMES{InputInfo::fps}; // two seconds
+
+protected:
+  auto cbegin() const noexcept { return frames.cbegin() + consumed; }
+  auto cend() const noexcept { return frames.cend(); }
+  auto begin() noexcept { return frames.begin() + consumed; }
+  auto &back() noexcept { return frames.back(); }
+  auto end() noexcept { return frames.end(); }
+  auto &front() noexcept { return frames.front(); }
 
 public:
-  Reel() noexcept;
-  ~Reel() = default;
+  // construct a reel of audio frames
+  Reel(ssize_t max_frames = AUDIO_FRAMES) noexcept;
+
+  ~Reel() noexcept {}
+
+  Reel(Reel &&) = default;
+  Reel &operator=(Reel &&) = default;
 
   friend class Racked;
   friend struct fmt::formatter<Reel>;
 
-  void add(frame_t frame) noexcept;
-  bool consume() noexcept {
-    consumed++;
+  bool add(frame_t frame) noexcept;
+  bool consume(std::ptrdiff_t count = 1) noexcept {
+    consumed += count;
 
     return empty();
   }
 
-  bool empty() const noexcept {
-    return std::distance(frames.begin() + consumed, frames.end()) == 0;
-  }
+  bool empty() const noexcept { return (std::ssize(frames) - consumed) <= 0; }
 
-  bool flush(FlushInfo &flush) noexcept; // returns true when reel empty
+  virtual bool flush(FlushInfo &flush) noexcept; // returns true when reel empty
 
-  bool full() const noexcept { return std::ssize(frames) >= MAX_FRAMES; }
+  bool full() const noexcept { return std::ssize(frames) >= max_frames; }
 
-  friend bool operator==(const std::optional<Reel> &rhs, const uint64_t serial_num) noexcept {
-    return rhs.has_value() && (rhs->serial == serial_num);
-  }
+  auto operator<=>(const Frame &frame) noexcept {
+    if (empty()) return std::weak_ordering::less;
 
-  friend bool operator<(const std::optional<Reel> &lhs, const frame_t frame) noexcept {
-    auto last_frame = lhs->peek_last();
-
-    return (frame->seq_num > last_frame->seq_num) && (frame->timestamp > last_frame->timestamp);
+    return *back() <=> frame;
   }
 
   /// @brief The next available frame in the reel where the next Frame is adjusted
   ///        based on consumption (calls to consume())
   /// @return Raw pointer to the last frame in the reel
-  frame_t peek_next() const noexcept { return *(frames.begin() + consumed); }
+  frame_t &peek_next() noexcept { return frames[consumed]; }
 
   /// @brief The last Frame in the reel
   /// @return
-  frame_t peek_last() const noexcept { return frames.back(); }
+  virtual const frame_t &peek_last() noexcept { return back(); }
 
-  template <typename T = reel_serial_num_t> const T serial_num() const noexcept {
-    if constexpr (std::is_same_v<T, reel_serial_num_t>) {
+  template <typename T = uint64_t> const T serial_num() const noexcept {
+    if constexpr (std::is_same_v<T, uint64_t>) {
       return serial;
     } else if constexpr (std::is_same_v<T, string>) {
       return fmt::format("{:#5x}", serial);
@@ -92,15 +102,22 @@ public:
     }
   }
 
-  auto size() const noexcept { return std::distance(frames.begin() + consumed, frames.end()); }
+  virtual bool silence() const noexcept { return false; }
+
+  auto size() const noexcept { return std::ssize(frames) - consumed; }
 
 protected:
   // order dependent
-  const reel_serial_num_t serial;
-  ssize_t consumed;
+  uint64_t serial;
+  ssize_t max_frames;
+
+  std::ptrdiff_t consumed;
 
   // order independent
   Frames frames;
+
+private:
+  static uint64_t next_serial_num;
 
 public:
   static constexpr csv module_id{"desk.reel"};
@@ -112,8 +129,7 @@ public:
 template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
 
   // parse is inherited from formatter<string>.
-  template <typename FormatContext>
-  auto format(const pierre::Reel &reel, FormatContext &ctx) const {
+  template <typename FormatContext> auto format(pierre::Reel &reel, FormatContext &ctx) const {
     std::string msg;
     auto w = std::back_inserter(msg);
 
@@ -121,11 +137,11 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     fmt::format_to(w, "REEL {:#5x} frames={:<3}", reel.serial_num(), size_now);
 
     if (size_now) {
-      auto a = reel.peek_next(); // reel next frame
-      auto b = reel.peek_last(); // reel last frame
+      const auto a = reel.peek_next().get(); // reel next frame
+      const auto b = reel.peek_last().get(); // reel last frame
 
       fmt::format_to(w, "seq a/b={:>8}/{:<8}", a->seq_num, b->seq_num);
-      fmt::format_to(w, "ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);
+      fmt::format_to(w, " ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);
     }
 
     return formatter<std::string>::format(fmt::format("{}", msg), ctx);
