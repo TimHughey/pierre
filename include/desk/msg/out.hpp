@@ -83,6 +83,7 @@ public:
 
     // finally, add the trailer
     doc[NOW_US] = clock_now::mono::us();
+    doc[NOW_REAL_US] = clock_now::real::us();
     doc[MAGIC] = MAGIC_VAL; // add magic as final key (to confirm complete msg)
 
     auto buffer = prepare();

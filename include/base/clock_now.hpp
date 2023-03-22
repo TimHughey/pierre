@@ -35,7 +35,11 @@ struct clock_now {
   struct mono {
     static int64_t ns() noexcept { return ns_raw(CLOCK_MONOTONIC_RAW); }
     static int64_t us() noexcept { return ns_raw(CLOCK_MONOTONIC_RAW) / 1000; }
-  }; // namespace mono
+  };
+
+  struct real {
+    static int64_t us() noexcept { return ns_raw(CLOCK_REALTIME) / 1000; }
+  };
 };
 
 } // namespace pierre
