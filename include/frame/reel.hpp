@@ -140,8 +140,12 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
       const auto a = reel.peek_next().get(); // reel next frame
       const auto b = reel.peek_last().get(); // reel last frame
 
-      fmt::format_to(w, "seq a/b={:>8}/{:<8}", a->seq_num, b->seq_num);
-      fmt::format_to(w, " ts a/b={:>12}/{:<12}", a->timestamp, b->timestamp);
+      auto delta = [](auto &v1, auto &v2, auto div) {
+        return v1 > v2 ? (v1 - v2) / div : (v2 - v1) / div;
+      };
+
+      fmt::format_to(w, "seq ={:>8}+{:<4}", a->seq_num, delta(a->seq_num, b->seq_num, 1));
+      fmt::format_to(w, " ts ={}+{}", a->timestamp, delta(a->timestamp, b->timestamp, 1024));
     }
 
     return formatter<std::string>::format(fmt::format("{}", msg), ctx);
