@@ -58,7 +58,7 @@ dsp = { thread = false }
 # frame = false
 
 [logger.fx]
-standby = true
+standby = true 
 major_peak = { execute = false }
 
 [logger.mdns]

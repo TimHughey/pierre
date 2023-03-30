@@ -17,6 +17,7 @@
 // https://www.wisslanding.com
 
 #include "desk/dmx_ctrl.hpp"
+#include "base/input_info.hpp"
 #include "base/pet.hpp"
 #include "base/thread_util.hpp"
 #include "desk/async/read.hpp"
@@ -52,14 +53,17 @@ inline auto resolve_retry_wait() noexcept {
   return config_val<DmxCtrl, Millis>("local.resolve.retry.ms"sv, 60'000);
 }
 
-inline auto stall_timeout() noexcept {
+inline auto cfg_stall_timeout() noexcept {
   return config_val<DmxCtrl, Millis>("local.stalled.ms"sv, 7500);
 }
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
-    : data_sock(io_ctx),                                          //
-      stalled_timer(io_ctx, stall_timeout()),                     //
+    : sess_sock(io_ctx),                                          //
+      data_accep(io_ctx, data_lep),                               //
+      data_sock(io_ctx),                                          // unopened
+      stall_timeout{cfg_stall_timeout()},                         //
+      stalled_timer(io_ctx, stall_timeout),                       //
       resolve_retry_timer(io_ctx, resolve_retry_wait()),          //
       thread_count(config_threads<DmxCtrl>(thread_count)),        //
       shutdown_latch(std::make_shared<std::latch>(thread_count)), //
@@ -75,7 +79,7 @@ DmxCtrl::DmxCtrl() noexcept
   resolve_host();
 
   // NOTE: we do not start listening or the stalled timer at this point
-  //       they are handled as needed during handshake() and listen()
+  //       they are handled as needed during handshake()
 
   // start threads and io_ctx
   for (auto n = 0; n < thread_count; n++) {
@@ -107,15 +111,14 @@ void DmxCtrl::handshake() noexcept {
 
   MsgOut msg(HANDSHAKE);
 
+  msg.add_kv(desk::DATA_PORT, data_accep.local_endpoint().port());
   msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
+  msg.add_kv(desk::FRAME_US, InputInfo::lead_time_us);
   msg.add_kv(desk::IDLE_MS, config_val<DmxCtrl, int64_t>(idle_ms_path, 10000));
   msg.add_kv(desk::STATS_MS, config_val<DmxCtrl, int64_t>(stats_ms_path, 2000));
-  msg.add_kv(desk::REF_US, pet::now_monotonic<Micros>());
 
-  async::write_msg(data_sock, std::move(msg), [this](MsgOut msg) {
-    if (msg.elapsed() > 750us) {
-      Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
-    }
+  async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
+    if (msg.elapsed() > 750us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
     if (msg.xfer_error()) {
       Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
@@ -130,47 +133,44 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
 
   // only attempt to read a message if we're connected
   if (connected) {
-    stall_watchdog();
 
-    async::read_msg(data_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
-      if (msg.elapsed() > 30ms) {
-        Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
-      }
+    async::read_msg(sess_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
+      if (msg.elapsed() > 30ms) Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
         DynamicJsonDocument doc(desk::Msg::default_doc_size);
+
         if (msg.deserialize_into(doc)) {
 
-          // we are finished with the message, safe to reuse
-          msg_loop(std::move(msg));
-
           // handle the various message types
-          if (Msg::is_msg_type(doc, desk::DATA_REPLY)) {
+          if (Msg::is_msg_type(doc, desk::STATS)) {
             const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
             const auto remote_roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
 
-            if (remote_roundtrip > 13ms) Stats::write(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
+            Stats::write(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
 
-            const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0);
-            if (data_wait > 30ms) Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
+            if (doc[desk::SUPP] | false) {
 
-            const auto remote_elapsed = Micros(doc[desk::ELAPSED_US] | 0);
-            if (remote_elapsed > 225us) Stats::write(stats::REMOTE_ELAPSED, remote_elapsed);
+              // std::array<char, 256> pbuf{0x00};
+              // serializeJsonPretty(doc, pbuf.data(), pbuf.size());
+              // INFO_AUTO("\n{}\n", pbuf.data());
 
-            if (doc[desk::SUPP]) {
+              const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0);
+              Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
+
               Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
               Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
               Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
-              Stats::write(stats::FPS, doc[desk::FPS].as<int64_t>());
-            }
 
-          } else if (Msg::is_msg_type(doc, desk::STATS)) {
-            Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
-            Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
-            Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
-            Stats::write(stats::FPS, doc[desk::FPS].as<double>());
+              // ruth sends FPS as an int * 100, convert to double
+              const double fps = doc[desk::FPS].as<int64_t>() / 100.0;
+              Stats::write(stats::FPS, fps);
+            }
           }
         }
+
+        // we are finished with the message, safe to reuse
+        msg_loop(std::move(msg));
 
       } else {
         Stats::write(stats::DATA_MSG_READ_ERROR, true);
@@ -213,10 +213,11 @@ void DmxCtrl::resolve_host() noexcept {
     stall_watchdog();
 
     // we'll connect to this endpoint
-    host_endpoint.emplace(asio::ip::make_address_v4(zcs.address()), zcs.port());
+    const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
+    host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    asio::post(data_sock.get_executor(), [this, ep = host_endpoint]() {
-      auto resolver = std::make_unique<ip_tcp::resolver>(data_sock.get_executor());
+    asio::post(io_ctx, [this, ep = host_endpoint]() {
+      auto resolver = std::make_unique<ip_tcp::resolver>(io_ctx);
 
       resolver->async_resolve(*ep, //
                               [this, resolver = std::move(resolver)](
@@ -232,17 +233,32 @@ void DmxCtrl::resolve_host() noexcept {
                               });
     });
 
+    // ensure the data socket is closed, we're about to accept a new connection
+    if (data_connected.exchange(false) == true) {
+      [[maybe_unused]] error_code ec;
+      data_sock.close(ec);
+    }
+
+    // listen for the inbound data socket connection from ruth
+    // (response to handshake message)
+    data_accep.async_accept(data_sock, [this](const error_code &ec) {
+      if (!ec) {
+        data_sock.set_option(ip_tcp::no_delay(true));
+        data_connected.exchange(true);
+      }
+    });
+
     // kick-off an async connect. once connected we'll send the handshake
     // that contains the data port for the remote host to connect
     asio::async_connect( //
-        data_sock, std::array{host_endpoint.value()},
+        sess_sock, std::array{host_endpoint.value()},
         [this, e = Elapsed()](const error_code ec, const tcp_endpoint r) mutable {
           static constexpr csv fn_id{"host.connect"};
 
-          INFO_AUTO("{}\n", io::log_socket_msg(ec, data_sock, r, e));
+          INFO_AUTO("{}\n", io::log_socket_msg(ec, sess_sock, r, e));
 
           if (!ec) {
-            data_sock.set_option(ip_tcp::no_delay(true));
+            sess_sock.set_option(ip_tcp::no_delay(true));
             Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
             connected = true;
@@ -254,10 +270,10 @@ void DmxCtrl::resolve_host() noexcept {
   });
 }
 
-void DmxCtrl::send_data_msg(DataMsg &&msg) noexcept {
-  if (connected) { // only send msgs when connected
+void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
+  if (data_connected) { // only send msgs when connected
 
-    async::write_msg(data_sock, std::forward<DataMsg>(msg), [this](DataMsg msg) {
+    async::write_msg(data_sock, std::move(data_msg), [this](DataMsg msg) {
       if (msg.elapsed() > 200us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
@@ -276,7 +292,7 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   // when passed a non-zero wait time we're handling a special
   // case (e.g. host resolve failure), otherwise use configured
   // stall timeout value
-  if (wait == Millis::zero()) wait = stall_timeout();
+  if (wait == Millis::zero()) wait = stall_timeout;
 
   if (ConfigWatch::has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
     cfg_host.clear();                      // triggers pull from config on next name resolution

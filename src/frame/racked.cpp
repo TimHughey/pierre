@@ -74,7 +74,6 @@ Racked::Racked(MasterClock *master_clock, Anchor *anchor) noexcept
       io_ctx.run();
 
       shutdown_latch->count_down();
-      shutdown_latch.reset();
       INFO_THREAD_STOP();
     }).detach();
   }
@@ -89,11 +88,7 @@ Racked::~Racked() noexcept {
 
   INFO_SHUTDOWN_REQUESTED();
 
-  guard.reset();
   io_ctx.stop();
-
-  [[maybe_unused]] error_code ec;
-  wip_timer.cancel(ec);
 
   shutdown_latch->wait();
 
@@ -225,30 +220,28 @@ void Racked::log_racked(log_rc rc) const noexcept {
     const auto reel_size = std::ssize(racked.front());
     const auto wip_size = std::ssize(wip);
 
-    asio::post(handoff_strand, [=, this]() {
-      string msg;
-      auto w = std::back_inserter(msg);
+    string msg;
+    auto w = std::back_inserter(msg);
 
-      switch (rc) {
-      case log_rc::NONE: {
-        if ((reel_count == 1) && (reel_size == 1)) {
+    switch (rc) {
+    case log_rc::NONE: {
+      if ((reel_count == 1) && (reel_size == 1)) {
 
-          fmt::format_to(w, "LAST FRAME");
-        } else if ((reel_count >= 400) && ((reel_count % 10) == 0)) {
+        fmt::format_to(w, "LAST FRAME");
+      } else if ((reel_count >= 400) && ((reel_count % 10) == 0)) {
 
-          fmt::format_to(w, "HIGH REELS reels={:<3}", reel_count);
-        }
-      } break;
-
-      case log_rc::RACKED: {
-        if (reel_count == 1) fmt::format_to(w, "FIRST REEL frames={}", reel_size);
-        if (wip_size) fmt::format_to(w, " wip_size={}", wip_size);
-
-      } break;
+        fmt::format_to(w, "HIGH REELS reels={:<3}", reel_count);
       }
+    } break;
 
-      if (msg.size()) INFO_AUTO("{}\n", msg);
-    });
+    case log_rc::RACKED: {
+      if (reel_count == 1) fmt::format_to(w, "FIRST REEL frames={}", reel_size);
+      if (wip_size) fmt::format_to(w, " wip_size={}", wip_size);
+
+    } break;
+    }
+
+    if (msg.size()) INFO_AUTO("{}\n", msg);
   }
 }
 
@@ -299,14 +292,16 @@ frame_t Racked::next_frame_no_wait() noexcept {
     // consume the ready or outdated frame
     if (auto reel_empty = reel.consume(); reel_empty == true) {
       // reel is empty after the consume, pop it
-      asio::post(racked_strand, [this]() { racked.pop_front(); });
+      // asio::post(racked_strand, [this]() { racked.pop_front(); });
+
+      racked.pop_front();
     }
 
-    asio::post(handoff_strand, [=, racked_size = std::ssize(racked)]() {
+    asio::post(handoff_strand, [=, this, racked_size = std::ssize(racked)]() {
+      log_racked();
       Stats::write(stats::RACKED_REELS, racked_size);
     });
 
-    log_racked();
   } else {
     asio::post(handoff_strand, [=]() { INFO_AUTO("frame state={} present in racked\n", state); });
   }
@@ -323,11 +318,12 @@ void Racked::rack_wip() noexcept {
   if (wip.empty() == false) {
     // capture the current wip reel (while creating a new one) then use racked_strand
     // to add it to racked reels
-    asio::post(racked_strand, [this, reel = std::exchange(wip, Reel())]() mutable {
-      racked.emplace_back(std::move(reel));
-    });
+    asio::post(racked_strand,
+               [this, reel = std::move(wip)]() mutable { racked.emplace_back(std::move(reel)); });
 
     rc = RACKED;
+
+    wip = Reel();
   }
 
   if (rc == RACKED) Stats::write(stats::RACKED_REELS, std::ssize(racked));

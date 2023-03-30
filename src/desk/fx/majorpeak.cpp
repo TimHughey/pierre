@@ -87,8 +87,8 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
   handle_main_pinspot(peaks);
   handle_fill_pinspot(peaks);
 
-  Stats::write(stats::MAX_PEAK_FREQUENCY, peaks.major_peak().frequency());
-  Stats::write(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
+  // Stats::write(stats::MAX_PEAK_FREQUENCY, peaks.major_peak().frequency());
+  // Stats::write(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
 
   // detect if FX is in finished position (nothing is fading) and the silence
   // timeout has expired

@@ -88,16 +88,13 @@ void Desk::flush_all() noexcept {
 void Desk::frame_loop(bool fx_finished) noexcept {
   static constexpr csv fn_id{"frame_loop"};
 
-  if (state == Stopping) {
+  if (state != Running) {
     standby();
     return;
   }
 
   racked->next_frame(io_ctx, [this, fx_finished, next_wait = Elapsed()](frame_t frame) mutable {
     // we are assured the frame can be rendered (slient or peaks)
-    if (next_wait.freeze() > 100us) {
-      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
-    }
 
     frame->state.record_state();
 
@@ -122,7 +119,8 @@ void Desk::frame_loop(bool fx_finished) noexcept {
     frame->mark_rendered();
 
     // now we need to wait for the correct time to render the next frame
-    if (auto sync_wait = frame->sync_wait_recalc(); sync_wait >= Nanos::zero()) {
+    if (auto sync_wait = frame->sync_wait_recalc(); sync_wait > Nanos::zero()) {
+      static constexpr csv fn_id{"desk.frame_loop"};
 
       frame_timer.expires_after(sync_wait);
       frame_timer.async_wait([this, fx_finished](const error_code &ec) {
@@ -134,6 +132,10 @@ void Desk::frame_loop(bool fx_finished) noexcept {
     }
 
     if (state == Stopping) standby();
+
+    if (next_wait.freeze() > 100us) {
+      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+    }
   });
 }
 

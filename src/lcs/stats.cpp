@@ -103,7 +103,7 @@ void Stats::async_write(influxdb::Point &&pt) noexcept {
   if (db) db->write(std::forward<influxdb::Point>(pt));
 
   // updated enabled config
-  enabled = config_val<Stats, bool>("enabled", false);
+  // enabled = config_val<Stats, bool>("enabled", false);
 }
 
 } // namespace pierre

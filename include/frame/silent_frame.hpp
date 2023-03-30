@@ -27,7 +27,9 @@ private:
   SilentFrame() noexcept : Frame(frame::DSP_COMPLETE) {
 
     // lambda since we may need to recalculate
-    auto calc_diff = [now = Nanos{clock_now::mono::ns()}, this](const auto frame_num) {
+    auto calc_diff = [](const auto frame_num) {
+      const auto now = Nanos(clock_now::mono::ns());
+
       return (epoch + (InputInfo::lead_time * frame_num)) - now;
     };
 

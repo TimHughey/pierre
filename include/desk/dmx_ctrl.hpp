@@ -28,6 +28,7 @@
 #include "lcs/types.hpp"
 
 #include <atomic>
+#include <boost/asio.hpp>
 #include <future>
 #include <latch>
 #include <memory>
@@ -64,8 +65,13 @@ private:
 
 private:
   // order dependent
+  tcp_endpoint data_lep{ip_tcp::v4(), ANY_PORT};
   io_context io_ctx;
-  tcp_socket data_sock;
+  tcp_socket sess_sock; // handshake, stats (read/write)
+  tcp_acceptor data_accep;
+  tcp_socket data_sock; // frame data (write only)
+
+  Millis stall_timeout;
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;
   const int64_t thread_count;
@@ -73,7 +79,9 @@ private:
   cfg_future cfg_fut;
 
   // order independent
+  tcp_endpoint data_rep; // remote endpoint of accepted socket
   std::atomic_bool connected{false};
+  std::atomic_bool data_connected{false};
 
   string cfg_host;                           // dmx controller host name
   std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint

@@ -28,47 +28,48 @@ namespace desk {
 //
 
 // common local -> remote
-static constexpr auto NOW_US{"now_µs"};           // all msgs
+static auto constexpr MAGIC{"ma"};                // msg end detection
+static auto constexpr MSG_TYPE{"mt"};             // msg start detection
 static auto constexpr NOW_REAL_US{"now_real_µs"}; // all msgs
-static constexpr auto REF_US{"ref_µs"};           // all msgs
-static constexpr auto MAGIC{"ma"};                // msg end detection
-static constexpr auto MSG_TYPE{"mt"};             // msg start detection
+static auto constexpr NOW_US{"now_µs"};           // all msgs
 
 // periodic
 static constexpr const auto SUPP{"supp"}; // msg contains supplemental metrics
 
 // handshake local -> remote
-static constexpr auto FRAME_LEN{"frame_len"}; // handshake
-static constexpr auto IDLE_MS{"idle_ms"};     // handshake
-static constexpr auto STATS_MS{"stats_ms"};   // handshake
+static auto constexpr DATA_PORT{"data_port"}; // handshake
+static auto constexpr FRAME_LEN{"frame_len"}; // handshake
+static auto constexpr FRAME_US{"frame_µs"};   // handshake
+static auto constexpr IDLE_MS{"idle_ms"};     // handshake
+static auto constexpr STATS_MS{"stats_ms"};   // handshake
 
 // data msg local -> remote
-static constexpr auto FRAME{"frame"};     // data msg
-static constexpr auto SEQ_NUM{"seq_num"}; // data msg
-static constexpr auto SILENCE{"silence"}; // data msg
+static auto constexpr FRAME{"frame"};     // data msg
+static auto constexpr SEQ_NUM{"seq_num"}; // data msg
+static auto constexpr SILENCE{"silence"}; // data msg
 
 // data msg reply remote -> local
-static constexpr auto ECHO_NOW_US{"echo_now_µs"}; // echoed
-static constexpr auto ELAPSED_US{"elapsed_µs"};   // data_reply msg
-static constexpr auto DATA_WAIT_US{"data_wait_µs"};
+static auto constexpr ECHO_NOW_US{"echo_now_µs"}; // echoed
+static auto constexpr ELAPSED_US{"elapsed_µs"};   // data_reply msg
+static auto constexpr DATA_WAIT_US{"data_wait_µs"};
 
 // stats msg remote -> local
-static constexpr auto FPS{"fps"};   // frames per second
-static constexpr auto QOK{"qok"};   // frame queue ok
-static constexpr auto QRF{"qrf"};   // rame queue recv failure count
-static constexpr auto QSF{"qsf"};   // queue send failure count
-static constexpr auto UART{"uart"}; // uart overrun (timeout)
+static auto constexpr FPS{"fps"};   // frames per second
+static auto constexpr QOK{"qok"};   // frame queue ok
+static auto constexpr QRF{"qrf"};   // rame queue recv failure count
+static auto constexpr QSF{"qsf"};   // queue send failure count
+static auto constexpr UART{"uart"}; // uart overrun (timeout)
 
 //
 // msg types
 //
 
-static constexpr auto DATA{"data"};
-static constexpr auto DATA_REPLY{"data_reply"};
-static constexpr auto HANDSHAKE{"handshake"};
-static constexpr auto SHUTDOWN{"shutdown"};
-static constexpr auto STATS{"stats"};
-static constexpr auto UNKNOWN{"unknown"};
+static auto constexpr DATA{"data"};
+static auto constexpr DATA_REPLY{"data_reply"};
+static auto constexpr HANDSHAKE{"handshake"};
+static auto constexpr SHUTDOWN{"shutdown"};
+static auto constexpr STATS{"stats"};
+static auto constexpr UNKNOWN{"unknown"};
 
 //
 // msg values
