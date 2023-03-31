@@ -70,7 +70,7 @@ public:
   auto prepare() noexcept { return storage->prepare(storage->max_size()); }
 
   auto serialize() noexcept {
-    DynamicJsonDocument doc(Msg::default_doc_size);
+    StaticJsonDocument<Msg::default_doc_size> doc;
 
     // first, add MSG_TYPE as it is used to detect start of message
     doc[desk::MSG_TYPE] = type;

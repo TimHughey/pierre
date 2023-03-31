@@ -66,9 +66,10 @@ Racked::Racked(MasterClock *master_clock, Anchor *anchor) noexcept
   shutdown_latch = std::make_shared<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, latch = latch.get()]() {
+    std::jthread([this, n = n, latch = latch]() mutable {
       const auto thread_name = thread_util::set_name("racked", n);
       latch->count_down();
+      latch.reset();
 
       INFO_THREAD_START();
       io_ctx.run();

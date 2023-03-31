@@ -53,17 +53,19 @@ Rtsp::Rtsp() noexcept
   asio::post(io_ctx, std::bind(&Rtsp::async_accept, this));
 
   // create shared_ptrs to avoid spurious data races
-  auto startup_latch = std::make_unique<std::latch>(thread_count);
+  auto startup_latch = std::make_shared<std::latch>(thread_count);
 
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n, latch = startup_latch.get()]() mutable {
+    std::jthread([this, n, latch = startup_latch]() mutable {
       const auto thread_name = thread_util::set_name("rtsp", n);
+
+      INFO_THREAD_START();
 
       // all workers are required to avoid deadlocks so use arrive_and_wait()
       // for a syncronized start
       latch->arrive_and_wait();
+      latch.reset();
 
-      INFO_THREAD_START();
       io_ctx.run();
 
       shutdown_latch->count_down();

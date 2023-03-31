@@ -49,17 +49,16 @@ namespace pierre {
 
 // must be defined in .cpp to hide mdns
 Desk::Desk(MasterClock *master_clock) noexcept
-    : frame_timer(io_ctx),                  //
-      racked{nullptr},                      //
-      master_clock(master_clock),           //
-      anchor(std::make_unique<Anchor>()),   //
-      state{Stopped},                       //
-      thread_count(config_threads<Desk>(2)) //
+    : thread_count(config_threads<Desk>(1)), guard(asio::make_work_guard(io_ctx)),
+      frame_timer(io_ctx), racked{nullptr}, master_clock(master_clock),
+      anchor(std::make_unique<Anchor>()) //
 {
   INFO_INIT("sizeof={:>5} lead_time_min={}\n", sizeof(Desk),
             pet::humanize(InputInfo::lead_time_min));
 
-  resume();
+  static auto constexpr check_io_ctx{false};
+
+  resume(check_io_ctx);
 }
 
 Desk::~Desk() noexcept {
@@ -88,10 +87,7 @@ void Desk::flush_all() noexcept {
 void Desk::frame_loop(bool fx_finished) noexcept {
   static constexpr csv fn_id{"frame_loop"};
 
-  if (state != Running) {
-    standby();
-    return;
-  }
+  if (io_ctx.stopped()) return;
 
   racked->next_frame(io_ctx, [this, fx_finished, next_wait = Elapsed()](frame_t frame) mutable {
     // we are assured the frame can be rendered (slient or peaks)
@@ -131,8 +127,6 @@ void Desk::frame_loop(bool fx_finished) noexcept {
       asio::post(io_ctx, [this, fx_finished]() { frame_loop(fx_finished); });
     }
 
-    if (state == Stopping) standby();
-
     if (next_wait.freeze() > 100us) {
       Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
     }
@@ -150,7 +144,8 @@ void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   // when fx::Standby is finished initiate standby()
   if (fx_suggested_next == desk::fx::ALL_STOP) {
     INFO_AUTO("fx::Standby finished, initiating Desk::standby()\n");
-    state = Stopping;
+    standby();
+    return;
 
   } else if ((fx_suggested_next == desk::fx::STANDBY) && silent) {
     active_fx = std::make_unique<desk::Standby>(io_ctx);
@@ -175,41 +170,50 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   if (racked) racked->handoff(std::forward<uint8v>(packet), key);
 }
 
-void Desk::resume() noexcept {
+void Desk::resume(bool check_io_ctx) noexcept {
   static constexpr csv fn_id{"resume"};
 
-  std::unique_lock lck(run_state_mtx, std::defer_lock);
-  lck.lock();
-
-  if (std::atomic_exchange(&state, Running) == Running) return;
-
-  // the io_ctx may have been stopped since Desk is intended to be allocated
-  // once per app run
-  if (io_ctx.stopped()) io_ctx.restart();
-
   INFO_AUTO("requested, thread_count={}\n", thread_count);
+
+  if (check_io_ctx && !io_ctx.stopped()) {
+    INFO_AUTO("io_ctx not stopped, aborting\n");
+    return;
+  }
+
+  // if we are here we are reusing the io_ctx, restart it
+  io_ctx.restart();
 
   shutdown_latch = std::make_shared<std::latch>(thread_count);
 
   // submit work to io_ctx
   asio::post(io_ctx, [this]() {
-    if (!racked) racked = std::make_unique<Racked>(master_clock, anchor.get());
+    // ensure Racked is running
+    std::exchange(racked, std::make_unique<Racked>(master_clock, anchor.get()));
 
+    // start frame_loop()
     frame_loop();
   });
 
+  auto latch = std::make_shared<std::latch>(thread_count);
+
   for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, shut_latch = shutdown_latch]() mutable {
+    std::jthread([this, n = n, latch = latch, shut_latch = shutdown_latch]() mutable {
       const auto thread_name = thread_util::set_name(TASK_NAME, n);
 
-      // thread start syncronization not required
+      // thread start syncronization required
       INFO_THREAD_START();
+
+      latch->count_down();
+      latch.reset();
+
       io_ctx.run();
 
       shut_latch->count_down();
       INFO_THREAD_STOP();
     }).detach();
   }
+
+  latch->wait();
 
   INFO_AUTO("completed, thread_count={}\n", thread_count);
 }
@@ -222,15 +226,13 @@ void Desk::spool(bool enable) noexcept {
 void Desk::standby() noexcept {
   static constexpr csv fn_id{"standby"};
 
-  std::unique_lock lck(run_state_mtx, std::defer_lock);
-
-  // if we can't aquire the lock then simply leave Desk running
-  if (lck.try_lock() == false) return;
-
   // we're committed to stopping now, set the state
-  if (std::atomic_exchange(&state, Stopped) == Stopped) return;
+  if (io_ctx.stopped()) {
+    INFO_AUTO("already stopped, aborting standby");
+    return;
+  }
 
-  INFO_AUTO("requested, io_ctx={}\n", io_ctx.stopped());
+  INFO_AUTO("requested, io_ctx.stopped={}\n", io_ctx.stopped());
 
   io_ctx.stop();
 
@@ -242,6 +244,6 @@ void Desk::standby() noexcept {
   shutdown_latch->count_down();
   shutdown_latch.reset();
 
-  INFO_AUTO("completed, io_ctx={}\n", io_ctx.stopped());
+  INFO_AUTO("completed, io_ctx.stopped={}\n", io_ctx.stopped());
 }
 } // namespace pierre

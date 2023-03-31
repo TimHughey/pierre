@@ -138,7 +138,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
       if (msg.elapsed() > 30ms) Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
-        DynamicJsonDocument doc(desk::Msg::default_doc_size);
+        StaticJsonDocument<desk::Msg::default_doc_size> doc;
 
         if (msg.deserialize_into(doc)) {
 

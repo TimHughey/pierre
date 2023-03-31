@@ -114,8 +114,8 @@ private:
 
 private:
   // order dependent
-  io_context io_ctx;
   const int thread_count;
+  io_context io_ctx;
   work_guard guard;
   strand flush_strand;
   strand handoff_strand;

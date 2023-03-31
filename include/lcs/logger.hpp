@@ -125,12 +125,12 @@ public:
   pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_SHUTDOWN_COMPLETE()                                                                   \
-  pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING("completed, io_ctx={}\n"),    \
-                              io_ctx.stopped())
+  pierre::shared::logger.info(module_id, csv{"shutdown"},                                          \
+                              FMT_STRING("completed, io_ctx.stopped={}\n"), io_ctx.stopped())
 
 #define INFO_SHUTDOWN_REQUESTED()                                                                  \
-  pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING("requested, io_ctx={}\n"),    \
-                              io_ctx.stopped())
+  pierre::shared::logger.info(module_id, csv{"shutdown"},                                          \
+                              FMT_STRING("requested, io_ctx.stopped={}\n"), io_ctx.stopped())
 
 #define INFO_THREAD(format, ...)                                                                   \
   pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING(format), ##__VA_ARGS__)

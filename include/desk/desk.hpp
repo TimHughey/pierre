@@ -24,6 +24,7 @@
 #include "frame/fdecls.hpp"
 #include "io/context.hpp"
 #include "io/timer.hpp"
+#include "io/work_guard.hpp"
 
 #include <atomic>
 #include <future>
@@ -48,7 +49,7 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  void resume() noexcept;
+  void resume(bool check_io_ctx = true) noexcept;
 
   void spool(bool enable = true) noexcept;
 
@@ -57,26 +58,19 @@ public:
 private:
   void frame_loop(bool fx_finished = true) noexcept;
   void fx_select(const frame::state &frame_state, bool silent) noexcept;
-  bool stopped() const noexcept { return state == Stopped; }
-  bool running() const noexcept { return !io_ctx.stopped() && (state == Running); }
-
-private:
-  enum state_t : int { Running = 0, Stopped, Stopping };
 
 private:
   // order dependent
+  const int thread_count;
   io_context io_ctx;
+  work_guard guard;
   steady_timer frame_timer;
   std::unique_ptr<Racked> racked;
   MasterClock *master_clock;
   std::unique_ptr<Anchor> anchor;
-  std::atomic<state_t> state;
-  const int thread_count;
 
   // order independent
-  std::mutex run_state_mtx;
-  std::shared_ptr<std::latch> shutdown_latch;
-
+  std::shared_ptr<std::latch> shutdown_latch; // initialized in resume()
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<desk::FX> active_fx{nullptr};
 
