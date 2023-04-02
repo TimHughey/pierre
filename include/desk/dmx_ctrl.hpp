@@ -20,23 +20,40 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "io/buffer.hpp"
-#include "io/context.hpp"
-#include "io/error.hpp"
-#include "io/tcp.hpp"
-#include "io/timer.hpp"
 #include "lcs/types.hpp"
 
 #include <atomic>
 #include <boost/asio.hpp>
-#include <future>
-#include <latch>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <memory>
 #include <optional>
 #include <streambuf>
 #include <thread>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using steady_timer = asio::steady_timer;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
+using ip_address = boost::asio::ip::address;
+using ip_tcp = boost::asio::ip::tcp;
+using tcp_acceptor = boost::asio::ip::tcp::acceptor;
+using tcp_endpoint = boost::asio::ip::tcp::endpoint;
+using tcp_socket = boost::asio::ip::tcp::socket;
+
 namespace desk {
 
 // forward decl
@@ -46,7 +63,10 @@ class MsgIn;
 class DmxCtrl {
 public:
   DmxCtrl() noexcept;
-  ~DmxCtrl() noexcept;
+  ~DmxCtrl() noexcept {
+    thread_pool.stop();
+    thread_pool.join();
+  }
 
   /// @brief send the DataMsg to the remote host
   /// @param msg assembled DataMsg for remote host
@@ -65,8 +85,9 @@ private:
 
 private:
   // order dependent
+  const int64_t thread_count;
+  asio::thread_pool thread_pool;
   tcp_endpoint data_lep{ip_tcp::v4(), ANY_PORT};
-  io_context io_ctx;
   tcp_socket sess_sock; // handshake, stats (read/write)
   tcp_acceptor data_accep;
   tcp_socket data_sock; // frame data (write only)
@@ -74,8 +95,7 @@ private:
   Millis stall_timeout;
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;
-  const int64_t thread_count;
-  std::shared_ptr<std::latch> shutdown_latch;
+
   cfg_future cfg_fut;
 
   // order independent

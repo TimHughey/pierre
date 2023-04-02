@@ -25,7 +25,6 @@
 #include "desk/msg/data.hpp"
 #include "desk/msg/in.hpp"
 #include "desk/msg/out.hpp"
-#include "io/log_socket.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
@@ -33,13 +32,14 @@
 #include "mdns/mdns.hpp"
 
 #include <array>
-#include <boost/asio.hpp>
 #include <iterator>
-#include <latch>
 #include <utility>
 
 namespace pierre {
 namespace desk {
+
+static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                                   Elapsed e = Elapsed()) noexcept;
 
 inline const string get_cfg_host() noexcept {
   return config_val<DmxCtrl, string>("remote.host"sv, "dmx");
@@ -59,14 +59,13 @@ inline auto cfg_stall_timeout() noexcept {
 
 // general API
 DmxCtrl::DmxCtrl() noexcept
-    : sess_sock(io_ctx),                                          //
-      data_accep(io_ctx, data_lep),                               //
-      data_sock(io_ctx),                                          // unopened
-      stall_timeout{cfg_stall_timeout()},                         //
-      stalled_timer(io_ctx, stall_timeout),                       //
-      resolve_retry_timer(io_ctx, resolve_retry_wait()),          //
-      thread_count(config_threads<DmxCtrl>(thread_count)),        //
-      shutdown_latch(std::make_shared<std::latch>(thread_count)), //
+    : thread_count(config_threads<DmxCtrl>(3)),               //
+      thread_pool(thread_count), sess_sock(thread_pool),      //
+      data_accep(thread_pool, data_lep),                      //
+      data_sock(thread_pool),                                 // unopened
+      stall_timeout{cfg_stall_timeout()},                     //
+      stalled_timer(thread_pool, stall_timeout),              //
+      resolve_retry_timer(thread_pool, resolve_retry_wait()), //
       cfg_fut(ConfigWatch::want_changes()) // register for config change notifications
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
@@ -80,28 +79,6 @@ DmxCtrl::DmxCtrl() noexcept
 
   // NOTE: we do not start listening or the stalled timer at this point
   //       they are handled as needed during handshake()
-
-  // start threads and io_ctx
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n]() mutable {
-      const auto thread_name = thread_util::set_name(task_name, n);
-
-      INFO_THREAD_START();
-      io_ctx.run();
-
-      shutdown_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
-}
-
-DmxCtrl::~DmxCtrl() noexcept {
-  INFO_SHUTDOWN_REQUESTED();
-
-  io_ctx.stop();
-  if (shutdown_latch) shutdown_latch->wait();
-
-  INFO_SHUTDOWN_COMPLETE();
 }
 
 void DmxCtrl::handshake() noexcept {
@@ -183,7 +160,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
 void DmxCtrl::resolve_host() noexcept {
   static constexpr csv fn_id{"host.resolve"};
 
-  asio::post(io_ctx, [this]() {
+  asio::post(thread_pool, [this]() {
     // get the host we will connect to unless we already have it
     if (cfg_host.empty()) cfg_host = get_cfg_host();
 
@@ -216,8 +193,8 @@ void DmxCtrl::resolve_host() noexcept {
     const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
     host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    asio::post(io_ctx, [this, ep = host_endpoint]() {
-      auto resolver = std::make_unique<ip_tcp::resolver>(io_ctx);
+    asio::post(thread_pool, [this, ep = host_endpoint]() {
+      auto resolver = std::make_unique<ip_tcp::resolver>(thread_pool);
 
       resolver->async_resolve(*ep, //
                               [this, resolver = std::move(resolver)](
@@ -255,7 +232,7 @@ void DmxCtrl::resolve_host() noexcept {
         [this, e = Elapsed()](const error_code ec, const tcp_endpoint r) mutable {
           static constexpr csv fn_id{"host.connect"};
 
-          INFO_AUTO("{}\n", io::log_socket_msg(ec, sess_sock, r, e));
+          INFO_AUTO("{}\n", log_socket_msg(ec, sess_sock, r, e));
 
           if (!ec) {
             sess_sock.set_option(ip_tcp::no_delay(true));
@@ -342,6 +319,41 @@ void DmxCtrl::unknown_host() noexcept {
       resolve_host();
     }
   });
+}
+
+////
+//// free function for logging socket info
+////
+
+const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                            Elapsed e) noexcept {
+  e.freeze();
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  auto open = sock.is_open();
+  fmt::format_to(w, "{} ", open ? "[OPEN]" : "[CLSD]");
+
+  try {
+    if (open) {
+
+      const auto &l = sock.local_endpoint();
+
+      fmt::format_to(w, "{:>15}:{:<5} {:>15}:{:<5}",    //
+                     l.address().to_string(), l.port(), //
+                     r.address().to_string(), r.port());
+    }
+
+    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+  } catch (const std::exception &e) {
+
+    fmt::format_to(w, "EXCEPTION {}", e.what());
+  }
+
+  if (e > 1us) fmt::format_to(w, " {}", e.humanize());
+
+  return msg;
 }
 
 } // namespace desk
