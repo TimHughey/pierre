@@ -18,49 +18,68 @@
 
 #pragma once
 
+#include "base/pet.hpp"
 #include "base/types.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/units.hpp"
 #include "frame/frame.hpp"
 #include "fx/names.hpp"
+#include "lcs/logger.hpp"
 
-#include <atomic>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/system.hpp>
+#include <chrono>
 #include <initializer_list>
 #include <memory>
 
 namespace pierre {
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using steady_timer = asio::steady_timer;
 
 namespace desk {
 
 class FX {
+
+public:
+  static auto constexpr NoRender{false};
+  static auto constexpr Render{true};
+
 public:
   /// @brief Construct the base FX via the subclassed type
-  FX() noexcept;
-  virtual ~FX() { cancel(); };
+  FX(auto &executor, const string name, bool should_render = FX::Render)
+  noexcept
+      : fx_timer(executor), fx_name{name},
+        should_render{should_render}, finished{false}, next_fx{fx::NONE} {
+    ensure_units();
+  }
 
-  /// @brief Cancel any pending io_ctx actions
-  virtual void cancel() noexcept {}
+  virtual ~FX() noexcept { cancel(); };
+
+  /// @brief Cancel any pending fx_timer actions
+  void cancel() noexcept {
+    [[maybe_unused]] error_code ec;
+    fx_timer.cancel(ec);
+  }
 
   /// @brief Is the FX complete as determined by the subclass
   /// @return boolean indicating the FX is complete
-  virtual bool completed() noexcept { return finished.load(); }
-
-  /// @brief Match the FX to any of the names
-  /// @param names List of names to match
-  /// @return boolean indicating if any name matched
-  bool match_name(const std::initializer_list<csv> names) const noexcept;
+  virtual bool completed() noexcept { return finished; }
 
   /// @brief Match the FX to a single name
   /// @param n Name to match
   /// @return boolean indicating if the single name matched
-  bool match_name(csv n) const { return n == name(); }
+  bool match_name(csv n) const noexcept { return n == name(); }
 
   /// @brief The FX name
   /// @return contant string view of the name
-  virtual csv name() const = 0;
+  csv name() const noexcept { return fx_name; };
 
   /// @brief FX subclasses override to execute when FX called for the first time
-  virtual void once() {}
+  virtual void once() noexcept {}
 
   /// @brief Called for every frame to render the embedded peaks
   /// @param frame Audio frame containing peaks for rendering
@@ -82,21 +101,67 @@ protected:
 
   /// @brief Set the FX as complete
   /// @param is_finished Boolean indicating the finished status of the FX
-  void set_finished(bool is_finished = true) noexcept { finished.store(is_finished); }
+  void set_finished(bool is_finished, const string silence_fx = string()) noexcept {
+
+    if (is_finished && silence_fx.size()) {
+      next_fx = silence_fx;
+    }
+
+    finished = is_finished;
+  }
+
+  bool set_silence_timeout(auto &&new_val) noexcept {
+    static constexpr csv fn_id{"set_silence"};
+    using Millis = std::chrono::milliseconds;
+
+    INFO_AUTO("new_val={} silence_timeout={}\n", pet::humanize(new_val),
+              pet::humanize(silence_timeout));
+
+    if (new_val != silence_timeout) {
+      silence_timeout = std::chrono::duration_cast<Millis>(new_val);
+      INFO_AUTO("silence_timeout={}\n", pet::humanize(silence_timeout));
+
+      silence_watch();
+      return true;
+    }
+
+    return false;
+  }
+
+  void silence_watch(const string silence_fx = string()) noexcept {
+
+    if (silence_fx.empty() == false) next_fx = silence_fx;
+
+    fx_timer.expires_after(silence_timeout);
+    fx_timer.async_wait([this](const error_code &ec) {
+      if (ec) return;
+
+      set_finished(true);
+    });
+  }
+
+private:
+  static void ensure_units() noexcept;
 
 protected:
   /// @brief Order dependent class member data
   static Units units;
-  std::atomic_bool finished;
-
-  bool should_render{true};
+  steady_timer fx_timer;
+  const string fx_name;
+  bool should_render;
+  bool finished;
   string next_fx;
+
+  // order independent
+  Millis silence_timeout;
+  string silence_next_fx;
 
 private:
   bool called_once{false};
 
 public:
   static constexpr csv module_id{"fx"};
+  static constexpr csv cfg_silence_timeout{"silence.timeout.minutes"};
 };
 
 } // namespace desk

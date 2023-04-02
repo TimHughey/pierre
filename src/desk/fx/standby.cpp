@@ -22,17 +22,14 @@
 #include "desk.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
+#include "lcs/logger.hpp"
 #include "unit/all.hpp"
 
 namespace pierre {
 namespace desk {
 
-Standby::~Standby() noexcept { cancel(); }
-
 void Standby::execute(Peaks &peaks) noexcept {
-  if (ConfigWatch::has_changed(cfg_change)) {
-    load_config();
-  }
+  if (ConfigWatch::has_changed(cfg_change)) load_config();
 
   if (next_brightness < max_brightness) {
     next_brightness++;
@@ -48,55 +45,37 @@ void Standby::execute(Peaks &peaks) noexcept {
 
   // unless completed (silence timeout fired) set finished to false
   if (!completed()) {
-    set_finished(peaks.silence() == false);
-    next_fx = fx::MAJOR_PEAK;
+    set_finished(peaks.silence() == false, fx::MAJOR_PEAK);
   } else {
     next_fx = fx::ALL_STOP;
   }
 }
 
-void Standby::load_config() noexcept {
+bool Standby::load_config() noexcept {
+  static constexpr csv fn_id{"load_config"};
 
-  should_render = config_val<Standby, bool>("will_render"sv, true);
+  auto changed{false};
 
-  next_color = Color({.hue = config_val<Standby, double>("color.hue"sv, 0),
-                      .sat = config_val<Standby, double>("color.sat"sv, 0),
-                      .bri = config_val<Standby, double>("color.bri"sv, 0)});
+  auto cfg_first_color = Color({.hue = config_val<Standby, double>("color.hue"sv, 0),
+                                .sat = config_val<Standby, double>("color.sat"sv, 0),
+                                .bri = config_val<Standby, double>("color.bri"sv, 0)});
+
+  if (cfg_first_color != first_color) {
+    std::exchange(first_color, cfg_first_color);
+    next_color = first_color;
+    next_brightness = 0.0;
+    max_brightness = next_color.brightness();
+
+    changed |= true;
+  }
 
   hue_step = config_val<Standby, double>("hue_step", 0.0);
 
-  next_brightness = 0.0;
-  max_brightness = next_color.brightness();
-
-  auto silence_timeout_next = config_val<Standby, Minutes, int64_t>("silence.timeout.minutes", 30);
-  if (std::exchange(silence_timeout, silence_timeout_next) != silence_timeout_next) {
-    // start silence watch if timeout changed (at start or config reload)
-    silence_watch();
-  }
+  changed |= set_silence_timeout(config_val<Standby, Minutes, int64_t>(cfg_silence_timeout, 30));
 
   cfg_change = ConfigWatch::want_changes();
-}
 
-void Standby::once() {
-  load_config();
-
-  units(unit::AC_POWER)->activate();
-  units(unit::DISCO_BALL)->dark();
-
-  units.get<Dimmable>(unit::EL_DANCE)->dim();
-  units.get<Dimmable>(unit::EL_DANCE)->dim();
-  units.get<Dimmable>(unit::LED_FOREST)->dim();
-}
-
-void Standby::silence_watch() noexcept {
-
-  silence_timer.expires_after(silence_timeout);
-  silence_timer.async_wait([this](const error_code ec) {
-    if (!ec) {
-      next_fx = fx::ALL_STOP;
-      set_finished(true);
-    }
-  });
+  return changed;
 }
 
 } // namespace desk

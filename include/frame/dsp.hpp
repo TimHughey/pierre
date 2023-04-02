@@ -22,16 +22,23 @@
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
-#include "io/context.hpp"
-#include "io/work_guard.hpp"
 #include "lcs/logger.hpp"
 
 #include <array>
-#include <fmt/ostream.h>
-#include <latch>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <memory>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Dsp {
 
@@ -43,9 +50,10 @@ public:
 
 private:
   // order dependent
-  io_context io_ctx;
-  work_guard guard;
-  std::unique_ptr<std::latch> shutdown_latch;
+  const uint32_t concurrency_factor;
+  const uint32_t thread_count;
+  asio::thread_pool thread_pool;
+  work_guard_tp guard;
 
 private:
   void _process(const frame_t frame, FFT &&left, FFT &&right) noexcept;

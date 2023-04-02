@@ -19,6 +19,7 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
+#include "base/thread_util.hpp"
 #include "git_version.hpp"
 #include "io/error.hpp"
 #include "lcs/args.hpp"
@@ -100,6 +101,10 @@ static void write_pid_file(const string pid_file) noexcept {
 
 int App::main(int argc, char *argv[]) {
   static constexpr csv fn_id{"main"};
+
+  // rename the main thread so all threads created have a consistent
+  // naming convention
+  thread_util::set_name("worker");
 
   crypto::init(); // initialize sodium and gcrypt
 

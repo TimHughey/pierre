@@ -20,31 +20,29 @@
 
 namespace pierre {
 
-Av::Av(io_context &io_ctx) noexcept : ready{false} {
+Av::Av() noexcept : ready{false} {
 
   dsp.emplace(); // fire up DSP
 
-  asio::post(io_ctx, [this]() {
-    codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
+  codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
 
-    if (codec) {
-      codec_ctx = avcodec_alloc_context3(codec);
+  if (codec) {
+    codec_ctx = avcodec_alloc_context3(codec);
 
-      if (codec_ctx) {
-        if (auto rc = avcodec_open2(codec_ctx, codec, nullptr); rc < 0) {
-          INFO(module_id, "codec_open", "failed, rc={}\n", rc);
-        } else [[likely]] {
-          parser_ctx = av_parser_init(codec->id);
+    if (codec_ctx) {
+      if (auto rc = avcodec_open2(codec_ctx, codec, nullptr); rc < 0) {
+        INFO(module_id, "codec_open", "failed, rc={}\n", rc);
+      } else [[likely]] {
+        parser_ctx = av_parser_init(codec->id);
 
-          if (parser_ctx) {
-            ready.store(true);
-          } else {
-            INFO_INIT("failed to initialize AV functions\n");
-          }
-        } // end parser ctx
-      }   // end open ctx
-    }     // end codec ctx
-  });
+        if (parser_ctx) {
+          ready.store(true);
+        } else {
+          INFO_INIT("failed to initialize AV functions\n");
+        }
+      } // end parser ctx
+    }   // end open ctx
+  }     // end codec ctx
 }
 
 Av::~Av() noexcept {

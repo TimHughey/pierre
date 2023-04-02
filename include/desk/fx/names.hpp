@@ -25,7 +25,7 @@ namespace desk {
 namespace fx {
 constexpr std::string ALL_STOP{"all_stop"};
 constexpr std::string MAJOR_PEAK{"major_peak"};
-constexpr std::string SILENCE{"silence"};
+constexpr std::string NONE{"none"};
 constexpr std::string STANDBY{"standby"};
 }; // namespace fx
 

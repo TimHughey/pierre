@@ -62,7 +62,7 @@ public:
     auto s = shared::stats.get();
     auto &strand = s->stats_strand;
 
-    if (s->enabled && !strand.context().stopped()) {
+    if (s->enabled) {
 
       // enabling stats does incur some overhead, primarily the creation of the data point
       // and the call to asio::post

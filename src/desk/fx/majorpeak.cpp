@@ -41,31 +41,6 @@ namespace {
 namespace stats = pierre::stats;
 }
 
-MajorPeak::MajorPeak(io_context &io_ctx) noexcept
-    : FX(),                         //
-      io_ctx(io_ctx),               //
-      silence_timer(io_ctx),        //
-      silence{false},               // has silence timeout occurred
-      base_color(Hsb{0, 100, 100}), //
-      _main_last_peak(),            //
-      _fill_last_peak()             //
-{
-  // initialize static frequency to color mapping
-  if (_ref_colors.size() == 0) {
-    _ref_colors.assign( //
-        {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
-         Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
-         Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
-         Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
-         Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
-         Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
-         Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
-  }
-
-  // cache config
-  load_config();
-}
-
 void MajorPeak::execute(Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
@@ -188,22 +163,16 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
   const auto freq_min = cfg.freq_min;
   const auto peak = peaks(freq_min, Peaks::CHANNEL::RIGHT);
 
-  if (peak.useable(_mag_limits) == false) {
-    return;
-  }
+  if (peak.useable(_mag_limits) == false) return;
 
   Color color = make_color(peak);
 
-  if (color.isBlack()) {
-    return;
-  }
+  if (color.isBlack()) return;
 
   bool start_fader = false;
   bool fading = main->isFading();
 
-  if (!fading) {
-    start_fader = true;
-  }
+  if (!fading) start_fader = true;
 
   if (fading) {
     const auto &when_fading = cfg.when_fading;
@@ -232,12 +201,12 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
   }
 }
 
-void MajorPeak::load_config() noexcept {
+bool MajorPeak::load_config() noexcept {
+  auto changed{false};
+
   // make a copy of the table (under the cover of the live mtx) so
   // we are confident it isn't changing
   const toml::table local_copy(cfg_copy_live());
-
-  should_render = config_val<MajorPeak, bool>(local_copy, "will_render"sv, true);
 
   // lambda helper to retrieve frequencies config
   auto freqs = [&](csv path, double def_val) {
@@ -322,11 +291,14 @@ void MajorPeak::load_config() noexcept {
   }
 
   // load silence config
-  _silence_timeout = config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13);
-  next_fx = config_val<MajorPeak, string>("silence.timeout.suggested_fx_next"sv, "standby");
+
+  set_silence_timeout(config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13));
+  next_fx = fx::ALL_STOP;
 
   // register for changes
   _cfg_changed = ConfigWatch::want_changes();
+
+  return changed;
 }
 
 const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
@@ -369,30 +341,23 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   return color;
 }
 
-// must be in .cpp to avoid including Desk in .hpp
-void MajorPeak::once() {
-  units(unit::AC_POWER)->activate();
-  units(unit::LED_FOREST)->dark();
+const Color &MajorPeak::ref_color(size_t index) const noexcept {
+  if (_ref_colors.empty()) {
+    _ref_colors.assign( //
+        {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
+         Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
+         Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
+         Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
+         Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
+         Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
+         Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
+  }
 
-  silence_watch();
-}
-
-const Color &MajorPeak::ref_color(size_t index) const noexcept { return _ref_colors.at(index); }
-
-void MajorPeak::silence_watch() noexcept {
-  static constexpr csv fn_id{"silence_watch"};
-
-  silence_timer.expires_from_now(_silence_timeout);
-  silence_timer.async_wait([this](const error_code ec) {
-    if (!ec) {
-      silence.store(true);
-      INFO_AUTO("silence timeout ({})\n", _silence_timeout);
-    }
-  });
+  return _ref_colors.at(index);
 }
 
 // static class members
-MajorPeak::ReferenceColors MajorPeak::_ref_colors;
+MajorPeak::RefColors MajorPeak::_ref_colors;
 
 } // namespace desk
 } // namespace pierre

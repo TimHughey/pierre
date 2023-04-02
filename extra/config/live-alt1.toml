@@ -107,7 +107,7 @@ units = [{ name = "ac power", addr = 1 }]
 
 [frame]
 cipher = { buffer_size = 0x2000 }  # bytes (4k)
-dsp = { concurrency_factor = 0.5 } # num threads (hw_concurrency * factor)
+dsp = { concurrency_factor = 5 } # num threads (hw_concurrency * factor / 10)
 
 [frame.clock]
 host = "127.0.0.1"              # nqptp host
@@ -123,8 +123,7 @@ floor = 0.9
 ceiling = 128.0
 
 [fx.majorpeak]
-will_render = true
-silence = { timeout = { seconds = 13, suggested_fx_next = "standby" } }
+silence = { timeout = { seconds = 13 } }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }
@@ -161,8 +160,8 @@ when_less_than = { freq = 160.0, bri_min = 30.0 }
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 33 } }
-will_render = true
+silence = { timeout = { minutes = 1 }, suggested_fx_next = "all_stop" }
+
 
 [lcs.stats]
 enabled = true

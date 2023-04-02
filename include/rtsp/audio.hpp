@@ -53,11 +53,11 @@ public:
 
 private:
   Audio(io_context &io_ctx, Ctx *ctx) noexcept
-      : io_ctx(io_ctx),                                                                        //
-        local_strand(io_ctx),                                                                  //
-        ctx(ctx),                                                                              //
-        acceptor{local_strand.context().get_executor(), tcp_endpoint{ip_tcp::v4(), ANY_PORT}}, //
-        sock(local_strand.context().get_executor())                                            //
+      : io_ctx(io_ctx),                                               //
+        local_strand(asio::make_strand(io_ctx)),                      //
+        ctx(ctx),                                                     //
+        acceptor{local_strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}}, //
+        sock(local_strand)                                            //
   {}
 
   // asyncLoop is invoked to:

@@ -18,21 +18,31 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
-#include "io/context.hpp"
-#include "io/timer.hpp"
-#include "io/work_guard.hpp"
 
-#include <atomic>
-#include <future>
-#include <latch>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <memory>
-#include <mutex>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using steady_timer = asio::steady_timer;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Desk {
 
@@ -49,28 +59,28 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  void resume(bool check_io_ctx = true) noexcept;
+  void resume() noexcept;
 
-  void spool(bool enable = true) noexcept;
-
-  void standby() noexcept;
+  void spool(bool enable = true) noexcept; // must be in .cpp for Racked
 
 private:
   void frame_loop(bool fx_finished = true) noexcept;
+  void handle_frame(frame_t frame, bool fx_finished) noexcept;
   void fx_select(const frame::state &frame_state, bool silent) noexcept;
 
 private:
   // order dependent
   const int thread_count;
-  io_context io_ctx;
-  work_guard guard;
+  asio::thread_pool thread_pool;
+  work_guard_tp guard;
+  strand_tp frame_strand;
+  strand_tp sync_strand;
   steady_timer frame_timer;
   std::unique_ptr<Racked> racked;
   MasterClock *master_clock;
   std::unique_ptr<Anchor> anchor;
 
   // order independent
-  std::shared_ptr<std::latch> shutdown_latch; // initialized in resume()
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<desk::FX> active_fx{nullptr};
 

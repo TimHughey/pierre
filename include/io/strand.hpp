@@ -34,6 +34,6 @@ namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using io_context = asio::io_context;
-using strand = asio::io_context::strand;
+using strand = asio::strand<asio::io_context::executor_type>;
 
 } // namespace pierre

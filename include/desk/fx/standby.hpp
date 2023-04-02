@@ -22,6 +22,8 @@
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+#include "desk/unit/dimmable.hpp"
+#include "desk/unit/pinspot.hpp"
 #include "io/context.hpp"
 #include "io/timer.hpp"
 #include "lcs/types.hpp"
@@ -34,35 +36,27 @@ namespace desk {
 class Standby : public FX {
 
 public:
-  Standby(io_context &io_ctx) noexcept
-      : io_ctx(io_ctx), silence_timer(io_ctx), next_color(Color()), silence_timeout{0} {}
-
-  ~Standby() noexcept override final;
-
-  void cancel() noexcept override {
-    try {
-      silence_timer.cancel();
-    } catch (...) {
-    }
-  }
+  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY) { load_config(); }
 
   void execute(Peaks &peaks) noexcept override;
-  csv name() const override { return fx::STANDBY; };
 
-  void once() override;
+  void once() noexcept override final {
+
+    units(unit::AC_POWER)->activate();
+    units(unit::DISCO_BALL)->dark();
+
+    units.get<Dimmable>(unit::EL_DANCE)->dim();
+    units.get<Dimmable>(unit::EL_DANCE)->dim();
+    units.get<Dimmable>(unit::LED_FOREST)->dim();
+  }
 
 private:
-  void load_config() noexcept;
-  void silence_watch() noexcept;
+  bool load_config() noexcept;
 
 private:
-  // order dependent
-  io_context &io_ctx;
-  steady_timer silence_timer;
-  Color next_color;
-  Minutes silence_timeout;
-
   // order independent
+  Color first_color;
+  Color next_color;
   double hue_step{0.0};
   double max_brightness{0};
   double next_brightness{0};

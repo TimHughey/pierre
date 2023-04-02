@@ -30,17 +30,11 @@ namespace desk {
 
 Units FX::units; // headunits available for FX (static class data)
 
-FX::FX() noexcept : finished(false) {
+void FX::ensure_units() noexcept {
   if (units.empty()) units.create_all_from_cfg(); // create the units once
 }
 
-bool FX::match_name(const std::initializer_list<csv> names) const noexcept {
-  return std::ranges::any_of(names.begin(), names.end(),
-                             [this](const auto &n) { return n == name(); });
-}
-
 bool FX::render(frame_t frame, DataMsg &msg) noexcept {
-
   if (should_render) {
     if (called_once == false) {
       once();                // frame 0 consumed by call to once(), peaks not rendered
@@ -55,7 +49,7 @@ bool FX::render(frame_t frame, DataMsg &msg) noexcept {
     }
   }
 
-  return finished.load();
+  return finished;
 }
 
 } // namespace desk

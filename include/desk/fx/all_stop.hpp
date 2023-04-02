@@ -30,16 +30,12 @@ namespace desk {
 
 class AllStop : public FX {
 public:
-  AllStop() noexcept : FX() {
-
-    // prevent frames from being sent to the dmx controller
-    should_render = false;
+  AllStop(auto &&fx_timer) noexcept
+      : FX(std::forward<decltype(fx_timer)>(fx_timer), fx::ALL_STOP, FX::NoRender) {
 
     // never finished unless a non-silent frame is sent for execute
     set_finished(false);
   }
-
-  csv name() const override { return fx::ALL_STOP; }
 
 public:
   static constexpr csv module_id{"fx.all_stop"};

@@ -23,6 +23,7 @@
 
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -32,5 +33,6 @@ namespace asio = boost::asio;
 
 using io_context = asio::io_context;
 using work_guard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
+using work_guard_tp = boost::asio::executor_work_guard<boost::asio::thread_pool::executor_type>;
 
 } // namespace pierre

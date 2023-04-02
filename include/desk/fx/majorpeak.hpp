@@ -34,55 +34,55 @@
 #include <optional>
 
 namespace pierre {
+
 namespace desk {
 
 class MajorPeak : public FX {
 public:
-  MajorPeak(io_context &io_ctx) noexcept;
-  ~MajorPeak() override { cancel(); }
-
-  void cancel() noexcept override {
-    try {
-      silence_timer.cancel();
-    } catch (...) {
-    }
+  MajorPeak(auto &executor) noexcept
+      : FX(executor, fx::MAJOR_PEAK), //
+        silence{false},               //
+        base_color(Hsb{0, 100, 100}), //
+        _main_last_peak(),            //
+        _fill_last_peak()             //
+  {
+    load_config();
   }
 
   void execute(Peaks &peaks) noexcept override;
-  csv name() const override { return fx::MAJOR_PEAK; }
 
-  void once() override; // must be in .cpp to limit units include
+  void once() noexcept override final {
+    units(unit::AC_POWER)->activate();
+    units(unit::LED_FOREST)->dark();
+
+    silence_watch();
+  }
 
 private:
-  using ReferenceColors = std::vector<Color>;
+  using RefColors = std::vector<Color>;
 
 private:
   void handle_el_wire(Peaks &peaks);
-  void handle_led_forest(Peaks &peaks);
   void handle_fill_pinspot(Peaks &peaks);
   void handle_main_pinspot(Peaks &peaks);
 
-  void load_config() noexcept;
+  bool load_config() noexcept;
 
   const Color make_color(const Peak &peak) noexcept { return make_color(peak, base_color); }
   const Color make_color(const Peak &peak, const Color &ref) noexcept;
 
   const Color &ref_color(size_t index) const noexcept;
 
-  void silence_watch() noexcept;
-
 private:
   // order dependent
-  io_context &io_ctx;
-  steady_timer silence_timer;
-  std::atomic_bool silence;
+  std::atomic_bool silence; // has silence timeout occurred
   const Color base_color;
   Peak _main_last_peak;
   Peak _fill_last_peak;
 
   // order independent
   Elapsed color_elapsed;
-  static ReferenceColors _ref_colors;
+  static RefColors _ref_colors;
 
   // cached config
   cfg_future _cfg_changed;
@@ -90,7 +90,6 @@ private:
   major_peak::hue_cfg_map _hue_cfg_map;
   mag_min_max _mag_limits;
   major_peak::pspot_cfg_map _pspot_cfg_map;
-  Seconds _silence_timeout;
 
 public:
   static constexpr csv module_id{"fx.majorpeak"};

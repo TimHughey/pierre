@@ -26,20 +26,22 @@
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 #include "frame/reel.hpp"
-#include "io/strand.hpp"
-#include "io/timer.hpp"
-#include "io/work_guard.hpp"
 
 #include <algorithm>
 #include <atomic>
-#include <future>
-#include <latch>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/system_timer.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <list>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <ranges>
 #include <shared_mutex>
+#include <system_error>
 
 namespace pierre {
 
@@ -47,7 +49,15 @@ namespace pierre {
 class Anchor;
 class Av;
 
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
 using racked_reels = std::list<Reel>;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using system_timer = asio::system_timer;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Racked {
 
@@ -72,27 +82,19 @@ public:
 
         void operator()() noexcept { handler(self.next_frame_no_wait()); }
 
-        using executor_type =
-            asio::associated_executor_t<typename std::decay<decltype(completion_handler)>::type,
-                                        typename Executor::executor_type>;
-
-        executor_type get_executor() const noexcept {
+        auto get_executor() const noexcept {
           return asio::get_associated_executor(handler, handler_executor.get_executor());
         }
 
-        using allocator_type =
-            asio::associated_allocator_t<typename std::decay<decltype(completion_handler)>::type,
-                                         std::allocator<void>>;
-
-        allocator_type get_allocator() const noexcept {
-          return asio::get_associated_allocator(handler, std::allocator<void>{});
+        auto get_allocator() const noexcept {
+          return asio::get_associated_allocator(handler, handler_executor.get_allocator());
         }
 
       }; // end struct ic_handler
 
-      asio::post(self.racked_strand,
-                 ic_handler{handler_executor, self,
-                            std::forward<decltype(completion_handler)>(completion_handler)});
+      asio::dispatch(self.racked_strand,
+                     ic_handler{handler_executor, self,
+                                std::forward<decltype(completion_handler)>(completion_handler)});
     }; // end initiation
 
     return asio::async_initiate<CompletionToken, void(frame_t frame)>(
@@ -115,12 +117,12 @@ private:
 private:
   // order dependent
   const int thread_count;
-  io_context io_ctx;
-  work_guard guard;
-  strand flush_strand;
-  strand handoff_strand;
-  strand wip_strand;
-  strand racked_strand;
+  asio::thread_pool thread_pool;
+  work_guard_tp guard;
+  strand_tp flush_strand;
+  strand_tp handoff_strand;
+  strand_tp wip_strand;
+  strand_tp racked_strand;
   system_timer wip_timer;
   MasterClock *master_clock;
   Anchor *anchor;
@@ -135,9 +137,6 @@ private:
 
   racked_reels racked;
   Reel wip;
-
-private:
-  std::shared_ptr<std::latch> shutdown_latch;
 
 public:
   static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};

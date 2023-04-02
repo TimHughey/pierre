@@ -31,44 +31,34 @@
 #include "frame/silent_frame.hpp"
 #include "frame/state.hpp"
 #include "fx/all.hpp"
-#include "io/post.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 
-#include <exception>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/post.hpp>
 #include <functional>
-#include <future>
-#include <latch>
-#include <math.h>
 #include <ranges>
-#include <tuple>
 
 namespace pierre {
 
 // must be defined in .cpp to hide mdns
 Desk::Desk(MasterClock *master_clock) noexcept
-    : thread_count(config_threads<Desk>(1)), guard(asio::make_work_guard(io_ctx)),
-      frame_timer(io_ctx), racked{nullptr}, master_clock(master_clock),
-      anchor(std::make_unique<Anchor>()) //
+    : thread_count(config_threads<Desk>(1)), thread_pool(thread_count),
+      guard(asio::make_work_guard(thread_pool)), frame_strand(asio::make_strand(thread_pool)),
+      sync_strand(asio::make_strand(thread_pool)), frame_timer(sync_strand), racked{nullptr},
+      master_clock(master_clock), anchor(std::make_unique<Anchor>()) //
 {
   INFO_INIT("sizeof={:>5} lead_time_min={}\n", sizeof(Desk),
             pet::humanize(InputInfo::lead_time_min));
 
-  static auto constexpr check_io_ctx{false};
-
-  resume(check_io_ctx);
+  resume();
 }
 
 Desk::~Desk() noexcept {
-  INFO_SHUTDOWN_REQUESTED();
-
-  standby();
-
-  if (shutdown_latch) shutdown_latch->wait();
-
-  INFO_SHUTDOWN_COMPLETE();
+  thread_pool.stop();
+  thread_pool.join();
 }
 
 // general API
@@ -87,82 +77,85 @@ void Desk::flush_all() noexcept {
 void Desk::frame_loop(bool fx_finished) noexcept {
   static constexpr csv fn_id{"frame_loop"};
 
-  if (io_ctx.stopped()) return;
+  racked->next_frame(frame_strand,
+                     [this, fx_finished, next_wait = Elapsed()](frame_t frame) mutable {
+                       if (next_wait.freeze() > 100us) {
+                         Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+                       }
 
-  racked->next_frame(io_ctx, [this, fx_finished, next_wait = Elapsed()](frame_t frame) mutable {
-    // we are assured the frame can be rendered (slient or peaks)
-
-    frame->state.record_state();
-
-    if (fx_finished) fx_select(frame->state, frame->silent());
-
-    // render this frame and send to DMX controller
-    if (frame->state.ready()) {
-      desk::DataMsg msg(frame->seq_num, frame->silent());
-
-      if (active_fx) {
-        fx_finished = active_fx->render(frame, msg);
-
-        if (!fx_finished) {
-          if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
-
-          dmx_ctrl->send_data_msg(std::move(msg));
-        }
-      }
-    }
-
-    // notates rendered or silence in timeseries db
-    frame->mark_rendered();
-
-    // now we need to wait for the correct time to render the next frame
-    if (auto sync_wait = frame->sync_wait_recalc(); sync_wait > Nanos::zero()) {
-      static constexpr csv fn_id{"desk.frame_loop"};
-
-      frame_timer.expires_after(sync_wait);
-      frame_timer.async_wait([this, fx_finished](const error_code &ec) {
-        if (!ec) frame_loop(fx_finished);
-      });
-    } else {
-      // INFO_AUTO("negative sync wait {}\n", frame->sync_wait());
-      asio::post(io_ctx, [this, fx_finished]() { frame_loop(fx_finished); });
-    }
-
-    if (next_wait.freeze() > 100us) {
-      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
-    }
-  });
+                       // we are assured the frame can be rendered (slient or peaks)
+                       handle_frame(frame, fx_finished);
+                     });
 }
 
 void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   static constexpr csv fn_id{"fx_select"};
 
-  const auto fx_now = active_fx ? active_fx->name() : csv{"none"};
+  const auto fx_now = active_fx ? active_fx->name() : desk::fx::NONE;
   const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : desk::fx::STANDBY;
 
-  if (active_fx) active_fx->cancel(); // stop any pending io_ctx work
-
   // when fx::Standby is finished initiate standby()
-  if (fx_suggested_next == desk::fx::ALL_STOP) {
-    INFO_AUTO("fx::Standby finished, initiating Desk::standby()\n");
-    standby();
-    return;
-
-  } else if ((fx_suggested_next == desk::fx::STANDBY) && silent) {
-    active_fx = std::make_unique<desk::Standby>(io_ctx);
+  if ((fx_suggested_next == desk::fx::STANDBY) && silent) {
+    active_fx = std::make_unique<desk::Standby>(frame_strand);
 
   } else if ((fx_suggested_next == desk::fx::MAJOR_PEAK) && !silent) {
-    active_fx = std::make_unique<desk::MajorPeak>(io_ctx);
+    active_fx = std::make_unique<desk::MajorPeak>(frame_strand);
 
   } else if (!silent && (frame_state.ready() || frame_state.future())) {
-    active_fx = std::make_unique<desk::MajorPeak>(io_ctx);
+    active_fx = std::make_unique<desk::MajorPeak>(frame_strand);
 
-  } else { // default to Standby
-    active_fx = std::make_unique<desk::Standby>(io_ctx);
+  } else if (fx_suggested_next == desk::fx::ALL_STOP) {
+    INFO_AUTO("fx::Standby finished, initiating {}\n", fx_suggested_next);
+    active_fx = std::make_unique<desk::AllStop>(frame_strand);
+
+  } else if (fx_now == desk::fx::NONE) { // default to Standby
+    active_fx = std::make_unique<desk::Standby>(frame_strand);
   }
 
   // note in log selected FX, if needed
-  if (active_fx && !active_fx->match_name(fx_now)) {
+  if (!active_fx->match_name(fx_now)) {
     INFO_AUTO("FX {} -> {}\n", fx_now, active_fx->name());
+  }
+}
+
+void Desk::handle_frame(frame_t frame, bool fx_finished) noexcept {
+  frame->state.record_state();
+
+  if (fx_finished) fx_select(frame->state, frame->silent());
+
+  if (active_fx->match_name(desk::fx::ALL_STOP)) {
+    // shutdown supporting subsystems
+    active_fx.reset();
+    dmx_ctrl.reset();
+    racked.reset();
+    return;
+  }
+
+  // render this frame and send to DMX controller
+  if (frame->state.ready()) {
+    desk::DataMsg msg(frame->seq_num, frame->silent());
+
+    if (fx_finished = active_fx->render(frame, msg); !fx_finished) {
+      if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
+
+      dmx_ctrl->send_data_msg(std::move(msg));
+    }
+  }
+
+  // notates rendered or silence in timeseries db
+  frame->mark_rendered();
+
+  // now we need to wait for the correct time to render the next frame
+  if (auto sync_wait = frame->sync_wait_recalc(); sync_wait > Nanos::zero()) {
+    static constexpr csv fn_id{"desk.frame_loop"};
+
+    frame_timer.expires_after(sync_wait);
+    frame_timer.async_wait([this, fx_finished](const error_code &ec) {
+      if (!ec) asio::dispatch(frame_strand, [this, fx_finished]() { frame_loop(fx_finished); });
+    });
+  } else {
+    // INFO_AUTO("negative sync wait {}\n", frame->sync_wait());
+    asio::post(frame_strand, [this, fx_finished]() { frame_loop(fx_finished); });
   }
 }
 
@@ -170,50 +163,18 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   if (racked) racked->handoff(std::forward<uint8v>(packet), key);
 }
 
-void Desk::resume(bool check_io_ctx) noexcept {
+void Desk::resume() noexcept {
   static constexpr csv fn_id{"resume"};
 
   INFO_AUTO("requested, thread_count={}\n", thread_count);
 
-  if (check_io_ctx && !io_ctx.stopped()) {
-    INFO_AUTO("io_ctx not stopped, aborting\n");
-    return;
-  }
-
-  // if we are here we are reusing the io_ctx, restart it
-  io_ctx.restart();
-
-  shutdown_latch = std::make_shared<std::latch>(thread_count);
-
-  // submit work to io_ctx
-  asio::post(io_ctx, [this]() {
+  asio::dispatch(frame_strand, [this]() {
     // ensure Racked is running
     std::exchange(racked, std::make_unique<Racked>(master_clock, anchor.get()));
 
     // start frame_loop()
     frame_loop();
   });
-
-  auto latch = std::make_shared<std::latch>(thread_count);
-
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, latch = latch, shut_latch = shutdown_latch]() mutable {
-      const auto thread_name = thread_util::set_name(TASK_NAME, n);
-
-      // thread start syncronization required
-      INFO_THREAD_START();
-
-      latch->count_down();
-      latch.reset();
-
-      io_ctx.run();
-
-      shut_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
-
-  latch->wait();
 
   INFO_AUTO("completed, thread_count={}\n", thread_count);
 }
@@ -223,27 +184,4 @@ void Desk::spool(bool enable) noexcept {
   if (racked) racked->spool(enable);
 }
 
-void Desk::standby() noexcept {
-  static constexpr csv fn_id{"standby"};
-
-  // we're committed to stopping now, set the state
-  if (io_ctx.stopped()) {
-    INFO_AUTO("already stopped, aborting standby");
-    return;
-  }
-
-  INFO_AUTO("requested, io_ctx.stopped={}\n", io_ctx.stopped());
-
-  io_ctx.stop();
-
-  // shutdown supporting subsystems
-  active_fx.reset();
-  dmx_ctrl.reset();
-  racked.reset();
-
-  shutdown_latch->count_down();
-  shutdown_latch.reset();
-
-  INFO_AUTO("completed, io_ctx.stopped={}\n", io_ctx.stopped());
-}
 } // namespace pierre

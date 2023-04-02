@@ -21,7 +21,6 @@
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
-#include "io/context.hpp"
 #include "lcs/logger.hpp"
 #include "libav.hpp"
 
@@ -34,7 +33,7 @@ namespace pierre {
 class Av {
 
 public:
-  Av(io_context &io_ctx) noexcept;
+  Av() noexcept;
   ~Av() noexcept;
 
   /// @brief allocate space for the ADTS header and cipher

@@ -19,58 +19,35 @@
 #include "frame/dsp.hpp"
 #include "lcs/config.hpp"
 
+#include <boost/asio/dispatch.hpp>
+
 namespace pierre {
 
 // NOTE: .cpp required to hide config.hpp
 
-Dsp::Dsp() noexcept : guard(asio::make_work_guard(io_ctx)) {
-
-  auto factor = config_val<Dsp, double>("concurrency_factor"sv, 0.4);
-  const int thread_count = std::jthread::hardware_concurrency() * factor;
-
+Dsp::Dsp() noexcept
+    : concurrency_factor{config_val<Dsp, uint32_t>("concurrency_factor"sv, 4)},
+      thread_count{std::jthread::hardware_concurrency() * concurrency_factor / 10},
+      thread_pool(thread_count),                //
+      guard(asio::make_work_guard(thread_pool)) //
+{
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(Dsp), thread_count);
 
-  auto latch = std::make_unique<std::latch>(thread_count);
-  shutdown_latch = std::make_unique<std::latch>(thread_count);
-
   // as soon as the io_ctx starts precompute FFT windowing
-  asio::post(io_ctx, []() { FFT::init(); });
-
-  // start the configured number of workers (detached)
-  // which will gracefully exit when work guard is reset
-  for (auto n = 0; n < thread_count; n++) {
-
-    // latch stays in scope until end of startup so a raw pointer is OK
-    std::jthread([this, n = n, latch = latch.get()]() {
-      auto const thread_name = thread_util::set_name(thread_prefix, n);
-
-      latch->count_down();
-      INFO_THREAD_START();
-      io_ctx.run();
-
-      shutdown_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
-
-  // caller thread waits until all workers are started
-  latch->wait();
+  asio::dispatch(thread_pool, []() { FFT::init(); });
 }
 
 Dsp::~Dsp() noexcept {
-  INFO_SHUTDOWN_REQUESTED();
-
   guard.reset();
-  shutdown_latch->wait(); // caller waits for all workers to finish
-
-  INFO_SHUTDOWN_COMPLETE();
+  thread_pool.stop();
+  thread_pool.join();
 }
 
 void Dsp::process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
   frame->state = frame::DSP_IN_PROGRESS;
 
-  asio::post(io_ctx, [this, frame = std::move(frame), left = std::move(left),
-                      right = std::move(right)]() mutable {
+  asio::dispatch(thread_pool, [this, frame = std::move(frame), left = std::move(left),
+                               right = std::move(right)]() mutable {
     _process(std::move(frame), std::move(left), std::move(right));
   });
 }

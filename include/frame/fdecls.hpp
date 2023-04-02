@@ -18,14 +18,19 @@
 
 #pragma once
 
+#include <memory>
+
 namespace pierre {
 
 // forward decls to hide implementation details, limit include dependencies
 class Anchor;
 class AnchorData;
 class FlushInfo;
+class Frame;
 class MasterClock;
 class Racked;
+
+using frame_t = std::shared_ptr<Frame>;
 
 namespace frame {
 class state;

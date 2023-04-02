@@ -25,8 +25,6 @@
 #include "base/types.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
-#include "io/post.hpp"
-#include "io/timer.hpp"
 #include "lcs/config.hpp"
 #include "lcs/stats.hpp"
 #include "master_clock.hpp"
@@ -36,50 +34,30 @@
 #include <array>
 #include <atomic>
 #include <boost/asio/append.hpp>
-#include <latch>
+#include <boost/asio/dispatch.hpp>
 #include <memory>
 #include <optional>
-#include <ranges>
-#include <set>
-#include <stop_token>
 #include <vector>
 
 namespace pierre {
 
 Racked::Racked(MasterClock *master_clock, Anchor *anchor) noexcept
-    : thread_count(config_threads<Racked>(3)), // thread count
-      guard(asio::make_work_guard(io_ctx)),    // ensure io_ctx has work
-      flush_strand(io_ctx),                    // ensure flush requests are serialized
-      handoff_strand(io_ctx),                  // unprocessed frame 'queue'
-      wip_strand(io_ctx),                      // guard wip reel
-      racked_strand(io_ctx),                   // guard racked
-      wip_timer(io_ctx),                       // rack incomplete wip reels
-      master_clock(master_clock),              // inject master clock dependency
-      anchor(anchor) {
+    : thread_count(config_threads<Racked>(3)),        // thread count
+      thread_pool(thread_count),                      //
+      guard(asio::make_work_guard(thread_pool)),      // ensure io_ctx has work
+      flush_strand(asio::make_strand(thread_pool)),   // ensure flush requests are serialized
+      handoff_strand(asio::make_strand(thread_pool)), // unprocessed frame 'queue'
+      wip_strand(asio::make_strand(thread_pool)),     // guard wip reel
+      racked_strand(asio::make_strand(thread_pool)),  // guard racked
+      wip_timer(wip_strand),                          // rack incomplete wip reels
+      master_clock(master_clock),                     // inject master clock dependency
+      anchor(anchor)                                  //
+{
   INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
             sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, thread_count);
 
   // initialize supporting objects
-  av = std::make_unique<Av>(io_ctx);
-
-  auto latch = std::make_shared<std::latch>(thread_count);
-  shutdown_latch = std::make_shared<std::latch>(thread_count);
-
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, latch = latch]() mutable {
-      const auto thread_name = thread_util::set_name("racked", n);
-      latch->count_down();
-      latch.reset();
-
-      INFO_THREAD_START();
-      io_ctx.run();
-
-      shutdown_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
-
-  latch->wait(); // caller waits until all workers are started
+  av = std::make_unique<Av>();
 
   ready = true;
 }
@@ -87,15 +65,14 @@ Racked::Racked(MasterClock *master_clock, Anchor *anchor) noexcept
 Racked::~Racked() noexcept {
   ready = false;
 
-  INFO_SHUTDOWN_REQUESTED();
+  thread_pool.stop();
+  thread_pool.join();
 
-  io_ctx.stop();
-
-  shutdown_latch->wait();
+  // INFO_SHUTDOWN_REQUESTED();
 
   av.reset();
 
-  INFO_SHUTDOWN_COMPLETE();
+  // INFO_SHUTDOWN_COMPLETE();
 }
 
 void Racked::flush(FlushInfo &&request) noexcept {
@@ -103,17 +80,17 @@ void Racked::flush(FlushInfo &&request) noexcept {
 
   // post the flush request to the flush strand to serialize flush requests
   // and guard changes to flush request
-  asio::post(flush_strand, [this, request = std::move(request)]() mutable {
+  asio::dispatch(flush_strand, [this, request = std::move(request)]() mutable {
     // record the flush request to check incoming frames (guarded by flush_strand)
     std::exchange(flush_request, std::move(request));
 
-    asio::post(handoff_strand, [this]() { INFO_AUTO("{}\n", flush_request); });
+    asio::dispatch(handoff_strand, [this]() { INFO_AUTO("{}\n", flush_request); });
 
     // rack wip so it is checked during rack flush
     rack_wip();
 
     // start the flush on the racked strand to prevent data races
-    asio::post(racked_strand, [this]() {
+    asio::dispatch(racked_strand, [this]() {
       const auto reel_count = std::ssize(racked);
       int64_t flush_count{0};
 
@@ -128,7 +105,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
           if (rc) {
             flush_count++;
 
-            asio::post(handoff_strand, [serial_num = reel.serial_num()]() {
+            asio::dispatch(handoff_strand, [serial_num = reel.serial_num()]() {
               INFO_AUTO("REEL 0x{:x} flushed\n", serial_num);
             });
           }
@@ -139,7 +116,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
         // we use the handoff_strand for the dirty business of logging and stats because it
         // is OK if inbound frame processing slows down a bit
 
-        asio::post(handoff_strand, [=, reels_now = std::ssize(racked)]() {
+        asio::dispatch(handoff_strand, [=, reels_now = std::ssize(racked)]() {
           INFO_AUTO("reel_count={} flush_count={} reels_remaining={}\n", reel_count, flush_count,
                     reels_now);
 
@@ -172,7 +149,7 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
         if (frame->decode(av.get())) [[likely]] {
           // decode in progress, proceed with adding to the wip via wip_strand
 
-          asio::post(wip_strand, [this, frame = std::move(frame)]() mutable {
+          asio::dispatch(wip_strand, [this, frame = std::move(frame)]() mutable {
             if (frame->state.dsp_any() == false) {
               // ensure the frame is in a DSP state, if not then something is wrong and
               // the frame should be dropped.
@@ -251,25 +228,24 @@ void Racked::monitor_wip() noexcept {
 
   wip_timer.expires_from_now(10s);
 
-  wip_timer.async_wait( // must run on wip_strand to protect containers
-      asio::bind_executor(wip_strand, [this, serial_num = wip.serial_num()](const error_code ec) {
-        if (ec) return; // wip timer error (liekly operation cancelled), bail out
+  wip_timer.async_wait([this, serial_num = wip.serial_num()](const error_code ec) {
+    if (ec) return; // wip timer error (liekly operation cancelled), bail out
 
-        // note: serial_num is captured to compare to active wip serial number to
-        //       prevent duplicate racking
+    // note: serial_num is captured to compare to active wip serial number to
+    //       prevent duplicate racking
 
-        if (wip.serial_num() == serial_num) {
-          string msg;
+    if (wip.serial_num() == serial_num) {
+      string msg;
 
-          if (Logger::should_log(module_id, fn_id)) msg = fmt::format("{}", wip);
+      if (Logger::should_log(module_id, fn_id)) msg = fmt::format("{}", wip);
 
-          rack_wip();
+      rack_wip();
 
-          INFO_AUTO("INCOMPLETE {}\n", msg);
-        } else {
-          INFO_AUTO("PREVIOUSLY RACKED serial_num={}\n", serial_num);
-        }
-      }));
+      INFO_AUTO("INCOMPLETE {}\n", msg);
+    } else {
+      INFO_AUTO("PREVIOUSLY RACKED serial_num={}\n", serial_num);
+    }
+  });
 }
 
 frame_t Racked::next_frame_no_wait() noexcept {
@@ -298,13 +274,14 @@ frame_t Racked::next_frame_no_wait() noexcept {
       racked.pop_front();
     }
 
-    asio::post(handoff_strand, [=, this, racked_size = std::ssize(racked)]() {
+    asio::dispatch(handoff_strand, [=, this, racked_size = std::ssize(racked)]() {
       log_racked();
       Stats::write(stats::RACKED_REELS, racked_size);
     });
 
   } else {
-    asio::post(handoff_strand, [=]() { INFO_AUTO("frame state={} present in racked\n", state); });
+    asio::dispatch(handoff_strand,
+                   [=]() { INFO_AUTO("frame state={} present in racked\n", state); });
   }
 
   return frame;
@@ -319,8 +296,9 @@ void Racked::rack_wip() noexcept {
   if (wip.empty() == false) {
     // capture the current wip reel (while creating a new one) then use racked_strand
     // to add it to racked reels
-    asio::post(racked_strand,
-               [this, reel = std::move(wip)]() mutable { racked.emplace_back(std::move(reel)); });
+    asio::dispatch(racked_strand, [this, reel = std::move(wip)]() mutable {
+      racked.emplace_back(std::move(reel));
+    });
 
     rc = RACKED;
 
