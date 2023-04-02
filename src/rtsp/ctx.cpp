@@ -41,14 +41,14 @@ namespace pierre {
 namespace rtsp {
 
 Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept
-    : sock(io_ctx),                                    //
-      sessions(sessions),                              //
-      master_clock(master_clock),                      //
-      desk(desk),                                      //
-      aes(),                                           //
-      feedback_timer(io_ctx),                          //
-      shutdown_latch(std::make_shared<std::latch>(1)), //
-      teardown_in_progress(false)                      //
+    : thread_pool(thread_count),   //
+      sock(thread_pool),           //
+      sessions(sessions),          //
+      master_clock(master_clock),  //
+      desk(desk),                  //
+      aes(),                       //
+      feedback_timer(thread_pool), //
+      teardown_in_progress(false)  //
 {
   static constexpr csv fn_id{"construct"};
   INFO_INIT("sizeof={:>5} socket={}\n", sizeof(Ctx), peer.native_handle());
@@ -60,21 +60,6 @@ Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk 
   const auto &r = sock.remote_endpoint();
   const auto msg = io::log_socket_msg(ec, sock, r);
   INFO_AUTO("{}\n", msg);
-}
-
-Ctx::~Ctx() noexcept {
-
-  try {
-    if (sock.is_open()) {
-      sock.shutdown(tcp_socket::shutdown_both);
-      sock.close();
-    }
-  } catch (...) {
-  }
-
-  if (!io_ctx.stopped()) io_ctx.stop();
-
-  if (shutdown_latch) shutdown_latch->wait();
 }
 
 void Ctx::feedback_msg() noexcept {}
@@ -90,7 +75,7 @@ void Ctx::force_close() noexcept {
   INFO_AUTO("completed\n");
 }
 
-void Ctx::msg_loop() noexcept {
+void Ctx::msg_loop(std::shared_ptr<Ctx> self) noexcept {
 
   if (teardown_now == true) {
     teardown();
@@ -100,11 +85,11 @@ void Ctx::msg_loop() noexcept {
   request.emplace();
   reply.emplace();
 
-  msg_loop_read();
+  msg_loop_read(self);
 }
 
-void Ctx::msg_loop_read() noexcept {
-  net::async_read_msg(sock, *request, aes, [this](error_code ec) mutable {
+void Ctx::msg_loop_read(std::shared_ptr<Ctx> self) noexcept {
+  net::async_read_msg(sock, *request, aes, [this, self](error_code ec) mutable {
     if (!ec) {
 
       // apply message header to ctx
@@ -122,22 +107,22 @@ void Ctx::msg_loop_read() noexcept {
 
       if (user_agent.empty()) user_agent = h.val(hdr_type::UserAgent);
 
-      msg_loop_write(); // send the reply
+      msg_loop_write(self); // send the reply
     } else {
       teardown_now = true;
     }
   });
 }
 
-void Ctx::msg_loop_write() noexcept {
+void Ctx::msg_loop_write(std::shared_ptr<Ctx> self) noexcept {
   // build the reply from the request headers and content
   reply->build(this, request->headers, request->content);
 
-  net::async_write_msg(sock, *reply, aes, [this](error_code ec) mutable {
+  net::async_write_msg(sock, *reply, aes, [this, self](error_code ec) mutable {
     if (!ec) {
       request->record_elapsed();
 
-      msg_loop(); // prepare for next message
+      msg_loop(self); // prepare for next message
 
     } else { // error, teardown
       teardown_now = true;
@@ -151,21 +136,7 @@ void Ctx::run() noexcept {
 
   // once we've fired up the thread immediately begin the message processing loop
   // by posting work to the io_ctx
-  asio::post(io_ctx, std::bind(&Ctx::msg_loop, this));
-
-  // pass in a shared pointer to our self so we stay in scope until
-  // io_ctx is out of work (thread exits)
-  std::jthread([this, s = shared_from_this(), latch = shutdown_latch]() mutable {
-    const auto thread_name = thread_util::set_name(Ctx::thread_name);
-    INFO_THREAD_START();
-
-    io_ctx.run();
-    latch->count_down();
-    latch.reset();
-    sessions->erase(s);
-
-    INFO_THREAD_STOP();
-  }).detach();
+  asio::post(thread_pool, [self = shared_from_this()]() mutable { self->msg_loop(self); });
 }
 
 Port Ctx::server_port(ports_t server_type) noexcept {
@@ -174,17 +145,17 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   switch (server_type) {
 
   case ports_t::AudioPort:
-    audio_srv = Audio::start(io_ctx, this);
+    audio_srv = Audio::start(asio::make_strand(thread_pool), this);
     port = audio_srv->port();
     break;
 
   case ports_t::ControlPort:
-    control_srv = Control::start(io_ctx);
+    control_srv = Control::start(asio::make_strand(thread_pool));
     port = control_srv->port();
     break;
 
   case ports_t::EventPort:
-    event_srv = Event::start(io_ctx);
+    event_srv = Event::start(asio::make_strand(thread_pool));
     port = event_srv->port();
     break;
   }

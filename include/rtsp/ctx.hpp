@@ -21,9 +21,6 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/clock_info.hpp"
-#include "io/error.hpp"
-#include "io/tcp.hpp"
-#include "io/timer.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
@@ -31,13 +28,35 @@
 #include "rtsp/sessions.hpp"
 
 #include <atomic>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <exception>
 #include <functional>
-#include <latch>
 #include <memory>
 #include <optional>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using steady_timer = asio::steady_timer;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
+using ip_address = boost::asio::ip::address;
+using ip_tcp = boost::asio::ip::tcp;
+using tcp_acceptor = boost::asio::ip::tcp::acceptor;
+using tcp_endpoint = boost::asio::ip::tcp::endpoint;
+using tcp_socket = boost::asio::ip::tcp::socket;
 
 class Desk;
 
@@ -80,7 +99,14 @@ class Ctx : public std::enable_shared_from_this<Ctx> {
 public:
   Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept;
 
-  ~Ctx() noexcept;
+  ~Ctx() noexcept {
+    [[maybe_unused]] error_code ec;
+    sock.shutdown(tcp_socket::shutdown_both, ec);
+    sock.close(ec);
+
+    thread_pool.stop();
+    thread_pool.join();
+  }
 
   void feedback_msg() noexcept;
 
@@ -126,13 +152,14 @@ public:
 
 private:
   /// @brief Primary loop for RTSP message handling
-  void msg_loop() noexcept;
-  void msg_loop_read() noexcept;
-  void msg_loop_write() noexcept;
+  void msg_loop(std::shared_ptr<Ctx> self) noexcept;
+  void msg_loop_read(std::shared_ptr<Ctx> self) noexcept;
+  void msg_loop_write(std::shared_ptr<Ctx> self) noexcept;
 
 public:
   // order dependent
-  io_context io_ctx;
+  const int thread_count{1};
+  asio::thread_pool thread_pool;
   tcp_socket sock;
   Sessions *sessions;
   MasterClock *master_clock;
@@ -142,7 +169,6 @@ public:
 private:
   // order dependent (private)
   steady_timer feedback_timer;
-  std::shared_ptr<std::latch> shutdown_latch;
   std::atomic_bool teardown_in_progress;
 
 public:

@@ -19,15 +19,32 @@
 #pragma once
 
 #include "base/uint8v.hpp"
-#include "io/context.hpp"
-#include "io/error.hpp"
-#include "io/strand.hpp"
-#include "io/udp.hpp"
 
-#include <array>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <memory>
 
 namespace pierre {
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using steady_timer = asio::steady_timer;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
+using ip_address = boost::asio::ip::address;
+using ip_udp = boost::asio::ip::udp;
+using udp_endpoint = boost::asio::ip::udp::endpoint;
+using udp_socket = boost::asio::ip::udp::socket;
+
 namespace rtsp {
 
 // back to namespace server
@@ -44,8 +61,8 @@ public:
 
   std::shared_ptr<Control> ptr() noexcept { return shared_from_this(); }
 
-  static auto start(io_context &io_ctx) noexcept {
-    auto s = std::shared_ptr<Control>(new Control(io_ctx));
+  static auto start(auto &&strand) noexcept {
+    auto s = std::shared_ptr<Control>(new Control(std::forward<decltype(strand)>(strand)));
 
     s->async_loop();
 
@@ -54,12 +71,13 @@ public:
 
 public:
   // create the Control
-  Control(io_context &io_ctx)
-      : io_ctx(io_ctx),                                      // io_ctx
-        socket(io_ctx, udp_endpoint(ip_udp::v4(), ANY_PORT)) // create socket and endpoint
+  Control(strand_tp &&strand)
+      : local_strand(std::move(strand)),                           // strand
+        socket(local_strand, udp_endpoint(ip_udp::v4(), ANY_PORT)) // create socket and endpoint
   {}
 
-  void async_loop(const error_code ec = io::make_error(errc::success)) noexcept {
+  void async_loop(const error_code ec = error_code(errc::success,
+                                                   sys::generic_category())) noexcept {
     if (!ec && socket.is_open()) { // no error and socket is good
       // for AP2 we only need this socket open and don't do anything with any
       // data that might be received.  so, create and capture a unique_ptr that
@@ -78,7 +96,7 @@ public:
 
 private:
   // order dependent
-  io_context &io_ctx;
+  strand_tp local_strand;
   udp_socket socket;
 
 public:

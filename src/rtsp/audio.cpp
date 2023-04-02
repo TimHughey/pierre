@@ -21,10 +21,11 @@
 #include "desk/desk.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
-#include "io/log_socket.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
+#include <arpa/inet.h>
+#include <boost/asio/read.hpp>
 #include <ranges>
 #include <vector>
 
@@ -33,13 +34,16 @@ namespace rtsp {
 
 static constexpr auto PACKET_LEN_BYTES = sizeof(uint16_t);
 
+static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                                   Elapsed e = Elapsed()) noexcept;
+
 void Audio::async_accept() noexcept {
   static constexpr csv fn_id{"async_accept"};
 
   // since the socket is wrapped in the optional and async_read() wants the actual
   // socket we must deference or get the value of the optional
   acceptor.async_accept(sock, endpoint, [this, e = Elapsed()](const error_code ec) {
-    const auto msg = io::log_socket_msg(ec, sock, endpoint, e);
+    const auto msg = log_socket_msg(ec, sock, endpoint, e);
     INFO(module_id, fn_id, "{}\n", msg);
 
     // if the connected was accepted start the "session", otherwise fall through
@@ -57,43 +61,41 @@ void Audio::async_read_packet() noexcept {
       sock,                                     // read from socket
       asio::dynamic_buffer(packet_len),         // into this buffer
       asio::transfer_exactly(PACKET_LEN_BYTES), // fill the entire buffer
-      asio::bind_executor(                      // serialize so only one read is active
-          local_strand,                         // of the local stand
-          [this](error_code ec, ssize_t bytes) {
-            const auto msg = is_ready(sock, ec);
 
-            if (!msg.empty() || (bytes < std::ssize(packet_len))) {
-              INFO(module_id, fn_id, "bytes={} {}\n", bytes, msg);
-              return;
-            }
+      [this](error_code ec, ssize_t bytes) {
+        if (ec || (bytes < std::ssize(packet_len))) {
+          INFO_AUTO("err={} bytes={}\n", ec.what(), bytes);
+          return;
+        }
 
-            packet.clear();
+        // prepare the packet for the payload based on the received
+        // packet_len bytes
+        packet.clear();
 
-            uint16_t len{0};
-            len += packet_len[0] << 8;
-            len += packet_len[1];
+        // determine the remaining data to transfer using the packet length header
+        const uint16_t *len_ptr = reinterpret_cast<const uint16_t *>(packet_len.data());
+        uint16_t len = ntohs(*len_ptr);
 
-            if (len > 2) len -= sizeof(len);
+        if (len > 2) len -= sizeof(len);
 
-            auto s = shared_from_this();
+        auto s = shared_from_this();
 
-            asio::async_read(                 //
-                sock,                         //
-                asio::dynamic_buffer(packet), //
-                asio::transfer_exactly(len),
-                asio::bind_executor(local_strand, [=, s = s](error_code ec, ssize_t bytes) {
-                  const auto msg = is_ready(s->sock, ec);
+        asio::async_read(                 //
+            sock,                         //
+            asio::dynamic_buffer(packet), //
+            asio::transfer_exactly(len), [=, s = s](error_code ec, ssize_t bytes) {
+              const auto msg = is_ready(s->sock, ec);
 
-                  if (!msg.empty() || (bytes != len)) {
-                    INFO(module_id, fn_id, "bytes={} msg\n", bytes, msg);
-                    return;
-                  }
+              if (!msg.empty() || (bytes != len)) {
+                INFO(module_id, fn_id, "bytes={} msg\n", bytes, msg);
+                return;
+              }
 
-                  s->ctx->desk->handoff(std::move(s->packet), s->ctx->shared_key);
+              s->ctx->desk->handoff(std::move(s->packet), s->ctx->shared_key);
 
-                  if (s->sock.is_open()) s->async_read_packet();
-                }));
-          }));
+              if (s->sock.is_open()) s->async_read_packet();
+            });
+      });
 }
 
 const string Audio::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexcept {
@@ -121,5 +123,37 @@ const string Audio::is_ready(tcp_socket &sock, error_code ec, bool cancel) noexc
   return msg;
 }
 
+const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
+                            Elapsed e) noexcept {
+  e.freeze();
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  auto open = sock.is_open();
+  fmt::format_to(w, "{} ", open ? "[OPEN]" : "[CLSD]");
+
+  try {
+    if (open) {
+
+      const auto &l = sock.local_endpoint();
+
+      fmt::format_to(w, "{:>15}:{:<5} {:>15}:{:<5}",    //
+                     l.address().to_string(), l.port(), //
+                     r.address().to_string(), r.port());
+    }
+
+    if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+  } catch (const std::exception &e) {
+
+    fmt::format_to(w, "EXCEPTION {}", e.what());
+  }
+
+  if (e > 1us) fmt::format_to(w, " {}", e.humanize());
+
+  return msg;
+}
+
 } // namespace rtsp
+
 } // namespace pierre

@@ -42,17 +42,19 @@ void Sessions::close_all() noexcept {
   });
 }
 
-void Sessions::erase(const std::shared_ptr<Ctx> ctx) noexcept {
+void Sessions::erase(Ctx *ctx) noexcept {
   static constexpr csv fn_id{"erase"};
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [&ctx](const auto a_ctx) {
+  std::erase_if(ctxs, [ctx](const auto a_ctx) {
     static constexpr csv fn_id{"erase"};
 
-    auto rc = a_ctx == ctx;
+    const auto active_remote = ctx->active_remote;
 
-    if (rc) INFO_AUTO("{}\n", ctx);
+    auto rc = a_ctx->active_remote == active_remote;
+
+    if (rc) INFO_AUTO("active_remote={}\n", active_remote);
 
     return rc;
   });
