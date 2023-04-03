@@ -160,7 +160,7 @@ when_less_than = { freq = 160.0, bri_min = 30.0 }
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 1 }, suggested_fx_next = "all_stop" }
+silence = { timeout = { minutes = 57 }, suggested_fx_next = "all_stop" }
 
 
 [lcs.stats]

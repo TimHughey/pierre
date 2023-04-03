@@ -114,9 +114,6 @@ protected:
     static constexpr csv fn_id{"set_silence"};
     using Millis = std::chrono::milliseconds;
 
-    INFO_AUTO("new_val={} silence_timeout={}\n", pet::humanize(new_val),
-              pet::humanize(silence_timeout));
-
     if (new_val != silence_timeout) {
       silence_timeout = std::chrono::duration_cast<Millis>(new_val);
       INFO_AUTO("silence_timeout={}\n", pet::humanize(silence_timeout));
@@ -153,7 +150,7 @@ protected:
   string next_fx;
 
   // order independent
-  Millis silence_timeout;
+  Millis silence_timeout{0};
   string silence_next_fx;
 
 private:

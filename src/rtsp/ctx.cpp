@@ -70,8 +70,6 @@ void Ctx::force_close() noexcept {
 
   INFO_AUTO("requested, teardown_now={}\n", teardown_now);
 
-  teardown();
-
   INFO_AUTO("completed\n");
 }
 
@@ -173,20 +171,18 @@ void Ctx::teardown() noexcept {
 
     INFO_AUTO("requested {}\n", *this);
 
-    try {
-      sock.close();
-    } catch (const std::exception &e) {
-      INFO_AUTO("failed to shutdown, close socket reason={}\n", e.what());
-    }
+    error_code ec;
+    feedback_timer.cancel(ec);
+    sock.shutdown(tcp_socket::shutdown_both, ec);
+    sock.close(ec);
+
+    if (ec) INFO_AUTO("failed to shutdown / close socket, reason={}\n", ec.what());
 
     group_contains_group_leader = false;
 
-    [[maybe_unused]] error_code ec;
-    feedback_timer.cancel(ec);
-
-    if (audio_srv) audio_srv.reset();
-    if (control_srv) control_srv.reset();
-    if (event_srv) event_srv.reset();
+    audio_srv.reset();
+    control_srv.reset();
+    event_srv.reset();
 
     INFO_AUTO("completed {}\n", *this);
   }

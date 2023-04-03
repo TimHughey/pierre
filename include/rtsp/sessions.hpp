@@ -39,7 +39,6 @@ public:
   Sessions() = default;
 
   void add(std::shared_ptr<Ctx> ctx) noexcept;
-  void erase(Ctx *ctx) noexcept;
 
   void close_all() noexcept;
 

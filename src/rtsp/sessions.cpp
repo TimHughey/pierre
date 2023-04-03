@@ -34,32 +34,11 @@ void Sessions::close_all() noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [](auto &ctx) {
-    ctx->force_close();
-    ctx.reset();
+  if (ctxs.size()) {
+    std::for_each(ctxs.begin(), ctxs.end(), [](const auto ctx) { ctx->force_close(); });
 
-    return true;
-  });
-}
-
-void Sessions::erase(Ctx *ctx) noexcept {
-  static constexpr csv fn_id{"erase"};
-  std::unique_lock lck(mtx, std::defer_lock);
-  lck.lock();
-
-  std::erase_if(ctxs, [ctx](const auto a_ctx) {
-    static constexpr csv fn_id{"erase"};
-
-    const auto active_remote = ctx->active_remote;
-
-    auto rc = a_ctx->active_remote == active_remote;
-
-    if (rc) INFO_AUTO("active_remote={}\n", active_remote);
-
-    return rc;
-  });
-
-  INFO_AUTO("remaining={}\n", std::ssize(ctxs));
+    ctxs.clear();
+  }
 }
 
 void Sessions::live(Ctx *live_ctx) noexcept {
@@ -70,19 +49,22 @@ void Sessions::live(Ctx *live_ctx) noexcept {
   std::unique_lock lck(mtx, std::defer_lock);
   lck.lock();
 
-  std::erase_if(ctxs, [&](const auto ctx) mutable {
-    auto rc = false;
+  if (!ctxs.empty()) {
 
-    if (live_ctx != ctx.get()) {
-      static constexpr csv fn_id{"freeing"};
-      INFO_AUTO("{}}\n", ctx);
+    std::erase_if(ctxs, [&](const auto ctx) mutable {
+      auto rc = false;
 
-      ctx->force_close();
-      rc = true;
-    }
+      if (ctx && (live_ctx->active_remote != ctx->active_remote)) {
+        static constexpr csv fn_id{"freeing"};
+        INFO_AUTO("{}\n", *ctx);
 
-    return rc;
-  });
+        ctx->force_close();
+        rc = true;
+      }
+
+      return rc;
+    });
+  }
 }
 
 } // namespace rtsp
