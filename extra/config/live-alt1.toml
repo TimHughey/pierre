@@ -55,7 +55,7 @@ av = false
 clock = { init = true, shutdown = false, peers_update = false, thread = false, map_shm = false }
 # clock_info = false
 dsp = { thread = false }
-# frame = false
+decipher = false
 
 [logger.fx]
 standby = true 

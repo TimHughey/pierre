@@ -21,13 +21,12 @@
 #include "base/uint8v.hpp"
 #include "rtsp/ctx.hpp"
 
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
+#include <boost/asio/streambuf.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <memory>
@@ -41,8 +40,6 @@ namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using steady_timer = asio::steady_timer;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
@@ -51,64 +48,53 @@ using tcp_socket = boost::asio::ip::tcp::socket;
 
 namespace rtsp {
 
-class Audio : public std::enable_shared_from_this<Audio> {
-
-private:
-  Audio(auto &&strand, Ctx *ctx) noexcept
-      : local_strand(std::move(strand)),                              //
-        ctx(ctx),                                                     //
-        acceptor{local_strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}}, //
-        sock(local_strand)                                            //
-  {}
+class Audio {
 
 public:
-  ~Audio() noexcept {}
+  Audio(auto &&strand, Ctx *ctx) noexcept
+      : local_strand(std::move(strand)), ctx(ctx),
+        streambuf(16 * 1024), // allow buffering of sixteen packets
+        acceptor{local_strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
+        sock(local_strand, ip_tcp::v4()) // overwritten by accepting socket
+  {
+    async_accept();
+  }
+
+  ~Audio() = default;
 
   Port port() noexcept { return acceptor.local_endpoint().port(); }
-  std::shared_ptr<Audio> ptr() noexcept { return shared_from_this(); }
-
-  static auto start(auto &&strand, Ctx *ctx) noexcept {
-    auto self = std::shared_ptr<Audio>(new Audio(std::forward<decltype(strand)>(strand), ctx));
-
-    self->async_accept();
-
-    return self;
-  }
-
-  void teardown() noexcept {
-    [[maybe_unused]] error_code ec;
-
-    acceptor.close(ec);
-    sock.close(ec);
-  }
 
 private:
   // asyncLoop is invoked to:
   //  1. schedule the initial async accept
   //  2. after accepting a connection to schedule the next async connect
-  //
-  // with this in mind we accept an error code that is checked before
-  // starting the next async_accept.  when the error code is not specified
-  // assume this is startup and all is well.
-  void async_accept() noexcept;
+  void async_accept() noexcept {
 
-  void async_read_packet() noexcept;
+    acceptor.async_accept([this](const error_code &ec, tcp_socket peer) {
+      // if the connected was accepted start the "session", otherwise fall through
+      if (ec || !acceptor.is_open()) return;
 
-  static const string is_ready(tcp_socket &sock,
-                               error_code ec = error_code(errc::success, sys::generic_category()),
-                               bool cancel = true) noexcept;
+      // closes previously opened socket
+      sock = std::move(peer);
+
+      async_read();
+      async_accept();
+    });
+  }
+
+  void async_read() noexcept;
+  // void async_read_data(ssize_t data_len) noexcept;
 
 private:
   // order dependent
   strand_tp local_strand;
   Ctx *ctx;
+  asio::streambuf streambuf;
   tcp_acceptor acceptor;
   tcp_socket sock;
 
   // order independent
-  tcp_endpoint endpoint;
-  uint8v packet_len;
-  uint8v packet;
+  std::ptrdiff_t packet_len{0};
 
   static constexpr csv module_id{"rtsp.audio"};
 };

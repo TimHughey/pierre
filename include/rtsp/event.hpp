@@ -20,13 +20,11 @@
 
 #include "base/uint8v.hpp"
 
+#include <boost/asio/append.hpp>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
@@ -35,11 +33,12 @@
 
 namespace pierre {
 
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
 using error_code = boost::system::error_code;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using steady_timer = asio::steady_timer;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
-using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
@@ -47,103 +46,64 @@ using tcp_socket = boost::asio::ip::tcp::socket;
 
 namespace rtsp {
 
-class Event : public std::enable_shared_from_this<Event> {
-private:
-  Event(strand_tp &&strand)
-      : local_strand(std::move(strand)),                             //
-        acceptor{local_strand, tcp_endpoint(ip_tcp::v4(), ANY_PORT)} //
-  {}
+class Event {
 
 public:
+  Event(strand_tp &&strand) noexcept
+      : local_strand(std::move(strand)),                              //
+        acceptor(local_strand, tcp_endpoint(ip_tcp::v4(), ANY_PORT)), //
+        sock_sess(local_strand, ip_tcp::v4()) {
+    async_accept();
+  }
+
   Port port() noexcept { return acceptor.local_endpoint().port(); }
-  void teardown() noexcept {
-
-    [[maybe_unused]] error_code ec;
-    acceptor.close(ec);
-
-    if (sock_accept.has_value()) sock_accept->close(ec);
-    if (sock_session.has_value()) sock_session->close(ec);
-  }
-
-  std::shared_ptr<Event> ptr() noexcept { return shared_from_this(); }
-
-  static auto start(auto &&strand) noexcept {
-    auto self = std::shared_ptr<Event>(new Event(std::forward<decltype(strand)>(strand)));
-
-    self->async_accept();
-
-    return self;
-  }
 
 private:
   // async_loop is invoked to:
   //  1. schedule the initial async accept
   //  2. after accepting a connection to schedule the next async connect
-  //
-  // with this in mind we accept an error code that is checked before
-  // starting the next async_accept.  when the error code is not specified
-  // assume this is startup and all is well.
-  void async_accept(const error_code ec = io::make_error(errc::success)) noexcept {
+  void async_accept() noexcept {
 
-    if (!ec && acceptor.is_open()) {
+    acceptor.async_accept([this](const error_code &ec, tcp_socket peer) {
+      if (ec || !peer.is_open()) return;
 
-      // this is the socket for the next accepted connection, store it in an optional
-      // for use within the lambda
-      sock_accept.emplace(local_strand);
+      // this will close any previously opened connection
+      sock_sess = std::move(peer);
+      session_async_loop();
 
-      // since the io_ctx is wrapped in the optional and async_loop wants the actual
-      // io_ctx we must deference or get the value of the optional
-      acceptor.async_accept(*sock_accept, [s = ptr()](error_code ec) {
-        if (!ec && s->sock_accept.has_value()) {
-
-          // if there was a previous session, clear it
-          s->sock_session.reset();
-          s->sock_accept.swap(s->sock_session); // swap the accepted socket into the session socket
-
-          // wait for session data
-          s->session_async_loop(ec);
-
-          // listen for the next connection request
-          s->async_accept(ec);
-        } else {
-          s->teardown();
-        }
-      });
-    } else {
-      teardown();
-    }
+      async_accept();
+    });
   }
 
-  void session_async_loop(const error_code ec) noexcept {
+  void session_async_loop() noexcept {
     // similiar to the Control UDP socket, Event is not used by AP2 however
     // the TCP socket must remain connected
 
-    if (!ec && sock_session.has_value()) {
-      auto raw = std::make_unique<uint8v>();
-      auto buff = asio::dynamic_buffer(*raw);
+    if (!sock_sess.is_open()) return;
 
-      // in the event data is received quietly discard it and keep reading
-      // note: the unique_ptr is moved into the closure so it remains in scope
-      //       until the lambda finishes
-      asio::async_read(*sock_session, buff, //
-                       asio::transfer_at_least(1),
-                       [raw = std::move(raw), s = ptr()](error_code ec, ssize_t bytes) {
-                         s->bytes_recv += bytes;
+    auto raw = uint8v();
+    auto buff = asio::dynamic_buffer(raw);
 
-                         s->session_async_loop(ec); // recurse (which checks for errors)
-                       });
-    } else {
-      teardown(); // and fall through
-    }
+    // in the event data is received quietly discard it and keep reading
+    // note: the unique_ptr is moved into the closure so it remains in scope
+    //       until the lambda finishes
+    asio::async_read(sock_sess, buff, //
+                     asio::transfer_at_least(1),
+                     asio::append(
+                         [this](const error_code &ec, ssize_t bytes, [[maybe_unused]] auto raw) {
+                           if (ec) return;
+
+                           bytes_recv += bytes;
+                           session_async_loop();
+                         },
+                         std::move(raw)));
   }
 
 private:
   // order dependent
   strand_tp local_strand;
   tcp_acceptor acceptor;
-
-  std::optional<tcp_socket> sock_accept;  // socket for next accepted connection
-  std::optional<tcp_socket> sock_session; // socket for active session
+  tcp_socket sock_sess; // socket for active session
 
 public:
   ssize_t bytes_recv;

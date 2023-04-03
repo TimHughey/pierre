@@ -145,17 +145,17 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   switch (server_type) {
 
   case ports_t::AudioPort:
-    audio_srv = Audio::start(asio::make_strand(thread_pool), this);
+    audio_srv = std::make_shared<Audio>(asio::make_strand(thread_pool), this);
     port = audio_srv->port();
     break;
 
   case ports_t::ControlPort:
-    control_srv = Control::start(asio::make_strand(thread_pool));
+    control_srv = std::make_shared<Control>(asio::make_strand(thread_pool));
     port = control_srv->port();
     break;
 
   case ports_t::EventPort:
-    event_srv = Event::start(asio::make_strand(thread_pool));
+    event_srv = std::make_shared<Event>(asio::make_strand(thread_pool));
     port = event_srv->port();
     break;
   }
@@ -184,20 +184,9 @@ void Ctx::teardown() noexcept {
     [[maybe_unused]] error_code ec;
     feedback_timer.cancel(ec);
 
-    if (audio_srv) {
-      audio_srv->teardown();
-      audio_srv.reset();
-    }
-
-    if (control_srv) {
-      control_srv->teardown();
-      control_srv.reset();
-    }
-
-    if (event_srv) {
-      event_srv->teardown();
-      event_srv.reset();
-    }
+    if (audio_srv) audio_srv.reset();
+    if (control_srv) control_srv.reset();
+    if (event_srv) event_srv.reset();
 
     INFO_AUTO("completed {}\n", *this);
   }

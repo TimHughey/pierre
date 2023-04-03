@@ -250,17 +250,16 @@ const string Frame::inspect_safe(frame_t frame, bool full) noexcept { // static
 }
 
 void Frame::log_decipher() const noexcept {
-  [[maybe_unused]] auto consumed = m.has_value() ? std::ssize(*m) : 0;
+  static constexpr csv fn_id{"decipher"};
+  auto consumed = m.has_value() ? std::ssize(*m) : 0;
 
   if (state.deciphered()) {
-    INFOX(module_id, "DECIPHER", "consumed/cipher{:>6} / {:<6} {}\n", module_id, consumed,
-          decoded.size(), state);
+    INFO_AUTO("consumed={:>6} / {:<6} {}\n", consumed, std::ssize(*m), state);
 
   } else if (state == frame::NO_SHARED_KEY) {
-    INFO(module_id, "DECIPHER", "decipher shared key empty {}\n", state);
+    INFO_AUTO("shared key empty {}\n", state);
   } else {
-    INFOX(module_id, "DECIPHER", "decipher cipher_rc={} consumed={} {}\n", //
-          cipher_rc, consumed, state);
+    INFO_AUTO("cipher_rc={} consumed={} {}\n", cipher_rc, consumed, state);
   }
 }
 
