@@ -20,10 +20,18 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "io/post.hpp"
-#include "io/work_guard.hpp"
 
 #include <atomic>
+#include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <chrono>
 #include <cstdio>
 #include <fmt/chrono.h>
@@ -36,10 +44,25 @@
 #include <optional>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using steady_timer = asio::steady_timer;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
+using ip_address = boost::asio::ip::address;
+using ip_tcp = boost::asio::ip::tcp;
+using tcp_acceptor = boost::asio::ip::tcp::acceptor;
+using tcp_endpoint = boost::asio::ip::tcp::endpoint;
+using tcp_socket = boost::asio::ip::tcp::socket;
+
 class Logger;
 
 namespace shared {
-extern Logger logger;
+extern std::unique_ptr<Logger> logger;
 }
 
 class Logger {
@@ -51,6 +74,8 @@ public:
   Logger(const Logger &) = delete;
   Logger(Logger &) = delete;
   Logger(Logger &&) = delete;
+
+  ~Logger() noexcept;
 
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
@@ -67,7 +92,7 @@ public:
       const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
 
       if (shutting_down.load() == false) {
-        asio::post(io_ctx, [this, prefix = std::move(prefix), msg = std::move(msg)]() mutable {
+        asio::post(thread_pool, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
           print(std::move(prefix), std::move(msg));
         });
       } else {
@@ -80,20 +105,13 @@ public:
 
   static bool should_log(csv mod, csv cat) noexcept; // see .cpp
 
-  static void shutdown() noexcept { shared::logger.shutdown_impl(); }
-
-  static void startup() noexcept { shared::logger.startup_impl(); }
-
 private:
   void print(const string prefix, const string msg) noexcept;
 
-  void shutdown_impl() noexcept;
-  void startup_impl() noexcept;
-
 private:
   // order dependent
-  io_context io_ctx;
-  work_guard guard;
+  asio::thread_pool thread_pool;
+  work_guard_tp guard;
 
   // order independent
   std::atomic_bool shutting_down{false};
@@ -113,33 +131,33 @@ public:
 };
 
 #define INFO(mod_id, cat, format, ...)                                                             \
-  pierre::shared::logger.info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::shared::logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_AUTO(format, ...)                                                                     \
-  pierre::shared::logger.info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::shared::logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_INIT(format, ...)                                                                     \
-  pierre::shared::logger.info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::shared::logger->info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_SHUTDOWN(format, ...)                                                                 \
-  pierre::shared::logger.info(module_id, csv{"shutdown"}, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::shared::logger->info(module_id, csv{"shutdown"}, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_SHUTDOWN_COMPLETE()                                                                   \
-  pierre::shared::logger.info(module_id, csv{"shutdown"},                                          \
-                              FMT_STRING("completed, io_ctx.stopped={}\n"), io_ctx.stopped())
+  pierre::shared::logger->info(module_id, csv{"shutdown"},                                         \
+                               FMT_STRING("completed, io_ctx.stopped={}\n"), io_ctx.stopped())
 
 #define INFO_SHUTDOWN_REQUESTED()                                                                  \
-  pierre::shared::logger.info(module_id, csv{"shutdown"},                                          \
-                              FMT_STRING("requested, io_ctx.stopped={}\n"), io_ctx.stopped())
+  pierre::shared::logger->info(module_id, csv{"shutdown"},                                         \
+                               FMT_STRING("requested, io_ctx.stopped={}\n"), io_ctx.stopped())
 
 #define INFO_THREAD(format, ...)                                                                   \
-  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::shared::logger->info(module_id, csv{"thread"}, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_THREAD_START()                                                                        \
-  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("started {}\n"), thread_name)
+  pierre::shared::logger->info(module_id, csv{"thread"}, FMT_STRING("started {}\n"), thread_name)
 
 #define INFO_THREAD_STOP()                                                                         \
-  pierre::shared::logger.info(module_id, csv{"thread"}, FMT_STRING("stopped {}\n"), thread_name)
+  pierre::shared::logger->info(module_id, csv{"thread"}, FMT_STRING("stopped {}\n"), thread_name)
 
 #define INFOX(mod_id, cat, format, ...)
 

@@ -32,7 +32,6 @@
 #include <fmt/format.h>
 #include <fmt/std.h>
 #include <iostream>
-#include <latch>
 #include <memory>
 
 namespace pierre {

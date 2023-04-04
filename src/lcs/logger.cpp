@@ -19,24 +19,45 @@
 #include "lcs/logger.hpp"
 #include "base/elapsed.hpp"
 #include "base/thread_util.hpp"
-#include "io/timer.hpp"
 #include "lcs/config.hpp"
 
 #include <filesystem>
 #include <iostream>
-#include <latch>
 
 namespace pierre {
 
 namespace shared {
-Logger logger;
+std::unique_ptr<Logger> logger;
 }
 
 Elapsed elapsed_runtime;
 
 namespace fs = std::filesystem;
 
-Logger::Logger() noexcept : guard(asio::make_work_guard(io_ctx)) {}
+Logger::Logger() noexcept : thread_pool(1), guard(asio::make_work_guard(thread_pool)) {
+
+  const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
+  const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
+  out.emplace(fmt::output_file(path.c_str(), flags));
+
+  const auto now = std::chrono::system_clock::now();
+  out->print("\n{:%FT%H:%M:%S} START\n", now);
+}
+
+Logger::~Logger() noexcept {
+  static constexpr csv fn_id{"shutdown"};
+
+  INFO(module_id, fn_id, "shutdown requested\n");
+
+  auto delay_timer = std::make_shared<steady_timer>(thread_pool);
+
+  delay_timer->expires_after(250ms);
+  delay_timer->async_wait([this, delay_timer = delay_timer](error_code ec) {
+    INFO(module_id, fn_id, "shutdown timer expired={} resetting work guard\n", ec.what());
+    guard.reset();
+    shutting_down.store(true);
+  });
+}
 
 void Logger::print(const string prefix, const string msg) noexcept {
   if (out.has_value()) {
@@ -54,43 +75,6 @@ Logger::millis_fp Logger::runtime() noexcept { // static
 bool Logger::should_log(csv mod, csv cat) noexcept { // static
   // in .cpp to avoid pulling config.hpp into Logger
   return cfg_logger(module_id, mod, cat);
-}
-
-void Logger::shutdown_impl() noexcept {
-  static constexpr csv fn_id{"shutdown"};
-
-  INFO(module_id, fn_id, "shutdown requested\n");
-
-  auto delay_timer = std::make_shared<steady_timer>(io_ctx);
-
-  delay_timer->expires_after(250ms);
-  delay_timer->async_wait([this, delay_timer = delay_timer](error_code ec) {
-    INFO(module_id, fn_id, "shutdown timer expired={} resetting work guard\n", ec.what());
-    guard.reset();
-    shutting_down.store(true);
-  });
-}
-
-void Logger::startup_impl() noexcept {
-
-  asio::post(io_ctx, [this]() {
-    const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
-    const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
-    out.emplace(fmt::output_file(path.c_str(), flags));
-
-    const auto now = std::chrono::system_clock::now();
-    out->print("\n{:%FT%H:%M:%S} START\n", now);
-  });
-
-  auto latch = std::make_shared<std::latch>(1);
-
-  std::jthread([this, latch = latch]() {
-    thread_util::set_name(module_id);
-    latch->count_down();
-    io_ctx.run();
-  }).detach();
-
-  latch->wait();
 }
 
 } // namespace pierre

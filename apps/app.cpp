@@ -168,7 +168,7 @@ int App::main(int argc, char *argv[]) {
 
   io_ctx.emplace();
 
-  Logger::startup();
+  shared::logger = std::make_unique<Logger>();
 
   signal_set_ignore.emplace(*io_ctx, SIGHUP);
   signal_set_shutdown.emplace(*io_ctx, SIGINT);
@@ -188,8 +188,6 @@ int App::main(int argc, char *argv[]) {
   io_ctx->run(); // start the app, returns when shutdown signal received
 
   INFO_AUTO("io_ctx={}\n", io_ctx->stopped());
-
-  Logger::shutdown();
 
   return 0;
 }
