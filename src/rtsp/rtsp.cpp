@@ -18,19 +18,15 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
-#include "base/thread_util.hpp"
 #include "ctx.hpp"
 #include "desk/desk.hpp"
 #include "frame/master_clock.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
-#include "mdns/features.hpp"
-#include "replies/info.hpp"
 
 #include <algorithm>
-#include <latch>
-#include <mutex>
+#include <boost/asio/post.hpp>
 
 namespace pierre {
 
@@ -39,48 +35,22 @@ std::unique_ptr<Rtsp> rtsp;
 }
 
 Rtsp::Rtsp() noexcept
-    : acceptor{io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-      sessions(std::make_unique<rtsp::Sessions>()),     //
-      master_clock(std::make_unique<MasterClock>()),    //
-      desk(std::make_unique<Desk>(master_clock.get())), //
-      thread_count(config_threads<Rtsp>(4)),
-      shutdown_latch(std::make_shared<std::latch>(thread_count)) //
+    : thread_count(config_threads<Rtsp>(2)),          //
+      thread_pool(thread_count),                      //
+      work_guard(asio::make_work_guard(thread_pool)), //
+      acceptor{thread_pool, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
+      sessions(std::make_unique<rtsp::Sessions>()),    //
+      master_clock(std::make_unique<MasterClock>()),   //
+      desk(std::make_unique<Desk>(master_clock.get())) //
 {
-  INFO_INIT("sizeof={:>5} features={:#x}\n", sizeof(Rtsp), Features().ap2Default());
+  INFO_INIT("sizeof={:>5} threads={}\n", sizeof(Rtsp), thread_count);
 
   // once io_ctx is started begin accepting connections
   // queuing accept to the io_ctx also serves as the work guard
-  asio::post(io_ctx, std::bind(&Rtsp::async_accept, this));
-
-  // create shared_ptrs to avoid spurious data races
-  auto startup_latch = std::make_shared<std::latch>(thread_count);
-
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n, latch = startup_latch]() mutable {
-      const auto thread_name = thread_util::set_name("rtsp", n);
-
-      INFO_THREAD_START();
-
-      // all workers are required to avoid deadlocks so use arrive_and_wait()
-      // for a syncronized start
-      latch->arrive_and_wait();
-      latch.reset();
-
-      io_ctx.run();
-
-      shutdown_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
-
-  startup_latch->wait(); // wait for all workers to start
+  asio::post(thread_pool, std::bind(&Rtsp::async_accept, this));
 }
 
 Rtsp::~Rtsp() noexcept {
-  INFO_SHUTDOWN_REQUESTED();
-
-  io_ctx.stop();
-
   [[maybe_unused]] error_code ec;
   acceptor.close(ec);    //  prevent new connections
   sessions->close_all(); // close any existing connections
@@ -88,9 +58,7 @@ Rtsp::~Rtsp() noexcept {
   desk.reset(); // shutdown desk (and friends)
   master_clock.reset();
 
-  shutdown_latch->wait(); // caller waits for all workers to finish
   sessions.reset();
-  INFO_SHUTDOWN_COMPLETE();
 }
 
 void Rtsp::async_accept() noexcept {

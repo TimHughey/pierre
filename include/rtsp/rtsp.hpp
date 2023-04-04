@@ -20,19 +20,29 @@
 
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
-#include "io/tcp.hpp"
 #include "rtsp/fdecls.hpp"
 #include "rtsp/sessions.hpp"
 
-#include <any>
+#include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system.hpp>
 #include <cstdint>
-#include <latch>
 #include <memory>
-#include <optional>
-#include <shared_mutex>
-#include <vector>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
+using ip_tcp = boost::asio::ip::tcp;
+using tcp_acceptor = boost::asio::ip::tcp::acceptor;
+using tcp_endpoint = boost::asio::ip::tcp::endpoint;
+using tcp_socket = boost::asio::ip::tcp::socket;
 
 namespace shared {
 extern std::unique_ptr<Rtsp> rtsp;
@@ -48,14 +58,15 @@ public:
 
 private:
   // order dependent
-  io_context io_ctx;
+  const int thread_count;
+  asio::thread_pool thread_pool;
+  work_guard_tp work_guard;
   tcp_acceptor acceptor;
   std::unique_ptr<rtsp::Sessions> sessions;
   std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;
-  const int thread_count;
-  std::shared_ptr<std::latch> shutdown_latch;
 
+  // order independent
   static constexpr uint16_t LOCAL_PORT{7000};
 
 public:
