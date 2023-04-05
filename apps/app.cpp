@@ -19,9 +19,8 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
-#include "base/thread_util.hpp"
 #include "git_version.hpp"
-#include "io/error.hpp"
+
 #include "lcs/args.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
@@ -30,6 +29,7 @@
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 
+#include <boost/system/error_code.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <errno.h>
@@ -49,6 +49,8 @@ int main(int argc, char *argv[]) {
 }
 
 namespace pierre {
+
+using error_code = boost::system::error_code;
 
 // startup / runtime support
 
@@ -101,10 +103,6 @@ static void write_pid_file(const string pid_file) noexcept {
 
 int App::main(int argc, char *argv[]) {
   static constexpr csv fn_id{"main"};
-
-  // rename the main thread so all threads created have a consistent
-  // naming convention
-  thread_util::set_name("worker");
 
   crypto::init(); // initialize sodium and gcrypt
 
@@ -166,12 +164,13 @@ int App::main(int argc, char *argv[]) {
   //// proceed with startup as either a background or foreground process
   ////
 
-  io_ctx.emplace();
+  asio::thread_pool thread_pool(1);
+  work_guard.emplace(asio::make_work_guard(thread_pool));
 
   shared::logger = std::make_unique<Logger>();
 
-  signal_set_ignore.emplace(*io_ctx, SIGHUP);
-  signal_set_shutdown.emplace(*io_ctx, SIGINT);
+  signal_set_ignore.emplace(thread_pool, SIGHUP);
+  signal_set_shutdown.emplace(thread_pool, SIGINT);
 
   signals_ignore();   // ignore certain signals
   signals_shutdown(); // catch certain signals for shutdown
@@ -180,14 +179,12 @@ int App::main(int argc, char *argv[]) {
 
   INFO(Config::module_id, "init", "{}\n", config()->init_msg);
 
-  shared::config_watch = std::make_unique<ConfigWatch>(*io_ctx);
-  shared::stats = std::make_unique<Stats>(*io_ctx);
+  shared::config_watch = std::make_unique<ConfigWatch>(thread_pool);
+  shared::stats = std::make_unique<Stats>(thread_pool);
   shared::mdns = std::make_unique<mDNS>();
   shared::rtsp = std::make_unique<Rtsp>();
 
-  io_ctx->run(); // start the app, returns when shutdown signal received
-
-  INFO_AUTO("io_ctx={}\n", io_ctx->stopped());
+  thread_pool.join(); // main process waits for thread_pool to complete
 
   return 0;
 }
@@ -233,6 +230,8 @@ void App::signals_shutdown() noexcept {
       } catch (std::exception &except) {
         INFO_AUTO("{} while removing {}\n", except.what(), pid_path);
       }
+
+      work_guard.reset();
     }
 
     signal_set_ignore->cancel(); // cancel the remaining work

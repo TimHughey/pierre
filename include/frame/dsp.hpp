@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/thread_util.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "frame.hpp"

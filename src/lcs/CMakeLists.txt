@@ -4,7 +4,7 @@
 
 set(__target lcs)
 
-find_package(Boost 1.80 QUIET REQUIRED COMPONENTS program_options)
+find_package(Boost 1.81 QUIET REQUIRED COMPONENTS program_options)
 
 set(HEADER_PATH               ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL         ${HEADER_PATH}/${__target})
@@ -36,6 +36,5 @@ target_link_libraries(${__target} PUBLIC
   build_inject
   git_version
   InfluxData::InfluxDB
-  io
   tomlplusplus::tomlplusplus
 )

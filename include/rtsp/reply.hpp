@@ -20,14 +20,16 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "io/buffer.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/resp_code.hpp"
 
 #include <algorithm>
+#include <boost/asio/buffer.hpp>
 #include <iterator>
 
 namespace pierre {
+
+namespace asio = boost::asio;
 
 namespace rtsp {
 

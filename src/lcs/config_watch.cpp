@@ -28,9 +28,8 @@ namespace shared {
 std::unique_ptr<ConfigWatch> config_watch;
 }
 
-ConfigWatch::ConfigWatch(io_context &io_ctx) noexcept
-    : io_ctx(io_ctx),                        //
-      file_timer(io_ctx),                    //
+ConfigWatch::ConfigWatch(asio::thread_pool &thread_pool) noexcept
+    : file_timer(thread_pool),               //
       file_path(shared::config->file_path()) //
 {
   std::error_code ec;
@@ -39,13 +38,6 @@ ConfigWatch::ConfigWatch(io_context &io_ctx) noexcept
   if (!ec) file_watch();
 
   INFO_INIT("sizeof={:>5} file_watch={}\n", sizeof(ConfigWatch), !ec);
-}
-
-ConfigWatch::~ConfigWatch() noexcept {
-  try {
-    file_timer.cancel();
-  } catch (...) {
-  }
 }
 
 void ConfigWatch::file_watch() noexcept {

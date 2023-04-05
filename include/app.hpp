@@ -17,13 +17,17 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "io/context.hpp"
-#include "io/signals.hpp"
 
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <memory>
 #include <optional>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class App {
 public:
@@ -37,11 +41,11 @@ private:
 
 private:
   // order dependent
-  std::optional<io_context> io_ctx;
   std::optional<asio::signal_set> signal_set_ignore;
   std::optional<asio::signal_set> signal_set_shutdown;
 
   // order independent
+  std::optional<work_guard_tp> work_guard;
   bool args_ok{false};
 
 public:

@@ -20,7 +20,6 @@
 #pragma once
 
 #include "desk/msg/msg.hpp"
-#include "io/buffer.hpp"
 #include "lcs/logger.hpp"
 
 #include <ArduinoJson.h>

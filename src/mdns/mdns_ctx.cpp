@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "mdns_ctx.hpp"
-#include "base/thread_util.hpp"
 #include "lcs/logger.hpp"
 
 namespace pierre {
@@ -181,7 +180,6 @@ void Ctx::browse_remove(const string name) noexcept {
 
 void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data) {
   static constexpr csv fn_id{"cb_client"};
-  static bool thread_named{false};
 
   auto ctx = static_cast<Ctx *>(user_data);
 
@@ -204,11 +202,6 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
 
   case AVAHI_CLIENT_S_REGISTERING: {
     INFO_AUTO("REGISTERING, client={}\n", fmt::ptr(ctx->client));
-
-    if (thread_named == false) {
-      thread_util::set_name(thread_name);
-      thread_named = true;
-    }
 
     // if there is already a group, reset it
     if (ctx->entry_group.has_value()) {

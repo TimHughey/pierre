@@ -18,12 +18,11 @@
 
 #include "ctx.hpp"
 #include "audio.hpp"
-#include "base/thread_util.hpp"
 #include "control.hpp"
 #include "event.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
-#include "io/log_socket.hpp"
+
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
@@ -39,6 +38,27 @@
 
 namespace pierre {
 namespace rtsp {
+
+static const string log_socket_msg(error_code ec, tcp_socket &sock,
+                                   const tcp_endpoint &r) noexcept {
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  auto open = sock.is_open();
+  fmt::format_to(w, "{}", open ? "[O]" : "[C]");
+
+  if (open) {
+    const auto &l = sock.local_endpoint();
+
+    fmt::format_to(w, " {:20} {:20}", fmt::format("{}:{}", l.address().to_string(), l.port()),
+                   fmt::format("{}:{}", r.address().to_string(), r.port()));
+  }
+
+  if (ec != errc::success) fmt::format_to(w, " {}", ec.message());
+
+  return msg;
+}
 
 Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept
     : thread_pool(thread_count),   //
@@ -58,7 +78,7 @@ Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk 
   sock.assign(ip_tcp::v4(), peer.release(), ec);
 
   const auto &r = sock.remote_endpoint();
-  const auto msg = io::log_socket_msg(ec, sock, r);
+  const auto msg = log_socket_msg(ec, sock, r);
   INFO_AUTO("{}\n", msg);
 }
 

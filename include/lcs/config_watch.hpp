@@ -19,16 +19,23 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "io/context.hpp"
-#include "io/timer.hpp"
 #include "lcs/types.hpp"
 
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system/error_code.hpp>
 #include <filesystem>
 #include <future>
 #include <memory>
 #include <mutex>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+using error_code = boost::system::error_code;
+using steady_timer = boost::asio::steady_timer;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 
 class ConfigWatch;
 
@@ -38,8 +45,11 @@ extern std::unique_ptr<ConfigWatch> config_watch;
 
 class ConfigWatch {
 public:
-  ConfigWatch(io_context &io_ctx) noexcept;
-  ~ConfigWatch() noexcept;
+  ConfigWatch(asio::thread_pool &thread_pool) noexcept;
+  ~ConfigWatch() noexcept {
+    [[maybe_unused]] error_code ec;
+    file_timer.cancel(ec);
+  }
 
   static bool has_changed(cfg_future &want_fut) noexcept;
 
@@ -51,7 +61,6 @@ private:
 
 private:
   // order dependent
-  io_context &io_ctx;
   steady_timer file_timer;
   const string file_path;
 

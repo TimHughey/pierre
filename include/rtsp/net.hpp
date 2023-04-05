@@ -20,14 +20,23 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "io/tcp.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/saver.hpp"
 
+#include <boost/asio/read.hpp>
+#include <boost/system/errc.hpp>
+#include <boost/system/error_code.hpp>
+
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
 
 namespace rtsp {
 
@@ -69,7 +78,7 @@ struct net {
             size_t bytes = asio::read(sock, r.buffer(), asio::transfer_exactly(avail), ec);
 
             if (ec || (bytes != avail)) {
-              handler(ec ? ec : io::make_error(errc::message_size));
+              handler(ec ? ec : error_code(errc::message_size, sys::generic_category()));
               return;
             }
           }
@@ -101,7 +110,7 @@ struct net {
             auto parse_ok = r.headers.parse(r.packet, r.delims);
 
             if (parse_ok == false) {
-              handler(io::make_error(errc::bad_message));
+              handler(error_code(errc::bad_message, sys::generic_category()));
               return;
             }
           }

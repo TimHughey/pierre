@@ -29,8 +29,8 @@ namespace shared {
 std::unique_ptr<Stats> stats;
 }
 
-Stats::Stats(io_context &io_ctx) noexcept
-    : stats_strand(asio::make_strand(io_ctx)),            //
+Stats::Stats(asio::thread_pool &thread_pool) noexcept
+    : stats_strand(asio::make_strand(thread_pool)),       //
       enabled(config_val<Stats, bool>("enabled", false)), //
       db_uri(config_val<Stats, string>("db_uri", "http://localhost:8086?db=pierre")),
       batch_of(config_val<Stats, int>("batch_of", 150)),

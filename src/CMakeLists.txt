@@ -29,7 +29,7 @@ add_subdirectory(base)
 add_subdirectory(lcs)
 
 # asio wrapper
-add_subdirectory(io)
+# add_subdirectory(io)
 
 # mdns brought to you by Avahi
 add_subdirectory(mdns)

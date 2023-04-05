@@ -18,7 +18,6 @@
 
 #include "lcs/logger.hpp"
 #include "base/elapsed.hpp"
-#include "base/thread_util.hpp"
 #include "lcs/config.hpp"
 
 #include <filesystem>

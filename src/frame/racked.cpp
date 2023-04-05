@@ -21,7 +21,6 @@
 #include "anchor.hpp"
 #include "av.hpp"
 #include "base/pet.hpp"
-#include "base/thread_util.hpp"
 #include "base/types.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"

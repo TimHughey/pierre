@@ -19,7 +19,6 @@
 #include "master_clock.hpp"
 #include "base/host.hpp"
 #include "base/pet.hpp"
-#include "base/thread_util.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "lcs/config.hpp"

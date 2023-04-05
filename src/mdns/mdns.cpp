@@ -17,7 +17,6 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
-#include "base/thread_util.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 #include "mdns_ctx.hpp"
@@ -54,8 +53,6 @@ mDNS::mDNS() noexcept
 {
   std::jthread([this]() {
     INFO_INIT("sizeof={:>5} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
-
-    thread_util::set_name(module_id);
 
     // start avahi cliet
     ctx = std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port);

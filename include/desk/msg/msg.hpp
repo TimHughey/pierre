@@ -23,19 +23,23 @@
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/msg/kv.hpp"
-#include "io/buffer.hpp"
-#include "io/error.hpp"
 
 #include <ArduinoJson.h>
+#include <boost/asio/streambuf.hpp>
+#include <boost/system/error_code.hpp>
 #include <memory>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+using error_code = boost::system::error_code;
+
 namespace desk {
 
 class Msg {
 
 public:
-  Msg(std::size_t capacity) noexcept : storage(std::make_unique<io::streambuf>(capacity)) {}
+  Msg(std::size_t capacity) noexcept : storage(std::make_unique<asio::streambuf>(capacity)) {}
   virtual ~Msg() noexcept {} // prevent implicit copy/move
 
   Msg(Msg &&m) = default;              // allow move construct
@@ -55,7 +59,7 @@ public:
 
 protected:
   // order dependent
-  std::unique_ptr<io::streambuf> storage;
+  std::unique_ptr<asio::streambuf> storage;
 
 public:
   // order independent

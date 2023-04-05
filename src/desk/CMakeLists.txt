@@ -42,7 +42,6 @@ target_link_libraries(${__target} PRIVATE
   fader
   frame
   InfluxData::InfluxDB
-  io
   lcs
   mdns
 )

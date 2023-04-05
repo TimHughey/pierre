@@ -120,7 +120,6 @@ public:
   ZeroConfPromMap zcs_proms;
 
   static constexpr csv module_id{"mdns.ctx"};
-  static constexpr csv thread_name{"mdns"};
 };
 
 } // namespace mdns

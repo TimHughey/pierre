@@ -20,16 +20,16 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "io/buffer.hpp"
-#include "io/error.hpp"
-#include "io/read_write.hpp"
-#include "io/tcp.hpp"
-#include "lcs/logger.hpp"
 
+#include <boost/asio/write.hpp>
 #include <memory>
 #include <type_traits>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+using error_code = boost::system::error_code;
+
 namespace desk {
 namespace async {
 

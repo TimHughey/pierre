@@ -21,12 +21,14 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "io/post.hpp"
-#include "io/strand.hpp"
 #include "lcs/stats_v.hpp"
 
 #include <InfluxDBFactory.h>
 #include <atomic>
+#include <boost/asio/post.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/system/error_code.hpp>
 #include <chrono>
 #include <cmath>
 #include <map>
@@ -35,6 +37,10 @@
 #include <tuple>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 
 class Stats;
 
@@ -45,7 +51,7 @@ extern std::unique_ptr<Stats> stats;
 class Stats {
 
 public:
-  Stats(io_context &io_ctx) noexcept;
+  Stats(asio::thread_pool &thread_pool) noexcept;
   ~Stats() = default;
 
   template <typename T>
@@ -100,7 +106,7 @@ private:
 
 private:
   // order dependent
-  strand stats_strand;
+  strand_tp stats_strand;
   std::atomic_bool enabled{false};
   const string db_uri;
   int batch_of;

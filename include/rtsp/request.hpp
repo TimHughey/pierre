@@ -21,13 +21,15 @@
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "io/buffer.hpp"
 #include "rtsp/headers.hpp"
 
 #include <array>
+#include <boost/asio/buffer.hpp>
 #include <memory>
 
 namespace pierre {
+
+namespace asio = boost::asio;
 namespace rtsp {
 
 class Request {

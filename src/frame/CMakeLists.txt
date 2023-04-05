@@ -69,7 +69,6 @@ target_link_libraries(${__target} PRIVATE
   ${sodium_LIBRARY_RELEASE}
   base
   InfluxData::InfluxDB
-  io
   lcs
   PkgConfig::LIBAV
 )

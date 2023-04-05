@@ -56,7 +56,6 @@ target_link_libraries(${__target} PRIVATE
   base
   desk
   frame
-  io
   lcs
   mdns
   pair

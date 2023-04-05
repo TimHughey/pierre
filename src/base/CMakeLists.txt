@@ -10,7 +10,7 @@ set(HEADER_PATH_PAIR                    ${HEADER_PATH_LOCAL}/pair)
 set(HEADER_PATH_AES                     ${HEADER_PATH_LOCAL}/aes)
 file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/**/*.h*")
 
-find_package(Boost 1.80   QUIET COMPONENTS REQUIRED system)
+find_package(Boost 1.81   QUIET COMPONENTS REQUIRED system)
 find_package(fmt                           REQUIRED)
 find_package(Threads                       REQUIRED)
 find_package(GCRYPT                        REQUIRED)
@@ -23,9 +23,6 @@ add_library(${__target}
   # time utilities
   elapsed.cpp
   pet.cpp
-
-  # thread util
-  thread_util.cpp
   
   # headers
   ${HEADER_LIST}
