@@ -68,8 +68,7 @@ bool Setup::no_streams() noexcept {
     ctx->group_id = rdict.stringView({GROUP_UUID});
     ctx->group_contains_group_leader = rdict.boolVal({GROUP_LEADER});
 
-    auto peers = rdict.stringArray({TIMING_PEER_INFO, ADDRESSES});
-    ctx->peers(peers);
+    ctx->peers(rdict.stringArray({TIMING_PEER_INFO, ADDRESSES}));
 
     Aplist peer_info;
 

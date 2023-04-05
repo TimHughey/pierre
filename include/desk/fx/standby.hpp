@@ -18,14 +18,10 @@
 
 #pragma once
 
-#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
-#include "desk/unit/dimmable.hpp"
-#include "desk/unit/pinspot.hpp"
-#include "io/context.hpp"
-#include "io/timer.hpp"
+#include "frame/peaks.hpp"
 #include "lcs/types.hpp"
 
 #include <memory>
@@ -40,15 +36,7 @@ public:
 
   void execute(Peaks &peaks) noexcept override;
 
-  void once() noexcept override final {
-
-    units(unit::AC_POWER)->activate();
-    units(unit::DISCO_BALL)->dark();
-
-    units.get<Dimmable>(unit::EL_DANCE)->dim();
-    units.get<Dimmable>(unit::EL_DANCE)->dim();
-    units.get<Dimmable>(unit::LED_FOREST)->dim();
-  }
+  void once() noexcept override final;
 
 private:
   bool load_config() noexcept;

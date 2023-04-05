@@ -115,7 +115,7 @@ public:
   /// @brief Primary entry point for a session via Ctx
   void run() noexcept;
 
-  void peers(const Peers &peer_list) noexcept;
+  void peers(const Peers &&peer_list) noexcept;
 
   Port server_port(ports_t server_type) noexcept;
 

@@ -21,9 +21,7 @@
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
 #include "frame/frame.hpp"
-
-#include <algorithm>
-#include <ranges>
+#include "frame/peaks.hpp"
 
 namespace pierre {
 namespace desk {
@@ -33,6 +31,8 @@ Units FX::units; // headunits available for FX (static class data)
 void FX::ensure_units() noexcept {
   if (units.empty()) units.create_all_from_cfg(); // create the units once
 }
+
+void FX::execute(Peaks &peaks) noexcept { peaks.noop(); };
 
 bool FX::render(frame_t frame, DataMsg &msg) noexcept {
   if (should_render) {
@@ -49,7 +49,7 @@ bool FX::render(frame_t frame, DataMsg &msg) noexcept {
     }
   }
 
-  return finished;
+  return !finished;
 }
 
 } // namespace desk

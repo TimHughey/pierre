@@ -39,9 +39,9 @@ Rtsp::Rtsp() noexcept
       thread_pool(thread_count),                      //
       work_guard(asio::make_work_guard(thread_pool)), //
       acceptor{thread_pool, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-      sessions(std::make_unique<rtsp::Sessions>()),    //
-      master_clock(std::make_unique<MasterClock>()),   //
-      desk(std::make_unique<Desk>(master_clock.get())) //
+      sessions(std::make_unique<rtsp::Sessions>()),             //
+      master_clock(std::make_unique<MasterClock>(thread_pool)), //
+      desk(std::make_unique<Desk>(master_clock.get()))          //
 {
   INFO_INIT("sizeof={:>5} threads={}\n", sizeof(Rtsp), thread_count);
 

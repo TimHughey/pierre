@@ -18,87 +18,61 @@
 
 #pragma once
 
-#include "base/input_info.hpp"
-#include "base/pet_types.hpp"
-#include "base/types.hpp"
 #include "frame/clock_info.hpp"
-#include "io/timer.hpp"
-#include "io/udp.hpp"
-#include "io/work_guard.hpp"
 
 #include <array>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/ip/udp.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/thread_pool.hpp>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <functional>
-#include <future>
-#include <latch>
 #include <memory>
-#include <pthread.h>
-#include <sys/mman.h>
 #include <vector>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+namespace sys = boost::system;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
+using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using ip_address = boost::asio::ip::address;
+using ip_udp = boost::asio::ip::udp;
+using udp_endpoint = boost::asio::ip::udp::endpoint;
+using udp_socket = boost::asio::ip::udp::socket;
 
 class MasterClock {
 private:
   static constexpr auto LOCALHOST{"127.0.0.1"};
   static constexpr uint16_t CTRL_PORT{9000}; // see note
-  static constexpr uint16_t NQPTP_VERSION{8};
 
 public:
-  struct nqptp {
-    pthread_mutex_t copy_mutes;           // for safely accessing the structure
-    uint16_t version;                     // check version==VERSION
-    uint64_t master_clock_id;             // the current master clock
-    char master_clock_ip[64];             // where it's coming from
-    uint64_t local_time;                  // the time when the offset was calculated
-    uint64_t local_to_master_time_offset; // add this to the local time to get master clock time
-    uint64_t master_clock_start_time;     // this is when the master clock became master}
-  };
-
 public:
-  MasterClock() noexcept;
+  MasterClock(asio::thread_pool &thread_pool) noexcept;
   ~MasterClock() noexcept;
-
-  /// @brief Get ClockInfo via a shared future. The minimum time allowed between requests is
-  ///        configured via the external .toml file.  If called before the minimum time
-  ///        has elpased this function will immediately set the future with an empty
-  ///        ClockInfo object.
-  /// @return std::shared_future<ClockInfo>
-  clock_info_future info() noexcept;
 
   const ClockInfo info_no_wait() noexcept { return load_info_from_mapped(); }
 
-  void peers(const Peers &peer_list) noexcept { peers_update(peer_list); }
-  void peers_reset() noexcept { peers_update(Peers()); }
+  void peers(const Peers &&peers = std::move(Peers())) noexcept;
 
   // misc debug
   void dump();
 
 private:
-  bool is_mapped() const noexcept;
-
   const ClockInfo load_info_from_mapped() noexcept;
-  bool map_shm() noexcept;
-
-  void peers_update(const Peers &peers) noexcept;
-
-  bool ready() noexcept {
-    const auto &clock_info = load_info_from_mapped();
-
-    return clock_info.ok() && clock_info.master_for_at_least(333ms);
-  }
 
 private:
   // order dependent
-  io_context io_ctx;
-  work_guard guard;
-  udp_socket socket;
-  udp_endpoint remote_endpoint;
   const string shm_name; // shared memmory segment name (built by constructor)
-  const int thread_count;
-  std::shared_ptr<std::latch> shutdown_latch;
+  const ip_address nqptp_addr;
+  const udp_endpoint nqptp_rep; // nqptp remote endpoint (rep)
+  strand_tp local_strand;
+
+  udp_socket peer;
 
   // order independent
   void *mapped{nullptr}; // mmapped region of nqptp data struct

@@ -71,8 +71,6 @@ Ctx::Ctx(const string &stype, Service &service, Port receiver_port) noexcept
 }
 
 Ctx::~Ctx() noexcept {
-  static constexpr csv fn_id{"shutdown"};
-  INFO_AUTO("requested\n");
 
   client_running = false;
 
@@ -88,8 +86,6 @@ Ctx::~Ctx() noexcept {
 
   avahi_client_free(client);
   avahi_threaded_poll_free(tpoll);
-
-  INFO_SHUTDOWN("completed\n");
 }
 
 void Ctx::advertise(Service &service) noexcept {

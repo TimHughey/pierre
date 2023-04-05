@@ -24,6 +24,7 @@
 #include "desk/unit/all.hpp"
 #include "fader/easings.hpp"
 #include "fader/toblack.hpp"
+#include "frame/peaks.hpp"
 #include "fx/majorpeak/types.hpp"
 #include "lcs/config.hpp"
 #include "lcs/config_watch.hpp"
@@ -44,15 +45,13 @@ namespace stats = pierre::stats;
 void MajorPeak::execute(Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
-  // reset silence timer when peaks are not silent
-  if (peaks.silence() == false) silence_watch();
+  if (ConfigWatch::has_changed(cfg_changed)) {
+    load_config(); // setups silence config
 
-  if (ConfigWatch::has_changed(_cfg_changed)) {
-    INFO_AUTO("config change\n");
-    load_config();
-    silence_watch(); // restart silence watch in case silence timeout changes
+    cfg_changed = ConfigWatch::want_changes();
+  } else if (peaks.audible()) {
 
-    _cfg_changed = ConfigWatch::want_changes();
+    silence_watch(); // reset silence timer when we have non-silent peaks
   }
 
   units(unit::AC_POWER)->activate();
@@ -64,11 +63,6 @@ void MajorPeak::execute(Peaks &peaks) noexcept {
 
   // Stats::write(stats::MAX_PEAK_FREQUENCY, peaks.major_peak().frequency());
   // Stats::write(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
-
-  // detect if FX is in finished position (nothing is fading) and the silence
-  // timeout has expired
-  set_finished((units.get<PinSpot>(unit::MAIN_SPOT)->isFading() == false) &&
-               (units.get<PinSpot>(unit::FILL_SPOT)->isFading() == false) && silence.load());
 }
 
 void MajorPeak::handle_el_wire(Peaks &peaks) {
@@ -79,7 +73,7 @@ void MajorPeak::handle_el_wire(Peaks &peaks) {
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
 
-      const duty_val_t x = _freq_limits.scaled_soft(). //
+      const duty_val_t x = freq_limits.scaled_soft(). //
                            interpolate(elwire->minMaxDuty<double>(), peak.frequency().scaled());
 
       elwire->fixed(x);
@@ -91,7 +85,7 @@ void MajorPeak::handle_el_wire(Peaks &peaks) {
 
 void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
   auto fill = units.get<PinSpot>(unit::FILL_SPOT);
-  auto cfg = _pspot_cfg_map.at("fill pinspot");
+  auto cfg = pspot_cfg_map.at("fill pinspot");
 
   const auto peak = peaks.major_peak();
   if (peak.frequency() > cfg.freq_max) {
@@ -108,7 +102,7 @@ void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
     auto freq = peak.frequency();
     auto brightness = fill->brightness();
 
-    const auto &last_peak = _fill_last_peak;
+    const auto &last_peak = fill_last_peak;
 
     const auto greater_freq = cfg.when_greater.freq;
     if (freq >= greater_freq) {
@@ -152,18 +146,18 @@ void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
 
   if (start_fader) {
     fill->activate<FillFader>({.origin = color, .duration = cfg.fade_max});
-    _fill_last_peak = peak;
+    fill_last_peak = peak;
   }
 }
 
 void MajorPeak::handle_main_pinspot(Peaks &peaks) {
   auto main = units.get<PinSpot>(unit::MAIN_SPOT);
-  const auto &cfg = _pspot_cfg_map.at("main pinspot");
+  const auto &cfg = pspot_cfg_map.at("main pinspot");
 
   const auto freq_min = cfg.freq_min;
   const auto peak = peaks(freq_min, Peaks::CHANNEL::RIGHT);
 
-  if (peak.useable(_mag_limits) == false) return;
+  if (peak.useable(mag_limits) == false) return;
 
   Color color = make_color(peak);
 
@@ -178,7 +172,7 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
     const auto &when_fading = cfg.when_fading;
 
     auto brightness = main->brightness();
-    auto &last_peak = _main_last_peak;
+    auto &last_peak = main_last_peak;
 
     if (peak.magnitude() >= last_peak.magnitude()) {
       start_fader = true;
@@ -197,7 +191,7 @@ void MajorPeak::handle_main_pinspot(Peaks &peaks) {
 
   if (start_fader) {
     main->activate<MainFader>({.origin = color, .duration = cfg.fade_max});
-    _main_last_peak = peak;
+    main_last_peak = peak;
   }
 }
 
@@ -213,10 +207,10 @@ bool MajorPeak::load_config() noexcept {
     return local_copy[config_path<MajorPeak>("frequencies"sv).append(path)].value_or(def_val);
   };
 
-  _freq_limits = hard_soft_limit<Frequency>( //
-      freqs("hard.floor"sv, 40.0),           //
-      freqs("hard.ceiling"sv, 11500.0),      //
-      freqs("soft.floor"sv, 110.0),          //
+  freq_limits = hard_soft_limit<Frequency>( //
+      freqs("hard.floor"sv, 40.0),          //
+      freqs("hard.ceiling"sv, 11500.0),     //
+      freqs("soft.floor"sv, 110.0),         //
       freqs("soft.ceiling"sv, 10000.0));
 
   // load make colors config
@@ -228,7 +222,7 @@ bool MajorPeak::load_config() noexcept {
           std::forward<decltype(def_val)>(def_val));
     };
 
-    _hue_cfg_map.try_emplace(
+    hue_cfg_map.try_emplace(
         string(cat),
         major_peak::hue_cfg{.hue = {.min = cc("hue.min"sv, 0.0),
                                     .max = cc("hue.max"sv, 0.0),
@@ -237,8 +231,8 @@ bool MajorPeak::load_config() noexcept {
                                            .mag_scaled = cc("hue.mag_scaled"sv, true)}});
   }
 
-  _mag_limits = mag_min_max(config_val<MajorPeak>(local_copy, "magnitudes.floor"sv, 2.009),
-                            config_val<MajorPeak>(local_copy, "magnitudes.ceiling"sv, 2.009));
+  mag_limits = mag_min_max(config_val<MajorPeak>(local_copy, "magnitudes.floor"sv, 2.009),
+                           config_val<MajorPeak>(local_copy, "magnitudes.ceiling"sv, 2.009));
 
   // load pinspot config
   static constexpr csv BRI_MIN{"bri_min"};
@@ -250,11 +244,11 @@ bool MajorPeak::load_config() noexcept {
     const auto pspot_name = el.at_path("name"sv).value_or(string("unnamed"));
 
     auto [it, inserted] = //
-        _pspot_cfg_map.try_emplace(pspot_name, pspot_name,
-                                   el.at_path("type"sv).value_or(string("unknown")),
-                                   Millis(el.at_path("fade_max_ms").value_or(100)),
-                                   el.at_path("freq_min"sv).value_or(0.0), //
-                                   el.at_path("freq_max"sv).value_or(0.0));
+        pspot_cfg_map.try_emplace(pspot_name, pspot_name,
+                                  el.at_path("type"sv).value_or(string("unknown")),
+                                  Millis(el.at_path("fade_max_ms").value_or(100)),
+                                  el.at_path("freq_min"sv).value_or(0.0), //
+                                  el.at_path("freq_max"sv).value_or(0.0));
 
     if (inserted) {
       auto &cfg = it->second;
@@ -290,13 +284,12 @@ bool MajorPeak::load_config() noexcept {
     }
   }
 
-  // load silence config
-
-  set_silence_timeout(config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13));
-  next_fx = fx::ALL_STOP;
+  // setup silence timeout
+  const auto timeout = config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13);
+  set_silence_timeout(timeout, fx::STANDBY);
 
   // register for changes
-  _cfg_changed = ConfigWatch::want_changes();
+  cfg_changed = ConfigWatch::want_changes();
 
   return changed;
 }
@@ -305,45 +298,45 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   auto color = ref; // initial color, may change below
 
   // ensure frequency can be interpolated into a color
-  if (peak.useable(_mag_limits, _freq_limits.hard()) == false) {
+  if (peak.useable(mag_limits, freq_limits.hard()) == false) {
     color = Color::black();
 
-  } else if (peak.frequency() < _freq_limits.soft().min()) {
+  } else if (peak.frequency() < freq_limits.soft().min()) {
     // frequency less than the soft
-    color.setBrightness(_mag_limits, peak.magnitude().scaled());
+    color.setBrightness(mag_limits, peak.magnitude().scaled());
 
-  } else if (peak.frequency() > _freq_limits.soft().max()) {
-    auto const &hue_cfg = _hue_cfg_map.at("above_soft_ceiling");
+  } else if (peak.frequency() > freq_limits.soft().max()) {
+    auto const &hue_cfg = hue_cfg_map.at("above_soft_ceiling");
 
-    auto fl_custom = freq_min_max(_freq_limits.soft().max(), _freq_limits.hard().max());
+    auto fl_custom = freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
     auto hue_minmax = hue_cfg.hue_minmax();
     auto degrees = fl_custom.interpolate(hue_minmax, peak.frequency().scaled()) * hue_cfg.hue.step;
 
     color.rotateHue(degrees);
     if (hue_cfg.brightness.mag_scaled) {
-      color.setBrightness(_mag_limits, peak.magnitude().scaled());
+      color.setBrightness(mag_limits, peak.magnitude().scaled());
     } else {
       color.setBrightness(hue_cfg.brightness.max);
     }
 
   } else {
-    const auto &hue_cfg = _hue_cfg_map.at("generic");
+    const auto &hue_cfg = hue_cfg_map.at("generic");
 
-    const auto fl_soft = _freq_limits.scaled_soft();
+    const auto fl_soft = freq_limits.scaled_soft();
     const auto hue_min_max = hue_cfg.hue_minmax();
 
     auto degrees = fl_soft.interpolate(hue_min_max, peak.frequency().scaled()) * hue_cfg.hue.step;
 
     color.rotateHue(degrees);
-    color.setBrightness(_mag_limits, peak.magnitude().scaled());
+    color.setBrightness(mag_limits, peak.magnitude().scaled());
   }
 
   return color;
 }
 
 const Color &MajorPeak::ref_color(size_t index) const noexcept {
-  if (_ref_colors.empty()) {
-    _ref_colors.assign( //
+  if (ref_colors.empty()) {
+    ref_colors.assign( //
         {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
          Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
          Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
@@ -353,11 +346,11 @@ const Color &MajorPeak::ref_color(size_t index) const noexcept {
          Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
   }
 
-  return _ref_colors.at(index);
+  return ref_colors.at(index);
 }
 
 // static class members
-MajorPeak::RefColors MajorPeak::_ref_colors;
+MajorPeak::RefColors MajorPeak::ref_colors;
 
 } // namespace desk
 } // namespace pierre

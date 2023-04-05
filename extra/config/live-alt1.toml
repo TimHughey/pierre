@@ -34,10 +34,9 @@ file_watch = false
 
 [logger.desk]
 thread = false
-resume = true
+resume = false
 shutdown = false
 standby = true
-monitor_wip = true
 reel = true
 
 [logger.desk.dmx_ctrl]
@@ -58,8 +57,10 @@ dsp = { thread = false }
 decipher = false
 
 [logger.fx]
-standby = true 
 major_peak = { execute = false }
+silence_watch = false
+standby = true 
+
 
 [logger.mdns]
 ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }

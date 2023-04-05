@@ -43,8 +43,11 @@ public:
   Peaks() = default;
 
 public:
+  /// @brief Contains audible peaks (not silence)
+  /// @return bool
+  bool audible() const noexcept { return !silence(); }
+
   bool emplace(Magnitude m, Frequency f, CHANNEL channel = LEFT) noexcept;
-  size_t size(CHANNEL channel = LEFT) const noexcept { return std::ssize(peaks_map[channel]); }
 
   bool has_peak(size_t n, CHANNEL channel = LEFT) const noexcept {
     return peaks_map[channel].size() > n ? true : false;
@@ -77,6 +80,7 @@ public:
   }
 
   bool silence() const noexcept { return peaks_map[LEFT].empty() && peaks_map[RIGHT].empty(); }
+  size_t size(CHANNEL channel = LEFT) const noexcept { return std::ssize(peaks_map[channel]); }
 
 private:
   std::array<peak_map_t, 2> peaks_map{peak_map_t(), peak_map_t()};

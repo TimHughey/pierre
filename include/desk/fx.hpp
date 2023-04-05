@@ -22,7 +22,7 @@
 #include "base/types.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/units.hpp"
-#include "frame/frame.hpp"
+#include "frame/fdecls.hpp"
 #include "fx/names.hpp"
 #include "lcs/logger.hpp"
 
@@ -67,7 +67,7 @@ public:
 
   /// @brief Is the FX complete as determined by the subclass
   /// @return boolean indicating the FX is complete
-  virtual bool completed() noexcept { return finished; }
+  virtual bool completed() const noexcept { return finished; }
 
   /// @brief Match the FX to a single name
   /// @param n Name to match
@@ -97,28 +97,30 @@ public:
 protected:
   /// @brief Execute the FX subclass for audio peaks for a single frame
   /// @param peaks The audio peaks to use for FX execution
-  virtual void execute(Peaks &peaks) noexcept { peaks.noop(); };
+  virtual void execute(Peaks &peaks) noexcept;
 
   /// @brief Set the FX as complete
   /// @param is_finished Boolean indicating the finished status of the FX
-  void set_finished(bool is_finished, const string silence_fx = string()) noexcept {
+  void set_finished(bool is_finished, const string finished_fx = string()) noexcept {
 
-    if (is_finished && silence_fx.size()) {
-      next_fx = silence_fx;
-    }
+    if (is_finished && !finished_fx.empty()) next_fx = finished_fx;
 
-    finished = is_finished;
+    std::exchange(finished, is_finished);
   }
 
-  bool set_silence_timeout(auto &&new_val) noexcept {
+  template <typename T>
+  bool set_silence_timeout(const T &new_val, const string silence_fx) noexcept {
     static constexpr csv fn_id{"set_silence"};
     using Millis = std::chrono::milliseconds;
 
-    if (new_val != silence_timeout) {
-      silence_timeout = std::chrono::duration_cast<Millis>(new_val);
-      INFO_AUTO("silence_timeout={}\n", pet::humanize(silence_timeout));
+    auto new_val_millis = pet::as<Millis, T>(new_val);
 
-      silence_watch();
+    if (silence_timeout != new_val_millis) {
+      silence_timeout = new_val_millis;
+
+      INFO_AUTO("new silence_timeout={}\n", pet::humanize(silence_timeout));
+
+      silence_watch(silence_fx);
       return true;
     }
 
@@ -126,14 +128,18 @@ protected:
   }
 
   void silence_watch(const string silence_fx = string()) noexcept {
+    static constexpr csv fn_id{"silence_watch"};
 
-    if (silence_fx.empty() == false) next_fx = silence_fx;
+    if (silence_fx.size() && (silence_fx != next_fx)) {
+      INFO_AUTO("next_fx new={} old={}\n", silence_fx, std::exchange(next_fx, silence_fx));
+    }
 
     fx_timer.expires_after(silence_timeout);
     fx_timer.async_wait([this](const error_code &ec) {
       if (ec) return;
 
       set_finished(true);
+      INFO_AUTO("timer fired, finished={} next_fx={}\n", finished, next_fx);
     });
   }
 
@@ -147,11 +153,10 @@ protected:
   const string fx_name;
   bool should_render;
   bool finished;
-  string next_fx;
 
   // order independent
   Millis silence_timeout{0};
-  string silence_next_fx;
+  string next_fx;
 
 private:
   bool called_once{false};

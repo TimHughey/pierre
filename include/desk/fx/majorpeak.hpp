@@ -20,12 +20,10 @@
 #pragma once
 
 #include "base/elapsed.hpp"
-#include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
-#include "io/context.hpp"
-#include "io/timer.hpp"
+#include "frame/peaks.hpp"
 #include "lcs/types.hpp"
 #include "majorpeak/types.hpp"
 
@@ -40,22 +38,19 @@ namespace desk {
 class MajorPeak : public FX {
 public:
   MajorPeak(auto &executor) noexcept
-      : FX(executor, fx::MAJOR_PEAK), //
-        silence{false},               //
-        base_color(Hsb{0, 100, 100}), //
-        _main_last_peak(),            //
-        _fill_last_peak()             //
-  {
+      : FX(executor, fx::MAJOR_PEAK), base_color(Hsb{0, 100, 100}), main_last_peak(),
+        fill_last_peak() {
     load_config();
   }
 
   void execute(Peaks &peaks) noexcept override;
 
-  void once() noexcept override final {
+  void once() noexcept override {
     units(unit::AC_POWER)->activate();
-    units(unit::LED_FOREST)->dark();
 
-    silence_watch();
+    units(unit::LED_FOREST)->dark();
+    units(unit::MAIN_SPOT)->dark();
+    units(unit::FILL_SPOT)->dark();
   }
 
 private:
@@ -75,21 +70,20 @@ private:
 
 private:
   // order dependent
-  std::atomic_bool silence; // has silence timeout occurred
   const Color base_color;
-  Peak _main_last_peak;
-  Peak _fill_last_peak;
+  Peak main_last_peak;
+  Peak fill_last_peak;
 
   // order independent
   Elapsed color_elapsed;
-  static RefColors _ref_colors;
+  static RefColors ref_colors;
 
   // cached config
-  cfg_future _cfg_changed;
-  major_peak::freq_limits_t _freq_limits;
-  major_peak::hue_cfg_map _hue_cfg_map;
-  mag_min_max _mag_limits;
-  major_peak::pspot_cfg_map _pspot_cfg_map;
+  cfg_future cfg_changed;
+  major_peak::freq_limits_t freq_limits;
+  major_peak::hue_cfg_map hue_cfg_map;
+  mag_min_max mag_limits;
+  major_peak::pspot_cfg_map pspot_cfg_map;
 
 public:
   static constexpr csv module_id{"fx.majorpeak"};

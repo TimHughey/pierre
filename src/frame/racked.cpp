@@ -68,11 +68,7 @@ Racked::~Racked() noexcept {
   thread_pool.stop();
   thread_pool.join();
 
-  // INFO_SHUTDOWN_REQUESTED();
-
   av.reset();
-
-  // INFO_SHUTDOWN_COMPLETE();
 }
 
 void Racked::flush(FlushInfo &&request) noexcept {

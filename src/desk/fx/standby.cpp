@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/standby.hpp"
-#include "base/pet.hpp"
+#include "base/pet_types.hpp"
 #include "color.hpp"
 #include "desk.hpp"
 #include "lcs/config.hpp"
@@ -29,6 +29,8 @@ namespace pierre {
 namespace desk {
 
 void Standby::execute(Peaks &peaks) noexcept {
+  static constexpr csv fn_id{"execute"};
+
   if (ConfigWatch::has_changed(cfg_change)) load_config();
 
   if (next_brightness < max_brightness) {
@@ -39,16 +41,9 @@ void Standby::execute(Peaks &peaks) noexcept {
   units.get<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
   units.get<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
 
-  if (next_brightness >= max_brightness) {
-    next_color.rotateHue(hue_step);
-  }
+  if (next_brightness >= max_brightness) next_color.rotateHue(hue_step);
 
-  // unless completed (silence timeout fired) set finished to false
-  if (!completed()) {
-    set_finished(peaks.silence() == false, fx::MAJOR_PEAK);
-  } else {
-    next_fx = fx::ALL_STOP;
-  }
+  set_finished(peaks.audible(), fx::MAJOR_PEAK);
 }
 
 bool Standby::load_config() noexcept {
@@ -71,11 +66,22 @@ bool Standby::load_config() noexcept {
 
   hue_step = config_val<Standby, double>("hue_step", 0.0);
 
-  changed |= set_silence_timeout(config_val<Standby, Minutes, int64_t>(cfg_silence_timeout, 30));
+  const auto timeout = config_val<Standby, Minutes, int64_t>(cfg_silence_timeout, 30);
+  changed |= set_silence_timeout(timeout, fx::ALL_STOP);
 
   cfg_change = ConfigWatch::want_changes();
 
   return changed;
+}
+
+void Standby::once() noexcept {
+
+  units(unit::AC_POWER)->activate();
+  units(unit::DISCO_BALL)->dark();
+
+  units.get<Dimmable>(unit::EL_DANCE)->dim();
+  units.get<Dimmable>(unit::EL_DANCE)->dim();
+  units.get<Dimmable>(unit::LED_FOREST)->dim();
 }
 
 } // namespace desk

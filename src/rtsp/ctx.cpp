@@ -128,7 +128,9 @@ void Ctx::msg_loop_write(std::shared_ptr<Ctx> self) noexcept {
   });
 }
 
-void Ctx::peers(const Peers &peer_list) noexcept { master_clock->peers(peer_list); }
+void Ctx::peers(const Peers &&peer_list) noexcept {
+  master_clock->peers(std::forward<decltype(peer_list)>(peer_list));
+}
 
 void Ctx::run() noexcept {
 

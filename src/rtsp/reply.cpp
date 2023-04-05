@@ -131,8 +131,8 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
     Aplist request_dict(content_in);
     auto peers = request_dict.stringArray({ROOT});
     if (peers.empty() == false) {
-      ctx->peers(peers);           // set the peer lists
-      set_resp_code(RespCode::OK); // indicate success
+      ctx->peers(std::move(peers)); // set the peer lists
+      set_resp_code(RespCode::OK);  // indicate success
     }
 
   } else if (method == csv("SETPEERSX")) {
@@ -151,7 +151,7 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
       }
     }
 
-    ctx->peers(peer_list);
+    ctx->peers(std::move(peer_list));
 
   } else if (method == csv("SETRATEANCHORTIME")) {
     SetAnchor(content_in, *this, ctx->desk);

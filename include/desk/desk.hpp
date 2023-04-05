@@ -64,8 +64,10 @@ public:
   void spool(bool enable = true) noexcept; // must be in .cpp for Racked
 
 private:
-  void frame_loop(bool fx_finished = true) noexcept;
-  void handle_frame(frame_t frame, bool fx_finished) noexcept;
+  void frame_loop() noexcept;
+  void handle_frame(frame_t frame) noexcept;
+
+  bool fx_finished() const noexcept;
   void fx_select(const frame::state &frame_state, bool silent) noexcept;
 
 private:

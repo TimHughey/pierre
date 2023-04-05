@@ -29,6 +29,7 @@ class FlushInfo;
 class Frame;
 class MasterClock;
 class Racked;
+class Peaks;
 
 using frame_t = std::shared_ptr<Frame>;
 

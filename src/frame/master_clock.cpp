@@ -28,204 +28,162 @@
 #include <algorithm>
 #include <cstdlib>
 #include <errno.h>
+#include <exception>
 #include <fcntl.h>
 #include <iterator>
 #include <latch>
+#include <pthread.h>
 #include <ranges>
+#include <sys/mman.h>
 #include <thread>
+#include <tuple>
 #include <utility>
 
 namespace pierre {
 
-// create the MasterClock
-MasterClock::MasterClock() noexcept
-    : guard(io_ctx.get_executor()),                                    // syncronize clock io
-      socket(io_ctx, ip_udp::v4()),                                    // construct and open
-      remote_endpoint(asio::ip::make_address(LOCALHOST), CTRL_PORT),   // nqptp endpoint
-      shm_name(config_val<MasterClock, string>("shm_name", "/nqptp")), //
-      thread_count(config_threads<MasterClock>(1)),                    //
-      shutdown_latch(std::make_shared<std::latch>(thread_count))       //
-{
-  INFO_INIT("sizeof={:>5} shm_name={} dest={}:{}\n", sizeof(MasterClock), shm_name,
-            remote_endpoint.address().to_string(), remote_endpoint.port());
+namespace nqptp {
 
-  auto latch = std::make_unique<std::latch>(thread_count);
+struct data {
+  pthread_mutex_t copy_mtx;             // for safely accessing the structure
+  uint16_t version;                     // check version==VERSION
+  uint64_t master_clock_id;             // the current master clock
+  char master_clock_ip[64];             // where it's coming from
+  uint64_t local_time;                  // the time when the offset was calculated
+  uint64_t local_to_master_time_offset; // add this to the local time to get master clock time
+  uint64_t master_clock_start_time;     // this is when the master clock became master}
+};
 
-  for (auto n = 0; n < thread_count; n++) {
-    std::jthread([this, n = n, latch = latch.get()]() mutable {
-      const auto thread_name = thread_util::set_name("clock", n);
+static constexpr uint16_t NQPTP_VERSION{8};
+static void *mapped{nullptr};
+static data latest;
 
-      latch->count_down();
-
-      INFO_THREAD_START();
-      io_ctx.run();
-
-      shutdown_latch->count_down();
-      INFO_THREAD_STOP();
-    }).detach();
-  }
-
-  latch->wait(); // caller waits until all workers are started
-
-  peers(Peers()); // reset the peers (creates the shm name)}
+inline constexpr const auto mclock_id(auto *l) noexcept { return l->master_clock_id; }
+inline const auto mclock_start_time(auto *l) noexcept {
+  return pet::from_val<Nanos>(l->master_clock_start_time);
 }
 
-MasterClock::~MasterClock() noexcept {
-  static constexpr csv fn_id("shutdown");
+inline bool is_mapped() noexcept { return mapped && (mapped != MAP_FAILED); }
 
-  INFO_SHUTDOWN_REQUESTED();
-
-  if (is_mapped()) munmap(mapped, sizeof(nqptp));
-
-  io_ctx.stop();
-
-  try {
-    socket.close();
-  } catch (...) {
-  }
-
-  shutdown_latch->wait();
-  INFO_SHUTDOWN_COMPLETE();
+inline constexpr size_t len() noexcept { return sizeof(latest); }
+inline constexpr const auto local_time(auto *l) noexcept { return l->local_time; }
+inline constexpr const auto local_to_master_time_offset(auto *l) noexcept {
+  return l->local_to_master_time_offset;
 }
 
-clock_info_future MasterClock::info() noexcept {
-  auto prom = std::make_shared<std::promise<ClockInfo>>();
+inline constexpr string mclock_ip(auto *l) noexcept { return string(l->master_clock_ip); }
 
-  auto clock_info = load_info_from_mapped();
-
-  if (clock_info.ok()) {
-    // clock info is good, immediately set the future
-    prom->set_value(clock_info);
-  } else {
-    // perform the retry on the MasterClock io_ctx enabling caller to continue other work
-    // while the clock becomes useable and the future is set to ready
-
-    auto timer = std::make_unique<steady_timer>(io_ctx);
-    // get a pointer to the timer since we move the timer into the async_wait
-    auto t = timer.get();
-
-    t->expires_after(InputInfo::lead_time_min);
-    t->async_wait([this, timer = std::move(timer), prom = prom](error_code ec) {
-      // if success get and return ClockInfo (could be ok() == false)
-      if (!ec) {
-        prom->set_value(std::move(load_info_from_mapped()));
-      } else {
-        prom->set_value(ClockInfo());
-      }
-    });
-  }
-
-  return prom->get_future().share();
-}
-
-bool MasterClock::is_mapped() const noexcept {
-  static constexpr csv fn_id{"is_mapped"};
-  static uint32_t attempts = 0;
-  auto ok = (mapped && (mapped != MAP_FAILED));
-
-  if (!ok && attempts) {
-    ++attempts;
-    INFO_AUTO("nqptp is not mapped after {} attempts\n", attempts);
-  }
-
-  return ok;
-}
-
-// NOTE: new data is available every 126ms
-const ClockInfo MasterClock::load_info_from_mapped() noexcept {
-  static constexpr csv fn_id{"load_mapped"};
-
-  if (map_shm() == false) {
-    return ClockInfo();
-  }
+inline std::pair<bool, data *> refresh(const auto &shm_name) noexcept {
+  static constexpr csv fn_id{"refresh"};
+  auto rc = true;
 
   int prev_state; // to restore pthread cancel state
-
-  // prevent thread cancellation while copying
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
-
-  // shm_structure embeds a mutex at the beginning
-  pthread_mutex_t *mtx = (pthread_mutex_t *)mapped;
-
-  // use the mutex to guard while reading
-  pthread_mutex_lock(mtx);
-
-  nqptp data;
-  memcpy(&data, (char *)mapped, sizeof(nqptp));
-  if (data.version != NQPTP_VERSION) {
-    INFO_AUTO("FATA: nqptp version mismatch vsn={}", data.version);
-
-    std::this_thread::sleep_for(2s);
-    std::abort();
-  }
-
-  // release the mutex
-  pthread_mutex_unlock(mtx);
-  pthread_setcancelstate(prev_state, nullptr);
-
-  // find the clock IP string
-  string_view clock_ip_sv = string_view(data.master_clock_ip, sizeof(nqptp::master_clock_ip));
-  auto trim_pos = clock_ip_sv.find_first_of('\0');
-  clock_ip_sv.remove_suffix(clock_ip_sv.size() - trim_pos);
-
-  return ClockInfo(data.master_clock_id, string(clock_ip_sv),
-                   data.local_time,                  // aka sample time
-                   data.local_to_master_time_offset, // aka raw offset
-                   pet::from_val<Nanos>(data.master_clock_start_time));
-}
-
-bool MasterClock::map_shm() noexcept {
-  static constexpr csv fn_id{"map_shm"};
-  int prev_state;
 
   if (is_mapped() == false) {
     // prevent thread cancellation while mapping
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
 
-    auto shm_fd = shm_open(shm_name.data(), O_RDWR, 0);
-
-    if (shm_fd >= 0) {
+    if (auto shm_fd = shm_open(shm_name.data(), O_RDWR, 0); shm_fd >= 0) {
       // flags must be PROT_READ | PROT_WRITE to allow writes to mapped memory for the mutex
       constexpr auto flags = PROT_READ | PROT_WRITE;
-      constexpr auto bytes = sizeof(nqptp);
-
-      mapped = mmap(NULL, bytes, flags, MAP_SHARED, shm_fd, 0);
+      mapped = mmap(NULL, len(), flags, MAP_SHARED, shm_fd, 0);
 
       close(shm_fd); // done with the shm memory fd
 
-      INFO_AUTO("complete={}\n", is_mapped());
+      INFO(MasterClock::module_id, fn_id, "complete={}\n", is_mapped());
     } else {
-      INFO_AUTO("clock map shm={} error={}\n", shm_name, strerror(errno));
+      INFO(MasterClock::module_id, fn_id, "clock map shm={} error={}\n", shm_name, strerror(errno));
     }
 
     pthread_setcancelstate(prev_state, nullptr);
   }
 
-  return is_mapped();
+  if (is_mapped()) {
+    // prevent thread cancellation while copying
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
+
+    // shm_structure embeds a mutex at the beginning that
+    // we use to guard against data races
+    auto *mtx = static_cast<pthread_mutex_t *>(mapped);
+    pthread_mutex_lock(mtx);
+
+    memcpy(&latest, (char *)mapped, len());
+    if (latest.version != NQPTP_VERSION) {
+      INFO(MasterClock::module_id, fn_id, "nqptp version mismatch vsn={}", latest.version);
+
+      rc = false;
+    }
+
+    // release the mutex
+    pthread_mutex_unlock(mtx);
+    pthread_setcancelstate(prev_state, nullptr);
+  }
+
+  return std::make_pair(rc && is_mapped(), &latest);
 }
 
-void MasterClock::peers_update(const Peers &new_peers) noexcept {
+inline void unmap() noexcept {
+  if (is_mapped()) munmap(std::exchange(mapped, nullptr), len());
+}
+
+} // namespace nqptp
+
+// create the MasterClock
+MasterClock::MasterClock(asio::thread_pool &thread_pool) noexcept
+    : shm_name(config_val<MasterClock, string>("shm_name", "/nqptp")),
+      nqptp_addr(asio::ip::make_address(LOCALHOST)), // where nqptp is running
+      nqptp_rep(nqptp_addr, CTRL_PORT),              // endpoint of nqptp daemon
+      local_strand(asio::make_strand(thread_pool)),  // serialize peer changes
+      peer(local_strand, ip_udp::v4())               // construct and open
+{
+
+  INFO_INIT("sizeof={:>5} shm_name={} dest={}:{} nqptp_len={}\n", sizeof(MasterClock), shm_name,
+            nqptp_rep.address().to_string(), nqptp_rep.port(), nqptp::len());
+
+  peers(); // reset the peers (creates the shm name)}
+}
+
+MasterClock::~MasterClock() noexcept {
+  static constexpr csv fn_id("shutdown");
+
+  if (peer.is_open()) {
+    // add peers reset logic
+  }
+
+  nqptp::unmap();
+}
+
+// NOTE: new data is available every 126ms
+const ClockInfo MasterClock::load_info_from_mapped() noexcept {
+  auto [rc, nd] = nqptp::refresh(shm_name);
+
+  if (!rc) return ClockInfo();
+
+  return ClockInfo(nqptp::mclock_id(nd), nqptp::mclock_ip(nd),
+                   nqptp::local_time(nd),                  // aka sample time
+                   nqptp::local_to_master_time_offset(nd), // aka raw offset
+                   nqptp::mclock_start_time(nd));
+}
+
+void MasterClock::peers(const Peers &&new_peers) noexcept {
   static constexpr csv fn_id{"peers_update"};
   INFO_AUTO("new peers count={}\n", new_peers.size());
 
   // queue the update to prevent collisions
-  asio::post(io_ctx, [this, peers = std::move(new_peers)]() {
+  asio::post(local_strand, [this, peers = std::move(new_peers)]() {
     // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
     uint8v msg;
     auto w = std::back_inserter(msg);
 
     fmt::format_to(w, "{} T", shm_name);
 
-    if (peers.empty() == false) {
-      fmt::format_to(w, " {}", fmt::join(peers, " "));
-    }
+    if (peers.size()) fmt::format_to(w, " {}", fmt::join(peers, " "));
 
     msg.push_back(0x00); // must be null terminated
 
     INFO_AUTO("peers msg={}\n", msg.view());
 
     error_code ec;
-    auto bytes = socket.send_to(asio::buffer(msg), remote_endpoint, 0, ec);
+    auto bytes = peer.send_to(asio::buffer(msg), nqptp_rep, 0, ec);
 
     if (ec) INFO_AUTO("send msg failed, reason={} bytes={}\n", ec.message(), bytes);
   });

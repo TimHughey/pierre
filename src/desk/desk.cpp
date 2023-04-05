@@ -74,19 +74,20 @@ void Desk::flush_all() noexcept {
   if (racked) racked->flush_all();
 }
 
-void Desk::frame_loop(bool fx_finished) noexcept {
+void Desk::frame_loop() noexcept {
   static constexpr csv fn_id{"frame_loop"};
 
-  racked->next_frame(frame_strand,
-                     [this, fx_finished, next_wait = Elapsed()](frame_t frame) mutable {
-                       if (next_wait.freeze() > 100us) {
-                         Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
-                       }
+  racked->next_frame(frame_strand, [this, next_wait = Elapsed()](frame_t frame) mutable {
+    if (next_wait.freeze() > 100us) {
+      Stats::write(stats::NEXT_FRAME_WAIT, next_wait.freeze());
+    }
 
-                       // we are assured the frame can be rendered (slient or peaks)
-                       handle_frame(frame, fx_finished);
-                     });
+    // we are assured the frame can be rendered (slient or peaks)
+    handle_frame(frame);
+  });
 }
+
+bool Desk::fx_finished() const noexcept { return active_fx ? active_fx->completed() : true; }
 
 void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   static constexpr csv fn_id{"fx_select"};
@@ -95,21 +96,16 @@ void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : desk::fx::STANDBY;
 
   // when fx::Standby is finished initiate standby()
-  if ((fx_suggested_next == desk::fx::STANDBY) && silent) {
+  if (fx_now == desk::fx::NONE) { // default to Standby
     active_fx = std::make_unique<desk::Standby>(frame_strand);
-
-  } else if ((fx_suggested_next == desk::fx::MAJOR_PEAK) && !silent) {
-    active_fx = std::make_unique<desk::MajorPeak>(frame_strand);
+  } else if (silent && (fx_suggested_next == desk::fx::STANDBY)) {
+    active_fx = std::make_unique<desk::Standby>(frame_strand);
 
   } else if (!silent && (frame_state.ready() || frame_state.future())) {
     active_fx = std::make_unique<desk::MajorPeak>(frame_strand);
 
-  } else if (fx_suggested_next == desk::fx::ALL_STOP) {
-    INFO_AUTO("fx::Standby finished, initiating {}\n", fx_suggested_next);
+  } else if (silent && (fx_suggested_next == desk::fx::ALL_STOP)) {
     active_fx = std::make_unique<desk::AllStop>(frame_strand);
-
-  } else if (fx_now == desk::fx::NONE) { // default to Standby
-    active_fx = std::make_unique<desk::Standby>(frame_strand);
   }
 
   // note in log selected FX, if needed
@@ -118,10 +114,10 @@ void Desk::fx_select(const frame::state &frame_state, bool silent) noexcept {
   }
 }
 
-void Desk::handle_frame(frame_t frame, bool fx_finished) noexcept {
+void Desk::handle_frame(frame_t frame) noexcept {
   frame->state.record_state();
 
-  if (fx_finished) fx_select(frame->state, frame->silent());
+  if (fx_finished()) fx_select(frame->state, frame->silent());
 
   if (active_fx->match_name(desk::fx::ALL_STOP)) {
     // shutdown supporting subsystems
@@ -135,7 +131,7 @@ void Desk::handle_frame(frame_t frame, bool fx_finished) noexcept {
   if (frame->state.ready()) {
     desk::DataMsg msg(frame->seq_num, frame->silent());
 
-    if (fx_finished = active_fx->render(frame, msg); !fx_finished) {
+    if (active_fx->render(frame, msg)) {
       if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
 
       dmx_ctrl->send_data_msg(std::move(msg));
@@ -150,12 +146,12 @@ void Desk::handle_frame(frame_t frame, bool fx_finished) noexcept {
     static constexpr csv fn_id{"desk.frame_loop"};
 
     frame_timer.expires_after(sync_wait);
-    frame_timer.async_wait([this, fx_finished](const error_code &ec) {
-      if (!ec) asio::dispatch(frame_strand, [this, fx_finished]() { frame_loop(fx_finished); });
+    frame_timer.async_wait([this](const error_code &ec) {
+      if (!ec) asio::dispatch(frame_strand, [this]() { frame_loop(); });
     });
   } else {
     // INFO_AUTO("negative sync wait {}\n", frame->sync_wait());
-    asio::post(frame_strand, [this, fx_finished]() { frame_loop(fx_finished); });
+    asio::post(frame_strand, [this]() { frame_loop(); });
   }
 }
 
