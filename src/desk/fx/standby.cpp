@@ -28,7 +28,7 @@
 namespace pierre {
 namespace desk {
 
-void Standby::execute(Peaks &peaks) noexcept {
+void Standby::execute(Peaks peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
   if (ConfigWatch::has_changed(cfg_change)) load_config();

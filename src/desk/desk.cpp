@@ -130,7 +130,7 @@ void Desk::handle_frame(frame_t frame) noexcept {
   if (frame->state.ready()) {
     desk::DataMsg msg(frame->seq_num, frame->silent());
 
-    if (active_fx->render(frame, msg)) {
+    if (active_fx->render(frame->take_peaks(), msg)) {
       if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
 
       dmx_ctrl->send_data_msg(std::move(msg));

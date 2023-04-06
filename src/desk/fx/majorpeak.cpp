@@ -42,7 +42,7 @@ namespace {
 namespace stats = pierre::stats;
 }
 
-void MajorPeak::execute(Peaks &peaks) noexcept {
+void MajorPeak::execute(Peaks peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
   if (ConfigWatch::has_changed(cfg_changed)) {

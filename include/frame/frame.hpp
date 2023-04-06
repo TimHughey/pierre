@@ -100,6 +100,8 @@ public:
   // returns sync_wait unchanged if anchor is not available
   virtual Nanos sync_wait_recalc() noexcept;
 
+  Peaks &&take_peaks() noexcept { return std::move(peaks); }
+
   // misc debug
   const string inspect(bool full = false) const noexcept;
   static const string inspect_safe(frame_t frame, bool full = false) noexcept;

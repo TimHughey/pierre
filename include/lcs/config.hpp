@@ -75,6 +75,10 @@ public:
     }
   }
 
+  toml::table copy(auto path) noexcept {
+    return tables.front().at_path(toml::path(path)).ref<toml::table>();
+  }
+
   // specific accessors
   static const string app_name() noexcept;
 

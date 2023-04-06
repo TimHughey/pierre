@@ -43,7 +43,7 @@ public:
     load_config();
   }
 
-  void execute(Peaks &peaks) noexcept override;
+  void execute(Peaks peaks) noexcept override;
 
   void once() noexcept override {
     units(unit::AC_POWER)->activate();

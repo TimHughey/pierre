@@ -20,7 +20,6 @@
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
-#include "frame/frame.hpp"
 #include "frame/peaks.hpp"
 
 namespace pierre {
@@ -32,9 +31,9 @@ void FX::ensure_units() noexcept {
   if (units.empty()) units.create_all_from_cfg(); // create the units once
 }
 
-void FX::execute(Peaks &peaks) noexcept { peaks.noop(); };
+void FX::execute(Peaks peaks) noexcept { peaks.noop(); };
 
-bool FX::render(frame_t frame, DataMsg &msg) noexcept {
+bool FX::render(Peaks &&peaks, DataMsg &msg) noexcept {
   if (should_render) {
     if (called_once == false) {
       once();                // frame 0 consumed by call to once(), peaks not rendered
@@ -43,9 +42,9 @@ bool FX::render(frame_t frame, DataMsg &msg) noexcept {
       called_once = true;
 
     } else {
-      units.prepare();       // do any prep required to render next frame
-      execute(frame->peaks); // render frame into data msg
-      units.update_msg(msg); // populate data msg
+      units.prepare();           // do any prep required to render next frame
+      execute(std::move(peaks)); // render frame into data msg
+      units.update_msg(msg);     // populate data msg
     }
   }
 

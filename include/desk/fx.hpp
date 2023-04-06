@@ -81,11 +81,11 @@ public:
   /// @brief FX subclasses override to execute when FX called for the first time
   virtual void once() noexcept {}
 
-  /// @brief Called for every frame to render the embedded peaks
-  /// @param frame Audio frame containing peaks for rendering
-  /// @param msg Data message to populate (sent to remote render controller)
-  /// @return boolean indicating if FX is complete (safe to switch to another FX)
-  bool render(frame_t frame, DataMsg &msg) noexcept;
+  /// @brief translate Peaks into unit actions
+  /// @param peaks Peaks to consider
+  /// @param msg DataMsg to update (will be sent to ruth)
+  /// @return boolean indicating if the FX is finished
+  bool render(Peaks &&peaks, DataMsg &msg) noexcept;
 
   /// @brief The next FX suggested by external configuration file
   /// @return name, as a string, of the suggested FX
@@ -97,7 +97,7 @@ public:
 protected:
   /// @brief Execute the FX subclass for audio peaks for a single frame
   /// @param peaks The audio peaks to use for FX execution
-  virtual void execute(Peaks &peaks) noexcept;
+  virtual void execute(Peaks peaks) noexcept;
 
   /// @brief Set the FX as complete
   /// @param is_finished Boolean indicating the finished status of the FX

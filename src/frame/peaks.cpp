@@ -30,6 +30,8 @@ namespace pierre {
 bool Peaks::emplace(Magnitude m, Frequency f, CHANNEL channel) noexcept {
   auto rc = false;
 
+  if (peaks_map.empty()) peaks_map.assign(2, peak_map_t());
+
   const auto ml = PeakConfig::mag_limits();
 
   auto &map = peaks_map[channel];
