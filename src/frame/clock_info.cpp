@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "clock_info.hpp"
+#include "base/clock_now.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 
@@ -39,13 +40,15 @@ const string ClockInfo::inspect() const {
   fmt::format_to(w, gen_fmt_str, "now_ns", pet::now_monotonic());
   fmt::format_to(w, gen_fmt_str, "mastershipStart", mastershipStartTime);
   fmt::format_to(w, gen_fmt_str, "sampleTime", sampleTime);
-  fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for(now)));
+  fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for()));
   fmt::format_to(w, gen_fmt_str, "sample_age", sample_age.humanize());
 
   return msg;
 };
 
-Nanos ClockInfo::master_for(Nanos ref) const noexcept {
+Nanos ClockInfo::master_for() const noexcept {
+  auto ref = Nanos{clock_now::mono::ns()};
+
   return pet::not_zero(mastershipStartTime) ? pet::elapsed(mastershipStartTime, ref)
                                             : Nanos::zero();
 }

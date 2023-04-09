@@ -34,7 +34,7 @@ class Standby : public FX {
 public:
   Standby(auto &executor) noexcept : FX(executor, fx::STANDBY) { load_config(); }
 
-  void execute(Peaks peaks) noexcept override;
+  void execute(const Peaks &peaks) noexcept override;
 
   void once() noexcept override final;
 

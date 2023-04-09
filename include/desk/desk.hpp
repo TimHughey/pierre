@@ -23,12 +23,14 @@
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
+#include "frame/reel.hpp"
 
+#include <atomic>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
+#include <boost/asio/system_timer.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <memory>
@@ -36,19 +38,18 @@
 namespace pierre {
 
 namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using steady_timer = asio::steady_timer;
+using system_timer = asio::system_timer;
 using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Desk {
 
 public:
   Desk(MasterClock *master_clock) noexcept; // must be defined in .cpp to hide FX includes
-  ~Desk() noexcept;
+
+  ~Desk() noexcept; // must be in .cpp (incomplete types)
 
   void anchor_reset() noexcept;
   void anchor_save(AnchorData &&ad) noexcept;
@@ -59,36 +60,56 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
+  void set_render(bool enable) noexcept {
+    auto was_active = std::atomic_exchange(&render_active, enable);
+
+    if (was_active == false) {
+      const auto now = system_clock::now();
+
+      frame_timer.expires_at(now);
+      frame_timer.async_wait([this](const error_code &ec) {
+        if (!ec) asio::post([this]() { render(); });
+      });
+    }
+  }
+
   void resume() noexcept;
 
-  void spool(bool enable = true) noexcept; // must be in .cpp for Racked
-
 private:
-  void frame_loop() noexcept;
-  void handle_frame(frame_t frame) noexcept;
-
   bool fx_finished() const noexcept;
-  void fx_select(const frame::state &frame_state, bool silent) noexcept;
+  void fx_select(Frame *frame) noexcept;
+
+  void next_reel() noexcept;
+
+  void render() noexcept;
+  void render_start() noexcept;
+
+  void set_active_reel(std::unique_ptr<Reel> &&reel) noexcept {
+    std::exchange(active_reel, std::forward<std::unique_ptr<Reel>>(reel));
+  }
+
+  bool shutdown_if_all_stop() noexcept;
 
 private:
   // order dependent
   const int thread_count;
   asio::thread_pool thread_pool;
   work_guard_tp guard;
-  strand_tp frame_strand;
-  strand_tp sync_strand;
-  steady_timer frame_timer;
+  system_timer frame_timer;
   std::unique_ptr<Racked> racked;
   MasterClock *master_clock;
-  std::unique_ptr<Anchor> anchor;
 
   // order independent
+  std::atomic_bool render_active;
+  std::unique_ptr<Anchor> anchor;
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<desk::FX> active_fx{nullptr};
+  std::unique_ptr<Reel> active_reel;
+
+  Elapsed render_elapsed;
 
 public:
   static constexpr csv module_id{"desk"};
-  static constexpr auto TASK_NAME{"desk"};
 };
 
 } // namespace pierre

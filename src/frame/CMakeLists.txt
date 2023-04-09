@@ -45,11 +45,9 @@ add_library(${__target}
 
   # the frame (from raw to dsp complete)
   frame.cpp
-  silent_frame.cpp
   state.cpp
 
   # racks and reels of frames
-  silent_reel.cpp
   racked.cpp
   reel.cpp
 

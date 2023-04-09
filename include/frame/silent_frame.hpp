@@ -24,49 +24,11 @@ namespace pierre {
 
 class SilentFrame : public Frame {
 private:
-  SilentFrame() noexcept : Frame(frame::DSP_COMPLETE) {
-
-    // lambda since we may need to recalculate
-    auto calc_diff = [](const auto frame_num) {
-      const auto now = Nanos(clock_now::mono::ns());
-
-      return (epoch + (InputInfo::lead_time * frame_num)) - now;
-    };
-
-    Nanos diff = calc_diff(frame_num);
-
-    // silent frames are only READY or FUTURE (never OUTDATED)
-    // if OUTDATED then there has been a gap in the silence frame sequence
-    // so reset the epoch / frame_num and recalculate diff before calling state_now()
-    if (diff < Nanos::zero()) {
-      reset();
-
-      diff = calc_diff(frame_num);
-    }
-
-    state_now(diff);
-    ++frame_num;
-  }
+  SilentFrame() noexcept : Frame(frame::READY) { silent(true); }
 
 public:
   static auto create() noexcept { return std::shared_ptr<SilentFrame>(new SilentFrame()); }
-
-  static void reset() noexcept {
-    frame_num = 0;
-    epoch = Nanos{clock_now::mono::ns()};
-  }
-
-public:
-  virtual Nanos sync_wait_recalc() noexcept final {
-    return set_sync_wait(sync_wait() - (Nanos)since_birth);
-  }
-
-private:
-  Elapsed since_birth; // elapsed time since frame creation, used for recalc
-
-private:
-  static Nanos epoch;
-  static int64_t frame_num;
+  virtual Nanos sync_wait_recalc() noexcept override { return Nanos::zero(); }
 
 public:
   static constexpr csv module_id{"frame.silent"};

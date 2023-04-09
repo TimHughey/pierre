@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
@@ -36,6 +37,7 @@
 #include <boost/asio/system_timer.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
+#include <future>
 #include <list>
 #include <memory>
 #include <optional>
@@ -54,15 +56,16 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using racked_reels = std::list<Reel>;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 using system_timer = asio::system_timer;
 using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Racked {
+private:
+  using mem_order = std::memory_order;
 
 public:
-  Racked(MasterClock *master_clock, Anchor *anchor) noexcept;
+  Racked() noexcept;
   ~Racked() noexcept;
 
   void flush(FlushInfo &&request) noexcept;
@@ -70,49 +73,21 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  template <typename Executor, typename CompletionToken>
-  void next_frame(Executor &handler_executor, CompletionToken &&token) noexcept {
-    constexpr csv fn_id{"next_frame"};
+  std::future<std::unique_ptr<Reel>> next_reel() noexcept;
 
-    auto initiation = [](auto &&completion_handler, Executor &handler_executor, Racked &self) {
-      struct ic_handler {
-        Executor &handler_executor;
-        Racked &self;
-        typename std::decay<decltype(completion_handler)>::type handler;
-
-        void operator()() noexcept { handler(self.next_frame_no_wait()); }
-
-        auto get_executor() const noexcept {
-          return asio::get_associated_executor(handler, handler_executor.get_executor());
-        }
-
-        auto get_allocator() const noexcept {
-          return asio::get_associated_allocator(handler, handler_executor.get_allocator());
-        }
-
-      }; // end struct ic_handler
-
-      asio::dispatch(self.racked_strand,
-                     ic_handler{handler_executor, self,
-                                std::forward<decltype(completion_handler)>(completion_handler)});
-    }; // end initiation
-
-    return asio::async_initiate<CompletionToken, void(frame_t frame)>(
-        initiation, token, std::ref(handler_executor), std::ref(*this));
-  }
-
-  void spool(bool enable = true) noexcept { std::atomic_exchange(&spool_frames, enable); }
+  ssize_t reel_count() const noexcept { return std::ssize(reels); }
+  ssize_t wip_reels() const noexcept { return wip->size(); }
 
 private:
   enum log_rc { NONE, RACKED };
 
 private:
   void log_racked(log_rc rc = log_rc::NONE) const noexcept;
+  void rack_wip(frame_t frame = frame_t()) noexcept;
 
-  void monitor_wip() noexcept;
-  frame_t next_frame_no_wait() noexcept;
-
-  void rack_wip() noexcept;
+  std::unique_ptr<Reel> take_wip() noexcept {
+    return std::exchange(wip, std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES));
+  }
 
 private:
   // order dependent
@@ -121,22 +96,18 @@ private:
   work_guard_tp guard;
   strand_tp flush_strand;
   strand_tp handoff_strand;
-  strand_tp wip_strand;
   strand_tp racked_strand;
-  system_timer wip_timer;
-  MasterClock *master_clock;
-  Anchor *anchor;
-
-  // order independent
-  FlushInfo flush_request;
-  std::atomic_bool ready{false};
-  std::atomic_bool spool_frames{false};
+  std::unique_ptr<Reel> wip;
   std::unique_ptr<Av> av;
 
-  ClockInfo clock_info;
+  // order independent
+  Elapsed recent_handoff;
+  FlushInfo flush_request;
+  std::atomic_bool spool_frames{false};
+  std::atomic<ssize_t> _reel_count{0};
+  std::list<std::unique_ptr<Reel>> reels;
 
-  racked_reels racked;
-  Reel wip;
+  ClockInfo clock_info;
 
 public:
   static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};

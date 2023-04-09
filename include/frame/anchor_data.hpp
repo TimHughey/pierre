@@ -24,10 +24,6 @@
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
 
-#include <any>
-#include <tuple>
-#include <utility>
-
 namespace pierre {
 
 struct AnchorData {
@@ -63,26 +59,20 @@ struct AnchorData {
 
   bool empty() const { return !clock_id; }
 
-  bool master_for_at_least(const auto master_min) const {
+  bool master_for_at_least(const auto master_min) const noexcept {
     return (master_for == Nanos::zero()) ? false : master_for >= master_min;
   }
 
   bool match_clock_id(const auto &to_match) const noexcept { return clock_id == to_match.clock_id; }
 
-  bool match_details(const AnchorData &ad) const {
+  bool match_details(const AnchorData &ad) const noexcept {
     return (anchor_time == ad.anchor_time) || (rtp_time == ad.rtp_time);
   }
 
-  void reset() { *this = AnchorData(); }
-
-  void set_master_for(const ClockInfo &clock) {
-    if (match_clock_id(clock)) {
-      master_for = clock.master_for();
-    }
-  }
-
 private:
-  static Nanos nano_fracs(uint64_t fracs) { return Nanos(((fracs >> 32) * qpow10(9)) >> 32); }
+  static Nanos nano_fracs(uint64_t fracs) noexcept {
+    return Nanos(((fracs >> 32) * qpow10(9)) >> 32);
+  }
 
 public:
   // misc debug

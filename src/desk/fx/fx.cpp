@@ -31,9 +31,9 @@ void FX::ensure_units() noexcept {
   if (units.empty()) units.create_all_from_cfg(); // create the units once
 }
 
-void FX::execute(Peaks peaks) noexcept { peaks.noop(); };
+void FX::execute(const Peaks &peaks) noexcept { peaks.noop(); };
 
-bool FX::render(Peaks &&peaks, DataMsg &msg) noexcept {
+bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
   if (should_render) {
     if (called_once == false) {
       once();                // frame 0 consumed by call to once(), peaks not rendered

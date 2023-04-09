@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/clock_now.hpp"
 #include "base/elapsed.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
@@ -50,11 +49,7 @@ struct PeerInfo {
 
 using Peers = std::vector<string>;
 using PeerList = std::vector<PeerInfo>;
-
 using MasterIP = std::string;
-
-struct ClockInfo;
-using clock_info_future = std::shared_future<ClockInfo>;
 
 struct ClockInfo {
   ClockID clock_id{0};          // current master clock
@@ -84,11 +79,10 @@ struct ClockInfo {
 
   bool is_stable() const { return master_for_at_least(AGE_STABLE); }
 
-  Nanos master_for(Nanos ref = Nanos{clock_now::mono::ns()}) const noexcept;
+  Nanos master_for() const noexcept;
 
-  bool master_for_at_least(const Nanos min,
-                           Nanos ref = Nanos{clock_now::mono::ns()}) const noexcept {
-    return (master_for(ref) >= min) ? true : false;
+  bool master_for_at_least(const Nanos min) const noexcept {
+    return (master_for() >= min) ? true : false;
   }
 
   bool match_clock_id(const ClockID id) const { return id == clock_id; }
@@ -106,6 +100,6 @@ private:
   static constexpr csv module_id{"frame.clock_info"};
 };
 
-} // namespace pierre
+typedef const ClockInfo ClockInfoConst;
 
-;
+} // namespace pierre

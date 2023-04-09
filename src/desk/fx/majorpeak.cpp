@@ -42,7 +42,7 @@ namespace {
 namespace stats = pierre::stats;
 }
 
-void MajorPeak::execute(Peaks peaks) noexcept {
+void MajorPeak::execute(const Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
   if (ConfigWatch::has_changed(cfg_changed)) {
@@ -65,7 +65,7 @@ void MajorPeak::execute(Peaks peaks) noexcept {
   // Stats::write(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
 }
 
-void MajorPeak::handle_el_wire(Peaks &peaks) {
+void MajorPeak::handle_el_wire(const Peaks &peaks) {
 
   // create handy array of all elwire units
   std::array elwires{units.get<Dimmable>(unit::EL_DANCE), units.get<Dimmable>(unit::EL_ENTRY)};
@@ -83,7 +83,7 @@ void MajorPeak::handle_el_wire(Peaks &peaks) {
   }
 }
 
-void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
+void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
   auto fill = units.get<PinSpot>(unit::FILL_SPOT);
   auto cfg = pspot_cfg_map.at("fill pinspot");
 
@@ -150,7 +150,7 @@ void MajorPeak::handle_fill_pinspot(Peaks &peaks) {
   }
 }
 
-void MajorPeak::handle_main_pinspot(Peaks &peaks) {
+void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
   auto main = units.get<PinSpot>(unit::MAIN_SPOT);
   const auto &cfg = pspot_cfg_map.at("main pinspot");
 

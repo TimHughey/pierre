@@ -43,7 +43,7 @@ public:
     load_config();
   }
 
-  void execute(Peaks peaks) noexcept override;
+  void execute(const Peaks &peaks) noexcept override;
 
   void once() noexcept override {
     units(unit::AC_POWER)->activate();
@@ -57,9 +57,9 @@ private:
   using RefColors = std::vector<Color>;
 
 private:
-  void handle_el_wire(Peaks &peaks);
-  void handle_fill_pinspot(Peaks &peaks);
-  void handle_main_pinspot(Peaks &peaks);
+  void handle_el_wire(const Peaks &peaks);
+  void handle_fill_pinspot(const Peaks &peaks);
+  void handle_main_pinspot(const Peaks &peaks);
 
   bool load_config() noexcept;
 

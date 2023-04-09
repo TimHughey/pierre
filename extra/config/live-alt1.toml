@@ -38,6 +38,7 @@ resume = false
 shutdown = false
 standby = true
 reel = true
+next_reel = false
 
 [logger.desk.dmx_ctrl]
 run = false

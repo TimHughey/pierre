@@ -87,20 +87,23 @@ public:
     state.record_state();
   }
 
-  bool silent() const noexcept { return peaks.silence(); }
+  bool silent(bool is_silent) noexcept {
+    silence = is_silent;
+    return silence;
+  }
 
-  frame::state state_now(AnchorLast anchor, const Nanos &lead_time = InputInfo::lead_time) noexcept;
+  bool silent() const noexcept { return silence; }
+
+  frame::state state_now(const AnchorLast anchor) noexcept;
   frame::state state_now(const Nanos diff, const Nanos &lead_time = InputInfo::lead_time) noexcept;
 
   // sync_wait() and related functions can be overriden by subclasses
-  virtual Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time_min); }
-  static bool sync_wait_ok(frame_t f) noexcept { return f && f->sync_wait_ok_safe(); }
-  bool sync_wait_ok_safe() const noexcept { return _sync_wait.has_value(); }
+  virtual Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time); }
 
   // returns sync_wait unchanged if anchor is not available
   virtual Nanos sync_wait_recalc() noexcept;
 
-  Peaks &&take_peaks() noexcept { return std::move(peaks); }
+  const Peaks &get_peaks() noexcept { return peaks; }
 
   // misc debug
   const string inspect(bool full = false) const noexcept;
@@ -141,6 +144,7 @@ public:
 protected:
   // calculated by state_now() or recalculated by sync_wait_recalc()
   std::optional<Nanos> _sync_wait;
+  bool silence{false};
 
 private:
   // order independent

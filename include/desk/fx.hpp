@@ -85,7 +85,7 @@ public:
   /// @param peaks Peaks to consider
   /// @param msg DataMsg to update (will be sent to ruth)
   /// @return boolean indicating if the FX is finished
-  bool render(Peaks &&peaks, DataMsg &msg) noexcept;
+  bool render(const Peaks &peaks, DataMsg &msg) noexcept;
 
   /// @brief The next FX suggested by external configuration file
   /// @return name, as a string, of the suggested FX
@@ -97,7 +97,7 @@ public:
 protected:
   /// @brief Execute the FX subclass for audio peaks for a single frame
   /// @param peaks The audio peaks to use for FX execution
-  virtual void execute(Peaks peaks) noexcept;
+  virtual void execute(const Peaks &peaks) noexcept;
 
   /// @brief Set the FX as complete
   /// @param is_finished Boolean indicating the finished status of the FX

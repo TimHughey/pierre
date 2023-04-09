@@ -17,6 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "frame.hpp"
+#include "anchor.hpp"
 #include "anchor_last.hpp"
 #include "av.hpp"
 #include "base/elapsed.hpp"
@@ -151,13 +152,13 @@ bool Frame::decode(Av *av) noexcept {
   return state.deciphered() && av->parse(ptr()) && state.dsp_any();
 }
 
-frame::state Frame::state_now(AnchorLast anchor, const Nanos &lead_time) noexcept {
+frame::state Frame::state_now(const AnchorLast anchor) noexcept {
   if (anchor.ready()) {
     _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
 
     auto diff = _anchor->frame_local_time_diff(timestamp);
 
-    state = state_now(diff, lead_time);
+    state = state_now(diff, InputInfo::lead_time);
   }
 
   return state;
@@ -221,7 +222,7 @@ const string Frame::inspect(bool full) const noexcept {
 
   fmt::format_to(w, "seq_num={:<8} ts={:<12} {:<10}", seq_num, timestamp, state);
 
-  if (sync_wait_ok_safe()) {
+  if (_sync_wait.has_value()) {
     fmt::format_to(w, " sync_wait={}", pet::humanize(sync_wait()));
   }
 

@@ -52,10 +52,12 @@ void Dsp::process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
   });
 }
 
-void Dsp::_process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
+void Dsp::_process(const frame_t frame_ptr, FFT &&left, FFT &&right) noexcept {
+
+  auto &frame = *frame_ptr;
 
   // the caller sets the state to avoid a race condition with async processing
-  frame->state = frame::DSP_IN_PROGRESS;
+  frame.state = frame::DSP_IN_PROGRESS;
 
   // go async and move eveything required into the lambda
   // note: we capture a const shared_ptr to frame since we don't take ownership
@@ -65,25 +67,27 @@ void Dsp::_process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
   // as out of date.  we check the status of the frame between each step to avoid
   // unnecessary processing.
 
-  if (frame->state == frame::DSP_IN_PROGRESS) {
+  if (frame.state == frame::DSP_IN_PROGRESS) {
     // the state hasn't changed, proceed with processing
     left.process();
 
     // check before starting the right channel (left required processing time)
-    if (frame->state == frame::DSP_IN_PROGRESS) right.process();
+    if (frame.state == frame::DSP_IN_PROGRESS) right.process();
 
     // check again since thr right channel also required processing time
-    if (frame->state == frame::DSP_IN_PROGRESS) {
-      left.find_peaks(frame->peaks, Peaks::CHANNEL::LEFT);
+    if (frame.state == frame::DSP_IN_PROGRESS) {
+      left.find_peaks(frame.peaks, Peaks::CHANNEL::LEFT);
 
-      if (frame->state == frame::DSP_IN_PROGRESS) {
-        right.find_peaks(frame->peaks, Peaks::CHANNEL::RIGHT);
+      if (frame.state == frame::DSP_IN_PROGRESS) {
+        right.find_peaks(frame.peaks, Peaks::CHANNEL::RIGHT);
       }
     }
 
+    frame.silent(frame.peaks.silence() && frame.peaks.silence());
+
     // atomically change the state to complete only if
     // it hasn't been changed elsewhere
-    frame->state.store_if_equal(frame::DSP_IN_PROGRESS, frame::DSP_COMPLETE);
+    frame.state.store_if_equal(frame::DSP_IN_PROGRESS, frame::DSP_COMPLETE);
   }
 }
 

@@ -49,7 +49,7 @@ SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcep
   if (request_dict.exists(RATE)) {
     // note: rate is misleading, it is actually the flag that controls playback
     bool rate = request_dict.uint({RATE});
-    desk->spool(rate);
+    desk->set_render(rate);
   } else {
     INFO(module_id, "NOTICE", "rate not present\n");
   }

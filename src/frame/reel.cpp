@@ -17,6 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "frame/reel.hpp"
+#include "frame/anchor.hpp"
+#include "frame/master_clock.hpp"
+#include "frame/silent_frame.hpp"
 #include "lcs/config.hpp"
 #include "lcs/logger.hpp"
 
@@ -28,8 +31,7 @@ uint64_t Reel::next_serial_num{0x1000};
 
 Reel::Reel(ssize_t max_frames) noexcept
     : serial(next_serial_num++), // unique serial num (for debugging)
-      max_frames{max_frames},    // max frames in the reel
-      consumed{0}                // number of consumed frames
+      max_frames{max_frames}     // max frames in the reel
 {}
 
 bool Reel::add(frame_t frame) noexcept {
@@ -54,12 +56,12 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
 
   if (empty() == false) { // reel has frames, attempt to flush
 
-    auto a = peek_next().get(); // reel first frame
-    auto b = peek_last().get(); // reel last frame
+    auto a = front().get();
+    auto b = back().get();
 
     if (flush_info(a) && flush_info(b)) {
       INFO_AUTO("{}\n", *this);
-      consumed = std::ssize(frames); // simulate empty condition (this is quick)
+      consumed = std::ssize(frames);
 
     } else if (flush_info.matches<decltype(a)>({a, b})) {
       INFO_AUTO("SOME {}\n", *this);
@@ -71,6 +73,48 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
   }
 
   return empty();
+}
+
+Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept {
+  static constexpr csv fn_id{"peef_front"};
+
+  next_frame result;
+
+  // we have frames to examine, ensure clock info is good
+  if (!empty() && clk_info.ok()) {
+
+    if (auto anchor_last = anchor->get_data(clk_info); anchor_last.ready()) {
+
+      // search through available frames:
+      //  1. ready or future frames are returned
+      //  2. outdated frames are consumed
+
+      for (auto frame_it = begin(); frame_it != end() && !result.got_frame; frame_it++) {
+        auto frame = *frame_it; // get the actual frame from the iterator
+
+        const auto fstate = frame->state_now(anchor_last);
+
+        // ready or future frames are returned
+        if (fstate.ready_or_future()) {
+
+          // we don't need to look at ready frames again, consume it
+          if (fstate.ready()) consume();
+
+          result = next_frame(true, frame);
+        } else if (fstate.outdated()) {
+          // eat outdated frames
+          consume();
+        } else {
+          INFO_AUTO("encountered {}\n", frame->inspect());
+        }
+      }
+    } // end of anchor check
+  }   // end of non-empty reel processing
+
+  if (!result.got_frame) result.frame = SilentFrame::create();
+
+  // we weren't able to find a useable frame
+  return result;
 }
 
 } // namespace pierre

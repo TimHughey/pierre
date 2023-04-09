@@ -22,46 +22,48 @@
 #include "base/input_info.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
+#include "frame/clock_info.hpp"
+#include "frame/fdecls.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 
-#include <array>
 #include <compare>
-#include <iterator>
+#include <concepts>
 #include <memory>
-#include <optional>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace pierre {
 
-using Frames = std::vector<frame_t>;
-
 /// @brief Container of Frames
 class Reel {
 
-private:
-  static constexpr ssize_t AUDIO_FRAMES{InputInfo::fps}; // two seconds
+public:
+  struct next_frame {
+    bool got_frame{false};
+    frame_t frame;
+
+    inline auto frame_ptr() noexcept { return frame.get(); }
+  };
+
+public:
+  static constexpr ssize_t DEFAULT_MAX_FRAMES{InputInfo::fps}; // two seconds
 
 protected:
-  auto cbegin() const noexcept { return frames.cbegin() + consumed; }
-  auto cend() const noexcept { return frames.cend(); }
-  auto begin() noexcept { return frames.begin() + consumed; }
+  auto &front() noexcept { return frames[consumed]; }
   auto &back() noexcept { return frames.back(); }
+  auto begin() noexcept { return frames.begin() + consumed; }
   auto end() noexcept { return frames.end(); }
-  auto &front() noexcept { return frames.front(); }
 
 public:
   // construct a reel of audio frames
-  Reel(ssize_t max_frames = AUDIO_FRAMES) noexcept;
+  Reel() noexcept {}
+  Reel(ssize_t max_frames) noexcept;
 
   ~Reel() noexcept {}
 
   Reel(Reel &&) = default;
   Reel &operator=(Reel &&) = default;
 
-  friend class Racked;
   friend struct fmt::formatter<Reel>;
 
   bool add(frame_t frame) noexcept;
@@ -71,11 +73,21 @@ public:
     return empty();
   }
 
-  bool empty() const noexcept { return (std::ssize(frames) - consumed) <= 0; }
+  bool empty() const noexcept {
+    if (!serial) return true; // default Reel is always empty
+
+    return frames.empty() || (consumed >= size());
+  }
 
   virtual bool flush(FlushInfo &flush) noexcept; // returns true when reel empty
 
-  bool full() const noexcept { return std::ssize(frames) >= max_frames; }
+  bool full() const noexcept {
+    if (!serial) return true; // default Reel is always full
+
+    return size() >= max_frames;
+  }
+
+  int64_t half_full() const noexcept { return size() >= (max_frames / 2); }
 
   auto operator<=>(const Frame &frame) noexcept {
     if (empty()) return std::weak_ordering::less;
@@ -83,19 +95,13 @@ public:
     return *back() <=> frame;
   }
 
-  /// @brief The next available frame in the reel where the next Frame is adjusted
-  ///        based on consumption (calls to consume())
-  /// @return Raw pointer to the last frame in the reel
-  frame_t &peek_next() noexcept { return frames[consumed]; }
-
-  /// @brief The last Frame in the reel
-  /// @return
-  virtual const frame_t &peek_last() noexcept { return back(); }
+  // note: clk_info must be valid
+  next_frame peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept;
 
   template <typename T = uint64_t> const T serial_num() const noexcept {
-    if constexpr (std::is_same_v<T, uint64_t>) {
+    if constexpr (std::same_as<T, uint64_t>) {
       return serial;
-    } else if constexpr (std::is_same_v<T, string>) {
+    } else if constexpr (std::same_as<T, string>) {
       return fmt::format("{:#5x}", serial);
     } else {
       static_assert(always_false_v<T>, "unhandled reel serial num type");
@@ -104,17 +110,19 @@ public:
 
   virtual bool silence() const noexcept { return false; }
 
-  auto size() const noexcept { return std::ssize(frames) - consumed; }
+  int64_t size() const noexcept {
+    if (serial) return std::ssize(frames);
+
+    return 0;
+  }
 
 protected:
   // order dependent
-  uint64_t serial;
-  ssize_t max_frames;
+  uint64_t serial{0};
+  ssize_t max_frames{0};
+  std::vector<frame_t> frames;
 
-  std::ptrdiff_t consumed;
-
-  // order independent
-  Frames frames;
+  std::ptrdiff_t consumed{0};
 
 private:
   static uint64_t next_serial_num;
@@ -136,16 +144,16 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     const auto size_now = reel.size();
     fmt::format_to(w, "REEL {:#5x} frames={:<3}", reel.serial_num(), size_now);
 
-    if (size_now) {
-      const auto a = reel.peek_next().get(); // reel next frame
-      const auto b = reel.peek_last().get(); // reel last frame
+    if (reel.frames.size() > 0) {
+      const auto a = reel.frames.front().get(); // reel next frame
+      const auto b = reel.frames.back().get();  // reel last frame
 
       const auto a_ts = a->timestamp / 1024;
       const auto b_ts = b->timestamp / 1024;
 
       auto delta = [](auto &v1, auto &v2) { return v1 > v2 ? (v1 - v2) : (v2 - v1); };
 
-      fmt::format_to(w, "seq={:>8}+{:>4}", a->seq_num, delta(a->seq_num, b->seq_num));
+      fmt::format_to(w, "seq={}+{}", a->seq_num, delta(a->seq_num, b->seq_num));
       fmt::format_to(w, " ts={}+{}", a_ts, delta(a_ts, b_ts));
     }
 
