@@ -30,9 +30,10 @@
 #include <atomic>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/system.hpp>
 #include <exception>
 #include <functional>
@@ -47,9 +48,10 @@ namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using steady_timer = asio::steady_timer;
-using ip_address = boost::asio::ip::address;
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-using tcp_socket = boost::asio::ip::tcp::socket;
+using ip_address = asio::ip::address;
+using tcp_endpoint = asio::ip::tcp::endpoint;
+using tcp_socket = asio::ip::tcp::socket;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Desk;
 
@@ -90,16 +92,10 @@ struct stream_info_t {
 class Ctx : public std::enable_shared_from_this<Ctx> {
 
 public:
-  Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept;
+  Ctx(strand_ioc &local_strand, tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock,
+      Desk *desk) noexcept;
 
-  ~Ctx() noexcept {
-    [[maybe_unused]] error_code ec;
-    sock.shutdown(tcp_socket::shutdown_both, ec);
-    sock.close(ec);
-
-    thread_pool.stop();
-    thread_pool.join();
-  }
+  ~Ctx() = default;
 
   void feedback_msg() noexcept;
 
@@ -151,8 +147,7 @@ private:
 
 public:
   // order dependent
-  const int thread_count{1};
-  asio::thread_pool thread_pool;
+  strand_ioc &local_strand;
   tcp_socket sock;
   Sessions *sessions;
   MasterClock *master_clock;

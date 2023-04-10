@@ -38,6 +38,15 @@ namespace rtsp {
 
 // static constexpr ssize_t PACKET_LEN_BYTES{sizeof(uint16_t)};
 
+Audio::Audio(strand_ioc &local_strand, Ctx *ctx) noexcept
+    : ctx(ctx),             // handle Audio for this rtsp CTX
+      streambuf(16 * 1024), // allow buffering of sixteen packets
+      acceptor{local_strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
+      sock(local_strand, ip_tcp::v4()) // overwritten by accepting socket
+{
+  async_accept();
+}
+
 void Audio::async_read() noexcept {
   static constexpr csv fn_id{"async_read"};
 

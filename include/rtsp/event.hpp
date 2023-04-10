@@ -25,8 +25,6 @@
 #include <boost/asio/error.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <memory>
 #include <optional>
@@ -38,20 +36,18 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using ip_tcp = boost::asio::ip::tcp;
-using tcp_acceptor = boost::asio::ip::tcp::acceptor;
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-using tcp_socket = boost::asio::ip::tcp::socket;
+using ip_tcp = asio::ip::tcp;
+using tcp_acceptor = asio::ip::tcp::acceptor;
+using tcp_endpoint = asio::ip::tcp::endpoint;
+using tcp_socket = asio::ip::tcp::socket;
 
 namespace rtsp {
 
 class Event {
 
 public:
-  Event(strand_tp &&strand) noexcept
-      : local_strand(std::move(strand)),                              //
-        acceptor(local_strand, tcp_endpoint(ip_tcp::v4(), ANY_PORT)), //
+  Event(auto &local_strand) noexcept
+      : acceptor(local_strand, tcp_endpoint(ip_tcp::v4(), ANY_PORT)), //
         sock_sess(local_strand, ip_tcp::v4()) {
     async_accept();
   }
@@ -101,7 +97,6 @@ private:
 
 private:
   // order dependent
-  strand_tp local_strand;
   tcp_acceptor acceptor;
   tcp_socket sock_sess; // socket for active session
 

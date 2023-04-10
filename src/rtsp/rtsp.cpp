@@ -40,9 +40,14 @@ Rtsp::Rtsp(asio::io_context &io_ctx) noexcept
       accept_strand(asio::make_strand(io_ctx)),
       // use the created strand
       acceptor{accept_strand, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-      sessions(std::make_unique<rtsp::Sessions>()),        //
-      master_clock(std::make_unique<MasterClock>(io_ctx)), //
-      desk(std::make_unique<Desk>(master_clock.get()))     //
+      // worker strand (Audio, Event, Control)
+      worker_strand(asio::make_strand(io_ctx)),
+      // create Sessions (tracking of Ctx)
+      sessions(std::make_unique<rtsp::Sessions>()),
+      // create MasterClock
+      master_clock(std::make_unique<MasterClock>(io_ctx)),
+      // create Desk
+      desk(std::make_unique<Desk>(master_clock.get())) //
 {
   static constexpr csv fn_id{"init"};
   INFO_INIT("sizeof={}\n", sizeof(Rtsp));
@@ -75,11 +80,11 @@ void Rtsp::async_accept() noexcept {
     if ((ec == errc::success) && acceptor.is_open()) {
       desk->resume();
 
-      auto ctx = std::make_shared<rtsp::Ctx>( //
-          std::move(peer),                    //
-          sessions.get(),                     //
-          master_clock.get(),                 //
-          desk.get()                          //
+      auto ctx = std::make_shared<rtsp::Ctx>(worker_strand,      // worker strand
+                                             std::move(peer),    //
+                                             sessions.get(),     //
+                                             master_clock.get(), //
+                                             desk.get()          //
       );
 
       sessions->add(ctx);

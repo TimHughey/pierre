@@ -23,11 +23,11 @@
 
 #include <boost/asio/error.hpp>
 #include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/streambuf.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <memory>
 #include <optional>
@@ -39,27 +39,19 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using ip_address = boost::asio::ip::address;
-using ip_tcp = boost::asio::ip::tcp;
-using tcp_acceptor = boost::asio::ip::tcp::acceptor;
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-using tcp_socket = boost::asio::ip::tcp::socket;
+using ip_address = asio::ip::address;
+using ip_tcp = asio::ip::tcp;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
+using tcp_acceptor = asio::ip::tcp::acceptor;
+using tcp_endpoint = asio::ip::tcp::endpoint;
+using tcp_socket = asio::ip::tcp::socket;
 
 namespace rtsp {
 
 class Audio {
 
 public:
-  Audio(auto &&strand, Ctx *ctx) noexcept
-      : local_strand(std::move(strand)), ctx(ctx),
-        streambuf(16 * 1024), // allow buffering of sixteen packets
-        acceptor{local_strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
-        sock(local_strand, ip_tcp::v4()) // overwritten by accepting socket
-  {
-    async_accept();
-  }
-
+  Audio(strand_ioc &local_strand, Ctx *ctx) noexcept;
   ~Audio() = default;
 
   Port port() noexcept { return acceptor.local_endpoint().port(); }
@@ -87,7 +79,6 @@ private:
 
 private:
   // order dependent
-  strand_tp local_strand;
   Ctx *ctx;
   asio::streambuf streambuf;
   tcp_acceptor acceptor;

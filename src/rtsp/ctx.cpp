@@ -60,15 +60,15 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock,
   return msg;
 }
 
-Ctx::Ctx(tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock, Desk *desk) noexcept
-    : thread_pool(thread_count),   //
-      sock(thread_pool),           //
-      sessions(sessions),          //
-      master_clock(master_clock),  //
-      desk(desk),                  //
-      aes(),                       //
-      feedback_timer(thread_pool), //
-      teardown_in_progress(false)  //
+Ctx::Ctx(strand_ioc &local_strand, tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock,
+         Desk *desk) noexcept
+    : local_strand(local_strand), sock(local_strand), //
+      sessions(sessions),                             //
+      master_clock(master_clock),                     //
+      desk(desk),                                     //
+      aes(),                                          //
+      feedback_timer(local_strand),                   //
+      teardown_in_progress(false)                     //
 {
   static constexpr csv fn_id{"construct"};
   INFO_INIT("sizeof={:>5} socket={}\n", sizeof(Ctx), peer.native_handle());
@@ -156,7 +156,7 @@ void Ctx::run() noexcept {
 
   // once we've fired up the thread immediately begin the message processing loop
   // by posting work to the io_ctx
-  asio::post(thread_pool, [self = shared_from_this()]() mutable { self->msg_loop(self); });
+  asio::post(local_strand, [self = shared_from_this()]() mutable { self->msg_loop(self); });
 }
 
 Port Ctx::server_port(ports_t server_type) noexcept {
@@ -165,17 +165,17 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   switch (server_type) {
 
   case ports_t::AudioPort:
-    audio_srv = std::make_shared<Audio>(asio::make_strand(thread_pool), this);
+    audio_srv = std::make_shared<Audio>(local_strand, this);
     port = audio_srv->port();
     break;
 
   case ports_t::ControlPort:
-    control_srv = std::make_shared<Control>(asio::make_strand(thread_pool));
+    control_srv = std::make_shared<Control>(local_strand);
     port = control_srv->port();
     break;
 
   case ports_t::EventPort:
-    event_srv = std::make_shared<Event>(asio::make_strand(thread_pool));
+    event_srv = std::make_shared<Event>(local_strand);
     port = event_srv->port();
     break;
   }

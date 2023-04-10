@@ -60,6 +60,7 @@ private:
   // order dependent
   strand_ioc accept_strand;
   tcp_acceptor acceptor;
+  strand_ioc worker_strand;
   std::unique_ptr<rtsp::Sessions> sessions;
   std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;
