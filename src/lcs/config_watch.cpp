@@ -28,8 +28,8 @@ namespace shared {
 std::unique_ptr<ConfigWatch> config_watch;
 }
 
-ConfigWatch::ConfigWatch(asio::thread_pool &thread_pool) noexcept
-    : file_timer(thread_pool),               //
+ConfigWatch::ConfigWatch(asio::io_context &io_ctx) noexcept
+    : file_timer(io_ctx),                    //
       file_path(shared::config->file_path()) //
 {
   std::error_code ec;

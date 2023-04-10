@@ -30,10 +30,8 @@
 #include "silent_frame.hpp"
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <boost/asio/append.hpp>
-#include <boost/asio/dispatch.hpp>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -43,7 +41,6 @@ namespace pierre {
 Racked::Racked() noexcept
     : thread_count(config_threads<Racked>(3)),               // thread count
       thread_pool(thread_count),                             //
-      guard(asio::make_work_guard(thread_pool)),             // ensure io_ctx has work
       flush_strand(asio::make_strand(thread_pool)),          // ensure flush requests are serialized
       handoff_strand(asio::make_strand(thread_pool)),        // unprocessed frame 'queue'
       racked_strand(asio::make_strand(thread_pool)),         // guard racked
@@ -66,7 +63,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
 
   // post the flush request to the flush strand to serialize flush requests
   // and guard changes to flush request
-  asio::dispatch(flush_strand, [this, request = std::move(request)]() mutable {
+  asio::post(flush_strand, [this, request = std::move(request)]() mutable {
     // record the flush request to check incoming frames (guarded by flush_strand)
     std::exchange(flush_request, std::move(request));
 
@@ -74,7 +71,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
     rack_wip();
 
     // start the flush on the racked strand to prevent data races
-    asio::dispatch(racked_strand, [this]() {
+    asio::post(racked_strand, [this]() {
       const auto initial_reels = reel_count();
       int64_t flush_count{0};
 
@@ -98,7 +95,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
         // we use the handoff_strand for the dirty business of logging and stats because it
         // is OK if inbound frame processing slows down a bit
 
-        asio::dispatch(handoff_strand, [=, reels_now = reel_count()]() {
+        asio::post(handoff_strand, [=, reels_now = reel_count()]() {
           INFO_AUTO("flush_count={} reels_remaining={}\n", flush_count, reels_now);
 
           Stats::write(stats::REELS_FLUSHED, flush_count);
@@ -208,7 +205,7 @@ std::future<std::unique_ptr<Reel>> Racked::next_reel() noexcept {
   auto prom = std::promise<std::unique_ptr<Reel>>();
   auto fut = prom.get_future();
 
-  asio::dispatch(racked_strand, [this, prom = std::move(prom)]() mutable {
+  asio::post(racked_strand, [this, prom = std::move(prom)]() mutable {
     if (reel_count() > 0) {
 
       // set the promise as quickly as possible
@@ -235,7 +232,7 @@ std::future<std::unique_ptr<Reel>> Racked::next_reel() noexcept {
 void Racked::rack_wip(frame_t frame) noexcept {
   if (wip->size() > 0) {
 
-    asio::dispatch(racked_strand, [=, this]() mutable {
+    asio::post(racked_strand, [=, this]() mutable {
       reels.emplace_back(std::move(take_wip()));
 
       if (frame) wip->add(frame);

@@ -25,7 +25,6 @@
 #include <atomic>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
@@ -45,7 +44,6 @@ namespace errc = boost::system::errc;
 using error_code = boost::system::error_code;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 using steady_timer = asio::steady_timer;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;

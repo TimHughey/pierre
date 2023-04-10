@@ -24,10 +24,9 @@
 #include "lcs/stats_v.hpp"
 
 #include <InfluxDBFactory.h>
-#include <atomic>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system/error_code.hpp>
 #include <chrono>
 #include <cmath>
@@ -40,7 +39,7 @@ namespace pierre {
 
 namespace asio = boost::asio;
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Stats;
 
@@ -51,7 +50,7 @@ extern std::unique_ptr<Stats> stats;
 class Stats {
 
 public:
-  Stats(asio::thread_pool &thread_pool) noexcept;
+  Stats(asio::io_context &io_ctx) noexcept;
   ~Stats() = default;
 
   template <typename T>
@@ -106,8 +105,8 @@ private:
 
 private:
   // order dependent
-  strand_tp stats_strand;
-  std::atomic_bool enabled{false};
+  strand_ioc stats_strand;
+  bool enabled{false};
   const string db_uri;
   int batch_of;
   std::map<stats::stats_v, string> val_txt;

@@ -27,8 +27,12 @@
 
 #include "arpa/inet.h"
 #include <ArduinoJson.h>
+#include <boost/system/errc.hpp>
 
 namespace pierre {
+
+namespace errc = boost::system::errc;
+
 namespace desk {
 
 class MsgOut : public Msg {

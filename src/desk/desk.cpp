@@ -26,6 +26,7 @@
 #include "frame/anchor_last.hpp"
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
+#include "frame/master_clock.hpp"
 #include "frame/racked.hpp"
 #include "frame/silent_frame.hpp"
 #include "frame/state.hpp"
@@ -34,9 +35,7 @@
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
-#include <frame/master_clock.hpp>
 
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/post.hpp>
 #include <functional>
 #include <ranges>
@@ -47,8 +46,6 @@ namespace pierre {
 Desk::Desk(MasterClock *master_clock) noexcept
     : // setup the thread pool
       thread_count(config_threads<Desk>(1)), thread_pool(thread_count),
-      // TODO:  do we need a work guard?
-      guard(asio::make_work_guard(thread_pool)),
       // set the frame_timer start time to now, we'll adjust it later
       frame_timer(thread_pool, system_clock::now()),
       // ensure Racked is not allocated
@@ -56,8 +53,8 @@ Desk::Desk(MasterClock *master_clock) noexcept
       // cache the MasterClock pointer
       master_clock(master_clock) //
 {
-  INFO_INIT("sizeof={:>5} lead_time_min={} render_active.is_lock_free={}\n", sizeof(Desk),
-            pet::humanize(InputInfo::lead_time_min), render_active.is_lock_free());
+  INFO_INIT("sizeof={:>5} lead_time_min={} threads={}\n", sizeof(Desk),
+            pet::humanize(InputInfo::lead_time_min), thread_count);
 
   resume();
 }
@@ -170,8 +167,9 @@ void Desk::render() noexcept {
     // and to maximize sync
     if (frame->state.future()) {
       if (const auto sync_wait = frame->sync_wait_recalc(); sync_wait > InputInfo::lead_time) {
-        INFO_AUTO("adjusting frame sync seq_num={} {}\n", //
-                  frame->seq_num, pet::as<Micros>(sync_wait - InputInfo::lead_time));
+        const auto adjust = sync_wait - InputInfo::lead_time;
+        Stats::write(stats::FRAME_TIMER_ADJUST, adjust);
+
         next_at = last_at + sync_wait;
       }
     }
@@ -208,7 +206,7 @@ void Desk::resume() noexcept {
 
   INFO_AUTO("requested, thread_count={}\n", thread_count);
 
-  asio::dispatch(thread_pool, [this]() {
+  asio::post(thread_pool, [this]() {
     std::exchange(anchor, std::make_unique<Anchor>());
     std::exchange(racked, std::make_unique<Racked>()); // ensure Racked is running
     std::exchange(active_reel, std::make_unique<Reel>());

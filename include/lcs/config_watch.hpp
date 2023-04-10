@@ -21,9 +21,9 @@
 #include "base/types.hpp"
 #include "lcs/types.hpp"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system/error_code.hpp>
 #include <filesystem>
 #include <future>
@@ -35,7 +35,6 @@ namespace pierre {
 namespace asio = boost::asio;
 using error_code = boost::system::error_code;
 using steady_timer = boost::asio::steady_timer;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 
 class ConfigWatch;
 
@@ -45,7 +44,7 @@ extern std::unique_ptr<ConfigWatch> config_watch;
 
 class ConfigWatch {
 public:
-  ConfigWatch(asio::thread_pool &thread_pool) noexcept;
+  ConfigWatch(asio::io_context &io_ctx) noexcept;
   ~ConfigWatch() noexcept {
     [[maybe_unused]] error_code ec;
     file_timer.cancel(ec);

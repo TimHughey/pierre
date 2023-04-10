@@ -26,13 +26,12 @@
 #include "frame/reel.hpp"
 
 #include <atomic>
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/system_timer.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
+#include <boost/system/error_code.hpp>
 #include <memory>
 
 namespace pierre {
@@ -42,7 +41,6 @@ namespace asio = boost::asio;
 using error_code = boost::system::error_code;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 using system_timer = asio::system_timer;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Desk {
 
@@ -94,7 +92,6 @@ private:
   // order dependent
   const int thread_count;
   asio::thread_pool thread_pool;
-  work_guard_tp guard;
   system_timer frame_timer;
   std::unique_ptr<Racked> racked;
   MasterClock *master_clock;

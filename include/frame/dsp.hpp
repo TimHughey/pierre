@@ -25,7 +25,6 @@
 
 #include <array>
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <memory>
@@ -37,7 +36,6 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Dsp {
 
@@ -52,13 +50,11 @@ private:
   const uint32_t concurrency_factor;
   const uint32_t thread_count;
   asio::thread_pool thread_pool;
-  work_guard_tp guard;
 
 private:
   void _process(const frame_t frame, FFT &&left, FFT &&right) noexcept;
 
 public:
-  static constexpr csv thread_prefix{"dsp"};
   static constexpr csv module_id{"frame.dsp"};
 };
 

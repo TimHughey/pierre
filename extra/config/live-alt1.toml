@@ -115,7 +115,6 @@ dsp = { concurrency_factor = 5 } # num threads (hw_concurrency * factor / 10)
 host = "127.0.0.1"              # nqptp host
 info = { min_wait_frames = 12 } # wait frames before returning no clock
 shm_name = "/nqptp"             # path to nqptp shared memory directory
-threads = 1
 
 [frame.racked]
 threads = 2
@@ -125,7 +124,7 @@ floor = 0.9
 ceiling = 128.0
 
 [fx.majorpeak]
-silence = { timeout = { seconds = 13 } }
+silence = { timeout = { seconds = 20 } }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }
@@ -179,4 +178,4 @@ service = "_ruth._tcp"    # service advertised by rendering devices
 audio = { buffer_size = { bytes = 0x800000 } }
 connection = { timeout_ms = 30_000 }
 saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }
-threads = 2
+threads = 1

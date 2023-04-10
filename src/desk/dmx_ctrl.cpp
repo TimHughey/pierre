@@ -131,7 +131,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
               // serializeJsonPretty(doc, pbuf.data(), pbuf.size());
               // INFO_AUTO("\n{}\n", pbuf.data());
 
-              const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0);
+              const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0) - InputInfo::lead_time;
               Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
 
               Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());

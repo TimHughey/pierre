@@ -35,9 +35,8 @@ std::unique_ptr<Rtsp> rtsp;
 }
 
 Rtsp::Rtsp() noexcept
-    : thread_count(config_threads<Rtsp>(2)),          //
-      thread_pool(thread_count),                      //
-      work_guard(asio::make_work_guard(thread_pool)), //
+    : thread_count(config_threads<Rtsp>(2)), //
+      thread_pool(thread_count),             //
       acceptor{thread_pool, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
       sessions(std::make_unique<rtsp::Sessions>()),             //
       master_clock(std::make_unique<MasterClock>(thread_pool)), //
@@ -59,6 +58,9 @@ Rtsp::~Rtsp() noexcept {
   master_clock.reset();
 
   sessions.reset();
+
+  thread_pool.stop();
+  thread_pool.join();
 }
 
 void Rtsp::async_accept() noexcept {

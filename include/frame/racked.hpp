@@ -30,9 +30,7 @@
 
 #include <algorithm>
 #include <atomic>
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/system_timer.hpp>
 #include <boost/asio/thread_pool.hpp>
@@ -40,10 +38,6 @@
 #include <future>
 #include <list>
 #include <memory>
-#include <optional>
-#include <ranges>
-#include <shared_mutex>
-#include <system_error>
 
 namespace pierre {
 
@@ -58,7 +52,6 @@ namespace errc = boost::system::errc;
 using error_code = boost::system::error_code;
 using strand_tp = asio::strand<asio::thread_pool::executor_type>;
 using system_timer = asio::system_timer;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 
 class Racked {
 private:
@@ -93,7 +86,6 @@ private:
   // order dependent
   const int thread_count;
   asio::thread_pool thread_pool;
-  work_guard_tp guard;
   strand_tp flush_strand;
   strand_tp handoff_strand;
   strand_tp racked_strand;

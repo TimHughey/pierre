@@ -29,6 +29,7 @@
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/system/error_code.hpp>
 #include <cstdio>
 #include <cstdlib>
@@ -164,13 +165,10 @@ int App::main(int argc, char *argv[]) {
   //// proceed with startup as either a background or foreground process
   ////
 
-  asio::thread_pool thread_pool(1);
-  work_guard.emplace(asio::make_work_guard(thread_pool));
-
   shared::logger = std::make_unique<Logger>();
 
-  signal_set_ignore.emplace(thread_pool, SIGHUP);
-  signal_set_shutdown.emplace(thread_pool, SIGINT);
+  signal_set_ignore.emplace(io_ctx, SIGHUP);
+  signal_set_shutdown.emplace(io_ctx, SIGINT);
 
   signals_ignore();   // ignore certain signals
   signals_shutdown(); // catch certain signals for shutdown
@@ -179,12 +177,12 @@ int App::main(int argc, char *argv[]) {
 
   INFO(Config::module_id, "init", "{}\n", config()->init_msg);
 
-  shared::config_watch = std::make_unique<ConfigWatch>(thread_pool);
-  shared::stats = std::make_unique<Stats>(thread_pool);
+  shared::config_watch = std::make_unique<ConfigWatch>(io_ctx);
+  shared::stats = std::make_unique<Stats>(io_ctx);
   shared::mdns = std::make_unique<mDNS>();
   shared::rtsp = std::make_unique<Rtsp>();
 
-  thread_pool.join(); // main process waits for thread_pool to complete
+  io_ctx.run();
 
   return 0;
 }
@@ -239,6 +237,8 @@ void App::signals_shutdown() noexcept {
     shared::stats.reset();
     shared::config_watch.reset();
     shared::config.reset();
+
+    io_ctx.stop();
   });
 }
 

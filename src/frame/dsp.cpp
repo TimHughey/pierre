@@ -19,8 +19,6 @@
 #include "frame/dsp.hpp"
 #include "lcs/config.hpp"
 
-#include <boost/asio/dispatch.hpp>
-
 namespace pierre {
 
 // NOTE: .cpp required to hide config.hpp
@@ -28,17 +26,15 @@ namespace pierre {
 Dsp::Dsp() noexcept
     : concurrency_factor{config_val<Dsp, uint32_t>("concurrency_factor"sv, 4)},
       thread_count{std::jthread::hardware_concurrency() * concurrency_factor / 10},
-      thread_pool(thread_count),                //
-      guard(asio::make_work_guard(thread_pool)) //
+      thread_pool(thread_count) ///
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(Dsp), thread_count);
 
   // as soon as the io_ctx starts precompute FFT windowing
-  asio::dispatch(thread_pool, []() { FFT::init(); });
+  asio::post(thread_pool, []() { FFT::init(); });
 }
 
 Dsp::~Dsp() noexcept {
-  guard.reset();
   thread_pool.stop();
   thread_pool.join();
 }
@@ -46,8 +42,8 @@ Dsp::~Dsp() noexcept {
 void Dsp::process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
   frame->state = frame::DSP_IN_PROGRESS;
 
-  asio::dispatch(thread_pool, [this, frame = std::move(frame), left = std::move(left),
-                               right = std::move(right)]() mutable {
+  asio::post(thread_pool, [this, frame = std::move(frame), left = std::move(left),
+                           right = std::move(right)]() mutable {
     _process(std::move(frame), std::move(left), std::move(right));
   });
 }

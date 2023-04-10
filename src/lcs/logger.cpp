@@ -33,7 +33,7 @@ Elapsed elapsed_runtime;
 
 namespace fs = std::filesystem;
 
-Logger::Logger() noexcept : thread_pool(1), guard(asio::make_work_guard(thread_pool)) {
+Logger::Logger() noexcept : thread_pool(1) {
 
   const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
   const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
@@ -48,14 +48,8 @@ Logger::~Logger() noexcept {
 
   INFO(module_id, fn_id, "shutdown requested\n");
 
-  auto delay_timer = std::make_shared<steady_timer>(thread_pool);
-
-  delay_timer->expires_after(250ms);
-  delay_timer->async_wait([this, delay_timer = delay_timer](error_code ec) {
-    INFO(module_id, fn_id, "shutdown timer expired={} resetting work guard\n", ec.what());
-    guard.reset();
-    shutting_down.store(true);
-  });
+  thread_pool.stop();
+  thread_pool.join();
 }
 
 void Logger::print(const string prefix, const string msg) noexcept {

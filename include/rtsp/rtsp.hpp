@@ -24,7 +24,6 @@
 #include "rtsp/sessions.hpp"
 
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
@@ -38,7 +37,6 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
 using ip_tcp = boost::asio::ip::tcp;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
@@ -60,7 +58,6 @@ private:
   // order dependent
   const int thread_count;
   asio::thread_pool thread_pool;
-  work_guard_tp work_guard;
   tcp_acceptor acceptor;
   std::unique_ptr<rtsp::Sessions> sessions;
   std::unique_ptr<MasterClock> master_clock;

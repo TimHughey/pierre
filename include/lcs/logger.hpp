@@ -21,15 +21,10 @@
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
-#include <atomic>
 #include <boost/asio.hpp>
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
-#include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <chrono>
@@ -46,18 +41,6 @@
 namespace pierre {
 
 namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
-
-using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using steady_timer = asio::steady_timer;
-using work_guard_tp = asio::executor_work_guard<asio::thread_pool::executor_type>;
-using ip_address = boost::asio::ip::address;
-using ip_tcp = boost::asio::ip::tcp;
-using tcp_acceptor = boost::asio::ip::tcp::acceptor;
-using tcp_endpoint = boost::asio::ip::tcp::endpoint;
-using tcp_socket = boost::asio::ip::tcp::socket;
 
 class Logger;
 
@@ -91,12 +74,12 @@ public:
 
       const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
 
-      if (shutting_down.load() == false) {
+      if (shutting_down == false) {
+        print(std::move(prefix), std::move(msg));
+      } else {
         asio::post(thread_pool, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
           print(std::move(prefix), std::move(msg));
         });
-      } else {
-        print(std::move(prefix), std::move(msg));
       }
     }
   }
@@ -111,10 +94,9 @@ private:
 private:
   // order dependent
   asio::thread_pool thread_pool;
-  work_guard_tp guard;
 
   // order independent
-  std::atomic_bool shutting_down{false};
+  bool shutting_down{false};
   std::optional<fmt::ostream> out;
 
 public:

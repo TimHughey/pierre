@@ -38,8 +38,9 @@ inline std::map<stats::stats_v, string> make_map() noexcept {
       {stats::DATA_MSG_WRITE_ERROR, "data_msg_write_error"},
       {stats::FLUSH_ELAPSED, "flush_elapsed"},
       {stats::FPS, "fps"},
-      {stats::FRAME, "frame"},
       {stats::FRAME_LOOP_ELAPSED, "frame_loop_elapsded"},
+      {stats::FRAME_TIMER_ADJUST, "frame_timer_adjust"},
+      {stats::FRAME, "frame"},
       {stats::MAX_PEAK_FREQUENCY, "max_peak_frequency"},
       {stats::MAX_PEAK_MAGNITUDE, "max_peak_magnitude"},
       {stats::NEXT_FRAME_WAIT, "next_frame_wait"},
@@ -64,7 +65,6 @@ inline std::map<stats::stats_v, string> make_map() noexcept {
       {stats::RTSP_SESSION_TX_REPLY, "rtsp_session_tx_reply"},
       {stats::SYNC_WAIT, "sync_wait"},
       // comment allows for easy IDE sorting
-
   };
 }
 
