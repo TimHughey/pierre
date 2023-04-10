@@ -28,7 +28,8 @@ Dsp::Dsp() noexcept
       thread_count{std::jthread::hardware_concurrency() * concurrency_factor / 10},
       thread_pool(thread_count) ///
 {
-  INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(Dsp), thread_count);
+  INFO_INIT("sizeof={:>5} hardware_concurrency={} thread_count={}\n", sizeof(Dsp),
+            std::jthread::hardware_concurrency(), thread_count);
 
   // as soon as the io_ctx starts precompute FFT windowing
   asio::post(thread_pool, []() { FFT::init(); });

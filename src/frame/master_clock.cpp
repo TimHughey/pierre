@@ -127,11 +127,11 @@ inline void unmap() noexcept {
 } // namespace nqptp
 
 // create the MasterClock
-MasterClock::MasterClock(asio::thread_pool &thread_pool) noexcept
+MasterClock::MasterClock(asio::io_context &io_ctx) noexcept
     : shm_name(config_val<MasterClock, string>("shm_name", "/nqptp")),
       nqptp_addr(asio::ip::make_address(LOCALHOST)), // where nqptp is running
       nqptp_rep(nqptp_addr, CTRL_PORT),              // endpoint of nqptp daemon
-      local_strand(asio::make_strand(thread_pool)),  // serialize peer changes
+      local_strand(asio::make_strand(io_ctx)),       // serialize peer changes
       peer(local_strand, ip_udp::v4())               // construct and open
 {
 

@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <boost/asio/post.hpp>
+#include <thread>
 
 namespace pierre {
 
@@ -34,19 +35,23 @@ namespace shared {
 std::unique_ptr<Rtsp> rtsp;
 }
 
-Rtsp::Rtsp() noexcept
-    : thread_count(config_threads<Rtsp>(2)), //
-      thread_pool(thread_count),             //
-      acceptor{thread_pool, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-      sessions(std::make_unique<rtsp::Sessions>()),             //
-      master_clock(std::make_unique<MasterClock>(thread_pool)), //
-      desk(std::make_unique<Desk>(master_clock.get()))          //
+Rtsp::Rtsp(asio::io_context &io_ctx) noexcept
+    : // create a strand to accept rtsp connections
+      accept_strand(asio::make_strand(io_ctx)),
+      // use the created strand
+      acceptor{accept_strand, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
+      sessions(std::make_unique<rtsp::Sessions>()),        //
+      master_clock(std::make_unique<MasterClock>(io_ctx)), //
+      desk(std::make_unique<Desk>(master_clock.get()))     //
 {
-  INFO_INIT("sizeof={:>5} threads={}\n", sizeof(Rtsp), thread_count);
+  static constexpr csv fn_id{"init"};
+  INFO_INIT("sizeof={}\n", sizeof(Rtsp));
 
-  // once io_ctx is started begin accepting connections
-  // queuing accept to the io_ctx also serves as the work guard
-  asio::post(thread_pool, std::bind(&Rtsp::async_accept, this));
+  // post work to the strand
+  asio::post(accept_strand, std::bind(&Rtsp::async_accept, this));
+
+  // add a new thread to the io_ctx for the acceptor
+  std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
 }
 
 Rtsp::~Rtsp() noexcept {
@@ -58,9 +63,6 @@ Rtsp::~Rtsp() noexcept {
   master_clock.reset();
 
   sessions.reset();
-
-  thread_pool.stop();
-  thread_pool.join();
 }
 
 void Rtsp::async_accept() noexcept {

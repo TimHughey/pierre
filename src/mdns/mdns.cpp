@@ -44,24 +44,13 @@ using namespace mdns;
 // mDNS general API
 
 mDNS::mDNS() noexcept
-    : receiver(config_val<mDNS, string>("receiver", "Pierre Default")), //
-      build_vsn(cfg_build_vsn()),                                       //
-      stype(config_val<mDNS, string>("service", "_ruth._tcp")),         //
-      receiver_port(config_val<mDNS, Port>("port", 7000)),              //
-      service_obj(receiver, build_vsn),                                 //
-      ctx{nullptr}                                                      //
-{
-  std::jthread([this]() {
-    INFO_INIT("sizeof={:>5} receiver='{}' dmx_service={}\n", sizeof(mDNS), receiver, stype);
-
-    // start avahi cliet
-    ctx = std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port);
-
-    if (!ctx->err_msg.empty()) {
-      INFO_INIT("FAILED, reason={}\n", ctx->err_msg);
-    }
-  }).join(); // wait for startup to complete
-}
+    : receiver(config_val<mDNS, string>("receiver", "Pierre Default")),   //
+      build_vsn(cfg_build_vsn()),                                         //
+      stype(config_val<mDNS, string>("service", "_ruth._tcp")),           //
+      receiver_port(config_val<mDNS, Port>("port", 7000)),                //
+      service_obj(receiver, build_vsn),                                   //
+      ctx{std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)} //
+{}
 
 mDNS::~mDNS() noexcept { ctx.reset(); }
 

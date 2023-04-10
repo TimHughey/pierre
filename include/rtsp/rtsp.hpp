@@ -24,8 +24,9 @@
 #include "rtsp/sessions.hpp"
 
 #include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/system.hpp>
 #include <cstdint>
 #include <memory>
@@ -38,6 +39,7 @@ namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using ip_tcp = boost::asio::ip::tcp;
+using strand_ioc = boost::asio::strand<boost::asio::io_context::executor_type>;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
@@ -48,7 +50,7 @@ extern std::unique_ptr<Rtsp> rtsp;
 
 class Rtsp {
 public:
-  Rtsp() noexcept;
+  Rtsp(asio::io_context &io_ctx) noexcept;
   ~Rtsp() noexcept;
 
   /// @brief Accepts RTSP connections and starts a unique session for each
@@ -56,8 +58,7 @@ public:
 
 private:
   // order dependent
-  const int thread_count;
-  asio::thread_pool thread_pool;
+  strand_ioc accept_strand;
   tcp_acceptor acceptor;
   std::unique_ptr<rtsp::Sessions> sessions;
   std::unique_ptr<MasterClock> master_clock;

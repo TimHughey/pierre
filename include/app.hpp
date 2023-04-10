@@ -31,7 +31,7 @@ using work_guard_ioc = asio::executor_work_guard<asio::io_context::executor_type
 
 class App {
 public:
-  App() noexcept : work_guard(asio::make_work_guard(io_ctx)) {}
+  App() = default;
 
   int main(int argc, char *argv[]);
 
@@ -47,7 +47,6 @@ private:
   // order independent
   bool args_ok{false};
   asio::io_context io_ctx;
-  work_guard_ioc work_guard;
 
 public:
   static constexpr csv module_id{"app"};

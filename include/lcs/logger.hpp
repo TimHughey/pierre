@@ -23,9 +23,10 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/system.hpp>
 #include <chrono>
 #include <cstdio>
@@ -49,6 +50,9 @@ extern std::unique_ptr<Logger> logger;
 }
 
 class Logger {
+private:
+  using strand_ioc = boost::asio::strand<boost::asio::io_context::executor_type>;
+
 public:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
@@ -60,6 +64,8 @@ public:
 
   ~Logger() noexcept;
 
+  static void async(asio::io_context &io_ctx) noexcept;
+
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
@@ -67,19 +73,20 @@ public:
 
       const auto prefix = fmt::format(prefix_format,      //
                                       runtime(),          // millis since app start
-                                      width_ts,           // width of timsstap field,
+                                      width_ts,           // width of timestamp field
                                       width_ts_precision, // runtime + width and precision
                                       mod_id, width_mod,  // module_id + width
                                       cat, width_cat);    // category + width)
 
       const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
 
-      if (shutting_down == false) {
-        print(std::move(prefix), std::move(msg));
-      } else {
-        asio::post(thread_pool, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
+      if (local_strand.has_value() && !local_strand->get_inner_executor().context().stopped()) {
+        asio::post(*local_strand, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
           print(std::move(prefix), std::move(msg));
         });
+
+      } else {
+        print(std::move(prefix), std::move(msg));
       }
     }
   }
@@ -92,11 +99,9 @@ private:
   void print(const string prefix, const string msg) noexcept;
 
 private:
-  // order dependent
-  asio::thread_pool thread_pool;
-
   // order independent
   bool shutting_down{false};
+  std::optional<strand_ioc> local_strand;
   std::optional<fmt::ostream> out;
 
 public:

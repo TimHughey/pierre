@@ -23,9 +23,9 @@
 #include <array>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -39,7 +39,7 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 using ip_address = boost::asio::ip::address;
 using ip_udp = boost::asio::ip::udp;
 using udp_endpoint = boost::asio::ip::udp::endpoint;
@@ -52,7 +52,7 @@ private:
 
 public:
 public:
-  MasterClock(asio::thread_pool &thread_pool) noexcept;
+  MasterClock(asio::io_context &io_ctx) noexcept;
   ~MasterClock() noexcept;
 
   const ClockInfo info_no_wait() noexcept { return load_info_from_mapped(); }
@@ -70,8 +70,7 @@ private:
   const string shm_name; // shared memmory segment name (built by constructor)
   const ip_address nqptp_addr;
   const udp_endpoint nqptp_rep; // nqptp remote endpoint (rep)
-  strand_tp local_strand;
-
+  strand_ioc local_strand;
   udp_socket peer;
 
   // order independent

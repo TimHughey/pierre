@@ -22,6 +22,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <thread>
 
 namespace pierre {
 
@@ -33,7 +34,7 @@ Elapsed elapsed_runtime;
 
 namespace fs = std::filesystem;
 
-Logger::Logger() noexcept : thread_pool(1) {
+Logger::Logger() noexcept {
 
   const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
   const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
@@ -46,10 +47,17 @@ Logger::Logger() noexcept : thread_pool(1) {
 Logger::~Logger() noexcept {
   static constexpr csv fn_id{"shutdown"};
 
-  INFO(module_id, fn_id, "shutdown requested\n");
+  INFO_AUTO("shutdown requested\n");
+}
 
-  thread_pool.stop();
-  thread_pool.join();
+void Logger::async(asio::io_context &io_ctx) noexcept { // static
+  auto &self = *shared::logger;
+
+  // create our local strand to serialized logging
+  self.local_strand.emplace(asio::make_strand(io_ctx));
+
+  // add a thread to the injected io_ctx to support our strand
+  std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
 }
 
 void Logger::print(const string prefix, const string msg) noexcept {

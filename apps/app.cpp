@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <errno.h>
+#include <exception>
 #include <filesystem>
 #include <fmt/os.h>
 #include <fstream>
@@ -173,16 +174,30 @@ int App::main(int argc, char *argv[]) {
   signals_ignore();   // ignore certain signals
   signals_shutdown(); // catch certain signals for shutdown
 
+  shared::logger->async(io_ctx);
   INFO_AUTO("{}\n", Config::banner_msg());
 
   INFO(Config::module_id, "init", "{}\n", config()->init_msg);
 
-  shared::config_watch = std::make_unique<ConfigWatch>(io_ctx);
-  shared::stats = std::make_unique<Stats>(io_ctx);
-  shared::mdns = std::make_unique<mDNS>();
-  shared::rtsp = std::make_unique<Rtsp>();
+  try {
 
-  io_ctx.run();
+    shared::config_watch = std::make_unique<ConfigWatch>(io_ctx);
+    shared::stats = std::make_unique<Stats>(io_ctx);
+    shared::mdns = std::make_unique<mDNS>();
+    shared::rtsp = std::make_unique<Rtsp>(io_ctx);
+
+    io_ctx.run();
+
+    // gracefully shutdown all subsystems
+    shared::rtsp.reset();
+    shared::mdns.reset();
+    shared::stats.reset();
+    shared::config_watch.reset();
+    shared::config.reset();
+  } catch (const std::exception &e) {
+
+    INFO_AUTO("shutdown caught {}\n", e.what());
+  }
 
   return 0;
 }
@@ -207,9 +222,6 @@ void App::signals_shutdown() noexcept {
 
     INFO_AUTO("caught SIGINT ({})\n", signal, Config::daemon());
 
-    shared::rtsp.reset();
-    shared::mdns.reset();
-
     if (Config::daemon()) {
       const auto pid_path = Config::fs_pid_path();
 
@@ -228,15 +240,9 @@ void App::signals_shutdown() noexcept {
       } catch (std::exception &except) {
         INFO_AUTO("{} while removing {}\n", except.what(), pid_path);
       }
-
-      work_guard.reset();
-    }
+    } // end of daemon specific actions
 
     signal_set_ignore->cancel(); // cancel the remaining work
-
-    shared::stats.reset();
-    shared::config_watch.reset();
-    shared::config.reset();
 
     io_ctx.stop();
   });
