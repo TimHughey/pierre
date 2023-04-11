@@ -37,8 +37,8 @@ thread = false
 resume = true
 shutdown = false
 standby = true
-monitor_wip = true
-reel = true
+reel = { flush = true }
+next_reel = false
 
 [logger.desk.dmx_ctrl]
 run = false
@@ -58,8 +58,10 @@ dsp = { thread = false }
 decipher = false
 
 [logger.fx]
-standby = true 
 major_peak = { execute = false }
+silence_watch = false
+standby = true 
+
 
 [logger.mdns]
 ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
@@ -76,14 +78,11 @@ reply = { build = false, info = false }
 ## END LOGGING CONFIG
 ##
 
-[desk]
-threads = 1
-
 [desk.dmx_ctrl]
-local = { stalled.ms = 7_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
+local = { stalled.ms = 10_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
 # remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
-threads = 3
+threads = 1
 
 [desk.dimmable]
 max = 8190
@@ -106,14 +105,13 @@ units = [
 units = [{ name = "ac power", addr = 1 }]
 
 [frame]
-cipher = { buffer_size = 0x2000 }  # bytes (4k)
-dsp = { concurrency_factor = 5 } # num threads (hw_concurrency * factor / 10)
+cipher = { buffer_size = 0x2000 } # bytes (4k)
+dsp = { concurrency_factor = 30 } # percentage 1-100 (num threads = (hw_concurrency * factor) / 100
 
 [frame.clock]
 host = "127.0.0.1"              # nqptp host
 info = { min_wait_frames = 12 } # wait frames before returning no clock
 shm_name = "/nqptp"             # path to nqptp shared memory directory
-threads = 1
 
 [frame.racked]
 threads = 2
@@ -123,7 +121,7 @@ floor = 0.9
 ceiling = 128.0
 
 [fx.majorpeak]
-silence = { timeout = { seconds = 13 } }
+silence = { timeout = { seconds = 20 } }
 
 [fx.majorpeak.frequencies]
 hard = { floor = 40.0, ceiling = 11500.0 }
@@ -177,4 +175,3 @@ service = "_ruth._tcp"    # service advertised by rendering devices
 audio = { buffer_size = { bytes = 0x800000 } }
 connection = { timeout_ms = 30_000 }
 saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }
-threads = 2
