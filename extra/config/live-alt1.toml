@@ -78,14 +78,11 @@ reply = { build = false, info = false }
 ## END LOGGING CONFIG
 ##
 
-[desk]
-threads = 1
-
 [desk.dmx_ctrl]
 local = { stalled.ms = 7_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
-# remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
-threads = 3
+remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
+threads = 1
 
 [desk.dimmable]
 max = 8190
@@ -108,8 +105,8 @@ units = [
 units = [{ name = "ac power", addr = 1 }]
 
 [frame]
-cipher = { buffer_size = 0x2000 }  # bytes (4k)
-dsp = { concurrency_factor = 5 } # num threads (hw_concurrency * factor / 10)
+cipher = { buffer_size = 0x2000 } # bytes (4k)
+dsp = { concurrency_factor = 30 } # percentage 1-100 (num threads = (hw_concurrency * factor) / 100
 
 [frame.clock]
 host = "127.0.0.1"              # nqptp host
@@ -178,4 +175,3 @@ service = "_ruth._tcp"    # service advertised by rendering devices
 audio = { buffer_size = { bytes = 0x800000 } }
 connection = { timeout_ms = 30_000 }
 saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }
-threads = 1

@@ -31,6 +31,7 @@
 #include "mdns/mdns.hpp"
 
 #include <array>
+#include <boost/asio/consign.hpp>
 #include <iterator>
 #include <utility>
 
@@ -57,15 +58,27 @@ inline auto cfg_stall_timeout() noexcept {
 }
 
 // general API
-DmxCtrl::DmxCtrl() noexcept
-    : thread_count(config_threads<DmxCtrl>(3)),               //
-      thread_pool(thread_count), sess_sock(thread_pool),      //
-      data_accep(thread_pool, data_lep),                      //
-      data_sock(thread_pool),                                 // unopened
-      stall_timeout{cfg_stall_timeout()},                     //
-      stalled_timer(thread_pool, stall_timeout),              //
-      resolve_retry_timer(thread_pool, resolve_retry_wait()), //
-      cfg_fut(ConfigWatch::want_changes()) // register for config change notifications
+DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
+    : // creqte strand for serialized session comms
+      sess_strand(asio::make_strand(io_ctx)),
+      // create a strand for serialized data comms
+      data_strand(asio::make_strand(io_ctx)),
+      // create the session socket
+      sess_sock(sess_strand),
+      // create the data connection acceptor
+      data_accep(data_strand, data_lep),
+      // create the (unopened) data socket connection
+      data_sock(data_strand),
+      // capture stall timeout config
+      stall_timeout{cfg_stall_timeout()},
+      // create the stall timer, use data strand
+      stalled_timer(data_strand, stall_timeout),
+      // create the resolve timeout timer, use sess strand
+      resolve_retry_timer(sess_strand, resolve_retry_wait()),
+      // register for config change notifications
+      cfg_fut(ConfigWatch::want_changes()),
+      // capture the configured number of threads
+      thread_count{config_threads<DmxCtrl>(1)} //
 {
   INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), thread_count);
 
@@ -159,7 +172,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
 void DmxCtrl::resolve_host() noexcept {
   static constexpr csv fn_id{"host.resolve"};
 
-  asio::post(thread_pool, [this]() {
+  asio::post(sess_strand, [this]() {
     // get the host we will connect to unless we already have it
     if (cfg_host.empty()) cfg_host = get_cfg_host();
 
@@ -192,21 +205,25 @@ void DmxCtrl::resolve_host() noexcept {
     const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
     host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    asio::post(thread_pool, [this, ep = host_endpoint]() {
-      auto resolver = std::make_unique<ip_tcp::resolver>(thread_pool);
+    asio::dispatch(sess_strand, [this, ep = host_endpoint]() {
+      using resolver_type = ip_tcp::resolver;
+      using resolver_results = ip_tcp::resolver::results_type;
 
-      resolver->async_resolve(*ep, //
-                              [this, resolver = std::move(resolver)](
-                                  error_code ec, ip_tcp::resolver::results_type results) {
-                                if (ec) {
-                                  INFO_AUTO("resolve err={}\n", ec.message());
-                                } else {
+      auto resolver = std::make_shared<resolver_type>(sess_strand);
 
-                                  std::for_each(results.begin(), results.end(), [](const auto &r) {
-                                    INFO_AUTO("hostname: {}\n", r.host_name());
-                                  });
-                                }
-                              });
+      resolver->async_resolve(
+          *ep, asio::consign(
+                   [this, resolver = resolver](const error_code &ec, resolver_results r) {
+                     if (!ec) {
+                       std::for_each(r.begin(), r.end(), [](const auto &r) {
+                         INFO_AUTO("hostname: {}\n", r.host_name());
+                         return;
+                       });
+
+                       INFO_AUTO("resolve err={}\n", ec.message());
+                     }
+                   },
+                   resolver));
     });
 
     // ensure the data socket is closed, we're about to accept a new connection
@@ -294,13 +311,6 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   });
 }
 
-void DmxCtrl::stall_watchdog_cancel() noexcept {
-  try {
-    stalled_timer.cancel();
-  } catch (...) {
-  }
-}
-
 void DmxCtrl::unknown_host() noexcept {
   static constexpr csv fn_id{"host.unknown"};
 
@@ -308,8 +318,8 @@ void DmxCtrl::unknown_host() noexcept {
   INFO_AUTO("{} not found, retry in {}...\n", cfg_host, resolve_backoff);
 
   cfg_host.clear();
-  stall_watchdog_cancel(); // prevent stall watchdog from interferring
 
+  // setting a timer's expires auto cancel's running timer
   resolve_retry_timer.expires_from_now(resolve_backoff);
   resolve_retry_timer.async_wait([this](error_code ec) {
     if (!ec) {

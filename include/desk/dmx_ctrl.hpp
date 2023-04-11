@@ -25,10 +25,10 @@
 #include <atomic>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <memory>
 #include <optional>
@@ -42,10 +42,11 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 using steady_timer = asio::steady_timer;
 using ip_address = boost::asio::ip::address;
 using ip_tcp = boost::asio::ip::tcp;
+
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
@@ -58,11 +59,10 @@ class MsgIn;
 
 class DmxCtrl {
 public:
-  DmxCtrl() noexcept;
-  ~DmxCtrl() noexcept {
-    thread_pool.stop();
-    thread_pool.join();
-  }
+  DmxCtrl(asio::io_context &io_ctx) noexcept;
+  ~DmxCtrl() = default;
+
+  auto required_threads() const noexcept { return thread_count; }
 
   /// @brief send the DataMsg to the remote host
   /// @param msg assembled DataMsg for remote host
@@ -76,23 +76,21 @@ private:
 
   void resolve_host() noexcept;
   void stall_watchdog(Millis wait = Millis::zero()) noexcept;
-  void stall_watchdog_cancel() noexcept;
   void unknown_host() noexcept;
 
 private:
   // order dependent
-  const int64_t thread_count;
-  asio::thread_pool thread_pool;
+  strand_ioc sess_strand;
+  strand_ioc data_strand;
   tcp_endpoint data_lep{ip_tcp::v4(), ANY_PORT};
   tcp_socket sess_sock; // handshake, stats (read/write)
   tcp_acceptor data_accep;
   tcp_socket data_sock; // frame data (write only)
-
   Millis stall_timeout;
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;
-
   cfg_future cfg_fut;
+  int thread_count;
 
   // order independent
   tcp_endpoint data_rep; // remote endpoint of accepted socket

@@ -39,24 +39,31 @@
 namespace pierre {
 
 Racked::Racked() noexcept
-    : thread_count(config_threads<Racked>(3)),               // thread count
-      thread_pool(thread_count),                             //
-      flush_strand(asio::make_strand(thread_pool)),          // ensure flush requests are serialized
-      handoff_strand(asio::make_strand(thread_pool)),        // unprocessed frame 'queue'
-      racked_strand(asio::make_strand(thread_pool)),         // guard racked
-      wip(std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES)), //
-      av(std::make_unique<Av>())                             //
+    : // Racked provides request based service so needs a work_guard
+      work_guard(asio::make_work_guard(io_ctx)),
+      // ensure flush requests are serialized
+      flush_strand(asio::make_strand(io_ctx)),
+      // serialize the accepting of unprocessed frames
+      handoff_strand(asio::make_strand(io_ctx)),
+      // serialize changes to reels container
+      racked_strand(asio::make_strand(io_ctx)),
+      // create the initial work-in-progress reel
+      wip(std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES)),
+      // create and start Av (and by extension Dsp processing)
+      av(std::make_unique<Av>()) //
 {
+  const auto threads = config_threads<Racked>(2);
+
+  // start the threads and run the io_ctx
+  for (auto n = 0; n < threads; n++) {
+    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
+  }
+
   INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
-            sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, thread_count);
+            sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, threads);
 }
 
-Racked::~Racked() noexcept {
-  thread_pool.stop();
-  thread_pool.join();
-
-  av.reset();
-}
+Racked::~Racked() noexcept { io_ctx.stop(); }
 
 void Racked::flush(FlushInfo &&request) noexcept {
   static constexpr csv fn_id{"flush"};

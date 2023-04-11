@@ -31,12 +31,10 @@
 
 namespace pierre {
 
-namespace shared {
-std::unique_ptr<Rtsp> rtsp;
-}
-
 Rtsp::Rtsp(asio::io_context &io_ctx) noexcept
-    : // create a strand to accept rtsp connections
+    : // save the io_context reference, used by run() to start thread
+      io_ctx(io_ctx),
+      // create a strand to accept rtsp connections
       accept_strand(asio::make_strand(io_ctx)),
       // use the created strand
       acceptor{accept_strand, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
@@ -54,9 +52,6 @@ Rtsp::Rtsp(asio::io_context &io_ctx) noexcept
 
   // post work to the strand
   asio::post(accept_strand, std::bind(&Rtsp::async_accept, this));
-
-  // add a new thread to the io_ctx for the acceptor
-  std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
 }
 
 Rtsp::~Rtsp() noexcept {

@@ -37,41 +37,62 @@
 #include "mdns/mdns.hpp"
 
 #include <boost/asio/post.hpp>
+#include <fmt/chrono.h>
 #include <functional>
 #include <ranges>
+#include <thread>
 
 namespace pierre {
 
-// must be defined in .cpp to hide mdns
+// notes:
+//  -must be defined in .cpp (incomplete types in .hpp)
+//  -we use a separate io_ctx for desk and it's workers
 Desk::Desk(MasterClock *master_clock) noexcept
-    : // setup the thread pool
-      thread_count(config_threads<Desk>(1)), thread_pool(thread_count),
+    : // create and start racked early (frame rendering needs it)
+      racked{std::make_unique<Racked>()},
+      // create DmxCtrl early (frame renderings needs it)
+      dmx_ctrl(std::make_unique<desk::DmxCtrl>(io_ctx)),
+      // default to not rendering (frame rendering needs it)
+      render_active{false},
+      // cache the MasterClock pointer early (frame rendering needs it)
+      master_clock(master_clock),
+      // create the anchor early (frame rendering needs it)
+      anchor(std::make_unique<Anchor>()),
+      // start with a silent Reel
+      active_reel(std::make_unique<Reel>()),
+      // create a strand to serialize render activities
+      render_strand(asio::make_strand(io_ctx)),
       // set the frame_timer start time to now, we'll adjust it later
-      frame_timer(thread_pool, system_clock::now()),
-      // ensure Racked is not allocated
-      racked{nullptr},
-      // cache the MasterClock pointer
-      master_clock(master_clock) //
+      frame_timer(render_strand, steady_clock::now()) //
 {
+
+  // include the threads DmxCtrl requires
+  const auto threads = config_threads<Desk>(1) + dmx_ctrl->required_threads();
+
   INFO_INIT("sizeof={:>5} lead_time_min={} threads={}\n", sizeof(Desk),
-            pet::humanize(InputInfo::lead_time_min), thread_count);
+            pet::humanize(InputInfo::lead_time_min), threads);
 
-  resume();
+  resume(); // add work to io_ctx
+
+  // add threads to the io_ctx and start
+  for (auto n = 0; n < threads; n++) {
+    // add threads for handling frame rendering
+    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
+  }
 }
 
-Desk::~Desk() noexcept {
-  thread_pool.stop();
-  thread_pool.join();
-}
+Desk::~Desk() noexcept { io_ctx.stop(); }
 
-// general API
+////
+//// API
+///
 
 void Desk::anchor_reset() noexcept { anchor->reset(); }
 void Desk::anchor_save(AnchorData &&ad) noexcept { anchor->save(std::forward<AnchorData>(ad)); }
 
 void Desk::flush(FlushInfo &&request) noexcept {
 
-  asio::post(thread_pool, [this, fr = request]() mutable { active_reel->flush(fr); });
+  asio::post(render_strand, [this, fr = request]() mutable { active_reel->flush(fr); });
 
   if (racked) racked->flush(std::forward<FlushInfo>(request));
 }
@@ -93,15 +114,15 @@ void Desk::fx_select(Frame *frame) noexcept {
 
   // when fx::Standby is finished initiate standby()
   if (fx_now == desk::fx::NONE) { // default to Standby
-    active_fx = std::make_unique<desk::Standby>(thread_pool);
+    active_fx = std::make_unique<desk::Standby>(render_strand);
   } else if (silent && (fx_suggested_next == desk::fx::STANDBY)) {
-    active_fx = std::make_unique<desk::Standby>(thread_pool);
+    active_fx = std::make_unique<desk::Standby>(render_strand);
 
   } else if (!silent && (frame->state.ready_or_future())) {
-    active_fx = std::make_unique<desk::MajorPeak>(thread_pool);
+    active_fx = std::make_unique<desk::MajorPeak>(render_strand);
 
   } else if (silent && (fx_suggested_next == desk::fx::ALL_STOP)) {
-    active_fx = std::make_unique<desk::AllStop>(thread_pool);
+    active_fx = std::make_unique<desk::AllStop>(render_strand);
   }
 
   // note in log selected FX, if needed
@@ -114,7 +135,9 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
 
 void Desk::next_reel() noexcept {
   if (render_active.load(std::memory_order_relaxed) && active_reel->empty()) {
-    set_active_reel(std::move(racked->next_reel().get()));
+    auto reel = racked->next_reel().get();
+
+    std::exchange(active_reel, std::move(reel));
   }
 }
 
@@ -142,11 +165,8 @@ void Desk::render() noexcept {
     if (frame->state.ready()) {
       desk::DataMsg msg(frame->seq_num, frame->silent());
 
-      if (active_fx->render(frame->get_peaks(), msg)) {
-        if (!dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
-
-        dmx_ctrl->send_data_msg(std::move(msg));
-      }
+      // send the data message if rendered
+      if (active_fx->render(frame->get_peaks(), msg)) dmx_ctrl->send_data_msg(std::move(msg));
 
       // we do not want to include the time to write stats or
       // request the next reel in render elapsed
@@ -174,7 +194,7 @@ void Desk::render() noexcept {
       }
     }
 
-    // first, set the frame_timer to fire for the next frame
+    // set the frame_timer to fire for the next frame
     frame_timer.expires_at(next_at);
     frame_timer.async_wait([this](const error_code &ec) {
       if (!ec) render();
@@ -184,37 +204,33 @@ void Desk::render() noexcept {
   } // end frame processing when not shutdown
 }
 
-void Desk::render_start() noexcept {
-
-  // at start-up ensure the frame timer fires immediately
-  const auto now = system_clock::now();
-  if (frame_timer.expiry() > now) frame_timer.expires_at(now);
-
-  frame_timer.async_wait([this](const error_code &ec) {
-    if (!ec) {
-      asio::post(thread_pool, [this]() {
-        // we use asio::post here to ensure the frame_timer next expiry is set
-        // outside of this completion handler
-        render();
-      });
-    }
-  });
-}
-
 void Desk::resume() noexcept {
   static constexpr csv fn_id{"resume"};
 
-  INFO_AUTO("requested, thread_count={}\n", thread_count);
+  if (io_ctx.stopped()) {
+    INFO_AUTO("io_ctx stopped, resetting\n");
+    io_ctx.reset();
+  }
 
-  asio::post(thread_pool, [this]() {
-    std::exchange(anchor, std::make_unique<Anchor>());
-    std::exchange(racked, std::make_unique<Racked>()); // ensure Racked is running
-    std::exchange(active_reel, std::make_unique<Reel>());
+  asio::post(render_strand, [this]() {
+    const auto expired_at = frame_timer.expiry();
+    const auto now_plus_lead_time = steady_clock::now() + InputInfo::lead_time;
 
-    render();
+    if (expired_at < now_plus_lead_time) {
+      INFO_AUTO("frame timer expired {} ago\n", pet::as<Micros>(now_plus_lead_time - expired_at));
+
+      // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
+      anchor->reset();
+
+      // reset active_fx, render() will create as needed
+      active_fx.reset();
+
+      // kick off rendering
+      render();
+    } else {
+      INFO_AUTO("not needed, already active\n");
+    }
   });
-
-  INFO_AUTO("completed, thread_count={}\n", thread_count);
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {
@@ -227,12 +243,20 @@ bool Desk::shutdown_if_all_stop() noexcept {
     [[maybe_unused]] error_code ec;
     frame_timer.cancel(ec);
 
-    // shutdown supporting subsystems
-    active_fx.reset();
+    // ensure we are not attempting to render actual audio data
+    set_render(false);
+
+    // disconnect from ruth
     dmx_ctrl.reset();
+
+    // free the active reel
     active_reel.reset();
-    racked.reset();
-    anchor.reset();
+
+    // leave racked running and flush pending reels
+    racked->flush_all();
+
+    // reset the allocated Anchor, not the unique_ptr
+    anchor->reset();
   }
 
   return rc;

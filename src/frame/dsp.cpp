@@ -19,38 +19,48 @@
 #include "frame/dsp.hpp"
 #include "lcs/config.hpp"
 
+#include <thread>
+
 namespace pierre {
 
 // NOTE: .cpp required to hide config.hpp
 
 Dsp::Dsp() noexcept
-    : concurrency_factor{config_val<Dsp, uint32_t>("concurrency_factor"sv, 4)},
-      thread_count{std::jthread::hardware_concurrency() * concurrency_factor / 10},
-      thread_pool(thread_count) ///
+    : work_guard{asio::make_work_guard(io_ctx)} //
 {
-  INFO_INIT("sizeof={:>5} hardware_concurrency={} thread_count={}\n", sizeof(Dsp),
-            std::jthread::hardware_concurrency(), thread_count);
 
-  // as soon as the io_ctx starts precompute FFT windowing
-  asio::post(thread_pool, []() { FFT::init(); });
-}
+  // notes:
+  //  -concurrency_factor is specified in the config file as a percentage
+  //  -to determine final thread count divide by 100
+  const auto concurrency_factor{config_val<Dsp, uint32_t>("concurrency_factor"sv, 40)};
+  const auto hw_concurrency{std::jthread::hardware_concurrency()};
+  const auto threads{(hw_concurrency * concurrency_factor) / 100};
 
-Dsp::~Dsp() noexcept {
-  thread_pool.stop();
-  thread_pool.join();
+  INFO_INIT("sizeof={:>5} hw_concurrency={} thread_count={}\n", sizeof(Dsp), hw_concurrency,
+            threads);
+
+  // initialize FFT when the io_ctx is started
+  asio::post(io_ctx, []() { FFT::init(); });
+
+  // start the threads and run io_ctx
+  for (uint32_t n = 0; n < threads; n++) {
+    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
+  }
 }
 
 void Dsp::process(const frame_t frame, FFT &&left, FFT &&right) noexcept {
   frame->state = frame::DSP_IN_PROGRESS;
 
-  asio::post(thread_pool, [this, frame = std::move(frame), left = std::move(left),
-                           right = std::move(right)]() mutable {
+  asio::post(io_ctx, [this, frame = std::move(frame), left = std::move(left),
+                      right = std::move(right)]() mutable {
     _process(std::move(frame), std::move(left), std::move(right));
   });
 }
 
+// we pass frame as const since we are not taking ownership
 void Dsp::_process(const frame_t frame_ptr, FFT &&left, FFT &&right) noexcept {
 
+  // minimize shared_ptr deferences while keeping it in scope
   auto &frame = *frame_ptr;
 
   // the caller sets the state to avoid a race condition with async processing

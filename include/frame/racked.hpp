@@ -31,9 +31,10 @@
 #include <algorithm>
 #include <atomic>
 #include <boost/asio/error.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/system_timer.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <future>
 #include <list>
@@ -50,8 +51,9 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 using system_timer = asio::system_timer;
+using work_guard_ioc = asio::executor_work_guard<asio::io_context::executor_type>;
 
 class Racked {
 private:
@@ -84,11 +86,11 @@ private:
 
 private:
   // order dependent
-  const int thread_count;
-  asio::thread_pool thread_pool;
-  strand_tp flush_strand;
-  strand_tp handoff_strand;
-  strand_tp racked_strand;
+  asio::io_context io_ctx;
+  work_guard_ioc work_guard; // provides a service so requires a work_guard
+  strand_ioc flush_strand;
+  strand_ioc handoff_strand;
+  strand_ioc racked_strand;
   std::unique_ptr<Reel> wip;
   std::unique_ptr<Av> av;
 

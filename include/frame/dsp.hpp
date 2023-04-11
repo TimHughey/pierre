@@ -23,9 +23,9 @@
 #include "frame.hpp"
 #include "lcs/logger.hpp"
 
-#include <array>
 #include <boost/asio/error.hpp>
-#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/system.hpp>
 #include <memory>
 
@@ -36,20 +36,21 @@ namespace sys = boost::system;
 namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
+using work_guard_ioc = asio::executor_work_guard<asio::io_context::executor_type>;
 
 class Dsp {
 
 public:
   Dsp() noexcept;
-  ~Dsp() noexcept;
+  ~Dsp() noexcept { io_ctx.stop(); }
 
+  // we pass frame as const since we are not taking ownership
   void process(const frame_t frame, FFT &&left, FFT &&right) noexcept;
 
 private:
   // order dependent
-  const uint32_t concurrency_factor;
-  const uint32_t thread_count;
-  asio::thread_pool thread_pool;
+  asio::io_context io_ctx;
+  work_guard_ioc work_guard; // Dsp processes frames as received, needs work guard
 
 private:
   void _process(const frame_t frame, FFT &&left, FFT &&right) noexcept;

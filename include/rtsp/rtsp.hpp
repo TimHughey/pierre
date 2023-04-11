@@ -30,6 +30,7 @@
 #include <boost/system.hpp>
 #include <cstdint>
 #include <memory>
+#include <thread>
 
 namespace pierre {
 
@@ -44,20 +45,21 @@ using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
 
-namespace shared {
-extern std::unique_ptr<Rtsp> rtsp;
-}
-
 class Rtsp {
 public:
   Rtsp(asio::io_context &io_ctx) noexcept;
-  ~Rtsp() noexcept;
+  ~Rtsp() noexcept; // must be in .cpp due to incomplete types
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
 
+  void run() noexcept {
+    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).join();
+  }
+
 private:
   // order dependent
+  asio::io_context &io_ctx;
   strand_ioc accept_strand;
   tcp_acceptor acceptor;
   strand_ioc worker_strand;

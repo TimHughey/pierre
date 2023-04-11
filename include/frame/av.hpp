@@ -73,7 +73,7 @@ private:
 private:
   // order dependent
   std::atomic_bool ready; // AV functionality setup and ready
-  std::optional<Dsp> dsp; // digital signal processing
+  Dsp dsp;                // digital signal processing
 
   // order independent
   AVCodec *codec{nullptr};

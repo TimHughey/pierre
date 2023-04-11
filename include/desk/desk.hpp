@@ -27,9 +27,9 @@
 
 #include <atomic>
 #include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/asio/system_timer.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <boost/system.hpp>
 #include <boost/system/error_code.hpp>
 #include <memory>
@@ -39,15 +39,13 @@ namespace pierre {
 namespace asio = boost::asio;
 
 using error_code = boost::system::error_code;
-using strand_tp = asio::strand<asio::thread_pool::executor_type>;
-using system_timer = asio::system_timer;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Desk {
 
 public:
-  Desk(MasterClock *master_clock) noexcept; // must be defined in .cpp to hide FX includes
-
-  ~Desk() noexcept; // must be in .cpp (incomplete types)
+  Desk(MasterClock *master_clock) noexcept; // see .cpp (incomplete types)
+  ~Desk() noexcept;                         // see .cpp (incomplete types)
 
   void anchor_reset() noexcept;
   void anchor_save(AnchorData &&ad) noexcept;
@@ -62,7 +60,7 @@ public:
     auto was_active = std::atomic_exchange(&render_active, enable);
 
     if (was_active == false) {
-      const auto now = system_clock::now();
+      const auto now = steady_clock::now();
 
       frame_timer.expires_at(now);
       frame_timer.async_wait([this](const error_code &ec) {
@@ -80,28 +78,23 @@ private:
   void next_reel() noexcept;
 
   void render() noexcept;
-  void render_start() noexcept;
-
-  void set_active_reel(std::unique_ptr<Reel> &&reel) noexcept {
-    std::exchange(active_reel, std::forward<std::unique_ptr<Reel>>(reel));
-  }
 
   bool shutdown_if_all_stop() noexcept;
 
 private:
   // order dependent
-  const int thread_count;
-  asio::thread_pool thread_pool;
-  system_timer frame_timer;
+  asio::io_context io_ctx;
   std::unique_ptr<Racked> racked;
+  std::unique_ptr<desk::DmxCtrl> dmx_ctrl;
+  std::atomic_bool render_active;
   MasterClock *master_clock;
+  std::unique_ptr<Anchor> anchor;
+  std::unique_ptr<Reel> active_reel;
+  strand_ioc render_strand;
+  asio::steady_timer frame_timer;
 
   // order independent
-  std::atomic_bool render_active;
-  std::unique_ptr<Anchor> anchor;
-  std::unique_ptr<desk::DmxCtrl> dmx_ctrl{nullptr};
   std::unique_ptr<desk::FX> active_fx{nullptr};
-  std::unique_ptr<Reel> active_reel;
 
   Elapsed render_elapsed;
 

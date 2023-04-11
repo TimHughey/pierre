@@ -22,8 +22,6 @@ namespace pierre {
 
 Av::Av() noexcept : ready{false} {
 
-  dsp.emplace(); // fire up DSP
-
   codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
 
   if (codec) {
@@ -46,8 +44,6 @@ Av::Av() noexcept : ready{false} {
 }
 
 Av::~Av() noexcept {
-  dsp.reset();
-
   av_parser_close(parser_ctx);
   avcodec_free_context(&codec_ctx);
 }
@@ -152,7 +148,7 @@ bool Av::parse(frame_t frame) noexcept {
     FFT right(data[1], frame->samples_per_channel, audio_frame->sample_rate);
 
     // this goes async
-    dsp->process(frame, std::move(left), std::move(right));
+    dsp.process(frame, std::move(left), std::move(right));
     rc = true;
   }
 

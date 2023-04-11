@@ -184,12 +184,12 @@ int App::main(int argc, char *argv[]) {
     shared::config_watch = std::make_unique<ConfigWatch>(io_ctx);
     shared::stats = std::make_unique<Stats>(io_ctx);
     shared::mdns = std::make_unique<mDNS>();
-    shared::rtsp = std::make_unique<Rtsp>(io_ctx);
 
-    io_ctx.run();
+    // create, run then destroy the main application logic
+    auto rtsp = std::make_unique<Rtsp>(io_ctx);
+    rtsp->run();
+    rtsp.reset();
 
-    // gracefully shutdown all subsystems
-    shared::rtsp.reset();
     shared::mdns.reset();
     shared::stats.reset();
     shared::config_watch.reset();
