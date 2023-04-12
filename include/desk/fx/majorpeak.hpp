@@ -24,7 +24,6 @@
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
-#include "lcs/types.hpp"
 #include "majorpeak/types.hpp"
 
 #include <atomic>
@@ -79,7 +78,6 @@ private:
   static RefColors ref_colors;
 
   // cached config
-  cfg_future cfg_changed;
   major_peak::freq_limits_t freq_limits;
   major_peak::hue_cfg_map hue_cfg_map;
   mag_min_max mag_limits;

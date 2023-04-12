@@ -50,10 +50,8 @@ Config::Config(const toml::table &cli_table) noexcept                //
                      .append(cli_table["cfg-file"sv].ref<string>())) //
 {
   if (parse() == true) {
-    initialized = true;
 
-    init_msg = fmt::format("sizeof={:>5} table size={}", //
-                           sizeof(Config), tables.front().size());
+    init_msg = fmt::format("sizeof={:>5} table size={}", sizeof(Config), table.size());
 
     // if we made it here cli and config are parsed, toml tables are ready for use
   }
@@ -65,7 +63,7 @@ const string Config::app_name() noexcept {
 
 const string Config::banner_msg() noexcept {
 
-  auto wrapped = [&table = shared::config->tables.front()]() -> const string {
+  auto wrapped = [&table = shared::config->table]() -> const string {
     return string(table["project"].ref<string>())
         .append(" ")
         .append(table["git_describe"].ref<string>());
@@ -82,10 +80,7 @@ fs::path Config::fs_path(csv path) noexcept {
 
   // create lamba for accessing shared::config
   auto wrapped = [s = shared::config.get()](csv p) -> fs::path {
-    std::shared_lock slk(s->mtx, std::defer_lock);
-    slk.lock();
-
-    auto &t = s->tables.front();
+    auto &t = s->table;
     const auto &app_name = s->cli_table["app_name"sv].ref<string>();
 
     // /use/local/share/pierre
@@ -100,50 +95,17 @@ fs::path Config::fs_path(csv path) noexcept {
   return wrapped(path);
 }
 
-bool Config::log_bool(csv logger_module_id, csv mod, csv cat) noexcept {
-  if (cat == csv{"info"}) return true;
-
-  auto path = toml::path(logger_module_id);
-
-  // order of precedence:
-  //  1. info.<cat>       == boolean
-  //  2. info.<mod>       == boolean
-  //  3. info.<mod>.<cat> == boolean
-  if (live()[toml::path(path).append(cat)].is_boolean()) {
-    return live()[path.append(cat)].ref<bool>();
-  } else if (live()[toml::path(path).append(mod)].is_boolean()) {
-    return live()[path.append(mod)].ref<bool>();
-  } else {
-    return live()[path.append(mod).append(cat)].value_or(true);
-  }
-}
-
-const toml::table &Config::live() noexcept {
-  std::shared_lock slk(mtx, std::defer_lock);
-  slk.lock();
-
-  return tables.front();
-}
-
 bool Config::parse() noexcept {
   auto rc = false;
 
-  std::unique_lock lck(mtx, std::defer_lock);
-  lck.lock();
-
   try {
-    auto &table = tables.emplace_back(toml::parse_file(_full_path.c_str()));
+    table = toml::parse_file(_full_path.c_str());
 
     table.emplace("project", build::info.project);
     table.emplace("git_describe", build::git.describe);
     table.emplace("install_prefix", build::info.install_prefix);
     table.emplace("sysconf_dir"sv, build::info.sysconf_dir);
     table.emplace("data_dir", build::info.data_dir);
-
-    // is this a reload of the config?
-    if (tables.size() == 2) {
-      tables.pop_front(); // discard the old table
-    }
 
     rc = true;
 
@@ -153,8 +115,6 @@ bool Config::parse() noexcept {
 
   return rc;
 }
-
-bool Config::ready() noexcept { return config() && config()->initialized; }
 
 const string Config::receiver() noexcept { // static
   static constexpr csv fallback{"%h"};

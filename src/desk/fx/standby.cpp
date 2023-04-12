@@ -21,7 +21,6 @@
 #include "color.hpp"
 #include "desk.hpp"
 #include "lcs/config.hpp"
-#include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "unit/all.hpp"
 
@@ -30,8 +29,6 @@ namespace desk {
 
 void Standby::execute(const Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
-
-  if (ConfigWatch::has_changed(cfg_change)) load_config();
 
   if (next_brightness < max_brightness) {
     next_brightness++;
@@ -68,8 +65,6 @@ bool Standby::load_config() noexcept {
 
   const auto timeout = config_val<Standby, Minutes, int64_t>(cfg_silence_timeout, 30);
   changed |= set_silence_timeout(timeout, fx::ALL_STOP);
-
-  cfg_change = ConfigWatch::want_changes();
 
   return changed;
 }

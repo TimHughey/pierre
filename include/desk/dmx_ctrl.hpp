@@ -20,7 +20,6 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "lcs/types.hpp"
 
 #include <atomic>
 #include <boost/asio/buffer.hpp>
@@ -89,7 +88,6 @@ private:
   Millis stall_timeout;
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;
-  cfg_future cfg_fut;
   int thread_count;
 
   // order independent

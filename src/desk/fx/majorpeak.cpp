@@ -27,7 +27,6 @@
 #include "frame/peaks.hpp"
 #include "fx/majorpeak/types.hpp"
 #include "lcs/config.hpp"
-#include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 
@@ -45,11 +44,7 @@ namespace stats = pierre::stats;
 void MajorPeak::execute(const Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
-  if (ConfigWatch::has_changed(cfg_changed)) {
-    load_config(); // setups silence config
-
-    cfg_changed = ConfigWatch::want_changes();
-  } else if (peaks.audible()) {
+  if (peaks.audible()) {
 
     silence_watch(); // reset silence timer when we have non-silent peaks
   }
@@ -200,7 +195,7 @@ bool MajorPeak::load_config() noexcept {
 
   // make a copy of the table (under the cover of the live mtx) so
   // we are confident it isn't changing
-  const toml::table local_copy(cfg_copy_live());
+  const toml::table local_copy(cfg_copy());
 
   // lambda helper to retrieve frequencies config
   auto freqs = [&](csv path, double def_val) {
@@ -287,9 +282,6 @@ bool MajorPeak::load_config() noexcept {
   // setup silence timeout
   const auto timeout = config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13);
   set_silence_timeout(timeout, fx::STANDBY);
-
-  // register for changes
-  cfg_changed = ConfigWatch::want_changes();
 
   return changed;
 }

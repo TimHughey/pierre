@@ -22,7 +22,6 @@
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
-#include "lcs/types.hpp"
 
 #include <memory>
 
@@ -48,8 +47,6 @@ private:
   double hue_step{0.0};
   double max_brightness{0};
   double next_brightness{0};
-
-  cfg_future cfg_change;
 
 public:
   static constexpr csv module_id{"fx.standby"};

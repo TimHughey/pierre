@@ -20,7 +20,6 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "lcs/types.hpp"
 
 #define TOML_ENABLE_FORMATTERS 0 // don't need formatters
 #define TOML_HEADER_ONLY 0       // reduces compile times
@@ -59,31 +58,29 @@ public:
 
   // raw, direct access
   template <typename P> const auto at(P p) noexcept {
-    if constexpr (std::is_same_v<P, toml::path>) return live()[p];
+    if constexpr (std::is_same_v<P, toml::path>) return table[p];
     if constexpr (std::is_same_v<P, string_view> || std::is_same_v<P, string>) {
-      const toml::path path{p};
 
-      return live()[path];
+      return table[toml::path{p}];
     }
   }
 
   template <typename P> const auto table_at(P p) noexcept {
-    if constexpr (std::is_same_v<P, toml::path>) return live()[p];
+    if constexpr (std::is_same_v<P, toml::path>) return table[p];
     if constexpr (std::is_same_v<P, string_view> || std::is_same_v<P, string>) {
-      const toml::path path{p};
 
-      return live()[path];
+      return table[toml::path{p}];
     }
   }
 
-  template <typename T> void copy(std::any &table) noexcept {
+  template <typename T> void copy(std::any &dest_table) noexcept {
     const toml::path sub_path{T::module_id};
 
-    if (tables.front().at_path(sub_path).is_table()) {
-      const auto &sub_table = tables.front().at_path(sub_path).ref<toml::table>();
-      table.emplace<toml::table>(sub_table);
+    if (table.at_path(sub_path).is_table()) {
+      const auto &sub_table = table.at_path(sub_path).ref<toml::table>();
+      dest_table.emplace<toml::table>(sub_table);
     } else {
-      table.emplace(toml::table())
+      dest_table.emplace<toml::table>();
     }
   }
 
@@ -116,12 +113,6 @@ public:
     return fs::path(shared::config->cli_table[path].ref<string>());
   }
 
-  const toml::table &live() noexcept;
-
-  bool log_bool(csv logger_module_id, csv mod, csv cat) noexcept;
-
-  static bool ready() noexcept;
-
   static const string receiver() noexcept; // see .cpp
 
 protected:
@@ -131,15 +122,13 @@ protected:
   const auto file_path() const noexcept { return _full_path; }
   bool parse() noexcept;
 
-private:
+public:
   // order dependent
   toml::table cli_table;
   const fs::path _full_path;
-  std::atomic_bool initialized;
 
   // order independent
-  std::list<toml::table> tables;
-  std::shared_mutex mtx;
+  toml::table table;
 
 public: // status messages
   string init_msg;
@@ -165,15 +154,7 @@ inline const auto cfg_build_vsn() noexcept {
   return shared::config->at("git_describe"sv).value_or<string>(Config::UNSET);
 }
 
-inline const toml::table cfg_copy_live() noexcept { return toml::table(config()->live()); }
-
-/// @brief Lookup the boolean value at info.<mod>.<cat>
-/// @param mod module id
-/// @param cat categpry
-/// @return true or false
-inline bool cfg_logger(csv logger_mod, csv mod, csv cat) noexcept {
-  return Config::ready() ? shared::config->log_bool(logger_mod, mod, cat) : true;
-}
+inline const toml::table cfg_copy() noexcept { return toml::table(config()->table); }
 
 template <typename T> toml::path config_path(csv key_path) noexcept {
   return toml::path(T::module_id).append(key_path);

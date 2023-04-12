@@ -25,7 +25,6 @@
 #include "desk/msg/in.hpp"
 #include "desk/msg/out.hpp"
 #include "lcs/config.hpp"
-#include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
@@ -75,8 +74,6 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       stalled_timer(data_strand, stall_timeout),
       // create the resolve timeout timer, use sess strand
       resolve_retry_timer(sess_strand, resolve_retry_wait()),
-      // register for config change notifications
-      cfg_fut(ConfigWatch::want_changes()),
       // capture the configured number of threads
       thread_count{config_threads<DmxCtrl>(1)} //
 {
@@ -286,12 +283,6 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   // case (e.g. host resolve failure), otherwise use configured
   // stall timeout value
   if (wait == Millis::zero()) wait = stall_timeout;
-
-  if (ConfigWatch::has_changed(cfg_fut) && (cfg_host != get_cfg_host())) {
-    cfg_host.clear();                      // triggers pull from config on next name resolution
-    cfg_fut = ConfigWatch::want_changes(); // get a fresh future
-    wait = 0s;                             // override wait, config has changed
-  }
 
   stalled_timer.expires_after(wait);
   stalled_timer.async_wait([this, wait = wait](error_code ec) {
