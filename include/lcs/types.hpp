@@ -18,8 +18,17 @@
 
 #pragma once
 
+#define TOML_ENABLE_FORMATTERS 0 // don't need formatters
+#define TOML_HEADER_ONLY 0       // reduces compile times
+
+#include "toml++/toml.h"
+
+#include <chrono>
+#include <filesystem>
 #include <future>
+#include <memory>
 #include <optional>
+#include <string>
 
 namespace pierre {
 

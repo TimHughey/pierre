@@ -21,6 +21,7 @@
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
+#include <any>
 #include <boost/asio.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
@@ -103,6 +104,7 @@ private:
   bool shutting_down{false};
   std::optional<strand_ioc> local_strand;
   std::optional<fmt::ostream> out;
+  std::any cfg_table;
 
 public:
   // order independent

@@ -212,29 +212,18 @@ void Desk::resume() noexcept {
     io_ctx.reset();
   }
 
-  asio::post(render_strand, [this]() {
-    const auto expired_at = frame_timer.expiry();
-    const auto now_plus_lead_time = steady_clock::now() + InputInfo::lead_time;
+  frame_timer.expires_at(steady_clock::now());
+  frame_timer.async_wait([this](const error_code &ec) {
+    if (ec) return;
 
-    if (expired_at < now_plus_lead_time) {
-      INFO_AUTO("frame timer expired {} ago\n", pet::as<Micros>(now_plus_lead_time - expired_at));
+    // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
+    anchor->reset();
 
-      // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
-      anchor->reset();
-
-      // reset active_fx, render() will create as needed
-      active_fx.reset();
-
-      // kick off rendering
-      render();
-    } else {
-      INFO_AUTO("not needed, already active\n");
-    }
+    render();
   });
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {
-
   auto rc = active_fx->match_name(desk::fx::ALL_STOP);
 
   if (rc) {

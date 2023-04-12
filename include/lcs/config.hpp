@@ -26,6 +26,7 @@
 #define TOML_HEADER_ONLY 0       // reduces compile times
 #include "toml++/toml.h"
 
+#include <any>
 #include <atomic>
 #include <concepts>
 #include <filesystem>
@@ -75,8 +76,15 @@ public:
     }
   }
 
-  toml::table copy(auto path) noexcept {
-    return tables.front().at_path(toml::path(path)).ref<toml::table>();
+  template <typename T> void copy(std::any &table) noexcept {
+    const toml::path sub_path{T::module_id};
+
+    if (tables.front().at_path(sub_path).is_table()) {
+      const auto &sub_table = tables.front().at_path(sub_path).ref<toml::table>();
+      table.emplace<toml::table>(sub_table);
+    } else {
+      table.emplace(toml::table())
+    }
   }
 
   // specific accessors

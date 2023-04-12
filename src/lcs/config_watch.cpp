@@ -43,7 +43,8 @@ ConfigWatch::ConfigWatch(asio::io_context &io_ctx) noexcept
 void ConfigWatch::file_watch() noexcept {
   static constexpr csv fn_id{"file_watch"};
 
-  file_timer.expires_after(1s);
+  const auto expiry = file_timer.expiry();
+  file_timer.expires_at(expiry + 1s);
   file_timer.async_wait([this](const error_code ec) {
     if (ec) return; // error or shutdown, bail now!
 

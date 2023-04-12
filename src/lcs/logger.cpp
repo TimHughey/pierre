@@ -19,7 +19,9 @@
 #include "lcs/logger.hpp"
 #include "base/elapsed.hpp"
 #include "lcs/config.hpp"
+// #include "lcs/config_watch.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <thread>
@@ -42,6 +44,8 @@ Logger::Logger() noexcept {
 
   const auto now = std::chrono::system_clock::now();
   out->print("\n{:%FT%H:%M:%S} START\n", now);
+
+  shared::config->copy<Logger>(cfg_table);
 }
 
 Logger::~Logger() noexcept {
@@ -74,8 +78,27 @@ Logger::millis_fp Logger::runtime() noexcept { // static
 }
 
 bool Logger::should_log(csv mod, csv cat) noexcept { // static
-  // in .cpp to avoid pulling config.hpp into Logger
-  return cfg_logger(module_id, mod, cat);
+  static constexpr csv fn_id{"should_log"};
+
+  if (cat == csv{"info"}) return true;
+
+  const auto &t = std::any_cast<toml::table>(shared::logger->cfg_table);
+
+  // order of precedence:
+  //  1. looger.<cat>       == boolean
+  //  2. logger.<mod>       == boolean
+  //  3. logger.<mod>.<cat> == boolean
+  std::array paths{toml::path(cat), toml::path(mod), toml::path(mod).append(cat)};
+
+  return std::all_of(paths.begin(), paths.end(), [&t = t](const auto &p) {
+    const auto node = t.at_path(p);
+
+    if (node.is_boolean()) {
+      return node.value_or(true);
+    } else {
+      return true;
+    }
+  });
 }
 
 } // namespace pierre
