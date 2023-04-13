@@ -20,7 +20,6 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "lcs/config/token.hpp"
 
 #include <any>
 #include <boost/asio.hpp>
@@ -101,9 +100,6 @@ private:
   void print(const string prefix, const string msg) noexcept;
 
 private:
-  // order dependent
-  config2::token ctoken;
-
   // order independent
   bool shutting_down{false};
   std::optional<strand_ioc> local_strand;

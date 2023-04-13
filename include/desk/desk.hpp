@@ -75,7 +75,7 @@ private:
   bool fx_finished() const noexcept;
   void fx_select(Frame *frame) noexcept;
 
-  void next_reel() noexcept;
+  bool next_reel() noexcept;
 
   void render() noexcept;
 

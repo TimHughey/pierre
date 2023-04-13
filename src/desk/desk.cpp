@@ -133,12 +133,14 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   if (racked) racked->handoff(std::forward<uint8v>(packet), key);
 }
 
-void Desk::next_reel() noexcept {
+bool Desk::next_reel() noexcept {
   if (render_active.load(std::memory_order_relaxed) && active_reel->empty()) {
     auto reel = racked->next_reel().get();
 
     std::exchange(active_reel, std::move(reel));
   }
+
+  return (bool)active_reel;
 }
 
 void Desk::render() noexcept {
@@ -147,7 +149,8 @@ void Desk::render() noexcept {
   Elapsed render_elapsed;
 
   // get the next reel, if needed
-  next_reel();
+  // if there isn't active reel return (we have shutdown)
+  if (next_reel() == false) return;
 
   // now handle the frame for this render
   const auto clock_info = master_clock->info_no_wait();
@@ -173,7 +176,7 @@ void Desk::render() noexcept {
       render_elapsed.freeze();
 
       // get the next reel if we emptied this reel
-      next_reel();
+      if (next_reel() == false) return;
 
       // notate the frame is rendered (or silent) in timeseries db
       frame->mark_rendered();

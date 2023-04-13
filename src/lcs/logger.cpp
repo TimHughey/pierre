@@ -37,10 +37,11 @@ std::unique_ptr<Logger> logger;
 }
 
 Elapsed elapsed_runtime;
+static config2::token ctoken(Logger::module_id);
 
 namespace fs = std::filesystem;
 
-Logger::Logger() noexcept : ctoken(module_id) {
+Logger::Logger() noexcept {
 
   const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
   const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
@@ -71,13 +72,13 @@ void Logger::async(asio::io_context &io_ctx) noexcept { // static
     auto &strand = self->local_strand.value();
 
     // for clarity build the post action
-    auto action = asio::append([self](std::any t) { self->ctoken.table = std::move(t); },
-                               std::move(next_table));
+    auto action =
+        asio::append([self](std::any t) { ctoken.table = std::move(t); }, std::move(next_table));
 
     asio::post(strand, std::move(action));
   };
 
-  config_watch().register_token(self->ctoken, std::move(handler));
+  config_watch().register_token(ctoken, std::move(handler));
 
   // add a thread to the injected io_ctx to support our strand
   std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
@@ -101,7 +102,7 @@ bool Logger::should_log(csv mod, csv cat) noexcept { // static
 
   if (cat == csv{"info"}) return true;
 
-  const auto &t = shared::logger->ctoken.get<toml::table>();
+  const auto &t = ctoken.get<toml::table>();
 
   // order of precedence:
   //  1. looger.<cat>       == boolean

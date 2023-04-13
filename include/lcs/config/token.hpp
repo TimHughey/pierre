@@ -18,16 +18,18 @@
 
 #pragma once
 
+#include "base/pet_types.hpp"
 #include "base/types.hpp"
+#include "lcs/config/toml.hpp"
 
 #include <any>
-#include <chrono>
-#include <filesystem>
+#include <concepts>
 #include <functional>
-#include <future>
 #include <memory>
+#include <type_traits>
 
 namespace pierre {
+
 namespace config2 {
 
 class watch;
@@ -35,8 +37,6 @@ class watch;
 namespace {
 namespace fs = std::filesystem;
 } // namespace
-
-using file_time_t = fs::file_time_type;
 
 struct token {
 
@@ -54,7 +54,26 @@ struct token {
   token(token &&) = default;
   token &operator=(token &&) = default;
 
-  template <typename T> const T get() const noexcept { return std::any_cast<T>(table); }
+  template <typename T = toml::table> const T get() const noexcept {
+    return std::any_cast<T>(table);
+  }
+
+  template <typename ReturnType, typename DefaultType>
+  inline ReturnType val(const auto path_raw, DefaultType &&def_val) noexcept {
+
+    const auto path = toml::path{path_raw};
+    const auto t = get();
+
+    if constexpr (IsDuration<ReturnType> && std::integral<DefaultType>) {
+      const auto raw_val = t[path].value_or(std::forward<DefaultType>(def_val));
+
+      return ReturnType(raw_val);
+    } else if constexpr (std::same_as<ReturnType, DefaultType>) {
+      return t[path].value_or(std::forward<DefaultType>(def_val));
+    } else {
+      static_assert(always_false_v<ReturnType>, "unhandled types");
+    }
+  }
 
   void notify_of_change(std::any &&next_table) noexcept;
 

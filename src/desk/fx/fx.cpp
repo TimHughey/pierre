@@ -17,10 +17,12 @@
 // https://www.wisslanding.com
 
 #include "desk/fx.hpp"
+#include "base/pet.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
 #include "frame/peaks.hpp"
+#include "lcs/logger.hpp"
 
 namespace pierre {
 namespace desk {
@@ -49,6 +51,35 @@ bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
   }
 
   return !finished;
+}
+
+bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) noexcept {
+  static constexpr csv fn_id{"set_silence"};
+
+  if (timeout != std::exchange(silence_timeout, timeout)) {
+    INFO_AUTO("silence_timeout={}\n", pet::humanize(silence_timeout));
+
+    silence_watch(silence_fx);
+    return true;
+  }
+
+  return false;
+}
+
+void FX::silence_watch(const string silence_fx) noexcept {
+  static constexpr csv fn_id{"silence_watch"};
+
+  if (silence_fx.size() && (silence_fx != next_fx)) {
+    INFO_AUTO("next_fx new={} old={}\n", silence_fx, std::exchange(next_fx, silence_fx));
+  }
+
+  fx_timer.expires_after(silence_timeout);
+  fx_timer.async_wait([this](const error_code &ec) {
+    if (ec) return;
+
+    set_finished(true);
+    INFO_AUTO("timer fired, finished={} next_fx={}\n", finished, next_fx);
+  });
 }
 
 } // namespace desk

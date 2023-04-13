@@ -27,6 +27,31 @@
 namespace pierre {
 namespace desk {
 
+void Standby::apply_config() noexcept {
+  static constexpr csv fn_id{"apply_config"};
+
+  // auto cfg_first_color = Color({.hue = config_val<double>(ctoken, "color.hue"sv, 0),
+  //                               .sat = config_val<double>(ctoken, "color.sat"sv, 0),
+  //                               .bri = config_val<double>(ctoken, "color.bri"sv, 0)});
+
+  auto cfg_first_color = Color({.hue = ctoken.val<double>("color.hue"sv, 0.0),
+                                .sat = ctoken.val<double>("color.sat"sv, 0.0),
+                                .bri = ctoken.val<double>("color.bri"sv, 0.0)});
+
+  if (cfg_first_color != first_color) {
+    std::exchange(first_color, cfg_first_color);
+    next_color = first_color;
+    next_brightness = 0.0;
+    max_brightness = next_color.brightness();
+  }
+
+  // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
+  hue_step = ctoken.val<double>("hue_step"sv, 0.0);
+
+  const auto timeout = ctoken.val<Minutes, int64_t>(cfg_silence_timeout, 30);
+  set_silence_timeout(timeout, fx::ALL_STOP);
+}
+
 void Standby::execute(const Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
@@ -43,32 +68,6 @@ void Standby::execute(const Peaks &peaks) noexcept {
   set_finished(peaks.audible(), fx::MAJOR_PEAK);
 }
 
-bool Standby::load_config() noexcept {
-  static constexpr csv fn_id{"load_config"};
-
-  auto changed{false};
-
-  auto cfg_first_color = Color({.hue = config_val<Standby, double>("color.hue"sv, 0),
-                                .sat = config_val<Standby, double>("color.sat"sv, 0),
-                                .bri = config_val<Standby, double>("color.bri"sv, 0)});
-
-  if (cfg_first_color != first_color) {
-    std::exchange(first_color, cfg_first_color);
-    next_color = first_color;
-    next_brightness = 0.0;
-    max_brightness = next_color.brightness();
-
-    changed |= true;
-  }
-
-  hue_step = config_val<Standby, double>("hue_step", 0.0);
-
-  const auto timeout = config_val<Standby, Minutes, int64_t>(cfg_silence_timeout, 30);
-  changed |= set_silence_timeout(timeout, fx::ALL_STOP);
-
-  return changed;
-}
-
 void Standby::once() noexcept {
 
   units(unit::AC_POWER)->activate();
@@ -77,6 +76,11 @@ void Standby::once() noexcept {
   units.get<Dimmable>(unit::EL_DANCE)->dim();
   units.get<Dimmable>(unit::EL_DANCE)->dim();
   units.get<Dimmable>(unit::LED_FOREST)->dim();
+}
+
+void Standby::register_token(config2::token::lambda &&handler) noexcept {
+
+  config_watch().register_token(ctoken, std::move(handler));
 }
 
 } // namespace desk

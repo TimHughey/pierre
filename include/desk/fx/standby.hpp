@@ -22,6 +22,7 @@
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
+#include "lcs/config/token.hpp"
 
 #include <memory>
 
@@ -31,16 +32,43 @@ namespace desk {
 class Standby : public FX {
 
 public:
-  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY) { load_config(); }
+  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), ctoken(module_id) {
+
+    // handler to process config changes
+    // notes:
+    //  -build the handler here due to the deduced type of executor
+    //  -move the handler to register_token() so the call to config2::watch
+    //   is in the .cpp file
+    auto handler = [&, this](std::any &&next_table) mutable {
+      // for clarity build the post action separately then move into post
+      auto action = asio::append(
+          [this](std::any t) {
+            ctoken.table = std::move(t);
+            apply_config();
+          },
+          std::move(next_table));
+
+      asio::post(executor, std::move(action));
+    };
+
+    // note: the table is initially copied to the token during registration
+    register_token(std::move(handler)); // in .cpp to hide config2::watch
+
+    apply_config();
+  }
 
   void execute(const Peaks &peaks) noexcept override;
 
   void once() noexcept override final;
 
 private:
-  bool load_config() noexcept;
+  void apply_config() noexcept;
+  void register_token(config2::token::lambda &&handler) noexcept;
 
 private:
+  // order depdendent
+  config2::token ctoken;
+
   // order independent
   Color first_color;
   Color next_color;

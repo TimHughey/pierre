@@ -24,7 +24,6 @@
 #include "desk/units.hpp"
 #include "frame/fdecls.hpp"
 #include "fx/names.hpp"
-#include "lcs/logger.hpp"
 
 #include <boost/asio/steady_timer.hpp>
 #include <boost/system.hpp>
@@ -109,42 +108,20 @@ protected:
   }
 
   template <typename T>
-  bool set_silence_timeout(const T &new_val, const string silence_fx) noexcept {
-    static constexpr csv fn_id{"set_silence"};
+  bool set_silence_timeout(const T &new_val_raw, const string silence_fx) noexcept {
     using Millis = std::chrono::milliseconds;
 
-    auto new_val_millis = pet::as<Millis, T>(new_val);
+    Millis new_val = std::chrono::duration_cast<Millis>(new_val_raw);
 
-    if (silence_timeout != new_val_millis) {
-      silence_timeout = new_val_millis;
-
-      INFO_AUTO("new silence_timeout={}\n", pet::humanize(silence_timeout));
-
-      silence_watch(silence_fx);
-      return true;
-    }
-
-    return false;
+    // note: the extra call is desired to limit includes
+    return save_silence_timeout(new_val, silence_fx);
   }
 
-  void silence_watch(const string silence_fx = string()) noexcept {
-    static constexpr csv fn_id{"silence_watch"};
-
-    if (silence_fx.size() && (silence_fx != next_fx)) {
-      INFO_AUTO("next_fx new={} old={}\n", silence_fx, std::exchange(next_fx, silence_fx));
-    }
-
-    fx_timer.expires_after(silence_timeout);
-    fx_timer.async_wait([this](const error_code &ec) {
-      if (ec) return;
-
-      set_finished(true);
-      INFO_AUTO("timer fired, finished={} next_fx={}\n", finished, next_fx);
-    });
-  }
+  void silence_watch(const string silence_fx = string()) noexcept;
 
 private:
   static void ensure_units() noexcept;
+  bool save_silence_timeout(const Millis &timeout, const string &silence_fx) noexcept;
 
 protected:
   /// @brief Order dependent class member data
