@@ -16,9 +16,11 @@ file(GLOB HEADER_LIST CONFIGURE_DEPENDS
 add_library(${__target}  
   ${HEADER_LIST}
   config.cpp
-  config_watch.cpp
   logger.cpp
   stats.cpp
+
+  config/token.cpp
+  config/watch.cpp
 )
 
 # source files compiled for the library can include headers

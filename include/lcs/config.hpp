@@ -20,20 +20,24 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
+#include "lcs/config/watch.hpp"
 
 #define TOML_ENABLE_FORMATTERS 0 // don't need formatters
 #define TOML_HEADER_ONLY 0       // reduces compile times
 #include "toml++/toml.h"
 
 #include <any>
-#include <atomic>
+#include <boost/asio/io_context.hpp>
 #include <concepts>
 #include <filesystem>
-#include <list>
-#include <shared_mutex>
 #include <type_traits>
 
 namespace pierre {
+
+namespace asio = boost::asio;
+using error_code = boost::system::error_code;
+using steady_timer = asio::steady_timer;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 namespace {
 namespace fs = std::filesystem;
@@ -53,8 +57,10 @@ struct build_info_t {
 
 class Config {
 public:
-  Config(const toml::table &cli_table) noexcept;
+  Config(const toml::table &cli_table, asio::io_context &io_ctx) noexcept;
   ~Config() = default;
+
+  friend class config2::watch;
 
   // raw, direct access
   template <typename P> const auto at(P p) noexcept {
@@ -73,12 +79,12 @@ public:
     }
   }
 
-  template <typename T> void copy(std::any &dest_table) noexcept {
-    const toml::path sub_path{T::module_id};
+  void copy(auto path_raw, std::any &dest_table) noexcept {
+    const toml::path sub_path{path_raw};
 
-    if (table.at_path(sub_path).is_table()) {
-      const auto &sub_table = table.at_path(sub_path).ref<toml::table>();
-      dest_table.emplace<toml::table>(sub_table);
+    if (table[sub_path].is_table()) {
+      auto sub_table = table[sub_path].ref<toml::table>();
+      dest_table.emplace<toml::table>(std::move(sub_table));
     } else {
       dest_table.emplace<toml::table>();
     }
@@ -113,11 +119,11 @@ public:
     return fs::path(shared::config->cli_table[path].ref<string>());
   }
 
+  auto last_write_time() noexcept { return fs::last_write_time(_full_path); }
+
   static const string receiver() noexcept; // see .cpp
 
 protected:
-  friend class ConfigWatch;
-
   static fs::path fs_path(csv path) noexcept; // return non-const to allow append
   const auto file_path() const noexcept { return _full_path; }
   bool parse() noexcept;
@@ -126,6 +132,7 @@ public:
   // order dependent
   toml::table cli_table;
   const fs::path _full_path;
+  config2::watch file_watch;
 
   // order independent
   toml::table table;
@@ -190,5 +197,7 @@ template <class C> int config_threads(int &&def_val) noexcept {
   return shared::config->at(toml::path(C::module_id).append("threads"))
       .value_or<int>(std::forward<int>(def_val));
 }
+
+inline config2::watch &config_watch() noexcept { return shared::config->file_watch; }
 
 } // namespace pierre

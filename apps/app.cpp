@@ -23,7 +23,6 @@
 
 #include "lcs/args.hpp"
 #include "lcs/config.hpp"
-#include "lcs/config_watch.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
@@ -113,7 +112,7 @@ int App::main(int argc, char *argv[]) {
   CliArgs cli_args(argc, argv);
 
   // allocate global Config object
-  shared::config = std::make_unique<Config>(cli_args.cli_table);
+  shared::config = std::make_unique<Config>(cli_args.cli_table, io_ctx);
 
   if (!config()->parse_msg.empty()) {
     perror(config()->parse_msg.c_str());
@@ -180,8 +179,6 @@ int App::main(int argc, char *argv[]) {
   INFO(Config::module_id, "init", "{}\n", config()->init_msg);
 
   try {
-
-    shared::config_watch = std::make_unique<ConfigWatch>(io_ctx);
     shared::stats = std::make_unique<Stats>(io_ctx);
     shared::mdns = std::make_unique<mDNS>();
 
@@ -192,7 +189,6 @@ int App::main(int argc, char *argv[]) {
 
     shared::mdns.reset();
     shared::stats.reset();
-    shared::config_watch.reset();
     shared::config.reset();
   } catch (const std::exception &e) {
 

@@ -27,6 +27,7 @@
 #include "frame/peaks.hpp"
 #include "fx/majorpeak/types.hpp"
 #include "lcs/config.hpp"
+#include "lcs/config/token.hpp"
 #include "lcs/logger.hpp"
 #include "lcs/stats.hpp"
 
@@ -44,10 +45,7 @@ namespace stats = pierre::stats;
 void MajorPeak::execute(const Peaks &peaks) noexcept {
   static constexpr csv fn_id{"execute"};
 
-  if (peaks.audible()) {
-
-    silence_watch(); // reset silence timer when we have non-silent peaks
-  }
+  if (peaks.audible()) silence_watch(); // reset silence timer when we have non-silent peaks
 
   units(unit::AC_POWER)->activate();
   units.get<Dimmable>(unit::DISCO_BALL)->dim();

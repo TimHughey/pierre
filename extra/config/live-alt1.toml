@@ -28,9 +28,15 @@ debug = false   # show any debug messages?
 init = true     # always log init messages from any module, when true
 thread = true  # show any thread messages?
 shutdown = true # show any shutdown messages?
+async = true
 
-[logger.config_watch]
-file_watch = false
+[logger.config.watch]
+check_file = false
+register = true
+unregister = false
+
+[logger.config.token]
+notify = true
 
 [logger.desk]
 thread = false
@@ -63,7 +69,6 @@ decipher = false
 major_peak = { execute = false }
 silence_watch = false
 standby = true 
-
 
 [logger.mdns]
 ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }

@@ -19,69 +19,71 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "lcs/types.hpp"
-#include "toml++/toml.h"
+#include "lcs/config/token.hpp"
+#include "lcs/config/toml.hpp"
 
+#include <any>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/system/error_code.hpp>
-#include <chrono>
+#include <concepts>
 #include <filesystem>
-#include <future>
-#include <memory>
+#include <fmt/format.h>
+#include <iterator>
+#include <list>
 #include <mutex>
+#include <type_traits>
 
 namespace pierre {
 
+class Config;
+
 namespace asio = boost::asio;
 using error_code = boost::system::error_code;
-using steady_timer = boost::asio::steady_timer;
+using steady_timer = asio::steady_timer;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
+namespace config2 {
 namespace {
 namespace fs = std::filesystem;
-} // namespace
-
-using file_clock = std::chrono::file_clock;
-using file_time_t = std::filesystem::file_time_type;
-
-class ConfigWatch;
-
-namespace shared {
-extern std::unique_ptr<ConfigWatch> config_watch;
 }
 
-class ConfigWatch {
+using file_time_t = fs::file_time_type;
 
+class watch {
 public:
-  ConfigWatch(asio::io_context &io_ctx) noexcept;
-  ~ConfigWatch() noexcept {
+  watch(asio::io_context &io_ctx, Config *cfg_ptr) noexcept; // must be .cpp (incomplete types)
+  ~watch() noexcept {
     [[maybe_unused]] error_code ec;
     file_timer.cancel(ec);
   }
 
-  static bool has_changed(cfg_future &want_fut) noexcept;
+  watch(watch &&) = default;
+  watch &operator=(watch &&) = default;
 
-  static cfg_future want_changes() noexcept;
-  const auto watch_msg() const noexcept { return _watch_msg; }
+  bool register_token(token &tok, token::lambda &&handler) noexcept;
+  void unregister_token(token &tok) noexcept;
 
 private:
-  void file_watch() noexcept;
+  void check_file() noexcept;
+  void monitor_file() noexcept;
 
 private:
   // order dependent
+  strand_ioc local_strand;
   steady_timer file_timer;
-  const string file_path;
+  Config *cfg_ptr;
+  file_time_t file_last_time;
 
   // order independent
-  std::filesystem::file_time_type last_changed;
   std::mutex mtx;
-  std::optional<cfg_future> watch_fut;
-  std::optional<std::promise<bool>> prom;
-  string _watch_msg;
+  std::list<std::reference_wrapper<token>> tokens;
 
 public:
-  static constexpr csv module_id{"config_watch"};
+  static constexpr csv module_id{"config.watch"};
 };
+
+} // namespace config2
 
 } // namespace pierre

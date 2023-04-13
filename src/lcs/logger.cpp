@@ -19,13 +19,18 @@
 #include "lcs/logger.hpp"
 #include "base/elapsed.hpp"
 #include "lcs/config.hpp"
+#include "lcs/config/watch.hpp"
 
 #include <algorithm>
+#include <boost/asio/append.hpp>
+#include <boost/asio/post.hpp>
 #include <filesystem>
 #include <iostream>
 #include <thread>
 
 namespace pierre {
+
+namespace asio = boost::asio;
 
 namespace shared {
 std::unique_ptr<Logger> logger;
@@ -35,7 +40,7 @@ Elapsed elapsed_runtime;
 
 namespace fs = std::filesystem;
 
-Logger::Logger() noexcept {
+Logger::Logger() noexcept : ctoken(module_id) {
 
   const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
   const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
@@ -44,7 +49,7 @@ Logger::Logger() noexcept {
   const auto now = std::chrono::system_clock::now();
   out->print("\n{:%FT%H:%M:%S} START\n", now);
 
-  shared::config->copy<Logger>(cfg_table);
+  shared::config->copy(module_id, ctoken.table);
 }
 
 Logger::~Logger() noexcept {
@@ -54,10 +59,25 @@ Logger::~Logger() noexcept {
 }
 
 void Logger::async(asio::io_context &io_ctx) noexcept { // static
-  auto &self = *shared::logger;
+  static constexpr csv fn_id{"info"};
+
+  auto self = shared::logger.get();
 
   // create our local strand to serialized logging
-  self.local_strand.emplace(asio::make_strand(io_ctx));
+  self->local_strand.emplace(asio::make_strand(io_ctx));
+
+  // handler to process config changes
+  auto handler = [self](std::any &&next_table) {
+    auto &strand = self->local_strand.value();
+
+    // for clarity build the post action
+    auto action = asio::append([self](std::any t) { self->ctoken.table = std::move(t); },
+                               std::move(next_table));
+
+    asio::post(strand, std::move(action));
+  };
+
+  config_watch().register_token(self->ctoken, std::move(handler));
 
   // add a thread to the injected io_ctx to support our strand
   std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
@@ -81,7 +101,7 @@ bool Logger::should_log(csv mod, csv cat) noexcept { // static
 
   if (cat == csv{"info"}) return true;
 
-  const auto &t = std::any_cast<toml::table>(shared::logger->cfg_table);
+  const auto &t = shared::logger->ctoken.get<toml::table>();
 
   // order of precedence:
   //  1. looger.<cat>       == boolean

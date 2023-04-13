@@ -25,7 +25,10 @@
 #include "build_inject.hpp"
 #include "git_version.hpp"
 #include "lcs/args.hpp"
+#include "lcs/logger.hpp"
 
+#include <algorithm>
+#include <any>
 #include <cstdlib>
 #include <filesystem>
 #include <fmt/chrono.h>
@@ -43,14 +46,14 @@ std::unique_ptr<Config> config{nullptr};
 }
 
 // Config API
-Config::Config(const toml::table &cli_table) noexcept                //
-    : cli_table(cli_table),                                          //
-      _full_path(fs::path(build::info.sysconf_dir)                   //
-                     .append(build::info.project)                    //
-                     .append(cli_table["cfg-file"sv].ref<string>())) //
+Config::Config(const toml::table &cli_table, asio::io_context &io_ctx) noexcept
+    : cli_table(cli_table),                                           //
+      _full_path(fs::path(build::info.sysconf_dir)                    //
+                     .append(build::info.project)                     //
+                     .append(cli_table["cfg-file"sv].ref<string>())), //
+      file_watch(io_ctx, this)                                        //
 {
   if (parse() == true) {
-
     init_msg = fmt::format("sizeof={:>5} table size={}", sizeof(Config), table.size());
 
     // if we made it here cli and config are parsed, toml tables are ready for use
@@ -97,6 +100,8 @@ fs::path Config::fs_path(csv path) noexcept {
 
 bool Config::parse() noexcept {
   auto rc = false;
+
+  parse_msg.clear();
 
   try {
     table = toml::parse_file(_full_path.c_str());
