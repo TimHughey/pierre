@@ -20,6 +20,7 @@
 
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
+#include "lcs/config/token.hpp"
 
 #include <atomic>
 #include <boost/asio/buffer.hpp>
@@ -61,7 +62,7 @@ public:
   DmxCtrl(asio::io_context &io_ctx) noexcept;
   ~DmxCtrl() = default;
 
-  auto required_threads() const noexcept { return thread_count; }
+  int required_threads() noexcept;
 
   /// @brief send the DataMsg to the remote host
   /// @param msg assembled DataMsg for remote host
@@ -81,27 +82,27 @@ private:
   // order dependent
   strand_ioc sess_strand;
   strand_ioc data_strand;
+  config2::token ctoken;
   tcp_endpoint data_lep{ip_tcp::v4(), ANY_PORT};
   tcp_socket sess_sock; // handshake, stats (read/write)
   tcp_acceptor data_accep;
   tcp_socket data_sock; // frame data (write only)
-  Millis stall_timeout;
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;
-  int thread_count;
 
   // order independent
+  Millis stall_timeout;
+
   tcp_endpoint data_rep; // remote endpoint of accepted socket
   std::atomic_bool connected{false};
   std::atomic_bool data_connected{false};
 
-  string cfg_host;                           // dmx controller host name
+  string remote_host;                        // dmx controller host name
   std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint
 
   // misc debug
 public:
   static constexpr csv module_id{"desk.dmx_ctrl"};
-  static constexpr csv task_name{"dmx_ctrl"};
 };
 
 } // namespace desk

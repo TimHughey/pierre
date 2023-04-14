@@ -58,21 +58,28 @@ struct token {
     return std::any_cast<T>(table);
   }
 
-  template <typename ReturnType, typename DefaultType>
-  inline ReturnType val(const auto path_raw, DefaultType &&def_val) noexcept {
+  template <typename ReturnType>
+  inline ReturnType val(const auto path_raw, const auto &&def_val) noexcept {
 
     const auto path = toml::path{path_raw};
     const auto t = get();
 
-    if constexpr (IsDuration<ReturnType> && std::integral<DefaultType>) {
-      const auto raw_val = t[path].value_or(std::forward<DefaultType>(def_val));
+    if constexpr (IsDuration<ReturnType>) {
+      using rep_type = ReturnType::rep;
 
-      return ReturnType(raw_val);
-    } else if constexpr (std::same_as<ReturnType, DefaultType>) {
-      return t[path].value_or(std::forward<DefaultType>(def_val));
+      return ReturnType(t[path].value_or<rep_type>(def_val));
+
+    } else if constexpr (std::same_as<ReturnType, decltype(def_val)>) {
+      return t[path].value_or(def_val);
+
+    } else if constexpr (std::constructible_from<ReturnType, decltype(def_val)>) {
+      return t[path].value_or(ReturnType{def_val});
+
     } else {
-      static_assert(always_false_v<ReturnType>, "unhandled types");
+      return t[path].value_or(def_val);
     }
+
+    // static_assert(always_false_v<ReturnType>, "unhandled types");
   }
 
   void notify_of_change(std::any &&next_table) noexcept;

@@ -48,7 +48,7 @@ void Standby::apply_config() noexcept {
   // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
   hue_step = ctoken.val<double>("hue_step"sv, 0.0);
 
-  const auto timeout = ctoken.val<Minutes, int64_t>(cfg_silence_timeout, 30);
+  const auto timeout = ctoken.val<Minutes>(cfg_silence_timeout, 30);
   set_silence_timeout(timeout, fx::ALL_STOP);
 }
 
