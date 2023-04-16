@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"

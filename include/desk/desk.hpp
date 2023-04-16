@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"

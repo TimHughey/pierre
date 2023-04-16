@@ -17,8 +17,8 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/config/args.hpp"
-#include "base/config/token.hpp"
+#include "base/conf/args.hpp"
+#include "base/conf/token.hpp"
 #include "base/types.hpp"
 
 #include <boost/asio/executor_work_guard.hpp>

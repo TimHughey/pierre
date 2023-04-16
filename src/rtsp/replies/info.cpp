@@ -18,12 +18,12 @@
 
 #include "replies/info.hpp"
 #include "aplist.hpp"
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
-#include <base/config/toml.hpp>
+#include <base/conf/toml.hpp>
 
 #include <filesystem>
 #include <fmt/os.h>

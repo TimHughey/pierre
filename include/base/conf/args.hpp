@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/config/toml.hpp"
+#include "base/conf/toml.hpp"
 #include "base/types.hpp"
 
 #include <any>

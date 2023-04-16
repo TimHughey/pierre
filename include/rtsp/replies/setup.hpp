@@ -19,7 +19,7 @@
 #pragma once
 
 #include "aplist.hpp"
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "base/types.hpp"
 #include "mdns/service.hpp"
 #include "mdns/zservice.hpp"

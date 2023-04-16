@@ -18,8 +18,8 @@
 
 #define TOML_IMPLEMENTATION
 
-#include "base/config/token.hpp"
-#include "base/config/toml.hpp"
+#include "base/conf/token.hpp"
+#include "base/conf/toml.hpp"
 #include "base/pet.hpp"
 #include "build_inject.hpp"
 #include "git_version.hpp"

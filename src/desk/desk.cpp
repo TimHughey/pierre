@@ -17,8 +17,8 @@
 // https://www.wisslanding.com
 
 #include "desk/desk.hpp"
-#include "base/config/token.hpp"
-#include "base/config/toml.hpp"
+#include "base/conf/token.hpp"
+#include "base/conf/toml.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/pet.hpp"

@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "logger.hpp"
-#include "base/config/token.hpp"
-#include "base/config/toml.hpp"
+#include "base/conf/token.hpp"
+#include "base/conf/toml.hpp"
 #include "elapsed.hpp"
 
 #include <algorithm>

@@ -17,8 +17,8 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
-#include "base/config/token.hpp"
-#include "base/config/toml.hpp"
+#include "base/conf/token.hpp"
+#include "base/conf/toml.hpp"
 #include "base/logger.hpp"
 #include "mdns_ctx.hpp"
 #include "service.hpp"

@@ -21,7 +21,7 @@ find_package(Sodium                        REQUIRED)
 
 add_library(${__target} 
   # configuratiom
-  config/token.cpp
+  conf/token.cpp
 
   # host info
   host.cpp

@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "desk/dmx_ctrl.hpp"
-#include "base/config/toml.hpp"
+#include "base/conf/toml.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/pet.hpp"

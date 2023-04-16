@@ -21,7 +21,7 @@
 
 #include "InfluxDBFactory.h"
 #include "base/asio.hpp"
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "base/pet_types.hpp"
 #include "base/stats/vals.hpp"
 #include "base/types.hpp"

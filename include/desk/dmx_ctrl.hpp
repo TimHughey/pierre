@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/config/token.hpp"
+#include "base/conf/token.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
