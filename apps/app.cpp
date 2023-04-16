@@ -19,17 +19,12 @@
 #include "app.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
+#include "base/logger.hpp"
+#include "base/stats.hpp"
 #include "git_version.hpp"
-
-#include "lcs/args.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 
-#include <boost/asio/io_context.hpp>
-#include <boost/system/error_code.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <errno.h>
@@ -43,23 +38,31 @@
 
 int main(int argc, char *argv[]) {
 
-  auto app = pierre::App();
-  auto rc = app.main(argc, argv);
+  auto app = pierre::App(argc, argv);
+
+  // if app is created then we are assured command line args
+  // are good, help was not requested and we should proceed to main()
+  auto rc = app.main();
 
   exit(rc);
 }
 
 namespace pierre {
 
-using error_code = boost::system::error_code;
+namespace fs = std::filesystem;
+
+App::App(int argc, char *argv[]) noexcept
+    : cli_args(argc, argv), ctoken(module_id, io_ctx, cli_args.get_table()) {
+  crypto::init(); // initialize sodium and gcrypt
+}
 
 // startup / runtime support
 
-static void check_pid_file(const CliArgs &args) noexcept {
+void App::check_pid_file() noexcept {
   namespace fs = std::filesystem;
 
-  fs::path file{args.pid_file()};
-  bool force{args.force_restart()};
+  fs::path file{cli_args.pid_file()};
+  bool force{cli_args.force_restart()};
 
   // pid file doesn't exist
   if (!fs::exists(file)) return;
@@ -79,7 +82,7 @@ static void check_pid_file(const CliArgs &args) noexcept {
     } else if (kill_rc == 0) {
       kill(pid, SIGINT);
       sleep(1);
-      check_pid_file(std::move(args));
+      check_pid_file();
 
     } else if (errno == ESRCH) {
       fs::remove(file);
@@ -90,9 +93,9 @@ static void check_pid_file(const CliArgs &args) noexcept {
   }
 }
 
-static void write_pid_file(const string pid_file) noexcept {
+void App::write_pid_file() noexcept {
   const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
-  auto os = fmt::output_file(pid_file.c_str(), flags);
+  auto os = fmt::output_file(cli_args.pid_file().c_str(), flags);
 
   os.print("{}", getpid());
   os.close();
@@ -102,24 +105,15 @@ static void write_pid_file(const string pid_file) noexcept {
 //// App
 ////
 
-int App::main(int argc, char *argv[]) {
+int App::main() {
   static constexpr csv fn_id{"main"};
 
-  crypto::init(); // initialize sodium and gcrypt
-
-  // if construction of CliArgs succeds then we are assured command line args
-  // are good and help was not requested
-  CliArgs cli_args(argc, argv);
-
-  // allocate global Config object
-  shared::config = std::make_unique<Config>(cli_args.cli_table, io_ctx);
-
-  if (!config()->parse_msg.empty()) {
-    perror(config()->parse_msg.c_str());
+  if (!ctoken.parse_ok()) {
+    perror(ctoken.parse_error().c_str());
     exit(EXIT_FAILURE);
   }
 
-  check_pid_file(cli_args);
+  check_pid_file();
 
   if (cli_args.daemon()) {
 
@@ -158,7 +152,7 @@ int App::main(int argc, char *argv[]) {
     umask(0);
     fs::current_path(fs::path("/"));
 
-    write_pid_file(cli_args.pid_file());
+    write_pid_file();
   }
 
   ////
@@ -174,9 +168,9 @@ int App::main(int argc, char *argv[]) {
   signals_shutdown(); // catch certain signals for shutdown
 
   shared::logger->async(io_ctx);
-  INFO_AUTO("{}\n", Config::banner_msg());
+  // INFO_AUTO("{}\n", Config::banner_msg());
 
-  INFO(Config::module_id, "init", "{}\n", config()->init_msg);
+  INFO(conf::token::module_id, "init", "{}\n", ctoken.get_init_msg());
 
   try {
     shared::stats = std::make_unique<Stats>(io_ctx);
@@ -189,10 +183,8 @@ int App::main(int argc, char *argv[]) {
 
     shared::mdns.reset();
     shared::stats.reset();
-    shared::config.reset();
   } catch (const std::exception &e) {
-
-    INFO_AUTO("shutdown caught {}\n", e.what());
+    INFO_AUTO("run exception {}\n", e.what());
   }
 
   return 0;
@@ -216,10 +208,10 @@ void App::signals_shutdown() noexcept {
   signal_set_shutdown->async_wait([this](const error_code ec, int signal) {
     if (ec) return;
 
-    INFO_AUTO("caught SIGINT ({})\n", signal, Config::daemon());
+    INFO_AUTO("caught SIGINT ({})\n", signal, cli_args.daemon());
 
-    if (Config::daemon()) {
-      const auto pid_path = Config::fs_pid_path();
+    if (cli_args.daemon()) {
+      const fs::path pid_path{cli_args.pid_file()};
 
       try {
         std::ifstream ifs(pid_path);
@@ -233,8 +225,8 @@ void App::signals_shutdown() noexcept {
         } else {
           INFO_AUTO("saved pid({}) does not match process pid({})\n", stored_pid, getpid());
         }
-      } catch (std::exception &except) {
-        INFO_AUTO("{} while removing {}\n", except.what(), pid_path);
+      } catch (std::exception &e) {
+        INFO_AUTO("{} while removing {}\n", e.what(), pid_path);
       }
     } // end of daemon specific actions
 

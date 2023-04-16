@@ -18,8 +18,8 @@
 
 #include "aes.hpp"
 #include "base/host.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
-#include "lcs/logger.hpp"
 #include "pair/pair.h"
 
 #include <algorithm>

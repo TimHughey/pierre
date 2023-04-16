@@ -20,10 +20,10 @@
 #pragma once
 
 #include "base/clock_now.hpp"
+#include "base/logger.hpp"
 #include "desk/msg/kv.hpp"
 #include "desk/msg/kv_store.hpp"
 #include "desk/msg/msg.hpp"
-#include "lcs/logger.hpp"
 
 #include "arpa/inet.h"
 #include <ArduinoJson.h>

@@ -18,9 +18,9 @@
 
 #include "anchor_data.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
-#include "lcs/logger.hpp"
 
 namespace pierre {
 

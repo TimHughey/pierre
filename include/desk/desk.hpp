@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/config/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -83,6 +84,7 @@ private:
 
 private:
   // order dependent
+  conf::token ctoken;
   asio::io_context io_ctx;
   std::unique_ptr<Racked> racked;
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl;

@@ -17,10 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "replies/set_anchor.hpp"
+#include "base/logger.hpp"
 #include "desk/desk.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_data.hpp"
-#include "lcs/logger.hpp"
 #include "replies/dict_kv.hpp"
 
 namespace pierre {

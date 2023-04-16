@@ -41,7 +41,6 @@ add_library(${__target}
   # FFT results
   peaks.cpp
   peaks/peak.cpp
-  peaks/peak_config.cpp
 
   # the frame (from raw to dsp complete)
   frame.cpp
@@ -66,7 +65,5 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PRIVATE
   ${sodium_LIBRARY_RELEASE}
   base
-  InfluxData::InfluxDB
-  lcs
   PkgConfig::LIBAV
 )

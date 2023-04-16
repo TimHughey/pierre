@@ -17,8 +17,12 @@
 // https://www.wisslanding.com
 
 #include "desk/fx/majorpeak.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 #include "base/elapsed.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
+#include "base/stats.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
 #include "desk/unit/all.hpp"
@@ -26,10 +30,6 @@
 #include "fader/toblack.hpp"
 #include "frame/peaks.hpp"
 #include "fx/majorpeak/types.hpp"
-#include "lcs/config.hpp"
-#include "lcs/config/token.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 
 namespace pierre {
 
@@ -191,94 +191,93 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
 bool MajorPeak::load_config() noexcept {
   auto changed{false};
 
-  // make a copy of the table (under the cover of the live mtx) so
-  // we are confident it isn't changing
-  const toml::table local_copy(cfg_copy());
-
   // lambda helper to retrieve frequencies config
-  auto freqs = [&](csv path, double def_val) {
-    return local_copy[config_path<MajorPeak>("frequencies"sv).append(path)].value_or(def_val);
+  auto dval = [this](const auto path, auto &&def_val) -> double {
+    const auto full_path = toml::path("frequencies").append(path);
+    return ctoken.val<double, toml::table>(full_path, std::forward<decltype(def_val)>(def_val));
   };
 
   freq_limits = hard_soft_limit<Frequency>( //
-      freqs("hard.floor"sv, 40.0),          //
-      freqs("hard.ceiling"sv, 11500.0),     //
-      freqs("soft.floor"sv, 110.0),         //
-      freqs("soft.ceiling"sv, 10000.0));
+      dval("hard.floor"_tpath, 40.0),       //
+      dval("hard.ceiling"_tpath, 11500.0),  //
+      dval("soft.floor"_tpath, 110.0),      //
+      dval("soft.ceiling"_tpath, 10000.0));
 
   // load make colors config
-  for (auto cat : std::array{csv{"generic"sv}, csv{"above_soft_ceiling"sv}}) {
-
+  for (auto cat : std::array{"generic"_tpath, "above_soft_ceiling"_tpath}) {
     // lambda helper to retrieve make color configs
-    auto cc = [&](csv path, auto &&def_val) {
-      return local_copy[config_path<MajorPeak>("makecolors").append(cat).append(path)].value_or(
-          std::forward<decltype(def_val)>(def_val));
+    auto cc = [&, this](const auto path, auto &&def_val) -> double {
+      const auto full_path = toml::path("makecolors").append(cat).append(path);
+      return ctoken.val<double, toml::table>(full_path, std::forward<decltype(def_val)>(def_val));
     };
 
+    const auto mag_scaled_path =
+        toml::path("makecolors").append(cat).append("hue.mag_scaled"_tpath);
+
     hue_cfg_map.try_emplace(
-        string(cat),
-        major_peak::hue_cfg{.hue = {.min = cc("hue.min"sv, 0.0),
-                                    .max = cc("hue.max"sv, 0.0),
-                                    .step = cc("hue.step"sv, 0.001)},
-                            .brightness = {.max = cc("bri.max"sv, 0.0),
-                                           .mag_scaled = cc("hue.mag_scaled"sv, true)}});
+        string(cat), major_peak::hue_cfg{.hue = {.min = cc("hue.min"_tpath, 0.0),
+                                                 .max = cc("hue.max"_tpath, 0.0),
+                                                 .step = cc("hue.step"_tpath, 0.001)},
+                                         .brightness = {.max = cc("bri.max"_tpath, 0.0),
+                                                        .mag_scaled = ctoken.val<bool, toml::table>(
+                                                            mag_scaled_path, true)}});
   }
 
-  mag_limits = mag_min_max(config_val<MajorPeak>(local_copy, "magnitudes.floor"sv, 2.009),
-                           config_val<MajorPeak>(local_copy, "magnitudes.ceiling"sv, 2.009));
+  mag_limits =
+      mag_min_max(dval("magnitudes.floor"_tpath, 2.009), dval("magnitudes.ceiling"_tpath, 2.009));
 
   // load pinspot config
   static constexpr csv BRI_MIN{"bri_min"};
-
-  auto pspots = local_copy[config_path<MajorPeak>("pinspots"sv)];
+  const auto table = ctoken.get<toml::table>();
+  auto &pspots = table["pinspots"_tpath].ref<toml::array>();
 
   for (auto &&el : *pspots.as_array()) {
     // we need this twice
-    const auto pspot_name = el.at_path("name"sv).value_or(string("unnamed"));
+    const auto pspot_name = el["name"_tpath].value_or(string("unnamed"));
 
     auto [it, inserted] = //
         pspot_cfg_map.try_emplace(pspot_name, pspot_name,
-                                  el.at_path("type"sv).value_or(string("unknown")),
-                                  Millis(el.at_path("fade_max_ms").value_or(100)),
-                                  el.at_path("freq_min"sv).value_or(0.0), //
-                                  el.at_path("freq_max"sv).value_or(0.0));
+                                  el["type"_tpath].value_or(string("unknown")),
+                                  Millis(el["fade_max_ms"_tpath].value_or(100)),
+                                  el["freq_min"_tpath].value_or(0.0), //
+                                  el["freq_max"_tpath].value_or(0.0));
 
     if (inserted) {
       auto &cfg = it->second;
 
       // populate 'when_less_than' (common for main and fill)
-      auto wltt = el.at_path("when_less_than"sv);
+      auto wltt = el.at_path("when_less_than"_tpath);
       auto &wlt = cfg.when_less_than;
 
-      wlt.freq = wltt["freq"sv].value_or(0.0);
+      wlt.freq = wltt["freq"_tpath].value_or(0.0);
       wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
 
       if (csv{cfg.type} == csv{"fill"}) { // fill specific
-        auto wgt = el.at_path("when_greater"sv);
+        auto wgt = el["when_greater"_tpath];
 
         auto &wg = cfg.when_greater;
-        wg.freq = wgt["freq"sv].value_or(0.0);
+        wg.freq = wgt["freq"_tpath].value_or(0.0);
         wg.bri_min = wgt[BRI_MIN].value_or(0.0);
 
-        auto whft = wgt["when_higher_freq"sv];
+        auto whft = wgt["when_higher_freq"_tpath];
         auto &whf = wg.when_higher_freq;
         whf.bri_min = whft[BRI_MIN].value_or(0.0);
 
       } else if (csv(cfg.type) == csv{"main"}) { // main specific
-        auto wft = el.at_path("when_fading"sv);
+        auto wft = el["when_fading"_tpath];
 
         auto &wf = cfg.when_fading;
         wf.bri_min = wft[BRI_MIN].value_or(0.0);
 
         auto &wffg = wf.when_freq_greater;
-        auto wffgt = wft["when_freq_greater"sv];
+        auto wffgt = wft["when_freq_greater"_tpath];
         wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
       }
     }
   }
 
   // setup silence timeout
-  const auto timeout = config_val<MajorPeak, Seconds>("silence.timeout.seconds"sv, 13);
+  const auto timeout = ctoken.val<Seconds, toml::table>("silence.timeout.seconds"_tpath, 13);
   set_silence_timeout(timeout, fx::STANDBY);
 
   return changed;

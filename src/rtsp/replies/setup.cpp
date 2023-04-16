@@ -17,10 +17,10 @@
 // https://www.wisslanding.com
 
 #include "replies/setup.hpp"
+#include "base/config/toml.hpp"
 #include "base/host.hpp"
+#include "base/logger.hpp"
 #include "ctx.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
 
@@ -31,7 +31,8 @@ namespace pierre {
 namespace rtsp {
 
 Setup::Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, Ctx *ctx) noexcept
-    : rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx), reply_dict() {
+    : ctoken("rtsp"sv), rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx),
+      reply_dict() {
 
   reply(RespCode::BadRequest); // default response is BadRequest
 
@@ -129,10 +130,10 @@ bool Setup::has_streams() noexcept {
 
     // now handle the specific stream type
     if (stream_info.is_buffered()) {
-      static const toml::path cfg_buff_size{"rtsp.audio.buffer_size.bytes"};
+      static const toml::path cfg_buff_size{"audio.buffer_size.bytes"};
       rc = true;
 
-      const uint64_t buff_size = config()->at(cfg_buff_size).value_or(0x800000);
+      const auto buff_size = ctoken.val<uint64_t, toml::table>(cfg_buff_size, 0x800000UL);
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{TYPE, stream_type},                            // stream type

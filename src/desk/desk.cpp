@@ -17,8 +17,12 @@
 // https://www.wisslanding.com
 
 #include "desk/desk.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
+#include "base/stats.hpp"
 #include "desk/async/write.hpp"
 #include "desk/msg/data.hpp"
 #include "dmx_ctrl.hpp"
@@ -31,9 +35,6 @@
 #include "frame/silent_frame.hpp"
 #include "frame/state.hpp"
 #include "fx/all.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 
 #include <boost/asio/post.hpp>
@@ -48,7 +49,9 @@ namespace pierre {
 //  -must be defined in .cpp (incomplete types in .hpp)
 //  -we use a separate io_ctx for desk and it's workers
 Desk::Desk(MasterClock *master_clock) noexcept
-    : // create and start racked early (frame rendering needs it)
+    : // create a simple config token (no updates)
+      ctoken(module_id),
+      // create and start racked early (frame rendering needs it)
       racked{std::make_unique<Racked>()},
       // create DmxCtrl early (frame renderings needs it)
       dmx_ctrl(std::make_unique<desk::DmxCtrl>(io_ctx)),
@@ -67,7 +70,8 @@ Desk::Desk(MasterClock *master_clock) noexcept
 {
 
   // include the threads DmxCtrl requires
-  const auto threads = config_threads<Desk>(1) + dmx_ctrl->required_threads();
+  const auto threads =
+      ctoken.val<int, toml::table>("threads"_tpath, 1) + dmx_ctrl->required_threads();
 
   INFO_INIT("sizeof={:>5} lead_time_min={} threads={}\n", sizeof(Desk),
             pet::humanize(InputInfo::lead_time_min), threads);

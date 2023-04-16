@@ -19,6 +19,7 @@
 #pragma once
 
 #include "aplist.hpp"
+#include "base/config/token.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 
@@ -35,6 +36,7 @@ private:
 
 private:
   // order dependent
+  conf::token ctoken;
   Aplist rdict;              // the request dict
   const Headers &headers_in; /// request headers
   Reply &reply;

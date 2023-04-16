@@ -20,12 +20,13 @@
 #include "racked.hpp"
 #include "anchor.hpp"
 #include "av.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 #include "base/pet.hpp"
+#include "base/stats.hpp"
 #include "base/types.hpp"
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
-#include "lcs/config.hpp"
-#include "lcs/stats.hpp"
 #include "master_clock.hpp"
 #include "silent_frame.hpp"
 
@@ -52,7 +53,8 @@ Racked::Racked() noexcept
       // create and start Av (and by extension Dsp processing)
       av(std::make_unique<Av>()) //
 {
-  const auto threads = config_threads<Racked>(2);
+  conf::token ctoken(module_id);
+  const auto threads = ctoken.val<int, toml::table>("threads"_tpath, 2);
 
   // start the threads and run the io_ctx
   for (auto n = 0; n < threads; n++) {

@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/config/token.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "headers.hpp"
@@ -29,6 +30,9 @@ namespace rtsp {
 
 class Saver {
 
+private:
+  static constexpr csv separator{"\r\n"};
+
 public:
   enum Direction { IN, OUT };
 
@@ -37,7 +41,9 @@ public:
         const RespCode resp_code = RespCode(RespCode::code_val::OK)) noexcept;
 
 private:
-  bool enable{false};
+  // order dependent
+  conf::token ctoken;
+
   const string file;
   const string format;
 

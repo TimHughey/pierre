@@ -18,17 +18,15 @@
 
 #pragma once
 
+#include "base/asio.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
 #include <any>
-#include <boost/asio.hpp>
-#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/system.hpp>
 #include <chrono>
 #include <cstdio>
 #include <fmt/chrono.h>
@@ -41,8 +39,6 @@
 #include <optional>
 
 namespace pierre {
-
-namespace asio = boost::asio;
 
 class Logger;
 

@@ -18,11 +18,12 @@
 
 #include "replies/info.hpp"
 #include "aplist.hpp"
+#include "base/config/token.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
+#include <base/config/toml.hpp>
 
 #include <filesystem>
 #include <fmt/os.h>
@@ -79,8 +80,11 @@ Info::Info(Reply &reply) noexcept {
 /// @brief Initialize static data (reply pdict)
 void Info::init() noexcept { // static
   static constexpr csv fn_id{"init"};
+  conf::token ctoken(module_id);
 
-  const auto plist_path = Config::fs_data_path().append("plist/get_info_resp.plist"sv);
+  std::filesystem::path data_path{ctoken.data_path()};
+
+  const auto plist_path = data_path.append("plist/get_info_resp.plist"sv);
 
   // seek to end of file at open to determine file size without
   // additional calls to the stream
@@ -95,9 +99,7 @@ void Info::init() noexcept { // static
     }
   }
 
-  if (reply_xml.empty()) {
-    INFO_AUTO("{}: load failed\n", plist_path);
-  }
+  if (reply_xml.empty()) INFO_AUTO("{}: load failed\n", plist_path);
 }
 
 } // namespace rtsp

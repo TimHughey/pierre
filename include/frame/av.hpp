@@ -18,10 +18,10 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "dsp.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
-#include "lcs/logger.hpp"
 #include "libav.hpp"
 
 #include <atomic>

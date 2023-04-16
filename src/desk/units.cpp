@@ -17,8 +17,9 @@
 // https://www.wisslanding.com
 
 #include "units.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 #include "base/types.hpp"
-#include "lcs/config.hpp"
 #include "unit/all.hpp"
 
 #include <algorithm>
@@ -34,18 +35,20 @@ namespace pierre {
 namespace desk {
 
 void Units::create_all_from_cfg() noexcept {
-  auto cfg_desk = config()->at("desk"sv);
+  // gets a copy of the desk table
+  const auto table = conf::token("desk"sv).get<toml::table>();
 
   {
     // load dimmable units
-    auto cfg = cfg_desk["dimmable"sv];
-    uint32_t max = cfg["max"sv].value_or(8190);
+    auto cfg = table["dimmable"_tpath];
+    uint32_t max = cfg["max"_tpath].value_or(8190);
 
-    for (auto &&e : *cfg["units"sv].as_array()) {
+    for (auto &&e : *cfg["units"_tpath].as_array()) {
+
       const auto &t = *(e.as_table());
 
-      const auto name = t["name"sv].value_or("unnamed");
-      const size_t addr = t["addr"sv].value_or(0UL);
+      const auto name = t["name"_tpath].value_or("unnamed");
+      const size_t addr = t["addr"_tpath].value_or(0UL);
 
       const hdopts opts{.name = name, .type = unit_type::DIMMABLE, .address = addr};
 
@@ -56,24 +59,24 @@ void Units::create_all_from_cfg() noexcept {
       if (inserted) {
         Dimmable *unit = static_cast<Dimmable *>(it->second.get());
 
-        unit->config.max = apply_percent(t["max"sv].value_or(1.0));
-        unit->config.min = apply_percent(t["min"sv].value_or(0.0));
-        unit->config.dim = apply_percent(t["dim"sv].value_or(0.0));
-        unit->config.bright = apply_percent(t["bright"sv].value_or(1.0));
-        unit->config.pulse_start = apply_percent(t["pulse.start"sv].value_or(1.0));
-        unit->config.pulse_end = apply_percent(t["pulse.end"sv].value_or(0.0));
+        unit->config.max = apply_percent(t["max"_tpath].value_or(1.0));
+        unit->config.min = apply_percent(t["min"_tpath].value_or(0.0));
+        unit->config.dim = apply_percent(t["dim"_tpath].value_or(0.0));
+        unit->config.bright = apply_percent(t["bright"_tpath].value_or(1.0));
+        unit->config.pulse_start = apply_percent(t["pulse.start"_tpath].value_or(1.0));
+        unit->config.pulse_end = apply_percent(t["pulse.end"_tpath].value_or(0.0));
       }
     }
   }
 
   { // load pinspot units
-    auto cfg = cfg_desk["pinspot"sv];
-    for (auto &&e : *cfg["units"sv].as_array()) {
+    auto cfg = table["pinspot"_tpath];
+    for (auto &&e : *cfg["units"_tpath].as_array()) {
       auto &t = *(e.as_table());
 
-      const auto name = t["name"sv].value_or("unnamed");
-      const size_t addr = t["addr"sv].value_or(0UL);
-      const size_t frame_len = t["frame_len"sv].value_or(0UL);
+      const auto name = t["name"_tpath].value_or("unnamed");
+      const size_t addr = t["addr"_tpath].value_or(0UL);
+      const size_t frame_len = t["frame_len"_tpath].value_or(0UL);
 
       const hdopts opts{.name = name, .type = unit_type::PINSPOT, .address = addr};
 
@@ -82,12 +85,12 @@ void Units::create_all_from_cfg() noexcept {
   }
 
   { // load pinspot units
-    auto cfg = cfg_desk["switch"sv];
-    for (auto &&e : *cfg["units"sv].as_array()) {
+    auto cfg = table["switch"_tpath];
+    for (auto &&e : *cfg["units"_tpath].as_array()) {
       const auto &t = *(e.as_table());
 
-      const auto name = t["name"sv].value_or("unnamed");
-      const size_t addr = t["addr"sv].value_or(0UL);
+      const auto name = t["name"_tpath].value_or("unnamed");
+      const size_t addr = t["addr"_tpath].value_or(0UL);
 
       const hdopts opts{.name = name, .type = unit_type::SWITCH, .address = addr};
 

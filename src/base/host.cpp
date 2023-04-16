@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "base/host.hpp"
-#include "lcs/logger.hpp"
+#include "base/logger.hpp"
 
 #include <arpa/inet.h>
 #include <array>

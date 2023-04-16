@@ -17,16 +17,16 @@
 // https://www.wisslanding.com
 
 #include "desk/dmx_ctrl.hpp"
+#include "base/config/toml.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
+#include "base/stats.hpp"
 #include "desk/async/read.hpp"
 #include "desk/async/write.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/msg/in.hpp"
 #include "desk/msg/out.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 #include "mdns/mdns.hpp"
 
 #include <array>
@@ -41,30 +41,30 @@ namespace desk {
 static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
                                    Elapsed e = Elapsed()) noexcept;
 
-inline const string cfg_host(config2::token &tok) noexcept {
-  return tok.val<string>("remote.host"sv, "dmx"sv);
+inline const string cfg_host(conf::token &tok) noexcept {
+  return tok.val<string, toml::table>("remote.host"_tpath, "dmx"sv);
 }
 
-inline auto resolve_timeout(config2::token &tok) noexcept {
-  return tok.val<Millis>("local.resolve.timeout.ms"sv, 15'000);
+inline auto resolve_timeout(conf::token &tok) noexcept {
+  return tok.val<Millis, toml::table>("local.resolve.timeout.ms"_tpath, 15'000);
 }
 
-inline auto resolve_retry_wait(config2::token &tok) noexcept {
-  return tok.val<Millis>("local.resolve.retry.ms"sv, 60'000);
+inline auto resolve_retry_wait(conf::token &tok) noexcept {
+  return tok.val<Millis, toml::table>("local.resolve.retry.ms"_tpath, 60'000);
 }
 
-inline auto cfg_stall_timeout(config2::token &tok) noexcept {
-  return tok.val<Millis>("local.stalled.ms"sv, 7500);
+inline auto cfg_stall_timeout(conf::token &tok) noexcept {
+  return tok.val<Millis, toml::table>("local.stalled.ms"_tpath, 7500);
 }
 
 // general API
 DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
-    : // creqte strand for serialized session comms
+    : // initialize our config token
+      ctoken(module_id),
+      // creqte strand for serialized session comms
       sess_strand(asio::make_strand(io_ctx)),
       // create a strand for serialized data comms
       data_strand(asio::make_strand(io_ctx)),
-      // initialize our config token
-      ctoken(module_id),
       // create the session socket
       sess_sock(sess_strand),
       // create the data connection acceptor
@@ -76,16 +76,7 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       // create the resolve timeout timer, use sess strand
       resolve_retry_timer(sess_strand, 1s) //
 {
-  auto handler = [this](std::any &&next_table) mutable {
-    // for clarity build the post action separately then move into post
-    auto action =
-        asio::append([this](std::any t) { ctoken.table = std::move(t); }, std::move(next_table));
-
-    asio::post(data_strand, std::move(action));
-  };
-
-  // note: the table is initially copied to the token during registration
-  config_watch().register_token(ctoken, std::move(handler));
+  ctoken.notify_via(data_strand);
 
   // now that ctoken is populated we can assign the remaining config vars
   // capture stall timeout config
@@ -114,8 +105,8 @@ void DmxCtrl::handshake() noexcept {
   msg.add_kv(desk::DATA_PORT, data_accep.local_endpoint().port());
   msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
   msg.add_kv(desk::FRAME_US, InputInfo::lead_time_us);
-  msg.add_kv(desk::IDLE_MS, ctoken.val<int64_t>(idle_ms_path, 10000));
-  msg.add_kv(desk::STATS_MS, ctoken.val<int64_t>(stats_ms_path, 2000));
+  msg.add_kv(desk::IDLE_MS, ctoken.val<int64_t, toml::table>(idle_ms_path, 10000));
+  msg.add_kv(desk::STATS_MS, ctoken.val<int64_t, toml::table>(stats_ms_path, 2000));
 
   async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
     if (msg.elapsed() > 750us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
@@ -180,7 +171,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   }
 }
 
-int DmxCtrl::required_threads() noexcept { return ctoken.val<int>("threads", 2); }
+int DmxCtrl::required_threads() noexcept { return ctoken.val<int, toml::table>("threads", 2); }
 
 void DmxCtrl::resolve_host() noexcept {
   static constexpr csv fn_id{"host.resolve"};

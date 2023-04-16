@@ -21,7 +21,7 @@
 #include "base/uint8v.hpp"
 #include "features.hpp"
 
-#include "lcs/logger.hpp"
+#include "base/logger.hpp"
 #include "pair/pair.h"
 
 #include <array>

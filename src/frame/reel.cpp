@@ -17,11 +17,10 @@
 //  https://www.wisslanding.com
 
 #include "frame/reel.hpp"
+#include "base/logger.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/silent_frame.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
 
 #include <iterator>
 

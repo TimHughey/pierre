@@ -31,6 +31,9 @@ add_library(${__target}
   ${HEADER_LIST}
 )
 
+
+target_compile_definitions(${__target} PRIVATE ${AVAHI_DEFINITIONS})
+
 # library specific files need Avahi privately
 target_include_directories(${__target} PRIVATE 
   ${HEADER_PATH_LOCAL} ${AVAHI_INCLUDE_DIR}
@@ -43,8 +46,9 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 target_link_libraries(${__target} PRIVATE 
   ${AVAHI_LIBRARIES}
   ${libUUID}
-  lcs
   pair
 )
 
-target_compile_definitions(${__target} PRIVATE ${AVAHI_DEFINITIONS})
+target_link_libraries(${__target} PUBLIC 
+  base
+)

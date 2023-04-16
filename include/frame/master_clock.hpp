@@ -67,13 +67,13 @@ private:
 
 private:
   // order dependent
-  const string shm_name; // shared memmory segment name (built by constructor)
   const ip_address nqptp_addr;
   const udp_endpoint nqptp_rep; // nqptp remote endpoint (rep)
   strand_ioc local_strand;
   udp_socket peer;
 
   // order independent
+  string shm_name;       // shared memmory segment name (built by constructor)
   void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:

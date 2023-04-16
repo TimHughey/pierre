@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "request.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
+#include "base/logger.hpp"
+#include "base/stats.hpp"
 #include "saver.hpp"
 
 #include <span>

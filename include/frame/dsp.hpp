@@ -18,10 +18,11 @@
 
 #pragma once
 
+#include "base/asio.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "frame.hpp"
-#include "lcs/logger.hpp"
 
 #include <boost/asio/error.hpp>
 #include <boost/asio/executor_work_guard.hpp>
@@ -31,11 +32,6 @@
 
 namespace pierre {
 
-namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
-
-using error_code = boost::system::error_code;
 using work_guard_ioc = asio::executor_work_guard<asio::io_context::executor_type>;
 
 class Dsp {

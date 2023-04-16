@@ -19,15 +19,18 @@
 
 #pragma once
 
+#include "InfluxDBFactory.h"
+#include "base/asio.hpp"
+#include "base/config/token.hpp"
 #include "base/pet_types.hpp"
+#include "base/stats/vals.hpp"
 #include "base/types.hpp"
-#include "lcs/stats_v.hpp"
 
 #include <InfluxDBFactory.h>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/strand.hpp>
-#include <boost/system/error_code.hpp>
+
 #include <chrono>
 #include <cmath>
 #include <map>
@@ -37,8 +40,6 @@
 
 namespace pierre {
 
-namespace asio = boost::asio;
-using error_code = boost::system::error_code;
 using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Stats;
@@ -49,6 +50,15 @@ extern std::unique_ptr<Stats> stats;
 
 class Stats {
 
+private:
+  static constexpr csv def_db_uri{"http://localhost:8086?db=pierre"};
+
+  static constexpr csv DOUBLE{"double"};
+  static constexpr csv INTEGRAL{"integral"};
+  static constexpr csv MEASURE{"STATS"};
+  static constexpr csv METRIC{"metric"};
+  static constexpr csv NANOS{"nanos"};
+
 public:
   Stats(asio::io_context &io_ctx) noexcept;
   ~Stats() = default;
@@ -56,18 +66,8 @@ public:
   template <typename T>
   static void write(stats::stats_v vt, T v,
                     std::pair<const char *, const char *> tag = {nullptr, nullptr}) noexcept {
-    static constexpr csv DOUBLE{"double"};
-    static constexpr csv INTEGRAL{"integral"};
-    static constexpr csv MEASURE{"STATS"};
-    static constexpr csv METRIC{"metric"};
-    static constexpr csv NANOS{"nanos"};
 
-    if (!shared::stats) return;
-
-    auto s = shared::stats.get();
-    auto &strand = s->stats_strand;
-
-    if (s->enabled) {
+    if (auto s = shared::stats.get(); (s != nullptr) && s->db && s->enabled()) {
 
       // enabling stats does incur some overhead, primarily the creation of the data point
       // and the call to asio::post
@@ -89,12 +89,10 @@ public:
         static_assert(always_false_v<T>, "unhandled type");
       }
 
-      if (tag.first && tag.second) {
-        pt.addTag(tag.first, tag.second);
-      }
+      if (tag.first && tag.second) pt.addTag(tag.first, tag.second);
 
       // now post the pt and params for eventual write to influx
-      asio::post(strand, [s = s, pt = std::move(pt)]() mutable {
+      asio::post(s->stats_strand, [s = s, pt = std::move(pt)]() mutable {
         s->async_write(std::move(pt)); // in .cpp due to call to Config
       });
     }
@@ -102,14 +100,16 @@ public:
 
 private:
   void async_write(influxdb::Point &&pt) noexcept;
+  bool enabled() noexcept;
 
 private:
   // order dependent
+  conf::token ctoken;
   strand_ioc stats_strand;
-  bool enabled{false};
-  const string db_uri;
-  int batch_of;
   std::map<stats::stats_v, string> val_txt;
+
+  // order independent
+  string db_uri;
 
   // order independent
   std::unique_ptr<influxdb::InfluxDB> db;
@@ -119,7 +119,7 @@ public:
   string err_msg;
 
 public:
-  static constexpr csv module_id{"lcs.stats"};
+  static constexpr csv module_id{"stats"};
 };
 
 } // namespace pierre

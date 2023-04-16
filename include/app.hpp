@@ -16,37 +16,40 @@
 
 #pragma once
 
+#include "base/asio.hpp"
+#include "base/config/args.hpp"
+#include "base/config/token.hpp"
 #include "base/types.hpp"
 
 #include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <memory>
 #include <optional>
 
 namespace pierre {
 
-namespace asio = boost::asio;
-using work_guard_ioc = asio::executor_work_guard<asio::io_context::executor_type>;
-
 class App {
 public:
-  App() = default;
+  App(int argc, char *argv[]) noexcept;
 
-  int main(int argc, char *argv[]);
+  int main();
 
 private:
+  void check_pid_file() noexcept;
   void signals_ignore() noexcept;
   void signals_shutdown() noexcept;
+  void write_pid_file() noexcept;
 
 private:
   // order dependent
   std::optional<asio::signal_set> signal_set_ignore;
   std::optional<asio::signal_set> signal_set_shutdown;
+  conf::CliArgs cli_args;
+  asio::io_context io_ctx;
+  conf::token ctoken;
 
   // order independent
   bool args_ok{false};
-  asio::io_context io_ctx;
 
 public:
   static constexpr csv module_id{"app"};

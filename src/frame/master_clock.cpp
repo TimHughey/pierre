@@ -17,12 +17,13 @@
 //  https://www.wisslanding.com
 
 #include "master_clock.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 #include "base/host.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -128,12 +129,15 @@ inline void unmap() noexcept {
 
 // create the MasterClock
 MasterClock::MasterClock(asio::io_context &io_ctx) noexcept
-    : shm_name(config_val<MasterClock, string>("shm_name", "/nqptp")),
-      nqptp_addr(asio::ip::make_address(LOCALHOST)), // where nqptp is running
+    : nqptp_addr(asio::ip::make_address(LOCALHOST)), // where nqptp is running
       nqptp_rep(nqptp_addr, CTRL_PORT),              // endpoint of nqptp daemon
       local_strand(asio::make_strand(io_ctx)),       // serialize peer changes
       peer(local_strand, ip_udp::v4())               // construct and open
 {
+  static constexpr csv def_shm_name{"nqptp"};
+  conf::token ctoken(module_id);
+
+  shm_name = ctoken.val<string, toml::table>("shm_name"_tpath, def_shm_name.data());
 
   INFO_INIT("sizeof={:>5} shm_name={} dest={}:{} nqptp_len={}\n", sizeof(MasterClock), shm_name,
             nqptp_rep.address().to_string(), nqptp_rep.port(), nqptp::len());

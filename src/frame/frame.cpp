@@ -20,13 +20,14 @@
 #include "anchor.hpp"
 #include "anchor_last.hpp"
 #include "av.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet.hpp"
+#include "base/stats.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
-#include "lcs/config.hpp"
-#include "lcs/stats.hpp"
 
 #include <iterator>
 #include <ranges>
@@ -79,14 +80,16 @@ notes:
  3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
      are zeroed */
 
-static constexpr csv cfg_cipher_buff_size{"frame.cipher.buffer_size"};
-
 // Frame API
 
 bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
   // ensure we know how big of a cipher buffer to allocate
-  if (!cipher_buff_size) cipher_buff_size = config()->at(cfg_cipher_buff_size).value_or(0x4000);
+  if (!cipher_buff_size) {
+    conf::token ctoken(module_id);
+
+    cipher_buff_size = ctoken.val<ptrdiff_t, toml::table>("cipher.buffer_size"_tpath, 0x4000L);
+  }
 
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium

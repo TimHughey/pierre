@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "desk/msg/msg.hpp"
-#include "lcs/logger.hpp"
 
 #include <ArduinoJson.h>
 #include <algorithm>

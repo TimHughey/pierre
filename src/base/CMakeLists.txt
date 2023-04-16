@@ -8,17 +8,29 @@ set(HEADER_PATH                         ${pierre_SOURCE_DIR}/include)
 set(HEADER_PATH_LOCAL                   ${HEADER_PATH}/${__target})
 set(HEADER_PATH_PAIR                    ${HEADER_PATH_LOCAL}/pair)
 set(HEADER_PATH_AES                     ${HEADER_PATH_LOCAL}/aes)
-file(GLOB HEADER_LIST CONFIGURE_DEPENDS "${HEADER_PATH_LOCAL}/**/*.h*")
 
-find_package(Boost 1.81   QUIET COMPONENTS REQUIRED system)
+file(GLOB HEADER_LIST CONFIGURE_DEPENDS
+  "${HEADER_PATH_LOCAL}/*.hpp ${HEADER_PATH_LOCAL}/config/*.hpp"
+)
+
+find_package(Boost 1.81   QUIET COMPONENTS REQUIRED program_options system)
 find_package(fmt                           REQUIRED)
 find_package(Threads                       REQUIRED)
 find_package(GCRYPT                        REQUIRED)
 find_package(Sodium                        REQUIRED)
 
 add_library(${__target} 
+  # configuratiom
+  config/token.cpp
+
   # host info
   host.cpp
+
+  # logging
+  logger.cpp
+
+  # stats
+  stats.cpp
 
   # time utilities
   elapsed.cpp
@@ -44,4 +56,8 @@ target_link_libraries(${__target} PUBLIC
   gcrypt
   sodium
   Threads::Threads 
+  tomlplusplus::tomlplusplus
+  InfluxData::InfluxDB
+  build_inject
+  git_version
 )

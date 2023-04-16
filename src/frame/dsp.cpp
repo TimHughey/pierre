@@ -17,7 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "frame/dsp.hpp"
-#include "lcs/config.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
 
 #include <thread>
 
@@ -29,10 +30,12 @@ Dsp::Dsp() noexcept
     : work_guard{asio::make_work_guard(io_ctx)} //
 {
 
+  conf::token ctoken("frame.dsp"sv);
+
   // notes:
   //  -concurrency_factor is specified in the config file as a percentage
   //  -to determine final thread count divide by 100
-  const auto concurrency_factor{config_val<Dsp, uint32_t>("concurrency_factor"sv, 40)};
+  const auto concurrency_factor{ctoken.val<int, toml::table>("concurrency_factor"_tpath, 40)};
   const auto hw_concurrency{std::jthread::hardware_concurrency()};
   const auto threads{(hw_concurrency * concurrency_factor) / 100};
 

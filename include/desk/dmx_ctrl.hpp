@@ -18,9 +18,10 @@
 
 #pragma once
 
+#include "base/asio.hpp"
+#include "base/config/token.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "lcs/config/token.hpp"
 
 #include <atomic>
 #include <boost/asio/buffer.hpp>
@@ -37,11 +38,6 @@
 
 namespace pierre {
 
-namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
-
-using error_code = boost::system::error_code;
 using strand_ioc = asio::strand<asio::io_context::executor_type>;
 using steady_timer = asio::steady_timer;
 using ip_address = boost::asio::ip::address;
@@ -80,9 +76,9 @@ private:
 
 private:
   // order dependent
+  conf::token ctoken;
   strand_ioc sess_strand;
   strand_ioc data_strand;
-  config2::token ctoken;
   tcp_endpoint data_lep{ip_tcp::v4(), ANY_PORT};
   tcp_socket sess_sock; // handshake, stats (read/write)
   tcp_acceptor data_accep;

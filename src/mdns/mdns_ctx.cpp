@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "mdns_ctx.hpp"
-#include "lcs/logger.hpp"
+#include "base/logger.hpp"
 
 namespace pierre {
 namespace mdns {

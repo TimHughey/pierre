@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "rtsp/saver.hpp"
-#include "lcs/config.hpp"
+#include "base/config/toml.hpp"
 
 #include <fmt/format.h>
 #include <fmt/os.h>
@@ -28,48 +28,52 @@ namespace rtsp {
 
 Saver::Saver(Saver::Direction direction, const Headers &headers, const uint8v &content,
              const RespCode resp_code) noexcept
-    : enable(config_val<Saver, bool>("enable", false)),         //
-      file{config_val<Saver, string>("file", "/tmp/rtsp.log")}, //
-      format(config_val<Saver, string>("format", "raw"))        //
+    : ctoken(module_id) //
 {
-  static constexpr csv separator{"\r\n"};
-  if (!enable) return;
 
-  uint8v buff;
-  auto w = std::back_inserter(buff);
+  if (ctoken.val<bool, toml::table>("enable"_tpath, false)) {
+    static constexpr csv def_file{"/tmp/rtsp.log"};
+    static constexpr csv def_format{"raw"};
 
-  headers.format_to(w);
+    const string file{ctoken.val<string, toml::table>("file"_tpath, def_file.data())};
+    const string format{ctoken.val<string, toml::table>("format"_tpath, def_format.data())};
 
-  fmt::format_to(w, "{}", separator);
+    uint8v buff;
+    auto w = std::back_inserter(buff);
 
-  if (headers.contains(hdr_type::ContentType)) {
-    const auto type = headers.val(hdr_type::ContentType);
+    headers.format_to(w);
 
-    if (type == hdr_val::AppleBinPlist) {
-      Aplist(content).format_to(w);
+    fmt::format_to(w, "{}", separator);
 
-    } else if (type == hdr_val::TextParameters) {
-      std::copy_n(content.begin(), content.size(), w);
+    if (headers.contains(hdr_type::ContentType)) {
+      const auto type = headers.val(hdr_type::ContentType);
 
-    } else if (type == hdr_val::OctetStream) {
-      const auto len = headers.val<int64_t>(hdr_type::ContentLength);
-      fmt::format_to(w, "<<OCTET STREAM LENGTH={}>>", len);
+      if (type == hdr_val::AppleBinPlist) {
+        Aplist(content).format_to(w);
+
+      } else if (type == hdr_val::TextParameters) {
+        std::copy_n(content.begin(), content.size(), w);
+
+      } else if (type == hdr_val::OctetStream) {
+        const auto len = headers.val<int64_t>(hdr_type::ContentLength);
+        fmt::format_to(w, "<<OCTET STREAM LENGTH={}>>", len);
+      }
+
+      fmt::format_to(w, "{}{}", separator, separator);
     }
 
-    fmt::format_to(w, "{}{}", separator, separator);
-  }
+    try {
+      auto mode = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::APPEND;
+      auto out = fmt::output_file(file.c_str(), mode);
 
-  try {
-    auto mode = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::APPEND;
-    auto out = fmt::output_file(file.c_str(), mode);
-
-    if (direction == Saver::IN) {
-      out.print("{} {} RTSP/1.0{}{}", headers.method(), headers.path(), separator, buff.view());
-    } else {
-      out.print("RTSP/1.0 {}{}{}", resp_code(), separator, buff.view());
+      if (direction == Saver::IN) {
+        out.print("{} {} RTSP/1.0{}{}", headers.method(), headers.path(), separator, buff.view());
+      } else {
+        out.print("RTSP/1.0 {}{}{}", resp_code(), separator, buff.view());
+      }
+    } catch (const std::exception &e) {
+      msg.assign(e.what());
     }
-  } catch (const std::exception &err) {
-    msg.assign(err.what());
   }
 }
 

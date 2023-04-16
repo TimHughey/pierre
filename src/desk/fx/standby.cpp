@@ -17,11 +17,11 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/standby.hpp"
+#include "base/config/toml.hpp"
+#include "base/logger.hpp"
 #include "base/pet_types.hpp"
 #include "color.hpp"
 #include "desk.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
 #include "unit/all.hpp"
 
 namespace pierre {
@@ -30,13 +30,14 @@ namespace desk {
 void Standby::apply_config() noexcept {
   static constexpr csv fn_id{"apply_config"};
 
-  // auto cfg_first_color = Color({.hue = config_val<double>(ctoken, "color.hue"sv, 0),
-  //                               .sat = config_val<double>(ctoken, "color.sat"sv, 0),
-  //                               .bri = config_val<double>(ctoken, "color.bri"sv, 0)});
+  // we get doubles multiple times, use a lambda
+  auto dval = [this](const auto path, auto &&def_val) -> double {
+    return ctoken.val<double, toml::table>(path, std::forward<decltype(def_val)>(def_val));
+  };
 
-  auto cfg_first_color = Color({.hue = ctoken.val<double>("color.hue"sv, 0.0),
-                                .sat = ctoken.val<double>("color.sat"sv, 0.0),
-                                .bri = ctoken.val<double>("color.bri"sv, 0.0)});
+  auto cfg_first_color = Color({.hue = dval("color.hue"_tpath, 0.0),
+                                .sat = dval("color.sat"_tpath, 0.0),
+                                .bri = dval("color.bri"_tpath, 0.0)});
 
   if (cfg_first_color != first_color) {
     std::exchange(first_color, cfg_first_color);
@@ -46,9 +47,9 @@ void Standby::apply_config() noexcept {
   }
 
   // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
-  hue_step = ctoken.val<double>("hue_step"sv, 0.0);
+  hue_step = dval("hue_step"_tpath, 0.0);
 
-  const auto timeout = ctoken.val<Minutes>(cfg_silence_timeout, 30);
+  const auto timeout = ctoken.val<Minutes, toml::table>(cfg_silence_timeout, 30);
   set_silence_timeout(timeout, fx::ALL_STOP);
 }
 
@@ -76,11 +77,6 @@ void Standby::once() noexcept {
   units.get<Dimmable>(unit::EL_DANCE)->dim();
   units.get<Dimmable>(unit::EL_DANCE)->dim();
   units.get<Dimmable>(unit::LED_FOREST)->dim();
-}
-
-void Standby::register_token(config2::token::lambda &&handler) noexcept {
-
-  config_watch().register_token(ctoken, std::move(handler));
 }
 
 } // namespace desk

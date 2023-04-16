@@ -123,9 +123,10 @@ shm_name = "/nqptp"             # path to nqptp shared memory directory
 [frame.racked]
 threads = 2
 
-[frame.peaks.magnitudes] # only keep peaks in this range
-floor = 0.9
-ceiling = 128.0
+# UNUSED:  need implementation
+# [frame.peaks.magnitudes] # only keep peaks in this range
+# floor = 0.9
+# ceiling = 128.0
 
 [fx.majorpeak]
 silence = { timeout = { seconds = 20 } }
@@ -168,7 +169,7 @@ hue_step = 0.65
 silence = { timeout = { minutes = 57 }, suggested_fx_next = "all_stop" }
 
 
-[lcs.stats]
+[stats]
 enabled = true
 db_uri = "http://localhost:8086?db=pierre"
 batch_of = 150

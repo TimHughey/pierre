@@ -18,8 +18,10 @@
 
 #pragma once
 
+#include "base/config/toml.hpp"
 #include "base/types.hpp"
 
+#include <any>
 #include <boost/program_options.hpp>
 #include <cstdlib>
 #include <filesystem>
@@ -29,11 +31,8 @@
 #include <libgen.h>
 #include <tuple>
 
-#define TOML_ENABLE_FORMATTERS 0 // don't need formatters
-#define TOML_HEADER_ONLY 0       // reduces compile times
-#include <toml++/toml.h>
-
 namespace pierre {
+namespace conf {
 namespace {
 namespace po = boost::program_options;
 namespace fs = std::filesystem;
@@ -115,6 +114,7 @@ public:
 
   bool daemon() const noexcept { return cli_table["daemon"sv].value_or(false); }
   bool force_restart() const noexcept { return cli_table["force_restart"sv].value_or(false); }
+  std::any get_table() noexcept { return std::make_any<toml::table>(cli_table); }
   const string pid_file() const noexcept { return cli_table["pid_file"].ref<string>(); }
 
 public:
@@ -126,4 +126,5 @@ private:
   po::variables_map args;
 };
 
+} // namespace conf
 } // namespace pierre

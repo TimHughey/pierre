@@ -24,7 +24,7 @@
 namespace pierre {
 
 struct PeakConfig {
-  static mag_min_max mag_limits() noexcept;
+  static mag_min_max mag_limits() noexcept { return mag_min_max(0.9, 128.0); }
 };
 
 } // namespace pierre

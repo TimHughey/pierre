@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>
 
 #include "peaks/peak.hpp"
-#include "peaks/peak_config.hpp"
+#include "peaks/config.hpp"
 #include "peaks/types.hpp"
 
 namespace pierre {

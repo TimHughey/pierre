@@ -23,9 +23,8 @@
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
 
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
+#include "base/logger.hpp"
+#include "base/stats.hpp"
 #include "mdns/mdns.hpp"
 #include "net.hpp"
 #include "rtsp/aes.hpp"

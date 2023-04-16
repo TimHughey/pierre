@@ -17,8 +17,9 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
+#include "base/logger.hpp"
 #include "mdns_ctx.hpp"
 #include "service.hpp"
 #include "zservice.hpp"
@@ -44,12 +45,14 @@ using namespace mdns;
 // mDNS general API
 
 mDNS::mDNS() noexcept
-    : receiver(config_val<mDNS, string>("receiver", "Pierre Default")),   //
-      build_vsn(cfg_build_vsn()),                                         //
-      stype(config_val<mDNS, string>("service", "_ruth._tcp")),           //
-      receiver_port(config_val<mDNS, Port>("port", 7000)),                //
-      service_obj(receiver, build_vsn),                                   //
-      ctx{std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)} //
+    :                    // create our config token (populated)
+      ctoken(module_id), //
+      receiver(ctoken.val<string, toml::table>("receiver"_tpath, def_receiver.data())), //
+      build_vsn(ctoken.build_vsn()),                                                    //
+      stype(ctoken.val<string, toml::table>("service"_tpath, def_stype.data())),        //
+      receiver_port(ctoken.val<int, toml::table>("port"_tpath, 7000)),                  //
+      service_obj(receiver, build_vsn),                                                 //
+      ctx{std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)}               //
 {}
 
 mDNS::~mDNS() noexcept { ctx.reset(); }

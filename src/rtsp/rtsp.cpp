@@ -18,12 +18,11 @@
 
 #include "rtsp.hpp"
 #include "base/elapsed.hpp"
+#include "base/logger.hpp"
+#include "base/stats.hpp"
 #include "ctx.hpp"
 #include "desk/desk.hpp"
 #include "frame/master_clock.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 
 #include <algorithm>
 #include <boost/asio/post.hpp>

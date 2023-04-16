@@ -82,6 +82,7 @@ public:
   }
 
 private:
+  // order independent
   std::map<string, std::unique_ptr<Unit>> map;
 
 public:

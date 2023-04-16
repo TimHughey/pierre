@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include "base/stats/vals.hpp"
 #include "base/types.hpp"
-#include "lcs/stats_v.hpp"
 
 #include <map>
 

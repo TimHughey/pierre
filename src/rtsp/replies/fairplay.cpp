@@ -17,8 +17,8 @@
 //  https://www.wisslanding.com
 
 #include "replies/fairplay.hpp"
+#include "base/logger.hpp"
 #include "base/uint8v.hpp"
-#include "lcs/logger.hpp"
 
 #include <iterator>
 #include <stdexcept>

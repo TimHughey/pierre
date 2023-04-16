@@ -18,11 +18,11 @@
 
 #pragma once
 
+#include "base/config/token.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
-#include "lcs/config/token.hpp"
 
 #include <memory>
 
@@ -43,7 +43,7 @@ public:
       // for clarity build the post action separately then move into post
       auto action = asio::append(
           [this](std::any t) {
-            ctoken.table = std::move(t);
+            ctoken.update_table(std::move(t));
             apply_config();
           },
           std::move(next_table));
@@ -52,7 +52,7 @@ public:
     };
 
     // note: the table is initially copied to the token during registration
-    register_token(std::move(handler)); // in .cpp to hide config2::watch
+    ctoken.set_custom_handler(std::move(handler)); // in .cpp to hide config2::watch
 
     apply_config();
   }
@@ -63,11 +63,10 @@ public:
 
 private:
   void apply_config() noexcept;
-  void register_token(config2::token::lambda &&handler) noexcept;
 
 private:
   // order depdendent
-  config2::token ctoken;
+  conf::token ctoken;
 
   // order independent
   Color first_color;

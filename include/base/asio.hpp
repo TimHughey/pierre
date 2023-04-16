@@ -18,20 +18,18 @@
 
 #pragma once
 
-#define TOML_ENABLE_FORMATTERS 0 // don't need formatters
-#define TOML_HEADER_ONLY 0       // reduces compile times
+#include "base/pet_types.hpp"
+#include "base/types.hpp"
 
-#include "toml++/toml.h"
-
-#include <chrono>
-#include <filesystem>
-#include <future>
-#include <memory>
-#include <optional>
-#include <string>
+#include <boost/asio.hpp>
+#include <boost/system/errc.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace pierre {
 
-using cfg_future = std::shared_future<bool>;
+namespace asio = boost::asio;
+namespace errc = boost::system::errc;
+
+using error_code = boost::system::error_code;
 
 } // namespace pierre

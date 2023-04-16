@@ -17,12 +17,12 @@
 // https://www.wisslanding.com
 
 #include "desk/fx.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
 #include "frame/peaks.hpp"
-#include "lcs/logger.hpp"
 
 namespace pierre {
 namespace desk {

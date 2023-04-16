@@ -16,16 +16,17 @@
 //
 //  https://www.wisslanding.com
 
-#include "lcs/logger.hpp"
-#include "base/elapsed.hpp"
-#include "lcs/config.hpp"
-#include "lcs/config/watch.hpp"
+#include "logger.hpp"
+#include "base/config/token.hpp"
+#include "base/config/toml.hpp"
+#include "elapsed.hpp"
 
 #include <algorithm>
 #include <boost/asio/append.hpp>
 #include <boost/asio/post.hpp>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <thread>
 
 namespace pierre {
@@ -37,20 +38,20 @@ std::unique_ptr<Logger> logger;
 }
 
 Elapsed elapsed_runtime;
-static config2::token ctoken(Logger::module_id);
+static std::optional<conf::token> ctoken;
 
 namespace fs = std::filesystem;
 
 Logger::Logger() noexcept {
 
-  const fs::path path{Config::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
+  ctoken.emplace(module_id);
+
+  const fs::path path{ctoken->daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout"};
   const auto flags = fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE;
   out.emplace(fmt::output_file(path.c_str(), flags));
 
   const auto now = std::chrono::system_clock::now();
   out->print("\n{:%FT%H:%M:%S} START\n", now);
-
-  shared::config->copy(module_id, ctoken.table);
 }
 
 Logger::~Logger() noexcept {
@@ -67,18 +68,7 @@ void Logger::async(asio::io_context &io_ctx) noexcept { // static
   // create our local strand to serialized logging
   self->local_strand.emplace(asio::make_strand(io_ctx));
 
-  // handler to process config changes
-  auto handler = [self](std::any &&next_table) {
-    auto &strand = self->local_strand.value();
-
-    // for clarity build the post action
-    auto action =
-        asio::append([self](std::any t) { ctoken.table = std::move(t); }, std::move(next_table));
-
-    asio::post(strand, std::move(action));
-  };
-
-  config_watch().register_token(ctoken, std::move(handler));
+  ctoken->notify_via(self->local_strand.value());
 
   // add a thread to the injected io_ctx to support our strand
   std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
@@ -102,7 +92,7 @@ bool Logger::should_log(csv mod, csv cat) noexcept { // static
 
   if (cat == csv{"info"}) return true;
 
-  const auto &t = ctoken.get<toml::table>();
+  const auto &t = ctoken->get<toml::table>();
 
   // order of precedence:
   //  1. looger.<cat>       == boolean

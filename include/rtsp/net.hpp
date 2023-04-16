@@ -18,25 +18,21 @@
 
 #pragma once
 
+#include "base/asio.hpp"
+#include "base/logger.hpp"
+#include "base/stats.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/saver.hpp"
 
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/system/errc.hpp>
-#include <boost/system/error_code.hpp>
 
 namespace pierre {
 
-namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
-
-using error_code = boost::system::error_code;
+using tcp_socket = asio::ip::tcp::socket;
 
 namespace rtsp {
 

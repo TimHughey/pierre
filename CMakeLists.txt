@@ -70,7 +70,6 @@ target_link_libraries(${_target} PUBLIC
   base
   desk
   frame
-  lcs
   mdns
   rtsp
   sodium

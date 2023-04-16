@@ -17,8 +17,7 @@
 // https://www.wisslanding.com
 
 #include "peaks.hpp"
-#include "lcs/config.hpp"
-#include "peaks/peak_config.hpp"
+#include "peaks/config.hpp"
 
 #include <algorithm>
 #include <cmath>

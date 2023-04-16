@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/config/token.hpp"
 #include "base/types.hpp"
 #include "mdns/service.hpp"
 #include "mdns/zservice.hpp"
@@ -39,6 +40,8 @@ class Ctx;
 class mDNS {
 
   friend class mdns::Ctx;
+  static constexpr csv def_receiver{"Pierre Default"};
+  static constexpr csv def_stype{"_ruth._tcp"};
 
 public:
   mDNS() noexcept;
@@ -54,6 +57,7 @@ public:
 
 public:
   // order dependent
+  conf::token ctoken;
   const string receiver;
   const string build_vsn;
   const string stype;

@@ -16,10 +16,10 @@
 //
 //  https://www.wisslanding.com
 
-#include "lcs/stats.hpp"
-#include "lcs/config.hpp"
-#include "lcs/logger.hpp"
-#include "lcs/stats_map.hpp"
+#include "base/stats.hpp"
+#include "base/config/toml.hpp"
+#include "base/logger.hpp"
+#include "base/stats/map.hpp"
 
 #include <fmt/format.h>
 #include <memory>
@@ -31,30 +31,36 @@ std::unique_ptr<Stats> stats;
 }
 
 Stats::Stats(asio::io_context &io_ctx) noexcept
-    : stats_strand(asio::make_strand(io_ctx)),            //
-      enabled(config_val<Stats, bool>("enabled", false)), //
-      db_uri(config_val<Stats, string>("db_uri", "http://localhost:8086?db=pierre")),
-      batch_of(config_val<Stats, int>("batch_of", 150)), //
-      val_txt{stats::make_map()}                         //
+    : // create our config token
+      ctoken(module_id),
+      // serialize writing stats to timeseries db
+      stats_strand(asio::make_strand(io_ctx)),
+      // populate the enum to string map
+      val_txt{stats::make_map()} //
 {
+  ctoken.notify_via(stats_strand);
+
+  db_uri = ctoken.val<string, toml::table>("db_uri"_tpath, def_db_uri.data());
+
   auto w = std::back_inserter(init_msg);
 
   fmt::format_to(w, "sizeof={:>5} {} db_uri={} val_map={}",
-                 sizeof(Stats),                    //
-                 enabled ? "enabled" : "disabled", //
+                 sizeof(Stats),                      //
+                 enabled() ? "enabled" : "disabled", //
                  db_uri.empty() ? "<unset" : "<set>", val_txt.size());
 
-  if (enabled && !db_uri.empty()) {
+  if (enabled() && !db_uri.empty()) {
+    const auto batch_of = ctoken.val<int, toml::table>("batch_of"_tpath, 150);
 
     fmt::format_to(w, " batch_of={}", batch_of);
 
     try {
       db = influxdb::InfluxDBFactory::Get(db_uri);
+      db->batchOf(batch_of);
 
-      if (db) db->batchOf(batch_of);
-    } catch (const std::exception &err) {
-      enabled = false;
-      err_msg.assign(err.what());
+    } catch (const std::exception &e) {
+      db.reset();
+      err_msg.assign(e.what());
     }
 
     if (!err_msg.empty()) fmt::format_to(w, " err={}", !err_msg.empty());
@@ -66,9 +72,8 @@ Stats::Stats(asio::io_context &io_ctx) noexcept
 void Stats::async_write(influxdb::Point &&pt) noexcept {
 
   if (db) db->write(std::forward<influxdb::Point>(pt));
-
-  // updated enabled config
-  // enabled = config_val<Stats, bool>("enabled", false);
 }
+
+bool Stats::enabled() noexcept { return ctoken.val<bool, toml::table>("enabled"_tpath, false); }
 
 } // namespace pierre

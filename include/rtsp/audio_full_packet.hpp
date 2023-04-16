@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include "base/logger.hpp"
 #include "base/types.hpp"
-#include "lcs/logger.hpp"
 
 #include <algorithm>
 #include <arpa/inet.h>
