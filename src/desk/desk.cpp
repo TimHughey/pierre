@@ -49,9 +49,7 @@ namespace pierre {
 //  -must be defined in .cpp (incomplete types in .hpp)
 //  -we use a separate io_ctx for desk and it's workers
 Desk::Desk(MasterClock *master_clock) noexcept
-    : // create a simple config token (no updates)
-      ctoken(module_id),
-      // create and start racked early (frame rendering needs it)
+    : // create and start racked early (frame rendering needs it)
       racked{std::make_unique<Racked>()},
       // create DmxCtrl early (frame renderings needs it)
       dmx_ctrl(std::make_unique<desk::DmxCtrl>(io_ctx)),
@@ -69,9 +67,10 @@ Desk::Desk(MasterClock *master_clock) noexcept
       frame_timer(render_strand, steady_clock::now()) //
 {
 
+  conf::token ctoken(module_id);
+
   // include the threads DmxCtrl requires
-  const auto threads =
-      ctoken.val<int, toml::table>("threads"_tpath, 1) + dmx_ctrl->required_threads();
+  const auto threads = ctoken.conf_val<int>("threads"_tpath, 1) + dmx_ctrl->required_threads();
 
   INFO_INIT("sizeof={:>5} lead_time_min={} threads={}\n", sizeof(Desk),
             pet::humanize(InputInfo::lead_time_min), threads);
@@ -81,7 +80,11 @@ Desk::Desk(MasterClock *master_clock) noexcept
   // add threads to the io_ctx and start
   for (auto n = 0; n < threads; n++) {
     // add threads for handling frame rendering
-    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
+    std::jthread([this, n = n]() {
+      INFO(Desk::module_id, "threads", "starting thread={}\n", n);
+
+      io_ctx.run();
+    }).detach();
   }
 }
 

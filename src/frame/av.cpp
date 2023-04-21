@@ -17,12 +17,15 @@
 //  https://www.wisslanding.com
 
 #include "av.hpp"
+#include "base/logger.hpp"
 
 namespace pierre {
 
 Av::Av() noexcept : ready{false} {
 
   codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
+
+  INFO(Av::module_id, "init", "sizeof={:>5} codec={}\n", sizeof(Av), fmt::ptr(codec));
 
   if (codec) {
     codec_ctx = avcodec_alloc_context3(codec);

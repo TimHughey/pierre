@@ -17,6 +17,7 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
+#include "base/conf/getv.hpp"
 #include "base/conf/token.hpp"
 #include "base/conf/toml.hpp"
 #include "base/logger.hpp"
@@ -45,14 +46,15 @@ using namespace mdns;
 // mDNS general API
 
 mDNS::mDNS() noexcept
-    :                    // create our config token (populated)
-      ctoken(module_id), //
-      receiver(ctoken.val<string, toml::table>("receiver"_tpath, def_receiver.data())), //
-      build_vsn(ctoken.build_vsn()),                                                    //
-      stype(ctoken.val<string, toml::table>("service"_tpath, def_stype.data())),        //
-      receiver_port(ctoken.val<int, toml::table>("port"_tpath, 7000)),                  //
-      service_obj(receiver, build_vsn),                                                 //
-      ctx{std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)}               //
+    : // create our config token (populated)
+      conf::token(module_id),
+      // get the receiver
+      receiver(conf_val<string>("receiver"_tpath, def_receiver.data())),  //
+      build_vsn(conf::getv::build_vsn()),                                 //
+      stype(conf_val<string>("service"_tpath, def_stype.data())),         //
+      receiver_port(conf_val<int>("port"_tpath, 7000)),                   //
+      service_obj(receiver, build_vsn),                                   //
+      ctx{std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)} //
 {}
 
 mDNS::~mDNS() noexcept { ctx.reset(); }

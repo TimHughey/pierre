@@ -30,30 +30,44 @@
 
 namespace pierre {
 
-Rtsp::Rtsp(asio::io_context &io_ctx) noexcept
-    : // save the io_context reference, used by run() to start thread
-      io_ctx(io_ctx),
-      // create a strand to accept rtsp connections
+Rtsp::Rtsp() noexcept
+    : // create strand to serialize accepting connections
       accept_strand(asio::make_strand(io_ctx)),
       // use the created strand
       acceptor{accept_strand, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
       // worker strand (Audio, Event, Control)
-      worker_strand(asio::make_strand(io_ctx)),
-      // create Sessions (tracking of Ctx)
-      sessions(std::make_unique<rtsp::Sessions>()),
-      // create MasterClock
-      master_clock(std::make_unique<MasterClock>(io_ctx)),
-      // create Desk
-      desk(std::make_unique<Desk>(master_clock.get())) //
+      worker_strand(asio::make_strand(io_ctx)) //
 {
   static constexpr csv fn_id{"init"};
-  INFO_INIT("sizeof={}\n", sizeof(Rtsp));
 
-  // post work to the strand
-  asio::post(accept_strand, std::bind(&Rtsp::async_accept, this));
+  INFO_INIT("sizeof={:>5}\n", sizeof(Rtsp));
+
+  boost::asio::socket_base::enable_connection_aborted opt(true);
+  acceptor.set_option(opt);
+
+  sessions = std::make_unique<rtsp::Sessions>();
+
+  master_clock = std::make_unique<MasterClock>(io_ctx);
+
+  desk = std::make_unique<Desk>(master_clock.get());
+
+  std::jthread([this]() {
+    // post work to the strand
+    asio::post(io_ctx, [this]() {
+      // allow cancellation of async_accept
+
+      async_accept();
+    });
+
+    io_ctx.run();
+  }).detach();
 }
 
 Rtsp::~Rtsp() noexcept {
+  static constexpr csv fn_id{"shutdown"};
+
+  io_ctx.stop();
+
   [[maybe_unused]] error_code ec;
   acceptor.close(ec);    //  prevent new connections
   sessions->close_all(); // close any existing connections
@@ -62,6 +76,8 @@ Rtsp::~Rtsp() noexcept {
   master_clock.reset();
 
   sessions.reset();
+
+  INFO_AUTO("complete");
 }
 
 void Rtsp::async_accept() noexcept {

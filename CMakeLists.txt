@@ -44,7 +44,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   set(CMAKE_C_STANDARD                17)
   set(CMAKE_C_STANDARD_REQUIRED       TRUE)
 
-  add_compile_options(-Wall -Wextra -pedantic -Werror)
+  add_compile_options(-march=native -Wall -Wextra -pedantic -Werror)
 endif()
 
 # find pthreads

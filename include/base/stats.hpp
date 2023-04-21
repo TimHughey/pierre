@@ -44,11 +44,9 @@ using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Stats;
 
-namespace shared {
-extern std::unique_ptr<Stats> stats;
-}
+extern std::unique_ptr<Stats> _stats;
 
-class Stats {
+class Stats : public conf::token {
 
 private:
   static constexpr csv def_db_uri{"http://localhost:8086?db=pierre"};
@@ -60,14 +58,24 @@ private:
   static constexpr csv NANOS{"nanos"};
 
 public:
-  Stats(asio::io_context &io_ctx) noexcept;
+  Stats(asio::io_context &app_io_ctx) noexcept;
   ~Stats() = default;
+
+  static auto create(asio::io_context &app_io_ctx) noexcept {
+    _stats = std::make_unique<Stats>(app_io_ctx);
+
+    return _stats.get();
+  }
+
+  static void shutdown() noexcept {
+    if (_stats && _stats->db) _stats->db->flushBatch();
+  }
 
   template <typename T>
   static void write(stats::stats_v vt, T v,
                     std::pair<const char *, const char *> tag = {nullptr, nullptr}) noexcept {
 
-    if (auto s = shared::stats.get(); (s != nullptr) && s->db && s->enabled()) {
+    if (auto s = _stats.get(); (s != nullptr) && s->db && s->enabled()) {
 
       // enabling stats does incur some overhead, primarily the creation of the data point
       // and the call to asio::post
@@ -92,7 +100,7 @@ public:
       if (tag.first && tag.second) pt.addTag(tag.first, tag.second);
 
       // now post the pt and params for eventual write to influx
-      asio::post(s->stats_strand, [s = s, pt = std::move(pt)]() mutable {
+      asio::post(s->app_io_ctx, [s = s, pt = std::move(pt)]() mutable {
         s->async_write(std::move(pt)); // in .cpp due to call to Config
       });
     }
@@ -104,8 +112,7 @@ private:
 
 private:
   // order dependent
-  conf::token ctoken;
-  strand_ioc stats_strand;
+  asio::io_context &app_io_ctx;
   std::map<stats::stats_v, string> val_txt;
 
   // order independent

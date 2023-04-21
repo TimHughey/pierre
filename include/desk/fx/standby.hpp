@@ -29,31 +29,10 @@
 namespace pierre {
 namespace desk {
 
-class Standby : public FX {
+class Standby : public FX, public conf::token {
 
 public:
-  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), ctoken(module_id) {
-
-    // handler to process config changes
-    // notes:
-    //  -build the handler here due to the deduced type of executor
-    //  -move the handler to register_token() so the call to config2::watch
-    //   is in the .cpp file
-    auto handler = [&, this](std::any &&next_table) mutable {
-      // for clarity build the post action separately then move into post
-      auto action = asio::append(
-          [this](std::any t) {
-            ctoken.update_table(std::move(t));
-            apply_config();
-          },
-          std::move(next_table));
-
-      asio::post(executor, std::move(action));
-    };
-
-    // note: the table is initially copied to the token during registration
-    ctoken.set_custom_handler(std::move(handler)); // in .cpp to hide config2::watch
-
+  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), conf::token(module_id) {
     apply_config();
   }
 
@@ -65,9 +44,6 @@ private:
   void apply_config() noexcept;
 
 private:
-  // order depdendent
-  conf::token ctoken;
-
   // order independent
   Color first_color;
   Color next_color;

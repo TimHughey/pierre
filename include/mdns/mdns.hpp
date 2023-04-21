@@ -37,7 +37,7 @@ namespace mdns {
 class Ctx;
 }
 
-class mDNS {
+class mDNS : public conf::token {
 
   friend class mdns::Ctx;
   static constexpr csv def_receiver{"Pierre Default"};
@@ -57,7 +57,6 @@ public:
 
 public:
   // order dependent
-  conf::token ctoken;
   const string receiver;
   const string build_vsn;
   const string stype;

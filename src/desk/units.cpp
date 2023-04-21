@@ -36,14 +36,16 @@ namespace desk {
 
 void Units::create_all_from_cfg() noexcept {
   // gets a copy of the desk table
-  const auto table = conf::token("desk"sv).get<toml::table>();
+  conf::token ctoken("desk");
+  const auto table = ctoken.conf_table();
 
   {
     // load dimmable units
-    auto cfg = table["dimmable"_tpath];
-    uint32_t max = cfg["max"_tpath].value_or(8190);
 
-    for (auto &&e : *cfg["units"_tpath].as_array()) {
+    uint32_t max = ctoken.conf_val<uint32_t>("max"_tpath, 8190U);
+    auto units = table->at_path("dimmable.units").as_array();
+
+    for (auto &&e : *units) {
 
       const auto &t = *(e.as_table());
 
@@ -70,8 +72,8 @@ void Units::create_all_from_cfg() noexcept {
   }
 
   { // load pinspot units
-    auto cfg = table["pinspot"_tpath];
-    for (auto &&e : *cfg["units"_tpath].as_array()) {
+    auto units = table->at_path("pinspot.units"_tpath).as_array();
+    for (auto &&e : *units) {
       auto &t = *(e.as_table());
 
       const auto name = t["name"_tpath].value_or("unnamed");
@@ -85,8 +87,8 @@ void Units::create_all_from_cfg() noexcept {
   }
 
   { // load pinspot units
-    auto cfg = table["switch"_tpath];
-    for (auto &&e : *cfg["units"_tpath].as_array()) {
+    auto units = table->at_path("switch.units"_tpath).as_array();
+    for (auto &&e : *units) {
       const auto &t = *(e.as_table());
 
       const auto name = t["name"_tpath].value_or("unnamed");

@@ -17,39 +17,30 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/conf/args.hpp"
-#include "base/conf/token.hpp"
 #include "base/types.hpp"
 
-#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <memory>
-#include <optional>
+#include <thread>
 
 namespace pierre {
 
-class App {
+class App : public std::enable_shared_from_this<App> {
 public:
-  App(int argc, char *argv[]) noexcept;
+  App() noexcept;
 
-  int main();
+  static auto create() { return std::make_shared<App>(); }
 
-private:
-  void check_pid_file() noexcept;
-  void signals_ignore() noexcept;
-  void signals_shutdown() noexcept;
-  void write_pid_file() noexcept;
+  void main();
 
 private:
   // order dependent
-  std::optional<asio::signal_set> signal_set_ignore;
-  std::optional<asio::signal_set> signal_set_shutdown;
-  conf::CliArgs cli_args;
   asio::io_context io_ctx;
-  conf::token ctoken;
+  asio::signal_set ss_shutdown;
 
-  // order independent
-  bool args_ok{false};
+  /// order independent
+  std::jthread thread;
+  string err_msg;
 
 public:
   static constexpr csv module_id{"app"};

@@ -16,13 +16,25 @@
 //
 // https://www.wisslanding.com
 
-#include "base/conf/token.hpp"
-#include "base/conf/master.hpp"
+#pragma once
+
+#include "base/conf/keys.hpp"
+#include "base/conf/toml.hpp"
+#include "build_inject.hpp"
 
 namespace pierre {
 namespace conf {
 
-token::token(csv mid) noexcept : root(mid) { mptr->copy_to(root, ttable); }
+struct build_info {
+
+  static const toml::table ttable() noexcept {
+
+    return toml::table{{key::project, build::info.project},
+                       {key::install_dir, build::info.install_prefix},
+                       {key::sysconf_dir, build::info.sysconf_dir},
+                       {key::app_data_dir, build::info.data_dir}};
+  }
+};
 
 } // namespace conf
 } // namespace pierre

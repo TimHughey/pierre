@@ -18,7 +18,7 @@
 
 #include "replies/info.hpp"
 #include "aplist.hpp"
-#include "base/conf/token.hpp"
+#include "base/conf/getv.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "mdns/mdns.hpp"
@@ -26,7 +26,7 @@
 #include <base/conf/toml.hpp>
 
 #include <filesystem>
-#include <fmt/os.h>
+#include <fmt/std.h>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -82,24 +82,26 @@ void Info::init() noexcept { // static
   static constexpr csv fn_id{"init"};
   conf::token ctoken(module_id);
 
-  std::filesystem::path data_path{ctoken.data_path()};
+  std::filesystem::path data_path{conf::getv::data_dir()};
+  const auto app_name{conf::getv::app_name()};
+  static constexpr csv plist_file{"plist/get_info_resp.plist"};
 
-  const auto plist_path = data_path.append("plist/get_info_resp.plist"sv);
+  data_path.append(app_name).append(plist_file);
 
   // seek to end of file at open to determine file size without
   // additional calls to the stream
-  std::ifstream ifs{plist_path, std::ios::binary | std::ios::ate};
+  std::ifstream ifs{data_path, std::ios::binary | std::ios::ate};
 
   if (ifs.is_open()) {
     reply_xml.assign(ifs.tellg(), 0x00); // preallocate container for direct read
     ifs.seekg(0);                        // seek back to beginning of file
 
     if (ifs.read(reply_xml.data(), reply_xml.size())) {
-      INFO_AUTO("{}: size={}\n", plist_path, reply_xml.size());
+      INFO_AUTO("{}: size={}\n", data_path, reply_xml.size());
     }
   }
 
-  if (reply_xml.empty()) INFO_AUTO("{}: load failed\n", plist_path);
+  if (reply_xml.empty()) INFO_AUTO("{}: load failed\n", data_path);
 }
 
 } // namespace rtsp

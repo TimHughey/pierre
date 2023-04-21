@@ -49,15 +49,15 @@ class MasterClock {
 private:
   static constexpr auto LOCALHOST{"127.0.0.1"};
   static constexpr uint16_t CTRL_PORT{9000}; // see note
+  static constexpr csv SHM_NAME{"/nqptp"};
 
-public:
 public:
   MasterClock(asio::io_context &io_ctx) noexcept;
   ~MasterClock() noexcept;
 
   const ClockInfo info_no_wait() noexcept { return load_info_from_mapped(); }
 
-  void peers(const Peers &&peers = std::move(Peers())) noexcept;
+  void peers(const Peers &&peers) noexcept;
 
   // misc debug
   void dump();
@@ -73,7 +73,6 @@ private:
   udp_socket peer;
 
   // order independent
-  string shm_name;       // shared memmory segment name (built by constructor)
   void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:

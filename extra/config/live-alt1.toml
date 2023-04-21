@@ -7,17 +7,29 @@
 #
 title = "Pierre" # for identification purposes
 config_vsn = 2   # config file format
-# build_vsn = ""        # (runtime) git version of executable
-# build_time = ""       # (runtime) datetime of build
 
-[cli]
-# NOTE: cli table is not a source of config, rather it is populated
-#       at runtime based on command line opts and shell environmeny
+# NOTE
+#  -build and cli tables should not be specified here as they
+#  -tables are populated at runtime
+#  -cli is populated by command line arguments
+#  -build is populated by compile time values
+#  -values shown for cli are defaults when not specified
+#  -tables are described here for documentation purposes only
 #
-# app_name = "" # typically basename() of the app
-# cfg_file = "" # could be this file or another specified by cli opt
-# exec_path = "" # executable path
-# parent_path = "" # parent path of the executable
+# [build]
+#   project = @CMAKE_PROJECT_NAME@
+#   install-dir = @CMAKE_INSTALL_PREFIX@
+#   sysconf-dir = @CMAKE_INSTALL_FULL_SYSCONFDIR@
+#   data-dir = @CMAKE_INSTALL_FULL_DATADIR@
+#
+# [cli]
+#   cfg-file = "live.toml" 
+#   daemon = false
+#   dmx-host = "dmx" 
+#   force-restart = false
+#   log-file = "/var/log/pierre/pierre.log" 
+#   pid-file = "/run/pierre/pierre.log"
+#   parent_path = "" # parent path of the executable
 
 ## 
 ## Logger
@@ -26,7 +38,7 @@ config_vsn = 2   # config file format
 # category specific overrides
 debug = false   # show any debug messages?
 init = true     # always log init messages from any module, when true
-thread = true  # show any thread messages?
+threads = false  # show any thread messages?
 shutdown = true # show any shutdown messages?
 async = true
 
@@ -62,7 +74,7 @@ anchor = false
 av = false
 clock = { init = true, shutdown = false, peers_update = false, thread = false, map_shm = false }
 # clock_info = false
-dsp = { thread = false }
+dsp = { init = true }
 decipher = false
 
 [logger.fx]
@@ -76,10 +88,11 @@ ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false
 [logger.rtsp]
 audio = false
 ctx = true
-info = false
+init = true
+info = true
 event = false
 net = false
-reply = { build = false, info = false }
+reply = { build = false, info = true }
 
 ##
 ## END LOGGING CONFIG

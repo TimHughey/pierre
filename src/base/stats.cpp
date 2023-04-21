@@ -26,21 +26,17 @@
 
 namespace pierre {
 
-namespace shared {
-std::unique_ptr<Stats> stats;
-}
+std::unique_ptr<Stats> _stats;
 
-Stats::Stats(asio::io_context &io_ctx) noexcept
-    : // create our config token
-      ctoken(module_id),
-      // serialize writing stats to timeseries db
-      stats_strand(asio::make_strand(io_ctx)),
+Stats::Stats(asio::io_context &app_io_ctx) noexcept
+    : // initialize our conf token
+      conf::token(module_id),
+      // create our config token
+      app_io_ctx(app_io_ctx),
       // populate the enum to string map
       val_txt{stats::make_map()} //
 {
-  ctoken.notify_via(stats_strand);
-
-  db_uri = ctoken.val<string, toml::table>("db_uri"_tpath, def_db_uri.data());
+  db_uri = conf_val<string>("db_uri"_tpath, def_db_uri.data());
 
   auto w = std::back_inserter(init_msg);
 
@@ -50,7 +46,7 @@ Stats::Stats(asio::io_context &io_ctx) noexcept
                  db_uri.empty() ? "<unset" : "<set>", val_txt.size());
 
   if (enabled() && !db_uri.empty()) {
-    const auto batch_of = ctoken.val<int, toml::table>("batch_of"_tpath, 150);
+    const auto batch_of = conf_val<int>("batch_of"_tpath, 150);
 
     fmt::format_to(w, " batch_of={}", batch_of);
 
@@ -74,6 +70,6 @@ void Stats::async_write(influxdb::Point &&pt) noexcept {
   if (db) db->write(std::forward<influxdb::Point>(pt));
 }
 
-bool Stats::enabled() noexcept { return ctoken.val<bool, toml::table>("enabled"_tpath, false); }
+bool Stats::enabled() noexcept { return conf_val<bool>("enabled"_tpath, false); }
 
 } // namespace pierre

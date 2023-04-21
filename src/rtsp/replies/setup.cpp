@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "replies/setup.hpp"
-#include "base/conf/toml.hpp"
+#include "base/conf/token.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "ctx.hpp"
@@ -31,8 +31,7 @@ namespace pierre {
 namespace rtsp {
 
 Setup::Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, Ctx *ctx) noexcept
-    : ctoken("rtsp"sv), rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx),
-      reply_dict() {
+    : rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx), reply_dict() {
 
   reply(RespCode::BadRequest); // default response is BadRequest
 
@@ -133,7 +132,9 @@ bool Setup::has_streams() noexcept {
       static const toml::path cfg_buff_size{"audio.buffer_size.bytes"};
       rc = true;
 
-      const auto buff_size = ctoken.val<uint64_t, toml::table>(cfg_buff_size, 0x800000UL);
+      conf::token ctoken("rtsp");
+
+      const auto buff_size = ctoken.conf_val<uint64_t>(cfg_buff_size, 0x800000UL);
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{TYPE, stream_type},                            // stream type

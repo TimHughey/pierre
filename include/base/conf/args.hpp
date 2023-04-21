@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/conf/keys.hpp"
 #include "base/conf/toml.hpp"
 #include "base/types.hpp"
 
@@ -39,90 +40,97 @@ namespace fs = std::filesystem;
 } // namespace
 
 class CliArgs {
+
 public:
-  CliArgs(int argc, char **argv) noexcept : argv_0(argv[0]) {
+  CliArgs(int argc, char **argv) noexcept : opts_desc("pierre") {
     // get some base info and place into toml table
-    cli_table.emplace("exec_path", fs::path(argv_0).remove_filename().string());
-    cli_table.emplace("app_name", fs::path(argv_0).filename().string());
-    cli_table.emplace("parent_path", fs::path(argv_0).parent_path().string());
+    fs::path fs_arg0{argv[0]};
+
+    // note: order dependent -- to get exec_path we must modify fs_arg0
+    table.emplace(key::app_name, fs_arg0.filename().string());
+    table.emplace(key::parent_dir, fs_arg0.parent_path().string());
+    table.emplace(key::exec_dir, fs_arg0.remove_filename().string());
 
     try {
-      // Declare the supported options
-      po::options_description desc("pierre");
-
       auto cfg_file_val =
           po::value<string>()
-              ->notifier([this](const string file) { cli_table.emplace("cfg-file"sv, file); })
+              ->notifier([this](const string file) { table.emplace(key::cfg_file, file); })
               ->default_value("live.toml");
 
-      auto daemon_val =
-          po::bool_switch()
-              ->notifier([this](bool enable) { cli_table.emplace("daemon"sv, enable); })
-              ->default_value(false);
+      auto daemon_val = po::bool_switch()
+                            ->notifier([this](bool enable) { table.emplace(key::daemon, enable); })
+                            ->default_value(false);
 
       auto dmx_host_val =
           po::value<string>()
-              ->notifier([this](const string host) { cli_table.emplace("dmx_host"sv, host); })
+              ->notifier([this](const string host) { table.emplace(key::dmx_host, host); })
               ->default_value("dmx");
 
       auto force_restart_val =
           po::bool_switch()
-              ->notifier([this](bool enable) { cli_table.emplace("force_restart"sv, enable); })
+              ->notifier([this](bool enable) { table.emplace(key::force_restart, enable); })
               ->default_value(false);
 
       auto pid_file_val =
           po::value<string>()
-              ->notifier([this](const string file) { cli_table.emplace("pid_file", file); })
+              ->notifier([this](const string file) { table.emplace(key::pid_file_path, file); })
               ->default_value("/run/pierre/pierre.pid");
 
       auto log_file_val =
           po::value<string>()
-              ->notifier([this](const string file) { cli_table.emplace("log_file", file); })
+              ->notifier([this](const string file) { table.emplace(key::log_file, file); })
               ->default_value("/var/log/pierre/pierre.log");
 
-      desc.add_options()                                                           //
-          ("cfg-file,C", cfg_file_val, "config file name")                         //
-          ("daemon,b", daemon_val, "run in background")                            //
+      auto help_val = po::value<bool>()
+                          ->notifier([this](bool h) { table.emplace(key::help, h); })
+                          ->default_value(false);
+
+      opts_desc.add_options()                                                      //
+          ("cfg-file", cfg_file_val, "config file name")                           //
+          ("daemon", daemon_val, "run in background")                              //
           ("force-restart", force_restart_val, "force restart if already running") //
-          ("dmx-host,D", dmx_host_val, "host to stream dmx frames")                //
-          ("pid-file,P", pid_file_val, "full path to pid file")                    //
-          ("log-file,L", log_file_val, "full path to log file")                    //
-          ("help,h", "command line options overview");                             //
+          ("dmx-host", dmx_host_val, "host to stream dmx frames")                  //
+          ("pid-file", pid_file_val, "full path to pid file")                      //
+          ("log-file", log_file_val, "full path to log file")                      //
+          ("help,h", help_val, "command line options overview");                   //
 
       // this will throw if parsing fails
-      auto parsed_opts = po::parse_command_line(argc, argv, desc);
+      auto parsed_opts = po::parse_command_line(argc, argv, opts_desc);
 
       // good, we parsed command line args, store them
       po::store(parsed_opts, args);
-
-      // if help requested, print and exit cleanly
-      if (args.count("help")) {
-        std::cout << std::endl << desc << std::endl;
-
-        exit(0);
-      }
 
       // notify all args (populate toml table)
       po::notify(args);
 
     } catch (const po::error &ex) {
-      fmt::print(std::clog, "command line args error: {}\n", ex.what());
-      std::clog.flush();
-      exit(1);
+      error_str = fmt::format("command line args error: {}", ex.what());
     }
   }
 
-  bool daemon() const noexcept { return cli_table["daemon"sv].value_or(false); }
-  bool force_restart() const noexcept { return cli_table["force_restart"sv].value_or(false); }
-  std::any get_table() noexcept { return std::make_any<toml::table>(cli_table); }
-  const string pid_file() const noexcept { return cli_table["pid_file"].ref<string>(); }
+  const string error_msg() const noexcept { return error_str; }
 
-public:
-  // order dependent
-  toml::table cli_table;
-  fs::path argv_0;
+  const string help_msg() const noexcept {
+    string msg;
+
+    if (table[toml::path(key::help)].value_or(false)) {
+      std::stringstream ss(msg);
+      opts_desc.print(ss, 120);
+    }
+
+    return msg;
+  }
+
+  const auto &ttable() noexcept { return table; }
 
 private:
+  // order dependent
+  po::options_description opts_desc;
+
+  // order independent
+  toml::table table;
+  string error_str;
+
   po::variables_map args;
 };
 

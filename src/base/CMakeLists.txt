@@ -20,7 +20,9 @@ find_package(GCRYPT                        REQUIRED)
 find_package(Sodium                        REQUIRED)
 
 add_library(${__target} 
-  # configuratiom
+  # configuration
+  conf/getv.cpp
+  conf/master.cpp
   conf/token.cpp
 
   # host info

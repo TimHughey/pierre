@@ -35,6 +35,7 @@
 #include <boost/asio/append.hpp>
 #include <memory>
 #include <optional>
+#include <thread>
 #include <vector>
 
 namespace pierre {
@@ -54,11 +55,15 @@ Racked::Racked() noexcept
       av(std::make_unique<Av>()) //
 {
   conf::token ctoken(module_id);
-  const auto threads = ctoken.val<int, toml::table>("threads"_tpath, 2);
+  const auto threads = ctoken.conf_val<int>("threads"_tpath, 2);
 
   // start the threads and run the io_ctx
   for (auto n = 0; n < threads; n++) {
-    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
+    std::jthread([this, n = n]() {
+      INFO(Racked::module_id, "threads", "startihg thread={}\n", n);
+
+      io_ctx.run();
+    }).detach();
   }
 
   INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),

@@ -47,7 +47,7 @@ Service::Service(const string &receiver, const string &build_vsn) noexcept
   std::array<char, 37> tu{0};
   uuid_unparse_lower(binuuid, tu.data());
 
-  const auto uuid = string(tu.data(), tu.size());
+  const auto uuid = string(tu.data());
 
   update_key_val(txt_opt::apGroupUUID, uuid);
   update_key_val(txt_opt::apSerialNumber, host.serial_num());

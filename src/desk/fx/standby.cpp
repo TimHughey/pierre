@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "desk/fx/standby.hpp"
-#include "base/conf/toml.hpp"
+#include "base/conf/token.hpp"
 #include "base/logger.hpp"
 #include "base/pet_types.hpp"
 #include "color.hpp"
@@ -30,14 +30,9 @@ namespace desk {
 void Standby::apply_config() noexcept {
   static constexpr csv fn_id{"apply_config"};
 
-  // we get doubles multiple times, use a lambda
-  auto dval = [this](const auto path, auto &&def_val) -> double {
-    return ctoken.val<double, toml::table>(path, std::forward<decltype(def_val)>(def_val));
-  };
-
-  auto cfg_first_color = Color({.hue = dval("color.hue"_tpath, 0.0),
-                                .sat = dval("color.sat"_tpath, 0.0),
-                                .bri = dval("color.bri"_tpath, 0.0)});
+  auto cfg_first_color = Color({.hue = conf_val<double>("color.hue"_tpath, 0.0),
+                                .sat = conf_val<double>("color.sat"_tpath, 0.0),
+                                .bri = conf_val<double>("color.bri"_tpath, 0.0)});
 
   if (cfg_first_color != first_color) {
     std::exchange(first_color, cfg_first_color);
@@ -47,9 +42,11 @@ void Standby::apply_config() noexcept {
   }
 
   // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
-  hue_step = dval("hue_step"_tpath, 0.0);
+  hue_step = conf_val<double>("hue_step"_tpath, 0.0);
 
-  const auto timeout = ctoken.val<Minutes, toml::table>(cfg_silence_timeout, 30);
+  INFO_AUTO("hue_step={}\n", hue_step);
+
+  const auto timeout = conf_val<Minutes>(cfg_silence_timeout, 30);
   set_silence_timeout(timeout, fx::ALL_STOP);
 }
 

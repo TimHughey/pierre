@@ -19,57 +19,54 @@
 #pragma once
 
 #include "base/asio.hpp"
+#include "base/conf/token.hpp"
+#include "base/elapsed.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
-#include <any>
+#include <algorithm>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
 #include <chrono>
-#include <cstdio>
 #include <fmt/chrono.h>
 #include <fmt/compile.h>
 #include <fmt/format.h>
 #include <fmt/os.h>
-#include <fmt/ostream.h>
-#include <fmt/std.h>
 #include <memory>
-#include <optional>
 
 namespace pierre {
 
 class Logger;
 
-namespace shared {
-extern std::unique_ptr<Logger> logger;
-}
+extern std::shared_ptr<Logger> _logger;
 
-class Logger {
-private:
-  using strand_ioc = boost::asio::strand<boost::asio::io_context::executor_type>;
+class Logger : public conf::token, public std::enable_shared_from_this<Logger> {
 
 public:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
 public:
-  Logger() noexcept;
+  Logger(asio::io_context &app_io_ctx) noexcept;
   Logger(const Logger &) = delete;
   Logger(Logger &) = delete;
   Logger(Logger &&) = delete;
 
   ~Logger() noexcept;
 
-  static void async(asio::io_context &io_ctx) noexcept;
+  static Logger *create(asio::io_context &app_io_ctx) noexcept {
+    _logger = std::make_shared<Logger>(app_io_ctx);
+
+    return _logger.get();
+  }
 
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
     if (should_log(mod_id, cat)) {
+      const auto runtime{std::chrono::duration_cast<millis_fp>(e.as<Nanos>())};
 
       const auto prefix = fmt::format(prefix_format,      //
-                                      runtime(),          // millis since app start
+                                      runtime,            // millis since app start
                                       width_ts,           // width of timestamp field
                                       width_ts_precision, // runtime + width and precision
                                       mod_id, width_mod,  // module_id + width
@@ -77,29 +74,56 @@ public:
 
       const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
 
-      if (local_strand.has_value() && !local_strand->get_inner_executor().context().stopped()) {
-        asio::post(*local_strand, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
-          print(std::move(prefix), std::move(msg));
-        });
+      if (async_active && !app_io_ctx.stopped()) {
+        asio::post(app_io_ctx,
+                   [self = shared_from_this(), prefix = std::move(prefix), msg = std::move(msg)]() {
+                     auto s = self.get();
+
+                     s->out.print("{} {}", prefix, msg);
+                     s->out.flush();
+                   });
 
       } else {
-        print(std::move(prefix), std::move(msg));
+        out.print("{} {}", prefix, msg);
+        out.flush();
       }
     }
   }
 
-  millis_fp runtime() noexcept;
+  static bool should_log(csv mod, csv cat) noexcept {
 
-  static bool should_log(csv mod, csv cat) noexcept; // see .cpp
+    if (cat == csv{"info"}) return true;
+
+    if (!_logger->conf_table()) return true;
+
+    const auto t = _logger->conf_table();
+
+    if (t->empty()) return true;
+
+    // order of precedence:
+    //  1. looger.<cat>       == boolean
+    //  2. logger.<mod>       == boolean
+    //  3. logger.<mod>.<cat> == boolean
+    std::array paths{toml::path(cat), toml::path(mod), toml::path(mod).append(cat)};
+
+    return std::all_of(paths.begin(), paths.end(), [t](const auto &p) {
+      const auto node = t->at_path(p);
+
+      return node.is_boolean() ? node.value_or(true) : true;
+    });
+  }
+
+  static void shutdown() noexcept { _logger.reset(); }
+  static void synchronous() noexcept { _logger->async_active = false; }
 
 private:
-  void print(const string prefix, const string msg) noexcept;
+  // order dependent
+  asio::io_context &app_io_ctx;
+  fmt::ostream out;
 
-private:
   // order independent
-  bool shutting_down{false};
-  std::optional<strand_ioc> local_strand;
-  std::optional<fmt::ostream> out;
+  bool async_active{false};
+  static Elapsed e;
 
 public:
   // order independent
@@ -115,12 +139,12 @@ public:
 };
 
 #define INFO(mod_id, cat, format, ...)                                                             \
-  pierre::shared::logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::_logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_AUTO(format, ...)                                                                     \
-  pierre::shared::logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::_logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__)
 
 #define INFO_INIT(format, ...)                                                                     \
-  pierre::shared::logger->info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__)
+  pierre::_logger->info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__)
 
 } // namespace pierre

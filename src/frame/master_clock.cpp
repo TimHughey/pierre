@@ -17,8 +17,6 @@
 //  https://www.wisslanding.com
 
 #include "master_clock.hpp"
-#include "base/conf/token.hpp"
-#include "base/conf/toml.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/pet.hpp"
@@ -134,15 +132,12 @@ MasterClock::MasterClock(asio::io_context &io_ctx) noexcept
       local_strand(asio::make_strand(io_ctx)),       // serialize peer changes
       peer(local_strand, ip_udp::v4())               // construct and open
 {
-  static constexpr csv def_shm_name{"nqptp"};
-  conf::token ctoken(module_id);
+  static constexpr csv def_shm_name{"/nqptp"};
 
-  shm_name = ctoken.val<string, toml::table>("shm_name"_tpath, def_shm_name.data());
-
-  INFO_INIT("sizeof={:>5} shm_name={} dest={}:{} nqptp_len={}\n", sizeof(MasterClock), shm_name,
+  INFO_INIT("sizeof={:>5} shm_name={} dest={}:{} nqptp_len={}\n", sizeof(MasterClock), SHM_NAME,
             nqptp_rep.address().to_string(), nqptp_rep.port(), nqptp::len());
 
-  peers(); // reset the peers (creates the shm name)}
+  peers(Peers()); // reset the peers (creates the shm name)}
 }
 
 MasterClock::~MasterClock() noexcept {
@@ -157,7 +152,7 @@ MasterClock::~MasterClock() noexcept {
 
 // NOTE: new data is available every 126ms
 const ClockInfo MasterClock::load_info_from_mapped() noexcept {
-  auto [rc, nd] = nqptp::refresh(shm_name);
+  auto [rc, nd] = nqptp::refresh(SHM_NAME);
 
   if (!rc) return ClockInfo();
 
@@ -177,7 +172,7 @@ void MasterClock::peers(const Peers &&new_peers) noexcept {
     uint8v msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "{} T", shm_name);
+    fmt::format_to(w, "{} T", SHM_NAME);
 
     if (peers.size()) fmt::format_to(w, " {}", fmt::join(peers, " "));
 

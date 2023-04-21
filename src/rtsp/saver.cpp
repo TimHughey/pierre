@@ -28,15 +28,15 @@ namespace rtsp {
 
 Saver::Saver(Saver::Direction direction, const Headers &headers, const uint8v &content,
              const RespCode resp_code) noexcept
-    : ctoken(module_id) //
+    : conf::token(module_id) //
 {
 
-  if (ctoken.val<bool, toml::table>("enable"_tpath, false)) {
+  if (conf_val<bool>("enable"_tpath, false)) {
     static constexpr csv def_file{"/tmp/rtsp.log"};
     static constexpr csv def_format{"raw"};
 
-    const string file{ctoken.val<string, toml::table>("file"_tpath, def_file.data())};
-    const string format{ctoken.val<string, toml::table>("format"_tpath, def_format.data())};
+    const string file{conf_val<string>("file"_tpath, def_file.data())};
+    const string format{conf_val<string>("format"_tpath, def_format.data())};
 
     uint8v buff;
     auto w = std::back_inserter(buff);

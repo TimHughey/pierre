@@ -189,38 +189,39 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
 }
 
 bool MajorPeak::load_config() noexcept {
+  conf::token ctoken(module_id);
+
   auto changed{false};
 
   // lambda helper to retrieve frequencies config
-  auto dval = [this](const auto path, auto &&def_val) -> double {
-    const auto full_path = toml::path("frequencies").append(path);
-    return ctoken.val<double, toml::table>(full_path, std::forward<decltype(def_val)>(def_val));
+  auto dval = [&](const auto p, auto &&def_val) -> double {
+    return ctoken.conf_val<double>(p, std::forward<decltype(def_val)>(def_val));
   };
 
-  freq_limits = hard_soft_limit<Frequency>( //
-      dval("hard.floor"_tpath, 40.0),       //
-      dval("hard.ceiling"_tpath, 11500.0),  //
-      dval("soft.floor"_tpath, 110.0),      //
-      dval("soft.ceiling"_tpath, 10000.0));
+  freq_limits = hard_soft_limit<Frequency>(            //
+      dval("frequencies.hard.floor"_tpath, 40.0),      //
+      dval("frequencies.hard.ceiling"_tpath, 11500.0), //
+      dval("frequencies.soft.floor"_tpath, 110.0),     //
+      dval("frequencies.soft.ceiling"_tpath, 10000.0));
 
   // load make colors config
   for (auto cat : std::array{"generic"_tpath, "above_soft_ceiling"_tpath}) {
     // lambda helper to retrieve make color configs
     auto cc = [&, this](const auto path, auto &&def_val) -> double {
       const auto full_path = toml::path("makecolors").append(cat).append(path);
-      return ctoken.val<double, toml::table>(full_path, std::forward<decltype(def_val)>(def_val));
+      return ctoken.conf_val<double>(full_path, std::forward<decltype(def_val)>(def_val));
     };
 
     const auto mag_scaled_path =
         toml::path("makecolors").append(cat).append("hue.mag_scaled"_tpath);
 
-    hue_cfg_map.try_emplace(
-        string(cat), major_peak::hue_cfg{.hue = {.min = cc("hue.min"_tpath, 0.0),
-                                                 .max = cc("hue.max"_tpath, 0.0),
-                                                 .step = cc("hue.step"_tpath, 0.001)},
-                                         .brightness = {.max = cc("bri.max"_tpath, 0.0),
-                                                        .mag_scaled = ctoken.val<bool, toml::table>(
-                                                            mag_scaled_path, true)}});
+    hue_cfg_map.try_emplace(string(cat),
+                            major_peak::hue_cfg{.hue = {.min = cc("hue.min"_tpath, 0.0),
+                                                        .max = cc("hue.max"_tpath, 0.0),
+                                                        .step = cc("hue.step"_tpath, 0.001)},
+                                                .brightness = {.max = cc("bri.max"_tpath, 0.0),
+                                                               .mag_scaled = ctoken.conf_val<bool>(
+                                                                   mag_scaled_path, true)}});
   }
 
   mag_limits =
@@ -228,8 +229,8 @@ bool MajorPeak::load_config() noexcept {
 
   // load pinspot config
   static constexpr csv BRI_MIN{"bri_min"};
-  const auto table = ctoken.get<toml::table>();
-  auto &pspots = table["pinspots"_tpath].ref<toml::array>();
+  const auto table = ctoken.conf_table();
+  auto &pspots = table->at_path("pinspots"_tpath).ref<toml::array>();
 
   for (auto &&el : *pspots.as_array()) {
     // we need this twice
@@ -277,7 +278,7 @@ bool MajorPeak::load_config() noexcept {
   }
 
   // setup silence timeout
-  const auto timeout = ctoken.val<Seconds, toml::table>("silence.timeout.seconds"_tpath, 13);
+  const auto timeout = ctoken.conf_val<Seconds>("silence.timeout.seconds"_tpath, 13);
   set_silence_timeout(timeout, fx::STANDBY);
 
   return changed;

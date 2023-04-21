@@ -47,22 +47,20 @@ using tcp_socket = boost::asio::ip::tcp::socket;
 
 class Rtsp {
 public:
-  Rtsp(asio::io_context &io_ctx) noexcept;
+  Rtsp() noexcept;
   ~Rtsp() noexcept; // must be in .cpp due to incomplete types
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
 
-  void run() noexcept {
-    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).join();
-  }
-
 private:
   // order dependent
-  asio::io_context &io_ctx;
+  asio::io_context io_ctx;
   strand_ioc accept_strand;
   tcp_acceptor acceptor;
   strand_ioc worker_strand;
+
+  // order independent
   std::unique_ptr<rtsp::Sessions> sessions;
   std::unique_ptr<MasterClock> master_clock;
   std::unique_ptr<Desk> desk;

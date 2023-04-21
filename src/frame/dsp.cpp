@@ -30,12 +30,12 @@ Dsp::Dsp() noexcept
     : work_guard{asio::make_work_guard(io_ctx)} //
 {
 
-  conf::token ctoken("frame.dsp"sv);
-
   // notes:
   //  -concurrency_factor is specified in the config file as a percentage
   //  -to determine final thread count divide by 100
-  const auto concurrency_factor{ctoken.val<int, toml::table>("concurrency_factor"_tpath, 40)};
+  conf::token ctoken(module_id);
+
+  const auto concurrency_factor{ctoken.conf_val<int>("concurrency_factor"_tpath, 40)};
   const auto hw_concurrency{std::jthread::hardware_concurrency()};
   const auto threads{(hw_concurrency * concurrency_factor) / 100};
 
@@ -47,7 +47,7 @@ Dsp::Dsp() noexcept
 
   // start the threads and run io_ctx
   for (uint32_t n = 0; n < threads; n++) {
-    std::jthread([io_ctx = std::ref(io_ctx)]() { io_ctx.get().run(); }).detach();
+    std::jthread([this]() { io_ctx.run(); }).detach();
   }
 }
 

@@ -31,7 +31,8 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/pierre",
       "args": [
-        "--daemon"
+        "--daemon",
+        "--force-restart"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
@@ -48,6 +49,16 @@
           "description": "Set Disassembly Flavor to Intel",
           "text": "-gdb-set disassembly-flavor intel",
           "ignoreFailures": true
+        },
+        {
+          "description": "Set Follow Fork",
+          "text": "-gdb-set follow-fork-mode child",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Pass SIGINT",
+          "text": "handle SIGINT pass noprint",
+          "ignoreFailures": false
         }
       ]
     },
