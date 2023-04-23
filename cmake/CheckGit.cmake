@@ -1,14 +1,14 @@
 set(CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR})
 if (NOT DEFINED pre_configure_dir)
-    set(pre_configure_dir ${CMAKE_CURRENT_LIST_DIR})
+    set(pre_configure_dir ${CMAKE_CURRENT_LIST_DIR}/git_src)
 endif ()
 
 if (NOT DEFINED post_configure_dir)
     set(post_configure_dir ${CMAKE_BINARY_DIR}/generated)
 endif ()
 
-set(pre_configure_file ${pre_configure_dir}/git_version.cpp.in)
-set(post_configure_file ${post_configure_dir}/git_version.cpp)
+set(pre_configure_file ${pre_configure_dir}/git_inject.cpp.in)
+set(post_configure_file ${post_configure_dir}/git_inject.cpp)
 
 function(CheckGitWrite git_hash)
     file(WRITE ${CMAKE_BINARY_DIR}/git-state.txt ${git_hash})
@@ -38,8 +38,8 @@ function(CheckGitVersion)
         file(MAKE_DIRECTORY ${post_configure_dir})
     endif ()
 
-    if (NOT EXISTS ${post_configure_dir}/git_version.hpp)
-        file(COPY ${pre_configure_dir}/git_version.hpp DESTINATION ${post_configure_dir})
+    if (NOT EXISTS ${post_configure_dir}/git_inject.hpp)
+        file(COPY ${pre_configure_dir}/git_inject.hpp DESTINATION ${post_configure_dir})
     endif()
 
     if (NOT DEFINED GIT_HASH_CACHE)
@@ -69,9 +69,9 @@ function(CheckGitSetup)
         BYPRODUCTS ${post_configure_file}
         )
 
-    add_library(git_version ${CMAKE_BINARY_DIR}/generated/git_version.cpp)
-    target_include_directories(git_version PUBLIC ${CMAKE_BINARY_DIR}/generated)
-    add_dependencies(git_version AlwaysCheckGit)
+    add_library(git_inject ${CMAKE_BINARY_DIR}/generated/git_inject.cpp)
+    target_include_directories(git_inject PUBLIC ${CMAKE_BINARY_DIR}/generated)
+    add_dependencies(git_inject AlwaysCheckGit)
 
     CheckGitVersion()
 endfunction()

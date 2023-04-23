@@ -89,7 +89,8 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
   // NOTE: we do not start listening or the stalled timer at this point
   //       they are handled as needed during handshake()
 
-  INFO_INIT("sizeof={:>5} thread_count={}\n", sizeof(DmxCtrl), required_threads());
+  INFO_INIT("sizeof={:>5} thread_count={} {}\n", sizeof(DmxCtrl), required_threads(),
+            conf_msg(Info));
 }
 
 void DmxCtrl::handshake() noexcept {

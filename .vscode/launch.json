@@ -31,8 +31,8 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/pierre",
       "args": [
-        "--daemon",
-        "--force-restart"
+        "--force-restart",
+        "--daemon"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
@@ -63,7 +63,7 @@
       ]
     },
     {
-      "name": "Launch Pierre debug help",
+      "name": "Debug help",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/pierre",
@@ -85,6 +85,38 @@
           "description": "Set Disassembly Flavor to Intel",
           "text": "-gdb-set disassembly-flavor intel",
           "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "Devel Config",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/pierre",
+      "cwd": "${workspaceFolder}/extra",
+      "args": [
+        "--cfg-path=confg",
+        "--cfg-dir=devel"
+      ],
+      "stopAtEntry": false,
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Set Disassembly Flavor to Intel",
+          "text": "-gdb-set disassembly-flavor intel",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Pass SIGINT",
+          "text": "handle SIGINT pass noprint",
+          "ignoreFailures": false
         }
       ]
     }

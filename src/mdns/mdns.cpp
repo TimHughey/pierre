@@ -17,7 +17,7 @@
 // https://www.wisslanding.com
 
 #include "mdns.hpp"
-#include "base/conf/getv.hpp"
+#include "base/conf/fixed.hpp"
 #include "base/conf/token.hpp"
 #include "base/conf/toml.hpp"
 #include "base/logger.hpp"
@@ -50,7 +50,7 @@ mDNS::mDNS() noexcept
       conf::token(module_id),
       // get the receiver
       receiver(conf_val<string>("receiver"_tpath, def_receiver.data())),  //
-      build_vsn(conf::getv::build_vsn()),                                 //
+      build_vsn(conf::fixed::git()),                                      //
       stype(conf_val<string>("service"_tpath, def_stype.data())),         //
       receiver_port(conf_val<int>("port"_tpath, 7000)),                   //
       service_obj(receiver, build_vsn),                                   //

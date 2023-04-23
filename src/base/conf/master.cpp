@@ -19,12 +19,10 @@
 #define TOML_IMPLEMENTATION
 
 #include "base/conf/master.hpp"
-#include "base/conf/args.hpp"
-#include "base/conf/build_info.hpp"
+#include "base/conf/cli_args.hpp"
 #include "base/conf/toml.hpp"
 #include "base/pet.hpp"
 #include "build_inject.hpp"
-#include "git_version.hpp"
 
 #include <algorithm>
 #include <boost/asio/steady_timer.hpp>
@@ -65,7 +63,7 @@ master::master(int argc, char *argv[]) noexcept {
   if (std::all_of(msgs.begin(), msgs.end(), [](const auto &m) { return m.empty(); })) {
 
     // populate the cli args and build info before parsing
-    ttable.emplace(root::cli, cli_args.ttable());
+    ttable.emplace(root::cli, CliArgs::table());
     ttable.emplace(root::build, build_info::ttable());
 
     // populate the git info into the build table
@@ -158,7 +156,7 @@ bool master::parse() noexcept {
 
     cff_path = fs::path{bt[key::sysconf_dir].ref<string>()};
     cff_path /= bt[key::project].ref<string>();
-    cff_path /= ct[key::cfg_file].ref<string>();
+    cff_path /= ct[key::cfg_path].ref<string>();
   }
 
   auto pt_result = toml::parse_file(cff_path.c_str());

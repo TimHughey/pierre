@@ -1,0 +1,60 @@
+
+[logger]
+# category specific overrides
+debug = false   # show any debug messages?
+init = true     # always log init messages from any module, when true
+threads = false  # show any thread messages?
+shutdown = true # show any shutdown messages?
+async = true
+
+[logger.config.watch]
+check_file = false
+register = true
+unregister = false
+
+[logger.config.token]
+notify = true
+
+[logger.desk]
+thread = false
+resume = true
+shutdown = false
+standby = true
+next_reel = false
+
+[logger.desk.dmx_ctrl]
+run = false
+host = { connect = true, resolve = true, unknown = true }
+
+[logger.desk.racked]
+flush = true
+monitor_wip = true
+log = true
+
+[logger.desk.reel]
+flush = false
+
+[logger.frame]
+anchor = false
+av = false
+clock = { init = true, shutdown = false, peers_update = false, thread = false, map_shm = false }
+# clock_info = false
+dsp = { init = true }
+decipher = false
+
+[logger.fx]
+major_peak = { execute = false }
+silence_watch = false
+standby = { apply_config = false}
+
+[logger.mdns]
+ctx = { all_for_now = false, browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
+
+[logger.rtsp]
+audio = false
+ctx = true
+init = true
+info = true
+event = false
+net = false
+reply = { build = false, info = true }

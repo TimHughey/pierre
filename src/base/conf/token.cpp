@@ -16,13 +16,39 @@
 //
 // https://www.wisslanding.com
 
-#include "base/conf/token.hpp"
-#include "base/conf/master.hpp"
+#define TOML_IMPLEMENTATION
+
+#include "conf/token.hpp"
+#include "conf/cli_args.hpp"
+#include "conf/fixed.hpp"
+
+#include <filesystem>
+#include <fmt/format.h>
 
 namespace pierre {
 namespace conf {
 
-token::token(csv mid) noexcept : root(mid) { mptr->copy_to(root, ttable); }
+bool token::parse() noexcept {
+
+  msgs[Parser].clear();
+
+  // parse file at this path
+  const auto base = root.begin()->key();
+  const auto f_path = fixed::cfg_path().append(base).replace_extension(".toml");
+
+  auto pt_result = toml::parse_file(f_path.c_str());
+
+  if (pt_result) {
+    ttable = pt_result.table(); // copy the table at root
+
+  } else {
+    msgs[Parser] = pt_result.error().description();
+  }
+
+  msgs[Info] = fmt::format("{}", *this);
+
+  return parse_ok();
+}
 
 } // namespace conf
 } // namespace pierre

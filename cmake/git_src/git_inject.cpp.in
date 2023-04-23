@@ -1,4 +1,4 @@
-#include "git_version.hpp"
+#include "git_inject.hpp"
 
 #include <string>
 

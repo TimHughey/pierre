@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "logger.hpp"
-#include "base/conf/getv.hpp"
+#include "base/conf/fixed.hpp"
 #include "elapsed.hpp"
 
 namespace pierre {
@@ -28,7 +28,7 @@ namespace asio = boost::asio;
 Elapsed Logger::e;
 
 static const auto out_path() noexcept {
-  return string(conf::getv::daemon() ? "/var/log/pierre/pierre.log" : "/dev/stdout");
+  return string(conf::fixed::daemon() ? conf::fixed::log_file() : "/dev/stdout");
 }
 
 namespace fs = std::filesystem;
@@ -39,7 +39,7 @@ Logger::Logger(asio::io_context &app_io_ctx) noexcept
       out(fmt::output_file(out_path(), flags))        //
 {
   const auto now = std::chrono::system_clock::now();
-  out.print("\n{:%FT%H:%M:%S} START\n", now);
+  out.print("\n{:%FT%H:%M:%S} START {}\n", now, conf_msg(Info));
 
   asio::post(app_io_ctx, [this]() { async_active = true; });
 }

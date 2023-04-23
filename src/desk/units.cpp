@@ -43,7 +43,7 @@ void Units::create_all_from_cfg() noexcept {
     // load dimmable units
 
     uint32_t max = ctoken.conf_val<uint32_t>("max"_tpath, 8190U);
-    auto units = table->at_path("dimmable.units").as_array();
+    auto units = table->at_path("dimmable.units"_tpath).as_array();
 
     for (auto &&e : *units) {
 

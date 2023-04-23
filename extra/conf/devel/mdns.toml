@@ -1,0 +1,4 @@
+[mdns]
+port = 7000
+receiver = "Pierre Devel" # specify %h to use hostname
+service = "_ruth._tcp"    # service advertised by rendering devices

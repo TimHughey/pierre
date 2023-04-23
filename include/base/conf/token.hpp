@@ -23,6 +23,7 @@
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
+#include <array>
 #include <concepts>
 #include <fmt/format.h>
 #include <functional>
@@ -36,10 +37,13 @@ namespace conf {
 class token {
 
 public:
+  enum msg_t : uint8_t { Parser = 0, Info, TokenMsgEnd };
+
+public:
   /// @brief Create config token with populated subtable that is not registered
   ///        for change notifications
-  /// @param mid module_id (aka key)
-  token(csv mid) noexcept;
+  /// @param mid module_id (aka root)
+  token(csv mid) noexcept : root{mid} { parse(); }
   virtual ~token() noexcept {}
 
   token(token &&) = default;
@@ -47,11 +51,13 @@ public:
 
   friend struct fmt::formatter<token>;
 
-  toml::table *conf_table() noexcept { return ttable.as<toml::table>(); }
+  toml::table *conf_table() noexcept { return ttable[root].as<toml::table>(); }
+
+  const string &conf_msg(msg_t id) const noexcept { return msgs[id]; }
 
   template <typename ReturnType>
   inline ReturnType conf_val(auto &&p, const auto &&def_val) noexcept {
-    toml::path path(p);
+    const auto path = root + p;
 
     if constexpr (IsDuration<ReturnType>) {
       return ReturnType(ttable[path].value_or(def_val));
@@ -64,12 +70,17 @@ public:
     }
   }
 
+  bool parse_ok() const noexcept { return msgs[Parser].empty(); }
+
+protected:
+  bool parse() noexcept;
+
 private:
-  // order dependent
+  // order independent
   const toml::path root;
 
-  // order independent
   toml::table ttable;
+  std::array<string, TokenMsgEnd> msgs;
 
 public:
   static constexpr csv module_id{"conf.token"};
@@ -82,7 +93,7 @@ template <> struct fmt::formatter<pierre::conf::token> : formatter<std::string> 
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
-  auto format(pierre::conf::token &token, FormatContext &ctx) const {
+  auto format(const pierre::conf::token &token, FormatContext &ctx) const {
 
     return formatter<std::string>::format(
         fmt::format("root={} table_size={}", token.root.str(), token.ttable.size()), ctx);

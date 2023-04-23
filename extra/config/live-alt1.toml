@@ -101,7 +101,7 @@ reply = { build = false, info = true }
 [desk.dmx_ctrl]
 local = { stalled.ms = 10_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
-remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
+# remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
 threads = 1
 
 [desk.dimmable]

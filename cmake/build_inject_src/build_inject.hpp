@@ -18,16 +18,26 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace pierre {
 namespace build {
 
+using fs_path = std::filesystem::path;
+using string = std::string;
+using string_view = std::string_view;
+
 struct info_t {
-  const std::string project;
-  const std::string install_prefix;
-  const std::string sysconf_dir;
-  const std::string data_dir;
+  const string project;
+  const string git;
+  const fs_path install_prefix;
+  const fs_path bin_dir;
+  const fs_path libexec;
+  const fs_path sysconf_dir;
+  const fs_path data_dir;
+  const fs_path state_dir;
 };
 
 extern const info_t info;

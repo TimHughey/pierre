@@ -8,15 +8,17 @@ cmake_minimum_required(VERSION 3.24.3)
 
 option(BUILD_SHARED_LIBS "Build shared versions of libraries" OFF)
 
+
+
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
-set(Boost_USE_DEBUG_LIBS        OFF) # ignore debug libs
-set(Boost_USE_RELEASE_LIBS      ON)  # only find release libs
-set(Boost_USE_MULTITHREADED     ON)
-set(Boost_THREADAPI             pthread)
-set(THREADS_PREFER_PTHREAD_FLAG true)
+set(Boost_USE_DEBUG_LIBS          OFF) # ignore debug libs
+set(Boost_USE_RELEASE_LIBS        ON)  # only find release libs
+set(Boost_USE_MULTITHREADED       ON)
+set(Boost_THREADAPI               pthread)
+set(THREADS_PREFER_PTHREAD_FLAG   true)
 
 # set the project name and version
 project(pierre
@@ -24,6 +26,8 @@ project(pierre
   DESCRIPTION "Custom light show for Wiss Landing"
   LANGUAGES CXX C
 )
+
+set(CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "..." FORCE)
 
 include(GNUInstallDirs)
 
@@ -74,5 +78,4 @@ target_link_libraries(${_target} PUBLIC
   rtsp
   sodium
   Threads::Threads
-  git_version
 )

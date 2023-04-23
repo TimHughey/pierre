@@ -22,19 +22,36 @@
 #include "base/conf/toml.hpp"
 #include "base/types.hpp"
 
+#include <filesystem>
+#include <sstream>
+
 namespace pierre {
 namespace conf {
 
-struct getv {
+struct cli_args {
 
-  static const string app_name() noexcept;
-  static const string build_vsn() noexcept;
-  static bool daemon() noexcept;
-  static const string data_dir() noexcept;
-  static bool force_restart() noexcept;
-  static const string pid_file() noexcept;
+  friend struct fixed;
 
-  static const toml::table *mt() noexcept;
+  cli_args(int argc, char **argv) noexcept;
+
+  static bool error() noexcept { return !error_str.empty(); }
+  static const string &error_msg() noexcept { return error_str; }
+
+  static bool help() noexcept { return help_requested; }
+  static auto &help_msg() noexcept { return help_ss; }
+
+  static bool nominal_start() noexcept { return !help_requested && error_str.empty(); }
+
+  static const auto &table() noexcept { return ttable; }
+
+protected:
+  static toml::table ttable;
+
+private:
+  static string error_str;
+  static bool help_requested;
+  static std::ostringstream help_ss;
+  static string help_str;
 };
 
 } // namespace conf

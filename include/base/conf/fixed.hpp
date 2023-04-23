@@ -18,22 +18,29 @@
 
 #pragma once
 
-#include "base/conf/keys.hpp"
-#include "base/conf/toml.hpp"
-#include "build_inject.hpp"
+#include "base/types.hpp"
+
+#include <filesystem>
 
 namespace pierre {
 namespace conf {
 
-struct build_info {
+struct fixed {
 
-  static const toml::table ttable() noexcept {
+  using fs_path = std::filesystem::path;
 
-    return toml::table{{key::project, build::info.project},
-                       {key::install_dir, build::info.install_prefix},
-                       {key::sysconf_dir, build::info.sysconf_dir},
-                       {key::app_data_dir, build::info.data_dir}};
-  }
+  static fs_path app_data_dir() noexcept;
+  static csv app_name() noexcept;
+  static string cfg_dir() noexcept;
+  static fs_path cfg_path() noexcept;
+  static bool daemon() noexcept;
+  static fs_path exec_dir() noexcept;
+  static bool force_restart() noexcept;
+  static string git() noexcept;
+  static fs_path install_prefix() noexcept;
+  static fs_path log_file() noexcept;
+  static fs_path parent_dir() noexcept;
+  static fs_path pid_file() noexcept;
 };
 
 } // namespace conf

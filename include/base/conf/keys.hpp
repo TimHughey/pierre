@@ -29,7 +29,9 @@ struct root {
 struct key {
   static constexpr auto app_name{"app-name"};
 
-  static constexpr auto cfg_file{"cfg-file"};
+  static constexpr auto cfg_dir{"cfg-dir"};
+  static constexpr auto cfg_path{"cfg-path"};
+  static constexpr auto chdir{"chdir"};
 
   static constexpr auto daemon{"daemon"};
   static constexpr auto data_path{"data-path"};
@@ -41,7 +43,7 @@ struct key {
   static constexpr auto help{"help"};
   static constexpr auto log_file{"log-file"};
   static constexpr auto parent_dir{"parent-dir"};
-  static constexpr auto pid_file_path{"pid-path"};
+  static constexpr auto pid_file{"pid-path"};
   static constexpr auto project{"project"};
   static constexpr auto install_dir{"install-dir"};
   static constexpr auto sysconf_dir{"sysconf-dir"};

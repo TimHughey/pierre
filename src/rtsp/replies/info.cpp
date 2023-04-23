@@ -18,12 +18,11 @@
 
 #include "replies/info.hpp"
 #include "aplist.hpp"
-#include "base/conf/getv.hpp"
+#include "base/conf/fixed.hpp"
 #include "base/logger.hpp"
 #include "base/uint8v.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
-#include <base/conf/toml.hpp>
 
 #include <filesystem>
 #include <fmt/std.h>
@@ -82,11 +81,9 @@ void Info::init() noexcept { // static
   static constexpr csv fn_id{"init"};
   conf::token ctoken(module_id);
 
-  std::filesystem::path data_path{conf::getv::data_dir()};
-  const auto app_name{conf::getv::app_name()};
   static constexpr csv plist_file{"plist/get_info_resp.plist"};
 
-  data_path.append(app_name).append(plist_file);
+  auto data_path = conf::fixed::app_data_dir().append(plist_file);
 
   // seek to end of file at open to determine file size without
   // additional calls to the stream

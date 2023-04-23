@@ -17,13 +17,12 @@
 // https://www.wisslanding.com
 
 #include "app.hpp"
-#include "base/conf/getv.hpp"
-#include "base/conf/master.hpp"
+#include "base/conf/cli_args.hpp"
+#include "base/conf/fixed.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "base/stats.hpp"
-#include "git_version.hpp"
 #include "mdns/mdns.hpp"
 #include "rtsp/rtsp.hpp"
 
@@ -33,6 +32,7 @@
 #include <errno.h>
 #include <exception>
 #include <filesystem>
+#include <fmt/os.h>
 #include <fmt/std.h>
 #include <fstream>
 #include <iostream>
@@ -59,30 +59,33 @@ int main(int argc, char *argv[]) {
   crypto::init();
 
   // handle cli args, config parse
-  auto mptr = conf::master::create(argc, argv);
+  conf::cli_args(argc, argv);
 
+  // create the app object
   std::shared_ptr<App> app;
 
-  if (mptr->nominal_start()) {
+  if (conf::cli_args::nominal_start()) {
     // all is well, proceed with starting the app
 
     // become daemon (if requested)
-    if (conf::getv::daemon()) {
-      daemonize(conf::getv::pid_file());
+    if (conf::fixed::daemon()) {
+      daemonize(conf::fixed::pid_file());
     }
 
     app = App::create();
 
     app->main();
-
   } else {
     // the app isn't runnable for one of the following reasons:
     //  -cli help requested
     //  -cli args bad
-    //  -parse of config file failed
+    //  -configuration directory does not exist
 
     rc = 1;
-    std::cout << mptr->get_first_msg() << std::endl;
+
+    if (!conf::cli_args::error_msg().empty()) {
+      std::cout << conf::cli_args::error_msg() << std::endl;
+    }
   }
 
   // if app is created then we are assured command line args
@@ -139,7 +142,7 @@ void daemonize(const std::string pid_file) {
   current_path(path("/"));
 
   const auto flags = fmt::file::WRONLY | fmt::file::CREATE | fmt::file::TRUNC;
-  auto os = fmt::output_file(conf::getv::pid_file().c_str(), flags);
+  auto os = fmt::output_file(conf::fixed::pid_file().c_str(), flags);
 
   os.print("{}", getpid());
   os.close();
@@ -164,7 +167,7 @@ bool pid_file_check(const std::string pid_file, bool remove_only) {
 
     auto kill_rc = kill(pid, 0);
 
-    if ((kill_rc == 0) && !conf::getv::force_restart()) { // pid is alive and we can signal it
+    if ((kill_rc == 0) && !conf::fixed::force_restart()) { // pid is alive and we can signal it
       std::cout << file << "contains live pid " << pid;
       std::cout << ", use --force-restart to restart" << std::endl;
 
@@ -235,7 +238,7 @@ void App::main() {
   thread = std::jthread([main_pid, this, self = shared_from_this()](std::stop_token stoken) {
     Logger::create(io_ctx);
 
-    INFO(conf::token::module_id, "init", "{}\n", conf::mptr->get_msg(conf::master::InitMsg));
+    INFO(module_id, "init", "sizeof={:>5}\n", sizeof(App));
 
     Stats::create(io_ctx);
     shared::mdns = std::make_unique<mDNS>();
@@ -266,7 +269,7 @@ void App::main() {
     }
 
     self->io_ctx.stop();
-    pid_file_unlink(conf::getv::pid_file(), main_pid);
+    pid_file_unlink(conf::fixed::pid_file(), main_pid);
 
     INFO_AUTO("primary io_ctx has finished all work\n");
 

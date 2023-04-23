@@ -21,8 +21,8 @@ find_package(Sodium                        REQUIRED)
 
 add_library(${__target} 
   # configuration
-  conf/getv.cpp
-  conf/master.cpp
+  conf/cli_args.cpp
+  conf/fixed.cpp
   conf/token.cpp
 
   # host info
@@ -61,5 +61,5 @@ target_link_libraries(${__target} PUBLIC
   tomlplusplus::tomlplusplus
   InfluxData::InfluxDB
   build_inject
-  git_version
+  git_inject
 )

@@ -1,0 +1,23 @@
+#include "build_inject.hpp"
+#include "git_inject.hpp"
+
+#include <filesystem>
+#include <string>
+#include <string_view>
+
+namespace pierre {
+namespace build {
+
+static constexpr string_view proj{"@CMAKE_PROJECT_NAME@"};
+
+const info_t info{.project = proj.data(), // app name
+                  .git = git.describe,
+                  .install_prefix = fs_path{"@CMAKE_INSTALL_PREFIX@"},
+                  .bin_dir = fs_path{"@CMAKE_INSTALL_FULL_BINDIR@"},
+                  .libexec = fs_path{"@CMAKE_INSTALL_FULL_LIBEXECDIR@"},
+                  .sysconf_dir = fs_path{"@CMAKE_INSTALL_FULL_SYSCONFDIR@"}.append(proj),
+                  .data_dir = fs_path{"@CMAKE_INSTALL_FULL_DATADIR@"}.append(proj),
+                  .state_dir = fs_path{"@CMAKE_INSTALL_FULL_RUNSTATEDIR@"}.append(proj)};
+
+} // namespace build
+} // namespace pierre
