@@ -69,7 +69,6 @@ private:
   // order dependent
   const ip_address nqptp_addr;
   const udp_endpoint nqptp_rep; // nqptp remote endpoint (rep)
-  strand_ioc local_strand;
   udp_socket peer;
 
   // order independent

@@ -46,19 +46,20 @@ using ZeroConfServiceList = std::list<ZeroConf>;
 
 class Ctx {
 public:
-  Ctx(const string &stype, Service &service, Port receiver_port) noexcept;
+  Ctx(const string &stype, Service *service, Port receiver_port) noexcept;
   ~Ctx() noexcept;
 
   void browse(csv stype) noexcept;
 
-  void update(Service &service) noexcept;
+  void run(string &init_msg) noexcept;
+
+  void update() noexcept;
 
   ZeroConfFut zservice(csv name) noexcept;
 
 private:
   /// @brief Advertise the service, invoked by cb_client() when client connection ready
-  /// @param service shared_ptr to service to advertise
-  void advertise(Service &service) noexcept;
+  void advertise() noexcept;
 
   void all_for_now(bool next_val) noexcept;
 
@@ -100,17 +101,17 @@ private:
 public:
   // order dependent
   const string stype;
+  Service *service;
   const Port receiver_port;
   std::atomic_bool all_for_now_state;
   std::atomic_bool client_running;
   std::atomic_bool threaded_poll_quit;
-  AvahiThreadedPoll *tpoll{nullptr};
 
   // order independent
+  static AvahiThreadedPoll *tpoll;
+  static AvahiClient *client;
   string err_msg;
   string domain;
-
-  AvahiClient *client{nullptr};
 
   AvahiEntryGroupState entry_group_state{AVAHI_ENTRY_GROUP_UNCOMMITED};
   std::optional<AvahiEntryGroup *> entry_group;

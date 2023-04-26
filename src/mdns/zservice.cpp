@@ -56,8 +56,8 @@ string ZeroConf::inspect() const noexcept {
   string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "{} hostname={} name={} short={} {} {}:{} TXT: ", _type, hostname, name_net,
-                 _name_short, _protocol, _address, _port);
+  fmt::format_to(w, "{} {} {} {} {} {}:{} TXT: ", _type, hostname, name_net, _name_short, _protocol,
+                 _address, _port);
 
   std::for_each(_txt_list.begin(), _txt_list.end(),
                 [w = std::back_inserter(msg)](const zc::Txt &txt) {

@@ -32,7 +32,6 @@
 #include "frame/frame.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/racked.hpp"
-#include "frame/silent_frame.hpp"
 #include "frame/state.hpp"
 #include "fx/all.hpp"
 #include "mdns/mdns.hpp"
@@ -66,11 +65,10 @@ Desk::Desk(MasterClock *master_clock) noexcept
       // set the frame_timer start time to now, we'll adjust it later
       frame_timer(render_strand, steady_clock::now()) //
 {
-
   conf::token ctoken(module_id);
 
   // include the threads DmxCtrl requires
-  const auto threads = ctoken.conf_val<int>("threads"_tpath, 1) + dmx_ctrl->required_threads();
+  const auto threads = ctoken.conf_val<int>("threads"_tpath, 1);
 
   INFO_INIT("sizeof={:>5} lead_time_min={} threads={}\n", sizeof(Desk),
             pet::humanize(InputInfo::lead_time_min), threads);
@@ -81,6 +79,9 @@ Desk::Desk(MasterClock *master_clock) noexcept
   for (auto n = 0; n < threads; n++) {
     // add threads for handling frame rendering
     std::jthread([this, n = n]() {
+      static constexpr csv tname{"pierre_desk"};
+      pthread_setname_np(pthread_self(), tname.data());
+
       INFO(Desk::module_id, "threads", "starting thread={}\n", n);
 
       io_ctx.run();
@@ -88,7 +89,13 @@ Desk::Desk(MasterClock *master_clock) noexcept
   }
 }
 
-Desk::~Desk() noexcept { io_ctx.stop(); }
+Desk::~Desk() noexcept {
+  static constexpr auto fn_id{"destruct"};
+
+  io_ctx.stop();
+
+  INFO_AUTO("io_ctx.stopped()={}\n", io_ctx.stopped());
+}
 
 ////
 //// API
@@ -110,11 +117,11 @@ void Desk::flush_all() noexcept {
 
 bool Desk::fx_finished() const noexcept { return active_fx ? active_fx->completed() : true; }
 
-void Desk::fx_select(Frame *frame) noexcept {
+void Desk::fx_select(Frame &frame) noexcept {
   static constexpr csv fn_id{"fx_select"};
 
   // cache multiple use frame info
-  const auto silent = frame->silent();
+  const auto silent = frame.silent();
 
   const auto fx_now = active_fx ? active_fx->name() : desk::fx::NONE;
   const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : desk::fx::STANDBY;
@@ -125,7 +132,7 @@ void Desk::fx_select(Frame *frame) noexcept {
   } else if (silent && (fx_suggested_next == desk::fx::STANDBY)) {
     active_fx = std::make_unique<desk::Standby>(render_strand);
 
-  } else if (!silent && (frame->state.ready_or_future())) {
+  } else if (!silent && (frame.state.ready_or_future())) {
     active_fx = std::make_unique<desk::MajorPeak>(render_strand);
 
   } else if (silent && (fx_suggested_next == desk::fx::ALL_STOP)) {
@@ -153,6 +160,15 @@ bool Desk::next_reel() noexcept {
 void Desk::render() noexcept {
   static constexpr csv fn_id{"render"};
 
+  if (render_strand.running_in_this_thread() == false) {
+    asio::post(render_strand, [this]() {
+      INFO_AUTO("switching to render strand\n");
+
+      render();
+    });
+    return;
+  }
+
   Elapsed render_elapsed;
 
   // get the next reel, if needed
@@ -163,20 +179,20 @@ void Desk::render() noexcept {
   const auto clock_info = master_clock->info_no_wait();
 
   auto reel_result = active_reel->peek_or_pop(clock_info, anchor.get());
-  auto frame = reel_result.frame_ptr();
+  auto &frame = reel_result.frame;
 
-  frame->state.record_state();
+  frame.state.record_state();
 
   if (fx_finished()) fx_select(frame);
 
   if (shutdown_if_all_stop() == false) {
 
     // render frame and send to DMX controller
-    if (frame->state.ready()) {
-      desk::DataMsg msg(frame->seq_num, frame->silent());
+    if (frame.state.ready()) {
+      desk::DataMsg msg(frame.seq_num, frame.silent());
 
       // send the data message if rendered
-      if (active_fx->render(frame->get_peaks(), msg)) dmx_ctrl->send_data_msg(std::move(msg));
+      if (active_fx->render(frame.get_peaks(), msg)) dmx_ctrl->send_data_msg(std::move(msg));
 
       // we do not want to include the time to write stats or
       // request the next reel in render elapsed
@@ -186,7 +202,7 @@ void Desk::render() noexcept {
       if (next_reel() == false) return;
 
       // notate the frame is rendered (or silent) in timeseries db
-      frame->mark_rendered();
+      frame.mark_rendered();
     } // end ready frame handling
 
     // begin calculation of when next frame timer should fire
@@ -195,8 +211,8 @@ void Desk::render() noexcept {
 
     // when the frame is in the future override next_at avoid sending silence frames
     // and to maximize sync
-    if (frame->state.future()) {
-      if (const auto sync_wait = frame->sync_wait_recalc(); sync_wait > InputInfo::lead_time) {
+    if (frame.state.future()) {
+      if (const auto sync_wait = frame.sync_wait_recalc(); sync_wait > InputInfo::lead_time) {
         const auto adjust = sync_wait - InputInfo::lead_time;
         Stats::write(stats::FRAME_TIMER_ADJUST, adjust);
 
@@ -217,6 +233,8 @@ void Desk::render() noexcept {
 void Desk::resume() noexcept {
   static constexpr csv fn_id{"resume"};
 
+  INFO_AUTO("invoked, io_ctx.stopped={}\n", io_ctx.stopped());
+
   if (io_ctx.stopped()) {
     INFO_AUTO("io_ctx stopped, resetting\n");
     io_ctx.reset();
@@ -234,9 +252,13 @@ void Desk::resume() noexcept {
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {
+  static constexpr auto fn_id{"shutdown_if"};
+
   auto rc = active_fx->match_name(desk::fx::ALL_STOP);
 
   if (rc) {
+
+    INFO_AUTO("active_fx={}\n", active_fx->name());
 
     // halt the frame timer
     [[maybe_unused]] error_code ec;

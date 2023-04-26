@@ -78,6 +78,8 @@ notes:
  3.  to creata a ChaCha nonce from the Apple nonce the first four (4) bytes
      are zeroed */
 
+std::unique_ptr<Av> Frame::av{nullptr};
+
 // Frame API
 
 bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
@@ -149,8 +151,10 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
   return state == frame::DECIPHERED;
 }
 
-bool Frame::decode(Av *av) noexcept {
-  return state.deciphered() && av->parse(ptr()) && state.dsp_any();
+bool Frame::decode() noexcept {
+  if (!av) av = std::make_unique<Av>();
+
+  return state.deciphered() && av->parse(*this) && state.dsp_any();
 }
 
 frame::state Frame::state_now(const AnchorLast anchor) noexcept {
@@ -233,19 +237,6 @@ const string Frame::inspect(bool full) const noexcept {
 
   if (state == frame::READY && silent()) {
     fmt::format_to(w, " silence={}", true);
-  }
-
-  return msg;
-}
-
-const string Frame::inspect_safe(frame_t frame, bool full) noexcept { // static
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  fmt::format_to(w, "use_count={:02}", frame.use_count());
-
-  if (frame.use_count() > 0) { // shared ptr not empty
-    fmt::format_to(w, " {}", frame->inspect(full));
   }
 
   return msg;

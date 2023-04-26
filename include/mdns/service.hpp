@@ -89,7 +89,7 @@ using service_txt_map = std::map<txt_type, service_def>;
 class Service {
 
 public:
-  Service(const string &receiver, const string &build_vsn) noexcept;
+  Service(const string &receiver, const string &build_vsn, string &msg) noexcept;
 
   // general API
   template <typename T = string> const std::pair<string, T> key_val(txt_opt opt) const {

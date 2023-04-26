@@ -23,6 +23,7 @@
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
+#include "frame/master_clock.hpp"
 #include "frame/reel.hpp"
 
 #include <atomic>
@@ -56,6 +57,8 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
+  void peers(const auto &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }
+
   void set_render(bool enable) noexcept {
     auto was_active = std::atomic_exchange(&render_active, enable);
 
@@ -64,7 +67,7 @@ public:
 
       frame_timer.expires_at(now);
       frame_timer.async_wait([this](const error_code &ec) {
-        if (!ec) asio::post([this]() { render(); });
+        if (!ec) asio::post(io_ctx, [this]() { render(); });
       });
     }
   }
@@ -73,7 +76,7 @@ public:
 
 private:
   bool fx_finished() const noexcept;
-  void fx_select(Frame *frame) noexcept;
+  void fx_select(Frame &frame) noexcept;
 
   bool next_reel() noexcept;
 

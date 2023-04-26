@@ -22,52 +22,74 @@
 namespace pierre {
 namespace mdns {
 
-Ctx::Ctx(const string &stype, Service &service, Port receiver_port) noexcept
-    : stype(stype),                    //
-      receiver_port(receiver_port),    //
-      all_for_now_state(false),        //
-      client_running{false},           //
-      threaded_poll_quit{false},       //
-      tpoll(avahi_threaded_poll_new()) //
+AvahiThreadedPoll *Ctx::tpoll{nullptr};
+AvahiClient *Ctx::client{nullptr};
+
+Ctx::Ctx(const string &stype, Service *service, Port receiver_port) noexcept
+    : stype(stype),                 //
+      service(service),             //
+      receiver_port(receiver_port), //
+      all_for_now_state(false),     //
+      client_running{false},        //
+      threaded_poll_quit{false}     //
 {
+  // CONSTRUCTOR DESIGN NOTES:
+  //
+  //  -allocates and starts the avahi threaded poll functionality
+  //  -invoked before Logger is setup
 
-  if (tpoll == nullptr) {
-    err_msg.assign("failed to allocate threaded_poll");
-    return;
-  }
+  if ((tpoll == nullptr) && (client == nullptr)) {
+    tpoll = avahi_threaded_poll_new();
 
-  auto poll = avahi_threaded_poll_get(tpoll);
-  int err{0};
+    if (tpoll == nullptr) {
+      err_msg.assign("failed to allocate threaded_poll");
+      return;
+    }
 
-  // notes:
-  //  1. we don't capture the client pointer here. rather, we wait until the callback
-  //     fires.  this is so we can detect the first invocation of the callback and
-  //     set the thread name.
-  //  2. we pass AVAHI_CLIENT_NO_FAIL to ensure the client is created even if the
-  //     daemon is unavailable and to enter CLIENT_FAILURE state if the client
-  //     is forced to disconnect
-  const AvahiClientFlags flags = AVAHI_CLIENT_NO_FAIL;
-  auto new_client = avahi_client_new(poll, flags, Ctx::cb_client, this, &err);
+    auto poll = avahi_threaded_poll_get(tpoll);
+    int err{0};
 
-  // confirm allocation and no errors
-  if (new_client == nullptr) {
-    err_msg.assign("failed to allocate client");
-  } else if (err) {
-    err_msg.assign(avahi_strerror(err));
-  }
+    // notes:
+    //  1. we don't capture the client pointer here. rather, we wait until the callback
+    //     fires.  this is so we can detect the first invocation of the callback and
+    //     set the thread name.
+    //  2. we pass AVAHI_CLIENT_NO_FAIL to ensure the client is created even if the
+    //     daemon is unavailable and to enter CLIENT_FAILURE state if the client
+    //     is forced to disconnect
+    const AvahiClientFlags flags = AVAHI_CLIENT_NO_FAIL;
+    auto new_client = avahi_client_new(poll, flags, Ctx::cb_client, this, &err);
 
-  // bail out if error
-  if (!err_msg.empty()) return;
+    // confirm allocation and no errors
+    if (new_client == nullptr) {
+      err_msg.assign("failed to allocate client");
+    } else if (err) {
+      err_msg.assign(avahi_strerror(err));
+      return;
+    }
 
-  // start the threaded poll, if no error the advertise and browse
-  if (err = avahi_threaded_poll_start(tpoll); err) {
-    err_msg.assign(avahi_strerror(err));
+    // start the threaded poll, if no error the advertise and browse
+    if (err = avahi_threaded_poll_start(tpoll); err) {
+      err_msg.assign(avahi_strerror(err));
+    }
   } else {
-    advertise(service);
-    browse(stype);
+    err_msg = fmt::format("warning: tpoll already created, tpoll={}\n", fmt::ptr(tpoll));
   }
+}
 
-  INFO_INIT("sizeof={:>5} dmx_service={}\n", sizeof(Ctx), stype);
+void Ctx::run(string &msg) noexcept {
+
+  auto w = std::back_inserter(msg);
+
+  if (err_msg.empty()) {
+    advertise();
+    browse(stype);
+
+    msg = fmt::format("mdns::Ctx sizeof={:>5} service={}", sizeof(Ctx), stype);
+
+  } else {
+    // constructor failed, return the error msg
+    fmt::format_to(w, "{}", err_msg);
+  }
 }
 
 Ctx::~Ctx() noexcept {
@@ -82,16 +104,21 @@ Ctx::~Ctx() noexcept {
 
   threaded_poll_quit.wait(false);
 
-  // auto rc = avahi_threaded_poll_stop(tpoll);
-
   avahi_client_free(client);
+
+  avahi_threaded_poll_stop(tpoll);
   avahi_threaded_poll_free(tpoll);
 }
 
-void Ctx::advertise(Service &service) noexcept {
-  static constexpr csv fn_id{"ADVERTISE"};
+void Ctx::advertise() noexcept {
+  static constexpr csv fn_id{"advertise"};
 
-  client_running.wait(false);
+  if (client_running.load() != true) {
+    INFO_AUTO("waiting for client to start\n");
+    client_running.wait(false);
+  }
+
+  INFO_AUTO("client_running={}\n", client_running.load());
 
   if (client && (entry_group.has_value() == false)) {
     // advertise the services
@@ -107,10 +134,10 @@ void Ctx::advertise(Service &service) noexcept {
       constexpr ccs DEFAULT_HOST{nullptr};
       constexpr ccs DEFAULT_DOMAIN{nullptr};
 
-      const auto [reg_type, name] = service.name_and_reg(stype);
+      const auto [reg_type, name] = service->name_and_reg(stype);
 
       std::vector<ccs> ccs_ptrs;
-      auto entries = service.make_txt_entries(stype); // must remain in scope
+      auto entries = service->make_txt_entries(stype); // must remain in scope
 
       for (const auto &entry : entries) {
         ccs_ptrs.emplace_back(entry.c_str());
@@ -138,6 +165,9 @@ void Ctx::advertise(Service &service) noexcept {
 void Ctx::all_for_now(bool next_val) noexcept {
   static constexpr csv fn_id{"all_for_now"};
 
+  static constexpr auto tname{"pierre_mdns"};
+  pthread_setname_np(pthread_self(), tname);
+
   auto prev = std::atomic_exchange(&all_for_now_state, next_val);
 
   INFO_AUTO("previous state={}\n", prev);
@@ -156,7 +186,7 @@ void Ctx::browse(csv stype) noexcept {
                                       Ctx::cb_browse,      // callback
                                       self);               // userdata
   if (sb == nullptr) {
-    INFO_AUTO("create failed reason={}\n", error_string(client));
+    INFO_AUTO("create failed stype={} reason={}\n", stype, error_string(client));
   } else {
     INFO_AUTO("initiated browse for stype={}\n", stype);
   }
@@ -226,8 +256,10 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
 
     INFO_AUTO("RUNNING, vsn='{}' domain={}\n", vsn, ctx->domain);
 
-    ctx->client_running = true;
-    ctx->client_running.notify_all();
+    if (std::atomic_exchange(&(ctx->client_running), true) == false) {
+      ctx->client_running.notify_all();
+    }
+
   } break;
 
   case AVAHI_CLIENT_FAILURE: {
@@ -406,10 +438,10 @@ void Ctx::resolved(const ZeroConf::Details zcd) noexcept {
   }
 }
 
-void Ctx::update(Service &service) noexcept {
+void Ctx::update() noexcept {
   static constexpr csv fn_id{"update"};
-  const auto entries = service.key_val_for_type(txt_type::AirPlayTCP);
-  const auto [type, name] = service.name_and_reg(txt_type::AirPlayTCP);
+  const auto entries = service->key_val_for_type(txt_type::AirPlayTCP);
+  const auto [type, name] = service->name_and_reg(txt_type::AirPlayTCP);
 
   // update() is called outside the event loop so we must lock the thread poll
   lock();

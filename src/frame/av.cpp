@@ -18,10 +18,12 @@
 
 #include "av.hpp"
 #include "base/logger.hpp"
+#include "fft.hpp"
 
 namespace pierre {
 
 Av::Av() noexcept : ready{false} {
+  FFT::init();
 
   codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
 
@@ -51,14 +53,40 @@ Av::~Av() noexcept {
   avcodec_free_context(&codec_ctx);
 }
 
-bool Av::decode_failed(const frame_t &frame, AVPacket **pkt, AVFrame **audio_frame) noexcept {
+bool Av::decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_frame) noexcept {
   if (pkt) av_packet_free(pkt);
   if (audio_frame) av_frame_free(audio_frame);
 
-  frame->state = frame::DECODE_FAILURE;
-  frame->state.record_state();
+  frame.state = frame::DECODE_FAILURE;
+  frame.state.record_state();
 
   return false;
+}
+
+void Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
+
+  frame.state = frame::DSP_IN_PROGRESS;
+
+  // the state hasn't changed, proceed with processing
+  left.process();
+
+  // check before starting the right channel (left required processing time)
+  if (frame.state == frame::DSP_IN_PROGRESS) right.process();
+
+  // check again since thr right channel also required processing time
+  if (frame.state == frame::DSP_IN_PROGRESS) {
+    left.find_peaks(frame.peaks, Peaks::CHANNEL::LEFT);
+
+    if (frame.state == frame::DSP_IN_PROGRESS) {
+      right.find_peaks(frame.peaks, Peaks::CHANNEL::RIGHT);
+    }
+
+    frame.silent(frame.peaks.silence() && frame.peaks.silence());
+
+    // atomically change the state to complete only if
+    // it hasn't been changed elsewhere
+    frame.state.store_if_equal(frame::DSP_IN_PROGRESS, frame::DSP_COMPLETE);
+  }
 }
 
 void Av::log_diag_info(AVFrame *audio_frame) noexcept {
@@ -74,30 +102,30 @@ void Av::log_diag_info(AVFrame *audio_frame) noexcept {
   }
 }
 
-void Av::log_discard(frame_t frame, int used) noexcept {
-  int32_t enc_size = std::ssize(frame->m.value()) + ADTS_HEADER_SIZE;
+void Av::log_discard(Frame &frame, int used) noexcept {
+  int32_t enc_size = std::ssize(frame.m.value()) + ADTS_HEADER_SIZE;
 
   string msg;
   auto w = std::back_inserter(msg);
 
   if ((used < 0) || (used != enc_size)) {
-    frame->state = frame::PARSE_FAILURE;
+    frame.state = frame::PARSE_FAILURE;
 
     fmt::format_to(w, "used={:<6} size={:<6} diff={:+6}", used, enc_size, enc_size - used);
   }
 
-  INFO(module_id, "DISCARD", "{} {}", frame->state, msg);
+  INFO(module_id, "DISCARD", "{} {}", frame.state, msg);
 }
 
-bool Av::parse(frame_t frame) noexcept {
+bool Av::parse(Frame &frame) noexcept {
 
   auto rc = false;
   auto pkt = av_packet_alloc();
 
   if (!pkt) return decode_failed(frame, &pkt);
 
-  auto m = frame->m->data();
-  const size_t encoded_size = std::size(frame->m.value());
+  auto m = frame.m->data();
+  const size_t encoded_size = std::size(frame.m.value());
 
   // populate ADTS header
   m[0] = 0xFF;
@@ -138,26 +166,25 @@ bool Av::parse(frame_t frame) noexcept {
     return decode_failed(frame, &pkt, &audio_frame);
   }
 
-  frame->channels = codec_ctx->channels;
-  frame->samples_per_channel = audio_frame->nb_samples;
+  frame.channels = codec_ctx->channels;
+  frame.samples_per_channel = audio_frame->nb_samples;
 
   log_diag_info(audio_frame);
 
   if (audio_frame->flags == 0) {
-    frame->state = frame::DECODED;
+    frame.state = frame::DECODED;
     const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-    FFT left(data[0], frame->samples_per_channel, audio_frame->sample_rate);
-    FFT right(data[1], frame->samples_per_channel, audio_frame->sample_rate);
+    FFT left(data[0], frame.samples_per_channel, audio_frame->sample_rate);
+    FFT right(data[1], frame.samples_per_channel, audio_frame->sample_rate);
 
-    // this goes async
-    dsp.process(frame, std::move(left), std::move(right));
+    dsp(frame, std::move(left), std::move(right));
     rc = true;
   }
 
   av_frame_free(&audio_frame);
   av_packet_free(&pkt);
-  frame->m.reset();
+  frame.m.reset();
 
   return rc;
 }

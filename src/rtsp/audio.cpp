@@ -22,10 +22,9 @@
 #include "desk/desk.hpp"
 #include "frame/frame.hpp"
 #include "frame/racked.hpp"
-#include "rtsp/audio_full_packet.hpp"
+#include "rtsp/audio/packet.hpp"
 
 #include <arpa/inet.h>
-#include <boost/asio/append.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
 #include <ranges>
@@ -37,11 +36,11 @@ namespace rtsp {
 
 // static constexpr ssize_t PACKET_LEN_BYTES{sizeof(uint16_t)};
 
-Audio::Audio(strand_ioc &local_strand, Ctx *ctx) noexcept
+Audio::Audio(asio::io_context &io_ctx, Ctx *ctx) noexcept
     : ctx(ctx),             // handle Audio for this rtsp CTX
       streambuf(16 * 1024), // allow buffering of sixteen packets
-      acceptor{local_strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
-      sock(local_strand, ip_tcp::v4()) // overwritten by accepting socket
+      acceptor{io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
+      sock(io_ctx, ip_tcp::v4()) // overwritten by accepting socket
 {
   async_accept();
 }
@@ -49,38 +48,37 @@ Audio::Audio(strand_ioc &local_strand, Ctx *ctx) noexcept
 void Audio::async_read() noexcept {
   static constexpr csv fn_id{"async_read"};
 
-  asio::async_read_until(
-      sock, streambuf, audio::full_packet(), [this](const error_code &ec, size_t n) {
-        if (!ec && n) {
-          // happy path: no error and we have packet data
+  asio::async_read_until(sock, streambuf, audio::packet(), [this](const error_code &ec, size_t n) {
+    if (!ec && n) {
+      // happy path: no error and we have packet data
 
-          // note:
-          //  n represents the entire packet which includes the
-          //  prefix (uint16_t) describing the audio data length.
-          //  to copy only the audio data we must remove the PREFIX
+      // note:
+      //  n represents the entire packet which includes the
+      //  prefix (uint16_t) describing the audio data length.
+      //  to copy only the audio data we must remove the PREFIX
 
-          // pre allocate the raw audio data buffer
-          uint8v raw_audio(n - audio::full_packet::PREFIX, 0x00);
+      // pre allocate the raw audio data buffer
+      uint8v raw_audio(n - audio::packet::PREFIX, 0x00);
 
-          // use cheap asio buffers to copy the packet data (minus the prefix)
-          const auto src_buff = asio::buffer(streambuf.data() + audio::full_packet::PREFIX);
-          asio::buffer_copy(asio::buffer(raw_audio), src_buff);
+      // use cheap asio buffers to copy the packet data (minus the prefix)
+      const auto src_buff = asio::buffer(streambuf.data() + audio::packet::PREFIX);
+      asio::buffer_copy(asio::buffer(raw_audio), src_buff);
 
-          // consume the full packet
-          streambuf.consume(n);
+      // consume the full packet
+      streambuf.consume(n);
 
-          // send the audio data for further processing (decipher, decode, etc)
-          ctx->desk->handoff(std::move(raw_audio), ctx->shared_key);
-        } else if (ec) {
-          // error path
-          INFO_AUTO("[falling through] n={} err={}\n", n, ec.what());
-          return; // fall through
-        } else {
-          INFO_AUTO("SHORT READ, n={}\n", n);
-        }
+      // send the audio data for further processing (decipher, decode, etc)
+      ctx->desk->handoff(std::move(raw_audio), ctx->shared_key);
+    } else if (ec) {
+      // error path
+      INFO_AUTO("[falling through] n={} err={}\n", n, ec.what());
+      return; // fall through
+    } else {
+      INFO_AUTO("SHORT READ, n={}\n", n);
+    }
 
-        async_read(); // TODO: this may not be a wise choice on short reads
-      });
+    async_read(); // TODO: this may not be a wise choice on short reads
+  });
 }
 
 } // namespace rtsp

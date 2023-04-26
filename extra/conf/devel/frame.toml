@@ -1,6 +1,6 @@
 [frame]
 cipher = { buffer_size = 0x2000 } # bytes (4k)
-dsp = { concurrency_factor = 10 } # percentage 1-100 (num threads = (hw_concurrency * factor) / 100
+dsp = { threads = 2 } # percentage 1-100 (num threads = (hw_concurrency * factor) / 100
 
 [frame.clock]
 host = "127.0.0.1"              # nqptp host

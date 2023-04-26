@@ -40,9 +40,7 @@ class Reel {
 public:
   struct next_frame {
     bool got_frame{false};
-    frame_t frame;
-
-    inline auto frame_ptr() noexcept { return frame.get(); }
+    Frame frame;
   };
 
 public:
@@ -66,7 +64,7 @@ public:
 
   friend struct fmt::formatter<Reel>;
 
-  bool add(frame_t frame) noexcept;
+  bool add(Frame &&frame) noexcept;
   bool consume(std::ptrdiff_t count = 1) noexcept {
     consumed += count;
 
@@ -92,7 +90,7 @@ public:
   auto operator<=>(const Frame &frame) noexcept {
     if (empty()) return std::weak_ordering::less;
 
-    return *back() <=> frame;
+    return back() <=> frame;
   }
 
   // note: clk_info must be valid
@@ -120,7 +118,7 @@ protected:
   // order dependent
   uint64_t serial{0};
   ssize_t max_frames{0};
-  std::vector<frame_t> frames;
+  std::vector<Frame> frames;
 
   std::ptrdiff_t consumed{0};
 
@@ -145,15 +143,15 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     fmt::format_to(w, "REEL {:#5x} frames={:<3}", reel.serial_num(), size_now);
 
     if (reel.frames.size() > 0) {
-      const auto a = reel.frames.front().get(); // reel next frame
-      const auto b = reel.frames.back().get();  // reel last frame
+      const auto &a = reel.frames.front(); // reel next frame
+      const auto &b = reel.frames.back();  // reel last frame
 
-      const auto a_ts = a->timestamp / 1024;
-      const auto b_ts = b->timestamp / 1024;
+      const auto a_ts = a.timestamp / 1024;
+      const auto b_ts = b.timestamp / 1024;
 
       auto delta = [](auto &v1, auto &v2) { return v1 > v2 ? (v1 - v2) : (v2 - v1); };
 
-      fmt::format_to(w, "seq={}+{}", a->seq_num, delta(a->seq_num, b->seq_num));
+      fmt::format_to(w, "seq={}+{}", a.seq_num, delta(a.seq_num, b.seq_num));
       fmt::format_to(w, " ts={}+{}", a_ts, delta(a_ts, b_ts));
     }
 

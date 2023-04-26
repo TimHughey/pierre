@@ -8,8 +8,6 @@ cmake_minimum_required(VERSION 3.24.3)
 
 option(BUILD_SHARED_LIBS "Build shared versions of libraries" OFF)
 
-
-
 set(FIND_LIBRARY_USE_LIB64_PATHS  true)
 set(CMAKE_VERBOSE_MAKEFILE        ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
@@ -51,8 +49,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   add_compile_options(-march=native -Wall -Wextra -pedantic -Werror)
 endif()
 
-# find pthreads
-set(THREADS_PREFER_PTHREAD_FLAG true)
+# find rewuired base libariries
 find_package(Threads    REQUIRED)
 find_package(GCRYPT     REQUIRED)
 find_package(Sodium     REQUIRED)

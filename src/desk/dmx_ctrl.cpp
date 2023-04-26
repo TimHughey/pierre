@@ -30,7 +30,6 @@
 #include "mdns/mdns.hpp"
 
 #include <array>
-#include <boost/asio/append.hpp>
 #include <boost/asio/consign.hpp>
 #include <iterator>
 #include <utility>
@@ -207,25 +206,21 @@ void DmxCtrl::resolve_host() noexcept {
     const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
     host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    asio::dispatch(sess_strand, [this, ep = host_endpoint]() {
+    asio::post(sess_strand, [this, ep = host_endpoint]() {
       using resolver_type = ip_tcp::resolver;
       using resolver_results = ip_tcp::resolver::results_type;
 
-      auto resolver = std::make_shared<resolver_type>(sess_strand);
+      auto resolver = std::make_unique<resolver_type>(sess_strand);
 
-      resolver->async_resolve(
-          *ep, asio::consign(
-                   [this, resolver = resolver](const error_code &ec, resolver_results r) {
-                     if (!ec) {
-                       std::for_each(r.begin(), r.end(), [](const auto &r) {
-                         INFO_AUTO("hostname: {}\n", r.host_name());
-                         return;
-                       });
+      resolver->async_resolve(*ep, [this, resolver = std::move(resolver)](
+                                       const error_code &ec, resolver_results r) mutable {
+        if (!ec) {
+          std::for_each(r.begin(), r.end(),
+                        [](const auto &r) { INFO_AUTO("host={}\n", r.host_name()); });
 
-                       INFO_AUTO("resolve err={}\n", ec.message());
-                     }
-                   },
-                   resolver));
+          if (ec.message() != "Success") INFO_AUTO("resolve err={}\n", ec.message());
+        }
+      });
     });
 
     // ensure the data socket is closed, we're about to accept a new connection

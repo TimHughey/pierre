@@ -30,9 +30,8 @@
 
 namespace pierre {
 
-Service::Service(const string &receiver, const string &build_vsn) noexcept
-    : receiver(receiver),  //
-      build_vsn(build_vsn) //
+Service::Service(const string &receiver, const string &build_vsn, string &msg) noexcept
+    : receiver(receiver), build_vsn(build_vsn) //
 {
   const auto host = Host();
 
@@ -105,7 +104,7 @@ Service::Service(const string &receiver, const string &build_vsn) noexcept
 
   update_system_flags();
 
-  INFO_INIT("sizeof={:>5} uuid={}\n", sizeof(Service), uuid);
+  msg = fmt::format("mdns::Service sizeof={:>5} uuid={}", sizeof(Service), uuid);
 }
 
 lookup_map_t Service::lookup_map{

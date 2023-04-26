@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <atomic>
 #include <fmt/format.h>
+#include <functional>
 #include <ranges>
 #include <vector>
 
@@ -68,8 +69,8 @@ struct FlushInfo {
     return all || ((seq_num <= until_seq) && (ts <= until_ts));
   }
 
-  bool operator()(auto item) const noexcept {
-    return all || ((item->seq_num <= until_seq) && (item->timestamp <= until_ts));
+  bool operator()(auto &item) const noexcept {
+    return all || ((item.seq_num <= until_seq) && (item.timestamp <= until_ts));
   }
 
   /// @brief Is this request inactive?
@@ -80,10 +81,13 @@ struct FlushInfo {
   /// @tparam T Any pointer that has public class memebers seq_num and timestamp
   /// @param items A vector of items
   /// @return boolean indicating if all items match this request
-  template <typename T> bool matches(std::vector<T> items) const {
-    return all || std::ranges::all_of(items, [this](auto &x) { //
-             return (x->seq_num <= until_seq) && (x->timestamp <= until_ts);
-           });
+  template <typename T> bool matches(const T &a, const T &b) const {
+
+    auto check = [this](const auto &x) {
+      return (x.seq_num <= until_seq) && (x.timestamp <= until_ts);
+    };
+
+    return (all || (check(a) && check(b)));
   }
 
   /// @brief Determine if the item passed meets the flush criteria.  If not, set the
@@ -91,13 +95,13 @@ struct FlushInfo {
   /// @tparam T Any pointer that has public class memebers seq_num and timestamp
   /// @param item What to examine
   /// @return boolean indicating if item meets flush request criteria
-  template <typename T> bool should_flush(T item) noexcept {
+  template <typename T> bool should_flush(T &item) noexcept {
 
     // flush all requests are single-shot. in other words, they go inactive once
     // the initial flush is complete and do not apply to inbound frames. here we check
     // if this is a single-shot all or standard request
     if (active && !all) {
-      active = ((item->seq_num <= until_seq) && (item->timestamp <= until_ts));
+      active = ((item.seq_num <= until_seq) && (item.timestamp <= until_ts));
     } else if (all) {
       active = false;
     }

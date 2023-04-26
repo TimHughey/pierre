@@ -34,16 +34,14 @@ namespace pierre {
 namespace rtsp {
 namespace audio {
 
-//
-// based on example from asio docs: https://tinyurl.com/4kvfdd8b
-//
-
-class full_packet {
+/// @brief asio::read_until function object for audio packets
+///        based on example from asio docs: https://tinyurl.com/4kvfdd8b
+class packet {
 public:
   static constexpr std::ptrdiff_t PREFIX{sizeof(uint16_t)};
 
 public:
-  explicit full_packet() noexcept {}
+  explicit packet() noexcept {}
 
   template <typename Iterator>
   std::pair<Iterator, bool> operator()(Iterator begin, Iterator end) const {
@@ -67,8 +65,6 @@ public:
 
     // not enough bytes to determine if we have a complete audio packet
     return std::make_pair(begin, false);
-
-    // first, do we have enough bytes to detect EOM?
   }
 
 public:
@@ -79,5 +75,5 @@ public:
 } // namespace pierre
 
 namespace boost::asio {
-template <> struct is_match_condition<pierre::rtsp::audio::full_packet> : public std::true_type {};
+template <> struct is_match_condition<pierre::rtsp::audio::packet> : public std::true_type {};
 } // namespace boost::asio

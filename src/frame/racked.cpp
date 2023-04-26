@@ -28,11 +28,9 @@
 #include "frame.hpp"
 #include "frame/flush_info.hpp"
 #include "master_clock.hpp"
-#include "silent_frame.hpp"
 
 #include <algorithm>
 #include <atomic>
-#include <boost/asio/append.hpp>
 #include <memory>
 #include <optional>
 #include <thread>
@@ -45,14 +43,10 @@ Racked::Racked() noexcept
       work_guard(asio::make_work_guard(io_ctx)),
       // ensure flush requests are serialized
       flush_strand(asio::make_strand(io_ctx)),
-      // serialize the accepting of unprocessed frames
-      handoff_strand(asio::make_strand(io_ctx)),
       // serialize changes to reels container
       racked_strand(asio::make_strand(io_ctx)),
       // create the initial work-in-progress reel
-      wip(std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES)),
-      // create and start Av (and by extension Dsp processing)
-      av(std::make_unique<Av>()) //
+      wip(std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES)) //
 {
   conf::token ctoken(module_id);
   const auto threads = ctoken.conf_val<int>("threads"_tpath, 2);
@@ -60,6 +54,10 @@ Racked::Racked() noexcept
   // start the threads and run the io_ctx
   for (auto n = 0; n < threads; n++) {
     std::jthread([this, n = n]() {
+      static constexpr csv tname{"pierre_racked"};
+
+      pthread_setname_np(pthread_self(), tname.data());
+
       INFO(Racked::module_id, "threads", "startihg thread={}\n", n);
 
       io_ctx.run();
@@ -106,15 +104,10 @@ void Racked::flush(FlushInfo &&request) noexcept {
           return rc;
         });
 
-        // we use the handoff_strand for the dirty business of logging and stats because it
-        // is OK if inbound frame processing slows down a bit
+        INFO_AUTO("flush_count={} reels_remaining={}\n", flush_count, reel_count());
 
-        asio::post(handoff_strand, [=, reels_now = reel_count()]() {
-          INFO_AUTO("flush_count={} reels_remaining={}\n", flush_count, reels_now);
-
-          Stats::write(stats::REELS_FLUSHED, flush_count);
-          Stats::write(stats::RACKED_REELS, initial_reels);
-        });
+        Stats::write(stats::REELS_FLUSHED, flush_count);
+        Stats::write(stats::RACKED_REELS, initial_reels);
       }
     });
   });
@@ -125,59 +118,49 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
 
   if (packet.empty()) return; // quietly ignore empty packets
 
-  auto frame = Frame::create(packet); // create frame, will also be moved in lambda (as needed)
+  Frame frame(packet); // create frame, will also be moved in lambda (as needed)
 
-  if (frame->state.header_parsed()) {
-    if (frame->decipher(std::move(packet), key)) {
+  if (frame.state.header_parsed()) {
+    if (frame.decipher(std::move(packet), key)) {
       // notes:
       //  1. we post to handoff_strand to control the concurrency of decoding
       //  2. we move the packet since handoff() is done with it
 
       if (flush_request.should_flush(frame)) {
         // frame is flushed, record it's state and don't move to wip
-        frame->flushed();
-        frame->state.record_state();
+        frame.flushed();
+        frame.state.record_state();
       } else {
-        asio::post(handoff_strand, [this, frame = std::move(frame)]() {
-          // here we do the decoding of the audio data, if decode succeeds we
-          // rack the frame into wip
 
-          if (frame->decode(av.get())) [[likely]] {
-            // decode in progress, proceed with adding to the wip via wip_strand
-            frame->state.record_state();
+        // here we do the decoding of the audio data, if decode succeeds we
+        // rack the frame into wip
 
-            // prevent flushed frames from being added
-            if (frame->state.dsp_any()) {
+        if (frame.decode()) [[likely]] {
+          frame.state.record_state();
 
-              // note:
-              //  -reel::add() returns false when the reel is full or the timestamp
-              //   of the frame is not ordered sequentially
-              //  -when false is returned racked must create a new wip for the frame
+          // prevent flushed frames from being added
+          if (frame.state.dsp_any()) {
 
-              if (wip->add(std::move(frame)) == false) {
+            if (wip->full()) rack_wip();
 
-                // rack_wip() moves the full wip into reels then creates a new
-                // wip and adds the frame to it
-                rack_wip(std::move(frame));
-              }
+            wip->add(std::move(frame));
 
-              // reset recent handoff which is used to determine if a wip should be
-              // returned by next_frame().  this feature is to ensure incomplete reels
-              // are returned by next_reel when required
-              recent_handoff.reset();
+            // reset recent handoff which is used to determine if a wip should be
+            // returned by next_frame().  this feature is to ensure incomplete reels
+            // are returned by next_reel when required
+            recent_handoff.reset();
 
-            } else {
-              // something wrong, the frame is not in a DSP state. discard...
-              INFO_AUTO("discarding frame {}\n", frame->state);
-            }
+          } else {
+            // something wrong, the frame is not in a DSP state. discard...
+            INFO_AUTO("discarding frame {}\n", frame.state);
           }
-        });
+        }
       }
     } else {
-      frame->state.record_state();
+      frame.state.record_state();
     }
   } else {
-    frame->state.record_state();
+    frame.state.record_state();
   }
 }
 
@@ -243,13 +226,11 @@ std::future<std::unique_ptr<Reel>> Racked::next_reel() noexcept {
   return fut;
 }
 
-void Racked::rack_wip(frame_t frame) noexcept {
+void Racked::rack_wip() noexcept {
   if (wip->size() > 0) {
 
-    asio::post(racked_strand, [=, this]() mutable {
+    asio::post(racked_strand, [this]() mutable {
       reels.emplace_back(std::move(take_wip()));
-
-      if (frame) wip->add(frame);
 
       Stats::write(stats::RACKED_REELS, reel_count());
 

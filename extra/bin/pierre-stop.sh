@@ -1,22 +1,34 @@
 #!/bin/env /bin/zsh
 
+# set -o errexit
+set -o nounset
+
 PID_FILE=/run/pierre/pierre.pid
 
-if [[ -f ${PID_FILE} ]]; then
-  PID=$(cat /run/pierre/pierre.pid)
-  echo -n "sending SIGINT to ${PID} "
-  kill -INT ${PID} 1>/dev/null 2
-
-  PID_STATUS=$(kill -s 0 ${PID})
-
-  if [[ ${PID_STATUS} != 0 ]]; then
-
-  while kill -0 ${PID} 2> /dev/null; do 
-    sleep 0.25
-    echo -n "."
-  done
-  echo 
-  fi
-else
-  echo "${PID_FILE}: no such file (pierre is not running)"
+if [[ ! -f ${PID_FILE} ]]; then
+  exit 0;
 fi
+
+PID=$(cat /run/pierre/pierre.pid)
+
+# confim PID exists and we can signal it
+
+kill -0 ${PID} > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "could not signal pid=${PID}"
+  exit 1
+fi
+
+# attempt a graceful shutdown
+kill -INT ${PID} > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "could not send SIGINT to pid=${PID}"
+  exit 1
+fi
+
+echo -n "waiting for pid ${PID} to exit..."
+
+while kill -0 ${PID} > /dev/null 2>&1 ; do 
+  sleep 0.25
+done
+echo " done"

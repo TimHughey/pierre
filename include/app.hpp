@@ -20,18 +20,21 @@
 #include "base/types.hpp"
 
 #include <boost/asio/signal_set.hpp>
+#include <boost/asio/system_timer.hpp>
 #include <memory>
+#include <stop_token>
 #include <thread>
 
 namespace pierre {
 
-class App : public std::enable_shared_from_this<App> {
+class App {
 public:
   App() noexcept;
 
-  static auto create() { return std::make_shared<App>(); }
-
   void main();
+
+private:
+  void stop_request_watcher(std::stop_token stoken) noexcept;
 
 private:
   // order dependent

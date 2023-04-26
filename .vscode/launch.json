@@ -22,17 +22,23 @@
           "description": "Set Disassembly Flavor to Intel",
           "text": "-gdb-set disassembly-flavor intel",
           "ignoreFailures": true
+        },
+        {
+          "description": "Pass SIGINT",
+          "text": "handle SIGINT pass noprint",
+          "ignoreFailures": false
         }
       ]
     },
     {
-      "name": "Launch Pierre Daemon",
+      "name": "Daemon Bistro",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/pierre",
       "args": [
         "--force-restart",
-        "--daemon"
+        "--daemon",
+        "--cfg-dir=bistro"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",

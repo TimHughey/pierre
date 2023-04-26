@@ -30,13 +30,13 @@
 
 namespace pierre {
 
-Rtsp::Rtsp() noexcept
-    : // create strand to serialize accepting connections
-      accept_strand(asio::make_strand(io_ctx)),
+Rtsp::Rtsp(asio::io_context &app_io_ctx, Desk *desk)
+    : // save the supplied io_ctx
+      io_ctx(app_io_ctx),
+      // capture the Desk pointer (we need it for sessions contexts)
+      desk(desk),
       // use the created strand
-      acceptor{accept_strand, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)},
-      // worker strand (Audio, Event, Control)
-      worker_strand(asio::make_strand(io_ctx)) //
+      acceptor{app_io_ctx, tcp_endpoint(ip_tcp::v4(), LOCAL_PORT)} //
 {
   static constexpr csv fn_id{"init"};
 
@@ -45,37 +45,15 @@ Rtsp::Rtsp() noexcept
   boost::asio::socket_base::enable_connection_aborted opt(true);
   acceptor.set_option(opt);
 
-  sessions = std::make_unique<rtsp::Sessions>();
-
-  master_clock = std::make_unique<MasterClock>(io_ctx);
-
-  desk = std::make_unique<Desk>(master_clock.get());
-
-  std::jthread([this]() {
-    // post work to the strand
-    asio::post(io_ctx, [this]() {
-      // allow cancellation of async_accept
-
-      async_accept();
-    });
-
-    io_ctx.run();
-  }).detach();
+  async_accept();
 }
 
 Rtsp::~Rtsp() noexcept {
   static constexpr csv fn_id{"shutdown"};
 
-  io_ctx.stop();
-
   [[maybe_unused]] error_code ec;
-  acceptor.close(ec);    //  prevent new connections
-  sessions->close_all(); // close any existing connections
-
-  desk.reset(); // shutdown desk (and friends)
-  master_clock.reset();
-
-  sessions.reset();
+  acceptor.close(ec); //  prevent new connections
+  close_all();
 
   INFO_AUTO("complete");
 }
@@ -83,22 +61,12 @@ Rtsp::~Rtsp() noexcept {
 void Rtsp::async_accept() noexcept {
   static constexpr csv fn_id{"async_accept"};
 
-  // note: must dereference the peer shared_ptr
   acceptor.async_accept([this](error_code ec, tcp_socket peer) mutable {
     Elapsed e;
 
     if ((ec == errc::success) && acceptor.is_open()) {
-      desk->resume();
 
-      auto ctx = std::make_shared<rtsp::Ctx>(worker_strand,      // worker strand
-                                             std::move(peer),    //
-                                             sessions.get(),     //
-                                             master_clock.get(), //
-                                             desk.get()          //
-      );
-
-      sessions->add(ctx);
-      ctx->run();
+      sessions.emplace_back(rtsp::Ctx::create(std::move(peer), this, desk)).get();
 
       Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
 
@@ -107,6 +75,38 @@ void Rtsp::async_accept() noexcept {
       INFO_AUTO("failed, {}\n", ec.message());
     }
   });
+}
+
+void Rtsp::close_all() noexcept {
+  constexpr auto fn_id{"close_all"sv};
+
+  if (sessions.size()) {
+    std::for_each(sessions.begin(), sessions.end(), [](const auto &ctx) { ctx->force_close(); });
+  }
+
+  INFO_AUTO("closed sessions={}\n", sessions.size());
+}
+
+void Rtsp::set_live(rtsp::Ctx *live_ctx) noexcept {
+  static constexpr csv fn_id{"set_live"};
+
+  INFO_AUTO("{}\n", *live_ctx);
+
+  if (!sessions.empty()) {
+
+    std::erase_if(sessions, [&](const auto &ctx) mutable {
+      auto rc = false;
+
+      if (ctx && (live_ctx->active_remote != ctx->active_remote)) {
+        INFO(module_id, "freeing", "{}\n", *ctx);
+
+        ctx->force_close();
+        rc = true;
+      }
+
+      return rc;
+    });
+  }
 }
 
 } // namespace pierre

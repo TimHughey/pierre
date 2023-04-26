@@ -21,6 +21,7 @@
 #include "base/host.hpp"
 #include "base/logger.hpp"
 #include "ctx.hpp"
+#include "desk/desk.hpp"
 #include "mdns/mdns.hpp"
 #include "replies/dict_kv.hpp"
 
@@ -68,7 +69,7 @@ bool Setup::no_streams() noexcept {
     ctx->group_id = rdict.stringView({GROUP_UUID});
     ctx->group_contains_group_leader = rdict.boolVal({GROUP_LEADER});
 
-    ctx->peers(rdict.stringArray({TIMING_PEER_INFO, ADDRESSES}));
+    ctx->desk->peers(rdict.stringArray({TIMING_PEER_INFO, ADDRESSES}));
 
     Aplist peer_info;
 
@@ -82,7 +83,7 @@ bool Setup::no_streams() noexcept {
     reply_dict.setUints({{EVENT_PORT, ctx->server_port(EventPort)}, {TIMING_PORT, 0}});
 
     // adjust Service system flags and request mDNS update
-    mDNS::service().receiver_active();
+    mDNS::service()->receiver_active();
     mDNS::update();
 
   } else if (ctx->stream_info.is_ntp_stream()) {

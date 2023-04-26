@@ -19,8 +19,6 @@
 #pragma once
 
 #include "base/logger.hpp"
-#include "dsp.hpp"
-#include "fft.hpp"
 #include "frame.hpp"
 #include "libav.hpp"
 
@@ -29,6 +27,8 @@
 #include <optional>
 
 namespace pierre {
+
+class FFT;
 
 class Av {
 
@@ -54,15 +54,16 @@ public:
   /// @brief Parse (decode) deciphered frame to audio frame then perform FFT
   /// @param frame Frame to parse
   /// @return boolean indicating success or failure, Frame state will be set appropriately
-  bool parse(frame_t frame) noexcept;
+  bool parse(Frame &frame) noexcept;
 
 private:
-  bool decode_failed(const frame_t &frame, AVPacket **pkt,
-                     AVFrame **audio_frame = nullptr) noexcept;
+  bool decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_frame = nullptr) noexcept;
+
+  void dsp(Frame &frame, FFT &&left, FFT &&right) noexcept;
 
   void log_diag_info(AVFrame *audio_frame) noexcept;
 
-  static void log_discard(frame_t frame, int used) noexcept;
+  static void log_discard(Frame &frame, int used) noexcept;
 
 private:
   static constexpr int ADTS_PROFILE{2};     // AAC LC
@@ -73,7 +74,6 @@ private:
 private:
   // order dependent
   std::atomic_bool ready; // AV functionality setup and ready
-  Dsp dsp;                // digital signal processing
 
   // order independent
   AVCodec *codec{nullptr};

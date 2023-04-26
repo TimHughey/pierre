@@ -24,6 +24,7 @@
 #include "mdns/zservice.hpp"
 
 #include <memory>
+#include <vector>
 
 namespace pierre {
 
@@ -39,6 +40,7 @@ class Ctx;
 
 class mDNS : public conf::token {
 
+public:
   friend class mdns::Ctx;
   static constexpr csv def_receiver{"Pierre Default"};
   static constexpr csv def_stype{"_ruth._tcp"};
@@ -50,10 +52,15 @@ public:
 public:
   static void browse(csv stype) noexcept;
 
-  static Service &service() noexcept { return shared::mdns->service_obj; }
+  static Service *service() noexcept { return shared::mdns->service_obj.get(); }
+
+  void start() noexcept;
 
   static void update() noexcept;
   static ZeroConfFut zservice(csv name) noexcept;
+
+private:
+  std::vector<string> msgs;
 
 public:
   // order dependent
@@ -61,7 +68,7 @@ public:
   const string build_vsn;
   const string stype;
   const Port receiver_port;
-  Service service_obj;
+  std::unique_ptr<Service> service_obj;
 
 protected:
   std::unique_ptr<mdns::Ctx> ctx;

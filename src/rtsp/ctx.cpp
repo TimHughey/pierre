@@ -18,22 +18,23 @@
 
 #include "ctx.hpp"
 #include "audio.hpp"
-#include "control.hpp"
-#include "event.hpp"
-#include "frame/anchor.hpp"
-#include "frame/master_clock.hpp"
-
 #include "base/logger.hpp"
 #include "base/stats.hpp"
+#include "control.hpp"
+#include "desk/desk.hpp"
+#include "event.hpp"
+#include "frame/anchor.hpp"
 #include "mdns/mdns.hpp"
 #include "net.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
+#include "rtsp/rtsp.hpp"
 #include "saver.hpp"
 
 #include <exception>
+#include <pthread.h>
 
 namespace pierre {
 namespace rtsp {
@@ -59,17 +60,15 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock,
   return msg;
 }
 
-Ctx::Ctx(strand_ioc &local_strand, tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock,
-         Desk *desk) noexcept
-    : local_strand(local_strand), sock(local_strand), //
-      sessions(sessions),                             //
-      master_clock(master_clock),                     //
-      desk(desk),                                     //
-      aes(),                                          //
-      feedback_timer(local_strand),                   //
-      teardown_in_progress(false)                     //
+Ctx::Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept
+    : sock(io_ctx),               //
+      rtsp(rtsp),                 //
+      desk(desk),                 //
+      aes(),                      //
+      feedback_timer(io_ctx),     //
+      teardown_in_progress(false) //
 {
-  static constexpr csv fn_id{"construct"};
+  constexpr auto fn_id{"construct"sv};
   INFO_INIT("sizeof={:>5} socket={}\n", sizeof(Ctx), peer.native_handle());
 
   // transfer the accepted connection to our io_ctx
@@ -79,34 +78,51 @@ Ctx::Ctx(strand_ioc &local_strand, tcp_socket &&peer, Sessions *sessions, Master
   const auto &r = sock.remote_endpoint();
   const auto msg = log_socket_msg(ec, sock, r);
   INFO_AUTO("{}\n", msg);
+
+  thread = std::jthread([this]() {
+    constexpr auto tname{"pierre_session"};
+
+    pthread_setname_np(pthread_self(), tname);
+
+    live.store(true);
+
+    msg_loop(); // queues the message handling work
+
+    io_ctx.run();
+  });
 }
 
 void Ctx::feedback_msg() noexcept {}
 
 void Ctx::force_close() noexcept {
-  static constexpr csv fn_id("force_close");
-  teardown_now = true;
+  constexpr auto fn_id{"force_close"sv};
 
-  INFO_AUTO("requested, teardown_now={}\n", teardown_now);
+  bool is_live{true};
+  if (std::atomic_compare_exchange_strong(&live, &is_live, false)) {
+    INFO_AUTO("requested, is_live={} live={}\n", is_live, live.load());
 
-  INFO_AUTO("completed\n");
-}
-
-void Ctx::msg_loop(std::shared_ptr<Ctx> self) noexcept {
-
-  if (teardown_now == true) {
     teardown();
-    return;
-  };
 
-  request.emplace();
-  reply.emplace();
-
-  msg_loop_read(self);
+  } else {
+    INFO_AUTO("requested however wasn't live\n");
+  }
 }
 
-void Ctx::msg_loop_read(std::shared_ptr<Ctx> self) noexcept {
-  net::async_read_msg(sock, *request, aes, [this, self](error_code ec) mutable {
+void Ctx::msg_loop() noexcept {
+
+  if (live.load() == true) {
+    request.emplace();
+    reply.emplace();
+
+    msg_loop_read();
+
+  } else {
+    teardown();
+  }
+}
+
+void Ctx::msg_loop_read() noexcept {
+  net::async_read_msg(sock, *request, aes, [this](error_code ec) {
     if (!ec) {
 
       // apply message header to ctx
@@ -124,38 +140,27 @@ void Ctx::msg_loop_read(std::shared_ptr<Ctx> self) noexcept {
 
       if (user_agent.empty()) user_agent = h.val(hdr_type::UserAgent);
 
-      msg_loop_write(self); // send the reply
+      msg_loop_write(); // send the reply
     } else {
-      teardown_now = true;
+      force_close();
     }
   });
 }
 
-void Ctx::msg_loop_write(std::shared_ptr<Ctx> self) noexcept {
+void Ctx::msg_loop_write() noexcept {
   // build the reply from the request headers and content
   reply->build(this, request->headers, request->content);
 
-  net::async_write_msg(sock, *reply, aes, [this, self](error_code ec) mutable {
+  net::async_write_msg(sock, *reply, aes, [this](error_code ec) mutable {
     if (!ec) {
       request->record_elapsed();
 
-      msg_loop(self); // prepare for next message
+      msg_loop(); // prepare for next message
 
     } else { // error, teardown
-      teardown_now = true;
+      force_close();
     }
   });
-}
-
-void Ctx::peers(const Peers &&peer_list) noexcept {
-  master_clock->peers(std::forward<decltype(peer_list)>(peer_list));
-}
-
-void Ctx::run() noexcept {
-
-  // once we've fired up the thread immediately begin the message processing loop
-  // by posting work to the io_ctx
-  asio::post(local_strand, [self = shared_from_this()]() mutable { self->msg_loop(self); });
 }
 
 Port Ctx::server_port(ports_t server_type) noexcept {
@@ -164,17 +169,17 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   switch (server_type) {
 
   case ports_t::AudioPort:
-    audio_srv = std::make_shared<Audio>(local_strand, this);
+    audio_srv = std::make_shared<Audio>(io_ctx, this);
     port = audio_srv->port();
     break;
 
   case ports_t::ControlPort:
-    control_srv = std::make_shared<Control>(local_strand);
+    control_srv = std::make_shared<Control>(io_ctx);
     port = control_srv->port();
     break;
 
   case ports_t::EventPort:
-    event_srv = std::make_shared<Event>(local_strand);
+    event_srv = std::make_shared<Event>(io_ctx);
     port = event_srv->port();
     break;
   }
@@ -182,7 +187,7 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   return port;
 }
 
-void Ctx::set_live() noexcept { sessions->live(this); }
+void Ctx::set_live() noexcept { rtsp->set_live(this); }
 
 void Ctx::teardown() noexcept {
   static constexpr csv fn_id{"teardown"};

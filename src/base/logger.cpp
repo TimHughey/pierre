@@ -39,7 +39,7 @@ Logger::Logger(asio::io_context &app_io_ctx) noexcept
       out(fmt::output_file(out_path(), flags))        //
 {
   const auto now = std::chrono::system_clock::now();
-  out.print("\n{:%FT%H:%M:%S} START {}\n", now, conf_msg(Info));
+  out.print("\n{:%FT%H:%M:%S} START\n", now);
 
   asio::post(app_io_ctx, [this]() { async_active = true; });
 }

@@ -129,8 +129,7 @@ inline void unmap() noexcept {
 MasterClock::MasterClock(asio::io_context &io_ctx) noexcept
     : nqptp_addr(asio::ip::make_address(LOCALHOST)), // where nqptp is running
       nqptp_rep(nqptp_addr, CTRL_PORT),              // endpoint of nqptp daemon
-      local_strand(asio::make_strand(io_ctx)),       // serialize peer changes
-      peer(local_strand, ip_udp::v4())               // construct and open
+      peer(io_ctx, ip_udp::v4())                     // construct and open
 {
   static constexpr csv def_shm_name{"/nqptp"};
 
@@ -167,7 +166,8 @@ void MasterClock::peers(const Peers &&new_peers) noexcept {
   INFO_AUTO("new peers count={}\n", new_peers.size());
 
   // queue the update to prevent collisions
-  asio::post(local_strand, [this, peers = std::move(new_peers)]() {
+  auto executor = peer.get_executor();
+  asio::post(executor, [this, peers = std::move(new_peers)]() {
     // build the msg: "<shm_name> T <ip_addr> <ip_addr>" + null terminator
     uint8v msg;
     auto w = std::back_inserter(msg);

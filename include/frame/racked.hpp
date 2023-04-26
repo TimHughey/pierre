@@ -44,7 +44,6 @@ namespace pierre {
 
 // forward decls to hide implementation details
 class Anchor;
-class Av;
 
 namespace asio = boost::asio;
 namespace sys = boost::system;
@@ -78,7 +77,7 @@ private:
 
 private:
   void log_racked(log_rc rc = log_rc::NONE) const noexcept;
-  void rack_wip(frame_t frame = frame_t()) noexcept;
+  void rack_wip() noexcept;
 
   std::unique_ptr<Reel> take_wip() noexcept {
     return std::exchange(wip, std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES));
@@ -89,10 +88,8 @@ private:
   asio::io_context io_ctx;
   work_guard_ioc work_guard; // provides a service so requires a work_guard
   strand_ioc flush_strand;
-  strand_ioc handoff_strand;
   strand_ioc racked_strand;
   std::unique_ptr<Reel> wip;
-  std::unique_ptr<Av> av;
 
   // order independent
   Elapsed recent_handoff;

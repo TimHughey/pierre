@@ -29,7 +29,7 @@
 
 #include <algorithm>
 #include <compare>
-#include <future>
+
 #include <memory>
 #include <optional>
 
@@ -39,14 +39,12 @@ using cipher_buff_t = std::optional<uint8v>;
 
 class Av;
 
-class Frame;
-using frame_t = std::shared_ptr<Frame>;
-using frame_future = std::shared_future<frame_t>;
-using frame_promise = std::promise<frame_t>;
+class Frame {
 
-class Frame : public std::enable_shared_from_this<Frame> {
+public:
+  /// @brief Construct a silent frame
+  Frame() noexcept : state(frame::READY) { silent(true); }
 
-private: // use create()
   Frame(uint8v &packet) noexcept
       : state(frame::HEADER_PARSED),              // frame header parsed
         version((packet[0] & 0b11000000) >> 6),   // RTPv2 == 0x02
@@ -58,27 +56,14 @@ private: // use create()
         timestamp(packet.to_uint32(4, 4))         // rtp timestamp
   {}
 
-protected: // subclass use only
-  // creates a Frame with an initial state and sync_wait
-  Frame(const frame::state_now_t s, const Nanos swait = InputInfo::lead_time) noexcept
-      : state(s),         // flag frame as empty
-        _sync_wait(swait) // defaults to lead time
-  {}
-
 public:
-  static auto create(uint8v &packet) noexcept { //
-    return std::shared_ptr<Frame>(new Frame(packet));
-  }
-
-  auto ptr() noexcept { return shared_from_this(); }
-
   std::weak_ordering operator<=>(const Frame &rhs) const noexcept {
     return timestamp <=> rhs.timestamp;
   }
 
   bool decipher(uint8v packet, const uint8v key) noexcept;
   bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
-  bool decode(Av *av) noexcept;
+  bool decode() noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }
 
   void mark_rendered() noexcept {
@@ -107,7 +92,6 @@ public:
 
   // misc debug
   const string inspect(bool full = false) const noexcept;
-  static const string inspect_safe(frame_t frame, bool full = false) noexcept;
   void log_decipher() const noexcept;
 
 protected:
@@ -148,6 +132,7 @@ protected:
 
 private:
   // order independent
+  static std::unique_ptr<Av> av;
   int cipher_rc{0};                  // decipher support
   static ptrdiff_t cipher_buff_size; // in bytes, populated by init()
 

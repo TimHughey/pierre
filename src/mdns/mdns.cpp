@@ -49,22 +49,32 @@ mDNS::mDNS() noexcept
     : // create our config token (populated)
       conf::token(module_id),
       // get the receiver
-      receiver(conf_val<string>("receiver"_tpath, def_receiver.data())),  //
-      build_vsn(conf::fixed::git()),                                      //
-      stype(conf_val<string>("service"_tpath, def_stype.data())),         //
-      receiver_port(conf_val<int>("port"_tpath, 7000)),                   //
-      service_obj(receiver, build_vsn),                                   //
-      ctx{std::make_unique<mdns::Ctx>(stype, service_obj, receiver_port)} //
+      receiver(conf_val<string>("receiver"_tpath, def_receiver.data())),               //
+      build_vsn(conf::fixed::git()),                                                   //
+      stype(conf_val<string>("service"_tpath, def_stype.data())),                      //
+      receiver_port(conf_val<int>("port"_tpath, 7000)),                                //
+      service_obj(std::make_unique<Service>(receiver, build_vsn, msgs.emplace_back())) //
 {}
 
 mDNS::~mDNS() noexcept { ctx.reset(); }
 
-void mDNS::browse(csv stype) noexcept { // static
-  shared::mdns->ctx->browse(stype);
+void mDNS::browse(csv st) noexcept { // static
+  shared::mdns->ctx->browse(st);
+}
+
+void mDNS::start() noexcept {
+
+  ctx = std::make_unique<mdns::Ctx>(stype, service_obj.get(), receiver_port);
+  ctx->run(msgs.emplace_back());
+
+  std::for_each(msgs.begin(), msgs.end(), [this](const auto &m) {
+    constexpr auto fn_id{"start"};
+    INFO_AUTO("{}\n", m);
+  });
 }
 
 void mDNS::update() noexcept { // static
-  shared::mdns->ctx->update(shared::mdns->service_obj);
+  shared::mdns->ctx->update();
 }
 
 ZeroConfFut mDNS::zservice(csv name) noexcept { // static

@@ -20,25 +20,22 @@
 
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "frame/clock_info.hpp"
 #include "rtsp/aes.hpp"
 #include "rtsp/headers.hpp"
 #include "rtsp/reply.hpp"
 #include "rtsp/request.hpp"
-#include "rtsp/sessions.hpp"
 
 #include <atomic>
-#include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
 #include <boost/system.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <thread>
 
 namespace pierre {
 
@@ -51,9 +48,9 @@ using steady_timer = asio::steady_timer;
 using ip_address = asio::ip::address;
 using tcp_endpoint = asio::ip::tcp::endpoint;
 using tcp_socket = asio::ip::tcp::socket;
-using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Desk;
+class Rtsp;
 
 namespace rtsp {
 // forward decls to prevent excessive header includes
@@ -89,22 +86,22 @@ struct stream_info_t {
   proto timing_proto{proto::none};
 };
 
-class Ctx : public std::enable_shared_from_this<Ctx> {
+class Ctx {
 
 public:
-  Ctx(strand_ioc &local_strand, tcp_socket &&peer, Sessions *sessions, MasterClock *master_clock,
-      Desk *desk) noexcept;
+  Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept;
 
-  ~Ctx() = default;
+  ~Ctx() noexcept {
+    if (thread.joinable()) thread.join();
+  };
+
+  static auto create(auto &&peer, Rtsp *rtsp, Desk *desk) noexcept {
+    return std::make_unique<Ctx>(std::forward<decltype(peer)>(peer), rtsp, desk);
+  }
 
   void feedback_msg() noexcept;
 
   void force_close() noexcept;
-
-  /// @brief Primary entry point for a session via Ctx
-  void run() noexcept;
-
-  void peers(const Peers &&peer_list) noexcept;
 
   Port server_port(ports_t server_type) noexcept;
 
@@ -141,30 +138,29 @@ public:
 
 private:
   /// @brief Primary loop for RTSP message handling
-  void msg_loop(std::shared_ptr<Ctx> self) noexcept;
-  void msg_loop_read(std::shared_ptr<Ctx> self) noexcept;
-  void msg_loop_write(std::shared_ptr<Ctx> self) noexcept;
+  void msg_loop() noexcept;
+  void msg_loop_read() noexcept;
+  void msg_loop_write() noexcept;
 
 public:
   // order dependent
-  strand_ioc &local_strand;
+  asio::io_context io_ctx;
   tcp_socket sock;
-  Sessions *sessions;
-  MasterClock *master_clock;
-  Desk *desk;
+  Rtsp *rtsp{nullptr};
+  Desk *desk{nullptr};
   Aes aes;
 
 private:
   // order dependent (private)
   steady_timer feedback_timer;
   std::atomic_bool teardown_in_progress;
+  std::jthread thread;
 
 public:
   // order independent
-
   std::optional<Request> request;
   std::optional<Reply> reply;
-  std::atomic_bool teardown_now{false};
+  std::atomic_bool live{false};
 
 public:
   // from RTSP headers

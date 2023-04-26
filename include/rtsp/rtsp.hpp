@@ -18,10 +18,10 @@
 
 #pragma once
 
+#include "base/types.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
 #include "rtsp/fdecls.hpp"
-#include "rtsp/sessions.hpp"
 
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
@@ -30,7 +30,7 @@
 #include <boost/system.hpp>
 #include <cstdint>
 #include <memory>
-#include <thread>
+#include <vector>
 
 namespace pierre {
 
@@ -45,31 +45,33 @@ using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
 
+using rtsp_ctx_ptr = std::unique_ptr<rtsp::Ctx>;
+
 class Rtsp {
+  static constexpr uint16_t LOCAL_PORT{7000};
+
 public:
-  Rtsp() noexcept;
+  Rtsp(asio::io_context &app_io_ctx, Desk *desk);
   ~Rtsp() noexcept; // must be in .cpp due to incomplete types
 
   /// @brief Accepts RTSP connections and starts a unique session for each
   void async_accept() noexcept;
 
+  void close_all() noexcept;
+
+  void set_live(rtsp::Ctx *ctx) noexcept;
+
 private:
   // order dependent
-  asio::io_context io_ctx;
-  strand_ioc accept_strand;
+  asio::io_context &io_ctx;
+  Desk *desk{nullptr};
   tcp_acceptor acceptor;
-  strand_ioc worker_strand;
 
   // order independent
-  std::unique_ptr<rtsp::Sessions> sessions;
-  std::unique_ptr<MasterClock> master_clock;
-  std::unique_ptr<Desk> desk;
-
-  // order independent
-  static constexpr uint16_t LOCAL_PORT{7000};
+  std::vector<rtsp_ctx_ptr> sessions;
 
 public:
-  static constexpr csv module_id{"rtsp"};
+  static constexpr auto module_id{"rtsp"sv};
 };
 
 } // namespace pierre

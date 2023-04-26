@@ -33,16 +33,14 @@ Reel::Reel(ssize_t max_frames) noexcept
       max_frames{max_frames}     // max frames in the reel
 {}
 
-bool Reel::add(frame_t frame) noexcept {
-
-  // first, is the reel full?
-  auto rc = !full();
+bool Reel::add(Frame &&frame) noexcept {
+  auto rc{true};
 
   // note: back() of empty container is undefined
   if (empty() == false) {
 
     // confirm the next frame is in timestamp sequence
-    rc &= frame->timestamp == (back()->timestamp + 1024);
+    rc &= frame.timestamp == (back().timestamp + 1024);
   }
 
   if (rc) frames.emplace_back(std::move(frame));
@@ -55,14 +53,14 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
 
   if (empty() == false) { // reel has frames, attempt to flush
 
-    auto a = front().get();
-    auto b = back().get();
+    auto &a = front();
+    auto &b = back();
 
     if (flush_info(a) && flush_info(b)) {
       INFO_AUTO("{}\n", *this);
       consumed = std::ssize(frames);
 
-    } else if (flush_info.matches<decltype(a)>({a, b})) {
+    } else if (flush_info.matches<decltype(a)>(a, b)) {
       INFO_AUTO("SOME {}\n", *this);
 
       std::for_each(begin(), end(), [&, this](const auto &item) {
@@ -77,6 +75,7 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
 Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept {
   static constexpr csv fn_id{"peef_front"};
 
+  // NOTE: defaults to silent frame
   next_frame result;
 
   // we have frames to examine, ensure clock info is good
@@ -89,9 +88,9 @@ Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noe
       //  2. outdated frames are consumed
 
       for (auto frame_it = begin(); frame_it != end() && !result.got_frame; frame_it++) {
-        auto frame = *frame_it; // get the actual frame from the iterator
+        auto &frame = *frame_it; // get the actual frame from the iterator
 
-        const auto fstate = frame->state_now(anchor_last);
+        const auto fstate = frame.state_now(anchor_last);
 
         // ready or future frames are returned
         if (fstate.ready_or_future()) {
@@ -99,18 +98,16 @@ Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noe
           // we don't need to look at ready frames again, consume it
           if (fstate.ready()) consume();
 
-          result = next_frame(true, frame);
+          result = next_frame(true, std::move(frame));
         } else if (fstate.outdated()) {
           // eat outdated frames
           consume();
         } else {
-          INFO_AUTO("encountered {}\n", frame->inspect());
+          INFO_AUTO("encountered {}\n", frame.inspect());
         }
       }
     } // end of anchor check
   }   // end of non-empty reel processing
-
-  if (!result.got_frame) result.frame = SilentFrame::create();
 
   // we weren't able to find a useable frame
   return result;
