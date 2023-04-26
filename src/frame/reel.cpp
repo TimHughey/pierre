@@ -20,7 +20,6 @@
 #include "base/logger.hpp"
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
-#include "frame/silent_frame.hpp"
 
 #include <iterator>
 
