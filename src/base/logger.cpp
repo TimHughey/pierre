@@ -21,7 +21,7 @@
 #include "elapsed.hpp"
 
 namespace pierre {
-std::shared_ptr<Logger> _logger;
+std::unique_ptr<Logger> _logger;
 
 namespace asio = boost::asio;
 

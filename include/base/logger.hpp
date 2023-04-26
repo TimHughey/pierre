@@ -38,9 +38,9 @@ namespace pierre {
 
 class Logger;
 
-extern std::shared_ptr<Logger> _logger;
+extern std::unique_ptr<Logger> _logger;
 
-class Logger : public conf::token, public std::enable_shared_from_this<Logger> {
+class Logger : public conf::token {
 
 public:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
@@ -54,7 +54,7 @@ public:
   ~Logger() noexcept;
 
   static Logger *create(asio::io_context &app_io_ctx) noexcept {
-    _logger = std::make_shared<Logger>(app_io_ctx);
+    _logger = std::make_unique<Logger>(app_io_ctx);
 
     return _logger.get();
   }
@@ -75,13 +75,10 @@ public:
       const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
 
       if (async_active && !app_io_ctx.stopped()) {
-        asio::post(app_io_ctx,
-                   [self = shared_from_this(), prefix = std::move(prefix), msg = std::move(msg)]() {
-                     auto s = self.get();
-
-                     s->out.print("{} {}", prefix, msg);
-                     s->out.flush();
-                   });
+        asio::post(app_io_ctx, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
+          out.print("{} {}", prefix, msg);
+          out.flush();
+        });
 
       } else {
         out.print("{} {}", prefix, msg);

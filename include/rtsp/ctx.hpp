@@ -91,9 +91,7 @@ class Ctx {
 public:
   Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept;
 
-  ~Ctx() noexcept {
-    if (thread.joinable()) thread.join();
-  };
+  ~Ctx() noexcept;
 
   static auto create(auto &&peer, Rtsp *rtsp, Desk *desk) noexcept {
     return std::make_unique<Ctx>(std::forward<decltype(peer)>(peer), rtsp, desk);
@@ -179,9 +177,9 @@ public:
 
 private:
   // workers
-  std::shared_ptr<Audio> audio_srv;
-  std::shared_ptr<Control> control_srv;
-  std::shared_ptr<Event> event_srv;
+  std::unique_ptr<Audio> audio_srv;
+  std::unique_ptr<Control> control_srv;
+  std::unique_ptr<Event> event_srv;
 
 public:
   static constexpr csv module_id{"rtsp.ctx"};
@@ -202,21 +200,6 @@ template <> struct fmt::formatter<pierre::rtsp::Ctx> : formatter<std::string> {
                                  rtsp_ctx.active_remote, //
                                  rtsp_ctx.dacp_id,       //
                                  rtsp_ctx.client_name);
-
-    return formatter<std::string>::format(msg, ctx);
-  }
-};
-
-template <> struct fmt::formatter<std::shared_ptr<pierre::rtsp::Ctx>> : formatter<std::string> {
-
-  // parse is inherited from formatter<string>.
-  template <typename FormatContext>
-  auto format(const std::shared_ptr<pierre::rtsp::Ctx> rtsp_ctx, FormatContext &ctx) const {
-
-    const auto msg = fmt::format("remote={} dacp={} '{}'",
-                                 rtsp_ctx->active_remote, //
-                                 rtsp_ctx->dacp_id,       //
-                                 rtsp_ctx->client_name);
 
     return formatter<std::string>::format(msg, ctx);
   }

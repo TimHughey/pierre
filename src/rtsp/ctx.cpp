@@ -92,6 +92,10 @@ Ctx::Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept
   });
 }
 
+Ctx::~Ctx() noexcept {
+  if (thread.joinable()) thread.join();
+};
+
 void Ctx::feedback_msg() noexcept {}
 
 void Ctx::force_close() noexcept {
@@ -169,17 +173,17 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   switch (server_type) {
 
   case ports_t::AudioPort:
-    audio_srv = std::make_shared<Audio>(io_ctx, this);
+    audio_srv = std::make_unique<Audio>(io_ctx, this);
     port = audio_srv->port();
     break;
 
   case ports_t::ControlPort:
-    control_srv = std::make_shared<Control>(io_ctx);
+    control_srv = std::make_unique<Control>(io_ctx);
     port = control_srv->port();
     break;
 
   case ports_t::EventPort:
-    event_srv = std::make_shared<Event>(io_ctx);
+    event_srv = std::make_unique<Event>(io_ctx);
     port = event_srv->port();
     break;
   }
