@@ -29,6 +29,12 @@
 
 namespace pierre {
 
+template <typename T>
+concept HasSeqNumAndTimestamp = requires(T v) {
+                                  { v.seq_num } -> std::convertible_to<seq_num_t>;
+                                  { v.timestamp } -> std::convertible_to<timestamp_t>;
+                                };
+
 struct FlushInfo {
   bool active{false};
   seq_num_t from_seq{0};
@@ -54,7 +60,7 @@ struct FlushInfo {
   {
     // UNSURE IF THE FOLLOWING IS CURRENT OR LEGACY
     // a flush with from[seq|ts] will not be followed by a setanchor (i.e. render)
-    // if it's a flush that will be followed by a setanchor then stop render now.
+    // if it's a flush that will be followed by a set_anchor then stop render now.
   }
 
   static FlushInfo make_flush_all() noexcept {
@@ -70,6 +76,8 @@ struct FlushInfo {
   }
 
   bool operator()(auto &item) const noexcept {
+    static_assert(HasSeqNumAndTimestamp<decltype(item)>);
+
     return all || ((item.seq_num <= until_seq) && (item.timestamp <= until_ts));
   }
 
@@ -81,7 +89,9 @@ struct FlushInfo {
   /// @tparam T Any pointer that has public class memebers seq_num and timestamp
   /// @param items A vector of items
   /// @return boolean indicating if all items match this request
-  template <typename T> bool matches(const T &a, const T &b) const {
+  template <typename T>
+    requires HasSeqNumAndTimestamp<T> bool
+  matches(const T &a, const T &b) const {
 
     auto check = [this](const auto &x) {
       return (x.seq_num <= until_seq) && (x.timestamp <= until_ts);
@@ -95,7 +105,9 @@ struct FlushInfo {
   /// @tparam T Any pointer that has public class memebers seq_num and timestamp
   /// @param item What to examine
   /// @return boolean indicating if item meets flush request criteria
-  template <typename T> bool should_flush(T &item) noexcept {
+  template <typename T>
+    requires HasSeqNumAndTimestamp<T> bool
+  should_flush(T &item) noexcept {
 
     // flush all requests are single-shot. in other words, they go inactive once
     // the initial flush is complete and do not apply to inbound frames. here we check
