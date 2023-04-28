@@ -35,8 +35,8 @@ namespace fs = std::filesystem;
 static constexpr auto flags{fmt::file::WRONLY | fmt::file::APPEND | fmt::file::CREATE};
 
 Logger::Logger(asio::io_context &app_io_ctx) noexcept
-    : conf::token(module_id), app_io_ctx(app_io_ctx), //
-      out(fmt::output_file(out_path(), flags))        //
+    : tokc(module_id), app_io_ctx(app_io_ctx), //
+      out(fmt::output_file(out_path(), flags)) //
 {
   const auto now = std::chrono::system_clock::now();
   out.print("\n{:%FT%H:%M:%S} START\n", now);

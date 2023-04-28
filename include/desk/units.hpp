@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/conf/token.hpp"
 #include "base/types.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit.hpp"
@@ -39,7 +40,7 @@ private:
   static constexpr auto empty_excludes = std::initializer_list<string>();
 
 public:
-  Units() = default;
+  Units() noexcept : tokc("desk"sv) {}
 
   void create_all_from_cfg() noexcept;
 
@@ -82,11 +83,14 @@ public:
   }
 
 private:
+  // order dependent
+  conf::token tokc;
+
   // order independent
   std::map<string, std::unique_ptr<Unit>> map;
 
 public:
-  static constexpr csv module_id{"desk::Units"};
+  static constexpr csv module_id{"desk.units"};
 };
 
 } // namespace desk

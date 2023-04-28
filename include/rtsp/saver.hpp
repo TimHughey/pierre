@@ -28,7 +28,7 @@
 namespace pierre {
 namespace rtsp {
 
-class Saver : public conf::token {
+class Saver {
 
 private:
   static constexpr csv separator{"\r\n"};
@@ -41,6 +41,9 @@ public:
         const RespCode resp_code = RespCode(RespCode::code_val::OK)) noexcept;
 
 private:
+  // order dependent
+  conf::token tokc;
+
   // order independent
   const string file;
   const string format;

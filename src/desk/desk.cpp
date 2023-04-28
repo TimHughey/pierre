@@ -50,7 +50,7 @@ namespace pierre {
 //  -must be defined in .cpp (incomplete types in .hpp)
 //  -we use a separate io_ctx for desk and it's workers
 Desk::Desk(MasterClock *master_clock) noexcept
-    : conf::token(module_id),
+    : tokc(module_id),
       // create and start racked early (frame rendering needs it)
       racked{std::make_unique<Racked>()},
       // create DmxCtrl early (frame renderings needs it)
@@ -241,7 +241,7 @@ void Desk::resume() noexcept {
       render_in_strand();
     });
 
-    const auto n_thr = conf_val<int>("threads"_tpath, 1);
+    const auto n_thr = tokc.val<int>("threads"_tpath, 1);
     INFO_AUTO("starting {} threads...\n", n_thr);
 
     // add threads to the io_ctx and start

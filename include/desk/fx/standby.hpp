@@ -29,12 +29,10 @@
 namespace pierre {
 namespace desk {
 
-class Standby : public FX, public conf::token {
+class Standby : public FX {
 
 public:
-  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), conf::token(module_id) {
-    apply_config();
-  }
+  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), tokc(module_id) { apply_config(); }
 
   void execute(const Peaks &peaks) noexcept override;
 
@@ -44,6 +42,9 @@ private:
   void apply_config() noexcept;
 
 private:
+  // order dependent
+  conf::token tokc;
+
   // order independent
   Color first_color;
   Color next_color;

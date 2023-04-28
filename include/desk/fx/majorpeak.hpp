@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
@@ -37,8 +38,8 @@ namespace desk {
 class MajorPeak : public FX {
 public:
   MajorPeak(auto &executor) noexcept
-      : FX(executor, fx::MAJOR_PEAK), base_color(Hsb{0, 100, 100}), main_last_peak(),
-        fill_last_peak() {
+      : FX(executor, fx::MAJOR_PEAK), tokc(module_id), base_color(Hsb{0, 100, 100}),
+        main_last_peak(), fill_last_peak() {
 
     load_config();
   }
@@ -70,6 +71,7 @@ private:
 
 private:
   // order dependent
+  conf::token tokc;
   const Color base_color;
   Peak main_last_peak;
   Peak fill_last_peak;

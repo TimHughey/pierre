@@ -83,6 +83,7 @@ private:
 
 private:
   // order dependent
+  const int nthreads{2};
   asio::io_context io_ctx;
   work_guard_ioc work_guard; // provides a service so requires a work_guard
   strand_ioc flush_strand;

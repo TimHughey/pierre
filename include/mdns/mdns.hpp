@@ -38,7 +38,7 @@ namespace mdns {
 class Ctx;
 }
 
-class mDNS : public conf::token {
+class mDNS {
 
 public:
   friend class mdns::Ctx;
@@ -64,6 +64,7 @@ private:
 
 public:
   // order dependent
+  conf::token tokc;
   const string receiver;
   const string build_vsn;
   const string stype;

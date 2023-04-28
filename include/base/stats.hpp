@@ -46,7 +46,7 @@ class Stats;
 
 extern std::unique_ptr<Stats> _stats;
 
-class Stats : public conf::token {
+class Stats {
 
 private:
   static constexpr csv def_db_uri{"http://localhost:8086?db=pierre"};
@@ -112,6 +112,7 @@ private:
 
 private:
   // order dependent
+  conf::token tokc;
   asio::io_context &app_io_ctx;
   std::map<stats::stats_v, string> val_txt;
 

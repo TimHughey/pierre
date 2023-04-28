@@ -32,7 +32,8 @@ namespace pierre {
 namespace rtsp {
 
 Setup::Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, Ctx *ctx) noexcept
-    : rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx), reply_dict() {
+    : tokc(module_id), rdict(content_in), headers_in(headers_in), reply(reply), ctx(ctx),
+      reply_dict() {
 
   reply(RespCode::BadRequest); // default response is BadRequest
 
@@ -133,9 +134,7 @@ bool Setup::has_streams() noexcept {
       static const toml::path cfg_buff_size{"audio.buffer_size.bytes"};
       rc = true;
 
-      conf::token ctoken("rtsp");
-
-      const auto buff_size = ctoken.conf_val<uint64_t>(cfg_buff_size, 0x800000UL);
+      const auto buff_size = tokc.val<uint64_t>(cfg_buff_size, 0x800000UL);
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{TYPE, stream_type},                            // stream type

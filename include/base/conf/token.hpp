@@ -51,12 +51,11 @@ public:
 
   friend struct fmt::formatter<token>;
 
-  toml::table *conf_table() noexcept { return ttable[root].as<toml::table>(); }
+  toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
 
-  const string &conf_msg(msg_t id) const noexcept { return msgs[id]; }
+  const string &msg(msg_t id) const noexcept { return msgs[id]; }
 
-  template <typename ReturnType>
-  inline ReturnType conf_val(auto &&p, const auto &&def_val) noexcept {
+  template <typename ReturnType> inline ReturnType val(auto &&p, const auto &&def_val) noexcept {
     const auto path = root + p;
 
     if constexpr (IsDuration<ReturnType>) {

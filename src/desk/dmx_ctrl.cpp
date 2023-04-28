@@ -41,24 +41,24 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_en
                                    Elapsed e = Elapsed()) noexcept;
 
 inline const string cfg_host(conf::token &tok) noexcept {
-  return tok.conf_val<string>("remote.host"_tpath, "dmx"sv);
+  return tok.val<string>("remote.host"_tpath, "dmx"sv);
 }
 
 inline auto resolve_timeout(conf::token &tok) noexcept {
-  return tok.conf_val<Millis>("local.resolve.timeout.ms"_tpath, 15'000);
+  return tok.val<Millis>("local.resolve.timeout.ms"_tpath, 15'000);
 }
 
 inline auto resolve_retry_wait(conf::token &tok) noexcept {
-  return tok.conf_val<Millis>("local.resolve.retry.ms"_tpath, 60'000);
+  return tok.val<Millis>("local.resolve.retry.ms"_tpath, 60'000);
 }
 
 inline auto cfg_stall_timeout(conf::token &tok) noexcept {
-  return tok.conf_val<Millis>("local.stalled.ms"_tpath, 7500);
+  return tok.val<Millis>("local.stalled.ms"_tpath, 7500);
 }
 
 // general API
 DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
-    : conf::token(module_id),
+    : tokc(module_id),
       // creqte strand for serialized session comms
       sess_strand(asio::make_strand(io_ctx)),
       // create a strand for serialized data comms
@@ -74,9 +74,9 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       // create the resolve timeout timer, use sess strand
       resolve_retry_timer(sess_strand, 1s) //
 {
-  // now that ctoken is populated we can assign the remaining config vars
+  // now that tokcen is populated we can assign the remaining config vars
   // capture stall timeout config
-  stall_timeout = cfg_stall_timeout(*this);
+  stall_timeout = cfg_stall_timeout(tokc);
 
   // here we post resolve_host() to the io_context we're about to start
   //
@@ -89,7 +89,7 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
   //       they are handled as needed during handshake()
 
   INFO_INIT("sizeof={:>5} thread_count={} {}\n", sizeof(DmxCtrl), required_threads(),
-            conf_msg(Info));
+            tokc.msg(conf::token::Info));
 }
 
 void DmxCtrl::handshake() noexcept {
@@ -102,8 +102,8 @@ void DmxCtrl::handshake() noexcept {
   msg.add_kv(desk::DATA_PORT, data_accep.local_endpoint().port());
   msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
   msg.add_kv(desk::FRAME_US, InputInfo::lead_time_us);
-  msg.add_kv(desk::IDLE_MS, conf_val<int64_t>(idle_ms_path, 10000));
-  msg.add_kv(desk::STATS_MS, conf_val<int64_t>(stats_ms_path, 2000));
+  msg.add_kv(desk::IDLE_MS, tokc.val<int64_t>(idle_ms_path, 10000));
+  msg.add_kv(desk::STATS_MS, tokc.val<int64_t>(stats_ms_path, 2000));
 
   async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
     if (msg.elapsed() > 750us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
@@ -168,23 +168,23 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   }
 }
 
-int DmxCtrl::required_threads() noexcept { return conf_val<int>("threads", 2); }
+int DmxCtrl::required_threads() noexcept { return tokc.val<int>("threads", 2); }
 
 void DmxCtrl::resolve_host() noexcept {
-  static constexpr csv fn_id{"host.resolve"};
+  static constexpr auto fn_id{"host.resolve"sv};
 
   asio::post(sess_strand, [this]() {
     // get the host we will connect to unless we already have it
-    if (remote_host.empty()) remote_host = cfg_host(*this);
+    if (remote_host.empty()) remote_host = cfg_host(tokc);
 
     INFO_AUTO("attempting to resolve '{}'\n", remote_host);
 
     // start name resolution via mdns
     auto zcsf = mDNS::zservice(remote_host);
-    auto zcs_status = zcsf.wait_for(resolve_timeout(*this));
+    auto zcs_status = zcsf.wait_for(resolve_timeout(tokc));
 
     if (zcs_status != std::future_status::ready) {
-      INFO_AUTO("resolve timeout for '{}' ({})\n", remote_host, resolve_timeout(*this));
+      INFO_AUTO("resolve timeout for '{}' ({})\n", remote_host, resolve_timeout(tokc));
       unknown_host();
       return;
     }
@@ -284,7 +284,7 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   // stall timeout value
   if (wait == Millis::zero()) wait = stall_timeout;
 
-  if (remote_host != cfg_host(*this)) {
+  if (remote_host != cfg_host(tokc)) {
     remote_host.clear(); // triggers pull from config on next name resolution
     wait = 0s;           // override wait, config has changed
   }
@@ -310,7 +310,7 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
 void DmxCtrl::unknown_host() noexcept {
   static constexpr csv fn_id{"host.unknown"};
 
-  const auto resolve_backoff = resolve_retry_wait(*this);
+  const auto resolve_backoff = resolve_retry_wait(tokc);
   INFO_AUTO("{} not found, retry in {}...\n", remote_host, resolve_backoff);
 
   remote_host.clear();

@@ -40,7 +40,7 @@ class Logger;
 
 extern std::unique_ptr<Logger> _logger;
 
-class Logger : public conf::token {
+class Logger {
 
 public:
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
@@ -91,9 +91,9 @@ public:
 
     if (cat == csv{"info"}) return true;
 
-    if (!_logger->conf_table()) return true;
+    if (!_logger->tokc.table()) return true;
 
-    const auto t = _logger->conf_table();
+    const auto t = _logger->tokc.table();
 
     if (t->empty()) return true;
 
@@ -115,6 +115,7 @@ public:
 
 private:
   // order dependent
+  conf::token tokc;
   asio::io_context &app_io_ctx;
   fmt::ostream out;
 

@@ -47,12 +47,12 @@ using namespace mdns;
 
 mDNS::mDNS() noexcept
     : // create our config token (populated)
-      conf::token(module_id),
+      tokc(module_id),
       // get the receiver
-      receiver(conf_val<string>("receiver"_tpath, def_receiver.data())),               //
+      receiver(tokc.val<string>("receiver"_tpath, def_receiver.data())),               //
       build_vsn(conf::fixed::git()),                                                   //
-      stype(conf_val<string>("service"_tpath, def_stype.data())),                      //
-      receiver_port(conf_val<int>("port"_tpath, 7000)),                                //
+      stype(tokc.val<string>("service"_tpath, def_stype.data())),                      //
+      receiver_port(tokc.val<int>("port"_tpath, 7000)),                                //
       service_obj(std::make_unique<Service>(receiver, build_vsn, msgs.emplace_back())) //
 {}
 

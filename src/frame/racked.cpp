@@ -20,8 +20,6 @@
 #include "racked.hpp"
 #include "anchor.hpp"
 #include "av.hpp"
-#include "base/conf/token.hpp"
-#include "base/conf/toml.hpp"
 #include "base/pet.hpp"
 #include "base/stats.hpp"
 #include "base/types.hpp"
@@ -48,11 +46,9 @@ Racked::Racked() noexcept
       // create the initial work-in-progress reel
       wip(Reel(Reel::MaxFrames)) //
 {
-  conf::token ctoken(module_id);
-  const auto threads = ctoken.conf_val<int>("threads"_tpath, 2);
 
   // start the threads and run the io_ctx
-  for (auto n = 0; n < threads; n++) {
+  for (auto n = 0; n < nthreads; n++) {
     std::jthread([this, n = n]() {
       static constexpr csv tname{"pierre_racked"};
 
@@ -64,8 +60,8 @@ Racked::Racked() noexcept
     }).detach();
   }
 
-  INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} thread_count={}\n", sizeof(Racked),
-            sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, threads);
+  INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} nthreads={}\n", sizeof(Racked),
+            sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, nthreads);
 }
 
 Racked::~Racked() noexcept { io_ctx.stop(); }

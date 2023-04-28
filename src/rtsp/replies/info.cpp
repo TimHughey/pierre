@@ -78,10 +78,8 @@ Info::Info(Reply &reply) noexcept {
 
 /// @brief Initialize static data (reply pdict)
 void Info::init() noexcept { // static
-  static constexpr csv fn_id{"init"};
-  conf::token ctoken(module_id);
-
-  static constexpr csv plist_file{"plist/get_info_resp.plist"};
+  constexpr auto fn_id{"init"sv};
+  constexpr auto plist_file{"plist/get_info_resp.plist"sv};
 
   auto data_path = conf::fixed::app_data_dir().append(plist_file);
 

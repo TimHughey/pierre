@@ -45,7 +45,7 @@ namespace asio = boost::asio;
 using error_code = boost::system::error_code;
 using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
-class Desk : public conf::token {
+class Desk {
 
 public:
   Desk(MasterClock *master_clock) noexcept; // see .cpp (incomplete types)
@@ -83,6 +83,7 @@ private:
 
 private:
   // order dependent
+  conf::token tokc;
   asio::io_context io_ctx;
   std::unique_ptr<Racked> racked;
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl;

@@ -7,9 +7,6 @@ host = "127.0.0.1"              # nqptp host
 info = { min_wait_frames = 12 } # wait frames before returning no clock
 shm_name = "/nqptp"             # path to nqptp shared memory directory
 
-[frame.racked]
-threads = 2
-
 # UNUSED:  need implementation
 # [frame.peaks.magnitudes] # only keep peaks in this range
 # floor = 0.9

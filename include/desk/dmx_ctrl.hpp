@@ -53,7 +53,7 @@ namespace desk {
 class DataMsg;
 class MsgIn;
 
-class DmxCtrl : public conf::token {
+class DmxCtrl {
 public:
   DmxCtrl(asio::io_context &io_ctx) noexcept;
   ~DmxCtrl() = default;
@@ -75,6 +75,9 @@ private:
   void unknown_host() noexcept;
 
 private:
+  // order independent
+  conf::token tokc;
+
   // order dependent
   strand_ioc sess_strand;
   strand_ioc data_strand;

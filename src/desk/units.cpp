@@ -36,13 +36,12 @@ namespace desk {
 
 void Units::create_all_from_cfg() noexcept {
   // gets a copy of the desk table
-  conf::token ctoken("desk");
-  const auto table = ctoken.conf_table();
+  const auto table = tokc.table();
 
   {
     // load dimmable units
 
-    uint32_t max = ctoken.conf_val<uint32_t>("max"_tpath, 8190U);
+    uint32_t max = tokc.val<uint32_t>("max"_tpath, 8190U);
     auto units = table->at_path("dimmable.units"_tpath).as_array();
 
     for (auto &&e : *units) {
