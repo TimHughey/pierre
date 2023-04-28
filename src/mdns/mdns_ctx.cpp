@@ -289,7 +289,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
   } break;
 
   case AVAHI_BROWSER_NEW: {
-    INFO_AUTO("NEW {} {}\n", name, type);
+    INFO_AUTO("NEW {} {}\n", type, name);
 
     // default flags (for clarity)
     AvahiLookupFlags flags{};
