@@ -46,7 +46,7 @@ Racked::Racked() noexcept
       // serialize changes to reels container
       racked_strand(asio::make_strand(io_ctx)),
       // create the initial work-in-progress reel
-      wip(std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES)) //
+      wip(Reel(Reel::MaxFrames)) //
 {
   conf::token ctoken(module_id);
   const auto threads = ctoken.conf_val<int>("threads"_tpath, 2);
@@ -76,7 +76,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
   // post the flush request to the flush strand to serialize flush requests
   // and guard changes to flush request
   asio::post(flush_strand, [this, request = std::move(request)]() mutable {
-    // record the flush request to check incoming frames (guarded by flush_strand)
+    // store the flush request to check incoming frames (guarded by flush_strand)
     std::exchange(flush_request, std::move(request));
 
     // rack wip so it is checked during rack flush
@@ -93,12 +93,12 @@ void Racked::flush(FlushInfo &&request) noexcept {
         // note:  this is necessary because frame timestamps can be out of sequence
         //        depending on the sensder's choice
         std::erase_if(reels, [this, &flush_count](auto &reel) mutable {
-          const auto rc = reel->flush(flush_request);
+          const auto rc = reel.flush(flush_request);
 
           if (rc) {
             flush_count++;
 
-            INFO_AUTO("FLUSHED {}\n", *reel);
+            INFO_AUTO("FLUSHED {}\n", reel);
           }
 
           return rc;
@@ -129,26 +129,20 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
       if (flush_request.should_flush(frame)) {
         // frame is flushed, record it's state and don't move to wip
         frame.flushed();
-        frame.state.record_state();
+        frame.record_state();
       } else {
 
         // here we do the decoding of the audio data, if decode succeeds we
         // rack the frame into wip
 
         if (frame.decode()) [[likely]] {
-          frame.state.record_state();
+          frame.record_state();
 
           // prevent flushed frames from being added
           if (frame.state.dsp_any()) {
+            if (wip.can_add_frame(frame) == false) rack_wip();
 
-            if (wip->full()) rack_wip();
-
-            wip->add(std::move(frame));
-
-            // reset recent handoff which is used to determine if a wip should be
-            // returned by next_frame().  this feature is to ensure incomplete reels
-            // are returned by next_reel when required
-            recent_handoff.reset();
+            wip.add(std::move(frame));
 
           } else {
             // something wrong, the frame is not in a DSP state. discard...
@@ -157,10 +151,10 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
         }
       }
     } else {
-      frame.state.record_state();
+      frame.record_state();
     }
   } else {
-    frame.state.record_state();
+    frame.record_state();
   }
 }
 
@@ -175,7 +169,7 @@ void Racked::log_racked(log_rc rc) const noexcept {
 
     switch (rc) {
     case log_rc::NONE: {
-      if ((total_reels == 1) && (reels.front()->size() == 1)) {
+      if ((total_reels == 1) && (reels.front().size() == 1)) {
 
         fmt::format_to(w, "LAST FRAME");
       } else if ((total_reels >= 400) && ((total_reels % 10) == 0)) {
@@ -186,8 +180,8 @@ void Racked::log_racked(log_rc rc) const noexcept {
 
     case log_rc::RACKED: {
       if (total_reels == 1) {
-        fmt::format_to(w, "FIRST REEL frames={}", reels.front()->size());
-        if (wip->size() == 1) fmt::format_to(w, " [new wip]");
+        fmt::format_to(w, "FIRST REEL frames={}", reels.front().size());
+        if (wip.size() == 1) fmt::format_to(w, " [new wip]");
       }
 
     } break;
@@ -197,9 +191,10 @@ void Racked::log_racked(log_rc rc) const noexcept {
   }
 }
 
-std::future<std::unique_ptr<Reel>> Racked::next_reel() noexcept {
+std::future<Reel> Racked::next_reel() noexcept {
+  static constexpr auto fn_id{"next_reel"sv};
 
-  auto prom = std::promise<std::unique_ptr<Reel>>();
+  auto prom = std::promise<Reel>();
   auto fut = prom.get_future();
 
   asio::post(racked_strand, [this, prom = std::move(prom)]() mutable {
@@ -208,18 +203,18 @@ std::future<std::unique_ptr<Reel>> Racked::next_reel() noexcept {
       // set the promise as quickly as possible
       prom.set_value(std::move(reels.front()));
 
-      asio::post(racked_strand, [this]() {
-        reels.pop_front();
+      reels.pop_front();
 
-        Stats::write(stats::RACKED_REELS, reel_count());
-      });
+      Stats::write(stats::RACKED_REELS, reel_count());
 
-    } else if (recent_handoff >= 1500ms) {
+    } else if (!wip.empty()) {
+      INFO_AUTO("taking WIP {} reels={}\n", wip, reel_count());
 
-      prom.set_value(std::move(take_wip()));
+      // we can take the wip reel
+      prom.set_value(take_wip());
     } else {
-
-      prom.set_value(std::make_unique<Reel>());
+      INFO_AUTO("no reels, returning synthetic reel\n");
+      prom.set_value(Reel(Reel::Synthetic));
     }
   });
 
@@ -227,16 +222,24 @@ std::future<std::unique_ptr<Reel>> Racked::next_reel() noexcept {
 }
 
 void Racked::rack_wip() noexcept {
-  if (wip->size() > 0) {
+  if (wip.size() > 0) {
 
-    asio::post(racked_strand, [this]() mutable {
-      reels.emplace_back(std::move(take_wip()));
+    asio::post(racked_strand, [this, reel = take_wip()]() mutable {
+      reels.emplace_back(std::move(reel));
 
       Stats::write(stats::RACKED_REELS, reel_count());
 
       log_racked(RACKED);
     });
   }
+}
+
+Reel Racked::take_wip() noexcept {
+  std::unique_lock lck(wip_mtx, std::defer_lock);
+
+  lck.lock();
+
+  return std::exchange(wip, Reel(Reel::MaxFrames));
 }
 
 } // namespace pierre

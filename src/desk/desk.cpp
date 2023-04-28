@@ -36,8 +36,10 @@
 #include "fx/all.hpp"
 #include "mdns/mdns.hpp"
 
+#include <boost/asio/append.hpp>
 #include <boost/asio/post.hpp>
 #include <fmt/chrono.h>
+#include <fmt/std.h>
 #include <functional>
 #include <ranges>
 #include <thread>
@@ -48,7 +50,8 @@ namespace pierre {
 //  -must be defined in .cpp (incomplete types in .hpp)
 //  -we use a separate io_ctx for desk and it's workers
 Desk::Desk(MasterClock *master_clock) noexcept
-    : // create and start racked early (frame rendering needs it)
+    : conf::token(module_id),
+      // create and start racked early (frame rendering needs it)
       racked{std::make_unique<Racked>()},
       // create DmxCtrl early (frame renderings needs it)
       dmx_ctrl(std::make_unique<desk::DmxCtrl>(io_ctx)),
@@ -58,35 +61,13 @@ Desk::Desk(MasterClock *master_clock) noexcept
       master_clock(master_clock),
       // create the anchor early (frame rendering needs it)
       anchor(std::make_unique<Anchor>()),
-      // start with a silent Reel
-      active_reel(std::make_unique<Reel>()),
       // create a strand to serialize render activities
       render_strand(asio::make_strand(io_ctx)),
       // set the frame_timer start time to now, we'll adjust it later
       frame_timer(render_strand, steady_clock::now()) //
 {
-  conf::token ctoken(module_id);
-
-  // include the threads DmxCtrl requires
-  const auto threads = ctoken.conf_val<int>("threads"_tpath, 1);
-
-  INFO_INIT("sizeof={:>5} lead_time_min={} threads={}\n", sizeof(Desk),
-            pet::humanize(InputInfo::lead_time_min), threads);
-
-  resume(); // add work to io_ctx
-
-  // add threads to the io_ctx and start
-  for (auto n = 0; n < threads; n++) {
-    // add threads for handling frame rendering
-    std::jthread([this, n = n]() {
-      static constexpr csv tname{"pierre_desk"};
-      pthread_setname_np(pthread_self(), tname.data());
-
-      INFO(Desk::module_id, "threads", "starting thread={}\n", n);
-
-      io_ctx.run();
-    }).detach();
-  }
+  io_ctx.stop(); // needed by resume
+  resume();
 }
 
 Desk::~Desk() noexcept {
@@ -106,7 +87,7 @@ void Desk::anchor_save(AnchorData &&ad) noexcept { anchor->save(std::forward<Anc
 
 void Desk::flush(FlushInfo &&request) noexcept {
 
-  asio::post(render_strand, [this, fr = request]() mutable { active_reel->flush(fr); });
+  asio::post(render_strand, [this, fr = request]() mutable { active_reel.flush(fr); });
 
   if (racked) racked->flush(std::forward<FlushInfo>(request));
 }
@@ -147,137 +128,193 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   if (racked) racked->handoff(std::forward<uint8v>(packet), key);
 }
 
-bool Desk::next_reel() noexcept {
-  if (render_active.load(std::memory_order_relaxed) && active_reel->empty()) {
-    auto reel = racked->next_reel().get();
+void Desk::next_reel(const Nanos wait_ns) noexcept {
+  static constexpr auto fn_id{"next_reel"sv};
 
-    std::exchange(active_reel, std::move(reel));
+  if (active_reel.empty()) {
+
+    // do we have a pending future reel?
+    if (future_reel.valid()) {
+      using fstatus = std::future_status;
+
+      if (auto status = future_reel.wait_for(wait_ns); status == fstatus::ready) {
+        if (render_active.load(std::memory_order_relaxed)) {
+          std::exchange(active_reel, racked->next_reel().get());
+        }
+
+      } else {
+        INFO_AUTO("timeout\n");
+      }
+    } else {
+      // we need a reel, make the request, get the future
+      future_reel = racked->next_reel();
+
+      if (wait_ns == 0ns) {
+        // caller wants an immediate answer, call ourself again to get the reel
+        next_reel(wait_ns);
+      }
+    }
   }
-
-  return (bool)active_reel;
 }
 
-void Desk::render() noexcept {
-  static constexpr csv fn_id{"render"};
-
-  if (render_strand.running_in_this_thread() == false) {
-    asio::post(render_strand, [this]() {
-      INFO_AUTO("switching to render strand\n");
-
-      render();
-    });
-    return;
-  }
-
-  Elapsed render_elapsed;
+void Desk::render_in_strand() noexcept {
+  static constexpr csv fn_id{"render_strand"};
 
   // get the next reel, if needed
   // if there isn't active reel return (we have shutdown)
-  if (next_reel() == false) return;
+  // next_reel();
 
   // now handle the frame for this render
   const auto clock_info = master_clock->info_no_wait();
 
-  auto reel_result = active_reel->peek_or_pop(clock_info, anchor.get());
-  auto &frame = reel_result.frame;
+  auto frame = active_reel.peek_or_pop(clock_info, anchor.get());
 
-  frame.state.record_state();
+  auto sync_wait = frame.sync_wait();
 
-  if (fx_finished()) fx_select(frame);
+  frame_timer.expires_after(sync_wait);
+  frame_timer.async_wait(asio::append(
+      [this](const error_code &ec, Frame frame) {
+        if (ec) return;
 
-  if (shutdown_if_all_stop() == false) {
+        Elapsed e;
+        frame.record_state();
 
-    // render frame and send to DMX controller
-    if (frame.state.ready()) {
-      desk::DataMsg msg(frame.seq_num, frame.silent());
+        if (fx_finished()) fx_select(frame);
 
-      // send the data message if rendered
-      if (active_fx->render(frame.get_peaks(), msg)) dmx_ctrl->send_data_msg(std::move(msg));
+        if (shutdown_if_all_stop()) return;
 
-      // we do not want to include the time to write stats or
-      // request the next reel in render elapsed
-      render_elapsed.freeze();
+        // render frame and send to DMX controller
+        if (frame.state.ready()) {
+          desk::DataMsg msg(frame.seq_num, frame.silent());
 
-      // get the next reel if we emptied this reel
-      if (next_reel() == false) return;
+          // send the data message if rendered
+          if (active_fx->render(frame.get_peaks(), msg)) {
+            dmx_ctrl->send_data_msg(std::move(msg));
+          }
 
-      // notate the frame is rendered (or silent) in timeseries db
-      frame.mark_rendered();
-    } // end ready frame handling
+        } // end ready frame handling
 
-    // begin calculation of when next frame timer should fire
-    const auto last_at = frame_timer.expiry();
-    auto next_at = last_at + InputInfo::lead_time;
+        // notate the frame is rendered (or silent) in timeseries db
+        frame.mark_rendered();
 
-    // when the frame is in the future override next_at avoid sending silence frames
-    // and to maximize sync
-    if (frame.state.future()) {
-      if (const auto sync_wait = frame.sync_wait_recalc(); sync_wait > InputInfo::lead_time) {
-        const auto adjust = sync_wait - InputInfo::lead_time;
-        Stats::write(stats::FRAME_TIMER_ADJUST, adjust);
+        next_reel(2ms);
 
-        next_at = last_at + sync_wait;
-      }
-    }
-
-    // set the frame_timer to fire for the next frame
-    frame_timer.expires_at(next_at);
-    frame_timer.async_wait([this](const error_code &ec) {
-      if (!ec) render();
-    });
-
-    Stats::write(stats::RENDER_ELAPSED, (Nanos)render_elapsed);
-  } // end frame processing when not shutdown
+        render_in_strand();
+        Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
+      },
+      std::move(frame)));
 }
 
 void Desk::resume() noexcept {
-  static constexpr csv fn_id{"resume"};
-
-  INFO_AUTO("invoked, io_ctx.stopped={}\n", io_ctx.stopped());
+  constexpr auto fn_id{"resume"sv};
 
   if (io_ctx.stopped()) {
-    INFO_AUTO("io_ctx stopped, resetting\n");
+    INFO_AUTO("invoked, io_ctx.stopped={}\n", io_ctx.stopped());
+
+    if (threads.size()) {
+      // ensure any previous threads are released
+      std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) {
+        INFO(module_id, "threads", "detach id={}\n", t.get_id());
+
+        t.detach();
+      });
+
+      threads.clear();
+      INFO_AUTO("cleared {} threads\n", threads.size());
+    }
+
+    INFO_AUTO("io_ctx stopped, resetting...\n");
     io_ctx.reset();
+
+    // add work to io_ctx before starting threads
+    frame_timer.expires_at(steady_clock::now());
+    frame_timer.async_wait([this](const error_code &ec) {
+      if (ec) return;
+
+      // start with a 500ms reel of synthetic frames
+      auto prom = std::promise<Reel>();
+      prom.set_value(Reel(Reel::Synthetic));
+
+      // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
+      anchor->reset();
+
+      render_in_strand();
+    });
+
+    const auto n_thr = conf_val<int>("threads"_tpath, 1);
+    INFO_AUTO("starting {} threads...\n", n_thr);
+
+    // add threads to the io_ctx and start
+    for (auto n = 0; n < n_thr; ++n) {
+      threads.emplace_back(
+          // add threads for handling frame rendering
+          std::jthread([this, n = n]() {
+            {
+              const string tname{fmt::format("pierre_desk{}", n)};
+              pthread_setname_np(pthread_self(), tname.c_str());
+              INFO(Desk::module_id, "threads", "started {}\n", tname);
+            }
+
+            io_ctx.run();
+          }));
+    }
+
+    using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
+
+    auto lt_min = std::chrono::duration_cast<millis_fp>(InputInfo::lead_time_min);
+    INFO_INIT("sizeof={:>5} lead_time_min={:0.4}\n", sizeof(Desk), lt_min);
   }
+}
 
-  frame_timer.expires_at(steady_clock::now());
-  frame_timer.async_wait([this](const error_code &ec) {
-    if (ec) return;
+void Desk::set_render(bool enable) noexcept {
+  constexpr auto fn_id{"set_render"sv};
 
-    // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
-    anchor->reset();
+  auto was_active = std::atomic_exchange(&render_active, enable);
 
-    render();
-  });
+  INFO_AUTO("enable={} was_active={}\n", enable, was_active);
+
+  if (was_active == false) {
+    auto prom = std::promise<Reel>();
+    future_reel = prom.get_future();
+    prom.set_value(Reel());
+
+    const auto now = steady_clock::now();
+
+    frame_timer.expires_at(now);
+    frame_timer.async_wait([this](const error_code &ec) {
+      if (!ec) asio::post(io_ctx, [this]() { render(); });
+    });
+  }
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {
-  static constexpr auto fn_id{"shutdown_if"};
 
   auto rc = active_fx->match_name(desk::fx::ALL_STOP);
 
   if (rc) {
 
-    INFO_AUTO("active_fx={}\n", active_fx->name());
+    asio::dispatch(render_strand, [this]() {
+      constexpr auto fn_id{"shutdown_all"sv};
 
-    // halt the frame timer
-    [[maybe_unused]] error_code ec;
-    frame_timer.cancel(ec);
+      io_ctx.stop();
+      INFO_AUTO("active_fx={} io_ctx.stopped={}\n", active_fx->name(), io_ctx.stopped());
 
-    // ensure we are not attempting to render actual audio data
-    set_render(false);
+      // halt the frame timer
+      [[maybe_unused]] error_code ec;
+      frame_timer.cancel(ec);
 
-    // disconnect from ruth
-    dmx_ctrl.reset();
+      // ensure we are not attempting to render actual audio data
+      set_render(false);
 
-    // free the active reel
-    active_reel.reset();
+      // disconnect from ruth
+      dmx_ctrl.reset();
 
-    // leave racked running and flush pending reels
-    racked->flush_all();
+      // leave racked running and flush pending reels
+      racked->flush_all();
 
-    // reset the allocated Anchor, not the unique_ptr
-    anchor->reset();
+      // reset the allocated Anchor, not the unique_ptr
+      anchor->reset();
+    });
   }
 
   return rc;

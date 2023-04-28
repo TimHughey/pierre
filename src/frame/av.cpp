@@ -58,7 +58,7 @@ bool Av::decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_frame) noex
   if (audio_frame) av_frame_free(audio_frame);
 
   frame.state = frame::DECODE_FAILURE;
-  frame.state.record_state();
+  frame.record_state();
 
   return false;
 }

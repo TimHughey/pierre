@@ -38,9 +38,10 @@ namespace pierre {
 class Reel {
 
 public:
-  struct next_frame {
-    bool got_frame{false};
-    Frame frame;
+  enum kind : ssize_t {
+    Empty = 0,
+    MaxFrames = InputInfo::fps,
+    Synthetic = 500ms / InputInfo::lead_time
   };
 
 public:
@@ -54,9 +55,7 @@ protected:
 
 public:
   // construct a reel of audio frames
-  Reel() noexcept {}
-  Reel(ssize_t max_frames) noexcept;
-
+  Reel(kind opt = kind::Empty) noexcept;
   ~Reel() noexcept {}
 
   Reel(Reel &&) = default;
@@ -64,7 +63,9 @@ public:
 
   friend struct fmt::formatter<Reel>;
 
-  bool add(Frame &&frame) noexcept;
+  auto &add(Frame &&frame) noexcept { return frames.emplace_back(std::move(frame)); }
+
+  bool can_add_frame(const Frame &frame) noexcept;
   bool consume(std::ptrdiff_t count = 1) noexcept {
     consumed += count;
 
@@ -85,7 +86,7 @@ public:
     return size() >= max_frames;
   }
 
-  int64_t half_full() const noexcept { return size() >= (max_frames / 2); }
+  bool half_full() const noexcept { return size() >= (max_frames / 2); }
 
   auto operator<=>(const Frame &frame) noexcept {
     if (empty()) return std::weak_ordering::less;
@@ -94,7 +95,7 @@ public:
   }
 
   // note: clk_info must be valid
-  next_frame peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept;
+  Frame peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept;
 
   template <typename T = uint64_t> const T serial_num() const noexcept {
     if constexpr (std::same_as<T, uint64_t>) {
@@ -108,11 +109,7 @@ public:
 
   virtual bool silence() const noexcept { return false; }
 
-  int64_t size() const noexcept {
-    if (serial) return std::ssize(frames);
-
-    return 0;
-  }
+  int64_t size() const noexcept { return serial ? std::ssize(frames) : 0; }
 
 protected:
   // order dependent

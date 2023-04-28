@@ -29,7 +29,7 @@
 
 #include <algorithm>
 #include <compare>
-
+#include <fmt/chrono.h>
 #include <memory>
 #include <optional>
 
@@ -57,6 +57,8 @@ public:
   {}
 
 public:
+  friend struct fmt::formatter<Frame>;
+
   std::weak_ordering operator<=>(const Frame &rhs) const noexcept {
     return timestamp <=> rhs.timestamp;
   }
@@ -70,6 +72,12 @@ public:
     state = silent() ? frame::SILENCE : frame::RENDERED;
 
     state.record_state();
+  }
+
+  frame::state record_state() const noexcept {
+    state.record_state();
+
+    return state;
   }
 
   bool silent(bool is_silent) noexcept {
@@ -88,14 +96,17 @@ public:
   // returns sync_wait unchanged if anchor is not available
   virtual Nanos sync_wait_recalc() noexcept;
 
+  bool synthetic() const noexcept { return !seq_num || !timestamp; }
+
   const Peaks &get_peaks() noexcept { return peaks; }
 
   // misc debug
-  const string inspect(bool full = false) const noexcept;
   void log_decipher() const noexcept;
 
 protected:
-  Nanos set_sync_wait(const Nanos diff) noexcept { return _sync_wait.emplace(diff); }
+  Nanos set_sync_wait(const Nanos diff) noexcept {
+    return synthetic() ? _sync_wait.value() : _sync_wait.emplace(diff);
+  }
 
 public:
   // order dependent
@@ -122,7 +133,7 @@ public:
   int samples_per_channel{0};
   int channels{0};
 
-  // populated by DSP or empty (silent)
+  // populated by Av or empty (silent)
   Peaks peaks;
 
 protected:
@@ -144,3 +155,22 @@ public:
 };
 
 } // namespace pierre
+
+/// @brief Custom formatter for Frame
+template <> struct fmt::formatter<pierre::Frame> : formatter<std::string> {
+  using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext> auto format(const pierre::Frame &f, FormatContext &ctx) const {
+    std::string msg;
+    auto w = std::back_inserter(msg);
+
+    const auto sync_wait = std::chrono::duration_cast<millis_fp>(f.sync_wait());
+
+    if (f.synthetic()) fmt::format_to(w, "synthetic ");
+
+    fmt::format_to(w, "{} sn={} ts={} sw={:0.4}", f.state, f.seq_num, f.timestamp, sync_wait);
+
+    return formatter<std::string>::format(msg, ctx);
+  }
+};

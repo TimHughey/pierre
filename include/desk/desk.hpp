@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -27,6 +28,7 @@
 #include "frame/reel.hpp"
 
 #include <atomic>
+#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -34,6 +36,7 @@
 #include <boost/system.hpp>
 #include <boost/system/error_code.hpp>
 #include <memory>
+#include <thread>
 
 namespace pierre {
 
@@ -42,7 +45,7 @@ namespace asio = boost::asio;
 using error_code = boost::system::error_code;
 using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
-class Desk {
+class Desk : public conf::token {
 
 public:
   Desk(MasterClock *master_clock) noexcept; // see .cpp (incomplete types)
@@ -59,18 +62,7 @@ public:
 
   void peers(const auto &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }
 
-  void set_render(bool enable) noexcept {
-    auto was_active = std::atomic_exchange(&render_active, enable);
-
-    if (was_active == false) {
-      const auto now = steady_clock::now();
-
-      frame_timer.expires_at(now);
-      frame_timer.async_wait([this](const error_code &ec) {
-        if (!ec) asio::post(io_ctx, [this]() { render(); });
-      });
-    }
-  }
+  void set_render(bool enable) noexcept;
 
   void resume() noexcept;
 
@@ -78,9 +70,14 @@ private:
   bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
-  bool next_reel() noexcept;
+  void next_reel() noexcept { next_reel(0ns); }
+  void next_reel(const Nanos wait_ns) noexcept;
 
-  void render() noexcept;
+  void render() noexcept {
+    asio::post(render_strand, [this]() { render_in_strand(); });
+  }
+
+  void render_in_strand() noexcept;
 
   bool shutdown_if_all_stop() noexcept;
 
@@ -92,9 +89,12 @@ private:
   std::atomic_bool render_active;
   MasterClock *master_clock;
   std::unique_ptr<Anchor> anchor;
-  std::unique_ptr<Reel> active_reel;
   strand_ioc render_strand;
   asio::steady_timer frame_timer;
+
+  std::vector<std::jthread> threads;
+  std::future<Reel> future_reel;
+  Reel active_reel; // defaults to a silent reel
 
   // order independent
   std::unique_ptr<desk::FX> active_fx{nullptr};

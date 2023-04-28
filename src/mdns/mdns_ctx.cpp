@@ -163,10 +163,7 @@ void Ctx::advertise() noexcept {
 }
 
 void Ctx::all_for_now(bool next_val) noexcept {
-  static constexpr csv fn_id{"all_for_now"};
-
-  static constexpr auto tname{"pierre_mdns"};
-  pthread_setname_np(pthread_self(), tname);
+  constexpr auto fn_id{"all_for_now"sv};
 
   auto prev = std::atomic_exchange(&all_for_now_state, next_val);
 
@@ -186,9 +183,9 @@ void Ctx::browse(csv stype) noexcept {
                                       Ctx::cb_browse,      // callback
                                       self);               // userdata
   if (sb == nullptr) {
-    INFO_AUTO("create failed stype={} reason={}\n", stype, error_string(client));
+    INFO_AUTO("create failed {} reason={}\n", stype, error_string(client));
   } else {
-    INFO_AUTO("initiated browse for stype={}\n", stype);
+    INFO_AUTO("initiated browse for {}\n", stype);
   }
 }
 
@@ -251,6 +248,9 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
   } break;
 
   case AVAHI_CLIENT_S_RUNNING: {
+    constexpr auto tname{"pierre_mdns"};
+    pthread_setname_np(pthread_self(), tname);
+
     ctx->domain = avahi_client_get_domain_name(client);
     string vsn(avahi_client_get_version_string(client));
 
@@ -278,7 +278,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
                     AvahiBrowserEvent event, ccs name, ccs type, ccs domain, AvahiLookupResultFlags,
                     void *user_data) { // static
 
-  static constexpr csv fn_id{"cb_browse"};
+  constexpr auto fn_id{"cb_browse"sv};
 
   auto ctx = static_cast<Ctx *>(user_data);
 
@@ -289,7 +289,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
   } break;
 
   case AVAHI_BROWSER_NEW: {
-    INFO_AUTO("NEW host={} type={} domain={}\n", name, type, domain);
+    INFO_AUTO("NEW {} {}\n", name, type);
 
     // default flags (for clarity)
     AvahiLookupFlags flags{};
@@ -314,7 +314,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
   } break;
 
   case AVAHI_BROWSER_REMOVE: {
-    INFO_AUTO("REMOVE host={} type={} domain={}\n", name, type, domain);
+    INFO_AUTO("REMOVE {} {} {}\n", name, type, domain);
     ctx->browse_remove(name);
   } break;
 

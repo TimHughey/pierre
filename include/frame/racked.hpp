@@ -39,6 +39,7 @@
 #include <future>
 #include <list>
 #include <memory>
+#include <mutex>
 
 namespace pierre {
 
@@ -67,10 +68,9 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  std::future<std::unique_ptr<Reel>> next_reel() noexcept;
+  std::future<Reel> next_reel() noexcept;
 
   ssize_t reel_count() const noexcept { return std::ssize(reels); }
-  ssize_t wip_reels() const noexcept { return wip->size(); }
 
 private:
   enum log_rc { NONE, RACKED };
@@ -79,9 +79,7 @@ private:
   void log_racked(log_rc rc = log_rc::NONE) const noexcept;
   void rack_wip() noexcept;
 
-  std::unique_ptr<Reel> take_wip() noexcept {
-    return std::exchange(wip, std::make_unique<Reel>(Reel::DEFAULT_MAX_FRAMES));
-  }
+  Reel take_wip() noexcept;
 
 private:
   // order dependent
@@ -89,14 +87,14 @@ private:
   work_guard_ioc work_guard; // provides a service so requires a work_guard
   strand_ioc flush_strand;
   strand_ioc racked_strand;
-  std::unique_ptr<Reel> wip;
+  Reel wip;
 
   // order independent
-  Elapsed recent_handoff;
+  std::timed_mutex wip_mtx;
   FlushInfo flush_request;
   std::atomic_bool spool_frames{false};
   std::atomic<ssize_t> _reel_count{0};
-  std::list<std::unique_ptr<Reel>> reels;
+  std::list<Reel> reels;
 
   ClockInfo clock_info;
 

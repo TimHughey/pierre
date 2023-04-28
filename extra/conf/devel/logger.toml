@@ -30,6 +30,7 @@ host = { connect = true, resolve = true, unknown = true }
 flush = true
 monitor_wip = true
 log = true
+next_reel = true
 
 [logger.desk.reel]
 flush = false
@@ -38,7 +39,6 @@ flush = false
 anchor = false
 av = false
 clock = { init = true, shutdown = false, peers_update = false, thread = true, map_shm = false }
-# clock_info = false
 dsp = { init = true }
 decipher = false
 

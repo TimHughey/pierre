@@ -135,13 +135,13 @@ public:
   static constexpr csv module_id{"logger"};
 };
 
-#define INFO(mod_id, cat, format, ...)                                                             \
-  pierre::_logger->info(mod_id, cat, FMT_STRING(format), ##__VA_ARGS__)
+#define INFO(__mid, cat, format, ...)                                                              \
+  { pierre::_logger->info(__mid, cat, FMT_STRING(format), ##__VA_ARGS__); }
 
 #define INFO_AUTO(format, ...)                                                                     \
-  pierre::_logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__)
+  { pierre::_logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__); }
 
 #define INFO_INIT(format, ...)                                                                     \
-  pierre::_logger->info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__)
+  { pierre::_logger->info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__); }
 
 } // namespace pierre

@@ -27,22 +27,34 @@ namespace pierre {
 
 uint64_t Reel::next_serial_num{0x1000};
 
-Reel::Reel(ssize_t max_frames) noexcept
-    : serial(next_serial_num++), // unique serial num (for debugging)
-      max_frames{max_frames}     // max frames in the reel
-{}
+Reel::Reel(kind opt) noexcept : serial(++next_serial_num), max_frames{opt} {
 
-bool Reel::add(Frame &&frame) noexcept {
-  auto rc{true};
-
-  // note: back() of empty container is undefined
-  if (empty() == false) {
-
-    // confirm the next frame is in timestamp sequence
-    rc &= frame.timestamp == (back().timestamp + 1024);
+  if (opt == Synthetic) {
+    for (auto n = 0; n < max_frames; n++) {
+      frames.emplace_back(Frame());
+    }
   }
+}
 
-  if (rc) frames.emplace_back(std::move(frame));
+bool Reel::can_add_frame(const Frame &frame) noexcept {
+  constexpr auto fn_id{"can_add_frame"sv};
+
+  bool rc{false};
+
+  if (!full()) {
+    rc = true;
+
+    if (empty() == false) {
+      int64_t tsp = back().timestamp;
+      int64_t tsf = frame.timestamp;
+      auto diff = tsf - tsp;
+
+      if (diff != 1024) {
+        INFO_AUTO("timestamp diff={}\n", diff);
+        rc = false;
+      }
+    }
+  }
 
   return rc;
 }
@@ -71,11 +83,11 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
   return empty();
 }
 
-Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept {
-  static constexpr csv fn_id{"peef_front"};
+Frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept {
+  static constexpr auto fn_id{"peek_front"sv};
 
   // NOTE: defaults to silent frame
-  next_frame result;
+  Frame frame;
 
   // we have frames to examine, ensure clock info is good
   if (!empty() && clk_info.ok()) {
@@ -86,10 +98,8 @@ Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noe
       //  1. ready or future frames are returned
       //  2. outdated frames are consumed
 
-      for (auto frame_it = begin(); frame_it != end() && !result.got_frame; frame_it++) {
-        auto &frame = *frame_it; // get the actual frame from the iterator
-
-        const auto fstate = frame.state_now(anchor_last);
+      for (auto f = begin(); f != end() && !frame.synthetic(); ++f) {
+        const auto fstate = f->state_now(anchor_last);
 
         // ready or future frames are returned
         if (fstate.ready_or_future()) {
@@ -97,19 +107,20 @@ Reel::next_frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noe
           // we don't need to look at ready frames again, consume it
           if (fstate.ready()) consume();
 
-          result = next_frame(true, std::move(frame));
+          frame = std::move(*f);
+
         } else if (fstate.outdated()) {
           // eat outdated frames
           consume();
         } else {
-          INFO_AUTO("encountered {}\n", frame.inspect());
+          INFO_AUTO("encountered {}\n", *f);
         }
       }
     } // end of anchor check
   }   // end of non-empty reel processing
 
   // we weren't able to find a useable frame
-  return result;
+  return frame;
 }
 
 } // namespace pierre

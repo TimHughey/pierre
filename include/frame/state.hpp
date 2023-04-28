@@ -21,7 +21,6 @@
 #include "base/types.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <compare>
 #include <concepts>
 #include <fmt/format.h>
@@ -31,6 +30,7 @@
 #include <set>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace pierre {
 namespace frame {
@@ -62,19 +62,19 @@ enum state_now_t : size_t {
 
 class state {
 public:
-  state() = default;
-  state(state_now_t val) noexcept : val(val) {}
-  state(const state &s) noexcept : val(s.val.load()) {}
+  state() noexcept : val{state_now_t::NONE} {}
+  state(const state &) = default;
+  state(const state_now_t now_val) noexcept : val(now_val) {}
+  state(state &&s) = default;
+  ~state() noexcept {}
 
-  state &operator=(const state &rhs) noexcept {
-    val.store(rhs.val);
+  state &operator=(const state &rhs) = default;
+  state &operator=(const state_now_t now_val) noexcept {
+    val = now_val;
     return *this;
   }
 
-  auto &&operator=(state_now_t new_val) noexcept {
-    val = new_val;
-    return *this;
-  }
+  state &operator=(state &&) = default;
 
   // allow comparison to state_now_t, another state or a set of state_now_t
   // note:  this must be a friend implementation to align with operator<=>
@@ -92,7 +92,7 @@ public:
   }
 
   friend std::strong_ordering operator<=>(const state &lhs, const state &rhs) noexcept {
-    return lhs.val.load() <=> rhs.val;
+    return lhs.val <=> rhs.val;
   }
 
   bool deciphered() const noexcept { return *this == DECIPHERED; };
@@ -116,7 +116,7 @@ public:
 
   csv inspect() const noexcept { return csv{val_to_txt_map.at(val)}; }
 
-  auto now() const noexcept { return val.load(); }
+  auto now() const noexcept { return val; }
 
   bool outdated() const noexcept { return *this == OUTDATED; }
   bool ready() const noexcept { return *this == READY; }
@@ -131,7 +131,11 @@ public:
 
   // returns true if the state was the wanted val
   bool store_if_equal(state_now_t want_val, state_now_t next_val) noexcept {
-    return std::atomic_compare_exchange_strong(&val, &want_val, next_val);
+    if (val == want_val) {
+      return std::exchange(val, next_val) == want_val;
+    }
+
+    return false;
   }
 
   auto tag() const noexcept { return std::make_pair("state", inspect().data()); }
@@ -152,7 +156,7 @@ public:
   }
 
 private:
-  std::atomic<state_now_t> val{state_now_t::NONE};
+  state_now_t val{state_now_t::NONE};
   static std::map<state_now_t, string> val_to_txt_map;
 };
 

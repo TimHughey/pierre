@@ -158,8 +158,12 @@ bool Frame::decode() noexcept {
 }
 
 frame::state Frame::state_now(const AnchorLast anchor) noexcept {
-  if (anchor.ready()) {
-    _anchor.emplace(std::move(anchor)); // cache the anchor used for this calculation
+  if (synthetic()) {
+    // synthetic frames are always ready
+    state = frame::READY;
+  } else if (anchor.ready()) {
+    // cache the anchor used for this calculation
+    _anchor.emplace(std::move(anchor));
 
     auto diff = _anchor->frame_local_time_diff(timestamp);
 
@@ -173,10 +177,12 @@ frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept
 
   // save the initial value of the state to confirm we don't conflict with another
   // thread (e.g. dsp processing) that may also change the state
-  auto initial_state = state.now();
   std::optional<frame::state> new_state;
 
-  if (diff < Nanos::zero()) {
+  if (synthetic()) {
+    new_state.emplace(frame::READY);
+
+  } else if (diff < Nanos::zero()) {
     // first handle any outdated frames regardless of state
     new_state.emplace(frame::OUTDATED);
 
@@ -193,12 +199,9 @@ frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept
     }
   }
 
-  // if the new state was calculated apply it only if the initial state hasn't changed
-  // this is necessary because we are now running in a thread environment
-  state.update_if(initial_state, new_state);
   set_sync_wait(diff);
 
-  if (sync_wait() > InputInfo::lead_time) Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+  Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
 
   return state;
 }
@@ -208,38 +211,14 @@ Nanos Frame::sync_wait_recalc() noexcept {
 
   if (_anchor.has_value()) {
     updated = set_sync_wait(_anchor->frame_local_time_diff(timestamp));
+  } else if (synthetic()) {
+    updated = sync_wait();
   } else {
-    INFO(module_id, "SYNC_WAIT", "not recalculated anchor={}\n", _anchor.has_value());
+    INFO(module_id, "SYNC_WAIT", "anchor={}\n", _anchor.has_value());
     updated = sync_wait();
   }
 
   return updated;
-}
-
-// misc debug
-const string Frame::inspect(bool full) const noexcept {
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  if (full == true) {
-    fmt::format_to(w, "vsn={} pad={} ext={} ssrc={} ", version, padding, extension, ssrc_count);
-  }
-
-  fmt::format_to(w, "seq_num={:<8} ts={:<12} {:<10}", seq_num, timestamp, state);
-
-  if (_sync_wait.has_value()) {
-    fmt::format_to(w, " sync_wait={}", pet::humanize(sync_wait()));
-  }
-
-  if (m.has_value() && (std::ssize(*m) <= 0)) {
-    fmt::format_to(w, " consumed={}", std::ssize(*m));
-  }
-
-  if (state == frame::READY && silent()) {
-    fmt::format_to(w, " silence={}", true);
-  }
-
-  return msg;
 }
 
 void Frame::log_decipher() const noexcept {
