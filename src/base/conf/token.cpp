@@ -28,13 +28,18 @@
 namespace pierre {
 namespace conf {
 
+const string token::make_path() noexcept {
+  const auto base = root.begin()->key();
+  return fixed::cfg_path().append(base).replace_extension(".toml");
+}
+
 bool token::parse() noexcept {
 
   msgs[Parser].clear();
 
   // parse file at this path
   const auto base = root.begin()->key();
-  const auto f_path = fixed::cfg_path().append(base).replace_extension(".toml");
+  auto f_path = make_path();
 
   auto pt_result = toml::parse_file(f_path.c_str());
 

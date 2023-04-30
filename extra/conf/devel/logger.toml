@@ -7,13 +7,9 @@ threads = true  # show any thread messages?
 shutdown = true # show any shutdown messages?
 async = true
 
-[logger.config.watch]
-check_file = false
-register = true
-unregister = false
-
-[logger.config.token]
-notify = true
+[logger.conf.watch]
+changed = false
+initiate = false
 
 [logger.desk]
 thread = true
@@ -27,8 +23,7 @@ run = true
 host = { connect = true, resolve = true, unknown = true }
 
 [logger.desk.racked]
-flush = true
-monitor_wip = true
+flush = false
 log = true
 next_reel = true
 

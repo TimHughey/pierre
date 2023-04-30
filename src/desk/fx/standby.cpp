@@ -24,11 +24,13 @@
 #include "desk.hpp"
 #include "unit/all.hpp"
 
+#include <fmt/std.h>
+
 namespace pierre {
 namespace desk {
 
 void Standby::apply_config() noexcept {
-  static constexpr csv fn_id{"apply_config"};
+  LOG_CAT_AUTO("apply_config");
 
   auto cfg_first_color = Color({.hue = tokc.val<double>("color.hue"_tpath, 0.0),
                                 .sat = tokc.val<double>("color.sat"_tpath, 0.0),
@@ -44,22 +46,24 @@ void Standby::apply_config() noexcept {
   // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
   hue_step = tokc.val<double>("hue_step"_tpath, 0.0);
 
-  INFO_AUTO("hue_step={}\n", hue_step);
+  INFO_AUTO("hue_step={}", hue_step);
 
   const auto timeout = tokc.val<Minutes>(cfg_silence_timeout, 30);
   set_silence_timeout(timeout, fx::ALL_STOP);
 }
 
 void Standby::execute(const Peaks &peaks) noexcept {
-  static constexpr csv fn_id{"execute"};
+  LOG_CAT_AUTO("execute");
+
+  if (tokc.changed()) apply_config();
 
   if (next_brightness < max_brightness) {
     next_brightness++;
     next_color.setBrightness(next_brightness);
   }
 
-  units.get<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
-  units.get<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
+  get_unit<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
+  get_unit<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
 
   if (next_brightness >= max_brightness) next_color.rotateHue(hue_step);
 
@@ -68,12 +72,12 @@ void Standby::execute(const Peaks &peaks) noexcept {
 
 void Standby::once() noexcept {
 
-  units(unit::AC_POWER)->activate();
-  units(unit::DISCO_BALL)->dark();
+  get_unit<Switch>(unit::AC_POWER)->activate();
+  get_unit(unit::DISCO_BALL)->dark();
 
-  units.get<Dimmable>(unit::EL_DANCE)->dim();
-  units.get<Dimmable>(unit::EL_DANCE)->dim();
-  units.get<Dimmable>(unit::LED_FOREST)->dim();
+  get_unit<Dimmable>(unit::EL_DANCE)->dim();
+  get_unit<Dimmable>(unit::EL_DANCE)->dim();
+  get_unit<Dimmable>(unit::LED_FOREST)->dim();
 }
 
 } // namespace desk

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/conf/token.hpp"
+#include "base/conf/watch.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
@@ -32,7 +32,10 @@ namespace desk {
 class Standby : public FX {
 
 public:
-  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), tokc(module_id) { apply_config(); }
+  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), tokc(module_id) {
+    tokc.initiate();
+    apply_config();
+  }
 
   void execute(const Peaks &peaks) noexcept override;
 
@@ -43,7 +46,7 @@ private:
 
 private:
   // order dependent
-  conf::token tokc;
+  conf::watch tokc;
 
   // order independent
   Color first_color;
@@ -53,7 +56,7 @@ private:
   double next_brightness{0};
 
 public:
-  static constexpr csv module_id{"fx.standby"};
+  static constexpr auto module_id{"fx.standby"sv};
 };
 
 } // namespace desk

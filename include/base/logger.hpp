@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/conf/token.hpp"
+#include "base/conf/watch.hpp"
 #include "base/elapsed.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
@@ -72,7 +72,9 @@ public:
                                       mod_id, width_mod,  // module_id + width
                                       cat, width_cat);    // category + width)
 
-      const auto msg = fmt::vformat(format, fmt::make_format_args(args...));
+      auto msg = fmt::vformat(format, fmt::make_format_args(args...));
+
+      if (msg.back() != '\n') msg.append("\n");
 
       if (async_active && !app_io_ctx.stopped()) {
         asio::post(app_io_ctx, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
@@ -87,15 +89,13 @@ public:
     }
   }
 
-  static bool should_log(csv mod, csv cat) noexcept {
+  bool should_log(csv mod, csv cat) noexcept {
 
-    if (cat == csv{"info"}) return true;
+    if (tokc.changed()) {
+      asio::post(app_io_ctx, [this]() { info(module_id, "conf"sv, "changed"); });
+    }
 
-    if (!_logger->tokc.table()) return true;
-
-    const auto t = _logger->tokc.table();
-
-    if (t->empty()) return true;
+    if ((cat == csv{"info"}) || !tokc.is_table() || tokc.empty()) return true;
 
     // order of precedence:
     //  1. looger.<cat>       == boolean
@@ -103,7 +103,7 @@ public:
     //  3. logger.<mod>.<cat> == boolean
     std::array paths{toml::path(cat), toml::path(mod), toml::path(mod).append(cat)};
 
-    return std::all_of(paths.begin(), paths.end(), [t](const auto &p) {
+    return std::all_of(paths.begin(), paths.end(), [t = tokc.table()](const auto &p) {
       const auto node = t->at_path(p);
 
       return node.is_boolean() ? node.value_or(true) : true;
@@ -115,7 +115,7 @@ public:
 
 private:
   // order dependent
-  conf::token tokc;
+  conf::watch tokc;
   asio::io_context &app_io_ctx;
   fmt::ostream out;
 
@@ -136,6 +136,9 @@ public:
   static constexpr csv module_id{"logger"};
 };
 
+#define LOG_CAT_AUTO(cat)                                                                          \
+  static constexpr std::string_view fn_id { cat }
+
 #define INFO(__mid, cat, format, ...)                                                              \
   { pierre::_logger->info(__mid, cat, FMT_STRING(format), ##__VA_ARGS__); }
 
@@ -143,6 +146,10 @@ public:
   { pierre::_logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__); }
 
 #define INFO_INIT(format, ...)                                                                     \
-  { pierre::_logger->info(module_id, csv{"init"}, FMT_STRING(format), ##__VA_ARGS__); }
+  { pierre::_logger->info(module_id, "init"sv, FMT_STRING(format), ##__VA_ARGS__); }
+
+inline constexpr bool SHOULD_LOG(auto &mid, auto &cat) noexcept {
+  return _logger ? _logger->should_log(mid, cat) : true;
+}
 
 } // namespace pierre

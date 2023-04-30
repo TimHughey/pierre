@@ -60,14 +60,14 @@ Racked::Racked() noexcept
     }).detach();
   }
 
-  INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} nthreads={}\n", sizeof(Racked),
+  INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} nthreads={}", sizeof(Racked),
             sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, nthreads);
 }
 
 Racked::~Racked() noexcept { io_ctx.stop(); }
 
 void Racked::flush(FlushInfo &&request) noexcept {
-  static constexpr csv fn_id{"flush"};
+  LOG_CAT_AUTO("flush");
 
   // post the flush request to the flush strand to serialize flush requests
   // and guard changes to flush request
@@ -94,13 +94,13 @@ void Racked::flush(FlushInfo &&request) noexcept {
           if (rc) {
             flush_count++;
 
-            INFO_AUTO("FLUSHED {}\n", reel);
+            INFO_AUTO("FLUSHED {}", reel);
           }
 
           return rc;
         });
 
-        INFO_AUTO("flush_count={} reels_remaining={}\n", flush_count, reel_count());
+        INFO_AUTO("flush_count={} reels_remaining={}", flush_count, reel_count());
 
         Stats::write(stats::REELS_FLUSHED, flush_count);
         Stats::write(stats::RACKED_REELS, initial_reels);
@@ -110,7 +110,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
 }
 
 void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
-  static constexpr auto fn_id{"handoff"};
+  LOG_CAT_AUTO("handoff");
 
   if (packet.empty()) return; // quietly ignore empty packets
 
@@ -142,7 +142,7 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
 
           } else {
             // something wrong, the frame is not in a DSP state. discard...
-            INFO_AUTO("discarding frame {}\n", frame.state);
+            INFO_AUTO("discarding frame {}", frame.state);
           }
         }
       }
@@ -155,9 +155,9 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
 }
 
 void Racked::log_racked(log_rc rc) const noexcept {
-  static csv constexpr fn_id{"log"};
+  LOG_CAT_AUTO("log");
 
-  if (Logger::should_log(module_id, fn_id)) {
+  if (SHOULD_LOG(module_id, fn_id)) {
     const auto total_reels = reel_count();
 
     string msg;
@@ -183,12 +183,12 @@ void Racked::log_racked(log_rc rc) const noexcept {
     } break;
     }
 
-    if (msg.size()) INFO_AUTO("{}\n", msg);
+    if (msg.size()) INFO_AUTO("{}", msg);
   }
 }
 
 std::future<Reel> Racked::next_reel() noexcept {
-  static constexpr auto fn_id{"next_reel"sv};
+  LOG_CAT_AUTO("next_reel");
 
   auto prom = std::promise<Reel>();
   auto fut = prom.get_future();
@@ -204,12 +204,12 @@ std::future<Reel> Racked::next_reel() noexcept {
       Stats::write(stats::RACKED_REELS, reel_count());
 
     } else if (!wip.empty()) {
-      INFO_AUTO("taking WIP {} reels={}\n", wip, reel_count());
+      INFO_AUTO("taking WIP {} reels={}", wip, reel_count());
 
       // we can take the wip reel
       prom.set_value(take_wip());
     } else {
-      INFO_AUTO("no reels, returning synthetic reel\n");
+      // INFO_AUTO("no reels, returning synthetic reel\n");
       prom.set_value(Reel(Reel::Synthetic));
     }
   });
@@ -232,7 +232,6 @@ void Racked::rack_wip() noexcept {
 
 Reel Racked::take_wip() noexcept {
   std::unique_lock lck(wip_mtx, std::defer_lock);
-
   lck.lock();
 
   return std::exchange(wip, Reel(Reel::MaxFrames));

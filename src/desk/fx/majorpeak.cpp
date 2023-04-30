@@ -43,12 +43,14 @@ namespace stats = pierre::stats;
 }
 
 void MajorPeak::execute(const Peaks &peaks) noexcept {
-  static constexpr csv fn_id{"execute"};
+  LOG_CAT_AUTO("execute");
+
+  load_config();
 
   if (peaks.audible()) silence_watch(); // reset silence timer when we have non-silent peaks
 
-  units(unit::AC_POWER)->activate();
-  units.get<Dimmable>(unit::DISCO_BALL)->dim();
+  get_unit<Switch>(unit::AC_POWER)->activate();
+  get_unit<Dimmable>(unit::DISCO_BALL)->dim();
 
   handle_el_wire(peaks);
   handle_main_pinspot(peaks);
@@ -61,7 +63,7 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
 void MajorPeak::handle_el_wire(const Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{units.get<Dimmable>(unit::EL_DANCE), units.get<Dimmable>(unit::EL_ENTRY)};
+  std::array elwires{get_unit<Dimmable>(unit::EL_DANCE), get_unit<Dimmable>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
@@ -77,7 +79,7 @@ void MajorPeak::handle_el_wire(const Peaks &peaks) {
 }
 
 void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
-  auto fill = units.get<PinSpot>(unit::FILL_SPOT);
+  auto fill = get_unit<PinSpot>(unit::FILL_SPOT);
   auto cfg = pspot_cfg_map.at("fill pinspot");
 
   const auto peak = peaks.major_peak();
@@ -144,7 +146,7 @@ void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
 }
 
 void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
-  auto main = units.get<PinSpot>(unit::MAIN_SPOT);
+  auto main = get_unit<PinSpot>(unit::MAIN_SPOT);
   const auto &cfg = pspot_cfg_map.at("main pinspot");
 
   const auto freq_min = cfg.freq_min;
@@ -189,95 +191,102 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
 }
 
 bool MajorPeak::load_config() noexcept {
-  auto changed{false};
+  LOG_CAT_AUTO("load_config");
 
-  // lambda helper to retrieve frequencies config
-  auto dval = [&](const auto p, auto &&def_val) -> double {
-    return tokc.val<double>(p, std::forward<decltype(def_val)>(def_val));
-  };
+  auto changed = tokc.changed() || pspot_cfg_map.empty();
 
-  freq_limits = hard_soft_limit<Frequency>(            //
-      dval("frequencies.hard.floor"_tpath, 40.0),      //
-      dval("frequencies.hard.ceiling"_tpath, 11500.0), //
-      dval("frequencies.soft.floor"_tpath, 110.0),     //
-      dval("frequencies.soft.ceiling"_tpath, 10000.0));
+  if (changed) {
 
-  // load make colors config
-  for (auto cat : std::array{"generic"_tpath, "above_soft_ceiling"_tpath}) {
-    // lambda helper to retrieve make color configs
-    auto cc = [&, this](const auto path, auto &&def_val) -> double {
-      const auto full_path = toml::path("makecolors").append(cat).append(path);
-      return tokc.val<double>(full_path, std::forward<decltype(def_val)>(def_val));
+    // lambda helper to retrieve frequencies config
+    auto dval = [&](const auto p, auto &&def_val) -> double {
+      return tokc.val<double>(p, std::forward<decltype(def_val)>(def_val));
     };
 
-    const auto mag_scaled_path =
-        toml::path("makecolors").append(cat).append("hue.mag_scaled"_tpath);
+    freq_limits = hard_soft_limit<Frequency>(            //
+        dval("frequencies.hard.floor"_tpath, 40.0),      //
+        dval("frequencies.hard.ceiling"_tpath, 11500.0), //
+        dval("frequencies.soft.floor"_tpath, 110.0),     //
+        dval("frequencies.soft.ceiling"_tpath, 10000.0));
 
-    hue_cfg_map.try_emplace(
-        string(cat),
-        major_peak::hue_cfg{.hue = {.min = cc("hue.min"_tpath, 0.0),
-                                    .max = cc("hue.max"_tpath, 0.0),
-                                    .step = cc("hue.step"_tpath, 0.001)},
-                            .brightness = {.max = cc("bri.max"_tpath, 0.0),
-                                           .mag_scaled = tokc.val<bool>(mag_scaled_path, true)}});
-  }
+    // load make colors config
+    for (auto cat : std::array{"generic"_tpath, "above_soft_ceiling"_tpath}) {
+      // lambda helper to retrieve make color configs
+      auto cc = [&, this](const auto path, auto &&def_val) -> double {
+        const auto full_path = toml::path("makecolors").append(cat).append(path);
+        return tokc.val<double>(full_path, std::forward<decltype(def_val)>(def_val));
+      };
 
-  mag_limits =
-      mag_min_max(dval("magnitudes.floor"_tpath, 2.009), dval("magnitudes.ceiling"_tpath, 2.009));
+      const auto mag_scaled_path =
+          toml::path("makecolors").append(cat).append("hue.mag_scaled"_tpath);
 
-  // load pinspot config
-  static constexpr csv BRI_MIN{"bri_min"};
-  const auto table = tokc.table();
-  auto &pspots = table->at_path("pinspots"_tpath).ref<toml::array>();
+      hue_cfg_map.try_emplace(
+          string(cat),
+          major_peak::hue_cfg{.hue = {.min = cc("hue.min"_tpath, 0.0),
+                                      .max = cc("hue.max"_tpath, 0.0),
+                                      .step = cc("hue.step"_tpath, 0.001)},
+                              .brightness = {.max = cc("bri.max"_tpath, 0.0),
+                                             .mag_scaled = tokc.val<bool>(mag_scaled_path, true)}});
+    }
 
-  for (auto &&el : *pspots.as_array()) {
-    // we need this twice
-    const auto pspot_name = el["name"_tpath].value_or(string("unnamed"));
+    mag_limits =
+        mag_min_max(dval("magnitudes.floor"_tpath, 2.009), dval("magnitudes.ceiling"_tpath, 2.009));
 
-    auto [it, inserted] = //
-        pspot_cfg_map.try_emplace(pspot_name, pspot_name,
-                                  el["type"_tpath].value_or(string("unknown")),
-                                  Millis(el["fade_max_ms"_tpath].value_or(100)),
-                                  el["freq_min"_tpath].value_or(0.0), //
-                                  el["freq_max"_tpath].value_or(0.0));
+    // load pinspot config
+    static constexpr csv BRI_MIN{"bri_min"};
+    const auto table = tokc.table();
+    auto &pspots = table->at_path("pinspots"_tpath).ref<toml::array>();
 
-    if (inserted) {
-      auto &cfg = it->second;
+    for (auto &&el : *pspots.as_array()) {
+      // we need this twice
+      const auto pspot_name = el["name"_tpath].value_or(string("unnamed"));
 
-      // populate 'when_less_than' (common for main and fill)
-      auto wltt = el.at_path("when_less_than"_tpath);
-      auto &wlt = cfg.when_less_than;
+      auto [it, inserted] = //
+          pspot_cfg_map.try_emplace(pspot_name, pspot_name,
+                                    el["type"_tpath].value_or(string("unknown")),
+                                    Millis(el["fade_max_ms"_tpath].value_or(100)),
+                                    el["freq_min"_tpath].value_or(0.0), //
+                                    el["freq_max"_tpath].value_or(0.0));
 
-      wlt.freq = wltt["freq"_tpath].value_or(0.0);
-      wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
+      if (inserted) {
+        auto &cfg = it->second;
 
-      if (csv{cfg.type} == csv{"fill"}) { // fill specific
-        auto wgt = el["when_greater"_tpath];
+        // populate 'when_less_than' (common for main and fill)
+        auto wltt = el.at_path("when_less_than"_tpath);
+        auto &wlt = cfg.when_less_than;
 
-        auto &wg = cfg.when_greater;
-        wg.freq = wgt["freq"_tpath].value_or(0.0);
-        wg.bri_min = wgt[BRI_MIN].value_or(0.0);
+        wlt.freq = wltt["freq"_tpath].value_or(0.0);
+        wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
 
-        auto whft = wgt["when_higher_freq"_tpath];
-        auto &whf = wg.when_higher_freq;
-        whf.bri_min = whft[BRI_MIN].value_or(0.0);
+        if (csv{cfg.type} == csv{"fill"}) { // fill specific
+          auto wgt = el["when_greater"_tpath];
 
-      } else if (csv(cfg.type) == csv{"main"}) { // main specific
-        auto wft = el["when_fading"_tpath];
+          auto &wg = cfg.when_greater;
+          wg.freq = wgt["freq"_tpath].value_or(0.0);
+          wg.bri_min = wgt[BRI_MIN].value_or(0.0);
 
-        auto &wf = cfg.when_fading;
-        wf.bri_min = wft[BRI_MIN].value_or(0.0);
+          auto whft = wgt["when_higher_freq"_tpath];
+          auto &whf = wg.when_higher_freq;
+          whf.bri_min = whft[BRI_MIN].value_or(0.0);
 
-        auto &wffg = wf.when_freq_greater;
-        auto wffgt = wft["when_freq_greater"_tpath];
-        wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
+        } else if (csv(cfg.type) == csv{"main"}) { // main specific
+          auto wft = el["when_fading"_tpath];
+
+          auto &wf = cfg.when_fading;
+          wf.bri_min = wft[BRI_MIN].value_or(0.0);
+
+          auto &wffg = wf.when_freq_greater;
+          auto wffgt = wft["when_freq_greater"_tpath];
+          wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
+        }
       }
     }
+
+    // setup silence timeout
+    const auto timeout = tokc.val<Seconds>("silence.timeout.seconds"_tpath, 13);
+    set_silence_timeout(timeout, fx::STANDBY);
   }
 
-  // setup silence timeout
-  const auto timeout = tokc.val<Seconds>("silence.timeout.seconds"_tpath, 13);
-  set_silence_timeout(timeout, fx::STANDBY);
+  if (changed) INFO_AUTO("config loaded {}", tokc);
 
   return changed;
 }
@@ -320,6 +329,14 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   }
 
   return color;
+}
+
+void MajorPeak::once() noexcept {
+  get_unit(unit::AC_POWER)->activate();
+
+  get_unit(unit::LED_FOREST)->dark();
+  get_unit(unit::MAIN_SPOT)->dark();
+  get_unit(unit::FILL_SPOT)->dark();
 }
 
 const Color &MajorPeak::ref_color(size_t index) const noexcept {

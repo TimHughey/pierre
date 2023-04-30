@@ -191,9 +191,12 @@ frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept
     }
   }
 
-  set_sync_wait(diff);
+  if (new_state.has_value()) {
+    state = std::move(new_state.value());
 
-  Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+    set_sync_wait(diff);
+    Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+  }
 
   return state;
 }
@@ -214,16 +217,16 @@ Nanos Frame::sync_wait_recalc() noexcept {
 }
 
 void Frame::log_decipher() const noexcept {
-  static constexpr csv fn_id{"decipher"};
+  LOG_CAT_AUTO("decipher");
   auto consumed = m.has_value() ? std::ssize(*m) : 0;
 
   if (state.deciphered()) {
-    INFO_AUTO("consumed={:>6} / {:<6} {}\n", consumed, std::ssize(*m), state);
+    INFO_AUTO("consumed={:>6} / {:<6} {}", consumed, std::ssize(*m), state);
 
   } else if (state == frame::NO_SHARED_KEY) {
-    INFO_AUTO("shared key empty {}\n", state);
+    INFO_AUTO("shared key empty {}", state);
   } else {
-    INFO_AUTO("cipher_rc={} consumed={} {}\n", cipher_rc, consumed, state);
+    INFO_AUTO("cipher_rc={} consumed={} {}", cipher_rc, consumed, state);
   }
 }
 

@@ -27,21 +27,21 @@ Av::Av() noexcept : ready{false} {
 
   codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
 
-  INFO(Av::module_id, "init", "sizeof={:>5} codec={}\n", sizeof(Av), fmt::ptr(codec));
+  INFO_INIT("sizeof={:>5} codec={}", sizeof(Av), fmt::ptr(codec));
 
   if (codec) {
     codec_ctx = avcodec_alloc_context3(codec);
 
     if (codec_ctx) {
       if (auto rc = avcodec_open2(codec_ctx, codec, nullptr); rc < 0) {
-        INFO(module_id, "codec_open", "failed, rc={}\n", rc);
+        INFO(module_id, "codec_open", "failed, rc={}", rc);
       } else [[likely]] {
         parser_ctx = av_parser_init(codec->id);
 
         if (parser_ctx) {
           ready.store(true);
         } else {
-          INFO_INIT("failed to initialize AV functions\n");
+          INFO_INIT("failed to initialize AV functions");
         }
       } // end parser ctx
     }   // end open ctx
@@ -83,9 +83,7 @@ void Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
 
     frame.silent(frame.peaks.silence() && frame.peaks.silence());
 
-    // atomically change the state to complete only if
-    // it hasn't been changed elsewhere
-    frame.state.store_if_equal(frame::DSP_IN_PROGRESS, frame::DSP_COMPLETE);
+    frame.state = frame::DSP_COMPLETE;
   }
 }
 
@@ -95,8 +93,8 @@ void Av::log_diag_info(AVFrame *audio_frame) noexcept {
     const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
     INFO(module_id, "debug",
-         "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}\n",
-         fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
+         "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}", fmt::ptr(data[0]),
+         audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
          audio_frame->nb_samples, audio_frame->format, audio_frame->flags);
     reported = true;
   }
@@ -152,7 +150,7 @@ bool Av::parse(Frame &frame) noexcept {
   }
 
   if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
-    INFO(module_id, "SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}\n", //
+    INFO(module_id, "SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}", //
          encoded_size, pkt->size, pkt->flags, rc);
     return decode_failed(frame, &pkt);
   }
@@ -162,7 +160,7 @@ bool Av::parse(Frame &frame) noexcept {
   if (!audio_frame) return decode_failed(frame, &pkt);
 
   if (auto rc = avcodec_receive_frame(codec_ctx, audio_frame); rc != 0) {
-    INFO("FAILED rc={}\n", module_id, "RECV_FRAME", rc);
+    INFO(module_id, "RECV_FRAME", " FAILED rc = {} ", rc);
     return decode_failed(frame, &pkt, &audio_frame);
   }
 

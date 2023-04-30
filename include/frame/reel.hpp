@@ -38,7 +38,7 @@ namespace pierre {
 class Reel {
 
 public:
-  enum kind : ssize_t {
+  enum kind_t : ssize_t {
     Empty = 0,
     MaxFrames = InputInfo::fps,
     Synthetic = 500ms / InputInfo::lead_time
@@ -48,6 +48,7 @@ public:
   static constexpr ssize_t DEFAULT_MAX_FRAMES{InputInfo::fps}; // two seconds
 
 protected:
+  const auto &cfront() const noexcept { return frames[consumed]; }
   auto &front() noexcept { return frames[consumed]; }
   auto &back() noexcept { return frames.back(); }
   auto begin() noexcept { return frames.begin() + consumed; }
@@ -55,7 +56,7 @@ protected:
 
 public:
   // construct a reel of audio frames
-  Reel(kind opt = kind::Empty) noexcept;
+  Reel(kind_t kind = kind_t::Empty) noexcept;
   ~Reel() noexcept {}
 
   Reel(Reel &&) = default;
@@ -71,6 +72,8 @@ public:
 
     return empty();
   }
+
+  void clear() noexcept { consume(size()); }
 
   bool empty() const noexcept {
     if (!serial) return true; // default Reel is always empty
@@ -95,7 +98,7 @@ public:
   }
 
   // note: clk_info must be valid
-  Frame peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept;
+  Frame peek_or_pop(MasterClock &clock, Anchor *anchor) noexcept;
 
   template <typename T = uint64_t> const T serial_num() const noexcept {
     if constexpr (std::same_as<T, uint64_t>) {
@@ -111,6 +114,8 @@ public:
 
   int64_t size() const noexcept { return serial ? std::ssize(frames) : 0; }
 
+  bool synthetic() const noexcept { return cfront().synthetic(); }
+
 protected:
   // order dependent
   uint64_t serial{0};
@@ -123,7 +128,7 @@ private:
   static uint64_t next_serial_num;
 
 public:
-  static constexpr csv module_id{"desk.reel"};
+  static constexpr auto module_id{"desk.reel"sv};
 };
 
 } // namespace pierre

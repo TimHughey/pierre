@@ -68,6 +68,10 @@ public:
   /// @return boolean indicating the FX is complete
   virtual bool completed() const noexcept { return finished; }
 
+  template <typename T = Unit> inline T *get_unit(const auto name) noexcept {
+    return units->get<T>(name);
+  }
+
   /// @brief Match the FX to a single name
   /// @param n Name to match
   /// @return boolean indicating if the single name matched
@@ -125,7 +129,7 @@ private:
 
 protected:
   /// @brief Order dependent class member data
-  static Units units;
+  static std::unique_ptr<Units> units;
   steady_timer fx_timer;
   const string fx_name;
   bool should_render;

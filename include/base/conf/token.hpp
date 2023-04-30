@@ -35,9 +35,10 @@ namespace pierre {
 namespace conf {
 
 class token {
+  friend struct fmt::formatter<token>;
 
 public:
-  enum msg_t : uint8_t { Parser = 0, Info, TokenMsgEnd };
+  enum msg_t : uint8_t { Parser = 0, Info, Watch, TokenMsgEnd };
 
 public:
   /// @brief Create config token with populated subtable that is not registered
@@ -49,9 +50,9 @@ public:
   token(token &&) = default;
   token &operator=(token &&) = default;
 
-  friend struct fmt::formatter<token>;
+  bool empty() const noexcept { return ttable.empty(); }
 
-  toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
+  bool is_table() const noexcept { return ttable.is_table(); }
 
   const string &msg(msg_t id) const noexcept { return msgs[id]; }
 
@@ -71,7 +72,13 @@ public:
 
   bool parse_ok() const noexcept { return msgs[Parser].empty(); }
 
+  toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
+
 protected:
+  void add_msg(msg_t msg_id, const string m) noexcept { msgs[msg_id] = m; }
+
+  const string make_path() noexcept;
+
   bool parse() noexcept;
 
 private:
@@ -92,9 +99,9 @@ template <> struct fmt::formatter<pierre::conf::token> : formatter<std::string> 
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
-  auto format(const pierre::conf::token &token, FormatContext &ctx) const {
+  auto format(const pierre::conf::token &tok, FormatContext &ctx) const {
 
     return formatter<std::string>::format(
-        fmt::format("root={} table_size={}", token.root.str(), token.ttable.size()), ctx);
+        fmt::format("root={} table_size={}", tok.root.str(), tok.ttable.size()), ctx);
   }
 };

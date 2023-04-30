@@ -27,9 +27,9 @@ namespace pierre {
 
 uint64_t Reel::next_serial_num{0x1000};
 
-Reel::Reel(kind opt) noexcept : serial(++next_serial_num), max_frames{opt} {
+Reel::Reel(kind_t kind) noexcept : serial(++next_serial_num), max_frames{kind} {
 
-  if (opt == Synthetic) {
+  if (kind == Synthetic) {
     for (auto n = 0; n < max_frames; n++) {
       frames.emplace_back(Frame());
     }
@@ -83,43 +83,57 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
   return empty();
 }
 
-Frame Reel::peek_or_pop(ClockInfoConst &clk_info, Anchor *anchor) noexcept {
+Frame Reel::peek_or_pop(MasterClock &clock, Anchor *anchor) noexcept {
   static constexpr auto fn_id{"peek_front"sv};
 
   // NOTE: defaults to silent frame
   Frame frame;
 
-  // we have frames to examine, ensure clock info is good
-  if (!empty() && clk_info.ok()) {
+  if (!empty() && front().synthetic()) {
+    // this is a reel of synthetic frames which are always ready
+    // simply return the frame at the front and mark it consumed
+    frame = std::move(front());
+    consume();
 
-    if (auto anchor_last = anchor->get_data(clk_info); anchor_last.ready()) {
+  } else if (!empty()) {
+    // this is a reel of actual frames, get clock info and anchor
+    // to calculate frame state
 
-      // search through available frames:
-      //  1. ready or future frames are returned
-      //  2. outdated frames are consumed
+    const auto clk_info = clock.info_no_wait();
 
-      for (auto f = begin(); f != end() && !frame.synthetic(); ++f) {
-        const auto fstate = f->state_now(anchor_last);
+    if (clk_info.ok()) {
+      auto anchor_last = anchor->get_data(clk_info);
 
-        // ready or future frames are returned
-        if (fstate.ready_or_future()) {
+      if (anchor_last.ready()) {
 
-          // we don't need to look at ready frames again, consume it
-          if (fstate.ready()) consume();
+        // search through available frames:
+        //  1. ready or future frames are returned
+        //  2. outdated frames are consumed
 
-          frame = std::move(*f);
+        for (auto f = begin(); f != end() && frame.synthetic(); ++f) {
+          const auto fstate = f->state_now(anchor_last);
 
-        } else if (fstate.outdated()) {
-          // eat outdated frames
-          consume();
-        } else {
-          INFO_AUTO("encountered {}\n", *f);
+          // ready or future frames are returned
+          if (fstate.ready_or_future()) {
+
+            // we don't need to look at ready frames again, consume it
+            if (fstate.ready()) consume();
+
+            frame = std::move(*f);
+
+          } else if (fstate.outdated()) {
+            // eat outdated frames
+            consume();
+          } else {
+            INFO_AUTO("encountered {}\n", *f);
+          }
         }
-      }
-    } // end of anchor check
-  }   // end of non-empty reel processing
+      } // end of anchor check
+    }   // end of non-empty reel processing
+  }
 
-  // we weren't able to find a useable frame
+  // return whatever frame we found (pure synthetic, synthetic from reel or
+  // actual frame)
   return frame;
 }
 

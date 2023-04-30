@@ -129,26 +129,7 @@ public:
 
   void record_state() const noexcept;
 
-  // returns true if the state was the wanted val
-  bool store_if_equal(state_now_t want_val, state_now_t next_val) noexcept {
-    if (val == want_val) {
-      return std::exchange(val, next_val) == want_val;
-    }
-
-    return false;
-  }
-
   auto tag() const noexcept { return std::make_pair("state", inspect().data()); }
-
-  bool update_if(const state_now_t previous, std::optional<state> &new_state) noexcept {
-    auto rc = false;
-
-    if (new_state.has_value()) {
-      rc = store_if_equal(previous, new_state.value().now());
-    }
-
-    return rc;
-  }
 
   bool updatable() const noexcept { // frame states that can be changed
     static const auto want = std::set{DSP_COMPLETE, FUTURE, READY};

@@ -71,11 +71,11 @@ Desk::Desk(MasterClock *master_clock) noexcept
 }
 
 Desk::~Desk() noexcept {
-  static constexpr auto fn_id{"destruct"};
+  LOG_CAT_AUTO("destruct");
 
   io_ctx.stop();
 
-  INFO_AUTO("io_ctx.stopped()={}\n", io_ctx.stopped());
+  INFO_AUTO("io_ctx.stopped()={}", io_ctx.stopped());
 }
 
 ////
@@ -128,46 +128,47 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   if (racked) racked->handoff(std::forward<uint8v>(packet), key);
 }
 
-void Desk::next_reel(const Nanos wait_ns) noexcept {
-  static constexpr auto fn_id{"next_reel"sv};
+void Desk::next_reel(Nanos wait_ns) noexcept {
+  LOG_CAT_AUTO("next_real");
 
-  if (active_reel.empty()) {
+  // when processing a synthetic reel of frames and render is active
+  // we always attempt to load the next reel
+  if (active_reel.empty() || (active_reel.synthetic() && render_active.load(mem_order::relaxed))) {
 
-    // do we have a pending future reel?
-    if (future_reel.valid()) {
-      using fstatus = std::future_status;
-
-      if (auto status = future_reel.wait_for(wait_ns); status == fstatus::ready) {
-        if (render_active.load(std::memory_order_relaxed)) {
-          std::exchange(active_reel, racked->next_reel().get());
-        }
-
-      } else {
-        INFO_AUTO("timeout\n");
-      }
-    } else {
-      // we need a reel, make the request, get the future
-      future_reel = racked->next_reel();
-
-      if (wait_ns == 0ns) {
-        // caller wants an immediate answer, call ourself again to get the reel
-        next_reel(wait_ns);
-      }
+    // we need a new reel now
+    if (load_reel(wait_ns) == false) {
+      INFO_AUTO("failed, falling back to synthetic");
+      // hmmm, we couldn't load a reel, fallback to synthetic
+      active_reel = Reel(Reel::Synthetic);
     }
   }
 }
 
+bool Desk::load_reel(const Nanos wait_ns) noexcept {
+  LOG_CAT_AUTO("load_reel");
+
+  auto rc{false};
+
+  // do we have a pending future reel?
+  if (future_reel.valid()) {
+    using fstatus = std::future_status;
+
+    if (auto status = future_reel.wait_for(wait_ns); status == fstatus::ready) {
+      rc = true;
+      std::exchange(active_reel, racked->next_reel().get());
+    } else
+      INFO_AUTO("timeout");
+  } else {
+    future_reel = racked->next_reel();
+  }
+
+  return rc;
+}
+
 void Desk::render_in_strand() noexcept {
-  static constexpr csv fn_id{"render_strand"};
 
-  // get the next reel, if needed
-  // if there isn't active reel return (we have shutdown)
-  // next_reel();
-
-  // now handle the frame for this render
-  const auto clock_info = master_clock->info_no_wait();
-
-  auto frame = active_reel.peek_or_pop(clock_info, anchor.get());
+  // get a frame from the reel
+  auto frame = active_reel.peek_or_pop(*master_clock, anchor.get());
 
   auto sync_wait = frame.sync_wait();
 
@@ -206,24 +207,24 @@ void Desk::render_in_strand() noexcept {
 }
 
 void Desk::resume() noexcept {
-  constexpr auto fn_id{"resume"sv};
+  LOG_CAT_AUTO("resume");
 
   if (io_ctx.stopped()) {
-    INFO_AUTO("invoked, io_ctx.stopped={}\n", io_ctx.stopped());
+    INFO_AUTO("invoked, io_ctx.stopped={}", io_ctx.stopped());
 
     if (threads.size()) {
       // ensure any previous threads are released
       std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) {
-        INFO(module_id, "threads", "detach id={}\n", t.get_id());
+        INFO(module_id, "threads", "detach id={}", t.get_id());
 
         t.detach();
       });
 
       threads.clear();
-      INFO_AUTO("cleared {} threads\n", threads.size());
+      INFO_AUTO("cleared {} threads", threads.size());
     }
 
-    INFO_AUTO("io_ctx stopped, resetting...\n");
+    INFO_AUTO("io_ctx stopped, resetting...");
     io_ctx.reset();
 
     // add work to io_ctx before starting threads
@@ -242,7 +243,7 @@ void Desk::resume() noexcept {
     });
 
     const auto n_thr = tokc.val<int>("threads"_tpath, 1);
-    INFO_AUTO("starting {} threads...\n", n_thr);
+    INFO_AUTO("starting {} threads...", n_thr);
 
     // add threads to the io_ctx and start
     for (auto n = 0; n < n_thr; ++n) {
@@ -252,7 +253,7 @@ void Desk::resume() noexcept {
             {
               const string tname{fmt::format("pierre_desk{}", n)};
               pthread_setname_np(pthread_self(), tname.c_str());
-              INFO(Desk::module_id, "threads", "started {}\n", tname);
+              INFO(Desk::module_id, "threads", "started {}", tname);
             }
 
             io_ctx.run();
@@ -262,21 +263,18 @@ void Desk::resume() noexcept {
     using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 
     auto lt_min = std::chrono::duration_cast<millis_fp>(InputInfo::lead_time_min);
-    INFO_INIT("sizeof={:>5} lead_time_min={:0.4}\n", sizeof(Desk), lt_min);
+    INFO_INIT("sizeof={:>5} lead_time_min={:0.4}", sizeof(Desk), lt_min);
   }
 }
 
 void Desk::set_render(bool enable) noexcept {
-  constexpr auto fn_id{"set_render"sv};
+  LOG_CAT_AUTO("set_render");
 
-  auto was_active = std::atomic_exchange(&render_active, enable);
+  auto was_active = std::atomic_exchange_explicit(&render_active, enable, mem_order::relaxed);
 
-  INFO_AUTO("enable={} was_active={}\n", enable, was_active);
+  INFO_AUTO("enable={} was_active={}", enable, was_active);
 
   if (was_active == false) {
-    auto prom = std::promise<Reel>();
-    future_reel = prom.get_future();
-    prom.set_value(Reel());
 
     const auto now = steady_clock::now();
 
@@ -294,10 +292,10 @@ bool Desk::shutdown_if_all_stop() noexcept {
   if (rc) {
 
     asio::dispatch(render_strand, [this]() {
-      constexpr auto fn_id{"shutdown_all"sv};
+      LOG_CAT_AUTO("shutdown_all");
 
       io_ctx.stop();
-      INFO_AUTO("active_fx={} io_ctx.stopped={}\n", active_fx->name(), io_ctx.stopped());
+      INFO_AUTO("active_fx={} io_ctx.stopped={}", active_fx->name(), io_ctx.stopped());
 
       // halt the frame timer
       [[maybe_unused]] error_code ec;

@@ -27,10 +27,10 @@
 namespace pierre {
 namespace desk {
 
-Units FX::units; // headunits available for FX (static class data)
+std::unique_ptr<Units> FX::units{nullptr}; // headunits available for FX (static class data)
 
 void FX::ensure_units() noexcept {
-  if (units.empty()) units.create_all_from_cfg(); // create the units once
+  if (!units) units = std::make_unique<Units>();
 }
 
 void FX::execute(const Peaks &peaks) noexcept { peaks.noop(); };
@@ -38,15 +38,15 @@ void FX::execute(const Peaks &peaks) noexcept { peaks.noop(); };
 bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
   if (should_render) {
     if (called_once == false) {
-      once();                // frame 0 consumed by call to once(), peaks not rendered
-      units.update_msg(msg); // ensure any once() actions are in the data msg
+      once();                 // frame 0 consumed by call to once(), peaks not rendered
+      units->update_msg(msg); // ensure any once() actions are in the data msg
 
       called_once = true;
 
     } else {
-      units.prepare();           // do any prep required to render next frame
+      units->prepare();          // do any prep required to render next frame
       execute(std::move(peaks)); // render frame into data msg
-      units.update_msg(msg);     // populate data msg
+      units->update_msg(msg);    // populate data msg
     }
   }
 
@@ -54,10 +54,10 @@ bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
 }
 
 bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) noexcept {
-  static constexpr csv fn_id{"set_silence"};
+  LOG_CAT_AUTO("set_silence");
 
   if (timeout != std::exchange(silence_timeout, timeout)) {
-    INFO_AUTO("silence_timeout={}\n", pet::humanize(silence_timeout));
+    INFO_AUTO("silence_timeout={}", pet::humanize(silence_timeout));
 
     silence_watch(silence_fx);
     return true;
@@ -67,10 +67,10 @@ bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) n
 }
 
 void FX::silence_watch(const string silence_fx) noexcept {
-  static constexpr csv fn_id{"silence_watch"};
+  LOG_CAT_AUTO("silence_watch");
 
   if (silence_fx.size() && (silence_fx != next_fx)) {
-    INFO_AUTO("next_fx new={} old={}\n", silence_fx, std::exchange(next_fx, silence_fx));
+    INFO_AUTO("next_fx new={} old={}", silence_fx, std::exchange(next_fx, silence_fx));
   }
 
   fx_timer.expires_after(silence_timeout);
@@ -78,7 +78,7 @@ void FX::silence_watch(const string silence_fx) noexcept {
     if (ec) return;
 
     set_finished(true);
-    INFO_AUTO("timer fired, finished={} next_fx={}\n", finished, next_fx);
+    INFO_AUTO("timer fired, finished={} next_fx={}", finished, next_fx);
   });
 }
 

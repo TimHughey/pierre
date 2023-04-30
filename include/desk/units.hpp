@@ -24,6 +24,7 @@
 #include "desk/unit.hpp"
 
 #include <algorithm>
+#include <concepts>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -40,9 +41,7 @@ private:
   static constexpr auto empty_excludes = std::initializer_list<string>();
 
 public:
-  Units() noexcept : tokc("desk"sv) {}
-
-  void create_all_from_cfg() noexcept;
+  Units() noexcept;
 
   void for_each(auto f, std::initializer_list<string> exclude_list = empty_excludes) noexcept {
     std::set<string> excludes(exclude_list);
@@ -58,14 +57,14 @@ public:
 
   bool empty() const noexcept { return map.empty(); }
 
-  const auto operator()(const string &name) noexcept { return map.at(name).get(); }
+  const auto *operator()(const string &name) noexcept { return map.at(name).get(); }
 
-  template <typename T = Unit> constexpr auto get(const string &name) noexcept {
-    auto *unit = map[name].get();
+  template <typename T> inline auto get(const auto name) noexcept {
+    auto unit = map[name].get();
 
-    if constexpr (std::is_same_v<T, Unit>) {
+    if constexpr (std::same_as<T, Unit>) {
       return unit;
-    } else if constexpr (std::is_base_of_v<Unit, T>) {
+    } else if constexpr (std::derived_from<T, Unit>) {
       return static_cast<T *>(unit);
     } else {
       static_assert(always_false_v<T>, "unhandled type");
@@ -83,6 +82,9 @@ public:
   }
 
 private:
+  void load_config() noexcept;
+
+private:
   // order dependent
   conf::token tokc;
 
@@ -90,7 +92,7 @@ private:
   std::map<string, std::unique_ptr<Unit>> map;
 
 public:
-  static constexpr csv module_id{"desk.units"};
+  static constexpr auto module_id{"desk.units"sv};
 };
 
 } // namespace desk

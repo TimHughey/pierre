@@ -19,11 +19,12 @@
 
 #pragma once
 
-#include "base/conf/token.hpp"
+#include "base/conf/watch.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
+#include "desk/unit/all.hpp"
 #include "frame/peaks.hpp"
 #include "majorpeak/types.hpp"
 
@@ -41,18 +42,14 @@ public:
       : FX(executor, fx::MAJOR_PEAK), tokc(module_id), base_color(Hsb{0, 100, 100}),
         main_last_peak(), fill_last_peak() {
 
+    tokc.initiate();
+
     load_config();
   }
 
   void execute(const Peaks &peaks) noexcept override;
 
-  void once() noexcept override {
-    units(unit::AC_POWER)->activate();
-
-    units(unit::LED_FOREST)->dark();
-    units(unit::MAIN_SPOT)->dark();
-    units(unit::FILL_SPOT)->dark();
-  }
+  void once() noexcept override;
 
 private:
   using RefColors = std::vector<Color>;
@@ -71,7 +68,7 @@ private:
 
 private:
   // order dependent
-  conf::token tokc;
+  conf::watch tokc;
   const Color base_color;
   Peak main_last_peak;
   Peak fill_last_peak;
@@ -87,7 +84,7 @@ private:
   major_peak::pspot_cfg_map pspot_cfg_map;
 
 public:
-  static constexpr csv module_id{"fx.majorpeak"};
+  static constexpr auto module_id{"fx.majorpeak"sv};
 };
 
 } // namespace desk

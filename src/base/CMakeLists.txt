@@ -24,6 +24,7 @@ add_library(${__target}
   conf/cli_args.cpp
   conf/fixed.cpp
   conf/token.cpp
+  conf/watch.cpp
 
   # host info
   host.cpp

@@ -44,6 +44,7 @@ namespace asio = boost::asio;
 
 using error_code = boost::system::error_code;
 using strand_ioc = asio::strand<asio::io_context::executor_type>;
+using mem_order = std::memory_order;
 
 class Desk {
 
@@ -70,8 +71,10 @@ private:
   bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
+  bool load_reel(const Nanos wait_ns) noexcept;
+
   void next_reel() noexcept { next_reel(0ns); }
-  void next_reel(const Nanos wait_ns) noexcept;
+  void next_reel(Nanos wait_ns) noexcept;
 
   void render() noexcept {
     asio::post(render_strand, [this]() { render_in_strand(); });
@@ -103,7 +106,7 @@ private:
   Elapsed render_elapsed;
 
 public:
-  static constexpr csv module_id{"desk"};
+  static constexpr auto module_id{"desk"sv};
 };
 
 } // namespace pierre
