@@ -54,7 +54,7 @@ bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
 }
 
 bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) noexcept {
-  LOG_CAT_AUTO("set_silence");
+  INFO_AUTO_CAT("set_silence");
 
   if (timeout != std::exchange(silence_timeout, timeout)) {
     INFO_AUTO("silence_timeout={}", pet::humanize(silence_timeout));
@@ -67,7 +67,7 @@ bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) n
 }
 
 void FX::silence_watch(const string silence_fx) noexcept {
-  LOG_CAT_AUTO("silence_watch");
+  INFO_AUTO_CAT("silence_watch");
 
   if (silence_fx.size() && (silence_fx != next_fx)) {
     INFO_AUTO("next_fx new={} old={}", silence_fx, std::exchange(next_fx, silence_fx));

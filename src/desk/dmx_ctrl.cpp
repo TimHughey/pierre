@@ -74,26 +74,14 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       // create the resolve timeout timer, use sess strand
       resolve_retry_timer(sess_strand, 1s) //
 {
-  // now that tokcen is populated we can assign the remaining config vars
-  // capture stall timeout config
-  stall_timeout = cfg_stall_timeout(tokc);
+  tokc.initiate(); // start watching for conf changes
+  load_config();   // do an initial load of config
 
-  // here we post resolve_host() to the io_context we're about to start
-  //
-  // resolve_host() may BLOCK or FAIL
-  //  -if successful, handshake() is called to setup the control and data sockets
-  //  -if failure, unknown_host() is invoked to retry resolution
-  resolve_host();
-
-  // NOTE: we do not start listening or the stalled timer at this point
-  //       they are handled as needed during handshake()
-
-  INFO_INIT("sizeof={:>5} thread_count={} {}\n", sizeof(DmxCtrl), required_threads(),
-            tokc.msg(conf::token::Info));
+  INFO_INIT("sizeof={:>5} {}", sizeof(DmxCtrl), tokc);
 }
 
 void DmxCtrl::handshake() noexcept {
-  static constexpr csv fn_id{"handshake"};
+  INFO_AUTO_CAT("handshake");
   static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
   static constexpr csv stats_ms_path{"remote.stats.ms"};
 
@@ -111,13 +99,13 @@ void DmxCtrl::handshake() noexcept {
     if (msg.xfer_error()) {
       Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
 
-      INFO_AUTO("write failed, err={}\n", msg.ec.message());
+      INFO_AUTO("write failed, err={}", msg.ec.message());
     }
   });
 }
 
 void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
-  static constexpr csv fn_id{"msg_loop"};
+  INFO_AUTO_CAT("msg_loop");
 
   // only attempt to read a message if we're connected
   if (connected) {
@@ -141,7 +129,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
 
               // std::array<char, 256> pbuf{0x00};
               // serializeJsonPretty(doc, pbuf.data(), pbuf.size());
-              // INFO_AUTO("\n{}\n", pbuf.data());
+              // INFO_AUTO("\n{}", pbuf.data());
 
               const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0) - InputInfo::lead_time;
               Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
@@ -168,29 +156,43 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   }
 }
 
-int DmxCtrl::required_threads() noexcept { return tokc.val<int>("threads", 2); }
+void DmxCtrl::load_config() noexcept {
+  // now that tokcen is populated we can assign the remaining config vars
+  // capture stall timeout config
+  stall_timeout = cfg_stall_timeout(tokc);
+
+  // here we post resolve_host() to the io_context we're about to start
+  //
+  // resolve_host() may BLOCK or FAIL
+  //  -if successful, handshake() is called to setup the control and data sockets
+  //  -if failure, unknown_host() is invoked to retry resolution
+  resolve_host();
+
+  // NOTE: we do not start listening or the stalled timer at this point
+  //       they are handled as needed during handshake()
+}
 
 void DmxCtrl::resolve_host() noexcept {
-  static constexpr auto fn_id{"host.resolve"sv};
+  INFO_AUTO_CAT("host.resolve");
 
   asio::post(sess_strand, [this]() {
     // get the host we will connect to unless we already have it
     if (remote_host.empty()) remote_host = cfg_host(tokc);
 
-    INFO_AUTO("attempting to resolve '{}'\n", remote_host);
+    INFO_AUTO("attempting to resolve '{}'", remote_host);
 
     // start name resolution via mdns
     auto zcsf = mDNS::zservice(remote_host);
     auto zcs_status = zcsf.wait_for(resolve_timeout(tokc));
 
     if (zcs_status != std::future_status::ready) {
-      INFO_AUTO("resolve timeout for '{}' ({})\n", remote_host, resolve_timeout(tokc));
+      INFO_AUTO("resolve timeout for '{}' ({})", remote_host, resolve_timeout(tokc));
       unknown_host();
       return;
     }
 
     auto zcs = zcsf.get();
-    INFO_AUTO("resolution attempt complete, valid={}\n", zcs.valid());
+    INFO_AUTO("resolution attempt complete, valid={}", zcs.valid());
 
     // resolution failed, enter unknown host processing
     if (!zcs.valid()) {
@@ -216,9 +218,9 @@ void DmxCtrl::resolve_host() noexcept {
                                        const error_code &ec, resolver_results r) mutable {
         if (!ec) {
           std::for_each(r.begin(), r.end(),
-                        [](const auto &r) { INFO_AUTO("host={}\n", r.host_name()); });
+                        [](const auto &r) { INFO_AUTO("host={}", r.host_name()); });
 
-          if (ec.message() != "Success") INFO_AUTO("resolve err={}\n", ec.message());
+          if (ec.message() != "Success") INFO_AUTO("resolve err={}", ec.message());
         }
       });
     });
@@ -243,9 +245,9 @@ void DmxCtrl::resolve_host() noexcept {
     asio::async_connect( //
         sess_sock, std::array{host_endpoint.value()},
         [this, e = Elapsed()](const error_code ec, const tcp_endpoint r) mutable {
-          static constexpr csv fn_id{"host.connect"};
+          INFO_AUTO_CAT("host.connect");
 
-          INFO_AUTO("{}\n", log_socket_msg(ec, sess_sock, r, e));
+          INFO_AUTO("{}", log_socket_msg(ec, sess_sock, r, e));
 
           if (!ec) {
             sess_sock.set_option(ip_tcp::no_delay(true));
@@ -277,7 +279,11 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
 }
 
 void DmxCtrl::stall_watchdog(Millis wait) noexcept {
-  static constexpr csv fn_id{"stalled"};
+  INFO_AUTO_CAT("stalled");
+
+  if (tokc.changed()) {
+    INFO("info"sv, "detected conf change");
+  }
 
   // when passed a non-zero wait time we're handling a special
   // case (e.g. host resolve failure), otherwise use configured
@@ -293,8 +299,8 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   stalled_timer.async_wait([this, wait = wait](error_code ec) {
     if (ec == errc::success) {
 
-      if (const auto was_connected = std::atomic_exchange(&connected, false)) {
-        INFO_AUTO("was_connected={} stall_timeout={}\n", was_connected, wait);
+      if (auto was_connected = std::atomic_exchange(&connected, false)) {
+        INFO_AUTO("was_connected={} stall_timeout={}", was_connected, wait);
       }
 
       data_sock.close(ec);
@@ -302,16 +308,16 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
       resolve_host(); // kick off name resolution, connect sequence
 
     } else if (ec != errc::operation_canceled) {
-      INFO_AUTO("falling through {}\n", ec.message());
+      INFO_AUTO("falling through {}", ec.message());
     }
   });
 }
 
 void DmxCtrl::unknown_host() noexcept {
-  static constexpr csv fn_id{"host.unknown"};
+  INFO_AUTO_CAT("host.unknown");
 
   const auto resolve_backoff = resolve_retry_wait(tokc);
-  INFO_AUTO("{} not found, retry in {}...\n", remote_host, resolve_backoff);
+  INFO_AUTO("{} not found, retry in {}...", remote_host, resolve_backoff);
 
   remote_host.clear();
 
@@ -319,7 +325,7 @@ void DmxCtrl::unknown_host() noexcept {
   resolve_retry_timer.expires_from_now(resolve_backoff);
   resolve_retry_timer.async_wait([this](error_code ec) {
     if (!ec) {
-      INFO_AUTO("retrying host resolution...\n");
+      INFO_AUTO("retrying host resolution...");
 
       resolve_host();
     }

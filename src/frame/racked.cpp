@@ -67,7 +67,7 @@ Racked::Racked() noexcept
 Racked::~Racked() noexcept { io_ctx.stop(); }
 
 void Racked::flush(FlushInfo &&request) noexcept {
-  LOG_CAT_AUTO("flush");
+  INFO_AUTO_CAT("flush");
 
   // post the flush request to the flush strand to serialize flush requests
   // and guard changes to flush request
@@ -110,7 +110,7 @@ void Racked::flush(FlushInfo &&request) noexcept {
 }
 
 void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
-  LOG_CAT_AUTO("handoff");
+  INFO_AUTO_CAT("handoff");
 
   if (packet.empty()) return; // quietly ignore empty packets
 
@@ -155,7 +155,7 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
 }
 
 void Racked::log_racked(log_rc rc) const noexcept {
-  LOG_CAT_AUTO("log");
+  INFO_AUTO_CAT("log");
 
   if (SHOULD_LOG(module_id, fn_id)) {
     const auto total_reels = reel_count();
@@ -188,7 +188,7 @@ void Racked::log_racked(log_rc rc) const noexcept {
 }
 
 std::future<Reel> Racked::next_reel() noexcept {
-  LOG_CAT_AUTO("next_reel");
+  INFO_AUTO_CAT("next_reel");
 
   auto prom = std::promise<Reel>();
   auto fut = prom.get_future();

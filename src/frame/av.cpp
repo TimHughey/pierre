@@ -34,7 +34,7 @@ Av::Av() noexcept : ready{false} {
 
     if (codec_ctx) {
       if (auto rc = avcodec_open2(codec_ctx, codec, nullptr); rc < 0) {
-        INFO(module_id, "codec_open", "failed, rc={}", rc);
+        INFO("codec_open", "failed, rc={}", rc);
       } else [[likely]] {
         parser_ctx = av_parser_init(codec->id);
 
@@ -92,9 +92,8 @@ void Av::log_diag_info(AVFrame *audio_frame) noexcept {
   if (!reported) {
     const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-    INFO(module_id, "debug",
-         "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}", fmt::ptr(data[0]),
-         audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
+    INFO("debug", "audio plane/linesize 1={}/{} 2={}/{} nb_samples={} format={} flags={}",
+         fmt::ptr(data[0]), audio_frame->linesize[0], fmt::ptr(data[1]), audio_frame->linesize[1],
          audio_frame->nb_samples, audio_frame->format, audio_frame->flags);
     reported = true;
   }
@@ -112,7 +111,7 @@ void Av::log_discard(Frame &frame, int used) noexcept {
     fmt::format_to(w, "used={:<6} size={:<6} diff={:+6}", used, enc_size, enc_size - used);
   }
 
-  INFO(module_id, "DISCARD", "{} {}", frame.state, msg);
+  INFO("DISCARD", "{} {}", frame.state, msg);
 }
 
 bool Av::parse(Frame &frame) noexcept {
@@ -150,7 +149,7 @@ bool Av::parse(Frame &frame) noexcept {
   }
 
   if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
-    INFO(module_id, "SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}", //
+    INFO("SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}", //
          encoded_size, pkt->size, pkt->flags, rc);
     return decode_failed(frame, &pkt);
   }
@@ -160,7 +159,7 @@ bool Av::parse(Frame &frame) noexcept {
   if (!audio_frame) return decode_failed(frame, &pkt);
 
   if (auto rc = avcodec_receive_frame(codec_ctx, audio_frame); rc != 0) {
-    INFO(module_id, "RECV_FRAME", " FAILED rc = {} ", rc);
+    INFO("RECV_FRAME", " FAILED rc = {} ", rc);
     return decode_failed(frame, &pkt, &audio_frame);
   }
 

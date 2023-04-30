@@ -48,7 +48,7 @@ ZeroConf::ZeroConf(Details d) noexcept
 
     _name_short.assign(short_begin, name_net.end());
   } else {
-    INFO(module_id, "CONSTRUCT", "unable to find delim={} in name_net={}\n", at, name_net);
+    INFO( "CONSTRUCT", "unable to find delim={} in name_net={}\n", at, name_net);
   }
 }
 

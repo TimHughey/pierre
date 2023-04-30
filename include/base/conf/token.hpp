@@ -80,13 +80,15 @@ protected:
   const string make_path() noexcept;
 
   bool parse() noexcept;
+  bool parse(toml::table &tt_dest) noexcept;
 
-private:
-  // order independent
-  const toml::path root;
-
+protected:
   toml::table ttable;
   std::array<string, TokenMsgEnd> msgs;
+
+private:
+  // order dependent
+  const toml::path root;
 
 public:
   static constexpr csv module_id{"conf.token"};

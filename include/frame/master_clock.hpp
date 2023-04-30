@@ -75,7 +75,7 @@ private:
   void *mapped{nullptr}; // mmapped region of nqptp data struct
 
 public:
-  static constexpr csv module_id{"frame.clock"};
+  static constexpr auto module_id{"frame.clock"sv};
 };
 
 /*  The control port expects a UDP packet with the first space-delimited string

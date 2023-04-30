@@ -221,7 +221,7 @@ std::string pid_file_unlink(std::filesystem::path pid_file, pid_t pid) {
 
     if ((pid == 0) || (stored_pid == pid)) {
       if (auto rc = remove(pid_file); !rc) {
-        msg = fmt::format("[WARN] failed to remove {} contents={}\n", pid_file, stored_pid);
+        msg = fmt::format("[WARN] failed to remove {} contents={}", pid_file, stored_pid);
       }
 
     } else if (stored_pid != pid) {
@@ -250,7 +250,7 @@ App::App() noexcept : ss_shutdown(io_ctx, SIGINT) {
 
     if (ec) return;
 
-    INFO_AUTO("caught SIGNT({}), requesting stop...\n", sig);
+    INFO_AUTO("caught SIGNT({}), requesting stop...", sig);
 
     thread.request_stop();
   });
@@ -278,20 +278,20 @@ void App::main() {
     Logger::synchronous();
     rtsp.reset();
 
-    INFO_AUTO("run exception {}\n", e.what());
+    INFO_AUTO("run exception {}", e.what());
   } catch (...) {
-    INFO_AUTO("run exception UNKNOWN\n");
+    INFO_AUTO("run exception UNKNOWN");
   }
 
   if (rtsp.has_value()) {
     // rtsp was created successfully, start a thread for App io_ctx
     thread = std::jthread([main_pid, this, &rtsp = *rtsp](std::stop_token stoken) mutable {
-      INFO(module_id, "init", "sizeof={:>5}\n", sizeof(App));
+      INFO_INIT("sizeof={:>5}", sizeof(App));
 
       constexpr auto tname{"pierre_app"};
       auto tid = pthread_self();
       if (auto rc = pthread_setname_np(tid, tname); rc != 0) {
-        INFO_AUTO("failed to set thread name: {}\n", std::strerror(errno));
+        INFO_AUTO("failed to set thread name: {}", std::strerror(errno));
       }
 
       stop_request_watcher(std::move(stoken));
@@ -304,7 +304,7 @@ void App::main() {
 
   pid_file_unlink(conf::fixed::pid_file(), main_pid);
 
-  INFO_AUTO("primary io_ctx has finished all work\n");
+  INFO_AUTO("primary io_ctx has finished all work");
 
   rtsp.reset();
 
@@ -325,7 +325,7 @@ void App::stop_request_watcher(std::stop_token stoken) noexcept {
 
     if (stoken.stop_requested()) {
       asio::post(io_ctx, [this]() {
-        INFO(module_id, "stop_request", "detected\n");
+        INFO("stop_request", "detected");
 
         io_ctx.stop();
       });

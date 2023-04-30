@@ -36,7 +36,7 @@ watch::~watch() noexcept {
 }
 
 bool watch::changed() noexcept {
-  LOG_CAT_AUTO("changed");
+  INFO_AUTO_CAT("changed");
 
   bool rc{false};
 
@@ -54,10 +54,15 @@ bool watch::changed() noexcept {
       if (in_evt->wd == w_fd) {
 
         last_write_at = fs::last_write_time(file_path);
-        rc = true;
-        INFO_AUTO("{} {}", file_path);
 
-        parse();
+        toml::table tt_next;
+
+        if (parse(tt_next) && (tt_next != ttable)) {
+          ttable = std::move(tt_next);
+
+          rc = parse_ok();
+          INFO_AUTO("{} {}", file_path);
+        }
       }
     }
   }

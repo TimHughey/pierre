@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/conf/token.hpp"
+#include "base/conf/watch.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
@@ -58,8 +58,6 @@ public:
   DmxCtrl(asio::io_context &io_ctx) noexcept;
   ~DmxCtrl() = default;
 
-  int required_threads() noexcept;
-
   /// @brief send the DataMsg to the remote host
   /// @param msg assembled DataMsg for remote host
   void send_data_msg(DataMsg &&msg) noexcept;
@@ -69,6 +67,7 @@ private:
   void handshake() noexcept;
 
   void msg_loop(MsgIn &&msg) noexcept;
+  void load_config() noexcept;
 
   void resolve_host() noexcept;
   void stall_watchdog(Millis wait = Millis::zero()) noexcept;
@@ -76,7 +75,7 @@ private:
 
 private:
   // order independent
-  conf::token tokc;
+  conf::watch tokc;
 
   // order dependent
   strand_ioc sess_strand;

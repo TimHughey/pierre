@@ -109,7 +109,7 @@ FairPlay::FairPlay(const uint8v &content, Reply &reply) noexcept {
       reply(RespCode::OK);
     } else {
       reply(RespCode::InternalServerError);
-      INFO(module_id, "ERROR", "no match for sequence and/or mode\n");
+      INFO( "ERROR", "no match for sequence and/or mode\n");
     }
   }
 }

@@ -71,7 +71,9 @@ inline constexpr const auto local_to_master_time_offset(auto *l) noexcept {
 inline constexpr string mclock_ip(auto *l) noexcept { return string(l->master_clock_ip); }
 
 inline std::pair<bool, data *> refresh(const auto &shm_name) noexcept {
-  static constexpr csv fn_id{"refresh"};
+  INFO_MODULE_ID("nqptp");
+  INFO_AUTO_CAT("refresh");
+
   auto rc = true;
 
   int prev_state; // to restore pthread cancel state

@@ -71,7 +71,7 @@ Desk::Desk(MasterClock *master_clock) noexcept
 }
 
 Desk::~Desk() noexcept {
-  LOG_CAT_AUTO("destruct");
+  INFO_AUTO_CAT("destruct");
 
   io_ctx.stop();
 
@@ -129,7 +129,7 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
 }
 
 void Desk::next_reel(Nanos wait_ns) noexcept {
-  LOG_CAT_AUTO("next_real");
+  INFO_AUTO_CAT("next_real");
 
   // when processing a synthetic reel of frames and render is active
   // we always attempt to load the next reel
@@ -145,7 +145,7 @@ void Desk::next_reel(Nanos wait_ns) noexcept {
 }
 
 bool Desk::load_reel(const Nanos wait_ns) noexcept {
-  LOG_CAT_AUTO("load_reel");
+  INFO_AUTO_CAT("load_reel");
 
   auto rc{false};
 
@@ -207,7 +207,7 @@ void Desk::render_in_strand() noexcept {
 }
 
 void Desk::resume() noexcept {
-  LOG_CAT_AUTO("resume");
+  INFO_AUTO_CAT("resume");
 
   if (io_ctx.stopped()) {
     INFO_AUTO("invoked, io_ctx.stopped={}", io_ctx.stopped());
@@ -215,7 +215,7 @@ void Desk::resume() noexcept {
     if (threads.size()) {
       // ensure any previous threads are released
       std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) {
-        INFO(module_id, "threads", "detach id={}", t.get_id());
+        INFO("threads", "detach id={}", t.get_id());
 
         t.detach();
       });
@@ -253,7 +253,7 @@ void Desk::resume() noexcept {
             {
               const string tname{fmt::format("pierre_desk{}", n)};
               pthread_setname_np(pthread_self(), tname.c_str());
-              INFO(Desk::module_id, "threads", "started {}", tname);
+              INFO("threads", "started {}", tname);
             }
 
             io_ctx.run();
@@ -268,7 +268,7 @@ void Desk::resume() noexcept {
 }
 
 void Desk::set_render(bool enable) noexcept {
-  LOG_CAT_AUTO("set_render");
+  INFO_AUTO_CAT("set_render");
 
   auto was_active = std::atomic_exchange_explicit(&render_active, enable, mem_order::relaxed);
 
@@ -292,7 +292,7 @@ bool Desk::shutdown_if_all_stop() noexcept {
   if (rc) {
 
     asio::dispatch(render_strand, [this]() {
-      LOG_CAT_AUTO("shutdown_all");
+      INFO_AUTO_CAT("shutdown_all");
 
       io_ctx.stop();
       INFO_AUTO("active_fx={} io_ctx.stopped={}", active_fx->name(), io_ctx.stopped());

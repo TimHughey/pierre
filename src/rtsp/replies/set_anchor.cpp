@@ -51,7 +51,7 @@ SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcep
     bool rate = request_dict.uint({RATE});
     desk->set_render(rate);
   } else {
-    INFO(module_id, "NOTICE", "rate not present\n");
+    INFO( "NOTICE", "rate not present\n");
   }
 
   reply(RespCode::OK);

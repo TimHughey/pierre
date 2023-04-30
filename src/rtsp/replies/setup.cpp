@@ -54,7 +54,7 @@ Setup::Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, 
       reply(RespCode::OK);
 
     } else {
-      INFO(module_id, "WARN", "implementation missing for control_type={}\n", 1);
+      INFO( "WARN", "implementation missing for control_type={}\n", 1);
     }
   }
 }
@@ -88,7 +88,7 @@ bool Setup::no_streams() noexcept {
     mDNS::update();
 
   } else if (ctx->stream_info.is_ntp_stream()) {
-    INFO(module_id, "ERROR", "NTP timing not supported\n");
+    INFO( "ERROR", "NTP timing not supported\n");
     rc = false;
 
   } else if (ctx->stream_info.is_remote_control()) {
@@ -145,7 +145,7 @@ bool Setup::has_streams() noexcept {
 
     } else if (stream_info.is_realtime()) {
       rc = false;
-      INFO(module_id, "STREAM", "realtime not supported\n");
+      INFO( "STREAM", "realtime not supported\n");
 
     } else if (stream_info.is_remote_control()) {
       rc = true;
@@ -157,10 +157,10 @@ bool Setup::has_streams() noexcept {
     }
 
   } else if (stream_info.is_ntp_stream()) {
-    INFO(module_id, "STREAM", "ntp timing not supported\n");
+    INFO( "STREAM", "ntp timing not supported\n");
 
   } else {
-    INFO(module_id, "STREAM", "unknown / unsupported stream\n");
+    INFO( "STREAM", "unknown / unsupported stream\n");
   }
 
   if (rc) {

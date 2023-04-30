@@ -30,7 +30,7 @@ namespace pierre {
 namespace desk {
 
 void Standby::apply_config() noexcept {
-  LOG_CAT_AUTO("apply_config");
+  INFO_AUTO_CAT("apply_config");
 
   auto cfg_first_color = Color({.hue = tokc.val<double>("color.hue"_tpath, 0.0),
                                 .sat = tokc.val<double>("color.sat"_tpath, 0.0),
@@ -53,7 +53,7 @@ void Standby::apply_config() noexcept {
 }
 
 void Standby::execute(const Peaks &peaks) noexcept {
-  LOG_CAT_AUTO("execute");
+  INFO_AUTO_CAT("execute");
 
   if (tokc.changed()) apply_config();
 

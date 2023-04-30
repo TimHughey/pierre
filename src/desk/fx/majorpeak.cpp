@@ -43,7 +43,7 @@ namespace stats = pierre::stats;
 }
 
 void MajorPeak::execute(const Peaks &peaks) noexcept {
-  LOG_CAT_AUTO("execute");
+  INFO_AUTO_CAT("execute");
 
   load_config();
 
@@ -191,7 +191,7 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
 }
 
 bool MajorPeak::load_config() noexcept {
-  LOG_CAT_AUTO("load_config");
+  INFO_AUTO_CAT("load_config");
 
   auto changed = tokc.changed() || pspot_cfg_map.empty();
 

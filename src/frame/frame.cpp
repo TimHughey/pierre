@@ -209,7 +209,7 @@ Nanos Frame::sync_wait_recalc() noexcept {
   } else if (synthetic()) {
     updated = sync_wait();
   } else {
-    INFO(module_id, "SYNC_WAIT", "anchor={}\n", _anchor.has_value());
+    INFO("SYNC_WAIT", "anchor={}\n", _anchor.has_value());
     updated = sync_wait();
   }
 
@@ -217,7 +217,7 @@ Nanos Frame::sync_wait_recalc() noexcept {
 }
 
 void Frame::log_decipher() const noexcept {
-  LOG_CAT_AUTO("decipher");
+  INFO_AUTO_CAT("decipher");
   auto consumed = m.has_value() ? std::ssize(*m) : 0;
 
   if (state.deciphered()) {

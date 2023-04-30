@@ -35,6 +35,17 @@ const string token::make_path() noexcept {
 
 bool token::parse() noexcept {
 
+  toml::table tt_next;
+
+  if (parse(tt_next)) {
+    ttable = std::move(tt_next);
+  }
+
+  return parse_ok();
+}
+
+bool token::parse(toml::table &tt_dest) noexcept {
+
   msgs[Parser].clear();
 
   // parse file at this path
@@ -43,8 +54,8 @@ bool token::parse() noexcept {
 
   auto pt_result = toml::parse_file(f_path.c_str());
 
-  if (pt_result) {
-    ttable = pt_result.table(); // copy the table at root
+  if (pt_result && (pt_result.table() != tt_dest)) {
+    tt_dest = pt_result.table(); // copy the table at root
 
   } else {
     msgs[Parser] = pt_result.error().description();

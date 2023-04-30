@@ -94,7 +94,7 @@ size_t Aes::encrypt(uint8v &packet) noexcept {
       std::copy(data, data + ciphered_len, std::back_inserter(packet));
       bytes_ciphered = ciphered_len;
     } else {
-      INFO(module_id, "ENCRYPT", "{}\n", pair_cipher_errmsg(cipher_ctx));
+      INFO( "ENCRYPT", "{}\n", pair_cipher_errmsg(cipher_ctx));
     }
   }
 

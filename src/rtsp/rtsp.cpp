@@ -98,7 +98,7 @@ void Rtsp::set_live(rtsp::Ctx *live_ctx) noexcept {
       auto rc = false;
 
       if (ctx && (live_ctx->active_remote != ctx->active_remote)) {
-        INFO(module_id, "freeing", "{}\n", *ctx);
+        INFO( "freeing", "{}\n", *ctx);
 
         ctx->force_close();
         rc = true;

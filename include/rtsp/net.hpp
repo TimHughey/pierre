@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/logger.hpp"
 #include "base/stats.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
@@ -48,6 +47,7 @@ struct net {
   /// @return
   template <typename R, typename CompletionToken>
   static auto async_read_msg(tcp_socket &sock, R &r, Aes &aes, CompletionToken &&token) {
+    // INFO_MODULE_ID("rtsp.net");
 
     auto initiation = [](auto &&completion_handler, tcp_socket &sock, R &r, Aes &aes) {
       struct intermediate_completion_handler {
@@ -56,8 +56,8 @@ struct net {
         Aes &aes;
         typename std::decay<decltype(completion_handler)>::type handler;
 
-        void operator()(const error_code &ec, std::size_t bytes = 0) {
-          INFO("rtsp.net", "read", "bytes={}\n", bytes);
+        void operator()(const error_code &ec, [[maybe_unused]] std::size_t bytes = 0) {
+          // INFO("read", "bytes={}\n", bytes);
 
           if (r.wire.empty() && r.packet.empty()) r.e.reset();
 
@@ -68,7 +68,7 @@ struct net {
 
           // if there is more data waiting on the socket read it
           if (size_t avail = sock.available(); avail > 0) {
-            INFO("rtsp.net", "available", "bytes={}\n", avail);
+            // INFO("available", "bytes={}\n", avail);
             // special case: we know bytes are available, do sync read
             error_code ec;
             size_t bytes = asio::read(sock, r.buffer(), asio::transfer_exactly(avail), ec);
@@ -80,7 +80,7 @@ struct net {
           }
 
           if (const auto buffered = std::ssize(r.wire); buffered > 0) {
-            INFO("rtsp.net", "buffered", "buffered={}\n", r.wire.size());
+            // INFO("buffered", "buffered={}\n", r.wire.size());
             if (auto consumed = aes.decrypt(r.wire, r.packet); consumed != buffered) {
 
               // incomplete decipher, read from socket
@@ -89,7 +89,7 @@ struct net {
             }
           }
 
-          INFO("rtsp.net", "consumed", "wire={} packet={}\n", r.wire.size(), r.packet.size());
+          // INFO("consumed", "wire={} packet={}\n", r.wire.size(), r.packet.size());
 
           // we potentially have a complete message, attempt to find the delimiters
           if (r.find_delims() == false) {
@@ -99,7 +99,7 @@ struct net {
             return;
           }
 
-          INFO("rtsp.net", "find_delms", "delims={}\n", r.delims.size());
+          // INFO("find_delms", "delims={}\n", r.delims.size());
 
           if (r.headers.parse_ok == false) {
             // we haven't parsed headers yet, do it now
@@ -182,7 +182,7 @@ struct net {
 
         void operator()(const error_code &ec, std::size_t bytes) {
 
-          INFO("rtsp.net", "write", "bytes={}\n", bytes);
+          // INFO("write", "bytes={}\n", bytes);
 
           Stats::write(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
 

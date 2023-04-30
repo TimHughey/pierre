@@ -136,17 +136,20 @@ public:
   static constexpr csv module_id{"logger"};
 };
 
-#define LOG_CAT_AUTO(cat)                                                                          \
-  static constexpr std::string_view fn_id { cat }
+#define INFO(cat, format, ...)                                                                     \
+  { pierre::_logger->info(module_id, cat, FMT_STRING(format), ##__VA_ARGS__); }
 
-#define INFO(__mid, cat, format, ...)                                                              \
-  { pierre::_logger->info(__mid, cat, FMT_STRING(format), ##__VA_ARGS__); }
+#define INFO_AUTO_CAT(cat)                                                                         \
+  static constexpr std::string_view fn_id { cat }
 
 #define INFO_AUTO(format, ...)                                                                     \
   { pierre::_logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__); }
 
 #define INFO_INIT(format, ...)                                                                     \
   { pierre::_logger->info(module_id, "init"sv, FMT_STRING(format), ##__VA_ARGS__); }
+
+#define INFO_MODULE_ID(mid)                                                                        \
+  static constexpr std::string_view module_id { mid }
 
 inline constexpr bool SHOULD_LOG(auto &mid, auto &cat) noexcept {
   return _logger ? _logger->should_log(mid, cat) : true;
