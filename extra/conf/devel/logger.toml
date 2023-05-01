@@ -33,7 +33,7 @@ flush = false
 [logger.frame]
 anchor = false
 av = false
-clock = { init = true, shutdown = false, peers_update = false, thread = true, map_shm = false }
+clock = { init = true, shutdown = false,  peers_update = false,  map_shm = false }
 dsp = { init = true }
 decipher = false
 

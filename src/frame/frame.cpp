@@ -26,6 +26,7 @@
 #include "base/stats.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
+#include "master_clock.hpp"
 
 #include <iterator>
 #include <ranges>
@@ -81,6 +82,7 @@ notes:
 std::unique_ptr<Av> Frame::av{nullptr};
 
 // Frame API
+Frame::~Frame() noexcept {}
 
 bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
   // the nonce for libsodium is 12 bytes however the packet only provides 8
@@ -149,71 +151,78 @@ bool Frame::decode() noexcept {
   return state.deciphered() && av->parse(*this) && state.dsp_any();
 }
 
-frame::state Frame::state_now(const AnchorLast anchor) noexcept {
+frame::state Frame::state_now(MasterClock &clk, Anchor &anc, Nanos lead_time) noexcept {
+  std::optional<frame::state> next_state;
+  Nanos diff{0};
+
   if (synthetic()) {
-    // synthetic frames are always ready
-    state = frame::READY;
-  } else if (anchor.ready()) {
-    // cache the anchor used for this calculation
-    _anchor.emplace(std::move(anchor));
+    // note: synthetic frames are always ready
+    next_state.emplace(frame::READY);
 
-    auto diff = _anchor->frame_local_time_diff(timestamp);
+  } else if (clk.info(clk_info)) {
 
-    state = state_now(diff, InputInfo::lead_time);
+    // clock is good, get and check anchor last
+    if (auto ancl = anc.get_data(clk_info); ancl.ready()) {
+
+      // anchor is good, calc diff between frame and local time
+      diff = ancl.frame_local_time_diff(timestamp);
+
+      if (diff < 0ns) {
+        // first handle any outdated frames regardless of state
+        next_state.emplace(frame::OUTDATED);
+      } else if (state.updatable()) {
+        // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
+        if ((diff >= 0ns) && (diff <= lead_time)) {
+
+          // in range
+          next_state.emplace(frame::READY);
+        } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
+
+          // future
+          next_state.emplace(frame::FUTURE);
+        }
+      } // end of diff check
+
+    } else {
+      next_state.emplace(frame::NO_ANCHOR);
+    }
+  } else {
+    next_state.emplace(frame::NO_CLOCK);
   }
 
-  return state;
-}
+  // set the new state if it has changed
+  if (state(next_state)) {
+    if (diff > 0ns) {
+      sync_wait(diff);
 
-frame::state Frame::state_now(const Nanos diff, const Nanos &lead_time) noexcept {
-
-  // save the initial value of the state to confirm we don't conflict with another
-  // thread (e.g. dsp processing) that may also change the state
-  std::optional<frame::state> new_state;
-
-  if (synthetic()) {
-    new_state.emplace(frame::READY);
-
-  } else if (diff < Nanos::zero()) {
-    // first handle any outdated frames regardless of state
-    new_state.emplace(frame::OUTDATED);
-
-  } else if (state.updatable()) {
-    // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
-    if ((diff >= Nanos::zero()) && (diff <= lead_time)) {
-
-      // in range
-      new_state.emplace(frame::READY);
-    } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
-
-      // future
-      new_state.emplace(frame::FUTURE);
+      if ((diff > InputInfo::lead_time) || (diff < InputInfo::lead_time_min)) {
+        Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+      }
     }
   }
 
-  if (new_state.has_value()) {
-    state = std::move(new_state.value());
-
-    set_sync_wait(diff);
-    Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
-  }
-
   return state;
 }
 
-Nanos Frame::sync_wait_recalc() noexcept {
-  Nanos updated;
+Nanos Frame::sync_wait(MasterClock &clk, Anchor &anchor) noexcept {
 
-  if (_anchor.has_value()) {
-    updated = set_sync_wait(_anchor->frame_local_time_diff(timestamp));
-  } else if (synthetic()) {
-    updated = sync_wait();
-  } else {
-    INFO("SYNC_WAIT", "anchor={}\n", _anchor.has_value());
-    updated = sync_wait();
+  if (synthetic() == false) {
+    // we can adjust the sync wait for non-synthetic frames
+
+    if (clk_info.old()) clk.info(clk_info);
+
+    if (clk_info.ok()) {
+
+      // clock is good, now get anchor last
+      if (auto ancl = anchor.get_data(clk_info); ancl.ready()) {
+
+        // anchor is good, save updated sync_wait
+        sync_wait(ancl.frame_local_time_diff(timestamp));
+      }
+    }
   }
 
-  return updated;
+  return sync_wait();
 }
 
 void Frame::log_decipher() const noexcept {

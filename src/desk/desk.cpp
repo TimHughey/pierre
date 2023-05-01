@@ -71,11 +71,9 @@ Desk::Desk(MasterClock *master_clock) noexcept
 }
 
 Desk::~Desk() noexcept {
-  INFO_AUTO_CAT("destruct");
-
   io_ctx.stop();
 
-  INFO_AUTO("io_ctx.stopped()={}", io_ctx.stopped());
+  INFO(module_id, "destruct", "io_ctx.stopped()={}", io_ctx.stopped());
 }
 
 ////
@@ -128,82 +126,61 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   if (racked) racked->handoff(std::forward<uint8v>(packet), key);
 }
 
-void Desk::next_reel(Nanos wait_ns) noexcept {
-  INFO_AUTO_CAT("next_real");
-
-  // when processing a synthetic reel of frames and render is active
-  // we always attempt to load the next reel
-  if (active_reel.empty() || (active_reel.synthetic() && render_active.load(mem_order::relaxed))) {
-
-    // we need a new reel now
-    if (load_reel(wait_ns) == false) {
-      INFO_AUTO("failed, falling back to synthetic");
-      // hmmm, we couldn't load a reel, fallback to synthetic
-      active_reel = Reel(Reel::Synthetic);
-    }
-  }
-}
-
-bool Desk::load_reel(const Nanos wait_ns) noexcept {
-  INFO_AUTO_CAT("load_reel");
-
-  auto rc{false};
+void Desk::next_reel() noexcept {
+  INFO_AUTO_CAT("next_reel");
 
   // do we have a pending future reel?
   if (future_reel.valid()) {
     using fstatus = std::future_status;
 
-    if (auto status = future_reel.wait_for(wait_ns); status == fstatus::ready) {
-      rc = true;
-      std::exchange(active_reel, racked->next_reel().get());
-    } else
-      INFO_AUTO("timeout");
-  } else {
+    if (auto status = future_reel.wait_for(1ms); status == fstatus::ready) {
+      active_reel = future_reel.get();
+    } else {
+      INFO_AUTO("timeout, falling back to synthetic");
+      active_reel = Reel(Reel::Synthetic);
+    }
+  } else if (active_reel.empty() || (active_reel.synthetic() && render_active)) {
     future_reel = racked->next_reel();
   }
-
-  return rc;
 }
 
-void Desk::render_in_strand() noexcept {
+void Desk::render_via_strand() noexcept {
+  Elapsed e;
 
   // get a frame from the reel
-  auto frame = active_reel.peek_or_pop(*master_clock, anchor.get());
+  auto frame = active_reel.peek_or_pop(*master_clock, *anchor);
 
-  auto sync_wait = frame.sync_wait();
+  if (fx_finished()) fx_select(frame);
 
-  frame_timer.expires_after(sync_wait);
-  frame_timer.async_wait(asio::append(
-      [this](const error_code &ec, Frame frame) {
-        if (ec) return;
+  if (shutdown_if_all_stop() == false) {
 
-        Elapsed e;
-        frame.record_state();
+    if (frame.ready()) {
+      // the frame is ready for rendering
+      desk::DataMsg msg(frame.seq_num, frame.silent());
 
-        if (fx_finished()) fx_select(frame);
+      // send the data message if rendered
+      if (active_fx->render(frame.get_peaks(), msg)) {
+        dmx_ctrl->send_data_msg(std::move(msg));
+      }
+    }
 
-        if (shutdown_if_all_stop()) return;
+    next_reel(); // request next reel if active is emply
 
-        // render frame and send to DMX controller
-        if (frame.state.ready()) {
-          desk::DataMsg msg(frame.seq_num, frame.silent());
+    frame_timer.expires_after(frame.sync_wait(*master_clock, *anchor));
+    frame_timer.async_wait([this](const error_code &ec) {
+      if (ec) return;
 
-          // send the data message if rendered
-          if (active_fx->render(frame.get_peaks(), msg)) {
-            dmx_ctrl->send_data_msg(std::move(msg));
-          }
+      next_reel(); // get next reel if request pending
+      render_via_strand();
+    });
 
-        } // end ready frame handling
+    frame.record_state();
 
-        // notate the frame is rendered (or silent) in timeseries db
-        frame.mark_rendered();
+    // notate the frame is rendered (or silent) in timeseries db
+    frame.mark_rendered();
 
-        next_reel(2ms);
-
-        render_in_strand();
-        Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
-      },
-      std::move(frame)));
+    Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
+  }
 }
 
 void Desk::resume() noexcept {
@@ -212,19 +189,15 @@ void Desk::resume() noexcept {
   if (io_ctx.stopped()) {
     INFO_AUTO("invoked, io_ctx.stopped={}", io_ctx.stopped());
 
-    if (threads.size()) {
+    if (!threads.empty()) {
       // ensure any previous threads are released
-      std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) {
-        INFO("threads", "detach id={}", t.get_id());
-
-        t.detach();
-      });
+      std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) { t.detach(); });
 
       threads.clear();
       INFO_AUTO("cleared {} threads", threads.size());
     }
 
-    INFO_AUTO("io_ctx stopped, resetting...");
+    INFO_AUTO("io_ctx stopped, resetting");
     io_ctx.reset();
 
     // add work to io_ctx before starting threads
@@ -239,25 +212,25 @@ void Desk::resume() noexcept {
       // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
       anchor->reset();
 
-      render_in_strand();
+      render_via_strand();
     });
 
-    const auto n_thr = tokc.val<int>("threads"_tpath, 1);
-    INFO_AUTO("starting {} threads...", n_thr);
+    volatile auto n_thr = tokc.val<int>("threads"_tpath, 1);
+    threads = std::vector<std::jthread>(n_thr);
+    INFO_AUTO("starting {} threads", std::ssize(threads));
 
-    // add threads to the io_ctx and start
-    for (auto n = 0; n < n_thr; ++n) {
-      threads.emplace_back(
-          // add threads for handling frame rendering
-          std::jthread([this, n = n]() {
-            {
-              const string tname{fmt::format("pierre_desk{}", n)};
-              pthread_setname_np(pthread_self(), tname.c_str());
-              INFO("threads", "started {}", tname);
-            }
+    for (auto &t : threads) {
+      const auto tname = fmt::format("pierre_desk{}", n_thr);
 
-            io_ctx.run();
-          }));
+      n_thr = n_thr - 1;
+
+      t = std::jthread([this, tname = tname]() {
+        pthread_setname_np(pthread_self(), tname.c_str());
+
+        io_ctx.run();
+      });
+
+      INFO("thread", "started {} {}", tname, t.get_id());
     }
 
     using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
@@ -270,7 +243,7 @@ void Desk::resume() noexcept {
 void Desk::set_render(bool enable) noexcept {
   INFO_AUTO_CAT("set_render");
 
-  auto was_active = std::atomic_exchange_explicit(&render_active, enable, mem_order::relaxed);
+  auto was_active = std::exchange(render_active, enable);
 
   INFO_AUTO("enable={} was_active={}", enable, was_active);
 

@@ -25,7 +25,7 @@ namespace frame {
 void state::record_state() const noexcept { Stats::write(pierre::stats::FRAME, 1, tag()); }
 
 std::map<state_now_t, string> state::val_to_txt_map{
-    // comment for easy IDE sorting
+    // note: comment for easy IDE sorting
     {DECIPHER_FAILURE, "decipher_failure"},
     {DECIPHERED, "deciphered"},
     {DECODE_FAILURE, "decode_failure"},
@@ -38,14 +38,16 @@ std::map<state_now_t, string> state::val_to_txt_map{
     {FUTURE, "future"},
     {HEADER_PARSED, "header_parsed"},
     {INVALID, "invalid"},
+    {NO_ANCHOR, "no_anchor"},
+    {NO_CLOCK, "no_clock"},
     {NO_SHARED_KEY, "no_shared_key"},
     {NONE, "none"},
     {OUTDATED, "outdated"},
     {PARSE_FAILURE, "parse_failure"},
     {READY, "ready"},
     {RENDERED, "rendered"},
-    {SILENCE, "silence"}
-    //
+    {SILENCE, "silence"},
+    // note: extra comma above for easy IDE sorting
 };
 
 } // namespace frame

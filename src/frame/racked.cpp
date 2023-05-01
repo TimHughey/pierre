@@ -48,13 +48,13 @@ Racked::Racked() noexcept
 {
 
   // start the threads and run the io_ctx
-  for (auto n = 0; n < nthreads; n++) {
+  for (uint8_t n = 0; n < nthreads; n++) {
     std::jthread([this, n = n]() {
       static constexpr csv tname{"pierre_racked"};
 
       pthread_setname_np(pthread_self(), tname.data());
 
-      INFO(Racked::module_id, "threads", "startihg thread={}\n", n);
+      INFO("thread", "started {}", n);
 
       io_ctx.run();
     }).detach();
@@ -231,8 +231,7 @@ void Racked::rack_wip() noexcept {
 }
 
 Reel Racked::take_wip() noexcept {
-  std::unique_lock lck(wip_mtx, std::defer_lock);
-  lck.lock();
+  std::unique_lock lck(wip_mtx);
 
   return std::exchange(wip, Reel(Reel::MaxFrames));
 }

@@ -55,15 +55,9 @@ public:
   MasterClock(asio::io_context &io_ctx) noexcept;
   ~MasterClock() noexcept;
 
-  const ClockInfo info_no_wait() noexcept { return load_info_from_mapped(); }
+  bool info(ClockInfo &clk_info) noexcept;
 
   void peers(const Peers &&peers) noexcept;
-
-  // misc debug
-  void dump();
-
-private:
-  const ClockInfo load_info_from_mapped() noexcept;
 
 private:
   // order dependent

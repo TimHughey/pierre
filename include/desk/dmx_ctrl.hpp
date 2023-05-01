@@ -63,6 +63,8 @@ public:
   void send_data_msg(DataMsg &&msg) noexcept;
 
 private:
+  const string cfg_host() noexcept { return tokc.val<string>("remote.host"_tpath, "dmx"sv); }
+
   /// @brief send the initial handshake to the remote host
   void handshake() noexcept;
 
@@ -70,7 +72,14 @@ private:
   void load_config() noexcept;
 
   void resolve_host() noexcept;
-  void stall_watchdog(Millis wait = Millis::zero()) noexcept;
+
+  void reconnect() noexcept {
+    remote_host.clear();
+    stall_watchdog(0ms);
+  }
+
+  void stall_watchdog() noexcept { stall_watchdog(stall_timeout); }
+  void stall_watchdog(Millis wait) noexcept;
   void unknown_host() noexcept;
 
 private:

@@ -83,7 +83,7 @@ bool Reel::flush(FlushInfo &flush_info) noexcept {
   return empty();
 }
 
-Frame Reel::peek_or_pop(MasterClock &clock, Anchor *anchor) noexcept {
+Frame Reel::peek_or_pop(MasterClock &clock, Anchor &anchor) noexcept {
   static constexpr auto fn_id{"peek_front"sv};
 
   // NOTE: defaults to silent frame
@@ -99,37 +99,33 @@ Frame Reel::peek_or_pop(MasterClock &clock, Anchor *anchor) noexcept {
     // this is a reel of actual frames, get clock info and anchor
     // to calculate frame state
 
-    const auto clk_info = clock.info_no_wait();
+    // search through available frames:
+    //  1. ready or future frames are returned
+    //  2. outdated frames are consumed
 
-    if (clk_info.ok()) {
-      auto anchor_last = anchor->get_data(clk_info);
+    for (auto f = begin(); f != end() && frame.synthetic(); ++f) {
+      const auto fstate = f->state_now(clock, anchor);
 
-      if (anchor_last.ready()) {
+      // ready or future frames are returned
+      if (fstate.ready_or_future()) {
 
-        // search through available frames:
-        //  1. ready or future frames are returned
-        //  2. outdated frames are consumed
+        // we don't need to look at ready frames again, consume it
+        if (fstate.ready()) consume();
 
-        for (auto f = begin(); f != end() && frame.synthetic(); ++f) {
-          const auto fstate = f->state_now(anchor_last);
+        frame = std::move(*f);
 
-          // ready or future frames are returned
-          if (fstate.ready_or_future()) {
+      } else if (fstate.outdated()) {
+        // eat outdated frames
+        f->mark_rendered();
+        consume();
 
-            // we don't need to look at ready frames again, consume it
-            if (fstate.ready()) consume();
-
-            frame = std::move(*f);
-
-          } else if (fstate.outdated()) {
-            // eat outdated frames
-            consume();
-          } else {
-            INFO_AUTO("encountered {}\n", *f);
-          }
-        }
-      } // end of anchor check
-    }   // end of non-empty reel processing
+      } else if (fstate.no_clock_or_anchor()) {
+        break;
+      } else {
+        INFO_AUTO("encountered {}\n", *f);
+        break;
+      }
+    }
   }
 
   // return whatever frame we found (pure synthetic, synthetic from reel or

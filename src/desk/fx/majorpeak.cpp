@@ -193,7 +193,9 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
 bool MajorPeak::load_config() noexcept {
   INFO_AUTO_CAT("load_config");
 
-  auto changed = tokc.changed() || pspot_cfg_map.empty();
+  // auto changed = tokc.changed() || pspot_cfg_map.empty();
+
+  auto changed = pspot_cfg_map.empty();
 
   if (changed) {
 
@@ -286,7 +288,7 @@ bool MajorPeak::load_config() noexcept {
     set_silence_timeout(timeout, fx::STANDBY);
   }
 
-  if (changed) INFO_AUTO("config loaded {}", tokc);
+  if (changed) INFO_AUTO("{}", tokc);
 
   return changed;
 }

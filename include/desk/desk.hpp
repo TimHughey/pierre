@@ -71,16 +71,13 @@ private:
   bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
-  bool load_reel(const Nanos wait_ns) noexcept;
-
-  void next_reel() noexcept { next_reel(0ns); }
-  void next_reel(Nanos wait_ns) noexcept;
+  void next_reel() noexcept;
 
   void render() noexcept {
-    asio::post(render_strand, [this]() { render_in_strand(); });
+    asio::post(render_strand, [this]() { render_via_strand(); });
   }
 
-  void render_in_strand() noexcept;
+  void render_via_strand() noexcept;
 
   bool shutdown_if_all_stop() noexcept;
 
@@ -90,7 +87,7 @@ private:
   asio::io_context io_ctx;
   std::unique_ptr<Racked> racked;
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl;
-  std::atomic_bool render_active;
+  bool render_active;
   MasterClock *master_clock;
   std::unique_ptr<Anchor> anchor;
   strand_ioc render_strand;

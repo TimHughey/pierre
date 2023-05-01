@@ -91,7 +91,7 @@ private:
   Reel wip;
 
   // order independent
-  std::timed_mutex wip_mtx;
+  std::mutex wip_mtx;
   FlushInfo flush_request;
   std::atomic_bool spool_frames{false};
   std::atomic<ssize_t> _reel_count{0};

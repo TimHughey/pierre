@@ -23,7 +23,8 @@
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
-#include "frame/anchor_last.hpp"
+#include "frame/clock_info.hpp"
+#include "frame/fdecls.hpp"
 #include "frame/peaks.hpp"
 #include "frame/state.hpp"
 
@@ -40,6 +41,7 @@ using cipher_buff_t = std::optional<uint8v>;
 class Av;
 
 class Frame {
+  friend struct fmt::formatter<Frame>;
 
 public:
   /// @brief Construct a silent frame
@@ -57,7 +59,10 @@ public:
   {}
 
 public:
-  friend struct fmt::formatter<Frame>;
+  ~Frame() noexcept;
+  Frame(Frame &&) = default;
+
+  Frame &operator=(Frame &&) = default;
 
   std::weak_ordering operator<=>(const Frame &rhs) const noexcept {
     return timestamp <=> rhs.timestamp;
@@ -68,11 +73,15 @@ public:
   bool decode() noexcept;
   void flushed() noexcept { state = frame::FLUSHED; }
 
+  const Peaks &get_peaks() noexcept { return peaks; }
+
   void mark_rendered() noexcept {
     state = silent() ? frame::SILENCE : frame::RENDERED;
 
     state.record_state();
   }
+
+  bool ready() const noexcept { return state.ready(); }
 
   frame::state record_state() const noexcept {
     state.record_state();
@@ -80,33 +89,36 @@ public:
     return state;
   }
 
+  bool silent() const noexcept { return silence; }
+
   bool silent(bool is_silent) noexcept {
     silence = is_silent;
     return silence;
   }
 
-  bool silent() const noexcept { return silence; }
+  frame::state state_now(MasterClock &clk, Anchor &anc) noexcept {
+    state_now(clk, anc, InputInfo::lead_time);
 
-  frame::state state_now(const AnchorLast anchor) noexcept;
-  frame::state state_now(const Nanos diff, const Nanos &lead_time = InputInfo::lead_time) noexcept;
+    return state;
+  }
+
+  frame::state state_now(MasterClock &clk, Anchor &anc, Nanos lead_time) noexcept;
+
+  // frame::state state_now(const AnchorLast anchor) noexcept;
+  // frame::state state_now(const Nanos diff, const Nanos &lead_time = InputInfo::lead_time)
+  // noexcept;
 
   // sync_wait() and related functions can be overriden by subclasses
-  virtual Nanos sync_wait() const noexcept { return _sync_wait.value_or(InputInfo::lead_time); }
-
-  // returns sync_wait unchanged if anchor is not available
-  virtual Nanos sync_wait_recalc() noexcept;
+  Nanos sync_wait() const noexcept { return cached_sync_wait.value_or(InputInfo::lead_time); }
+  Nanos sync_wait(MasterClock &clk, Anchor &anc) noexcept;
+  const Nanos sync_wait(Nanos diff) noexcept {
+    return synthetic() ? sync_wait() : cached_sync_wait.emplace(diff);
+  }
 
   bool synthetic() const noexcept { return !seq_num || !timestamp; }
 
-  const Peaks &get_peaks() noexcept { return peaks; }
-
   // misc debug
   void log_decipher() const noexcept;
-
-protected:
-  Nanos set_sync_wait(const Nanos diff) noexcept {
-    return synthetic() ? _sync_wait.value() : _sync_wait.emplace(diff);
-  }
 
 public:
   // order dependent
@@ -136,9 +148,8 @@ public:
   // populated by Av or empty (silent)
   Peaks peaks;
 
-protected:
   // calculated by state_now() or recalculated by sync_wait_recalc()
-  std::optional<Nanos> _sync_wait;
+  std::optional<Nanos> cached_sync_wait;
   bool silence{false};
 
 private:
@@ -147,11 +158,11 @@ private:
   int cipher_rc{0};                  // decipher support
   static ptrdiff_t cipher_buff_size; // in bytes, populated by init()
 
-  std::optional<AnchorLast> _anchor;
+  ClockInfo clk_info;
 
 public:
   static constexpr uint8_t RTPv2{0x02};
-  static constexpr csv module_id{"frame"};
+  static constexpr auto module_id{"frame"sv};
 };
 
 } // namespace pierre

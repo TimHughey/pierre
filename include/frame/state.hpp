@@ -53,6 +53,8 @@ enum state_now_t : size_t {
   DECODED,
   DSP_IN_PROGRESS,
   DSP_COMPLETE,
+  NO_CLOCK,
+  NO_ANCHOR,
   FUTURE,
   OUTDATED,
   READY,
@@ -63,37 +65,7 @@ enum state_now_t : size_t {
 class state {
 public:
   state() noexcept : val{state_now_t::NONE} {}
-  state(const state &) = default;
   state(const state_now_t now_val) noexcept : val(now_val) {}
-  state(state &&s) = default;
-  ~state() noexcept {}
-
-  state &operator=(const state &rhs) = default;
-  state &operator=(const state_now_t now_val) noexcept {
-    val = now_val;
-    return *this;
-  }
-
-  state &operator=(state &&) = default;
-
-  // allow comparison to state_now_t, another state or a set of state_now_t
-  // note:  this must be a friend implementation to align with operator<=>
-  template <typename T> friend bool operator==(const state &lhs, const T &rhs) noexcept {
-    if constexpr (std::same_as<T, state_now_t>) {
-      return lhs.val == rhs;
-    } else if constexpr (std::is_same_v<T, state>) {
-      return lhs.val == rhs.val;
-    } else if constexpr (std::is_same_v<T, std::set<state_now_t>>) {
-      return rhs.contains(lhs.val);
-    } else {
-      static_assert(always_false_v<T>,
-                    "comparison to state_now_t, another state or a set of state_now_t only");
-    }
-  }
-
-  friend std::strong_ordering operator<=>(const state &lhs, const state &rhs) noexcept {
-    return lhs.val <=> rhs.val;
-  }
 
   bool deciphered() const noexcept { return *this == DECIPHERED; };
   bool decoded() const noexcept { return *this == DECODED; }
@@ -116,7 +88,43 @@ public:
 
   csv inspect() const noexcept { return csv{val_to_txt_map.at(val)}; }
 
+  auto no_clock_or_anchor() const noexcept { return (*this == NO_CLOCK) || (*this == NO_ANCHOR); }
   auto now() const noexcept { return val; }
+
+  bool operator()(std::optional<state> &n) noexcept {
+    auto changed{false};
+
+    if (changed = n.has_value() && (n.value() != *this); changed) {
+      val = n->val;
+    }
+
+    return changed;
+  }
+
+  state &operator=(const state &rhs) = default;
+  state &operator=(const state_now_t now_val) noexcept {
+    val = now_val;
+    return *this;
+  }
+
+  // allow comparison to state_now_t, another state or a set of state_now_t
+  // note:  this must be a friend implementation to align with operator<=>
+  template <typename T> friend bool operator==(const state &lhs, const T &rhs) noexcept {
+    if constexpr (std::same_as<T, state_now_t>) {
+      return lhs.val == rhs;
+    } else if constexpr (std::is_same_v<T, state>) {
+      return lhs.val == rhs.val;
+    } else if constexpr (std::is_same_v<T, std::set<state_now_t>>) {
+      return rhs.contains(lhs.val);
+    } else {
+      static_assert(always_false_v<T>,
+                    "comparison to state_now_t, another state or a set of state_now_t only");
+    }
+  }
+
+  friend std::strong_ordering operator<=>(const state &lhs, const state &rhs) noexcept {
+    return lhs.val <=> rhs.val;
+  }
 
   bool outdated() const noexcept { return *this == OUTDATED; }
   bool ready() const noexcept { return *this == READY; }

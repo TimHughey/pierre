@@ -40,10 +40,6 @@ namespace desk {
 static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_endpoint &r,
                                    Elapsed e = Elapsed()) noexcept;
 
-inline const string cfg_host(conf::token &tok) noexcept {
-  return tok.val<string>("remote.host"_tpath, "dmx"sv);
-}
-
 inline auto resolve_timeout(conf::token &tok) noexcept {
   return tok.val<Millis>("local.resolve.timeout.ms"_tpath, 15'000);
 }
@@ -177,7 +173,7 @@ void DmxCtrl::resolve_host() noexcept {
 
   asio::post(sess_strand, [this]() {
     // get the host we will connect to unless we already have it
-    if (remote_host.empty()) remote_host = cfg_host(tokc);
+    if (remote_host.empty()) remote_host = cfg_host();
 
     INFO_AUTO("attempting to resolve '{}'", remote_host);
 
@@ -269,31 +265,26 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
       if (msg.elapsed() > 200us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
+
+        // if (tokc.changed() && (remote_host != cfg_host())) {
+        //   INFO("info"sv, "conf change remote_host={}", cfg_host());
+        //   reconnect();
+        // } else {
         stall_watchdog();
+        // }
+
       } else {
         Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
         connected.store(false);
       }
+
+      // }
     });
   }
 }
 
 void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   INFO_AUTO_CAT("stalled");
-
-  if (tokc.changed()) {
-    INFO("info"sv, "detected conf change");
-  }
-
-  // when passed a non-zero wait time we're handling a special
-  // case (e.g. host resolve failure), otherwise use configured
-  // stall timeout value
-  if (wait == Millis::zero()) wait = stall_timeout;
-
-  if (remote_host != cfg_host(tokc)) {
-    remote_host.clear(); // triggers pull from config on next name resolution
-    wait = 0s;           // override wait, config has changed
-  }
 
   stalled_timer.expires_after(wait);
   stalled_timer.async_wait([this, wait = wait](error_code ec) {

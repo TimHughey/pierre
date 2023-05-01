@@ -98,7 +98,7 @@ public:
   }
 
   // note: clk_info must be valid
-  Frame peek_or_pop(MasterClock &clock, Anchor *anchor) noexcept;
+  Frame peek_or_pop(MasterClock &clock, Anchor &anchor) noexcept;
 
   template <typename T = uint64_t> const T serial_num() const noexcept {
     if constexpr (std::same_as<T, uint64_t>) {

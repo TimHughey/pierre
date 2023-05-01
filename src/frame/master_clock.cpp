@@ -71,36 +71,33 @@ inline constexpr const auto local_to_master_time_offset(auto *l) noexcept {
 inline constexpr string mclock_ip(auto *l) noexcept { return string(l->master_clock_ip); }
 
 inline std::pair<bool, data *> refresh(const auto &shm_name) noexcept {
-  INFO_MODULE_ID("nqptp");
+  INFO_MODULE_ID(MasterClock::module_id);
   INFO_AUTO_CAT("refresh");
 
   auto rc = true;
 
-  int prev_state; // to restore pthread cancel state
-
+  // once only to perform initial mapping
   if (is_mapped() == false) {
-    // prevent thread cancellation while mapping
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
-
     if (auto shm_fd = shm_open(shm_name.data(), O_RDWR, 0); shm_fd >= 0) {
       // flags must be PROT_READ | PROT_WRITE to allow writes to mapped memory for the mutex
+
+      int prev_state; // to restore pthread cancel state
+                      // prevent thread cancellation while mapping
+      pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
       constexpr auto flags = PROT_READ | PROT_WRITE;
       mapped = mmap(NULL, len(), flags, MAP_SHARED, shm_fd, 0);
 
       close(shm_fd); // done with the shm memory fd
 
-      INFO(MasterClock::module_id, fn_id, "complete={}\n", is_mapped());
-    } else {
-      INFO(MasterClock::module_id, fn_id, "clock map shm={} error={}\n", shm_name, strerror(errno));
-    }
+      pthread_setcancelstate(prev_state, nullptr);
 
-    pthread_setcancelstate(prev_state, nullptr);
+      INFO_AUTO("mapped={}\n", is_mapped());
+    } else {
+      INFO_AUTO("clock map shm={} error={}\n", shm_name, strerror(errno));
+    }
   }
 
   if (is_mapped()) {
-    // prevent thread cancellation while copying
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &prev_state);
-
     // shm_structure embeds a mutex at the beginning that
     // we use to guard against data races
     auto *mtx = static_cast<pthread_mutex_t *>(mapped);
@@ -108,14 +105,13 @@ inline std::pair<bool, data *> refresh(const auto &shm_name) noexcept {
 
     memcpy(&latest, (char *)mapped, len());
     if (latest.version != NQPTP_VERSION) {
-      INFO(MasterClock::module_id, fn_id, "nqptp version mismatch vsn={}", latest.version);
+      INFO_AUTO("nqptp version mismatch vsn={}", latest.version);
 
       rc = false;
     }
 
     // release the mutex
     pthread_mutex_unlock(mtx);
-    pthread_setcancelstate(prev_state, nullptr);
   }
 
   return std::make_pair(rc && is_mapped(), &latest);
@@ -133,8 +129,6 @@ MasterClock::MasterClock(asio::io_context &io_ctx) noexcept
       nqptp_rep(nqptp_addr, CTRL_PORT),              // endpoint of nqptp daemon
       peer(io_ctx, ip_udp::v4())                     // construct and open
 {
-  static constexpr csv def_shm_name{"/nqptp"};
-
   INFO_INIT("sizeof={:>5} shm_name={} dest={}:{} nqptp_len={}\n", sizeof(MasterClock), SHM_NAME,
             nqptp_rep.address().to_string(), nqptp_rep.port(), nqptp::len());
 
@@ -142,25 +136,31 @@ MasterClock::MasterClock(asio::io_context &io_ctx) noexcept
 }
 
 MasterClock::~MasterClock() noexcept {
-  static constexpr csv fn_id("shutdown");
-
   if (peer.is_open()) {
-    // add peers reset logic
+    [[maybe_unused]] error_code ec;
+    peer.close(ec);
   }
 
   nqptp::unmap();
 }
 
 // NOTE: new data is available every 126ms
-const ClockInfo MasterClock::load_info_from_mapped() noexcept {
-  auto [rc, nd] = nqptp::refresh(SHM_NAME);
+bool MasterClock::info(ClockInfo &info) noexcept {
 
-  if (!rc) return ClockInfo();
+  if (auto refresh = nqptp::refresh(SHM_NAME); refresh.first) {
+    auto nd = refresh.second;
 
-  return ClockInfo(nqptp::mclock_id(nd), nqptp::mclock_ip(nd),
-                   nqptp::local_time(nd),                  // aka sample time
-                   nqptp::local_to_master_time_offset(nd), // aka raw offset
-                   nqptp::mclock_start_time(nd));
+    info.clock_id = nqptp::mclock_id(nd);
+    info.masterClockIp = nqptp::mclock_ip(nd);
+    info.sampleTime = nqptp::local_time(nd);
+    info.rawOffset = nqptp::local_to_master_time_offset(nd);
+    info.mastershipStartTime = nqptp::mclock_start_time(nd);
+    info.sample_age.reset();
+  } else {
+    info = std::move(ClockInfo());
+  }
+
+  return info.ok();
 }
 
 void MasterClock::peers(const Peers &&new_peers) noexcept {
@@ -187,12 +187,6 @@ void MasterClock::peers(const Peers &&new_peers) noexcept {
 
     if (ec) INFO_AUTO("send msg failed, reason={} bytes={}\n", ec.message(), bytes);
   });
-}
-
-// misc debug
-void MasterClock::dump() {
-  static constexpr csv fn_id{"dump"};
-  INFO_AUTO("\n{}\n", load_info_from_mapped().inspect());
 }
 
 } // namespace pierre
