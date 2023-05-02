@@ -71,7 +71,7 @@ void Audio::async_read() noexcept {
       ctx->desk->handoff(std::move(raw_audio), ctx->shared_key);
     } else if (ec) {
       // error path
-      INFO_AUTO("[falling through] n={} err={}\n", n, ec.what());
+      INFO_AUTO("[falling through] n={} msg={}\n", n, ec.message());
       return; // fall through
     } else {
       INFO_AUTO("SHORT READ, n={}\n", n);
