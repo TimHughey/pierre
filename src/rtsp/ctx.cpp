@@ -61,15 +61,12 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock,
 }
 
 Ctx::Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept
-    : sock(io_ctx),               //
-      rtsp(rtsp),                 //
-      desk(desk),                 //
-      aes(),                      //
-      feedback_timer(io_ctx),     //
-      teardown_in_progress(false) //
+    : sock(io_ctx), rtsp(rtsp), desk(desk), aes(),
+      feedback_timer(io_ctx), teardown_in_progress{false} //
 {
-  constexpr auto fn_id{"construct"sv};
   INFO_INIT("sizeof={:>5} socket={}\n", sizeof(Ctx), peer.native_handle());
+
+  if (desk) desk->resume();
 
   // transfer the accepted connection to our io_ctx
   error_code ec;
@@ -77,14 +74,14 @@ Ctx::Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept
 
   const auto &r = sock.remote_endpoint();
   const auto msg = log_socket_msg(ec, sock, r);
-  INFO_AUTO("{}\n", msg);
+  INFO_INIT("{}\n", msg);
 
   thread = std::jthread([this]() {
-    constexpr auto tname{"pierre_session"};
+    constexpr auto tname{"pierre_sess"};
 
     pthread_setname_np(pthread_self(), tname);
 
-    live.store(true);
+    live = true;
 
     msg_loop(); // queues the message handling work
 
@@ -94,7 +91,7 @@ Ctx::Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept
 
 Ctx::~Ctx() noexcept {
   if (thread.joinable()) thread.join();
-};
+}
 
 void Ctx::feedback_msg() noexcept {}
 
@@ -102,8 +99,8 @@ void Ctx::force_close() noexcept {
   constexpr auto fn_id{"force_close"sv};
 
   bool is_live{true};
-  if (std::atomic_compare_exchange_strong(&live, &is_live, false)) {
-    INFO_AUTO("requested, is_live={} live={}\n", is_live, live.load());
+  if (std::exchange(live, is_live) == false) {
+    INFO_AUTO("requested, is_live={} live={}\n", is_live, live);
 
     teardown();
 
@@ -114,7 +111,7 @@ void Ctx::force_close() noexcept {
 
 void Ctx::msg_loop() noexcept {
 
-  if (live.load() == true) {
+  if (live == true) {
     request.emplace();
     reply.emplace();
 
@@ -197,7 +194,7 @@ void Ctx::teardown() noexcept {
   static constexpr csv fn_id{"teardown"};
 
   // only start the teardown if not already in progress
-  if (teardown_in_progress.exchange(true) == false) {
+  if (std::exchange(teardown_in_progress, true) == false) {
 
     INFO_AUTO("requested {}\n", *this);
 

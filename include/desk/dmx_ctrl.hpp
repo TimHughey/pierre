@@ -46,6 +46,8 @@ using ip_tcp = boost::asio::ip::tcp;
 using tcp_acceptor = boost::asio::ip::tcp::acceptor;
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 using tcp_socket = boost::asio::ip::tcp::socket;
+using tcp_resolver = ip_tcp::resolver;
+using resolve_results = ip_tcp::resolver::results_type;
 
 namespace desk {
 
@@ -58,12 +60,15 @@ public:
   DmxCtrl(asio::io_context &io_ctx) noexcept;
   ~DmxCtrl() = default;
 
+  void resume() noexcept;
+
   /// @brief send the DataMsg to the remote host
   /// @param msg assembled DataMsg for remote host
   void send_data_msg(DataMsg &&msg) noexcept;
 
 private:
-  const string cfg_host() noexcept { return tokc.val<string>("remote.host"_tpath, "dmx"sv); }
+  auto cfg_host() noexcept { return tokc.val<string>("remote.host"_tpath, "dmx"sv); }
+  auto cfg_stall_timeout() noexcept { return tokc.val<Millis>("local.stalled.ms"_tpath, 7500); }
 
   /// @brief send the initial handshake to the remote host
   void handshake() noexcept;
@@ -74,8 +79,7 @@ private:
   void resolve_host() noexcept;
 
   void reconnect() noexcept {
-    remote_host.clear();
-    stall_watchdog(0ms);
+    asio::post(sess_strand, [this]() { stall_watchdog(0ms); });
   }
 
   void stall_watchdog() noexcept { stall_watchdog(stall_timeout); }
@@ -100,8 +104,8 @@ private:
   Millis stall_timeout;
 
   tcp_endpoint data_rep; // remote endpoint of accepted socket
-  std::atomic_bool connected{false};
-  std::atomic_bool data_connected{false};
+  bool connected{false};
+  bool data_connected{false};
 
   string remote_host;                        // dmx controller host name
   std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint

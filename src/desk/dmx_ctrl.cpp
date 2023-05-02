@@ -48,10 +48,6 @@ inline auto resolve_retry_wait(conf::token &tok) noexcept {
   return tok.val<Millis>("local.resolve.retry.ms"_tpath, 60'000);
 }
 
-inline auto cfg_stall_timeout(conf::token &tok) noexcept {
-  return tok.val<Millis>("local.stalled.ms"_tpath, 7500);
-}
-
 // general API
 DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
     : tokc(module_id),
@@ -71,7 +67,6 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       resolve_retry_timer(sess_strand, 1s) //
 {
   tokc.initiate(); // start watching for conf changes
-  load_config();   // do an initial load of config
 
   INFO_INIT("sizeof={:>5} {}", sizeof(DmxCtrl), tokc);
 }
@@ -155,45 +150,47 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
 void DmxCtrl::load_config() noexcept {
   // now that tokcen is populated we can assign the remaining config vars
   // capture stall timeout config
-  stall_timeout = cfg_stall_timeout(tokc);
-
-  // here we post resolve_host() to the io_context we're about to start
-  //
-  // resolve_host() may BLOCK or FAIL
-  //  -if successful, handshake() is called to setup the control and data sockets
-  //  -if failure, unknown_host() is invoked to retry resolution
-  resolve_host();
+  stall_timeout = cfg_stall_timeout();
+  remote_host = cfg_host();
 
   // NOTE: we do not start listening or the stalled timer at this point
   //       they are handled as needed during handshake()
+}
+
+void DmxCtrl::resume() noexcept {
+  asio::post(sess_strand, [this]() {
+    load_config();
+
+    if (!connected) {
+      // resolve_host() may BLOCK or FAIL
+      //  -if successful, handshake() is called to setup the control and data sockets
+      //  -if failure, unknown_host() is invoked to retry resolution
+      resolve_host();
+    }
+  });
 }
 
 void DmxCtrl::resolve_host() noexcept {
   INFO_AUTO_CAT("host.resolve");
 
   asio::post(sess_strand, [this]() {
-    // get the host we will connect to unless we already have it
-    if (remote_host.empty()) remote_host = cfg_host();
-
     INFO_AUTO("attempting to resolve '{}'", remote_host);
 
     // start name resolution via mdns
     auto zcsf = mDNS::zservice(remote_host);
-    auto zcs_status = zcsf.wait_for(resolve_timeout(tokc));
+    ZeroConf zcs;
 
-    if (zcs_status != std::future_status::ready) {
-      INFO_AUTO("resolve timeout for '{}' ({})", remote_host, resolve_timeout(tokc));
-      unknown_host();
-      return;
-    }
+    if (zcsf.valid()) {
+      auto zcs_status = zcsf.wait_for(resolve_timeout(tokc));
 
-    auto zcs = zcsf.get();
-    INFO_AUTO("resolution attempt complete, valid={}", zcs.valid());
-
-    // resolution failed, enter unknown host processing
-    if (!zcs.valid()) {
-      unknown_host();
-      return;
+      if (zcs_status == std::future_status::ready) {
+        zcs = zcsf.get();
+        INFO_AUTO("resolution complete, valid={}", zcs.valid());
+      } else {
+        INFO_AUTO("resolve timeout for '{}' ({})", remote_host, resolve_timeout(tokc));
+        unknown_host();
+        return;
+      }
     }
 
     // ok, we've resolved the host.  now we start the watchdog to catch
@@ -204,25 +201,24 @@ void DmxCtrl::resolve_host() noexcept {
     const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
     host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    asio::post(sess_strand, [this, ep = host_endpoint]() {
-      using resolver_type = ip_tcp::resolver;
-      using resolver_results = ip_tcp::resolver::results_type;
+    auto resolver = std::make_unique<tcp_resolver>(sess_strand);
 
-      auto resolver = std::make_unique<resolver_type>(sess_strand);
+    resolver->async_resolve(*host_endpoint, //
+                            asio::consign(
+                                [this](const error_code &ec, resolve_results r) mutable {
+                                  if (ec.message() != "Success") {
+                                    INFO_AUTO("reverse resolve err={}", ec.message());
+                                    return;
+                                  }
 
-      resolver->async_resolve(*ep, [this, resolver = std::move(resolver)](
-                                       const error_code &ec, resolver_results r) mutable {
-        if (!ec) {
-          std::for_each(r.begin(), r.end(),
-                        [](const auto &r) { INFO_AUTO("host={}", r.host_name()); });
-
-          if (ec.message() != "Success") INFO_AUTO("resolve err={}", ec.message());
-        }
-      });
-    });
+                                  for (auto &rr : r) {
+                                    INFO_AUTO("reverse resolve host={}", rr.host_name());
+                                  }
+                                },
+                                std::move(resolver)));
 
     // ensure the data socket is closed, we're about to accept a new connection
-    if (data_connected.exchange(false) == true) {
+    if (std::exchange(data_connected, false) == true) {
       [[maybe_unused]] error_code ec;
       data_sock.close(ec);
     }
@@ -230,10 +226,10 @@ void DmxCtrl::resolve_host() noexcept {
     // listen for the inbound data socket connection from ruth
     // (response to handshake message)
     data_accep.async_accept(data_sock, [this](const error_code &ec) {
-      if (!ec) {
-        data_sock.set_option(ip_tcp::no_delay(true));
-        data_connected.exchange(true);
-      }
+      if (ec) return;
+
+      data_sock.set_option(ip_tcp::no_delay(true));
+      data_connected = true;
     });
 
     // kick-off an async connect. once connected we'll send the handshake
@@ -275,7 +271,7 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
 
       } else {
         Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
-        connected.store(false);
+        connected = false;
       }
 
       // }
@@ -290,7 +286,7 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
   stalled_timer.async_wait([this, wait = wait](error_code ec) {
     if (ec == errc::success) {
 
-      if (auto was_connected = std::atomic_exchange(&connected, false)) {
+      if (auto was_connected = std::exchange(connected, false)) {
         INFO_AUTO("was_connected={} stall_timeout={}", was_connected, wait);
       }
 

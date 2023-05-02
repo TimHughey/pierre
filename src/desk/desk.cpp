@@ -191,7 +191,9 @@ void Desk::resume() noexcept {
 
     if (!threads.empty()) {
       // ensure any previous threads are released
-      std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) { t.detach(); });
+      std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) {
+        if (t.joinable()) t.join();
+      });
 
       threads.clear();
       INFO_AUTO("cleared {} threads", threads.size());
@@ -201,36 +203,29 @@ void Desk::resume() noexcept {
     io_ctx.reset();
 
     // add work to io_ctx before starting threads
-    frame_timer.expires_at(steady_clock::now());
-    frame_timer.async_wait([this](const error_code &ec) {
-      if (ec) return;
+    asio::post(render_strand, [this]() {
+      if (active_reel.empty()) active_reel = Reel(Reel::Synthetic);
 
-      // start with a 500ms reel of synthetic frames
-      auto prom = std::promise<Reel>();
-      prom.set_value(Reel(Reel::Synthetic));
-
-      // ensure we have a clean Anchor by resetting it (not freeing the unique_ptr)
       anchor->reset();
+      dmx_ctrl->resume();
 
       render_via_strand();
     });
 
-    volatile auto n_thr = tokc.val<int>("threads"_tpath, 1);
+    auto n_thr = tokc.val<int>("threads"_tpath, 1);
     threads = std::vector<std::jthread>(n_thr);
     INFO_AUTO("starting {} threads", std::ssize(threads));
 
     for (auto &t : threads) {
-      const auto tname = fmt::format("pierre_desk{}", n_thr);
+      const auto tname = fmt::format("pierre_desk{}", n_thr--);
 
-      n_thr = n_thr - 1;
+      INFO("thread", "starting {}", tname);
 
-      t = std::jthread([this, tname = tname]() {
+      t = std::jthread([this, tname = std::move(tname)]() {
         pthread_setname_np(pthread_self(), tname.c_str());
 
         io_ctx.run();
       });
-
-      INFO("thread", "started {} {}", tname, t.get_id());
     }
 
     using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;

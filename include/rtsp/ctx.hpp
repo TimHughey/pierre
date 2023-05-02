@@ -91,7 +91,7 @@ class Ctx {
 public:
   Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept;
 
-  ~Ctx() noexcept;
+  ~Ctx() noexcept; // must be in .cpp due to incomplete types
 
   static auto create(auto &&peer, Rtsp *rtsp, Desk *desk) noexcept {
     return std::make_unique<Ctx>(std::forward<decltype(peer)>(peer), rtsp, desk);
@@ -151,14 +151,14 @@ public:
 private:
   // order dependent (private)
   steady_timer feedback_timer;
-  std::atomic_bool teardown_in_progress;
+  bool teardown_in_progress;
   std::jthread thread;
 
 public:
   // order independent
   std::optional<Request> request;
   std::optional<Reply> reply;
-  std::atomic_bool live{false};
+  bool live{false};
 
 public:
   // from RTSP headers
