@@ -20,27 +20,39 @@
 
 #include "base/types.hpp"
 
+#include <array>
+#include <concepts>
 #include <filesystem>
+#include <fmt/format.h>
+#include <functional>
+#include <map>
+#include <memory>
+#include <uuid/uuid.h>
 
 namespace pierre {
-namespace conf {
 
-struct fixed {
+struct UUID {
+  friend struct fmt::formatter<UUID>;
 
-  using fs_path = std::filesystem::path;
+  UUID() noexcept {
+    uuid_t binuuid;
+    uuid_generate_random(binuuid);
+    uuid_unparse_lower(binuuid, storage.data());
+  }
 
-  static fs_path app_data_dir() noexcept;
-  static csv app_name() noexcept;
-  static string cfg_file() noexcept;
-  static bool daemon() noexcept;
-  static fs_path exec_dir() noexcept;
-  static bool force_restart() noexcept;
-  static string git() noexcept;
-  static fs_path install_prefix() noexcept;
-  static fs_path log_file() noexcept;
-  static fs_path parent_dir() noexcept;
-  static fs_path pid_file() noexcept;
+  const string operator()() const noexcept { return storage.data(); }
+
+  operator string() const noexcept { return storage.data(); }
+
+private:
+  std::array<char, 37> storage{0};
 };
 
-} // namespace conf
 } // namespace pierre
+
+template <> struct fmt::formatter<pierre::UUID> : formatter<std::string> {
+  template <typename FormatContext>
+  auto format(const pierre::UUID &uuid, FormatContext &ctx) const {
+    return formatter<std::string>::format(uuid.storage.data(), ctx);
+  }
+};

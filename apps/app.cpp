@@ -19,6 +19,7 @@
 #include "app.hpp"
 #include "base/conf/cli_args.hpp"
 #include "base/conf/fixed.hpp"
+#include "base/conf/watch.hpp"
 #include "base/crypto.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
@@ -260,7 +261,13 @@ void App::main() {
   static constexpr csv fn_id{"main"};
 
   auto main_pid = getpid();
+
+  auto watch = conf::watch(io_ctx);
+
   Logger::create(io_ctx);
+
+  _logger->info(conf::watch::module_id, "init", watch.msg(conf::ParseMsg::Init));
+
   Stats::create(io_ctx);
 
   // Logger is running, start mDNS
@@ -299,6 +306,8 @@ void App::main() {
       io_ctx.run();
     });
   }
+
+  watch.schedule();
 
   if (thread.joinable()) thread.join();
 

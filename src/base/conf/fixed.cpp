@@ -32,13 +32,7 @@ fs_path fixed::app_data_dir() noexcept { return build::info.data_dir; }
 
 csv fixed::app_name() noexcept { return build::info.project; }
 
-string fixed::cfg_dir() noexcept { return cli_args::ttable[key::cfg_dir].ref<string>(); }
-
-fs_path fixed::cfg_path() noexcept {
-  fs_path base = cli_args::ttable[key::cfg_path].ref<string>();
-
-  return base.append(cfg_dir());
-}
+string fixed::cfg_file() noexcept { return cli_args::ttable[key::cfg_file].ref<string>(); }
 
 bool fixed::daemon() noexcept { return cli_args::ttable[key::daemon].ref<bool>(); }
 

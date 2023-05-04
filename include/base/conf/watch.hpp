@@ -18,22 +18,30 @@
 
 #pragma once
 
+#include "base/asio.hpp"
 #include "base/conf/token.hpp"
+#include "base/conf/toml.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
 #include <array>
+#include <boost/asio/async_result.hpp>
+#include <boost/asio/post.hpp>
 #include <concepts>
 #include <filesystem>
 #include <fmt/format.h>
 #include <functional>
+#include <future>
 #include <memory>
+#include <mutex>
+#include <set>
 
 namespace pierre {
 namespace conf {
 
-class watch : public token {
+class watch {
   friend struct fmt::formatter<watch>;
+  friend class token;
 
 public:
   using f_time = std::filesystem::file_time_type;
@@ -41,27 +49,63 @@ public:
   using stc_tp = std::chrono::steady_clock::time_point;
 
 public:
-  /// @brief Create config token with populated subtable that is not registered
-  ///        for change notifications
-  /// @param mid module_id (aka root)
-  watch(csv mid, Millis stable = 1s) noexcept
-      : token(mid), stable_ms{stable}, in_fd{0}, w_fd{0}, last_write_at{0ns} {}
+  watch(asio::io_context &app_io_ctx) noexcept;
+  ~watch() noexcept;
 
-  virtual ~watch() noexcept;
+  void initiate_watch(const token &tokc) noexcept;
 
-  bool changed() noexcept;
+  std::future<toml::table> latest() noexcept {
+    auto prom = std::promise<toml::table>();
+    auto fut = prom.get_future();
 
-  bool initiate() noexcept;
+    asio::dispatch(io_ctx,
+                   asio::append([this](std::promise<toml::table> p) { p.set_value(ttable); },
+                                std::move(prom)));
+
+    return fut;
+  }
+
+  const string &msg(ParseMsg id) const noexcept { return msgs[id]; }
+
+  auto schedule(Millis freq_ms = 5000ms) noexcept {
+    const auto next_at = poll_timer.expiry() + freq_ms;
+
+    poll_timer.expires_at(next_at);
+    poll_timer.async_wait([this](const error_code &ec) {
+      if (ec) return;
+
+      check();
+    });
+
+    return next_at;
+  }
+
+protected:
+  token &make_token(csv mid) noexcept;
+  void release_token(token &tokc) noexcept;
 
 private:
-  // order independent
-  const Millis stable_ms;
-  int in_fd;            // inotify fd
-  int w_fd;             // specific watch fd
-  f_time last_write_at; // last file write time (for stable check)
+  void check() noexcept;
+
+protected:
+  // order dependent
+  asio::io_context &io_ctx;
+  asio::system_timer poll_timer;
+  f_time last_write_at;
+  const string cfg_file;
 
   // order independent
-  fs_path file_path;
+  toml::table ttable;
+  int fd_in{-1}; // inotify init
+  int fd_w{-1};  // inotify add
+
+  parse_msgs_t msgs;
+
+  std::mutex tokens_mtx;
+  std::vector<token> tokens;
+  std::set<string> watches;
+
+  static watch *self;
 
 public:
   static constexpr auto module_id{"conf.watch"sv};
@@ -71,17 +115,16 @@ public:
 } // namespace pierre
 
 template <> struct fmt::formatter<pierre::conf::watch> : formatter<std::string> {
-  using ctoken = pierre::conf::token;
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
-  auto format(const pierre::conf::watch &tok, FormatContext &ctx) const {
+  auto format(const pierre::conf::watch &w, FormatContext &ctx) const {
 
-    std::string msg;
-    auto w = std::back_inserter(msg);
+    auto msg_count =
+        std::count_if(w.msgs.begin(), w.msgs.end(), [](auto &msg) { return !msg.empty(); });
 
-    fmt::format_to(w, "{} ", static_cast<const ctoken &>(tok));
-    fmt::format_to(w, "in_fd={} w_fd={}", tok.in_fd, tok.w_fd);
+    const auto msg =
+        fmt::format("{} fd_in={} fd_w={} msgs={}", w.cfg_file, w.fd_in, w.fd_w, msg_count);
 
     return formatter<std::string>::format(std::move(msg), ctx);
   }

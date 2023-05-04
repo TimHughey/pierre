@@ -1,4 +1,0 @@
-[stats]
-enabled = true
-db_uri = "http://localhost:8086?db=pierre"
-batch_of = 150

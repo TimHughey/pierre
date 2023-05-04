@@ -1,4 +1,0 @@
-[rtsp]
-audio = { buffer_size = { bytes = 0x800000 } }
-connection = { timeout_ms = 30_000 }
-saver = { enable = false, file = "/tmp/rtsp.log", format = "raw " }

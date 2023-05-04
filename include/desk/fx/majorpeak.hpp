@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "base/conf/watch.hpp"
+#include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
@@ -68,7 +68,7 @@ private:
 
 private:
   // order dependent
-  conf::watch tokc;
+  conf::token tokc;
   const Color base_color;
   Peak main_last_peak;
   Peak fill_last_peak;

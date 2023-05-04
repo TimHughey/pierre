@@ -18,15 +18,14 @@
 
 #include "service.hpp"
 #include "base/host.hpp"
-#include "base/uint8v.hpp"
-#include "features.hpp"
-
 #include "base/logger.hpp"
+#include "base/uint8v.hpp"
+#include "base/uuid.hpp"
+#include "features.hpp"
 #include "pair/pair.h"
 
 #include <array>
 #include <exception>
-#include <uuid/uuid.h>
 
 namespace pierre {
 
@@ -38,15 +37,7 @@ Service::Service(const string &receiver, const string &build_vsn, string &msg) n
   update_key_val(txt_opt::apAirPlayPairingIdentity, host.hw_address());
   update_key_val(txt_opt::apDeviceID, host.device_id());
 
-  // create UUID for this host (only once)
-
-  uuid_t binuuid;
-  uuid_generate_random(binuuid);
-
-  std::array<char, 37> tu{0};
-  uuid_unparse_lower(binuuid, tu.data());
-
-  const auto uuid = string(tu.data());
+  const auto uuid = UUID(); // create UUID for this host (only once)
 
   update_key_val(txt_opt::apGroupUUID, uuid);
   update_key_val(txt_opt::apSerialNumber, host.serial_num());

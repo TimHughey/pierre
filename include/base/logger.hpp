@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/conf/watch.hpp"
+#include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
@@ -92,7 +92,11 @@ public:
   bool should_log(csv mod, csv cat) noexcept {
 
     if (tokc.changed()) {
-      asio::post(app_io_ctx, [this]() { info(module_id, "conf"sv, "changed"); });
+      asio::post(app_io_ctx, [this]() {
+        tokc.latest();
+
+        info(module_id, "conf"sv, "accepted {}", tokc);
+      });
     }
 
     if ((cat == csv{"info"}) || !tokc.is_table() || tokc.empty()) return true;
@@ -115,7 +119,7 @@ public:
 
 private:
   // order dependent
-  conf::watch tokc;
+  conf::token &tokc;
   asio::io_context &app_io_ctx;
   fmt::ostream out;
 

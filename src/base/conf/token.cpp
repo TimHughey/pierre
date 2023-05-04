@@ -19,8 +19,12 @@
 #define TOML_IMPLEMENTATION
 
 #include "conf/token.hpp"
+#include "base/logger.hpp"
+#include "base/uuid.hpp"
 #include "conf/cli_args.hpp"
 #include "conf/fixed.hpp"
+#include "conf/parser.hpp"
+#include "conf/watch.hpp"
 
 #include <filesystem>
 #include <fmt/format.h>
@@ -28,42 +32,41 @@
 namespace pierre {
 namespace conf {
 
-const string token::make_path() noexcept {
-  const auto base = root.begin()->key();
-  return fixed::cfg_path().append(base).replace_extension(".toml");
+token::token(csv mid) noexcept : uuid(UUID()), root{mid} { parse(ttable, msgs); }
+
+token::token(csv mid, watch *watcher) noexcept : uuid(UUID()), root(mid), watcher(watcher) {
+  parse(ttable, msgs);
 }
 
-bool token::parse() noexcept {
-
-  toml::table tt_next;
-
-  if (parse(tt_next)) {
-    ttable = std::move(tt_next);
+token::~token() noexcept {
+  if (watcher != nullptr) {
+    watcher->release_token(*this);
   }
-
-  return parse_ok();
 }
 
-bool token::parse(toml::table &tt_dest) noexcept {
+bool token::latest() noexcept {
+  INFO_AUTO_CAT("latest");
 
-  msgs[Parser].clear();
+  auto table_fut = watcher->latest();
 
-  // parse file at this path
-  const auto base = root.begin()->key();
-  auto f_path = make_path();
+  auto rc = table_fut.valid();
 
-  auto pt_result = toml::parse_file(f_path.c_str());
-
-  if (pt_result && (pt_result.table() != tt_dest)) {
-    tt_dest = pt_result.table(); // copy the table at root
-
+  if (rc) {
+    ttable = std::move(table_fut.get());
+    INFO_AUTO("{}", *this);
   } else {
-    msgs[Parser] = pt_result.error().description();
+    INFO_AUTO("invalid future {}", *this);
   }
 
-  msgs[Info] = fmt::format("{}", *this);
+  return rc;
+}
 
-  return parse_ok();
+token &token::acquire_watch_token(csv mid) noexcept { return watch::self->make_token(mid); }
+
+void token::initiate_watch() noexcept {
+  if (watcher) {
+    watcher->initiate_watch(*this);
+  }
 }
 
 } // namespace conf

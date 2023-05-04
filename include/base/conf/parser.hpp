@@ -18,23 +18,29 @@
 
 #pragma once
 
-#define TOML_ENABLE_FORMATTERS 0 // don't need formatters
-#define TOML_HEADER_ONLY 0       // reduces compile times
-#define TOML_EXCEPTIONS 0        // disable exceptions
-#include "toml++/toml.h"
+#include "base/conf/toml.hpp"
+#include "base/types.hpp"
 
 #include <array>
-#include <string>
 
 namespace pierre {
-
-using namespace toml::literals;
-
 namespace conf {
 
-enum ParseMsg : uint8_t { Init = 0, Parser, Info, Watch, ParseMsgEnd };
+template <typename Table, typename Msgs> inline bool parse(Table &tt_dest, Msgs &msgs) noexcept {
 
-using parse_msgs_t = std::array<std::string, ParseMsg::ParseMsgEnd>;
+  msgs[Parser].clear();
+
+  auto pt_result = toml::parse_file(fixed::cfg_file());
+
+  if (pt_result && (pt_result.table() != tt_dest)) {
+    tt_dest = pt_result.table(); // copy the table at root
+
+  } else {
+    msgs[Parser] = pt_result.error().description();
+  }
+
+  return msgs[Parser].empty();
+}
 
 } // namespace conf
 } // namespace pierre

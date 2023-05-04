@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/conf/watch.hpp"
+#include "base/conf/token.hpp"
 #include "base/types.hpp"
 #include "desk/color.hpp"
 #include "desk/fx.hpp"
@@ -46,7 +46,7 @@ private:
 
 private:
   // order dependent
-  conf::watch tokc;
+  conf::token tokc;
 
   // order independent
   Color first_color;

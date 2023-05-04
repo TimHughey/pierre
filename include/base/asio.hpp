@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/pet_types.hpp"
 #include "base/types.hpp"
 
 #include <boost/asio.hpp>

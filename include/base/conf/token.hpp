@@ -27,6 +27,7 @@
 #include <concepts>
 #include <fmt/format.h>
 #include <functional>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -34,27 +35,42 @@
 namespace pierre {
 namespace conf {
 
+class watch;
+
 class token {
   friend struct fmt::formatter<token>;
+  friend class watch;
 
 public:
-  enum msg_t : uint8_t { Parser = 0, Info, Watch, TokenMsgEnd };
+  /// @brief Create a default token (does not point to a configuration)
+  token() = default;
 
-public:
   /// @brief Create config token with populated subtable that is not registered
   ///        for change notifications
   /// @param mid module_id (aka root)
-  token(csv mid) noexcept : root{mid} { parse(); }
-  virtual ~token() noexcept {}
+  token(csv mid) noexcept;
+  token(csv mid, watch *watcher) noexcept;
+
+  ~token() noexcept;
 
   token(token &&) = default;
+
+public:
+  static token &acquire_watch_token(csv mid) noexcept;
   token &operator=(token &&) = default;
+
+  bool changed() noexcept { return std::exchange(has_changed, false); }
 
   bool empty() const noexcept { return ttable.empty(); }
 
+  bool latest() noexcept;
+
+  void initiate() noexcept {}
+  void initiate_watch() noexcept;
+
   bool is_table() const noexcept { return ttable.is_table(); }
 
-  const string &msg(msg_t id) const noexcept { return msgs[id]; }
+  const string &msg(ParseMsg id) const noexcept { return msgs[id]; }
 
   template <typename ReturnType> inline ReturnType val(auto &&p, const auto &&def_val) noexcept {
     const auto path = root + p;
@@ -75,20 +91,17 @@ public:
   toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
 
 protected:
-  void add_msg(msg_t msg_id, const string m) noexcept { msgs[msg_id] = m; }
-
-  const string make_path() noexcept;
-
-  bool parse() noexcept;
-  bool parse(toml::table &tt_dest) noexcept;
+  void add_msg(ParseMsg msg_id, const string m) noexcept { msgs[msg_id] = m; }
+  bool changed(bool b) noexcept { return std::exchange(has_changed, b); }
 
 protected:
+  string uuid;
+  toml::path root;
   toml::table ttable;
-  std::array<string, TokenMsgEnd> msgs;
+  parse_msgs_t msgs;
 
-private:
-  // order dependent
-  const toml::path root;
+  bool has_changed{false};
+  watch *watcher{nullptr};
 
 public:
   static constexpr csv module_id{"conf.token"};
@@ -104,6 +117,6 @@ template <> struct fmt::formatter<pierre::conf::token> : formatter<std::string> 
   auto format(const pierre::conf::token &tok, FormatContext &ctx) const {
 
     return formatter<std::string>::format(
-        fmt::format("root={} table_size={}", tok.root.str(), tok.ttable.size()), ctx);
+        fmt::format("{} {} size={}", tok.root.str(), tok.uuid, tok.ttable.size()), ctx);
   }
 };

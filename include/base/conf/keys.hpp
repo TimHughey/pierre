@@ -28,14 +28,9 @@ struct root {
 
 struct key {
   static constexpr auto app_name{"app-name"};
-
-  static constexpr auto cfg_dir{"cfg-dir"};
-  static constexpr auto cfg_path{"cfg-path"};
-  static constexpr auto chdir{"chdir"};
-
+  static constexpr auto cfg_file{"cfg-file"};
   static constexpr auto daemon{"daemon"};
   static constexpr auto data_path{"data-path"};
-
   static constexpr auto dmx_host{"dmx-host"};
   static constexpr auto exec_dir{"exec-path"};
   static constexpr auto force_restart{"force-restart"};

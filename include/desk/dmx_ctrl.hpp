@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/asio.hpp"
-#include "base/conf/watch.hpp"
+#include "base/conf/token.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 
@@ -88,7 +88,7 @@ private:
 
 private:
   // order independent
-  conf::watch tokc;
+  conf::token tokc;
 
   // order dependent
   strand_ioc sess_strand;

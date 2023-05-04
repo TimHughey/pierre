@@ -42,7 +42,7 @@ using fs_path = fs::path;
 static po::options_description desc("pierre");
 static po::variables_map args;
 
-constexpr auto def_cfg_dir{"live"};
+constexpr auto def_cfg_toml_file{"live.toml"};
 constexpr auto def_chdir{"/"};
 constexpr auto def_daemon{false};
 constexpr auto def_dmx_host{"dmx"};
@@ -53,8 +53,7 @@ constexpr auto def_restart{false};
 constexpr auto desc_daemon{"detach and run in background"};
 constexpr auto desc_dmx_host{"stream dmx frames to this host"};
 constexpr auto desc_restart{"force restart (if running)"};
-constexpr auto desc_cfg_path{"path containing configuration directory"};
-constexpr auto desc_cfg_dir{"directory of configuration toml files"};
+constexpr auto desc_cfg_file{"toml configuration file"};
 constexpr auto desc_chdir{"cd to this directory at app start"};
 constexpr auto desc_help{"command line help"};
 constexpr auto desc_log_file{"full path to log file"};
@@ -76,18 +75,22 @@ cli_args::cli_args(int argc, char **argv) noexcept {
   ttable.emplace(key::parent_dir, fs_arg0.parent_path().string());
   ttable.emplace(key::exec_dir, fs_arg0.remove_filename().string());
 
-  auto cfg_path_v =
-      po::value<string>()
-          ->notifier([this](const string p) { ttable.emplace<string>(key::cfg_path, p); })
-          ->default_value(build::info.sysconf_dir);
+  fs_path def_cfg_fs_file(build::info.sysconf_dir);
+  def_cfg_fs_file /= def_cfg_toml_file;
 
-  auto cfg_dir_v = po::value<string>()
-                       ->notifier([this](const string d) { ttable.emplace(key::cfg_dir, d); })
-                       ->default_value(def_cfg_dir);
+  auto cfg_file_v = po::value<string>()
+                        ->notifier([this](const string p) {
+                          fs_path p_fs(p);
 
-  auto chdir_v = po::value<string>()
-                     ->notifier([this](const string p) { ttable.emplace<string>(key::chdir, p); })
-                     ->default_value(def_chdir);
+                          if (p_fs.is_absolute()) {
+                            ttable.emplace<string>(key::cfg_file, p);
+                          } else {
+                            p_fs = fs_path(build::info.sysconf_dir).append(p);
+
+                            ttable.emplace<string>(key::cfg_file, p_fs.string());
+                          }
+                        })
+                        ->default_value(def_cfg_fs_file.string());
 
   auto daemon_v = po::bool_switch()
                       ->notifier([this](bool e) { ttable.emplace(key::daemon, e); })
@@ -114,9 +117,7 @@ cli_args::cli_args(int argc, char **argv) noexcept {
                     ->default_value(false);
 
   desc.add_options()                                //
-      (key::cfg_path, cfg_path_v, desc_cfg_path)    //
-      (key::cfg_dir, cfg_dir_v, desc_cfg_dir)       //
-      (key::chdir, chdir_v, desc_cfg_dir)           //
+      (key::cfg_file, cfg_file_v, desc_cfg_file)    //
       (key::daemon, daemon_v, desc_daemon)          //
       (key::force_restart, restart_v, desc_restart) //
       (key::dmx_host, dmx_host_v, desc_dmx_host)    //
@@ -144,8 +145,8 @@ cli_args::cli_args(int argc, char **argv) noexcept {
     desc.print(std::cout);
   }
 
-  if (!fs::exists(conf::fixed::cfg_path())) {
-    error_str = fmt::format("{}: not found\n", conf::fixed::cfg_path());
+  if (!fs::exists(conf::fixed::cfg_file())) {
+    error_str = fmt::format("{}: not found\n", conf::fixed::cfg_file());
   }
 }
 
