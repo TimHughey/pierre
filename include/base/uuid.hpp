@@ -53,6 +53,7 @@ private:
 template <> struct fmt::formatter<pierre::UUID> : formatter<std::string> {
   template <typename FormatContext>
   auto format(const pierre::UUID &uuid, FormatContext &ctx) const {
+
     return formatter<std::string>::format(uuid.storage.data(), ctx);
   }
 };

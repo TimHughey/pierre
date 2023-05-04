@@ -193,15 +193,17 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
 bool MajorPeak::load_config() noexcept {
   INFO_AUTO_CAT("load_config");
 
-  // auto changed = tokc.changed() || pspot_cfg_map.empty();
+  bool refresh = pspot_cfg_map.empty();
 
-  auto changed = pspot_cfg_map.empty();
+  if (!refresh && tokc->changed()) {
+    refresh |= tokc->latest();
+  }
 
-  if (changed) {
+  if (refresh) {
 
     // lambda helper to retrieve frequencies config
     auto dval = [&](const auto p, auto &&def_val) -> double {
-      return tokc.val<double>(p, std::forward<decltype(def_val)>(def_val));
+      return tokc->val<double>(p, std::forward<decltype(def_val)>(def_val));
     };
 
     freq_limits = hard_soft_limit<Frequency>(            //
@@ -215,19 +217,19 @@ bool MajorPeak::load_config() noexcept {
       // lambda helper to retrieve make color configs
       auto cc = [&, this](const auto path, auto &&def_val) -> double {
         const auto full_path = toml::path("makecolors").append(cat).append(path);
-        return tokc.val<double>(full_path, std::forward<decltype(def_val)>(def_val));
+        return tokc->val<double>(full_path, std::forward<decltype(def_val)>(def_val));
       };
 
       const auto mag_scaled_path =
           toml::path("makecolors").append(cat).append("hue.mag_scaled"_tpath);
 
       hue_cfg_map.try_emplace(
-          string(cat),
-          major_peak::hue_cfg{.hue = {.min = cc("hue.min"_tpath, 0.0),
-                                      .max = cc("hue.max"_tpath, 0.0),
-                                      .step = cc("hue.step"_tpath, 0.001)},
-                              .brightness = {.max = cc("bri.max"_tpath, 0.0),
-                                             .mag_scaled = tokc.val<bool>(mag_scaled_path, true)}});
+          string(cat), major_peak::hue_cfg{
+                           .hue = {.min = cc("hue.min"_tpath, 0.0),
+                                   .max = cc("hue.max"_tpath, 0.0),
+                                   .step = cc("hue.step"_tpath, 0.001)},
+                           .brightness = {.max = cc("bri.max"_tpath, 0.0),
+                                          .mag_scaled = tokc->val<bool>(mag_scaled_path, true)}});
     }
 
     mag_limits =
@@ -235,7 +237,7 @@ bool MajorPeak::load_config() noexcept {
 
     // load pinspot config
     static constexpr csv BRI_MIN{"bri_min"};
-    const auto table = tokc.table();
+    const auto table = tokc->table();
     auto &pspots = table->at_path("pinspots"_tpath).ref<toml::array>();
 
     for (auto &&el : *pspots.as_array()) {
@@ -284,13 +286,13 @@ bool MajorPeak::load_config() noexcept {
     }
 
     // setup silence timeout
-    const auto timeout = tokc.val<Seconds>("silence.timeout.seconds"_tpath, 13);
+    const auto timeout = tokc->val<Seconds>("silence.timeout.seconds"_tpath, 13);
     set_silence_timeout(timeout, fx::STANDBY);
   }
 
-  if (changed) INFO_AUTO("{}", tokc);
+  if (refresh) INFO_AUTO("{}", *tokc);
 
-  return changed;
+  return refresh;
 }
 
 const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
@@ -334,6 +336,8 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 }
 
 void MajorPeak::once() noexcept {
+  tokc->initiate_watch(); // this only needs to be done once
+
   get_unit(unit::AC_POWER)->activate();
 
   get_unit(unit::LED_FOREST)->dark();

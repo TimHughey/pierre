@@ -43,7 +43,7 @@ Logger::Logger(asio::io_context &app_io_ctx) noexcept
   out.print("\n{:%FT%H:%M:%S} START\n", now);
 
   asio::post(app_io_ctx, [this]() {
-    tokc.initiate_watch();
+    tokc->initiate_watch();
 
     async_active = true;
   });
@@ -55,6 +55,8 @@ Logger::~Logger() noexcept {
   const auto now = std::chrono::system_clock::now();
   out.print("\n{:%FT%H:%M:%S} STOP\n", now);
   out.close();
+
+  tokc->release();
 }
 
 } // namespace pierre

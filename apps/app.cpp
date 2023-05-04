@@ -262,7 +262,7 @@ void App::main() {
 
   auto main_pid = getpid();
 
-  auto watch = conf::watch(io_ctx);
+  auto watch = conf::watch(); // runs in separate thread
 
   Logger::create(io_ctx);
 
@@ -306,8 +306,6 @@ void App::main() {
       io_ctx.run();
     });
   }
-
-  watch.schedule();
 
   if (thread.joinable()) thread.join();
 

@@ -91,15 +91,15 @@ public:
 
   bool should_log(csv mod, csv cat) noexcept {
 
-    if (tokc.changed()) {
+    if (tokc->changed()) {
       asio::post(app_io_ctx, [this]() {
-        tokc.latest();
+        tokc->latest();
 
-        info(module_id, "conf"sv, "accepted {}", tokc);
+        info(module_id, "conf"sv, "accepted {}", *tokc);
       });
     }
 
-    if ((cat == csv{"info"}) || !tokc.is_table() || tokc.empty()) return true;
+    if ((cat == csv{"info"}) || !tokc->is_table() || tokc->empty()) return true;
 
     // order of precedence:
     //  1. looger.<cat>       == boolean
@@ -107,7 +107,7 @@ public:
     //  3. logger.<mod>.<cat> == boolean
     std::array paths{toml::path(cat), toml::path(mod), toml::path(mod).append(cat)};
 
-    return std::all_of(paths.begin(), paths.end(), [t = tokc.table()](const auto &p) {
+    return std::all_of(paths.begin(), paths.end(), [t = tokc->table()](const auto &p) {
       const auto node = t->at_path(p);
 
       return node.is_boolean() ? node.value_or(true) : true;
@@ -119,7 +119,7 @@ public:
 
 private:
   // order dependent
-  conf::token &tokc;
+  conf::token *tokc;
   asio::io_context &app_io_ctx;
   fmt::ostream out;
 

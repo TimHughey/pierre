@@ -26,6 +26,7 @@
 
 #include <array>
 #include <boost/asio/async_result.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 #include <concepts>
 #include <filesystem>
@@ -35,6 +36,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <thread>
 
 namespace pierre {
 namespace conf {
@@ -47,9 +49,10 @@ public:
   using f_time = std::filesystem::file_time_type;
   using fs_path = std::filesystem::path;
   using stc_tp = std::chrono::steady_clock::time_point;
+  using work_guard_ioc = asio::executor_work_guard<asio::io_context::executor_type>;
 
 public:
-  watch(asio::io_context &app_io_ctx) noexcept;
+  watch() noexcept;
   ~watch() noexcept;
 
   void initiate_watch(const token &tokc) noexcept;
@@ -58,9 +61,8 @@ public:
     auto prom = std::promise<toml::table>();
     auto fut = prom.get_future();
 
-    asio::dispatch(io_ctx,
-                   asio::append([this](std::promise<toml::table> p) { p.set_value(ttable); },
-                                std::move(prom)));
+    asio::post(io_ctx, asio::append([this](std::promise<toml::table> p) { p.set_value(ttable); },
+                                    std::move(prom)));
 
     return fut;
   }
@@ -68,7 +70,7 @@ public:
   const string &msg(ParseMsg id) const noexcept { return msgs[id]; }
 
   auto schedule(Millis freq_ms = 5000ms) noexcept {
-    const auto next_at = poll_timer.expiry() + freq_ms;
+    const auto next_at = system_clock::now() + freq_ms;
 
     poll_timer.expires_at(next_at);
     poll_timer.async_wait([this](const error_code &ec) {
@@ -81,28 +83,30 @@ public:
   }
 
 protected:
-  token &make_token(csv mid) noexcept;
-  void release_token(token &tokc) noexcept;
+  token *make_token(csv mid) noexcept;
+  void release_token(const string &uuid) noexcept;
 
 private:
   void check() noexcept;
 
 protected:
   // order dependent
-  asio::io_context &io_ctx;
+  asio::io_context io_ctx;
   asio::system_timer poll_timer;
   f_time last_write_at;
   const string cfg_file;
+  std::mutex tokens_mtx;
+  // std::unique_lock<std::mutex> lck;
 
   // order independent
+  std::jthread thread;
   toml::table ttable;
   int fd_in{-1}; // inotify init
   int fd_w{-1};  // inotify add
 
   parse_msgs_t msgs;
 
-  std::mutex tokens_mtx;
-  std::vector<token> tokens;
+  std::vector<std::unique_ptr<token>> tokens;
   std::set<string> watches;
 
   static watch *self;

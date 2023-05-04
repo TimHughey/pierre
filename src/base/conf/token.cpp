@@ -38,11 +38,7 @@ token::token(csv mid, watch *watcher) noexcept : uuid(UUID()), root(mid), watche
   parse(ttable, msgs);
 }
 
-token::~token() noexcept {
-  if (watcher != nullptr) {
-    watcher->release_token(*this);
-  }
-}
+token::~token() noexcept {}
 
 bool token::latest() noexcept {
   INFO_AUTO_CAT("latest");
@@ -61,11 +57,17 @@ bool token::latest() noexcept {
   return rc;
 }
 
-token &token::acquire_watch_token(csv mid) noexcept { return watch::self->make_token(mid); }
+token *token::acquire_watch_token(csv mid) noexcept { return watch::self->make_token(mid); }
 
 void token::initiate_watch() noexcept {
   if (watcher) {
     watcher->initiate_watch(*this);
+  }
+}
+
+void token::release() const noexcept {
+  if (watcher != nullptr) {
+    watcher->release_token(uuid);
   }
 }
 

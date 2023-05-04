@@ -39,13 +39,13 @@ namespace desk {
 class MajorPeak : public FX {
 public:
   MajorPeak(auto &executor) noexcept
-      : FX(executor, fx::MAJOR_PEAK), tokc(module_id), base_color(Hsb{0, 100, 100}),
-        main_last_peak(), fill_last_peak() {
-
-    tokc.initiate();
+      : FX(executor, fx::MAJOR_PEAK), tokc(conf::token::acquire_watch_token(module_id)),
+        base_color(Hsb{0, 100, 100}), main_last_peak(), fill_last_peak() {
 
     load_config();
   }
+
+  ~MajorPeak() noexcept { tokc->release(); }
 
   void execute(const Peaks &peaks) noexcept override;
 
@@ -68,7 +68,7 @@ private:
 
 private:
   // order dependent
-  conf::token tokc;
+  conf::token *tokc;
   const Color base_color;
   Peak main_last_peak;
   Peak fill_last_peak;

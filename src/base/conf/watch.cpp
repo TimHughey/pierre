@@ -36,32 +36,41 @@ namespace fs = std::filesystem;
 
 conf::watch *watch::self{nullptr};
 
-watch::watch(asio::io_context &app_io_ctx) noexcept
-    : io_ctx(app_io_ctx), poll_timer(io_ctx, 5s), last_write_at(0s),
-      cfg_file(fixed::cfg_file().c_str()) //
+watch::watch() noexcept
+    : poll_timer(io_ctx, 5s), last_write_at(0s), cfg_file(fixed::cfg_file().c_str()) //
 {
   // save ourself for easy singleton access
   self = this;
 
   msgs[Init] = fmt::format("sizeof={:5}", sizeof(watch));
+  const auto init_flags{IN_NONBLOCK | IN_CLOEXEC};
+  if (fd_in = inotify_init1(init_flags); fd_in >= 0) {
 
-  asio::post(io_ctx, [this]() {
-    const auto init_flags{IN_NONBLOCK | IN_CLOEXEC};
-    if (fd_in = inotify_init1(init_flags); fd_in >= 0) {
+    const auto add_flags{IN_CLOSE_WRITE | IN_MOVE_SELF};
+    if (fd_w = inotify_add_watch(fd_in, cfg_file.c_str(), add_flags); fd_w < 0) {
 
-      const auto add_flags{IN_CLOSE_WRITE | IN_MOVE_SELF};
-      if (fd_w = inotify_add_watch(fd_in, cfg_file.c_str(), add_flags); fd_w < 0) {
-
-        msgs[Watch] = fmt::format("inotify_add_watch() failed, reason={}", std::strerror(errno));
-      }
-
-    } else {
-      msgs[Watch] = fmt::format("inotify_init1() failed, reason={}", std::strerror(errno));
+      msgs[Watch] = fmt::format("inotify_add_watch() failed, reason={}", std::strerror(errno));
     }
+
+  } else {
+    msgs[Watch] = fmt::format("inotify_init1() failed, reason={}", std::strerror(errno));
+  }
+
+  schedule();
+
+  const string tname("pierre_tokc");
+  thread = std::jthread([this, tname = tname]() {
+    pthread_setname_np(pthread_self(), tname.c_str());
+
+    io_ctx.run();
   });
 }
 
 watch::~watch() noexcept {
+  io_ctx.stop();
+
+  if (thread.joinable()) thread.join();
+
   inotify_rm_watch(fd_w, fd_in);
   close(fd_in);
 }
@@ -96,10 +105,19 @@ void watch::check() noexcept {
           std::unique_lock lck(tokens_mtx);
 
           for (auto &tokc : tokens) {
-            if (watches.contains(tokc.uuid)) {
-              tokc.changed(true);
+            if (watches.contains(tokc->uuid)) {
 
-              INFO_AUTO("notified {}", tokc.uuid);
+              const auto tok_root = tokc->root;
+
+              if (ttable[tok_root].is_table()) {
+                const auto &tok_table = tokc->ttable[tok_root].ref<toml::table>();
+
+                if (ttable[tok_root] != tok_table) {
+                  tokc->changed(true);
+
+                  INFO_AUTO("notified {}", tokc->uuid);
+                }
+              }
             }
           }
         }
@@ -114,22 +132,29 @@ void watch::check() noexcept {
 void watch::initiate_watch(const token &tokc) noexcept {
   INFO_AUTO_CAT("initiate_watch");
 
-  std::unique_lock lck(tokens_mtx);
-  auto [it, inserted] = watches.emplace(tokc.uuid);
+  asio::post(io_ctx, [this, uuid = tokc.uuid]() {
+    std::unique_lock lck(tokens_mtx);
+    auto [it, inserted] = watches.emplace(uuid);
 
-  INFO_AUTO("registered={} {}", inserted, tokc);
+    INFO_AUTO("registered={} {}", inserted, uuid);
+  });
 }
 
-token &watch::make_token(csv mid) noexcept {
-  std::unique_lock lck(tokens_mtx);
+token *watch::make_token(csv mid) noexcept {
+  std::unique_lock lck(tokens_mtx, std::defer_lock);
+  lck.lock();
 
-  return tokens.emplace_back(mid, self);
+  return tokens.emplace_back(std::make_unique<token>(mid, self)).get();
 }
 
-void watch::release_token(token &tokc) noexcept {
-  std::unique_lock lck(tokens_mtx);
+void watch::release_token(const string &uuid) noexcept {
 
-  std::erase_if(tokens, [this, &tokc](auto &t) { return tokc.uuid == t.uuid; });
+  asio::post(io_ctx, [this, uuid = uuid]() {
+    std::unique_lock lck(tokens_mtx);
+
+    std::erase_if(watches, [this, &uuid](auto &u) { return u == uuid; });
+    std::erase_if(tokens, [this, &uuid](auto &t) { return t->uuid == uuid; });
+  });
 }
 
 } // namespace conf

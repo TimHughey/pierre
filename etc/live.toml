@@ -91,11 +91,13 @@ threads = true  # show any thread messages?
 shutdown = true # show any shutdown messages?
 async = true
 
+[logger.conf.token]
+latest = false
+
 [logger.conf.watch]
 check = false
 initiate = false
 initiate_watch = true
-latest = false
 
 [logger.desk]
 thread = true
@@ -134,7 +136,7 @@ start = true
 [logger.mdns.ctx]
 all_for_now = true
 browse = true 
-cb_client = true
+cb_client = false
 cb_browse = true
 cb_evt_grp = false
 resolved = false

@@ -50,7 +50,7 @@ inline auto resolve_retry_wait(conf::token &tok) noexcept {
 
 // general API
 DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
-    : tokc(module_id),
+    : tokc(conf::token::acquire_watch_token(module_id)),
       // creqte strand for serialized session comms
       sess_strand(asio::make_strand(io_ctx)),
       // create a strand for serialized data comms
@@ -66,9 +66,7 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       // create the resolve timeout timer, use sess strand
       resolve_retry_timer(sess_strand, 1s) //
 {
-  tokc.initiate(); // start watching for conf changes
-
-  INFO_INIT("sizeof={:>5} {}", sizeof(DmxCtrl), tokc);
+  INFO_INIT("sizeof={:>5} {}", sizeof(DmxCtrl), *tokc);
 }
 
 void DmxCtrl::handshake() noexcept {
@@ -81,8 +79,8 @@ void DmxCtrl::handshake() noexcept {
   msg.add_kv(desk::DATA_PORT, data_accep.local_endpoint().port());
   msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
   msg.add_kv(desk::FRAME_US, InputInfo::lead_time_us);
-  msg.add_kv(desk::IDLE_MS, tokc.val<int64_t>(idle_ms_path, 10000));
-  msg.add_kv(desk::STATS_MS, tokc.val<int64_t>(stats_ms_path, 2000));
+  msg.add_kv(desk::IDLE_MS, tokc->val<int64_t>(idle_ms_path, 10000));
+  msg.add_kv(desk::STATS_MS, tokc->val<int64_t>(stats_ms_path, 2000));
 
   async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
     if (msg.elapsed() > 750us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
@@ -93,6 +91,20 @@ void DmxCtrl::handshake() noexcept {
       INFO_AUTO("write failed, err={}", msg.ec.message());
     }
   });
+}
+
+void DmxCtrl::load_config() noexcept {
+  INFO_AUTO_CAT("load_config");
+
+  stall_timeout = cfg_stall_timeout();
+
+  if (remote_host != cfg_host()) {
+    remote_host = cfg_host();
+    INFO_AUTO("remote_host={}", remote_host);
+  }
+
+  // NOTE: we do not start listening or the stalled timer at this point
+  //       they are handled as needed during handshake()
 }
 
 void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
@@ -147,21 +159,13 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   }
 }
 
-void DmxCtrl::load_config() noexcept {
-  // now that tokcen is populated we can assign the remaining config vars
-  // capture stall timeout config
-  stall_timeout = cfg_stall_timeout();
-  remote_host = cfg_host();
-
-  // NOTE: we do not start listening or the stalled timer at this point
-  //       they are handled as needed during handshake()
-}
-
 void DmxCtrl::resume() noexcept {
   asio::post(sess_strand, [this]() {
     load_config();
 
     if (!connected) {
+      tokc->initiate_watch(); // start watching for conf changes
+
       // resolve_host() may BLOCK or FAIL
       //  -if successful, handshake() is called to setup the control and data sockets
       //  -if failure, unknown_host() is invoked to retry resolution
@@ -181,13 +185,13 @@ void DmxCtrl::resolve_host() noexcept {
     ZeroConf zcs;
 
     if (zcsf.valid()) {
-      auto zcs_status = zcsf.wait_for(resolve_timeout(tokc));
+      auto zcs_status = zcsf.wait_for(resolve_timeout(*tokc));
 
       if (zcs_status == std::future_status::ready) {
         zcs = zcsf.get();
         INFO_AUTO("resolution complete, valid={}", zcs.valid());
       } else {
-        INFO_AUTO("resolve timeout for '{}' ({})", remote_host, resolve_timeout(tokc));
+        INFO_AUTO("resolve timeout for '{}' ({})", remote_host, resolve_timeout(*tokc));
         unknown_host();
         return;
       }
@@ -262,12 +266,20 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
 
       if (msg.xfer_ok()) {
 
-        // if (tokc.changed() && (remote_host != cfg_host())) {
-        //   INFO("info"sv, "conf change remote_host={}", cfg_host());
-        //   reconnect();
-        // } else {
-        stall_watchdog();
-        // }
+        if (tokc->changed() == false) {
+          // no config changes, just watch for stalls
+          stall_watchdog();
+        } else {
+          // config has changed
+
+          asio::post(sess_strand, [this] {
+            // get the latest config
+            tokc->latest();
+            load_config();
+
+            reconnect();
+          });
+        }
 
       } else {
         Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
@@ -303,7 +315,7 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
 void DmxCtrl::unknown_host() noexcept {
   INFO_AUTO_CAT("host.unknown");
 
-  const auto resolve_backoff = resolve_retry_wait(tokc);
+  const auto resolve_backoff = resolve_retry_wait(*tokc);
   INFO_AUTO("{} not found, retry in {}...", remote_host, resolve_backoff);
 
   remote_host.clear();

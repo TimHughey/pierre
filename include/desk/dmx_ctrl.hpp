@@ -58,7 +58,7 @@ class MsgIn;
 class DmxCtrl {
 public:
   DmxCtrl(asio::io_context &io_ctx) noexcept;
-  ~DmxCtrl() = default;
+  ~DmxCtrl() noexcept { tokc->release(); };
 
   void resume() noexcept;
 
@@ -67,8 +67,8 @@ public:
   void send_data_msg(DataMsg &&msg) noexcept;
 
 private:
-  auto cfg_host() noexcept { return tokc.val<string>("remote.host"_tpath, "dmx"sv); }
-  auto cfg_stall_timeout() noexcept { return tokc.val<Millis>("local.stalled.ms"_tpath, 7500); }
+  auto cfg_host() noexcept { return tokc->val<string>("remote.host"_tpath, "dmx"sv); }
+  auto cfg_stall_timeout() noexcept { return tokc->val<Millis>("local.stalled.ms"_tpath, 7500); }
 
   /// @brief send the initial handshake to the remote host
   void handshake() noexcept;
@@ -79,7 +79,7 @@ private:
   void resolve_host() noexcept;
 
   void reconnect() noexcept {
-    asio::post(sess_strand, [this]() { stall_watchdog(0ms); });
+    asio::dispatch(sess_strand, [this]() { stall_watchdog(0ms); });
   }
 
   void stall_watchdog() noexcept { stall_watchdog(stall_timeout); }
@@ -88,7 +88,7 @@ private:
 
 private:
   // order independent
-  conf::token tokc;
+  conf::token *tokc;
 
   // order dependent
   strand_ioc sess_strand;

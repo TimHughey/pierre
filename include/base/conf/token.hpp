@@ -56,7 +56,7 @@ public:
   token(token &&) = default;
 
 public:
-  static token &acquire_watch_token(csv mid) noexcept;
+  static token *acquire_watch_token(csv mid) noexcept;
   token &operator=(token &&) = default;
 
   bool changed() noexcept { return std::exchange(has_changed, false); }
@@ -68,7 +68,7 @@ public:
   void initiate() noexcept {}
   void initiate_watch() noexcept;
 
-  bool is_table() const noexcept { return ttable.is_table(); }
+  bool is_table() const noexcept { return ttable[root].is_table(); }
 
   const string &msg(ParseMsg id) const noexcept { return msgs[id]; }
 
@@ -87,6 +87,8 @@ public:
   }
 
   bool parse_ok() const noexcept { return msgs[Parser].empty(); }
+
+  void release() const noexcept;
 
   toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
 
@@ -110,13 +112,64 @@ public:
 } // namespace conf
 } // namespace pierre
 
-template <> struct fmt::formatter<pierre::conf::token> : formatter<std::string> {
+template <> struct fmt::formatter<pierre::conf::token> {
+
+  // Presentation format: 'f' - full, 's' - short (default)
+  char presentation = 0x00;
+
+  // Parses format specifications of the form ['f' | 's'].
+  constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
+    // [ctx.begin(), ctx.end()) is a character range that contains a part of
+    // the format string starting from the format specifications to be parsed,
+    // e.g. in
+    //
+    //   fmt::format("{:f} - point of interest", point{1, 2});
+    //
+    // the range will contain "f} - point of interest". The formatter should
+    // parse specifiers until '}' or the end of the range. In this example
+    // the formatter should parse the 'f' specifier and return an iterator
+    // pointing to '}'.
+
+    // Please also note that this character range may be empty, in case of
+    // the "{}" format string, so therefore you should check ctx.begin()
+    // for equality with ctx.end().
+
+    // Parse the presentation format and store it in the formatter:
+
+    auto it = ctx.begin(), end = ctx.end();
+
+    if (it != end) {
+
+      if (*it == '}') presentation = 's';
+
+      if ((*it == 'f') || (*it == 's')) presentation = *it++;
+    }
+
+    if (!presentation && (it != end) && (*it != ']')) throw format_error("invalid format");
+
+    return it;
+  }
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
   auto format(const pierre::conf::token &tok, FormatContext &ctx) const {
 
-    return formatter<std::string>::format(
-        fmt::format("{} {} size={}", tok.root.str(), tok.uuid, tok.ttable.size()), ctx);
+    std::string msg;
+    auto w = std::back_inserter(msg);
+
+    fmt::format_to(w, "{} {}", tok.root.str(), tok.uuid);
+
+    if (tok.is_table()) {
+      const auto &ttable = tok.ttable[tok.root].ref<toml::table>();
+      fmt::format_to(w, " table_size={}", ttable.size());
+    } else {
+      fmt::format_to(w, " **ROOT NOT FOUND**");
+    }
+
+    // return presentation == 'f'
+    //           ? fmt::format_to(ctx.out(), "({:.1f}, {:.1f})", p.x, p.y)
+    //           : fmt::format_to(ctx.out(), "({:.1e}, {:.1e})", p.x, p.y);
+
+    return fmt::format_to(ctx.out(), "{}", msg);
   }
 };
