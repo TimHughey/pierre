@@ -22,6 +22,7 @@
 #include "base/conf/toml.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
+#include "base/uuid.hpp"
 
 #include <array>
 #include <concepts>
@@ -92,12 +93,38 @@ public:
 
   toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
 
+  Millis timeout_val(toml::path &&p, const auto &&def_val) noexcept {
+    const auto path = root + p + "timeout"_tpath;
+
+    Millis sum_ms{0};
+
+    if (ttable[path].is_table()) {
+      auto timeout_table = ttable[path].ref<toml::table>();
+
+      timeout_table.for_each([&sum_ms](const toml::key &key, const toml::value<int64_t> &val) {
+        const int64_t v = val.get();
+
+        if (key == "minutes"sv) {
+          sum_ms += Minutes{v};
+        } else if (key == "seconds"sv) {
+          sum_ms += Seconds{v};
+        } else if (key == "millis"sv) {
+          sum_ms += Millis{v};
+        }
+      });
+    } else {
+      sum_ms = std::chrono::duration_cast<Millis>(def_val);
+    }
+
+    return sum_ms;
+  }
+
 protected:
   void add_msg(ParseMsg msg_id, const string m) noexcept { msgs[msg_id] = m; }
   bool changed(bool b) noexcept { return std::exchange(has_changed, b); }
 
 protected:
-  string uuid;
+  UUID uuid;
   toml::path root;
   toml::table ttable;
   parse_msgs_t msgs;
@@ -145,7 +172,7 @@ template <> struct fmt::formatter<pierre::conf::token> {
       if ((*it == 'f') || (*it == 's')) presentation = *it++;
     }
 
-    if (!presentation && (it != end) && (*it != ']')) throw format_error("invalid format");
+    if (!presentation && (it != end) && (*it != '}')) throw format_error("invalid format");
 
     return it;
   }
@@ -157,11 +184,11 @@ template <> struct fmt::formatter<pierre::conf::token> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "{} {}", tok.root.str(), tok.uuid);
+    fmt::format_to(w, "root={} uuid={:s}", tok.root.str(), tok.uuid);
 
     if (tok.is_table()) {
       const auto &ttable = tok.ttable[tok.root].ref<toml::table>();
-      fmt::format_to(w, " table_size={}", ttable.size());
+      fmt::format_to(w, " size={}", ttable.size());
     } else {
       fmt::format_to(w, " **ROOT NOT FOUND**");
     }

@@ -18,25 +18,15 @@
 
 #pragma once
 
+#include "base/asio.hpp"
 #include "base/uint8v.hpp"
 #include "rtsp/ctx.hpp"
 
-#include <boost/asio/error.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/system.hpp>
 #include <memory>
-#include <optional>
+#include <thread>
 
 namespace pierre {
 
-namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
-
-using error_code = boost::system::error_code;
 using ip_address = asio::ip::address;
 using ip_tcp = asio::ip::tcp;
 using tcp_acceptor = asio::ip::tcp::acceptor;
@@ -48,8 +38,12 @@ namespace rtsp {
 class Audio {
 
 public:
-  Audio(asio::io_context &io_ctx, Ctx *ctx) noexcept;
-  ~Audio() = default;
+  Audio(Ctx *ctx) noexcept;
+  ~Audio() noexcept {
+    io_ctx.stop();
+
+    if (thread.joinable()) thread.join();
+  }
 
   Port port() noexcept { return acceptor.local_endpoint().port(); }
 
@@ -76,12 +70,14 @@ private:
 
 private:
   // order dependent
+  asio::io_context io_ctx;
   Ctx *ctx;
   asio::streambuf streambuf;
   tcp_acceptor acceptor;
   tcp_socket sock;
 
   // order independent
+  std::jthread thread;
   std::ptrdiff_t packet_len{0};
 
   static constexpr csv module_id{"rtsp.audio"};

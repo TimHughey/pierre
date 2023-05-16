@@ -32,9 +32,9 @@ namespace desk {
 void Standby::apply_config() noexcept {
   INFO_AUTO_CAT("apply_config");
 
-  auto cfg_first_color = Color({.hue = tokc.val<double>("color.hue"_tpath, 0.0),
-                                .sat = tokc.val<double>("color.sat"_tpath, 0.0),
-                                .bri = tokc.val<double>("color.bri"_tpath, 0.0)});
+  auto cfg_first_color = Color({.hue = tokc->val<double>("color.hue"_tpath, 0.0),
+                                .sat = tokc->val<double>("color.sat"_tpath, 0.0),
+                                .bri = tokc->val<double>("color.bri"_tpath, 0.0)});
 
   if (cfg_first_color != first_color) {
     std::exchange(first_color, cfg_first_color);
@@ -44,18 +44,21 @@ void Standby::apply_config() noexcept {
   }
 
   // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
-  hue_step = tokc.val<double>("hue_step"_tpath, 0.0);
+  hue_step = tokc->val<double>("hue_step"_tpath, 0.0);
 
   INFO_AUTO("hue_step={}", hue_step);
-
-  const auto timeout = tokc.val<Minutes>(cfg_silence_timeout, 30);
-  set_silence_timeout(timeout, fx::ALL_STOP);
+  set_silence_timeout(tokc, fx::ALL_STOP, Minutes(30));
 }
 
 void Standby::execute(const Peaks &peaks) noexcept {
   INFO_AUTO_CAT("execute");
 
-  if (tokc.changed()) apply_config();
+  if (tokc->changed()) {
+    tokc->latest();
+    apply_config();
+
+    INFO_AUTO("{}", *tokc);
+  }
 
   if (next_brightness < max_brightness) {
     next_brightness++;
@@ -71,6 +74,8 @@ void Standby::execute(const Peaks &peaks) noexcept {
 }
 
 void Standby::once() noexcept {
+
+  tokc->initiate_watch();
 
   get_unit<Switch>(unit::AC_POWER)->activate();
   get_unit(unit::DISCO_BALL)->dark();

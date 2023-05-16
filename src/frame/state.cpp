@@ -22,31 +22,35 @@
 namespace pierre {
 namespace frame {
 
-void state::record_state() const noexcept { Stats::write(pierre::stats::FRAME, 1, tag()); }
+const state &state::record_state() const noexcept {
+  Stats::write(pierre::stats::FRAME, 1, tag());
 
-std::map<state_now_t, string> state::val_to_txt_map{
+  return *this;
+}
+
+std::map<state_now_t, string> state::vt_map{
     // note: comment for easy IDE sorting
-    {DECIPHER_FAILURE, "decipher_failure"},
+    {CAN_RENDER, "can_render"},
+    {DECIPHER_FAIL, "decipher_fail"},
     {DECIPHERED, "deciphered"},
-    {DECODE_FAILURE, "decode_failure"},
-    {DECODED, "decoded"},
-    {DSP_COMPLETE, "dsp_complete"},
-    {DSP_IN_PROGRESS, "dsp_in_progress"},
-    {EMPTY, "empty"},
+    {DECODE_FAIL, "decode_fail"},
+    {DSP, "dsp"},
+    {NO_AUDIO, "no_audio"},
     {ERROR, "error"},
     {FLUSHED, "flushed"},
     {FUTURE, "future"},
     {HEADER_PARSED, "header_parsed"},
     {INVALID, "invalid"},
-    {NO_ANCHOR, "no_anchor"},
-    {NO_CLOCK, "no_clock"},
-    {NO_SHARED_KEY, "no_shared_key"},
+    {MOVED, "moved"},
+    {NO_CLK_ANC, "no_clk_anc"},
+    {NO_SHARED_KEY, "no_shr_key"},
     {NONE, "none"},
     {OUTDATED, "outdated"},
-    {PARSE_FAILURE, "parse_failure"},
+    {PARSE_FAIL, "parse_fail"},
     {READY, "ready"},
     {RENDERED, "rendered"},
     {SILENCE, "silence"},
+    {SENTINEL, "sentinel"},
     // note: extra comma above for easy IDE sorting
 };
 

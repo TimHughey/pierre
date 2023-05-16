@@ -61,8 +61,8 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock,
 }
 
 Ctx::Ctx(tcp_socket &&peer, Rtsp *rtsp, Desk *desk) noexcept
-    : sock(io_ctx), rtsp(rtsp), desk(desk), aes(),
-      feedback_timer(io_ctx), teardown_in_progress{false} //
+    : sock(io_ctx), rtsp(rtsp), desk(desk), aes(), feedback_timer(io_ctx),
+      teardown_in_progress{false} //
 {
   INFO_INIT("sizeof={:>5} socket={}\n", sizeof(Ctx), peer.native_handle());
 
@@ -170,7 +170,7 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   switch (server_type) {
 
   case ports_t::AudioPort:
-    audio_srv = std::make_unique<Audio>(io_ctx, this);
+    audio_srv = std::make_unique<Audio>(this);
     port = audio_srv->port();
     break;
 
@@ -188,7 +188,11 @@ Port Ctx::server_port(ports_t server_type) noexcept {
   return port;
 }
 
-void Ctx::set_live() noexcept { rtsp->set_live(this); }
+void Ctx::set_live() noexcept {
+  rtsp->set_live(this);
+
+  desk->resume();
+}
 
 void Ctx::teardown() noexcept {
   static constexpr csv fn_id{"teardown"};

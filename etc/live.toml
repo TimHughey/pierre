@@ -6,9 +6,10 @@
 threads = 3
 
 [desk.dmx_ctrl]
-local = { stalled.ms = 10_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
-# remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
-remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
+threads = 2
+local = { stalled.ms = 10_500, resolve = { timeout.ms = 15_000, retry.ms = 15_000 } }
+# remote = { host = "dmx", idle_shutdown_ms = 15_000, stats.ms = 2_000 }
+remote = { host = "dmx-test", idle_shutdown.ms = 15_000, stats.ms = 2_000 }
 
 [desk.dimmable]
 max = 8190
@@ -37,6 +38,9 @@ dsp = { threads = 2 } # percentage 1-100 (num threads = (hw_concurrency * factor
 [frame.clock]
 host = "127.0.0.1"              # nqptp host
 shm_name = "/nqptp"             # path to nqptp shared memory directory
+
+[frame.racked]
+# none
 
 # UNUSED:  need implementation
 # [frame.peaks.magnitudes] # only keep peaks in this range
@@ -81,15 +85,18 @@ when_less_than = { freq = 160.0, bri_min = 30.0 }
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 57 }, suggested_fx_next = "all_stop" }
+silence = { timeout = { minutes = 15, seconds  = 30 } }
 
 [logger]
 # category specific overrides
+async = true
 debug = false   # show any debug messages?
 init = true     # always log init messages from any module, when true
-threads = true  # show any thread messages?
 shutdown = true # show any shutdown messages?
-async = true
+threads = true  # show any thread messages?
+threads_start = false
+threads_stop = false
+
 
 [logger.conf.token]
 latest = false
@@ -100,30 +107,45 @@ initiate = false
 initiate_watch = true
 
 [logger.desk]
-thread = true
+find_live = false
+frame_live = false
+next_reel = false
+render = false
 resume = true
+schedule_loop = true
 shutdown = true
 standby = true
-next_reel = false
+threads_start = false
+threads_stop = false
+thread = false
 
 [logger.desk.dmx_ctrl]
 run = true
 host = { connect = true, resolve = true, unknown = true }
 
-[logger.desk.racked]
-flush = false
-log = true
-next_reel = true
-
-[logger.desk.reel]
-flush = false
-
 [logger.frame]
 anchor = false
 av = false
 clock = { init = true, shutdown = false,  peers_update = false,  map_shm = false }
-dsp = { init = true }
 decipher = false
+state_now = false
+
+[logger.frame.racked]
+clean = true
+ddebug = false
+flush = true
+handoff = false
+log = true
+next_reel = false
+nrdebug = false
+thread = false
+xfer_reel = true
+
+[logger.frame.reel]
+clean = true
+flush = true
+push_back = false
+take = false
 
 [logger.fx]
 major_peak = { execute = false }
@@ -131,13 +153,13 @@ silence_watch = false
 standby = { apply_config = false}
 
 [logger.mdns]
-start = true
+start = false
 
 [logger.mdns.ctx]
 all_for_now = true
-browse = true 
+browse = false 
 cb_client = false
-cb_browse = true
+cb_browse = false
 cb_evt_grp = false
 resolved = false
 

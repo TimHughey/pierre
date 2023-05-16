@@ -27,85 +27,91 @@
 #include "frame/flush_info.hpp"
 #include "master_clock.hpp"
 
-#include <algorithm>
-#include <atomic>
-#include <memory>
-#include <optional>
-#include <thread>
-#include <vector>
+#include <boost/asio/consign.hpp>
+#include <boost/asio/prepend.hpp>
+#include <fmt/std.h>
 
 namespace pierre {
 
 Racked::Racked() noexcept
-    : // Racked provides request based service so needs a work_guard
+    : // allocate our threads
+      threads(nthreads),
+      // Racked provides request based service so needs a work_guard
       work_guard(asio::make_work_guard(io_ctx)),
-      // ensure flush requests are serialized
-      flush_strand(asio::make_strand(io_ctx)),
-      // serialize changes to reels container
-      racked_strand(asio::make_strand(io_ctx)),
-      // create the initial work-in-progress reel
-      wip(Reel(Reel::MaxFrames)) //
+      // create a strand to guard access to frames and flush_request
+      frames_strand(asio::make_strand(io_ctx)),
+      // start with an inactive flush request
+      flush_request(FlushInfo::Inactive),
+      // as of C++20 constructor clears flag
+      next_reel_busy(), reel_ready(),
+      // initialize our first reel
+      reel(Reel::Transfer) //
 {
-
-  // start the threads and run the io_ctx
-  for (uint8_t n = 0; n < nthreads; n++) {
-    std::jthread([this, n = n]() {
-      static constexpr csv tname{"pierre_racked"};
-
-      pthread_setname_np(pthread_self(), tname.data());
-
-      INFO("thread", "started {}", n);
-
-      io_ctx.run();
-    }).detach();
-  }
-
   INFO_INIT("sizeof={:>5} frame_sizeof={} lead_time={} fps={} nthreads={}", sizeof(Racked),
             sizeof(Frame), pet::humanize(InputInfo::lead_time), InputInfo::fps, nthreads);
+
+  auto n_thr = nthreads;
+  for (auto &t : threads) {
+    const auto tname = fmt::format("pierre_rack{}", n_thr--);
+
+    t = std::jthread([this, tname = std::move(tname)]() {
+      pthread_setname_np(pthread_self(), tname.c_str());
+
+      INFO("thread"sv, "started {}", tname);
+
+      io_ctx.run();
+    });
+  }
 }
 
-Racked::~Racked() noexcept { io_ctx.stop(); }
+Racked::~Racked() noexcept {
+  INFO_AUTO_CAT("destruct");
 
-void Racked::flush(FlushInfo &&request) noexcept {
+  io_ctx.stop();
+
+  INFO_AUTO("joining threads={} io_ctx={}", threads.size(), io_ctx.stopped());
+
+  for (auto &t : threads) {
+    if (t.joinable()) {
+      INFO_AUTO("attempting to join tid={}", t.get_id());
+
+      t.join();
+    }
+  }
+}
+
+void Racked::flush(FlushInfo &&fi) noexcept {
   INFO_AUTO_CAT("flush");
 
-  // post the flush request to the flush strand to serialize flush requests
-  // and guard changes to flush request
-  asio::post(flush_strand, [this, request = std::move(request)]() mutable {
-    // store the flush request to check incoming frames (guarded by flush_strand)
-    std::exchange(flush_request, std::move(request));
+  asio::post(frames_strand, [this, fi = std::move(fi)]() mutable {
+    // first, save FlushInfo
+    flush_request = std::move(fi);
 
-    // rack wip so it is checked during rack flush
-    rack_wip();
-
-    // start the flush on the racked strand to prevent data races
-    asio::post(racked_strand, [this]() {
-      const auto initial_reels = reel_count();
-      int64_t flush_count{0};
-
-      if (initial_reels > 0) {
-
-        // examine each reel to determine if it should be flushed
-        // note:  this is necessary because frame timestamps can be out of sequence
-        //        depending on the sensder's choice
-        std::erase_if(reels, [this, &flush_count](auto &reel) mutable {
-          const auto rc = reel.flush(flush_request);
-
-          if (rc) {
-            flush_count++;
-
-            INFO_AUTO("FLUSHED {}", reel);
-          }
-
-          return rc;
-        });
-
-        INFO_AUTO("flush_count={} reels_remaining={}", flush_count, reel_count());
-
-        Stats::write(stats::REELS_FLUSHED, flush_count);
-        Stats::write(stats::RACKED_REELS, initial_reels);
+    if (auto flushed = reel.flush(flush_request); flushed > 0) {
+      INFO_AUTO("flushed={} avail={}", flushed, reel.size_cached());
+      if (reel.empty()) {
+        reel = Reel(Reel::Transfer);
+        ts_oos.clear();
       }
-    });
+    }
+
+    flush_request.done();
+
+    // second, flush frames
+    /*auto flush_n = flush_request(reel, frame::FLUSHED);
+
+     auto [erased, remain] = reel.clean();
+
+     INFO_AUTO("DONE flushed={} erased={} remain=[] ts_oos={}", flush_n, erased, remain,
+               ts_oos.size());
+
+     // create a new reel if the previous reel was emptied by the flush
+     if (remain == 0) {
+       reel = Reel(Reel::Transfer);
+       ts_oos.clear();
+     }
+
+     flush_request.done();*/
   });
 }
 
@@ -114,126 +120,46 @@ void Racked::handoff(uint8v &&packet, const uint8v &key) noexcept {
 
   if (packet.empty()) return; // quietly ignore empty packets
 
-  Frame frame(packet); // create frame, will also be moved in lambda (as needed)
-
-  if (frame.state.header_parsed()) {
-    if (frame.decipher(std::move(packet), key)) {
-      // notes:
-      //  1. we post to handoff_strand to control the concurrency of decoding
-      //  2. we move the packet since handoff() is done with it
-
-      if (flush_request.should_flush(frame)) {
-        // frame is flushed, record it's state and don't move to wip
-        frame.flushed();
-        frame.record_state();
-      } else {
-
-        // here we do the decoding of the audio data, if decode succeeds we
-        // rack the frame into wip
-
-        if (frame.decode()) [[likely]] {
-          frame.record_state();
-
-          // prevent flushed frames from being added
-          if (frame.state.dsp_any()) {
-            if (wip.can_add_frame(frame) == false) rack_wip();
-
-            wip.add(std::move(frame));
-
-          } else {
-            // something wrong, the frame is not in a DSP state. discard...
-            INFO_AUTO("discarding frame {}", frame.state);
-          }
-        }
-      }
-    } else {
-      frame.record_state();
-    }
-  } else {
-    frame.record_state();
+  // wait for any in-progress flush requests to finish
+  if (flush_request.busy_hold(frames_strand) == false) {
+    INFO_AUTO("{}", flush_request.pop_msg(FlushInfo::BUSY_MSG));
   }
-}
 
-void Racked::log_racked(log_rc rc) const noexcept {
-  INFO_AUTO_CAT("log");
+  // perform the heavy lifting of decipher, decode and dsp in the caller's thread
+  Frame frame(packet);
+  frame.process(std::move(packet), key);
+  flush_request.check(frame, frame::FLUSHED);
 
-  if (SHOULD_LOG(module_id, fn_id)) {
-    const auto total_reels = reel_count();
+  frame.record_state();
 
-    string msg;
-    auto w = std::back_inserter(msg);
+  INFO_AUTO("created {}", frame);
 
-    switch (rc) {
-    case log_rc::NONE: {
-      if ((total_reels == 1) && (reels.front().size() == 1)) {
+  if (frame.can_render()) reel.push_back(std::move(frame));
 
-        fmt::format_to(w, "LAST FRAME");
-      } else if ((total_reels >= 400) && ((total_reels % 10) == 0)) {
+  /* asio::post(frames_strand, //
+              asio::prepend(
+                  [this](Frame frame) {
+                    // when a deviation in the sender's timeline (timestamp) is
+                    // encoutered record the timestamp of the previous frame
+                    // for creating reels, flushing, etc.
+                    if (reel.size() > 1) {
+                      const auto &last = reel.back();
 
-        fmt::format_to(w, "HIGH REELS reels={:<3}", total_reels);
-      }
-    } break;
+                      if (frame.ts() != (last.ts() + 1024)) {
+                        auto [it, inserted] = ts_oos.insert(frame.ts());
+                        if (!inserted) INFO_AUTO("ts_oos {} {}", *it, frame);
+                      }
+                    }
 
-    case log_rc::RACKED: {
-      if (total_reels == 1) {
-        fmt::format_to(w, "FIRST REEL frames={}", reels.front().size());
-        if (wip.size() == 1) fmt::format_to(w, " [new wip]");
-      }
+                    reel_p
 
-    } break;
-    }
+                    xfer_reel(); // no-op if no reel xfer pending
 
-    if (msg.size()) INFO_AUTO("{}", msg);
-  }
-}
-
-std::future<Reel> Racked::next_reel() noexcept {
-  INFO_AUTO_CAT("next_reel");
-
-  auto prom = std::promise<Reel>();
-  auto fut = prom.get_future();
-
-  asio::post(racked_strand, [this, prom = std::move(prom)]() mutable {
-    if (reel_count() > 0) {
-
-      // set the promise as quickly as possible
-      prom.set_value(std::move(reels.front()));
-
-      reels.pop_front();
-
-      Stats::write(stats::RACKED_REELS, reel_count());
-
-    } else if (!wip.empty()) {
-      INFO_AUTO("taking WIP {} reels={}", wip, reel_count());
-
-      // we can take the wip reel
-      prom.set_value(take_wip());
-    } else {
-      // INFO_AUTO("no reels, returning synthetic reel\n");
-      prom.set_value(Reel(Reel::Synthetic));
-    }
-  });
-
-  return fut;
-}
-
-void Racked::rack_wip() noexcept {
-  if (wip.size() > 0) {
-
-    asio::post(racked_strand, [this, reel = take_wip()]() mutable {
-      reels.emplace_back(std::move(reel));
-
-      Stats::write(stats::RACKED_REELS, reel_count());
-
-      log_racked(RACKED);
-    });
-  }
-}
-
-Reel Racked::take_wip() noexcept {
-  std::unique_lock lck(wip_mtx);
-
-  return std::exchange(wip, Reel(Reel::MaxFrames));
+                    // now add the incoming frame
+                    std::lock_guard<decltype(reel_mtx)> reel_lock(reel_mtx);
+                    reel.push_back(std::move(frame));
+                  },
+                  std::move(frame))); */
 }
 
 } // namespace pierre

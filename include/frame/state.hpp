@@ -35,71 +35,59 @@
 namespace pierre {
 namespace frame {
 
-enum state_now_t : size_t {
+enum state_now_t : uint8_t {
   // NOTE:  do not sort these values they are sequenced based
-  //        based on frame processing and are compared via <=>
-  //        in some instances
-  EMPTY = 0,
-  NONE,
+  //        values are ordered based on ability to render
+  NONE = 0,
+  SENTINEL,
+  NO_AUDIO,
   ERROR,
   INVALID,
-  HEADER_PARSED,
   NO_SHARED_KEY,
-  DECIPHER_FAILURE,
+  DECIPHER_FAIL,
+  PARSE_FAIL,
+  DECODE_FAIL,
+  HEADER_PARSED,
   FLUSHED,
-  DECIPHERED,
-  PARSE_FAILURE,
-  DECODE_FAILURE,
-  DECODED,
-  DSP_IN_PROGRESS,
-  DSP_COMPLETE,
-  NO_CLOCK,
-  NO_ANCHOR,
-  FUTURE,
+  MOVED,
   OUTDATED,
-  READY,
   RENDERED,
-  SILENCE
+  SILENCE,
+  DECIPHERED,
+  CAN_RENDER, // divider between renderable and not
+  DSP,
+  NO_CLK_ANC,
+  READY,
+  FUTURE
 };
 
+}
+
+using frame_state_v = frame::state_now_t;
+
+namespace frame {
+
 class state {
+  friend struct fmt::formatter<state>;
+
+  auto vtxt() const noexcept { return vt_map.at(val).c_str(); }
+
 public:
-  state() noexcept : val{state_now_t::NONE} {}
+  using now_set = std::set<state_now_t>;
+
+public:
+  state() noexcept : val{NONE} {}
   state(const state_now_t now_val) noexcept : val(now_val) {}
 
-  bool deciphered() const noexcept { return *this == DECIPHERED; };
-  bool decoded() const noexcept { return *this == DECODED; }
+  bool can_render() const noexcept {
+    static const std::set<state_now_t> want{DSP, NO_CLK_ANC, READY, FUTURE};
 
-  bool dsp_any() const noexcept {
-    static const auto want = std::set{DECODED, DSP_COMPLETE, DSP_IN_PROGRESS};
-
-    return *this == want;
+    return want.contains(val);
   }
 
-  bool dsp_incomplete() const noexcept {
-    static const auto want = std::set{DECODED, DSP_IN_PROGRESS};
-
-    return *this == want;
-  }
-
-  bool empty() const noexcept { return *this == EMPTY; }
-  bool future() const noexcept { return *this == FUTURE; }
-  bool header_parsed() const noexcept { return *this == HEADER_PARSED; }
-
-  csv inspect() const noexcept { return csv{val_to_txt_map.at(val)}; }
-
-  auto no_clock_or_anchor() const noexcept { return (*this == NO_CLOCK) || (*this == NO_ANCHOR); }
   auto now() const noexcept { return val; }
 
-  bool operator()(std::optional<state> &n) noexcept {
-    auto changed{false};
-
-    if (changed = n.has_value() && (n.value() != *this); changed) {
-      val = n->val;
-    }
-
-    return changed;
-  }
+  explicit operator frame_state_v() const noexcept { return val; }
 
   state &operator=(const state &rhs) = default;
   state &operator=(const state_now_t now_val) noexcept {
@@ -112,13 +100,12 @@ public:
   template <typename T> friend bool operator==(const state &lhs, const T &rhs) noexcept {
     if constexpr (std::same_as<T, state_now_t>) {
       return lhs.val == rhs;
-    } else if constexpr (std::is_same_v<T, state>) {
+    } else if constexpr (std::same_as<T, state>) {
       return lhs.val == rhs.val;
-    } else if constexpr (std::is_same_v<T, std::set<state_now_t>>) {
+    } else if constexpr (std::same_as<T, now_set>) {
       return rhs.contains(lhs.val);
     } else {
-      static_assert(always_false_v<T>,
-                    "comparison to state_now_t, another state or a set of state_now_t only");
+      static_assert(always_false_v<T>, "invalid comparison");
     }
   }
 
@@ -126,30 +113,22 @@ public:
     return lhs.val <=> rhs.val;
   }
 
-  bool outdated() const noexcept { return *this == OUTDATED; }
-  bool ready() const noexcept { return *this == READY; }
-
-  bool ready_or_future() const noexcept {
-    static const auto want = std::set{READY, FUTURE};
-
-    return *this == want;
+  friend std::partial_ordering operator<=>(const state &lhs, const state_now_t rhs) noexcept {
+    return lhs.val <=> rhs;
   }
 
-  void record_state() const noexcept;
+  bool ready_or_future() const noexcept { return (*this == READY) || (*this == FUTURE); }
+  const state &record_state() const noexcept;
 
-  auto tag() const noexcept { return std::make_pair("state", inspect().data()); }
-
-  bool updatable() const noexcept { // frame states that can be changed
-    static const auto want = std::set{DSP_COMPLETE, FUTURE, READY};
-    return *this == want;
-  }
+  auto tag() const noexcept { return std::make_pair("state", vtxt()); }
 
 private:
-  state_now_t val{state_now_t::NONE};
-  static std::map<state_now_t, string> val_to_txt_map;
+  state_now_t val{NONE};
+  static std::map<state_now_t, string> vt_map;
 };
 
 } // namespace frame
+
 } // namespace pierre
 
 //
@@ -159,8 +138,8 @@ template <> struct fmt::formatter<pierre::frame::state> : formatter<std::string>
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
-  auto format(const pierre::frame::state &val, FormatContext &ctx) const {
-
-    return formatter<std::string>::format(fmt::format("state={}", val.inspect()), ctx);
+  auto format(const pierre::frame::state &state, FormatContext &ctx) const {
+    const auto msg = fmt::format("state={}", state.vtxt());
+    return formatter<std::string>::format(msg, ctx);
   }
 };

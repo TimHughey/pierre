@@ -32,10 +32,13 @@ namespace desk {
 class Standby : public FX {
 
 public:
-  Standby(auto &executor) noexcept : FX(executor, fx::STANDBY), tokc(module_id) {
-    tokc.initiate();
+  Standby(auto &executor) noexcept
+      : FX(executor, fx::STANDBY), tokc(conf::token::acquire_watch_token(module_id)) {
+
     apply_config();
   }
+
+  ~Standby() noexcept { tokc->release(); }
 
   void execute(const Peaks &peaks) noexcept override;
 
@@ -46,7 +49,7 @@ private:
 
 private:
   // order dependent
-  conf::token tokc;
+  conf::token *tokc;
 
   // order independent
   Color first_color;

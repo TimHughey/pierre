@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/logger.hpp"
+#include "base/uint8v.hpp"
 #include "frame.hpp"
 #include "libav.hpp"
 
@@ -31,46 +31,49 @@ namespace pierre {
 class FFT;
 
 class Av {
+  static constexpr int ADTS_CHANNEL_CFG{2}; // CPE
+  static constexpr int ADTS_FREQ_IDX{4};    // 44.1 KHz
+  static constexpr int ADTS_PROFILE{2};     // AAC LC
+  static constexpr std::ptrdiff_t ADTS_HEADER_SIZE{7};
+  static constexpr std::ptrdiff_t CIPHER_BUFF_SIZE{0x2000};
 
 public:
   Av() noexcept;
   ~Av() noexcept;
 
+  /// @brief Decode deciphered frame to audio frame then perform FFT
+  /// @param frame Frame to parse
+  /// @return reference to frame state
+  frame_state_v decode(Frame &frame, uint8v encoded) noexcept;
+
+  static uint8v make_m_buffer() noexcept { return uint8v(CIPHER_BUFF_SIZE); }
+
   /// @brief allocate space for the ADTS header and cipher
   /// @returns pointer to memory block for encrypted data
-  static uint8_t *m_buffer(cipher_buff_t &m, ptrdiff_t bytes) noexcept {
-    m.emplace(ADTS_HEADER_SIZE + bytes, 0x00);
+  static auto *m_buffer(uint8v &m) noexcept {
+    std::fill_n(m.begin(), ADTS_HEADER_SIZE, 0x00);
 
-    return m->data() + ADTS_HEADER_SIZE;
+    return m.raw_buffer<uint8_t>(ADTS_HEADER_SIZE);
   }
 
   /// @brief resizes 'm' to accomodate bytes consumed by deciphering
   /// @param m buffer to resize
   /// @param consumed bytes deciphered
-  static void m_buffer_resize(cipher_buff_t &m, unsigned long long consumed) noexcept {
-    m->resize(consumed + ADTS_HEADER_SIZE);
+  static void m_buffer_resize(uint8v &m, ull_t consumed) noexcept {
+    m.resize(ADTS_HEADER_SIZE + consumed);
   }
 
-  /// @brief Parse (decode) deciphered frame to audio frame then perform FFT
-  /// @param frame Frame to parse
-  /// @return boolean indicating success or failure, Frame state will be set appropriately
-  bool parse(Frame &frame) noexcept;
-
 private:
-  bool decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_frame = nullptr) noexcept;
+  frame_state_v decode_failed(Frame &frame, AVPacket **pkt,
+                              AVFrame **audio_frame = nullptr) noexcept;
 
-  void dsp(Frame &frame, FFT &&left, FFT &&right) noexcept;
+  frame_state_v dsp(Frame &frame, FFT &&left, FFT &&right) noexcept;
 
   void log_diag_info(AVFrame *audio_frame) noexcept;
 
-  static void log_discard(Frame &frame, int used) noexcept;
+  static void log_discard(Frame &frame, const uint8v &m, int used) noexcept;
 
 private:
-  static constexpr int ADTS_PROFILE{2};     // AAC LC
-  static constexpr int ADTS_FREQ_IDX{4};    // 44.1 KHz
-  static constexpr int ADTS_CHANNEL_CFG{2}; // CPE
-  static constexpr std::ptrdiff_t ADTS_HEADER_SIZE{7};
-
 private:
   // order dependent
   std::atomic_bool ready; // AV functionality setup and ready

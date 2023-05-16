@@ -18,134 +18,250 @@
 
 #pragma once
 
+#include "base/asio.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/prepend.hpp>
 #include <fmt/format.h>
 #include <functional>
-#include <ranges>
-#include <vector>
+#include <future>
+#include <optional>
+#include <utility>
 
 namespace pierre {
 
 template <typename T>
-concept HasSeqNumAndTimestamp = requires(T v) {
-                                  { v.seq_num } -> std::convertible_to<seq_num_t>;
-                                  { v.timestamp } -> std::convertible_to<timestamp_t>;
-                                };
+concept HasSeqNumAndTimestamp = requires(T &f) {
+  { f.sn() } noexcept;
+  { f.ts() } noexcept;
+};
+
+template <typename T>
+concept IsFramesContainer = requires(T &v) {
+  { v.begin() } noexcept;
+  { v.end() } noexcept;
+  { v.empty() } noexcept;
+};
+
+template <typename T>
+concept IsFrameStateVal = std::is_enum<T>::value;
+
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 struct FlushInfo {
-  bool active{false};
-  seq_num_t from_seq{0};
-  timestamp_t from_ts{0};
-  seq_num_t until_seq{0};
-  timestamp_t until_ts{0};
-  bool deferred{false};
-  bool all{false};
+  enum kind_t { All, Inactive };
+  enum msg_t : uint8_t { BUSY_MSG = 0, EOM };
 
-  FlushInfo() = default;
-  FlushInfo(const FlushInfo &) = default;
-  FlushInfo(FlushInfo &&) = default;
-  // FlushInfo &operator=(const FlushInfo &) = default;
-  FlushInfo &operator=(FlushInfo &&) = default;
-
-  constexpr FlushInfo(const seq_num_t from_seq, const timestamp_t from_ts, //
-                      const seq_num_t until_seq, const timestamp_t until_ts) noexcept
-      : active(true),         // enable this flush request
-        from_seq(from_seq),   // set the various fields
-        from_ts(from_ts),     // since this is not an aggregate class
-        until_seq(until_seq), // flush everything <= seq_num
-        until_ts(until_ts)    // flush everything <= timestamp
+  FlushInfo(const seq_num_t from_seq, const timestamp_t from_ts, //
+            const seq_num_t until_seq, const timestamp_t until_ts) noexcept
+      : // enable this flush request
+        a_active(std::make_unique<std::atomic_flag>()),
+        // initialize flushed count to zero
+        a_count(std::make_unique<std::atomic_int64_t>(0)),
+        // set optional fields
+        from_seq(from_seq), from_ts(from_ts),
+        // flush everything <= seq_num
+        until_seq(until_seq),
+        // flush everything <= timestamp
+        until_ts(until_ts) //
   {
+    // atomic_flag can not be set via constructor, do so here
+    a_active->test_and_set();
+
     // UNSURE IF THE FOLLOWING IS CURRENT OR LEGACY
     // a flush with from[seq|ts] will not be followed by a setanchor (i.e. render)
     // if it's a flush that will be followed by a set_anchor then stop render now.
   }
 
-  static FlushInfo make_flush_all() noexcept {
-    auto info = FlushInfo();
-    info.active = true;
-    info.all = true;
-
-    return info;
+  FlushInfo(kind_t kind) noexcept {
+    if (kind == All) {
+      a_active = std::make_unique<std::atomic_flag>();
+      a_active->test();
+      all = true;
+    }
   }
 
-  bool operator()(seq_num_t seq_num, timestamp_t ts) const noexcept {
-    return all || ((seq_num <= until_seq) && (ts <= until_ts));
+  FlushInfo() = default;
+  FlushInfo(const FlushInfo &) = default;
+  FlushInfo(FlushInfo &&) = default;
+
+  bool active() const noexcept { return (bool)a_active && a_active->test(); }
+
+  bool busy_hold(strand_ioc &exec) noexcept {
+    std::promise<bool> prom;
+    std::future<bool> fut(prom.get_future());
+
+    asio::dispatch(exec, // use dispatch in case called from same executor
+                   asio::prepend(
+                       [this](std::promise<bool> prom) {
+                         // we attempt this to be low-impact and immediately
+                         // set the promise when not busy
+                         if (!active()) {
+                           prom.set_value(true);
+
+                         } else {
+                           // otherwise we need to handle any previous promises made
+                           // before saving the new promise for setting by done
+                           if (busy_prom.has_value()) {
+                             msgs[BUSY_MSG] = "pending busy promise";
+
+                             // set to false so the caller holding the previous
+                             // busy future can detect it's been preempted
+                             busy_prom->set_value(false);
+                             busy_prom.reset();
+                           } else {
+                             msgs[BUSY_MSG].clear();
+                           }
+
+                           busy_prom.emplace(std::move(prom));
+                         }
+                       },
+                       std::move(prom)));
+
+    // block the caller until the promise is set
+    return fut.get();
   }
 
-  bool operator()(auto &item) const noexcept {
-    static_assert(HasSeqNumAndTimestamp<decltype(item)>);
+  /// @brief Determine if the frame should be kept
+  /// @tparam T Any object that has seq_num and timestamp data members
+  /// @param frame What to examine
+  /// @return boolean indicating if frame meets flush request criteria
+  template <typename T, typename S>
+    requires HasSeqNumAndTimestamp<T> && IsFrameStateVal<S>
+  bool check(T &f, S state_v) noexcept {
 
-    return all || ((item.seq_num <= until_seq) && (item.timestamp <= until_ts));
+    if (!active()) return true;
+
+    auto flush{true};
+    flush &= std::cmp_less_equal(f.sn(), until_seq);
+    flush &= std::cmp_less_equal(f.ts(), until_ts);
+
+    if (flush) f = state_v;
+
+    return f != state_v;
   }
 
-  /// @brief Is this request inactive?
-  /// @return true if inactive, false if active
-  bool operator!() const noexcept { return !active; }
-
-  /// @brief Determine if a list of items matches the flush criteria
-  /// @tparam T Any pointer that has public class memebers seq_num and timestamp
-  /// @param items A vector of items
-  /// @return boolean indicating if all items match this request
   template <typename T>
-    requires HasSeqNumAndTimestamp<T> bool
-  matches(const T &a, const T &b) const {
+    requires HasSeqNumAndTimestamp<T>
+  bool check(T &f) noexcept {
 
-    auto check = [this](const auto &x) {
-      return (x.seq_num <= until_seq) && (x.timestamp <= until_ts);
-    };
+    if (!active()) return true;
 
-    return (all || (check(a) && check(b)));
+    auto flush{true};
+    flush &= std::cmp_less_equal(f.sn(), until_seq);
+    flush &= std::cmp_less_equal(f.ts(), until_ts);
+
+    if (flush) std::atomic_fetch_add(a_count.get(), 1);
+
+    return flush;
   }
 
-  /// @brief Determine if the item passed meets the flush criteria.  If not, set the
-  ///        flush request inactive.
-  /// @tparam T Any pointer that has public class memebers seq_num and timestamp
-  /// @param item What to examine
-  /// @return boolean indicating if item meets flush request criteria
-  template <typename T>
-    requires HasSeqNumAndTimestamp<T> bool
-  should_flush(T &item) noexcept {
+  auto count() noexcept { return std::atomic_exchange(a_count.get(), 0); }
 
-    // flush all requests are single-shot. in other words, they go inactive once
-    // the initial flush is complete and do not apply to inbound frames. here we check
-    // if this is a single-shot all or standard request
-    if (active && !all) {
-      active = ((item.seq_num <= until_seq) && (item.timestamp <= until_ts));
-    } else if (all) {
-      active = false;
+  void done() noexcept {
+    from_seq = 0;
+    from_ts = 0;
+    until_seq = 0;
+    until_ts = 0;
+
+    a_active->clear();
+    a_active->notify_all();
+
+    if (busy_prom.has_value()) {
+      busy_prom->set_value(true);
+      busy_prom.reset();
+    }
+  }
+
+  /// @brief Reset count of frames flushed
+  /// @return number of frames frames
+  int64_t flushed() noexcept { return std::atomic_exchange(a_count.get(), 0); }
+
+  /// @brief Active status of flush
+  /// @return true if active, otherwise false
+  explicit operator bool() const noexcept { return active(); }
+
+  FlushInfo &operator=(FlushInfo &&) = default;
+
+  /// @brief Flush the frame if it meets the flush criteria
+  /// @tparam T An object that contains seq_num and timestamp data members
+  /// @param frame
+  /// @return boolean indicating if frame was flushed
+  template <typename T, typename S>
+    requires HasSeqNumAndTimestamp<T> && IsFrameStateVal<S>
+  auto operator()(T &f, S state_v) noexcept {
+
+    if ((f.sn() <= until_seq) && (f.ts() <= until_ts)) {
+      // flush this frame
+      f = state_v;
+      std::atomic_fetch_add(a_count.get(), 1);
     }
 
-    return active;
+    return f == state_v;
   }
+
+  template <typename T, typename S>
+    requires IsFramesContainer<T> && IsFrameStateVal<S>
+  auto operator()(T &frames, S state_v) noexcept {
+
+    if (frames.size()) {
+      auto begin = frames.begin();
+      auto end = frames.end();
+
+      // lambda for determining if a frame should be flushed
+      auto check_frame = [=, this](auto &f) { return !check(f, state_v); };
+      auto to_it = std::find_if(begin, end, check_frame);
+
+      if (to_it != end) {
+        std::atomic_fetch_add(a_count.get(), std::distance(begin, to_it));
+      }
+    }
+
+    return flushed();
+  }
+
+  const string pop_msg(msg_t mt) noexcept {
+    auto msg = msgs[mt];
+    msgs[mt].clear();
+
+    return msg;
+  }
+
+public:
+  // order dependent
+  std::unique_ptr<std::atomic_flag> a_active{nullptr};
+  std::unique_ptr<std::atomic_int64_t> a_count{nullptr};
+  seq_num_t from_seq{0};
+  timestamp_t from_ts{0};
+  seq_num_t until_seq{0};
+  timestamp_t until_ts{0};
+  bool all{false};
+
+  // order independent
+  std::optional<std::promise<bool>> busy_prom;
+  std::array<string, EOM> msgs;
 };
 
 } // namespace pierre
 
 /// @brief Custom formatter for FlushInfo
-template <> struct fmt::formatter<pierre::FlushInfo> : formatter<std::string> {
+template <> struct fmt::formatter<pierre::FlushInfo> : fmt::formatter<std::string> {
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
-  auto format(const pierre::FlushInfo &info, FormatContext &ctx) const {
-    std::string msg;
+  auto format(const pierre::FlushInfo &fi, FormatContext &ctx) const {
+    auto msg = fmt::format("FLUSH_INFO {}", fi.active() ? "ACTIVE " : "INACTIVE ");
     auto w = std::back_inserter(msg);
-    fmt::format_to(w, "{}{}", info.active ? "ACTIVE" : "INACTIVE",
-                   info.deferred ? " DEFERRED " : " ");
 
-    if (info.all) {
-      fmt::format_to(w, "ALL (one-shot)");
-    } else {
+    if (fi.all) fmt::format_to(w, "ALL ");
+    if (fi.busy_prom.has_value()) fmt::format_to(w, "WAITER ");
+    if (fi.from_seq) fmt::format_to(w, "*FROM sn={:<8} ts={:<12} ", fi.from_seq, fi.from_ts);
+    if (fi.until_seq) fmt::format_to(w, "UNTIL sn={:<8} ts={:<12} ", fi.until_seq, fi.until_ts);
 
-      if (info.from_seq || info.from_ts) {
-        fmt::format_to(w, "from seq_num={:<8} timestamp={:<12} ", info.from_seq, info.from_ts);
-      }
-
-      fmt::format_to(w, "seq_num={:<8} timestamp={:<12}", info.until_seq, info.until_ts);
-    }
-
-    return formatter<std::string>::format(fmt::format("{}", msg), ctx);
+    return formatter<std::string>::format(msg, ctx);
   }
 };

@@ -295,9 +295,9 @@ void App::main() {
     thread = std::jthread([main_pid, this, &rtsp = *rtsp](std::stop_token stoken) mutable {
       INFO_INIT("sizeof={:>5}", sizeof(App));
 
-      constexpr auto tname{"pierre_app"};
+      const string tname("pierre_app");
       auto tid = pthread_self();
-      if (auto rc = pthread_setname_np(tid, tname); rc != 0) {
+      if (auto rc = pthread_setname_np(tid, tname.c_str()); rc != 0) {
         INFO_AUTO("failed to set thread name: {}", std::strerror(errno));
       }
 

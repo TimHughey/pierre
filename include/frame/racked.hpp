@@ -20,6 +20,7 @@
 
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
 #include "frame/anchor_last.hpp"
@@ -36,10 +37,12 @@
 #include <boost/asio/strand.hpp>
 #include <boost/asio/system_timer.hpp>
 #include <boost/system.hpp>
-#include <future>
-#include <list>
+#include <deque>
+#include <iterator>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <thread>
 
 namespace pierre {
 
@@ -64,44 +67,42 @@ public:
   ~Racked() noexcept;
 
   void flush(FlushInfo &&request) noexcept;
-  void flush_all() noexcept { flush(FlushInfo::make_flush_all()); }
+  bool flush_active() const noexcept { return flush_request.active(); }
+  void flush_all() noexcept { flush(FlushInfo(FlushInfo::All)); }
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  std::future<Reel> next_reel() noexcept;
+  void next_reel(Reel &dr) noexcept {
+    INFO_AUTO_CAT("next_reel");
 
-  ssize_t reel_count() const noexcept { return std::ssize(reels); }
+    if (flush_active()) {
+      INFO_AUTO("flush active, aborting");
+      return;
+    }
 
-private:
-  enum log_rc { NONE, RACKED };
-
-private:
-  void log_racked(log_rc rc = log_rc::NONE) const noexcept;
-  void rack_wip() noexcept;
-
-  Reel take_wip() noexcept;
+    dr.take(reel);
+  }
 
 private:
   // order dependent
   const int nthreads{2};
+  std::vector<std::jthread> threads;
   asio::io_context io_ctx;
-  work_guard_ioc work_guard; // provides a service so requires a work_guard
-  strand_ioc flush_strand;
-  strand_ioc racked_strand;
-  Reel wip;
+  work_guard_ioc work_guard; // prevent io_ctx from stopping when no work
+  strand_ioc frames_strand;
+  FlushInfo flush_request;
+  std::atomic_flag next_reel_busy;
+  std::atomic_flag reel_ready;
+  Reel reel;
 
   // order independent
-  std::mutex wip_mtx;
-  FlushInfo flush_request;
-  std::atomic_bool spool_frames{false};
-  std::atomic<ssize_t> _reel_count{0};
-  std::list<Reel> reels;
-
-  ClockInfo clock_info;
+  std::set<timestamp_t> ts_oos;
+  std::optional<std::reference_wrapper<Reel>> xfer_reel_ref;
+  Reel xfer_pending_reel;
+  std::mutex mtx;
 
 public:
-  static constexpr Nanos reel_max_wait{InputInfo::lead_time_min};
-  static constexpr csv module_id{"desk.racked"};
+  static constexpr csv module_id{"frame.racked"};
 
 }; // Racked
 

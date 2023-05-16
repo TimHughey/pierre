@@ -102,8 +102,6 @@ void watch::check() noexcept {
 
           INFO_AUTO("{}", msgs[Info]);
 
-          std::unique_lock lck(tokens_mtx);
-
           for (auto &tokc : tokens) {
             if (watches.contains(tokc->uuid)) {
 
@@ -115,7 +113,7 @@ void watch::check() noexcept {
                 if (ttable[tok_root] != tok_table) {
                   tokc->changed(true);
 
-                  INFO_AUTO("notified {}", tokc->uuid);
+                  INFO_AUTO("notified {:s}", tokc->uuid);
                 }
               }
             }
@@ -132,28 +130,30 @@ void watch::check() noexcept {
 void watch::initiate_watch(const token &tokc) noexcept {
   INFO_AUTO_CAT("initiate_watch");
 
-  asio::post(io_ctx, [this, uuid = tokc.uuid]() {
-    std::unique_lock lck(tokens_mtx);
-    auto [it, inserted] = watches.emplace(uuid);
+  asio::post(io_ctx, [this, &tokc]() {
+    auto [it, inserted] = watches.emplace(tokc.uuid);
 
-    INFO_AUTO("registered={} {}", inserted, uuid);
+    INFO_AUTO("registered={} {:s}", inserted, tokc);
   });
 }
 
 token *watch::make_token(csv mid) noexcept {
-  std::unique_lock lck(tokens_mtx, std::defer_lock);
-  lck.lock();
+  auto tokc = std::make_unique<token>(mid, self);
+  auto tokc_ptr = tokc.get();
 
-  return tokens.emplace_back(std::make_unique<token>(mid, self)).get();
+  asio::post(
+      io_ctx,
+      asio::append([this](std::unique_ptr<token> tokc) { tokens.emplace_back(std::move(tokc)); },
+                   std::move(tokc)));
+
+  return tokc_ptr;
 }
 
-void watch::release_token(const string &uuid) noexcept {
+void watch::release_token(const token *tokc) noexcept {
 
-  asio::post(io_ctx, [this, uuid = uuid]() {
-    std::unique_lock lck(tokens_mtx);
-
-    std::erase_if(watches, [this, &uuid](auto &u) { return u == uuid; });
-    std::erase_if(tokens, [this, &uuid](auto &t) { return t->uuid == uuid; });
+  asio::post(io_ctx, [this, tokc = tokc]() {
+    std::erase_if(watches, [this, tokc](auto &u) { return u == tokc->uuid; });
+    std::erase_if(tokens, [this, tokc](auto &t) { return t->uuid == tokc->uuid; });
   });
 }
 

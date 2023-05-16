@@ -53,38 +53,94 @@ Av::~Av() noexcept {
   avcodec_free_context(&codec_ctx);
 }
 
-bool Av::decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_frame) noexcept {
+frame_state_v Av::decode(Frame &frame, uint8v m) noexcept {
+
+  auto pkt = av_packet_alloc();
+
+  if (!pkt) return decode_failed(frame, &pkt);
+
+  // populate ADTS header
+  uint8_t *adts = m.raw_buffer<uint8_t>();
+
+  adts[0] = 0xFF;
+  adts[1] = 0xF9;
+  adts[2] = ((ADTS_PROFILE - 1) << 6) + (ADTS_FREQ_IDX << 2) + (ADTS_CHANNEL_CFG >> 2);
+  adts[3] = ((ADTS_CHANNEL_CFG & 3) << 6) + (m.size1<int>() >> 11);
+  adts[4] = (m.size1<int>() & 0x7FF) >> 3;
+  adts[5] = ((m.size1<int>() & 7) << 5) + 0x1F;
+  adts[6] = 0xFC;
+
+  auto used = av_parser_parse2(parser_ctx,       // parser ctx
+                               codec_ctx,        // codex ctx
+                               &pkt->data,       // ptr to the pkt (parsed data)
+                               &pkt->size,       // ptr size of the pkt (parsed data)
+                               m.raw<uint8_t>(), // deciphered (unchanged by parsing)
+                               m.size1<int>(),   // deciphered size + ADTS header
+                               AV_NOPTS_VALUE,   // pts
+                               AV_NOPTS_VALUE,   // dts
+                               AV_NOPTS_VALUE);  // pos
+
+  if ((used <= 0) || std::cmp_not_equal(used, m.size1<int>()) || (pkt->size == 0)) {
+    log_discard(frame, m, used);
+    return decode_failed(frame, &pkt);
+  }
+
+  if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
+    INFO("SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}", //
+         m.size1<int>(), pkt->size, pkt->flags, rc);
+    return decode_failed(frame, &pkt);
+  }
+
+  // allocate the av_frame that will receive the decoded audio data
+  auto audio_frame = av_frame_alloc();
+  if (!audio_frame) return decode_failed(frame, &pkt);
+
+  if (auto rc = avcodec_receive_frame(codec_ctx, audio_frame); rc != 0) {
+    INFO("RECV_FRAME", " FAILED rc = {} ", rc);
+    return decode_failed(frame, &pkt, &audio_frame);
+  }
+
+  frame.save_samples_info({codec_ctx->channels, audio_frame->nb_samples});
+
+  log_diag_info(audio_frame);
+
+  if (audio_frame->flags == 0) {
+    const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
+
+    FFT left(data[0], audio_frame->nb_samples, audio_frame->sample_rate);
+    FFT right(data[1], audio_frame->nb_samples, audio_frame->sample_rate);
+
+    dsp(frame, std::move(left), std::move(right));
+  }
+
+  av_frame_free(&audio_frame);
+  av_packet_free(&pkt);
+
+  return (frame_state_v)frame;
+}
+
+frame_state_v Av::decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_frame) noexcept {
   if (pkt) av_packet_free(pkt);
   if (audio_frame) av_frame_free(audio_frame);
 
-  frame.state = frame::DECODE_FAILURE;
-  frame.record_state();
-
-  return false;
+  frame = frame::DECODE_FAIL;
+  return (frame_state_v)frame.record_state();
 }
 
-void Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
-
-  frame.state = frame::DSP_IN_PROGRESS;
+frame_state_v Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
 
   // the state hasn't changed, proceed with processing
   left.process();
+  left.find_peaks(frame.peaks, Peaks::CHANNEL::LEFT);
 
-  // check before starting the right channel (left required processing time)
-  if (frame.state == frame::DSP_IN_PROGRESS) right.process();
+  right.process();
+  right.find_peaks(frame.peaks, Peaks::CHANNEL::RIGHT);
 
-  // check again since thr right channel also required processing time
-  if (frame.state == frame::DSP_IN_PROGRESS) {
-    left.find_peaks(frame.peaks, Peaks::CHANNEL::LEFT);
+  frame.silent(frame.peaks.silence() && frame.peaks.silence());
 
-    if (frame.state == frame::DSP_IN_PROGRESS) {
-      right.find_peaks(frame.peaks, Peaks::CHANNEL::RIGHT);
-    }
+  frame = frame::DSP;
 
-    frame.silent(frame.peaks.silence() && frame.peaks.silence());
-
-    frame.state = frame::DSP_COMPLETE;
-  }
+  return (frame_state_v)frame;
 }
 
 void Av::log_diag_info(AVFrame *audio_frame) noexcept {
@@ -99,91 +155,19 @@ void Av::log_diag_info(AVFrame *audio_frame) noexcept {
   }
 }
 
-void Av::log_discard(Frame &frame, int used) noexcept {
-  int32_t enc_size = std::ssize(frame.m.value()) + ADTS_HEADER_SIZE;
+void Av::log_discard(Frame &frame, const uint8v &m, int used) noexcept {
+  auto buff_size = std::ssize(m) + ADTS_HEADER_SIZE;
 
   string msg;
   auto w = std::back_inserter(msg);
 
-  if ((used < 0) || (used != enc_size)) {
-    frame.state = frame::PARSE_FAILURE;
+  if ((used < 0) || (used != buff_size)) {
+    frame = frame::PARSE_FAIL;
 
-    fmt::format_to(w, "used={:<6} size={:<6} diff={:+6}", used, enc_size, enc_size - used);
+    fmt::format_to(w, "used={:<6} size={:<6} diff={:+6}", used, buff_size, buff_size - used);
   }
 
-  INFO("DISCARD", "{} {}", frame.state, msg);
-}
-
-bool Av::parse(Frame &frame) noexcept {
-
-  auto rc = false;
-  auto pkt = av_packet_alloc();
-
-  if (!pkt) return decode_failed(frame, &pkt);
-
-  auto m = frame.m->data();
-  const size_t encoded_size = std::size(frame.m.value());
-
-  // populate ADTS header
-  m[0] = 0xFF;
-  m[1] = 0xF9;
-  m[2] = ((ADTS_PROFILE - 1) << 6) + (ADTS_FREQ_IDX << 2) + (ADTS_CHANNEL_CFG >> 2);
-  m[3] = ((ADTS_CHANNEL_CFG & 3) << 6) + (encoded_size >> 11);
-  m[4] = (encoded_size & 0x7FF) >> 3;
-  m[5] = ((encoded_size & 7) << 5) + 0x1F;
-  m[6] = 0xFC;
-
-  auto used = av_parser_parse2(parser_ctx,      // parser ctx
-                               codec_ctx,       // codex ctx
-                               &pkt->data,      // ptr to the pkt (parsed data)
-                               &pkt->size,      // ptr size of the pkt (parsed data)
-                               m,               // deciphered (unchanged by parsing)
-                               encoded_size,    // deciphered size + ADTS header
-                               AV_NOPTS_VALUE,  // pts
-                               AV_NOPTS_VALUE,  // dts
-                               AV_NOPTS_VALUE); // pos
-
-  if ((used <= 0) || std::cmp_not_equal(used, encoded_size) || (pkt->size == 0)) {
-    log_discard(frame, used);
-    return decode_failed(frame, &pkt);
-  }
-
-  if (auto rc = avcodec_send_packet(codec_ctx, pkt); rc < 0) {
-    INFO("SEND_PACKET", "FAILED encoded_size={} size={} flags={:#b} rc={}", //
-         encoded_size, pkt->size, pkt->flags, rc);
-    return decode_failed(frame, &pkt);
-  }
-
-  // allocate the av_frame that will receive the decoded audio data
-  auto audio_frame = av_frame_alloc();
-  if (!audio_frame) return decode_failed(frame, &pkt);
-
-  if (auto rc = avcodec_receive_frame(codec_ctx, audio_frame); rc != 0) {
-    INFO("RECV_FRAME", " FAILED rc = {} ", rc);
-    return decode_failed(frame, &pkt, &audio_frame);
-  }
-
-  frame.channels = codec_ctx->channels;
-  frame.samples_per_channel = audio_frame->nb_samples;
-
-  log_diag_info(audio_frame);
-
-  if (audio_frame->flags == 0) {
-    frame.state = frame::DECODED;
-    const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
-
-    FFT left(data[0], frame.samples_per_channel, audio_frame->sample_rate);
-    FFT right(data[1], frame.samples_per_channel, audio_frame->sample_rate);
-
-    dsp(frame, std::move(left), std::move(right));
-    rc = true;
-  }
-
-  av_frame_free(&audio_frame);
-  av_packet_free(&pkt);
-  frame.m.reset();
-
-  return rc;
+  INFO("DISCARD", "{} {}", frame, msg);
 }
 
 } // namespace pierre

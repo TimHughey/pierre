@@ -57,8 +57,8 @@ class MsgIn;
 
 class DmxCtrl {
 public:
-  DmxCtrl(asio::io_context &io_ctx) noexcept;
-  ~DmxCtrl() noexcept { tokc->release(); };
+  DmxCtrl() noexcept;
+  ~DmxCtrl() noexcept;
 
   void resume() noexcept;
 
@@ -76,14 +76,17 @@ private:
   void msg_loop(MsgIn &&msg) noexcept;
   void load_config() noexcept;
 
-  void resolve_host() noexcept;
-
   void reconnect() noexcept {
     asio::dispatch(sess_strand, [this]() { stall_watchdog(0ms); });
   }
 
+  void resolve_host() noexcept;
+
+  void rr_host(tcp_endpoint ep) noexcept;
+
   void stall_watchdog() noexcept { stall_watchdog(stall_timeout); }
   void stall_watchdog(Millis wait) noexcept;
+  void threads_start() noexcept;
   void unknown_host() noexcept;
 
 private:
@@ -91,6 +94,8 @@ private:
   conf::token *tokc;
 
   // order dependent
+  std::vector<std::jthread> threads;
+  asio::io_context io_ctx;
   strand_ioc sess_strand;
   strand_ioc data_strand;
   tcp_endpoint data_lep{ip_tcp::v4(), ANY_PORT};
@@ -99,13 +104,14 @@ private:
   tcp_socket data_sock; // frame data (write only)
   steady_timer stalled_timer;
   steady_timer resolve_retry_timer;
+  std::unique_ptr<tcp_resolver> resolver;
 
   // order independent
+  std::atomic_flag sess_connected;
+  std::atomic_flag data_connected;
   Millis stall_timeout;
 
   tcp_endpoint data_rep; // remote endpoint of accepted socket
-  bool connected{false};
-  bool data_connected{false};
 
   string remote_host;                        // dmx controller host name
   std::optional<tcp_endpoint> host_endpoint; // resolved dmx controller endpoint

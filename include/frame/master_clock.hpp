@@ -55,6 +55,7 @@ public:
   MasterClock(asio::io_context &io_ctx) noexcept;
   ~MasterClock() noexcept;
 
+  const ClockInfo info() noexcept;
   bool info(ClockInfo &clk_info) noexcept;
 
   void peers(const Peers &&peers) noexcept;

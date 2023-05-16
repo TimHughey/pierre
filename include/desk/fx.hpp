@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "base/conf/token.hpp"
 #include "base/pet.hpp"
 #include "base/types.hpp"
 #include "desk/msg/data.hpp"
@@ -49,10 +50,9 @@ public:
 
 public:
   /// @brief Construct the base FX via the subclassed type
-  FX(auto &executor, const string name, bool should_render = FX::Render)
-  noexcept
-      : fx_timer(executor), fx_name{name},
-        should_render{should_render}, finished{false}, next_fx{fx::NONE} {
+  FX(auto &executor, const string name, bool should_render = FX::Render) noexcept
+      : fx_timer(executor), fx_name{name}, should_render{should_render}, finished{false},
+        next_fx{fx::NONE} {
     ensure_units();
   }
 
@@ -111,14 +111,12 @@ protected:
     std::exchange(finished, is_finished);
   }
 
-  template <typename T>
-  bool set_silence_timeout(const T &new_val_raw, const string silence_fx) noexcept {
-    using Millis = std::chrono::milliseconds;
+  bool set_silence_timeout(conf::token *tokc, const string &silence_fx,
+                           const auto &&def_val) noexcept {
 
-    Millis new_val = std::chrono::duration_cast<Millis>(new_val_raw);
+    auto timeout = tokc->timeout_val("silence"_tpath, std::forward<decltype(def_val)>(def_val));
 
-    // note: the extra call is desired to limit includes
-    return save_silence_timeout(new_val, silence_fx);
+    return save_silence_timeout(timeout, silence_fx);
   }
 
   void silence_watch(const string silence_fx = string()) noexcept;
@@ -144,7 +142,7 @@ private:
 
 public:
   static constexpr csv module_id{"fx"};
-  static constexpr csv cfg_silence_timeout{"silence.timeout.minutes"};
+  static constexpr csv cfg_silence_timeout{"silence.timeout"};
 };
 
 } // namespace desk

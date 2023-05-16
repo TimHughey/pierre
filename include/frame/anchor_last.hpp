@@ -26,9 +26,20 @@
 #include "frame/anchor_data.hpp"
 #include "frame/clock_info.hpp"
 
+#include <concepts>
 #include <utility>
 
 namespace pierre {
+
+template <typename T>
+concept HasTimestamp = requires(T &f) {
+  { f.ts() } noexcept;
+};
+
+template <typename T>
+concept HasClockNow = requires(T &c) {
+  { c.now() } noexcept;
+};
 
 class AnchorLast {
 public:
@@ -43,8 +54,23 @@ public:
 
   bool age_check(const auto age_min) const noexcept { return ready() && (since_update > age_min); }
 
-  Nanos frame_local_time_diff(uint32_t timestamp) const noexcept {
-    return frame_to_local_time(timestamp) - Nanos{clock_now::mono::ns()};
+  template <typename T, typename C>
+    requires HasTimestamp<T> && HasClockNow<C>
+  Nanos frame_local_time_diff(const T &f, [[maybe_unused]] const C &c) const noexcept {
+    return frame_to_local_time(f) - Nanos(clock_now::mono::ns());
+  }
+
+  Nanos frame_local_time_diff(timestamp_t ts) const noexcept {
+    return frame_to_local_time(ts) - Nanos(clock_now::mono::ns());
+  }
+
+  template <typename T>
+    requires HasTimestamp<T>
+  Nanos frame_to_local_time(const T &f) const noexcept {
+    int32_t frame_diff = f.ts() - rtp_time;
+    Nanos time_diff = Nanos((frame_diff * qpow10(9)) / InputInfo::rate);
+
+    return localized + time_diff;
   }
 
   Nanos frame_to_local_time(timestamp_t timestamp) const noexcept {
@@ -54,8 +80,9 @@ public:
     return localized + time_diff;
   }
 
-  timestamp_t local_to_frame_time(const Nanos local_time = Nanos{
-                                      clock_now::mono::ns()}) const noexcept {
+  explicit operator bool() const noexcept { return ready(); }
+
+  timestamp_t local_to_frame_time(const Nanos local_time) const noexcept {
     Nanos time_diff = local_time - localized;
     Nanos frame_diff = time_diff * InputInfo::rate;
 

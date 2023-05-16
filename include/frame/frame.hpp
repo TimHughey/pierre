@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/pet_types.hpp"
 #include "base/types.hpp"
@@ -29,23 +28,49 @@
 #include "frame/state.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <compare>
+#include <concepts>
 #include <fmt/chrono.h>
 #include <memory>
 #include <optional>
+#include <tuple>
+#include <type_traits>
 
 namespace pierre {
 
-using cipher_buff_t = std::optional<uint8v>;
+using ull_t = long long unsigned int;
 
 class Av;
 
+template <typename F>
+concept FrameProcessingState = requires(F &f) {
+  { f.state } -> std::convertible_to<frame::state_now_t>;
+  { f.sync_wait } -> std::convertible_to<Nanos>;
+};
+
 class Frame {
   friend struct fmt::formatter<Frame>;
+  friend class Av;
+
+public:
+  static constexpr uint8_t RTPv2{0x02};
 
 public:
   /// @brief Construct a silent frame
-  Frame() noexcept : state(frame::READY) { silent(true); }
+  Frame() noexcept : state(frame::NONE), silence{true} {}
+  Frame(const frame_state_v create_state) noexcept : state(create_state), silence{true} {
+
+    switch ((frame_state_v)state) {
+    case frame::SILENCE:
+    case frame::SENTINEL:
+      state = frame::READY;
+      break;
+
+    default:
+      assert("invalid state");
+    }
+  }
 
   Frame(uint8v &packet) noexcept
       : state(frame::HEADER_PARSED),              // frame header parsed
@@ -62,26 +87,45 @@ public:
   ~Frame() noexcept;
   Frame(Frame &&) = default;
 
+  bool live() const noexcept { return !synthetic(); }
+
   Frame &operator=(Frame &&) = default;
+  void operator=(frame_state_v nsn) noexcept { state = nsn; }
 
-  std::weak_ordering operator<=>(const Frame &rhs) const noexcept {
-    return timestamp <=> rhs.timestamp;
-  }
+  explicit operator frame::state_now_t() const noexcept { return (frame::state_now_t)state; }
 
-  bool decipher(uint8v packet, const uint8v key) noexcept;
-  bool deciphered() const noexcept { return state >= frame::state(frame::DECIPHERED); }
-  bool decode() noexcept;
-  void flushed() noexcept { state = frame::FLUSHED; }
+  std::weak_ordering operator<=>(const Frame &rhs) const noexcept { return ts() <=> rhs.ts(); }
+  bool operator<(const frame_state_v lhs) const noexcept { return state < lhs; }
+  bool operator>(const frame_state_v lhs) const noexcept { return state > lhs; }
+  bool operator==(const frame_state_v lhs) const noexcept { return state == lhs; }
+  bool operator!=(const frame_state_v lhs) const noexcept { return !(*this == lhs); }
+
+  bool can_render() const noexcept { return state.can_render(); }
+  bool dont_render() const noexcept { return !can_render(); }
+
+  void flush() noexcept { state = frame::FLUSHED; }
+  // bool flushed() noexcept { return state == frame::FLUSHED; }
 
   const Peaks &get_peaks() noexcept { return peaks; }
 
-  void mark_rendered() noexcept {
+  auto mark_rendered() noexcept {
     state = silent() ? frame::SILENCE : frame::RENDERED;
-
-    state.record_state();
+    return state.record_state();
   }
 
-  bool ready() const noexcept { return state.ready(); }
+  auto no_timing() const noexcept { return state == frame::NO_CLK_ANC; }
+
+  frame_state_v process(uint8v packet, const uint8v &key) noexcept {
+    if (state == frame::HEADER_PARSED) {
+      return decipher(std::move(packet), key);
+    }
+
+    return (frame_state_v)state;
+  }
+
+  bool ready() const noexcept { return state == frame::READY; }
+
+  bool ready_or_future() const noexcept { return state.ready_or_future(); }
 
   frame::state record_state() const noexcept {
     state.record_state();
@@ -89,79 +133,126 @@ public:
     return state;
   }
 
+  void record_sync_wait() const noexcept;
+
+  struct sample_info {
+    int channels{0};
+    int samp_per_ch{0};
+  };
+
+  void save_samples_info(const sample_info info) noexcept {
+    channels = info.channels;
+    samp_per_ch = info.samp_per_ch;
+  }
+
   bool silent() const noexcept { return silence; }
+  bool silent(bool is_silent) noexcept { return std::exchange(silence, is_silent); }
 
-  bool silent(bool is_silent) noexcept {
-    silence = is_silent;
-    return silence;
-  }
+  /// @brief Sequence Number assigned by sender
+  /// @return unsigned int
+  constexpr seq_num_t sn() const noexcept { return seq_num; }
 
-  frame::state state_now(MasterClock &clk, Anchor &anc) noexcept {
-    state_now(clk, anc, InputInfo::lead_time);
+  /// @brief Calculate the state of the frame as of the current system time.
+  ///        The frame's state is set to NO_CLOCK or NO_ANCHOR in the
+  ///        event neither MasterClock or Anchor are ready.
+  ///
+  ///        NOTE: The state of synthetic frames are never calculated.
+  /// @param clk reference to the MasterClock
+  /// @param anc reference to Anchor as maintained by the sender
+  /// @return calculated frame::state
+  frame::state state_now(MasterClock &clk, Anchor &anc) noexcept;
 
-    return state;
-  }
+  frame_state_v state_now() const noexcept { return (frame_state_v)state; }
 
-  frame::state state_now(MasterClock &clk, Anchor &anc, Nanos lead_time) noexcept;
+  /// @brief Calculated duration to wait to syncronize frame to sender's view
+  ///        of 'playback' (aka render) timeline.
+  ///
+  ///        NOTE: value returned is the most current of:
+  ///         -at the time the frame's state was determined
+  ///         -the most recent call to sync wait specifying MasterClock and Anchor
+  ///         -value at construction (0ns)
+  /// @return nanoseconds
 
-  // frame::state state_now(const AnchorLast anchor) noexcept;
-  // frame::state state_now(const Nanos diff, const Nanos &lead_time = InputInfo::lead_time)
-  // noexcept;
-
-  // sync_wait() and related functions can be overriden by subclasses
   Nanos sync_wait() const noexcept { return cached_sync_wait.value_or(InputInfo::lead_time); }
-  Nanos sync_wait(MasterClock &clk, Anchor &anc) noexcept;
-  const Nanos sync_wait(Nanos diff) noexcept {
-    return synthetic() ? sync_wait() : cached_sync_wait.emplace(diff);
+
+  /// @brief Calculate (or recalculate) the sync wait duration and cache the value
+  ///
+  ///        This function is used in two scenarios:
+  ///          -determination of the frame's state
+  ///          -to provide the most accurate sync wait since calculating the frame's state
+  ///
+  ///        Said differently, calling this function to calculate the most accurate sync wait
+  ///        before handling the next frame improves syncronization to the sender's timeline.
+  ///
+  ///        NOTE: The behavior is the same as calling sync_wait() if neither the
+  ///        MasterClock or Anchor are ready.
+  /// @param clk reference to the MasterClock
+  /// @param anc reference to Anchor as set by sender and used to convert sender's
+  ///            timeline to local system time
+  /// @return nanoseconds
+  Nanos sync_wait(MasterClock &clk, Anchor &anc) noexcept {
+    if (synthetic()) return sync_wait();
+
+    sync_wait(clk, anc, ts(), *cached_sync_wait);
+
+    return sync_wait();
   }
 
+  static bool sync_wait(MasterClock &clk, Anchor &anc, timestamp_t t, Nanos &sync_wait) noexcept;
+
+  template <typename FRR>
+    requires FrameProcessingState<FRR>
+  static void sync_wait(MasterClock &clk, Anchor &anc, FRR &frr) noexcept {
+    sync_wait(clk, anc, frr.ts, frr.sync_wait);
+  }
+
+  /// @brief Frames not assigned a sequence number or timestamp are
+  ///        considered 'synthetic' and do not contain Peaks
+  /// @return boolean
   bool synthetic() const noexcept { return !seq_num || !timestamp; }
 
-  // misc debug
-  void log_decipher() const noexcept;
-
-public:
-  // order dependent
-  Elapsed lifespan;
-  frame::state state;
+  /// @brief Timestamp assigned by sendor
+  /// @param scale (optional) divide timestamp by this value
+  /// @return unisgned int
+  timestamp_t ts(uint32_t scale = 0) const noexcept {
+    return scale ? timestamp / scale : timestamp;
+  }
 
 private:
-  // order dependent (no need to expose publicly)
+  /// @brief Explictly set the sync wait to a duration
+  ///
+  ///        NOTE: Synthetic frame sync wait will not be set by this function
+  /// @param diff nanoseconds
+  /// @return nanoseconds
+  const Nanos cache_sync_wait(Nanos diff) noexcept { return cached_sync_wait.emplace(diff); }
+
+  frame_state_v decipher(uint8v packet, const uint8v key) noexcept;
+
+  void log_decipher(int cipher_rc, ull_t consumed, const uint8v &p, const uint8v &m) const noexcept;
+
+private:
+  // order dependent
+  frame::state state;
   uint8_t version{0x00};
   bool padding{false};
   bool extension{false};
   uint8_t ssrc_count{0};
   uint32_t ssrc{0};
-
-public:
-  // order dependent (must expose publicly)
   seq_num_t seq_num{0};
   timestamp_t timestamp{0};
 
   // order independent
-  cipher_buff_t m; // temporary buffer for ciphering
-
-  // decode frame (exposed publicly for av decode)
-  int samples_per_channel{0};
+  static std::unique_ptr<Av> av;
+  int samp_per_ch{0};
   int channels{0};
+
+  std::optional<Nanos> cached_sync_wait;
+  bool silence{false};
 
   // populated by Av or empty (silent)
   Peaks peaks;
 
-  // calculated by state_now() or recalculated by sync_wait_recalc()
-  std::optional<Nanos> cached_sync_wait;
-  bool silence{false};
-
-private:
-  // order independent
-  static std::unique_ptr<Av> av;
-  int cipher_rc{0};                  // decipher support
-  static ptrdiff_t cipher_buff_size; // in bytes, populated by init()
-
-  ClockInfo clk_info;
-
 public:
-  static constexpr uint8_t RTPv2{0x02};
   static constexpr auto module_id{"frame"sv};
 };
 
@@ -170,17 +261,20 @@ public:
 /// @brief Custom formatter for Frame
 template <> struct fmt::formatter<pierre::Frame> : formatter<std::string> {
   using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
+  using frame = pierre::Frame;
 
   // parse is inherited from formatter<string>.
-  template <typename FormatContext> auto format(const pierre::Frame &f, FormatContext &ctx) const {
+  template <typename FormatContext> auto format(const frame &f, FormatContext &ctx) const {
     std::string msg;
     auto w = std::back_inserter(msg);
 
     const auto sync_wait = std::chrono::duration_cast<millis_fp>(f.sync_wait());
 
-    if (f.synthetic()) fmt::format_to(w, "synthetic ");
+    if (f.synthetic()) fmt::format_to(w, "SYNTHETIC ");
 
-    fmt::format_to(w, "{} sn={} ts={} sw={:0.4}", f.state, f.seq_num, f.timestamp, sync_wait);
+    fmt::format_to(w, "{} sw={:0.4}", f.state, sync_wait);
+
+    if (!f.synthetic()) fmt::format_to(w, " sn={} ts={}", f.sn(), f.ts());
 
     return formatter<std::string>::format(msg, ctx);
   }

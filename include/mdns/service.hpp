@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "mdns/status_flags.hpp"
 
 #include <charconv>
+#include <concepts>
 #include <cstdint>
 #include <exception>
 #include <fmt/format.h>
@@ -202,8 +203,10 @@ public:
       val = fmt::format("{}", new_val);
     } else if constexpr (std::is_same_v<T, uint8v>) {
       val = fmt::format("{:02x}", fmt::join(new_val, ""));
+    } else if constexpr (std::same_as<T, string_view>) {
+      val.assign(new_val.data());
     } else {
-      val = string(new_val);
+      val.assign(new_val);
     }
   }
 

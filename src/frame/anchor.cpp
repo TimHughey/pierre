@@ -39,7 +39,9 @@ namespace pierre {
 // general API and member functions
 
 AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
-  static constexpr csv fn_id{"get_data"};
+  INFO_AUTO_CAT("get_data");
+
+  if (clock.ok() == false) return AnchorLast();
 
   // must have source anchor data to calculate last
   if (source.has_value()) {

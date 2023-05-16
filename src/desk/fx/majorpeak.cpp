@@ -286,8 +286,7 @@ bool MajorPeak::load_config() noexcept {
     }
 
     // setup silence timeout
-    const auto timeout = tokc->val<Seconds>("silence.timeout.seconds"_tpath, 13);
-    set_silence_timeout(timeout, fx::STANDBY);
+    set_silence_timeout(tokc, fx::STANDBY, Seconds(20));
   }
 
   if (refresh) INFO_AUTO("{}", *tokc);

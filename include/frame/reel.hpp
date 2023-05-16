@@ -27,78 +27,71 @@
 #include "frame/flush_info.hpp"
 #include "frame/frame.hpp"
 
+#include <algorithm>
+#include <atomic>
+#include <cassert>
 #include <compare>
 #include <concepts>
+#include <deque>
 #include <memory>
+#include <mutex>
+#include <set>
+#include <tuple>
 #include <vector>
 
 namespace pierre {
 
+class Reel;
+
+using reel_t = std::unique_ptr<Reel>;
+using frame_container = std::deque<Frame>;
+
 /// @brief Container of Frames
 class Reel {
 
-public:
-  enum kind_t : ssize_t {
-    Empty = 0,
-    MaxFrames = InputInfo::fps,
-    Synthetic = 500ms / InputInfo::lead_time
-  };
+  friend struct fmt::formatter<Reel>;
 
 public:
-  static constexpr ssize_t DEFAULT_MAX_FRAMES{InputInfo::fps}; // two seconds
+  typedef frame_container::iterator iterator;
+  using lock_guard = std::lock_guard<std::mutex>;
 
-protected:
-  const auto &cfront() const noexcept { return frames[consumed]; }
-  auto &front() noexcept { return frames[consumed]; }
-  auto &back() noexcept { return frames.back(); }
-  auto begin() noexcept { return frames.begin() + consumed; }
-  auto end() noexcept { return frames.end(); }
+public:
+  enum kind_t : uint8_t { Empty = 0, Starter, Transfer, Ready };
 
 public:
   // construct a reel of audio frames
-  Reel(kind_t kind = kind_t::Empty) noexcept;
+  Reel() = default;
+  Reel(kind_t kind) noexcept;
+
   ~Reel() noexcept {}
 
   Reel(Reel &&) = default;
   Reel &operator=(Reel &&) = default;
 
-  friend struct fmt::formatter<Reel>;
+  bool operator==(kind_t k) const noexcept { return k == kind; }
 
-  auto &add(Frame &&frame) noexcept { return frames.emplace_back(std::move(frame)); }
+  const auto &back() const noexcept { return frames.back(); }
+  auto begin() noexcept { return frames.begin(); }
 
-  bool can_add_frame(const Frame &frame) noexcept;
-  bool consume(std::ptrdiff_t count = 1) noexcept {
-    consumed += count;
+  /// @brief Clean reel of rendered or non-rendereable frames
+  /// @return clean count, avail count
+  std::pair<ssize_t, ssize_t> clean() noexcept;
 
-    return empty();
-  }
+  void clear() noexcept;
 
-  void clear() noexcept { consume(size()); }
+  bool empty() const noexcept { return (frames.empty() || (kind == Empty)) ? true : false; }
 
-  bool empty() const noexcept {
-    if (!serial) return true; // default Reel is always empty
+  auto end() noexcept { return frames.end(); }
 
-    return frames.empty() || (consumed >= size());
-  }
+  auto &front() noexcept { return frames.front(); }
 
-  virtual bool flush(FlushInfo &flush) noexcept; // returns true when reel empty
+  ssize_t flush(FlushInfo &fi) noexcept;
 
-  bool full() const noexcept {
-    if (!serial) return true; // default Reel is always full
+  /// @brief Pop the front frame
+  /// @return frames.empty()
+  bool pop_front() noexcept;
 
-    return size() >= max_frames;
-  }
-
-  bool half_full() const noexcept { return size() >= (max_frames / 2); }
-
-  auto operator<=>(const Frame &frame) noexcept {
-    if (empty()) return std::weak_ordering::less;
-
-    return back() <=> frame;
-  }
-
-  // note: clk_info must be valid
-  Frame peek_or_pop(MasterClock &clock, Anchor &anchor) noexcept;
+  void push_back(Frame &&frame) noexcept;
 
   template <typename T = uint64_t> const T serial_num() const noexcept {
     if constexpr (std::same_as<T, uint64_t>) {
@@ -110,25 +103,28 @@ public:
     }
   }
 
-  virtual bool silence() const noexcept { return false; }
+  ssize_t size() const noexcept;
 
-  int64_t size() const noexcept { return serial ? std::ssize(frames) : 0; }
+  int64_t size_cached() const noexcept { return cached_size->load(); }
+  ssize_t size_min() const noexcept { return min_frames; }
 
-  bool synthetic() const noexcept { return cfront().synthetic(); }
+  bool starter() const noexcept { return kind == Starter; }
+
+  void take(Reel &o) noexcept;
 
 protected:
   // order dependent
+  kind_t kind{Empty};
   uint64_t serial{0};
-  ssize_t max_frames{0};
-  std::vector<Frame> frames;
+  ssize_t min_frames{0};
 
-  std::ptrdiff_t consumed{0};
-
-private:
-  static uint64_t next_serial_num;
+  // order independent
+  frame_container frames;
+  std::unique_ptr<std::atomic<ssize_t>> cached_size;
+  std::unique_ptr<std::mutex> mtx;
 
 public:
-  static constexpr auto module_id{"desk.reel"sv};
+  static constexpr auto module_id{"frame.reel"sv};
 };
 
 } // namespace pierre
@@ -141,22 +137,22 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    const auto size_now = reel.size();
-    fmt::format_to(w, "REEL {:#5x} frames={:<3}", reel.serial_num(), size_now);
+    fmt::format_to(w, "REEL {:#05x}{}", reel.serial_num(), reel.starter() ? " STARTER" : " ");
 
-    if (reel.frames.size() > 0) {
-      const auto &a = reel.frames.front(); // reel next frame
-      const auto &b = reel.frames.back();  // reel last frame
+    if (!reel.starter()) {
+      fmt::format_to(w, "frames={}", reel.size());
 
-      const auto a_ts = a.timestamp / 1024;
-      const auto b_ts = b.timestamp / 1024;
+      if (reel.frames.size() > 0) {
+        const auto &a = reel.frames.front(); // reel next frame
+        const auto &b = reel.frames.back();  // reel last frame
 
-      auto delta = [](auto &v1, auto &v2) { return v1 > v2 ? (v1 - v2) : (v2 - v1); };
+        auto delta = [](auto v1, auto v2) { return v1 > v2 ? (v1 - v2) : (v2 - v1); };
 
-      fmt::format_to(w, "seq={}+{}", a.seq_num, delta(a.seq_num, b.seq_num));
-      fmt::format_to(w, " ts={}+{}", a_ts, delta(a_ts, b_ts));
+        fmt::format_to(w, " seq={}+{}", a.sn(), delta(a.sn(), b.sn()));
+        fmt::format_to(w, " ts={}+{}", a.ts(1024), delta(a.ts(1024), b.ts(1024)));
+      }
     }
 
-    return formatter<std::string>::format(fmt::format("{}", msg), ctx);
+    return formatter<std::string>::format(msg, ctx);
   }
 };

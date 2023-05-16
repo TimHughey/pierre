@@ -59,6 +59,7 @@ struct ClockInfo {
   uint64_t rawOffset{0};        // master clock time = sampleTime + rawOffset
   Nanos mastershipStartTime{0}; // when the master clock became master
   Elapsed sample_age;
+  int64_t now_ns{clock_mono_ns()};
 
   static constexpr Nanos AGE_STABLE{5s};
   static constexpr Nanos SAMPLE_AGE_MAX{133ms};
@@ -89,8 +90,12 @@ struct ClockInfo {
 
   bool ok() const noexcept { return clock_id && (mastershipStartTime > 0ns); }
 
+  explicit operator bool() const noexcept { return ok(); }
+
   ClockInfo &operator=(ClockInfo &&) = default;
   bool operator!() const noexcept { return clock_id == 0; }
+
+  int64_t now() const noexcept { return now_ns; }
 
   Nanos sample_time() const { return Nanos(sampleTime); }
 

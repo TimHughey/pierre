@@ -22,16 +22,16 @@
 #include "av.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
+#include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/stats.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
 #include "master_clock.hpp"
 
+#include <fmt/chrono.h>
 #include <iterator>
-#include <ranges>
 #include <sodium.h>
-#include <span>
 #include <utility>
 
 namespace pierre {
@@ -84,7 +84,9 @@ std::unique_ptr<Av> Frame::av{nullptr};
 // Frame API
 Frame::~Frame() noexcept {}
 
-bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
+frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
+  INFO_AUTO_CAT("decipher");
+
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
   // mini nonce end - 8; copy 8 bytes total
@@ -106,14 +108,15 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
     state = frame::INVALID;
 
   } else [[likely]] {
+    int cipher_rc{0};
+    ull_t consumed{0};
+    auto m = Av::make_m_buffer();
 
     Stats::write(stats::RTSP_AUDIO_CIPHERED, std::ssize(packet));
 
-    unsigned long long consumed{0};
-
     cipher_rc =                                    //
         crypto_aead_chacha20poly1305_ietf_decrypt( // -1 == failure
-            Av::m_buffer(m, cipher_buff_size),     // m (av leaves room for ADTS)
+            Av::m_buffer(m),                       // m (av leaves room for ADTS)
             &consumed,                             // bytes deciphered
             nullptr,                               // nanoseconds (unused, must be nullptr)
             ciphered.data(),                       // ciphered data
@@ -126,120 +129,108 @@ bool Frame::decipher(uint8v packet, const uint8v key) noexcept {
     if ((cipher_rc >= 0) && (consumed > 0)) {
       Av::m_buffer_resize(m, consumed); // resizes m to include header + cipher data
 
-      Stats::write(stats::RTSP_AUDIO_DECIPERED, std::ssize(*m));
+      Stats::write(stats::RTSP_AUDIO_DECIPERED, consumed);
       state = frame::DECIPHERED;
 
     } else if (cipher_rc < 0) {
-      state = frame::DECIPHER_FAILURE;
+      state = frame::DECIPHER_FAIL;
 
     } else if (consumed <= 0) {
-      state = frame::EMPTY;
+      state = frame::NO_AUDIO;
 
     } else { // catch all
       state = frame::ERROR;
     }
+
+    log_decipher(cipher_rc, consumed, packet, m);
+
+    if (state == frame::DECIPHERED) {
+      if (!av) av = std::make_unique<Av>();
+
+      return av->decode(*this, std::move(m));
+    }
   }
 
-  log_decipher();
-
-  return state == frame::DECIPHERED;
+  return (frame_state_v)state.record_state();
 }
 
-bool Frame::decode() noexcept {
-  if (!av) av = std::make_unique<Av>();
+void Frame::log_decipher(int cipher_rc, ull_t consumed, const uint8v &p,
+                         const uint8v &m) const noexcept {
+  INFO_AUTO_CAT("decipher");
 
-  return state.deciphered() && av->parse(*this) && state.dsp_any();
+  switch ((frame_state_v)state) {
+  case frame::DECIPHERED:
+    INFO_AUTO("OK consumed={:>6} / {:<6}", consumed, m.size());
+    break;
+
+  case frame::NO_SHARED_KEY:
+    INFO_AUTO("{}", state);
+    break;
+
+  case frame::NO_AUDIO:
+    INFO_AUTO("no audio? p[0]={:#02x} size={}", p[0], p.size());
+    break;
+
+  default:
+    INFO_AUTO("decipher failed, cipher_rc={}", cipher_rc);
+  }
 }
 
-frame::state Frame::state_now(MasterClock &clk, Anchor &anc, Nanos lead_time) noexcept {
-  std::optional<frame::state> next_state;
-  Nanos diff{0};
+void Frame::record_sync_wait() const noexcept {
+  // write diffs of interest to the timeseries database
+  Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+}
 
-  if (synthetic()) {
-    // note: synthetic frames are always ready
-    next_state.emplace(frame::READY);
+frame::state Frame::state_now(MasterClock &clk, Anchor &anc) noexcept {
+  INFO_AUTO_CAT("state_now");
 
-  } else if (clk.info(clk_info)) {
+  string msg;
+  auto w = std::back_inserter(msg);
 
-    // clock is good, get and check anchor last
-    if (auto ancl = anc.get_data(clk_info); ancl.ready()) {
+  // never change the state of a synthetic frame
+  if (live()) {
 
-      // anchor is good, calc diff between frame and local time
-      diff = ancl.frame_local_time_diff(timestamp);
+    auto clk_info = clk.info();
+    auto ancl = anc.get_data(clk_info);
 
-      if (diff < 0ns) {
-        // first handle any outdated frames regardless of state
-        next_state.emplace(frame::OUTDATED);
-      } else if (state.updatable()) {
-        // calculate the new state for READY, FUTURE or DSP_COMPLETE frames
-        if ((diff >= 0ns) && (diff <= lead_time)) {
+    // calculate the sync wait diff if anchor is ready
+    auto diff = ancl.ready() ? ancl.frame_local_time_diff(*this, clk_info) : 0ns;
 
-          // in range
-          next_state.emplace(frame::READY);
-        } else if ((diff > lead_time) && (state == frame::DSP_COMPLETE)) {
+    fmt::format_to(w, "diff={}", pet::humanize(diff));
 
-          // future
-          next_state.emplace(frame::FUTURE);
-        }
-      } // end of diff check
-
+    if (ancl.ready() == false) {
+      state = frame::NO_CLK_ANC;
+      cache_sync_wait(InputInfo::lead_time_min);
+    } else if (diff < 0ns) {
+      state = frame::OUTDATED;
+      cache_sync_wait(diff);
+    } else if ((diff >= 0ns) && (diff <= InputInfo::lead_time)) {
+      state = frame::READY;
+      sync_wait(clk, anc);
+    } else if (diff > InputInfo::lead_time) {
+      state = frame::FUTURE;
+      cache_sync_wait(diff);
     } else {
-      next_state.emplace(frame::NO_ANCHOR);
+      fmt::format_to(w, "no state change {}", *this);
     }
   } else {
-    next_state.emplace(frame::NO_CLOCK);
+    state = frame::READY;
   }
 
-  // set the new state if it has changed
-  if (state(next_state)) {
-    if (diff > 0ns) {
-      sync_wait(diff);
-
-      if ((diff > InputInfo::lead_time) || (diff < InputInfo::lead_time_min)) {
-        Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
-      }
-    }
-  }
+  if (msg.size()) INFO_AUTO("{} {}", msg, *this);
 
   return state;
 }
 
-Nanos Frame::sync_wait(MasterClock &clk, Anchor &anchor) noexcept {
+bool Frame::sync_wait(MasterClock &clk, Anchor &anchor, timestamp_t t, Nanos &sync_wait) noexcept {
+  if (auto clk_info = clk.info(); clk_info.ok() && (t > 0)) {
+    if (auto ancl = anchor.get_data(clk_info); ancl.ready()) {
+      sync_wait = ancl.frame_local_time_diff(t);
 
-  if (synthetic() == false) {
-    // we can adjust the sync wait for non-synthetic frames
-
-    if (clk_info.old()) clk.info(clk_info);
-
-    if (clk_info.ok()) {
-
-      // clock is good, now get anchor last
-      if (auto ancl = anchor.get_data(clk_info); ancl.ready()) {
-
-        // anchor is good, save updated sync_wait
-        sync_wait(ancl.frame_local_time_diff(timestamp));
-      }
+      return true;
     }
   }
-
-  return sync_wait();
+  return false;
 }
-
-void Frame::log_decipher() const noexcept {
-  INFO_AUTO_CAT("decipher");
-  auto consumed = m.has_value() ? std::ssize(*m) : 0;
-
-  if (state.deciphered()) {
-    INFO_AUTO("consumed={:>6} / {:<6} {}", consumed, std::ssize(*m), state);
-
-  } else if (state == frame::NO_SHARED_KEY) {
-    INFO_AUTO("shared key empty {}", state);
-  } else {
-    INFO_AUTO("cipher_rc={} consumed={} {}", cipher_rc, consumed, state);
-  }
-}
-
-// class data
-ptrdiff_t Frame::cipher_buff_size{0x2000};
 
 } // namespace pierre

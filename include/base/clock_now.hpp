@@ -42,4 +42,6 @@ struct clock_now {
   };
 };
 
+inline auto clock_mono_ns() noexcept { return clock_now::mono::ns(); }
+
 } // namespace pierre

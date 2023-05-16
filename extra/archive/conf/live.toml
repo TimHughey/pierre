@@ -7,81 +7,11 @@
 #
 title = "Pierre Live" # for identification purposes
 config_vsn = 2   # config file format
-# build_vsn = ""        # (runtime) git version of executable
-# build_time = ""       # (runtime) datetime of build
-
-[cli]
-# NOTE: cli table is not a source of config, rather it is populated
-#       at runtime based on command line opts and shell environmeny
-#
-# app_name = "" # typically basename() of the app
-# cfg_file = "" # could be this file or another specified by cli opt
-# exec_path = "" # executable path
-# parent_path = "" # parent path of the executable
-
-## 
-## Logger
-##
-[logger]
-# category specific overrides
-debug = false   # show any debug messages?
-init = true     # always log init messages from any module, when true
-thread = true  # show any thread messages?
-shutdown = true # show any shutdown messages?
-
-[logger.config_watch]
-file_watch = false
-
-[logger.desk]
-thread = false
-resume = true
-shutdown = false
-standby = true
-reel = { flush = true }
-next_reel = false
-
-[logger.desk.dmx_ctrl]
-run = false
-host = { connect = true, resolve = true, unknown = true }
-
-[logger.desk.racked]
-flush = true
-monitor_wip = true
-log = true
-
-[logger.frame]
-anchor = false
-av = false
-clock = { init = true, shutdown = false, peers_update = false, thread = false, map_shm = false }
-# clock_info = false
-dsp = { thread = false }
-decipher = false
-
-[logger.fx]
-major_peak = { execute = false }
-silence_watch = false
-standby = true 
-
-
-[logger.mdns]
-ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
-
-[logger.rtsp]
-audio = false
-ctx = true
-info = false
-event = false
-net = false
-reply = { build = false, info = false }
-
-##
-## END LOGGING CONFIG
-##
 
 [desk.dmx_ctrl]
 local = { stalled.ms = 10_500, resolve = { timeout.ms = 15_000, retry.ms = 60_000 } }
 # remote = { host = "dmx", idle_shutdown_ms = 10_000, stats.ms = 2_000 }
-# remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
+remote = { host = "dmx-test", idle_shutdown.ms = 10_000, stats.ms = 2_000 }
 threads = 1
 
 [desk.dimmable]
@@ -160,11 +90,69 @@ color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
 silence = { timeout = { minutes = 57 }, suggested_fx_next = "all_stop" }
 
-
 [lcs.stats]
 enabled = true
 db_uri = "http://localhost:8086?db=pierre"
 batch_of = 150
+
+## 
+## Logger
+##
+[logger]
+# category specific overrides
+debug = false   # show any debug messages?
+init = true     # always log init messages from any module, when true
+thread = true  # show any thread messages?
+shutdown = true # show any shutdown messages?
+
+[logger.config_watch]
+file_watch = false
+
+[logger.desk]
+thread = false
+resume = true
+shutdown = false
+standby = true
+reel = { flush = true }
+next_reel = false
+
+[logger.desk.dmx_ctrl]
+run = false
+host = { connect = true, resolve = true, unknown = true }
+
+[logger.desk.racked]
+flush = true
+monitor_wip = true
+log = true
+
+[logger.frame]
+anchor = false
+av = false
+clock = { init = true, shutdown = false, peers_update = false, thread = false, map_shm = false }
+# clock_info = false
+dsp = { thread = false }
+decipher = false
+
+[logger.fx]
+major_peak = { execute = false }
+silence_watch = false
+standby = true 
+
+[logger.mdns]
+ctx = { browse = false, cb_client = false, cb_browse = false, cb_evt_grp = false, resolved = false }
+
+[logger.rtsp]
+audio = false
+ctx = true
+info = false
+event = false
+net = false
+reply = { build = false, info = false }
+
+##
+## END LOGGING CONFIG
+##
+
 
 [mdns]
 port = 7000

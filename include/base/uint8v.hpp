@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -46,7 +47,7 @@ public:
 
 public:
   uint8v() = default;
-  uint8v(auto count) noexcept { reserve(count); }
+  uint8v(auto count) noexcept : std::vector<uint8_t>(count) {}
   uint8v(auto count, uint8_t byte) noexcept : std::vector<uint8_t>(count, byte) {}
 
   void assign_span(const std::span<uint8_t> &span) noexcept { assign(span.begin(), span.end()); }
@@ -92,6 +93,29 @@ public:
     return (const T *)(data() + (sizeof(T) * offset));
   }
 
+  template <typename T, typename C = size_t> T *raw_buffer(C offset = 0U) const noexcept {
+
+    if constexpr (std::same_as<C, std::ptrdiff_t>) {
+      return (T *)(data() + offset);
+    } else if constexpr (std::same_as<C, size_t>) {
+      return (T *)(data() + (sizeof(T) * offset));
+    } else {
+      static_assert(always_false_v<C>, "unsupported offset");
+      return (T *)data();
+    }
+  }
+
+  template <typename T> const T size1() const noexcept {
+    if constexpr (std::signed_integral<T>) {
+      return std::ssize(*this);
+    } else if constexpr (std::unsigned_integral<T>) {
+      return std::size(*this);
+    } else {
+      static_assert(always_false_v<T>, "unsupported size type");
+      return size();
+    }
+  }
+
   uint32_t to_uint32(size_t offset, int n) const noexcept {
     uint32_t val = 0;
     size_t shift = (n - 1) * 8;
@@ -112,7 +136,7 @@ public:
   }
 
   // debug, logging
-  virtual csv moduleId() const { return module_id_base; }
+  // virtual csv moduleId() const { return module_id_base; }
 
 protected:
   bool printable() const noexcept {
@@ -126,7 +150,7 @@ protected:
   }
 
 public:
-  static constexpr csv module_id_base{"UINT8V"};
+  static constexpr csv module_id_base{"uint8v"};
 };
 
 } // namespace pierre

@@ -20,40 +20,85 @@
 
 #include "base/types.hpp"
 
-#include <array>
+#include <compare>
 #include <concepts>
 #include <filesystem>
 #include <fmt/format.h>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <uuid/uuid.h>
+#include <vector>
 
 namespace pierre {
 
 struct UUID {
   friend struct fmt::formatter<UUID>;
 
-  UUID() noexcept {
+  UUID() noexcept : storage(37, 0x00) {
     uuid_t binuuid;
     uuid_generate_random(binuuid);
     uuid_unparse_lower(binuuid, storage.data());
   }
 
-  const string operator()() const noexcept { return storage.data(); }
+  const string &operator()() const noexcept { return storage; }
+  auto operator<=>(const string &rhs) const { return storage <=> rhs; }
+  auto operator<=>(const UUID &rhs) const = default;
 
-  operator string() const noexcept { return storage.data(); }
+  operator string() const noexcept { return storage; }
 
 private:
-  std::array<char, 37> storage{0};
+  std::string storage;
 };
 
 } // namespace pierre
 
-template <> struct fmt::formatter<pierre::UUID> : formatter<std::string> {
-  template <typename FormatContext>
-  auto format(const pierre::UUID &uuid, FormatContext &ctx) const {
+template <> struct fmt::formatter<pierre::UUID> {
 
-    return formatter<std::string>::format(uuid.storage.data(), ctx);
+  // Presentation format: 'f' - full, 's' - short (default)
+  char presentation = 0x00;
+
+  // Parses format specifications of the form ['f' | 's'].
+  constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
+    // [ctx.begin(), ctx.end()) is a character range that contains a part of
+    // the format string starting from the format specifications to be parsed,
+    // e.g. in
+    //
+    //   fmt::format("{:f} - point of interest", point{1, 2});
+    //
+    // the range will contain "f} - point of interest". The formatter should
+    // parse specifiers until '}' or the end of the range. In this example
+    // the formatter should parse the 'f' specifier and return an iterator
+    // pointing to '}'.
+
+    // Please also note that this character range may be empty, in case of
+    // the "{}" format string, so therefore you should check ctx.begin()
+    // for equality with ctx.end().
+
+    // Parse the presentation format and store it in the formatter:
+
+    auto it = ctx.begin(), end = ctx.end();
+
+    if (it != end) {
+      if (*it == '}') presentation = 's';
+
+      if ((*it == 'f') || (*it == 's')) presentation = *it++;
+    }
+
+    if (!presentation && (it != end) && (*it != '}')) throw format_error("invalid format");
+
+    return it;
+  }
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext>
+  auto format(const pierre::UUID &uuid, FormatContext &ctx) const -> decltype(ctx.out()) {
+    const auto &s = uuid.storage;
+
+    if (presentation == 'f') return fmt::format_to(ctx.out(), "{}", s);
+
+    const std::string_view portion(s.begin() + s.find_last_of('-') + 1, s.end());
+    return fmt::format_to(ctx.out(), "{}", portion);
   }
 };

@@ -32,6 +32,7 @@
 #include <array>
 #include <boost/asio/consign.hpp>
 #include <iterator>
+#include <latch>
 #include <utility>
 
 namespace pierre {
@@ -49,7 +50,7 @@ inline auto resolve_retry_wait(conf::token &tok) noexcept {
 }
 
 // general API
-DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
+DmxCtrl::DmxCtrl() noexcept
     : tokc(conf::token::acquire_watch_token(module_id)),
       // creqte strand for serialized session comms
       sess_strand(asio::make_strand(io_ctx)),
@@ -64,9 +65,30 @@ DmxCtrl::DmxCtrl(asio::io_context &io_ctx) noexcept
       // create the stall timer, use data strand
       stalled_timer(data_strand, 7500ms),
       // create the resolve timeout timer, use sess strand
-      resolve_retry_timer(sess_strand, 1s) //
+      resolve_retry_timer(sess_strand, 1s),
+      // create the tcp_resolver
+      resolver(std::make_unique<tcp_resolver>(io_ctx)) //
 {
-  INFO_INIT("sizeof={:>5} {}", sizeof(DmxCtrl), *tokc);
+  tcp_socket::enable_connection_aborted opt(true);
+  data_accep.set_option(opt);
+
+  // initialize atomic_flags
+  sess_connected.clear();
+  data_connected.clear();
+
+  auto n_thr = tokc->val<int>("threads"_tpath, 2);
+  INFO_INIT("sizeof={:>5} n_thr={} {}", sizeof(DmxCtrl), n_thr, *tokc);
+}
+
+DmxCtrl::~DmxCtrl() noexcept {
+
+  io_ctx.stop();
+
+  std::for_each(threads.begin(), threads.end(), [](auto &t) {
+    if (t.joinable()) t.join();
+  });
+
+  tokc->release();
 }
 
 void DmxCtrl::handshake() noexcept {
@@ -86,6 +108,10 @@ void DmxCtrl::handshake() noexcept {
     if (msg.elapsed() > 750us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
     if (msg.xfer_error()) {
+      sess_connected.clear();
+      [[maybe_unused]] error_code ec;
+      sess_sock.close(ec);
+
       Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
 
       INFO_AUTO("write failed, err={}", msg.ec.message());
@@ -110,66 +136,52 @@ void DmxCtrl::load_config() noexcept {
 void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   INFO_AUTO_CAT("msg_loop");
 
-  // only attempt to read a message if we're connected
-  if (connected) {
+  async::read_msg(sess_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
+    if (msg.elapsed() > 30ms) Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
 
-    async::read_msg(sess_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
-      if (msg.elapsed() > 30ms) Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
+    if (msg.xfer_ok() && sess_connected.test()) {
+      StaticJsonDocument<desk::Msg::default_doc_size> doc;
 
-      if (msg.xfer_ok()) {
-        StaticJsonDocument<desk::Msg::default_doc_size> doc;
+      if (msg.deserialize_into(doc)) {
 
-        if (msg.deserialize_into(doc)) {
+        // handle the various message types
+        if (Msg::is_msg_type(doc, desk::STATS)) {
+          const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
+          const auto remote_roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
 
-          // handle the various message types
-          if (Msg::is_msg_type(doc, desk::STATS)) {
-            const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
-            const auto remote_roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
+          Stats::write(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
 
-            Stats::write(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
+          if (doc[desk::SUPP] | false) {
 
-            if (doc[desk::SUPP] | false) {
+            // std::array<char, 256> pbuf{0x00};
+            // serializeJsonPretty(doc, pbuf.data(), pbuf.size());
+            // INFO_AUTO("\n{}", pbuf.data());
 
-              // std::array<char, 256> pbuf{0x00};
-              // serializeJsonPretty(doc, pbuf.data(), pbuf.size());
-              // INFO_AUTO("\n{}", pbuf.data());
+            const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0) - InputInfo::lead_time;
+            Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
 
-              const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0) - InputInfo::lead_time;
-              Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
+            Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
+            Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
+            Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
 
-              Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
-              Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
-              Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
-
-              // ruth sends FPS as an int * 100, convert to double
-              const double fps = doc[desk::FPS].as<int64_t>() / 100.0;
-              Stats::write(stats::FPS, fps);
-            }
+            // ruth sends FPS as an int * 100, convert to double
+            const double fps = doc[desk::FPS].as<int64_t>() / 100.0;
+            Stats::write(stats::FPS, fps);
           }
         }
-
-        // we are finished with the message, safe to reuse
-        msg_loop(std::move(msg));
-
-      } else {
-        Stats::write(stats::DATA_MSG_READ_ERROR, true);
-        connected = false;
       }
-    });
-  }
-}
 
-void DmxCtrl::resume() noexcept {
-  asio::post(sess_strand, [this]() {
-    load_config();
+    } else {
+      Stats::write(stats::DATA_MSG_READ_ERROR, true);
+      sess_connected.clear();
 
-    if (!connected) {
-      tokc->initiate_watch(); // start watching for conf changes
+      [[maybe_unused]] error_code ec;
+      sess_sock.close(ec);
+    }
 
-      // resolve_host() may BLOCK or FAIL
-      //  -if successful, handshake() is called to setup the control and data sockets
-      //  -if failure, unknown_host() is invoked to retry resolution
-      resolve_host();
+    if (sess_connected.test()) {
+      // we are finished with the message, safe to reuse
+      msg_loop(std::move(msg));
     }
   });
 }
@@ -205,27 +217,10 @@ void DmxCtrl::resolve_host() noexcept {
     const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
     host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    auto resolver = std::make_unique<tcp_resolver>(sess_strand);
-
-    resolver->async_resolve(*host_endpoint, //
-                            asio::consign(
-                                [this](const error_code &ec, resolve_results r) mutable {
-                                  if (ec.message() != "Success") {
-                                    INFO_AUTO("reverse resolve err={}", ec.message());
-                                    return;
-                                  }
-
-                                  for (auto &rr : r) {
-                                    INFO_AUTO("reverse resolve host={}", rr.host_name());
-                                  }
-                                },
-                                std::move(resolver)));
+    rr_host(*host_endpoint);
 
     // ensure the data socket is closed, we're about to accept a new connection
-    if (std::exchange(data_connected, false) == true) {
-      [[maybe_unused]] error_code ec;
-      data_sock.close(ec);
-    }
+    data_connected.clear();
 
     // listen for the inbound data socket connection from ruth
     // (response to handshake message)
@@ -233,7 +228,9 @@ void DmxCtrl::resolve_host() noexcept {
       if (ec) return;
 
       data_sock.set_option(ip_tcp::no_delay(true));
-      data_connected = true;
+      data_connected.test_and_set();
+
+      INFO_AUTO("data_connected={}", data_connected.test());
     });
 
     // kick-off an async connect. once connected we'll send the handshake
@@ -246,10 +243,9 @@ void DmxCtrl::resolve_host() noexcept {
           INFO_AUTO("{}", log_socket_msg(ec, sess_sock, r, e));
 
           if (!ec) {
+            sess_connected.test_and_set();
             sess_sock.set_option(ip_tcp::no_delay(true));
             Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
-
-            connected = true;
 
             msg_loop(MsgIn());
             handshake();
@@ -258,14 +254,49 @@ void DmxCtrl::resolve_host() noexcept {
   });
 }
 
+void DmxCtrl::resume() noexcept {
+  INFO_AUTO_CAT("resume");
+
+  if (auto connected = sess_connected.test(); !connected) {
+    INFO_AUTO("sess_connected={}", connected);
+
+    // post work to io_ctx before starting threads
+    asio::post(sess_strand, [this]() {
+      load_config();
+
+      tokc->initiate_watch(); // start watching for conf changes
+
+      // resolve_host() may BLOCK or FAIL
+      //  -if successful, handshake() is called to setup the control and data sockets
+      //  -if failure, unknown_host() is invoked to retry resolution
+      resolve_host();
+    });
+  }
+
+  threads_start();
+}
+
+void DmxCtrl::rr_host(tcp_endpoint ep) noexcept {
+  INFO_AUTO_CAT("rr_host");
+
+  resolver->async_resolve(ep, [this](const error_code &ec, resolve_results r) {
+    if (ec.message() == "Success") {
+      for (const auto &rr : r) {
+        INFO_AUTO("host={}", rr.host_name());
+      }
+    } else {
+      INFO_AUTO("err={}", ec.message());
+    }
+  });
+}
+
 void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
-  if (data_connected) { // only send msgs when connected
+  if (data_connected.test()) { // only send msgs when connected
 
     async::write_msg(data_sock, std::move(data_msg), [this](DataMsg msg) {
       if (msg.elapsed() > 200us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
 
       if (msg.xfer_ok()) {
-
         if (tokc->changed() == false) {
           // no config changes, just watch for stalls
           stall_watchdog();
@@ -283,10 +314,8 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
 
       } else {
         Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
-        connected = false;
+        data_connected.clear();
       }
-
-      // }
     });
   }
 }
@@ -296,20 +325,46 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
 
   stalled_timer.expires_after(wait);
   stalled_timer.async_wait([this, wait = wait](error_code ec) {
-    if (ec == errc::success) {
+    if (ec) return;
 
-      if (auto was_connected = std::exchange(connected, false)) {
-        INFO_AUTO("was_connected={} stall_timeout={}", was_connected, wait);
-      }
+    auto was_connected = sess_connected.test();
+    sess_connected.clear();
+    data_connected.clear();
 
-      data_sock.close(ec);
-
-      resolve_host(); // kick off name resolution, connect sequence
-
-    } else if (ec != errc::operation_canceled) {
-      INFO_AUTO("falling through {}", ec.message());
+    if (was_connected != false) {
+      INFO_AUTO("was_connected={} stall_timeout={}", was_connected, wait);
     }
+
+    data_sock.close(ec);
+    sess_sock.close(ec);
+
+    resolve_host(); // kick off name resolution, connect sequence
   });
+}
+
+void DmxCtrl::threads_start() noexcept {
+  INFO_AUTO_CAT("threads_start");
+
+  auto n_thr = tokc->val<int>("threads"_tpath, 2);
+  auto latch = std::make_shared<std::latch>(n_thr + 1);
+  threads = std::vector<std::jthread>(n_thr);
+  INFO_AUTO("starting threads={}", std::ssize(threads));
+
+  for (auto &t : threads) {
+    const auto tname = fmt::format("pierre_dmx{}", n_thr--);
+
+    INFO_AUTO("tid={}", tname);
+
+    t = std::jthread([this, tname = std::move(tname), latch = latch]() {
+      pthread_setname_np(pthread_self(), tname.c_str());
+
+      latch->arrive_and_wait();
+
+      io_ctx.run();
+    });
+  }
+
+  latch->arrive_and_wait();
 }
 
 void DmxCtrl::unknown_host() noexcept {

@@ -84,7 +84,7 @@ public:
 
 protected:
   token *make_token(csv mid) noexcept;
-  void release_token(const string &uuid) noexcept;
+  void release_token(const token *tokc) noexcept;
 
 private:
   void check() noexcept;
@@ -107,7 +107,7 @@ protected:
   parse_msgs_t msgs;
 
   std::vector<std::unique_ptr<token>> tokens;
-  std::set<string> watches;
+  std::set<UUID> watches;
 
   static watch *self;
 

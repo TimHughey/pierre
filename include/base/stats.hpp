@@ -33,10 +33,12 @@
 
 #include <chrono>
 #include <cmath>
+#include <concepts>
 #include <map>
 #include <memory>
 #include <set>
 #include <tuple>
+#include <type_traits>
 
 namespace pierre {
 
@@ -89,9 +91,14 @@ public:
       if constexpr (IsDuration<T>) {
         const auto d = std::chrono::duration_cast<Nanos>(v);
         pt.addField(NANOS, d.count());
-      } else if constexpr (std::is_integral_v<T>) {
+      } else if constexpr (std::same_as<T, bool>) {
         pt.addField(INTEGRAL, v);
-      } else if constexpr (std::is_convertible_v<T, double>) {
+      } else if constexpr (std::unsigned_integral<T>) {
+        using SignedT = std::make_signed<T>::type;
+        pt.addField(INTEGRAL, static_cast<SignedT>(v));
+      } else if constexpr (std::signed_integral<T>) {
+        pt.addField(INTEGRAL, v);
+      } else if constexpr (std::convertible_to<T, double>) {
         pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
       } else {
         static_assert(always_false_v<T>, "unhandled type");

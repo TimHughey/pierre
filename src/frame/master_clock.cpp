@@ -163,6 +163,20 @@ bool MasterClock::info(ClockInfo &info) noexcept {
   return info.ok();
 }
 
+const ClockInfo MasterClock::info() noexcept {
+
+  auto [ok, nd] = nqptp::refresh(SHM_NAME);
+
+  if (ok) {
+    return ClockInfo(nqptp::mclock_id(nd), nqptp::mclock_ip(nd),
+                     nqptp::local_time(nd),                  // aka sample time
+                     nqptp::local_to_master_time_offset(nd), // aka raw offset
+                     nqptp::mclock_start_time(nd));
+  }
+
+  return ClockInfo();
+}
+
 void MasterClock::peers(const Peers &&new_peers) noexcept {
   static constexpr csv fn_id{"peers_update"};
   INFO_AUTO("new peers count={}\n", new_peers.size());

@@ -38,10 +38,11 @@
 
 #include <boost/asio/append.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/asio/prepend.hpp>
 #include <fmt/chrono.h>
 #include <fmt/std.h>
 #include <functional>
-#include <ranges>
+#include <set>
 #include <thread>
 
 namespace pierre {
@@ -53,19 +54,27 @@ Desk::Desk(MasterClock *master_clock) noexcept
     : tokc(module_id),
       // create and start racked early (frame rendering needs it)
       racked{std::make_unique<Racked>()},
-      // create DmxCtrl early (frame renderings needs it)
-      dmx_ctrl(std::make_unique<desk::DmxCtrl>(io_ctx)),
-      // default to not rendering (frame rendering needs it)
-      render_active{false},
       // cache the MasterClock pointer early (frame rendering needs it)
       master_clock(master_clock),
       // create the anchor early (frame rendering needs it)
       anchor(std::make_unique<Anchor>()),
       // create a strand to serialize render activities
       render_strand(asio::make_strand(io_ctx)),
-      // set the frame_timer start time to now, we'll adjust it later
-      frame_timer(render_strand, steady_clock::now()) //
+      // create the frame timer
+      loop_timer(render_strand, loop_clock::now()),
+      // default Reel to be populated by next_reel
+      reel(Reel::Starter),
+      // create a synthetic for rendering when sender inactive
+      syn_frame(frame::SILENCE) //
 {
+  INFO_INIT("sizeof={:>5} lead_time min={} nominal={}", //
+            sizeof(Desk), pet::humanize(InputInfo::lead_time_min),
+            pet::humanize(InputInfo::lead_time));
+
+  // ensure flags are false
+  resume_flag.clear();
+  render_flag.clear();
+
   io_ctx.stop(); // needed by resume
   resume();
 }
@@ -80,42 +89,148 @@ Desk::~Desk() noexcept {
 //// API
 ///
 
-void Desk::anchor_reset() noexcept { anchor->reset(); }
-void Desk::anchor_save(AnchorData &&ad) noexcept { anchor->save(std::forward<AnchorData>(ad)); }
+void Desk::anchor_reset() noexcept {
+  // protect changes to Anchor
+  asio::post(render_strand, //
+             asio::prepend([](Anchor *anc) { anc->reset(); }, anchor.get()));
+}
 
-void Desk::flush(FlushInfo &&request) noexcept {
+void Desk::anchor_save(AnchorData &&ad) noexcept {
+  // protect changes to Anchor
+  asio::post(render_strand, [this, ad = std::move(ad)]() mutable { anchor->save(std::move(ad)); });
+}
 
-  asio::post(render_strand, [this, fr = request]() mutable { active_reel.flush(fr); });
+Frame &Desk::find_live_frame() noexcept {
+  INFO_AUTO_CAT("find_live");
 
-  if (racked) racked->flush(std::forward<FlushInfo>(request));
+  static Frame sentinel(frame::SENTINEL);
+
+  while (reel.size()) {
+    auto &f = reel.front();
+
+    f.state_now(*master_clock, *anchor);
+
+    INFO_AUTO("{}", f);
+
+    if (f.ready_or_future()) {
+      return f;
+    } else if (f.no_timing()) {
+      return sentinel;
+    } else {
+      reel.pop_front();
+    }
+  }
+
+  /* return std::find_if(reel.begin(), reel.end(), [this](Frame &f) {
+     auto fstate = f.state_now(*master_clock, *anchor);
+
+     if (fstate > frame::CAN_RENDER) return true;
+
+     log_skipped_frame(f);
+
+     return false;
+   }); */
+
+  return sentinel;
+}
+
+void Desk::flush(FlushInfo &&fi) noexcept {
+  INFO_AUTO_CAT("flush");
+
+  if (auto flushed = reel.flush(fi); flushed > 0) {
+    INFO_AUTO("flushed={} avail={}", flushed, reel.size_cached());
+    if (reel.empty()) reel = Reel(Reel::Transfer);
+  }
+
+  racked->flush(std::move(fi));
+
+  /*asio::post(render_strand, asio::prepend(
+                                [this](FlushInfo fi) {
+                                  // perform the flush on our active reel first (if not empty)
+                                  // before handing of request to Racked
+                                  INFO_AUTO("{}", fi);
+
+                                  if (!reel.empty()) fi(reel, frame::FLUSHED);
+                                  if (racked) racked->flush(std::move(fi));
+                                },
+                                std::move(fi))); */
 }
 
 void Desk::flush_all() noexcept {
   if (racked) racked->flush_all();
 }
 
-bool Desk::fx_finished() const noexcept { return active_fx ? active_fx->completed() : true; }
+void Desk::frame_live(Desk::frame_rr &frr) noexcept {
+  INFO_AUTO_CAT("frame_live");
+
+  if (frr.abort()) return;
+
+  auto &found = find_live_frame();
+  INFO_AUTO("{}", found);
+
+  render(found, frr);
+
+  if (frr.ok()) {
+    // update the frr with the essential frame info
+    // and record the frame's state
+    frr.update(found);
+  }
+
+  /*if (it == reel.end()) {
+    frr.need_clean = true;
+    frr.sync_wait = 0ns;
+
+    INFO_AUTO("no live frame, need_clean={}", frr.need_clean);
+  } else {
+    // got a frame
+    INFO_AUTO("found {}", *it);
+
+    it->record_state();
+    render(*it, frr); // need to handle fx
+
+    it->record_sync_wait();
+
+    if (*it <= frame::READY) {
+      it->mark_rendered();
+      frr.need_clean = true;
+    }
+  }*/
+}
+
+void Desk::frame_syn(Desk::frame_rr &frr) noexcept {
+  INFO_AUTO_CAT("render_sf");
+
+  syn_frame = frame::READY;
+  render(syn_frame, frr);
+
+  if (frr.ok()) frr.update(syn_frame);
+}
+
+bool Desk::fx_finished() const noexcept { return (bool)active_fx ? active_fx->completed() : true; }
 
 void Desk::fx_select(Frame &frame) noexcept {
-  static constexpr csv fn_id{"fx_select"};
+  namespace fx = desk::fx;
+  INFO_AUTO_CAT("fx_select");
 
   // cache multiple use frame info
   const auto silent = frame.silent();
 
-  const auto fx_now = active_fx ? active_fx->name() : desk::fx::NONE;
-  const auto fx_suggested_next = active_fx ? active_fx->suggested_fx_next() : desk::fx::STANDBY;
+  const auto fx_now = active_fx ? active_fx->name() : fx::NONE;
+  const auto fx_next = active_fx ? active_fx->suggested_fx_next() : fx::STANDBY;
 
   // when fx::Standby is finished initiate standby()
-  if (fx_now == desk::fx::NONE) { // default to Standby
+  if (fx_now == fx::NONE) { // default to Standby
     active_fx = std::make_unique<desk::Standby>(render_strand);
-  } else if (silent && (fx_suggested_next == desk::fx::STANDBY)) {
+  } else if (silent && (fx_next == fx::STANDBY)) {
     active_fx = std::make_unique<desk::Standby>(render_strand);
 
-  } else if (!silent && (frame.state.ready_or_future())) {
+  } else if (!silent && (frame.can_render())) {
     active_fx = std::make_unique<desk::MajorPeak>(render_strand);
 
-  } else if (silent && (fx_suggested_next == desk::fx::ALL_STOP)) {
+  } else if (silent && (fx_next == fx::ALL_STOP)) {
     active_fx = std::make_unique<desk::AllStop>(render_strand);
+  } else {
+    active_fx = std::make_unique<desk::Standby>(render_strand);
   }
 
   // note in log selected FX, if needed
@@ -123,167 +238,221 @@ void Desk::fx_select(Frame &frame) noexcept {
 }
 
 void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
-  if (racked) racked->handoff(std::forward<uint8v>(packet), key);
+  if (racked) racked->handoff(std::forward<decltype(packet)>(packet), key);
 }
 
-void Desk::next_reel() noexcept {
+void Desk::log_skipped_frame(const Frame &f) noexcept { INFO("skipped", "{}", f); }
+
+void Desk::loop() noexcept {
+  INFO_AUTO_CAT("loop");
+
+  Elapsed e;
+
+  frame_rr frr;
+
+  if (render_flag.test()) {
+    frame_live(frr);
+  } else {
+    frame_syn(frr);
+  }
+
+  next_reel(frr);
+
+  // schedule next loop, if needed
+  schedule_loop(frr);
+
+  Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
+}
+
+void Desk::next_reel([[maybe_unused]] Desk::frame_rr &frr) noexcept {
   INFO_AUTO_CAT("next_reel");
 
-  // do we have a pending future reel?
-  if (future_reel.valid()) {
-    using fstatus = std::future_status;
+  if (render_flag.test()) {
+    auto [erase, remain] = reel.clean();
+    if (erase) INFO_AUTO("cleaned, erase={} remain={}", erase, remain);
 
-    if (auto status = future_reel.wait_for(1ms); status == fstatus::ready) {
-      active_reel = future_reel.get();
-    } else {
-      INFO_AUTO("timeout, falling back to synthetic");
-      active_reel = Reel(Reel::Synthetic);
+    if (reel.empty() && (bool)racked) {
+      reel = Reel(Reel::Transfer);
+      INFO_AUTO("requesting next reel");
+      racked->next_reel(reel);
+
+      INFO_AUTO("got {}", reel);
     }
-  } else if (active_reel.empty() || (active_reel.synthetic() && render_active)) {
-    future_reel = racked->next_reel();
   }
 }
 
-void Desk::render_via_strand() noexcept {
-  Elapsed e;
+bool Desk::render(Frame &frame, frame_rr &frr) noexcept {
+  INFO_AUTO_CAT("render");
 
-  // get a frame from the reel
-  auto frame = active_reel.peek_or_pop(*master_clock, *anchor);
+  INFO_AUTO("{}", frame);
 
   if (fx_finished()) fx_select(frame);
 
-  if (shutdown_if_all_stop() == false) {
+  frr.stop = shutdown_if_all_stop();
 
-    if (frame.ready()) {
-      // the frame is ready for rendering
-      desk::DataMsg msg(frame.seq_num, frame.silent());
+  if (frr.ok() && frame.ready()) {
+    // the frame is ready for rendering
+    desk::DataMsg msg(frame.sn(), frame.silent());
 
-      // send the data message if rendered
-      if (active_fx->render(frame.get_peaks(), msg)) {
-        dmx_ctrl->send_data_msg(std::move(msg));
-      }
+    // send the data message if rendered
+    if (active_fx->render(frame.get_peaks(), msg)) {
+      if ((bool)dmx_ctrl) dmx_ctrl->send_data_msg(std::move(msg));
     }
 
-    next_reel(); // request next reel if active is emply
-
-    frame_timer.expires_after(frame.sync_wait(*master_clock, *anchor));
-    frame_timer.async_wait([this](const error_code &ec) {
-      if (ec) return;
-
-      next_reel(); // get next reel if request pending
-      render_via_strand();
-    });
-
-    frame.record_state();
-
-    // notate the frame is rendered (or silent) in timeseries db
-    frame.mark_rendered();
-
-    Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
+  } else {
+    INFO_AUTO("NOT RENDERED {}", frame);
   }
+
+  return frr.stop;
 }
 
 void Desk::resume() noexcept {
   INFO_AUTO_CAT("resume");
 
-  if (io_ctx.stopped()) {
-    INFO_AUTO("invoked, io_ctx.stopped={}", io_ctx.stopped());
+  auto is_resuming = !resume_flag.test_and_set();
+  INFO_AUTO("invoked, stopped={} resuming={}", io_ctx.stopped(), is_resuming);
 
-    if (!threads.empty()) {
-      // ensure any previous threads are released
-      std::for_each(threads.begin(), threads.end(), [this](std::jthread &t) {
-        if (t.joinable()) t.join();
-      });
+  // if we were already resuming don't attempt another
+  if (is_resuming && io_ctx.stopped()) {
+    resume_flag.test_and_set();
 
-      threads.clear();
-      INFO_AUTO("cleared {} threads", threads.size());
-    }
+    if (threads.size()) threads_stop();
 
-    INFO_AUTO("io_ctx stopped, resetting");
+    INFO_AUTO("reset threads={}", threads.size());
     io_ctx.reset();
 
     // add work to io_ctx before starting threads
     asio::post(render_strand, [this]() {
-      if (active_reel.empty()) active_reel = Reel(Reel::Synthetic);
-
       anchor->reset();
+
+      // prevent duplicate reset of DmxCtrl at startup
+      if (!(bool)dmx_ctrl) dmx_ctrl = std::make_unique<desk::DmxCtrl>();
+
       dmx_ctrl->resume();
 
-      render_via_strand();
+      loop();
+      resume_flag.clear();
     });
 
-    auto n_thr = tokc.val<int>("threads"_tpath, 1);
-    threads = std::vector<std::jthread>(n_thr);
-    INFO_AUTO("starting {} threads", std::ssize(threads));
+    threads_start();
+  }
+}
 
-    for (auto &t : threads) {
-      const auto tname = fmt::format("pierre_desk{}", n_thr--);
+void Desk::schedule_loop(Desk::frame_rr &frr) noexcept {
+  INFO_AUTO_CAT("schedule_loop");
 
-      INFO("thread", "starting {}", tname);
+  if (frr.abort()) {
+    INFO_AUTO("not scheduling, stop={} rendered={}", frr.stop, frr.rendered);
+    return;
+  }
 
-      t = std::jthread([this, tname = std::move(tname)]() {
-        pthread_setname_np(pthread_self(), tname.c_str());
+  if (!frr.rendered) {
+    asio::post(render_strand, [this]() { loop(); });
+  } else {
+    Frame::sync_wait(*master_clock, *anchor, frr);
 
-        io_ctx.run();
-      });
-    }
-
-    using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
-
-    auto lt_min = std::chrono::duration_cast<millis_fp>(InputInfo::lead_time_min);
-    INFO_INIT("sizeof={:>5} lead_time_min={:0.4}", sizeof(Desk), lt_min);
+    loop_timer.expires_after(frr.sync_wait);
+    loop_timer.async_wait([this](const error_code &ec) {
+      if (!ec) loop();
+    });
   }
 }
 
 void Desk::set_render(bool enable) noexcept {
   INFO_AUTO_CAT("set_render");
 
-  auto was_active = std::exchange(render_active, enable);
+  if (enable) {
+    auto prev = render_flag.test_and_set();
 
-  INFO_AUTO("enable={} was_active={}", enable, was_active);
+    INFO_AUTO("render_flag={} prev={} enable={}", render_flag.test(), prev, enable);
 
-  if (was_active == false) {
-
-    const auto now = steady_clock::now();
-
-    frame_timer.expires_at(now);
-    frame_timer.async_wait([this](const error_code &ec) {
-      if (!ec) asio::post(io_ctx, [this]() { render(); });
-    });
+  } else {
+    INFO_AUTO("render_flag={} enable={}", render_flag.test(), enable);
   }
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {
+  INFO_AUTO_CAT("shutdown_all");
 
-  auto rc = active_fx->match_name(desk::fx::ALL_STOP);
+  auto rc = (bool)active_fx && active_fx->match_name(desk::fx::ALL_STOP);
 
   if (rc) {
+    // halt the frame timer
+    [[maybe_unused]] error_code ec;
+    loop_timer.cancel(ec);
 
-    asio::dispatch(render_strand, [this]() {
-      INFO_AUTO_CAT("shutdown_all");
+    INFO_AUTO("active_fx={} io_ctx.stopped={}", active_fx->name(), io_ctx.stopped());
 
-      io_ctx.stop();
-      INFO_AUTO("active_fx={} io_ctx.stopped={}", active_fx->name(), io_ctx.stopped());
+    // reset Desk state
+    anchor->reset();
+    reel = Reel(Reel::Starter);
+    active_fx.reset();
 
-      // halt the frame timer
-      [[maybe_unused]] error_code ec;
-      frame_timer.cancel(ec);
+    // disconnect from ruth
+    dmx_ctrl.reset();
 
-      // ensure we are not attempting to render actual audio data
-      set_render(false);
-
-      // disconnect from ruth
-      dmx_ctrl.reset();
-
-      // leave racked running and flush pending reels
-      racked->flush_all();
-
-      // reset the allocated Anchor, not the unique_ptr
-      anchor->reset();
-    });
+    threads_stop();
   }
 
   return rc;
+}
+
+void Desk::threads_start() noexcept {
+  INFO_AUTO_CAT("threads_start");
+
+  auto n_thr = tokc.val<int>("threads"sv, 2);
+
+  auto latch = std::make_shared<std::latch>(n_thr + 1);
+  threads = std::vector<std::jthread>(n_thr);
+  INFO_AUTO("starting threads={}", std::ssize(threads));
+
+  for (auto &t : threads) {
+    const auto tname = fmt::format("pierre_desk{}", n_thr--);
+
+    t = std::jthread([this, tname = std::move(tname), latch = latch]() {
+      INFO_AUTO("starting {}", tname);
+
+      pthread_setname_np(pthread_self(), tname.c_str());
+
+      latch->arrive_and_wait();
+
+      INFO_AUTO("io_ctx.run() tname={}", tname);
+
+      io_ctx.run();
+    });
+  }
+
+  latch->arrive_and_wait();
+
+  INFO_AUTO("started threads={}", threads.size());
+}
+
+void Desk::threads_stop() noexcept {
+  INFO_AUTO_CAT("threads_stop");
+
+  std::latch latch(threads.size() + 1);
+
+  auto st = std::jthread([this, latch = &latch]() { // ensure any previous threads are released
+    io_ctx.stop();
+
+    INFO_AUTO("joining threads={} stopped={}", threads.size(), io_ctx.stopped());
+
+    std::erase_if(threads, [=](auto &t) mutable {
+      if (t.joinable()) {
+        INFO_AUTO("joining tid={}", t.get_id());
+        t.join();
+
+        latch->count_down();
+      }
+
+      return true;
+    });
+  });
+
+  st.detach();
+  INFO_AUTO("waiting for threads to stop");
+  latch.arrive_and_wait();
+  INFO_AUTO("joining complete");
 }
 
 } // namespace pierre

@@ -16,19 +16,15 @@
 //
 //  https://www.wisslanding.com
 
-#include "audio.hpp"
+#include "rtsp/audio.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
-#include "frame/frame.hpp"
-#include "frame/racked.hpp"
 #include "rtsp/audio/packet.hpp"
 
 #include <arpa/inet.h>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
-#include <ranges>
-#include <span>
 #include <vector>
 
 namespace pierre {
@@ -36,13 +32,27 @@ namespace rtsp {
 
 // static constexpr ssize_t PACKET_LEN_BYTES{sizeof(uint16_t)};
 
-Audio::Audio(asio::io_context &io_ctx, Ctx *ctx) noexcept
+Audio::Audio(Ctx *ctx) noexcept
     : ctx(ctx),             // handle Audio for this rtsp CTX
       streambuf(16 * 1024), // allow buffering of sixteen packets
       acceptor{io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
       sock(io_ctx, ip_tcp::v4()) // overwritten by accepting socket
 {
+  INFO_INIT("sizeof={:>5}", sizeof(Audio));
+  tcp_socket::enable_connection_aborted opt(true);
+  acceptor.set_option(opt);
+
+  // add work before starting thread and io_context
   async_accept();
+
+  const string tname{"pierre_audio"};
+  INFO("thread", "starting {}", tname);
+
+  thread = std::jthread([this, tname = std::move(tname)]() {
+    pthread_setname_np(pthread_self(), tname.c_str());
+
+    io_ctx.run();
+  });
 }
 
 void Audio::async_read() noexcept {
@@ -69,15 +79,14 @@ void Audio::async_read() noexcept {
 
       // send the audio data for further processing (decipher, decode, etc)
       ctx->desk->handoff(std::move(raw_audio), ctx->shared_key);
+
+      async_read(); // TODO: this may not be a wise choice on short reads
     } else if (ec) {
       // error path
       INFO_AUTO("[falling through] n={} msg={}\n", n, ec.message());
-      return; // fall through
     } else {
       INFO_AUTO("SHORT READ, n={}\n", n);
     }
-
-    async_read(); // TODO: this may not be a wise choice on short reads
   });
 }
 

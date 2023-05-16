@@ -67,7 +67,7 @@ void token::initiate_watch() noexcept {
 
 void token::release() const noexcept {
   if (watcher != nullptr) {
-    watcher->release_token(uuid);
+    watcher->release_token(this);
   }
 }
 

@@ -21,116 +21,118 @@
 #include "frame/anchor.hpp"
 #include "frame/master_clock.hpp"
 
-#include <iterator>
+#include <atomic>
 
 namespace pierre {
 
-uint64_t Reel::next_serial_num{0x1000};
+static auto next_sn() noexcept {
+  static std::atomic_uint64_t n{0x1000};
 
-Reel::Reel(kind_t kind) noexcept : serial(++next_serial_num), max_frames{kind} {
+  return std::atomic_fetch_add(&n, 1);
+}
 
-  if (kind == Synthetic) {
-    for (auto n = 0; n < max_frames; n++) {
-      frames.emplace_back(Frame());
-    }
+Reel::Reel(kind_t kind) noexcept : kind{kind}, serial(next_sn()) {
+
+  switch (kind) {
+  case Starter:
+    min_frames = InputInfo::frames(500ms);
+    break;
+
+  case Transfer:
+    min_frames = 1;
+    break;
+
+  case Empty:
+    min_frames = 0;
+
+  case Ready:
+    break;
+  }
+
+  if (kind != Empty) {
+    cached_size = std::make_unique<std::atomic<ssize_t>>(0);
+    mtx = std::make_unique<std::mutex>();
   }
 }
 
-bool Reel::can_add_frame(const Frame &frame) noexcept {
-  constexpr auto fn_id{"can_add_frame"sv};
+std::pair<ssize_t, ssize_t> Reel::clean() noexcept {
+  auto a = frames.begin();
+  auto b = frames.end();
 
-  bool rc{false};
+  auto to_it = std::find_if(a, b, [](const auto &f) { return f.can_render(); });
 
-  if (!full()) {
-    rc = true;
+  auto e = frames.erase(a, to_it);
+  auto r = std::ssize(frames);
 
-    if (empty() == false) {
-      int64_t tsp = back().timestamp;
-      int64_t tsf = frame.timestamp;
-      auto diff = tsf - tsp;
+  cached_size->store(r);
 
-      if (diff != 1024) {
-        INFO_AUTO("timestamp diff={}\n", diff);
-        rc = false;
-      }
-    }
-  }
-
-  return rc;
+  return std::make_pair(std::distance(frames.begin(), e), r);
 }
 
-bool Reel::flush(FlushInfo &flush_info) noexcept {
-  static constexpr csv fn_id{"flush"};
+void Reel::clear() noexcept {
+  cached_size->store(0);
 
-  if (empty() == false) { // reel has frames, attempt to flush
+  frames.clear();
+}
 
-    auto &a = front();
-    auto &b = back();
+ssize_t Reel::flush(FlushInfo &fi) noexcept {
+  lock_guard lck(*mtx);
 
-    if (flush_info(a) && flush_info(b)) {
-      INFO_AUTO("{}\n", *this);
-      consumed = std::ssize(frames);
+  while (fi.check(frames.front())) {
+    pop_front();
+  }
 
-    } else if (flush_info.matches<decltype(a)>(a, b)) {
-      INFO_AUTO("SOME {}\n", *this);
+  return fi.flushed();
+}
 
-      std::for_each(begin(), end(), [&, this](const auto &item) {
-        if (flush_info(item)) consume();
-      });
-    }
+bool Reel::pop_front() noexcept {
+  if (!empty()) {
+    frames.pop_front();
+    std::atomic_fetch_sub(cached_size.get(), 1);
   }
 
   return empty();
 }
 
-Frame Reel::peek_or_pop(MasterClock &clock, Anchor &anchor) noexcept {
-  static constexpr auto fn_id{"peek_front"sv};
+ssize_t Reel::size() const noexcept {
+  if (kind == Empty) return 0;
 
-  // NOTE: defaults to silent frame
-  Frame frame;
+  return std::ssize(frames);
+}
 
-  if (!empty() && front().synthetic()) {
-    // this is a reel of synthetic frames which are always ready
-    // simply return the frame at the front and mark it consumed
-    frame = std::move(front());
-    consume();
+void Reel::take(Reel &o) noexcept {
+  INFO_AUTO_CAT("take");
 
-  } else if (!empty()) {
-    // this is a reel of actual frames, get clock info and anchor
-    // to calculate frame state
+  if (serial == o.serial) return;
 
-    // search through available frames:
-    //  1. ready or future frames are returned
-    //  2. outdated frames are consumed
+  if (o.size_cached() >= size_min()) {
+    lock_guard lck(*o.mtx);
 
-    for (auto f = begin(); f != end() && frame.synthetic(); ++f) {
-      const auto fstate = f->state_now(clock, anchor);
+    INFO_AUTO("taking {}", o);
 
-      // ready or future frames are returned
-      if (fstate.ready_or_future()) {
+    serial = std::move(o.serial);
+    o.serial = next_sn();
 
-        // we don't need to look at ready frames again, consume it
-        if (fstate.ready()) consume();
+    frames = std::move(o.frames);
+    o.frames = frame_container();
 
-        frame = std::move(*f);
+    cached_size->store(o.cached_size->load());
+    o.cached_size->store(0);
 
-      } else if (fstate.outdated()) {
-        // eat outdated frames
-        f->mark_rendered();
-        consume();
-
-      } else if (fstate.no_clock_or_anchor()) {
-        break;
-      } else {
-        INFO_AUTO("encountered {}\n", *f);
-        break;
-      }
-    }
+    kind = Ready;
+    INFO_AUTO("got {}", *this);
   }
+}
 
-  // return whatever frame we found (pure synthetic, synthetic from reel or
-  // actual frame)
-  return frame;
+void Reel::push_back(Frame &&frame) noexcept {
+  INFO_AUTO_CAT("push_back");
+
+  std::atomic_fetch_add(cached_size.get(), 1);
+
+  INFO_AUTO("avail={:>5} {}", cached_size->load(), frame);
+
+  lock_guard lck(*mtx);
+  frames.push_back(std::forward<decltype(frame)>(frame));
 }
 
 } // namespace pierre
