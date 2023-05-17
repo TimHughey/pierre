@@ -104,12 +104,14 @@ latest = false
 [logger.conf.watch]
 check = false
 initiate = false
-initiate_watch = true
+initiate_watch = false
 
 [logger.desk]
 find_live = false
 frame_live = false
-next_reel = false
+flush = true
+handoff = false
+next_reel = true
 render = false
 resume = true
 schedule_loop = true
@@ -120,13 +122,19 @@ threads_stop = false
 thread = false
 
 [logger.desk.dmx_ctrl]
+host = { connect = true, resolve = false, rev_resolve = false, unknown = true }
+load_config = false
 run = true
-host = { connect = true, resolve = true, unknown = true }
+
+# [logger.desk.flush]
+# accept = true
+# done = true
+
 
 [logger.frame]
 anchor = false
 av = false
-clock = { init = true, shutdown = false,  peers_update = false,  map_shm = false }
+clock = { init = true, map_shm = false, peers_update = false, refresh = false, shutdown = false }
 decipher = false
 state_now = false
 
@@ -148,7 +156,7 @@ push_back = false
 take = false
 
 [logger.fx]
-major_peak = { execute = false }
+major_peak = { execute = false, load_config = false }
 silence_watch = false
 standby = { apply_config = false}
 
@@ -156,7 +164,8 @@ standby = { apply_config = false}
 start = false
 
 [logger.mdns.ctx]
-all_for_now = true
+advertise = false
+all_for_now = false
 browse = false 
 cb_client = false
 cb_browse = false
@@ -164,7 +173,7 @@ cb_evt_grp = false
 resolved = false
 
 [logger.rtsp]
-audio = true
+audio = { thread = false }
 ctx = true
 init = true
 info = true

@@ -60,7 +60,7 @@ public:
     return frame_to_local_time(f) - Nanos(clock_now::mono::ns());
   }
 
-  Nanos frame_local_time_diff(timestamp_t ts) const noexcept {
+  Nanos frame_local_time_diff(ftime_t ts) const noexcept {
     return frame_to_local_time(ts) - Nanos(clock_now::mono::ns());
   }
 
@@ -73,7 +73,7 @@ public:
     return localized + time_diff;
   }
 
-  Nanos frame_to_local_time(timestamp_t timestamp) const noexcept {
+  Nanos frame_to_local_time(ftime_t timestamp) const noexcept {
     int32_t frame_diff = timestamp - rtp_time;
     Nanos time_diff = Nanos((frame_diff * qpow10(9)) / InputInfo::rate);
 
@@ -82,7 +82,7 @@ public:
 
   explicit operator bool() const noexcept { return ready(); }
 
-  timestamp_t local_to_frame_time(const Nanos local_time) const noexcept {
+  ftime_t local_to_frame_time(const Nanos local_time) const noexcept {
     Nanos time_diff = local_time - localized;
     Nanos frame_diff = time_diff * InputInfo::rate;
 

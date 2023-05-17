@@ -85,6 +85,8 @@ public:
     return want.contains(val);
   }
 
+  bool header_ok() const noexcept { return val == HEADER_PARSED; }
+
   auto now() const noexcept { return val; }
 
   explicit operator frame_state_v() const noexcept { return val; }

@@ -28,7 +28,6 @@ class AnchorData;
 class FlushInfo;
 class Frame;
 class MasterClock;
-class Racked;
 class Peaks;
 
 namespace frame {

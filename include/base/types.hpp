@@ -40,8 +40,8 @@ typedef const char *ccs;
 // Vector of Floats
 using reals_t = std::vector<double>;
 
-using seq_num_t = uint32_t;   // frame sequence num
-using timestamp_t = uint32_t; // frame timestamp
+using seq_num_t = uint32_t; // frame sequence num
+using ftime_t = uint32_t;   // frame timestamp
 
 template <typename T, typename... U>
 concept IsAnyOf = (std::same_as<T, U> || ...);
@@ -50,5 +50,15 @@ template <class> inline constexpr bool always_false_v = false;
 
 static constexpr uint16_t ANY_PORT{0};
 using Port = uint16_t;
+
+template <typename T>
+concept IsFrame = requires(T &f) {
+  { f.sn() } noexcept;
+  { f.ts() } noexcept;
+  { f.flush() } noexcept;
+};
+
+#define MOD_ID(mid)                                                                                \
+  static constexpr std::string_view module_id { mid }
 
 } // namespace pierre

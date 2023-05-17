@@ -82,7 +82,7 @@ private:
 
   void resolve_host() noexcept;
 
-  void rr_host(tcp_endpoint ep) noexcept;
+  void rev_resolve(tcp_endpoint ep) noexcept;
 
   void stall_watchdog() noexcept { stall_watchdog(stall_timeout); }
   void stall_watchdog(Millis wait) noexcept;

@@ -24,6 +24,7 @@
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
+#include "frame/flush_info.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/reel.hpp"
 
@@ -85,7 +86,7 @@ public:
     bool stop{false};
     bool live_frame{false};
     bool syn_frame{false};
-    timestamp_t ts{0};
+    ftime_t ts{0};
     frame_state_v state{};
     Nanos sync_wait{0ns};
   };
@@ -99,7 +100,7 @@ public:
 
   void flush(FlushInfo &&request) noexcept;
 
-  void flush_all() noexcept;
+  void flush_all() noexcept { flush(FlushInfo(FlushInfo::All)); }
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
@@ -137,12 +138,14 @@ private:
   // order dependent
   conf::token tokc;
   asio::io_context io_ctx;
-  std::unique_ptr<Racked> racked;
   MasterClock *master_clock;
   std::unique_ptr<Anchor> anchor;
   strand_ioc render_strand;
+  strand_ioc flush_strand;
   frame_timer loop_timer;
-  Reel reel; // defaults to empty
+  Reel a_reel;          // in reel (default to Transfer)
+  Reel b_reel;          // out reel (default to Starter)
+  FlushInfo flush_info; // default to Inactive
   Frame syn_frame;
 
   // order independent
@@ -153,7 +156,7 @@ private:
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl;
 
 public:
-  static constexpr auto module_id{"desk"sv};
+  MOD_ID("desk");
 };
 
 } // namespace pierre

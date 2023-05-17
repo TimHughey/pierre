@@ -154,6 +154,12 @@ frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
   return (frame_state_v)state.record_state();
 }
 
+void Frame::init() noexcept {
+  const auto lead_time = pet::humanize(InputInfo::lead_time);
+  const auto lead_time_min = pet::humanize(InputInfo::lead_time_min);
+  INFO_INIT("sizeof={:>5} lead_time={} lead_time_min={}", sizeof(Frame), lead_time, lead_time_min);
+}
+
 void Frame::log_decipher(int cipher_rc, ull_t consumed, const uint8v &p,
                          const uint8v &m) const noexcept {
   INFO_AUTO_CAT("decipher");
@@ -176,6 +182,11 @@ void Frame::log_decipher(int cipher_rc, ull_t consumed, const uint8v &p,
   }
 }
 
+void Frame::flush() noexcept {
+  state = frame::FLUSHED;
+  record_state();
+}
+
 void Frame::record_sync_wait() const noexcept {
   // write diffs of interest to the timeseries database
   Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
@@ -187,16 +198,16 @@ frame::state Frame::state_now(MasterClock &clk, Anchor &anc) noexcept {
   string msg;
   auto w = std::back_inserter(msg);
 
-  // never change the state of a synthetic frame
-  if (live()) {
-
+  if (synthetic()) {
+    // syhthetic frames are always ready
+    state = frame::READY;
+  } else {
+    // always adjust state of live frames
     auto clk_info = clk.info();
     auto ancl = anc.get_data(clk_info);
 
     // calculate the sync wait diff if anchor is ready
     auto diff = ancl.ready() ? ancl.frame_local_time_diff(*this, clk_info) : 0ns;
-
-    fmt::format_to(w, "diff={}", pet::humanize(diff));
 
     if (ancl.ready() == false) {
       state = frame::NO_CLK_ANC;
@@ -209,12 +220,12 @@ frame::state Frame::state_now(MasterClock &clk, Anchor &anc) noexcept {
       sync_wait(clk, anc);
     } else if (diff > InputInfo::lead_time) {
       state = frame::FUTURE;
-      cache_sync_wait(diff);
+      sync_wait(clk, anc);
     } else {
       fmt::format_to(w, "no state change {}", *this);
     }
-  } else {
-    state = frame::READY;
+
+    fmt::format_to(w, "diff={}", pet::humanize(diff));
   }
 
   if (msg.size()) INFO_AUTO("{} {}", msg, *this);
@@ -222,10 +233,10 @@ frame::state Frame::state_now(MasterClock &clk, Anchor &anc) noexcept {
   return state;
 }
 
-bool Frame::sync_wait(MasterClock &clk, Anchor &anchor, timestamp_t t, Nanos &sync_wait) noexcept {
-  if (auto clk_info = clk.info(); clk_info.ok() && (t > 0)) {
+bool Frame::sync_wait(MasterClock &clk, Anchor &anchor, ftime_t ft, Nanos &sync_wait) noexcept {
+  if (auto clk_info = clk.info(); clk_info.ok() && (ft > 0)) {
     if (auto ancl = anchor.get_data(clk_info); ancl.ready()) {
-      sync_wait = ancl.frame_local_time_diff(t);
+      sync_wait = ancl.frame_local_time_diff(ft);
 
       return true;
     }

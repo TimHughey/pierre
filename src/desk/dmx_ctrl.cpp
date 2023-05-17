@@ -217,7 +217,7 @@ void DmxCtrl::resolve_host() noexcept {
     const auto remote_ip_addr = asio::ip::make_address_v4(zcs.address());
     host_endpoint.emplace(remote_ip_addr, zcs.port());
 
-    rr_host(*host_endpoint);
+    rev_resolve(*host_endpoint);
 
     // ensure the data socket is closed, we're about to accept a new connection
     data_connected.clear();
@@ -276,8 +276,8 @@ void DmxCtrl::resume() noexcept {
   threads_start();
 }
 
-void DmxCtrl::rr_host(tcp_endpoint ep) noexcept {
-  INFO_AUTO_CAT("rr_host");
+void DmxCtrl::rev_resolve(tcp_endpoint ep) noexcept {
+  INFO_AUTO_CAT("rev_resolve");
 
   resolver->async_resolve(ep, [this](const error_code &ec, resolve_results r) {
     if (ec.message() == "Success") {

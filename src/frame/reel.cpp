@@ -32,7 +32,6 @@ static auto next_sn() noexcept {
 }
 
 Reel::Reel(kind_t kind) noexcept : kind{kind}, serial(next_sn()) {
-
   switch (kind) {
   case Starter:
     min_frames = InputInfo::frames(500ms);
@@ -56,6 +55,8 @@ Reel::Reel(kind_t kind) noexcept : kind{kind}, serial(next_sn()) {
 }
 
 std::pair<ssize_t, ssize_t> Reel::clean() noexcept {
+  lock_guard lck(*mtx);
+
   auto a = frames.begin();
   auto b = frames.end();
 
@@ -78,11 +79,12 @@ void Reel::clear() noexcept {
 ssize_t Reel::flush(FlushInfo &fi) noexcept {
   lock_guard lck(*mtx);
 
+  //// NOTE: FlushInfo::check() marks the frame flushed, as needed
   while (fi.check(frames.front())) {
     pop_front();
   }
 
-  return fi.flushed();
+  return std::ssize(frames);
 }
 
 bool Reel::pop_front() noexcept {
@@ -100,24 +102,27 @@ ssize_t Reel::size() const noexcept {
   return std::ssize(frames);
 }
 
-void Reel::take(Reel &o) noexcept {
+void Reel::take(Reel &lhs) noexcept {
   INFO_AUTO_CAT("take");
 
-  if (serial == o.serial) return;
+  if (serial == lhs.serial) {
+    INFO_AUTO("unable to take self");
+    return;
+  }
 
-  if (o.size_cached() >= size_min()) {
-    lock_guard lck(*o.mtx);
+  if (lhs.size_cached() >= size_min()) {
+    lock_guard lck(*lhs.mtx);
 
-    INFO_AUTO("taking {}", o);
+    INFO_AUTO("taking {}", lhs);
 
-    serial = std::move(o.serial);
-    o.serial = next_sn();
+    serial = std::move(lhs.serial);
+    lhs.serial = next_sn();
 
-    frames = std::move(o.frames);
-    o.frames = frame_container();
+    frames = std::move(lhs.frames);
+    lhs.frames = frame_container();
 
-    cached_size->store(o.cached_size->load());
-    o.cached_size->store(0);
+    cached_size->store(lhs.cached_size->load());
+    lhs.cached_size->store(0);
 
     kind = Ready;
     INFO_AUTO("got {}", *this);
@@ -128,8 +133,9 @@ void Reel::push_back(Frame &&frame) noexcept {
   INFO_AUTO_CAT("push_back");
 
   std::atomic_fetch_add(cached_size.get(), 1);
-
   INFO_AUTO("avail={:>5} {}", cached_size->load(), frame);
+
+  frame.record_state();
 
   lock_guard lck(*mtx);
   frames.push_back(std::forward<decltype(frame)>(frame));

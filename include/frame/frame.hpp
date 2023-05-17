@@ -87,26 +87,28 @@ public:
   ~Frame() noexcept;
   Frame(Frame &&) = default;
 
-  bool live() const noexcept { return !synthetic(); }
-
   Frame &operator=(Frame &&) = default;
   void operator=(frame_state_v nsn) noexcept { state = nsn; }
 
   explicit operator frame::state_now_t() const noexcept { return (frame::state_now_t)state; }
-
   std::weak_ordering operator<=>(const Frame &rhs) const noexcept { return ts() <=> rhs.ts(); }
   bool operator<(const frame_state_v lhs) const noexcept { return state < lhs; }
   bool operator>(const frame_state_v lhs) const noexcept { return state > lhs; }
   bool operator==(const frame_state_v lhs) const noexcept { return state == lhs; }
   bool operator!=(const frame_state_v lhs) const noexcept { return !(*this == lhs); }
 
+  static void init() noexcept;
+
+  ////
+  //// Frame state checks
+  ////
   bool can_render() const noexcept { return state.can_render(); }
   bool dont_render() const noexcept { return !can_render(); }
 
-  void flush() noexcept { state = frame::FLUSHED; }
-  // bool flushed() noexcept { return state == frame::FLUSHED; }
+  /// @brief Mark frame as flushed and record it's state
+  void flush() noexcept;
 
-  const Peaks &get_peaks() noexcept { return peaks; }
+  bool live() const noexcept { return !synthetic(); }
 
   auto mark_rendered() noexcept {
     state = silent() ? frame::SILENCE : frame::RENDERED;
@@ -115,23 +117,34 @@ public:
 
   auto no_timing() const noexcept { return state == frame::NO_CLK_ANC; }
 
-  frame_state_v process(uint8v packet, const uint8v &key) noexcept {
-    if (state == frame::HEADER_PARSED) {
-      return decipher(std::move(packet), key);
-    }
-
-    return (frame_state_v)state;
-  }
-
   bool ready() const noexcept { return state == frame::READY; }
-
   bool ready_or_future() const noexcept { return state.ready_or_future(); }
 
-  frame::state record_state() const noexcept {
-    state.record_state();
+  bool silent() const noexcept { return silence; }
+  bool silent(bool is_silent) noexcept { return std::exchange(silence, is_silent); }
 
-    return state;
+  /// @brief Frames not assigned a sender seq_num or timestamp are
+  ///        considered 'synthetic' and do not contain Peaks
+  /// @return boolean
+  bool synthetic() const noexcept { return !seq_num || !timestamp; }
+
+  ////
+  //// state updates
+  frame_state_v state_now() const noexcept { return (frame_state_v)state; }
+
+  const Peaks &get_peaks() noexcept { return peaks; }
+
+  /// @brief Decipher, decode and find peaks (dsp)
+  /// @param packet
+  /// @param key
+  /// @return
+  auto process(uint8v packet, const uint8v &key) noexcept {
+    return (state.header_ok()) //
+               ? decipher(std::move(packet), key)
+               : (frame_state_v)state;
   }
+
+  frame::state record_state() const noexcept { return state.record_state(); }
 
   void record_sync_wait() const noexcept;
 
@@ -144,9 +157,6 @@ public:
     channels = info.channels;
     samp_per_ch = info.samp_per_ch;
   }
-
-  bool silent() const noexcept { return silence; }
-  bool silent(bool is_silent) noexcept { return std::exchange(silence, is_silent); }
 
   /// @brief Sequence Number assigned by sender
   /// @return unsigned int
@@ -161,8 +171,6 @@ public:
   /// @param anc reference to Anchor as maintained by the sender
   /// @return calculated frame::state
   frame::state state_now(MasterClock &clk, Anchor &anc) noexcept;
-
-  frame_state_v state_now() const noexcept { return (frame_state_v)state; }
 
   /// @brief Calculated duration to wait to syncronize frame to sender's view
   ///        of 'playback' (aka render) timeline.
@@ -198,7 +206,7 @@ public:
     return sync_wait();
   }
 
-  static bool sync_wait(MasterClock &clk, Anchor &anc, timestamp_t t, Nanos &sync_wait) noexcept;
+  static bool sync_wait(MasterClock &clk, Anchor &anc, ftime_t t, Nanos &sync_wait) noexcept;
 
   template <typename FRR>
     requires FrameProcessingState<FRR>
@@ -206,17 +214,10 @@ public:
     sync_wait(clk, anc, frr.ts, frr.sync_wait);
   }
 
-  /// @brief Frames not assigned a sequence number or timestamp are
-  ///        considered 'synthetic' and do not contain Peaks
-  /// @return boolean
-  bool synthetic() const noexcept { return !seq_num || !timestamp; }
-
   /// @brief Timestamp assigned by sendor
   /// @param scale (optional) divide timestamp by this value
   /// @return unisgned int
-  timestamp_t ts(uint32_t scale = 0) const noexcept {
-    return scale ? timestamp / scale : timestamp;
-  }
+  ftime_t ts(uint32_t scale = 0) const noexcept { return scale ? timestamp / scale : timestamp; }
 
 private:
   /// @brief Explictly set the sync wait to a duration
@@ -239,7 +240,7 @@ private:
   uint8_t ssrc_count{0};
   uint32_t ssrc{0};
   seq_num_t seq_num{0};
-  timestamp_t timestamp{0};
+  ftime_t timestamp{0};
 
   // order independent
   static std::unique_ptr<Av> av;

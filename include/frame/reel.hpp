@@ -91,10 +91,15 @@ public:
   /// @return frames.empty()
   bool pop_front() noexcept;
 
+  /// @brief Stores frame, records it's state
+  /// @param frame
   void push_back(Frame &&frame) noexcept;
 
+  /// @brief Serial number of Reel
+  /// @tparam T desired return type, uint64_t (default), string
+  /// @return serial number in requested format
   template <typename T = uint64_t> const T serial_num() const noexcept {
-    if constexpr (std::same_as<T, uint64_t>) {
+    if constexpr (std::convertible_to<T, uint64_t>) {
       return serial;
     } else if constexpr (std::same_as<T, string>) {
       return fmt::format("{:#5x}", serial);
@@ -103,9 +108,16 @@ public:
     }
   }
 
+  /// @brief Return frame count (unsafe)
+  /// @return frame count
   ssize_t size() const noexcept;
 
+  /// @brief Return frame count (safe)
+  /// @return frame count
   int64_t size_cached() const noexcept { return cached_size->load(); }
+
+  /// @brief Minimum frames required
+  /// @return frame count
   ssize_t size_min() const noexcept { return min_frames; }
 
   bool starter() const noexcept { return kind == Starter; }
@@ -131,16 +143,19 @@ public:
 
 /// @brief Custom formatter for Reel
 template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
+  using Reel = pierre::Reel;
 
   // parse is inherited from formatter<string>.
-  template <typename FormatContext> auto format(pierre::Reel &reel, FormatContext &ctx) const {
+  template <typename FormatContext> auto format(Reel &reel, FormatContext &ctx) const {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "REEL {:#05x}{}", reel.serial_num(), reel.starter() ? " STARTER" : " ");
+    fmt::format_to(w, "REEL {:#05x} ", reel.serial_num());
 
-    if (!reel.starter()) {
-      fmt::format_to(w, "frames={}", reel.size());
+    if (reel.kind == Reel::Starter) {
+      fmt::format_to(w, "STARTER ");
+    } else {
+      fmt::format_to(w, "fr={} ", reel.size());
 
       if (reel.frames.size() > 0) {
         const auto &a = reel.frames.front(); // reel next frame
@@ -148,8 +163,8 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
 
         auto delta = [](auto v1, auto v2) { return v1 > v2 ? (v1 - v2) : (v2 - v1); };
 
-        fmt::format_to(w, " seq={}+{}", a.sn(), delta(a.sn(), b.sn()));
-        fmt::format_to(w, " ts={}+{}", a.ts(1024), delta(a.ts(1024), b.ts(1024)));
+        fmt::format_to(w, "sn={}+{} ", a.sn(), delta(a.sn(), b.sn()));
+        fmt::format_to(w, "ts={}+{}", a.ts(1024), delta(a.ts(1024), b.ts(1024)));
       }
     }
 
