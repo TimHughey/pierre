@@ -20,95 +20,53 @@
 
 #include "base/types.hpp"
 
-#include <atomic>
+#include <array>
 #include <fmt/format.h>
-#include <functional>
-#include <mutex>
-#include <set>
-#include <utility>
 
 namespace pierre {
 
-class FlushInfo {
-  //// NOTE:
-  ////
-  //// UNSURE IF THE FOLLOWING IS CURRENT OR LEGACY
-  //// a flush with from[seq|ts] will not be followed by a setanchor (i.e. render)
-  //// if it's a flush that will be followed by a set_anchor then stop render now.
-
-public:
+struct FlushInfo {
   enum kind_t : uint8_t { All = 0, Normal, Inactive, Complete };
 
-  using a_int64_t = std::atomic_int64_t;
-  using atomic_kind_t = std::atomic_uint8_t;
-  using mutex_t = std::mutex;
-  using lock_t = std::unique_lock<mutex_t>;
+  FlushInfo() = default;
 
-  friend struct fmt::formatter<FlushInfo>;
+  FlushInfo(kind_t k) noexcept : kind(k) {}
 
-public:
-  FlushInfo(kind_t want_kind = Inactive) noexcept;
-  FlushInfo(seq_num_t from_sn, ftime_t from_ts, seq_num_t until_sn, ftime_t until_ts) noexcept;
+  FlushInfo(seq_num_t from_sn, ftime_t from_ts, seq_num_t until_sn, ftime_t until_ts) noexcept
+      : // when flush details are provided auto set kind
+        kind{Normal},
+        // set optional fields
+        from_seq(from_sn), from_ts(from_ts),
+        // flush everything <= seq_num / ts
+        until_seq(until_sn), until_ts(until_ts) {}
 
-  FlushInfo(const FlushInfo &) = default;
-  FlushInfo(FlushInfo &&) = default;
+  auto active() const noexcept { return ((kind == All) || (kind == Normal)); }
 
-  FlushInfo &operator=(FlushInfo &&) = default;
+  auto all() const noexcept { return kind == All; }
 
-  /// @brief Replace this with a newly created flush request
-  ///        flush specifics are copied and kind is set (All, Normal)
-  /// @param next_fi flush details
-  [[nodiscard]] lock_t accept(FlushInfo &&fi) noexcept;
+  auto done() noexcept {
+    from_seq = from_ts = 0;
+    until_seq = until_ts = 0;
+    kind = Complete;
 
-  /// @brief Waits for in-progress flush request
-  void busy_hold() noexcept;
-
-  /// @brief Determine if the frame should be kept
-  /// @tparam T Any object that has seq_num and timestamp data members
-  /// @param frame What to examine
-  /// @return boolean indicating if frame meets flush criteria
-  template <typename T>
-    requires IsFrame<T>
-  bool check(T &frame) noexcept {
-    static const std::set<kind_t> always_false{Inactive, Complete};
-
-    if (always_false.contains(kind)) return false;
-    if (kind == All) return true;
-
-    auto flush{true};
-    flush &= std::cmp_less_equal(frame.sn(), until_seq);
-    flush &= std::cmp_less_equal(frame.ts(), until_ts);
-
-    if (flush) std::atomic_fetch_add(a_count.get(), 1);
-
-    return flush;
+    return flushed;
   }
 
-  /// @brief Reset count of frames flushed
-  /// @return number of frames frames
-  auto count() noexcept { return std::atomic_exchange(a_count.get(), 0); }
+  bool inactive() const noexcept { return !active(); }
 
-  /// @brief Mark this flush as finished (active() == false)
-  void done(lock_t &l) noexcept;
+  auto kind_desc() const noexcept { return kind_str[kind]; }
 
-  auto kind_string() const noexcept {
-    static const std::array ks{"All", "Normal", "Inactive", "Complete"};
+  bool no_accept() const noexcept { return ((kind == Inactive) || (kind == Complete)); }
 
-    return ks[kind];
-  }
-
-private:
   // order dependent
-  kind_t kind;
+  kind_t kind{Inactive};
   seq_num_t from_seq{0};
   ftime_t from_ts{0};
   seq_num_t until_seq{0};
   ftime_t until_ts{0};
+  int64_t flushed{0};
 
-  std::unique_ptr<mutex_t> mtx;
-  std::unique_ptr<std::atomic_int64_t> a_count{nullptr};
-
-  static constexpr auto module_id{"desk.flush"sv};
+  static constexpr std::array kind_str{"All", "Normal", "Inactive", "Complete"};
 };
 
 } // namespace pierre
@@ -123,13 +81,11 @@ template <> struct fmt::formatter<pierre::FlushInfo> : fmt::formatter<std::strin
     auto msg = fmt::format("FLUSH_INFO ");
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "{} ", fi.kind_string());
+    fmt::format_to(w, "{} ", fi.kind_desc());
 
     if (fi.from_seq) fmt::format_to(w, "*FROM sn={:<8} ts={:<12} ", fi.from_seq, fi.from_ts);
     if (fi.until_seq) fmt::format_to(w, "UNTIL sn={:<8} ts={:<12} ", fi.until_seq, fi.until_ts);
-
-    auto fcount = (bool)fi.a_count ? fi.a_count->load() : int64_t{0};
-    if (fcount) fmt::format_to(w, "flushed={}", fcount);
+    if (fi.flushed) fmt::format_to(w, "flushed={}", fi.flushed);
 
     return formatter<std::string>::format(msg, ctx);
   }

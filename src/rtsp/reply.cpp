@@ -165,7 +165,7 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
     // any TEARDOWN request (with streams key or not) always clears the shared key and
     // informs Racked rendering should stop
     ctx->shared_key.clear();
-    ctx->desk->set_render(false);
+    ctx->desk->set_rendering(false);
 
     // when the streams key is not present this is a complete disconnect
     if (request_dict.exists(STREAMS) == false) {

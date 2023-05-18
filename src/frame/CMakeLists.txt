@@ -46,7 +46,7 @@ add_library(${__target}
   state.cpp
 
   # racks and reels of frames
-  flush_info.cpp
+  flusher.cpp
   reel.cpp
 
   ${HEADER_LIST}

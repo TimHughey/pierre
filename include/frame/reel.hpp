@@ -24,10 +24,11 @@
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
 #include "frame/fdecls.hpp"
-#include "frame/flush_info.hpp"
+#include "frame/flusher.hpp"
 #include "frame/frame.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cassert>
 #include <compare>
@@ -35,6 +36,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <semaphore>
 #include <set>
 #include <tuple>
 #include <vector>
@@ -48,19 +50,32 @@ using frame_container = std::deque<Frame>;
 
 /// @brief Container of Frames
 class Reel {
-
   friend struct fmt::formatter<Reel>;
+
+  using sema_t = std::binary_semaphore;
 
 public:
   typedef frame_container::iterator iterator;
-  using lock_guard = std::lock_guard<std::mutex>;
+  using lock_t = std::unique_lock<std::mutex>;
 
 public:
-  enum kind_t : uint8_t { Empty = 0, Starter, Transfer, Ready };
+  enum kind_t : uint8_t { Empty = 0, Starter, Transfer, Ready, EndOfKinds };
+
+  using kind_desc_t = std::array<const string, EndOfKinds>;
+  static kind_desc_t kind_desc;
+
+  using min_sizes_t = std::array<int64_t, EndOfKinds>;
+  static min_sizes_t min_sizes;
+
+  using erased_t = int64_t;
+  using remain_t = int64_t;
+
+  using clean_results = std::pair<erased_t, remain_t>;
 
 public:
   // construct a reel of audio frames
-  Reel() = default;
+  // Reel() noexcept : sema(std::make_unique<sema_t>(1)) {}
+  // Reel() = default;
   Reel(kind_t kind) noexcept;
 
   ~Reel() noexcept {}
@@ -70,22 +85,26 @@ public:
 
   bool operator==(kind_t k) const noexcept { return k == kind; }
 
-  const auto &back() const noexcept { return frames.back(); }
-  auto begin() noexcept { return frames.begin(); }
-
   /// @brief Clean reel of rendered or non-rendereable frames
   /// @return clean count, avail count
-  std::pair<ssize_t, ssize_t> clean() noexcept;
+  clean_results clean() noexcept;
 
   void clear() noexcept;
 
-  bool empty() const noexcept { return (frames.empty() || (kind == Empty)) ? true : false; }
+  bool empty() noexcept {
+    if (kind == Empty) return true;
 
-  auto end() noexcept { return frames.end(); }
+    if (cached_size->load() == 0) {
+      kind = Empty;
+      return true;
+    }
+
+    return false;
+  }
 
   auto &front() noexcept { return frames.front(); }
 
-  ssize_t flush(FlushInfo &fi) noexcept;
+  ssize_t flush(Flusher &fi) noexcept;
 
   /// @brief Pop the front frame
   /// @return frames.empty()
@@ -110,7 +129,7 @@ public:
 
   /// @brief Return frame count (unsafe)
   /// @return frame count
-  ssize_t size() const noexcept;
+  ssize_t size() const noexcept { return (kind == Empty) ? 0 : cached_size->load(); }
 
   /// @brief Return frame count (safe)
   /// @return frame count
@@ -118,25 +137,27 @@ public:
 
   /// @brief Minimum frames required
   /// @return frame count
-  ssize_t size_min() const noexcept { return min_frames; }
+  ssize_t size_min() const noexcept { return min_sizes[kind]; }
 
-  bool starter() const noexcept { return kind == Starter; }
+  /// @brief Transfer src to this reel and lock the reel in prep for flushing
+  /// @param arc Destination of the src reel
+  void transfer(Reel &src) noexcept;
 
-  void take(Reel &o) noexcept;
+protected:
+  void reset() noexcept;
 
 protected:
   // order dependent
+  // std::unique_ptr<sema_t> sema;
   kind_t kind{Empty};
   uint64_t serial{0};
-  ssize_t min_frames{0};
 
   // order independent
   frame_container frames;
   std::unique_ptr<std::atomic<ssize_t>> cached_size;
-  std::unique_ptr<std::mutex> mtx;
 
 public:
-  static constexpr auto module_id{"frame.reel"sv};
+  MOD_ID("frame.reel");
 };
 
 } // namespace pierre
@@ -146,27 +167,32 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
   using Reel = pierre::Reel;
 
   // parse is inherited from formatter<string>.
-  template <typename FormatContext> auto format(Reel &reel, FormatContext &ctx) const {
+  template <typename FormatContext> auto format(Reel &r, FormatContext &ctx) const {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "REEL {:#05x} ", reel.serial_num());
+    fmt::format_to(w, "REEL {:#05x} ", r.serial_num());
 
-    if (reel.kind == Reel::Starter) {
-      fmt::format_to(w, "STARTER ");
-    } else {
-      fmt::format_to(w, "fr={} ", reel.size());
+    if (auto s = r.size_cached(); s > 0) fmt::format_to(w, "fr={:>4} ", s);
 
-      if (reel.frames.size() > 0) {
-        const auto &a = reel.frames.front(); // reel next frame
-        const auto &b = reel.frames.back();  // reel last frame
+    if (r.size_cached() > 0) {
 
-        auto delta = [](auto v1, auto v2) { return v1 > v2 ? (v1 - v2) : (v2 - v1); };
+      const auto &a = r.frames.front(); // r next frame
+      const auto &b = r.frames.back();  // r last frame
 
-        fmt::format_to(w, "sn={}+{} ", a.sn(), delta(a.sn(), b.sn()));
-        fmt::format_to(w, "ts={}+{}", a.ts(1024), delta(a.ts(1024), b.ts(1024)));
-      }
+      auto delta = [](auto v1, auto v2) {
+        auto v1a = static_cast<int32_t>(v1);
+        auto v2a = static_cast<int32_t>(v2);
+
+        return v1a - v2a;
+      };
+
+      fmt::format_to(w, "sn={:>6}+{} ", a.sn(), delta(b.sn(), a.sn()));
+      fmt::format_to(w, "ts={}+{} ", a.ts(1024), delta(b.ts(1024), a.ts(1024)));
     }
+
+    fmt::format_to(w, "{:<9} ", r.kind_desc[r.kind]);
+    if (auto n = r.size_min(); n > 1) fmt::format_to(w, "min={:>2}", n);
 
     return formatter<std::string>::format(msg, ctx);
   }

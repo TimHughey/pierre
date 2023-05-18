@@ -29,7 +29,6 @@
 #include <InfluxDBFactory.h>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
-#include <boost/asio/strand.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -41,8 +40,6 @@
 #include <type_traits>
 
 namespace pierre {
-
-using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 class Stats;
 
@@ -101,7 +98,7 @@ public:
       } else if constexpr (std::convertible_to<T, double>) {
         pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
       } else {
-        static_assert(always_false_v<T>, "unhandled type");
+        static_assert(true, "unhandled type");
       }
 
       if (tag.first && tag.second) pt.addTag(tag.first, tag.second);

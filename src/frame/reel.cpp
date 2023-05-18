@@ -22,6 +22,7 @@
 #include "frame/master_clock.hpp"
 
 #include <atomic>
+#include <cassert>
 
 namespace pierre {
 
@@ -31,114 +32,119 @@ static auto next_sn() noexcept {
   return std::atomic_fetch_add(&n, 1);
 }
 
-Reel::Reel(kind_t kind) noexcept : kind{kind}, serial(next_sn()) {
-  switch (kind) {
-  case Starter:
-    min_frames = InputInfo::frames(500ms);
-    break;
+Reel::kind_desc_t Reel::kind_desc{string("Empty"), string("Starter"), string("Transfer"),
+                                  string("Ready")};
 
-  case Transfer:
-    min_frames = 1;
-    break;
+Reel::min_sizes_t Reel::min_sizes{0, InputInfo::frames(500ms), 1, 1};
 
-  case Empty:
-    min_frames = 0;
+Reel::Reel(kind_t kind) noexcept
+    : kind{kind},        //
+      serial(next_sn()), //
+      cached_size(std::make_unique<std::atomic_int64_t>(0)) {}
 
-  case Ready:
-    break;
+Reel::clean_results Reel::clean() noexcept {
+  ptrdiff_t erased{0};
+  ptrdiff_t remain{0};
+
+  if (size_cached() > 0) {
+    auto a = frames.begin();
+    auto b = frames.end();
+
+    auto to_it = std::find_if(a, b, [](const auto &f) { return f.can_render(); });
+
+    // if we found a renderable frame then erase everything up to that point
+    // and update the reel state
+    if (to_it != b) {
+      auto end_it = frames.erase(a, to_it);
+      remain = std::ssize(frames);
+      erased = std::distance(frames.begin(), end_it);
+
+      if (remain == 0) kind = Empty;
+      cached_size->store(remain);
+    }
   }
 
-  if (kind != Empty) {
-    cached_size = std::make_unique<std::atomic<ssize_t>>(0);
-    mtx = std::make_unique<std::mutex>();
-  }
-}
-
-std::pair<ssize_t, ssize_t> Reel::clean() noexcept {
-  lock_guard lck(*mtx);
-
-  auto a = frames.begin();
-  auto b = frames.end();
-
-  auto to_it = std::find_if(a, b, [](const auto &f) { return f.can_render(); });
-
-  auto e = frames.erase(a, to_it);
-  auto r = std::ssize(frames);
-
-  cached_size->store(r);
-
-  return std::make_pair(std::distance(frames.begin(), e), r);
+  return std::make_pair(erased, remain);
 }
 
 void Reel::clear() noexcept {
-  cached_size->store(0);
-
-  frames.clear();
+  if (!empty()) {
+    cached_size->store(0);
+    frames.clear();
+  }
 }
 
-ssize_t Reel::flush(FlushInfo &fi) noexcept {
-  lock_guard lck(*mtx);
+ssize_t Reel::flush(Flusher &flusher) noexcept {
+  //// NOTE:  Flusher::check() marks the frame flushed, as needed
 
-  //// NOTE: FlushInfo::check() marks the frame flushed, as needed
-  while (fi.check(frames.front())) {
-    pop_front();
+  while (cached_size->load()) {
+    auto &frame = frames.front();
+
+    if (flusher.check(frame)) {
+      frames.pop_front();
+      std::atomic_fetch_sub(cached_size.get(), 1);
+    }
   }
 
-  return std::ssize(frames);
+  return cached_size->load();
 }
 
 bool Reel::pop_front() noexcept {
-  if (!empty()) {
+  if (size_cached() > 0) {
     frames.pop_front();
     std::atomic_fetch_sub(cached_size.get(), 1);
   }
 
-  return empty();
+  return cached_size->load() == 0;
 }
 
-ssize_t Reel::size() const noexcept {
-  if (kind == Empty) return 0;
-
-  return std::ssize(frames);
+void Reel::reset() noexcept {
+  serial = next_sn();
+  frames = frame_container();
+  cached_size->store(0);
+  kind = Transfer;
 }
 
-void Reel::take(Reel &lhs) noexcept {
+void Reel::transfer(Reel &lhs) noexcept {
   INFO_AUTO_CAT("take");
 
   if (serial == lhs.serial) {
-    INFO_AUTO("unable to take self");
-    return;
+    const auto m = fmt::format("attempt to take self serial={}", lhs.serial_num<string>());
+    assert(m.c_str());
   }
 
-  if (lhs.size_cached() >= size_min()) {
-    lock_guard lck(*lhs.mtx);
+  // only take reel_a (lhs) when it contains more frames
+  // than reel_b (this) has requested
+  if (empty()) {
 
-    INFO_AUTO("taking {}", lhs);
+    INFO_AUTO("B {}", *this);
 
-    serial = std::move(lhs.serial);
-    lhs.serial = next_sn();
+    if (lhs.size_cached() >= size_min()) {
 
-    frames = std::move(lhs.frames);
-    lhs.frames = frame_container();
+      INFO_AUTO("A {}", lhs);
 
-    cached_size->store(lhs.cached_size->load());
-    lhs.cached_size->store(0);
+      serial = std::move(lhs.serial);
+      frames = std::move(lhs.frames);
+      kind = Ready;
 
-    kind = Ready;
-    INFO_AUTO("got {}", *this);
+      auto frame_count = lhs.cached_size->load();
+      cached_size->store(frame_count);
+
+      lhs.reset();
+
+      INFO_AUTO("B {}", *this);
+    }
   }
 }
 
 void Reel::push_back(Frame &&frame) noexcept {
   INFO_AUTO_CAT("push_back");
 
+  frame.record_state();
+  frames.push_back(std::forward<decltype(frame)>(frame));
+
   std::atomic_fetch_add(cached_size.get(), 1);
   INFO_AUTO("avail={:>5} {}", cached_size->load(), frame);
-
-  frame.record_state();
-
-  lock_guard lck(*mtx);
-  frames.push_back(std::forward<decltype(frame)>(frame));
 }
 
 } // namespace pierre

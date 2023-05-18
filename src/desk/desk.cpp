@@ -28,7 +28,7 @@
 #include "dmx_ctrl.hpp"
 #include "frame/anchor.hpp"
 #include "frame/anchor_last.hpp"
-#include "frame/flush_info.hpp"
+#include "frame/flusher.hpp"
 #include "frame/frame.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/state.hpp"
@@ -45,6 +45,26 @@
 #include <thread>
 
 namespace pierre {
+
+void Desk::frame_rr::update(Frame &f) noexcept {
+  syn_frame = f.synthetic();
+  live_frame = f.live();
+  state = f.state_now();
+  sync_wait = f.sync_wait();
+  ts = f.ts();
+
+  f.record_state();
+  if (false) f.record_sync_wait();
+
+  if (f.ready()) {
+    rendered = true;
+    f.mark_rendered();
+  }
+}
+
+void Desk::frame_rr::update(Frame &f, MasterClock &master, Anchor &anchor) noexcept {
+  if (live_frame) f.sync_wait(master, anchor, *this);
+}
 
 // notes:
 //  -must be defined in .cpp (incomplete types in .hpp)
@@ -65,12 +85,13 @@ Desk::Desk(MasterClock *master_clock) noexcept
       a_reel(Reel::Transfer),
       // "B" reel (to render)
       b_reel(Reel::Starter),
-      // default FlushInfo
-      flush_info(FlushInfo::Inactive),
+      // the flusher
+      flusher(),
       // create a synthetic for rendering when sender inactive
       syn_frame(frame::SILENCE) //
 {
   INFO_INIT("sizeof={:>5} fps={}", sizeof(Desk), InputInfo::fps);
+  Frame::init();
 
   // ensure flags are false
   resume_flag.clear();
@@ -126,12 +147,11 @@ Frame &Desk::find_live_frame() noexcept {
 }
 
 void Desk::flush(FlushInfo &&fi) noexcept {
-
   INFO_AUTO_CAT("flush");
 
   asio::post(flush_strand, [this, fi = std::move(fi)]() mutable {
     // safely moves FlushInfo into flush_request and sets it active
-    auto in_progress = flush_info.accept(std::move(fi));
+    flusher.accept(std::move(fi));
 
     std::array<std::reference_wrapper<Reel>, 2> reels{a_reel, b_reel};
 
@@ -141,15 +161,17 @@ void Desk::flush(FlushInfo &&fi) noexcept {
       INFO_AUTO("{}", r);
 
       if (r.size_cached() > 0) {
-        if (auto flushed = r.flush(flush_info); flushed > 0) {
+        if (auto flushed = r.flush(flusher); flushed > 0) {
           INFO_AUTO("{} flushed={} avail={}", r.serial_num<string>(), flushed, r.size_cached());
-
-          if (r.empty()) r = Reel(Reel::Starter);
         }
       }
     }
 
-    flush_info.done(in_progress);
+    if (std::all_of(reels.begin(), reels.end(), [](auto &r) { return r.get().empty(); })) {
+      if (b_reel.empty()) b_reel = Reel(Reel::Starter);
+    }
+
+    flusher.done();
   });
 }
 
@@ -211,57 +233,54 @@ void Desk::fx_select(Frame &frame) noexcept {
 }
 
 void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
-
   INFO_AUTO_CAT("handoff");
 
   if (packet.empty()) return; // quietly ignore empty packets
 
-  // wait for any in-progress flush requests to finish
-  flush_info.busy_hold();
-
   // perform the heavy lifting of decipher, decode and dsp in the caller's thread
   Frame frame(packet);
   frame.process(std::move(packet), key);
-  if (flush_info.check(frame)) {
-    INFO_AUTO("flushing {}", frame);
-    return;
+
+  // wait for any in-progress flush requests to finish
+  if (flusher.acquire()) {
+    if (flusher.check(frame)) {
+      INFO_AUTO("flushing {}", frame);
+      return;
+    }
+
+    INFO_AUTO("FRAME {}", frame);
+    frame.record_state();
+
+    a_reel.push_back(std::move(frame));
+    flusher.release();
+  } else {
+    INFO_AUTO("[TIMEOUT] flusher acquistion");
   }
-
-  INFO_AUTO("FRAME {}", frame);
-  frame.record_state();
-
-  a_reel.push_back(std::move(frame));
 }
-
-void Desk::log_skipped_frame(const Frame &f) noexcept { INFO("skipped", "{}", f); }
 
 void Desk::loop() noexcept {
   INFO_AUTO_CAT("loop");
 
   Elapsed e;
-
   frame_rr frr;
 
   if (render_flag.test()) {
-    frame_live(frr);
+
+    if (flusher.acquire()) {
+      frame_live(frr);
+
+      auto [erase, remain] = b_reel.clean();
+      if (erase) INFO_AUTO("cleaned, erase={} remain={}", erase, remain);
+
+      b_reel.transfer(a_reel);
+
+      flusher.release();
+    } else {
+      INFO_AUTO("failed to acquire flusher");
+    }
+
   } else {
     frame_syn(frr);
-  }
-
-  // get next reel, if needed
-  if (render_flag.test()) {
-    auto [erase, remain] = b_reel.clean();
-    if (erase) INFO_AUTO("cleaned, erase={} remain={}", erase, remain);
-
-    flush_info.busy_hold();
-
-    if (b_reel.empty() && (a_reel.size() >= b_reel.size_min())) {
-      INFO_AUTO("-- {}", a_reel);
-
-      b_reel.take(a_reel);
-
-      INFO_AUTO("++ {}", b_reel);
-    }
   }
 
   // schedule next loop, if needed
@@ -305,9 +324,11 @@ void Desk::resume() noexcept {
   if (is_resuming && io_ctx.stopped()) {
     resume_flag.test_and_set();
 
-    if (threads.size()) threads_stop();
+    if (threads.size()) {
+      threads_stop();
+      INFO_AUTO("reset threads={}", threads.size());
+    }
 
-    INFO_AUTO("reset threads={}", threads.size());
     io_ctx.reset();
 
     // add work to io_ctx before starting threads
@@ -338,7 +359,7 @@ void Desk::schedule_loop(Desk::frame_rr &frr) noexcept {
   if (!frr.rendered) {
     asio::post(render_strand, [this]() { loop(); });
   } else {
-    // Frame::sync_wait(*master_clock, *anchor, frr);
+    //// NOTE: no need to recalculate sync_wait
 
     loop_timer.expires_after(frr.sync_wait);
     loop_timer.async_wait([this](const error_code &ec) {
@@ -347,17 +368,18 @@ void Desk::schedule_loop(Desk::frame_rr &frr) noexcept {
   }
 }
 
-void Desk::set_render(bool enable) noexcept {
-  INFO_AUTO_CAT("set_render");
+void Desk::set_rendering(bool enable) noexcept {
+  INFO_AUTO_CAT("set_rendering");
+
+  auto prev = render_flag.test();
 
   if (enable) {
-    auto prev = render_flag.test_and_set();
-
-    INFO_AUTO("render_flag={} prev={} enable={}", render_flag.test(), prev, enable);
-
+    prev = render_flag.test_and_set();
   } else {
-    INFO_AUTO("render_flag={} enable={}", render_flag.test(), enable);
+    render_flag.clear();
   }
+
+  INFO_AUTO("render_flag={} prev={} enable={}", render_flag.test(), prev, enable);
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {

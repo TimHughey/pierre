@@ -85,7 +85,7 @@ when_less_than = { freq = 160.0, bri_min = 30.0 }
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }
 hue_step = 0.65
-silence = { timeout = { minutes = 15, seconds  = 30 } }
+silence = { timeout = { minutes = 30, seconds  = 30 } }
 
 [logger]
 # category specific overrides
@@ -108,18 +108,18 @@ initiate_watch = false
 
 [logger.desk]
 find_live = false
-frame_live = false
 flush = true
+frame_live = false
 handoff = false
-next_reel = true
+loop = true
 render = false
 resume = true
 schedule_loop = true
 shutdown = true
 standby = true
+thread = false
 threads_start = false
 threads_stop = false
-thread = false
 
 [logger.desk.dmx_ctrl]
 host = { connect = true, resolve = false, rev_resolve = false, unknown = true }
@@ -138,22 +138,11 @@ clock = { init = true, map_shm = false, peers_update = false, refresh = false, s
 decipher = false
 state_now = false
 
-[logger.frame.racked]
-clean = true
-ddebug = false
-flush = true
-handoff = false
-log = true
-next_reel = false
-nrdebug = false
-thread = false
-xfer_reel = true
-
 [logger.frame.reel]
 clean = true
 flush = true
 push_back = false
-take = false
+take = true
 
 [logger.fx]
 major_peak = { execute = false, load_config = false }

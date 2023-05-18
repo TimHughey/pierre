@@ -24,7 +24,7 @@
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
-#include "frame/flush_info.hpp"
+#include "frame/flusher.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/reel.hpp"
 
@@ -60,28 +60,9 @@ public:
     bool abort() const noexcept { return stop; }
     bool ok() const noexcept { return !abort(); }
 
-    void update(Frame &f) noexcept {
-      syn_frame = f.synthetic();
-      live_frame = f.live();
-      state = f.state_now();
-      sync_wait = f.sync_wait();
-      ts = f.ts();
+    void update(Frame &f) noexcept;
 
-      f.record_state();
-      f.record_sync_wait();
-
-      if (f.ready()) {
-        rendered = true;
-        f.mark_rendered();
-      }
-    }
-
-    void update(Frame &f, MasterClock &master, Anchor &anchor) noexcept {
-      if (live_frame) {
-        f.sync_wait(master, anchor, *this);
-      }
-    }
-
+    void update(Frame &f, MasterClock &master, Anchor &anchor) noexcept;
     bool rendered{false};
     bool stop{false};
     bool live_frame{false};
@@ -106,7 +87,7 @@ public:
 
   void peers(const auto &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }
 
-  void set_render(bool enable) noexcept;
+  void set_rendering(bool enable) noexcept;
 
   void resume() noexcept;
 
@@ -119,11 +100,7 @@ private:
   bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
-  void log_skipped_frame(const Frame &f) noexcept;
-
   void loop() noexcept;
-
-  void next_reel(frame_rr &frr) noexcept;
 
   bool render(Frame &frame, frame_rr &frr) noexcept;
 
@@ -143,9 +120,9 @@ private:
   strand_ioc render_strand;
   strand_ioc flush_strand;
   frame_timer loop_timer;
-  Reel a_reel;          // in reel (default to Transfer)
-  Reel b_reel;          // out reel (default to Starter)
-  FlushInfo flush_info; // default to Inactive
+  Reel a_reel; // in reel (default to Transfer)
+  Reel b_reel; // out reel (default to Starter)
+  Flusher flusher;
   Frame syn_frame;
 
   // order independent
