@@ -32,6 +32,9 @@ add_library(${__target}
   # logging
   logger.cpp
 
+  # random
+  random.cpp
+
   # stats
   stats.cpp
 

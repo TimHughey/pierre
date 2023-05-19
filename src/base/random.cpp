@@ -1,5 +1,5 @@
-//  Pierre - Custom Light Show for Wiss Landing
-//  Copyright (C) 2022  Tim Hughey
+//  Pierre
+//  Copyright (C) 2023  Tim Hughey
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,35 +16,28 @@
 //
 //  https://www.wisslanding.com
 
-#include "frame/flusher.hpp"
-#include "base/logger.hpp"
+#include "base/random.hpp"
 
-#include <cassert>
-#include <exception>
-#include <set>
+#include <algorithm>
+#include <cstdint>
+#include <random>
+#include <utility>
 
 namespace pierre {
 
-void Flusher::accept(FlushInfo &&fi_next) noexcept {
-  INFO_AUTO_CAT("accept");
+std::random_device random::dev_rand;
+std::mt19937 random::rnd32(random::dev_rand());
 
-  if (fi_next.no_accept()) assert("invalid kind for accept()");
+random::random() noexcept { rnd32.discard(dev_rand() % 4096); }
 
-  // protect copying of new flush details
-  sema.acquire();
+Micros random::operator()(Micros min_ms, Micros max_ms) noexcept {
+  const auto diff = std::max(min_ms.count(), max_ms.count());
 
-  fi = std::move(fi_next);
+  auto rand_count = static_cast<int64_t>(rnd32() % diff);
 
-  INFO_AUTO("{} ", fi_next);
+  return Micros(std::clamp(rand_count, min_ms.count(), max_ms.count()));
 }
 
-void Flusher::done() noexcept {
-  INFO_AUTO_CAT("done");
-
-  fi.done();
-  INFO_AUTO("{}", fi);
-
-  sema.release();
-}
+// class random {};
 
 } // namespace pierre

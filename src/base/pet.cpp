@@ -48,7 +48,11 @@ string pet::humanize(Nanos d) {
   }
 
   auto ms = as<millis_fp>(d);
-  if (ms > 0ms) fmt::format_to(w, "{:0.2}", ms);
+  if (ms > 0ms) {
+    fmt::format_to(w, "{:0.2}", ms);
+  } else {
+    fmt::format_to(w, "0.0ms");
+  }
 
   return msg;
 }

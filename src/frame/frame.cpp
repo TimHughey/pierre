@@ -211,7 +211,8 @@ frame::state Frame::state_now(MasterClock &clk, Anchor &anc) noexcept {
 
     if (ancl.ready() == false) {
       state = frame::NO_CLK_ANC;
-      cache_sync_wait(InputInfo::lead_time_min);
+      cache_sync_wait(rand_gen(500us, 2000us));
+      INFO_AUTO("using random sync_wait");
     } else if (diff < 0ns) {
       state = frame::OUTDATED;
       cache_sync_wait(diff);

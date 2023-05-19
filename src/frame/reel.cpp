@@ -27,7 +27,7 @@
 namespace pierre {
 
 static auto next_sn() noexcept {
-  static std::atomic_uint64_t n{0x1000};
+  static std::atomic_uint64_t n{0x0001};
 
   return std::atomic_fetch_add(&n, 1);
 }
@@ -35,7 +35,7 @@ static auto next_sn() noexcept {
 Reel::kind_desc_t Reel::kind_desc{string("Empty"), string("Starter"), string("Transfer"),
                                   string("Ready")};
 
-Reel::min_sizes_t Reel::min_sizes{0, InputInfo::frames(500ms), 1, 1};
+Reel::min_sizes_t Reel::min_sizes{0, InputInfo::frames(250ms), 1, 1};
 
 Reel::Reel(kind_t kind) noexcept
     : kind{kind},        //
@@ -98,26 +98,31 @@ bool Reel::pop_front() noexcept {
   return cached_size->load() == 0;
 }
 
-void Reel::reset() noexcept {
+void Reel::reset(kind_t k) noexcept {
+
   serial = next_sn();
   frames = frame_container();
   cached_size->store(0);
-  kind = Transfer;
+  kind = k;
 }
 
 void Reel::transfer(Reel &lhs) noexcept {
-  INFO_AUTO_CAT("take");
+  INFO_AUTO_CAT("transfer");
 
   if (serial == lhs.serial) {
-    const auto m = fmt::format("attempt to take self serial={}", lhs.serial_num<string>());
+    const auto m = fmt::format("attempt to transfer self serial={}", lhs.serial_num<string>());
     assert(m.c_str());
   }
 
-  // only take reel_a (lhs) when it contains more frames
-  // than reel_b (this) has requested
-  if (empty()) {
+  // when both a and b reels are empty fallback to wanting a Starter Reel
+  if (empty() && lhs.empty()) {
+    kind = Starter;
+    lhs.kind = Transfer;
+  } else if (empty()) {
+    // just reel b is empty, set to Transfer so we get at least one frame
+    kind = Transfer;
 
-    INFO_AUTO("B {}", *this);
+    if (lhs == Reel::Starter) INFO_AUTO("B {}", *this);
 
     if (lhs.size_cached() >= size_min()) {
 

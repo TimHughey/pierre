@@ -22,6 +22,7 @@
 #include "base/qpow10.hpp"
 #include "base/types.hpp"
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -46,12 +47,12 @@ struct InputInfo {
                            std::chrono::duration_cast<Millis>(lead_time).count()};
 
   template <typename T> static constexpr auto frame_count(T v) noexcept {
-    if constexpr (std::is_same_v<T, Nanos>) {
+    if constexpr (std::same_as<T, Nanos>) {
       return v / lead_time;
     } else if constexpr (IsDuration<T>) {
       return std::chrono::duration_cast<Nanos>(v) / lead_time;
     } else {
-      static_assert(always_false_v<T>, "unhandled type");
+      static_assert(true, "unhandled type");
     }
   }
 };

@@ -93,11 +93,7 @@ public:
 
   bool empty() noexcept {
     if (kind == Empty) return true;
-
-    if (cached_size->load() == 0) {
-      kind = Empty;
-      return true;
-    }
+    if (cached_size->load() == 0) return true;
 
     return false;
   }
@@ -121,11 +117,14 @@ public:
     if constexpr (std::convertible_to<T, uint64_t>) {
       return serial;
     } else if constexpr (std::same_as<T, string>) {
-      return fmt::format("{:#5x}", serial);
+      return fmt::format("0x{:>04x}", serial);
     } else {
       static_assert(always_false_v<T>, "unhandled reel serial num type");
+      return 0;
     }
   }
+
+  void reset(kind_t kind = Transfer) noexcept;
 
   /// @brief Return frame count (unsafe)
   /// @return frame count
@@ -142,9 +141,6 @@ public:
   /// @brief Transfer src to this reel and lock the reel in prep for flushing
   /// @param arc Destination of the src reel
   void transfer(Reel &src) noexcept;
-
-protected:
-  void reset() noexcept;
 
 protected:
   // order dependent
@@ -171,9 +167,9 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "REEL {:#05x} ", r.serial_num());
+    fmt::format_to(w, "REEL 0x{:>03x} ", r.serial_num());
 
-    if (auto s = r.size_cached(); s > 0) fmt::format_to(w, "fr={:>4} ", s);
+    if (auto s = r.size_cached(); s > 0) fmt::format_to(w, "f={:>4} ", s);
 
     if (r.size_cached() > 0) {
 
@@ -181,10 +177,9 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
       const auto &b = r.frames.back();  // r last frame
 
       auto delta = [](auto v1, auto v2) {
-        auto v1a = static_cast<int32_t>(v1);
-        auto v2a = static_cast<int32_t>(v2);
+        typedef typename std::make_signed<decltype(v1)>::type signed_t;
 
-        return v1a - v2a;
+        return static_cast<signed_t>(v1 - v2);
       };
 
       fmt::format_to(w, "sn={:>6}+{} ", a.sn(), delta(b.sn(), a.sn()));

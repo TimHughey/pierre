@@ -54,7 +54,7 @@ void Desk::frame_rr::update(Frame &f) noexcept {
   ts = f.ts();
 
   f.record_state();
-  if (false) f.record_sync_wait();
+  if (state == frame::FUTURE) f.record_sync_wait();
 
   if (f.ready()) {
     rendered = true;
@@ -183,7 +183,7 @@ void Desk::frame_live(Desk::frame_rr &frr) noexcept {
   auto &found = find_live_frame();
   INFO_AUTO("{}", found);
 
-  render(found, frr);
+  frame_render(found, frr);
 
   if (frr.ok()) {
     // update the frr with the essential frame info
@@ -192,11 +192,36 @@ void Desk::frame_live(Desk::frame_rr &frr) noexcept {
   }
 }
 
+bool Desk::frame_render(Frame &frame, frame_rr &frr) noexcept {
+  INFO_AUTO_CAT("render");
+
+  INFO_AUTO("{}", frame);
+
+  if (fx_finished()) fx_select(frame);
+
+  frr.stop = shutdown_if_all_stop();
+
+  if (frr.ok() && frame.ready()) {
+    // the frame is ready for rendering
+    desk::DataMsg msg(frame.sn(), frame.silent());
+
+    // send the data message if rendered
+    if (active_fx->render(frame.get_peaks(), msg)) {
+      if ((bool)dmx_ctrl) dmx_ctrl->send_data_msg(std::move(msg));
+    }
+
+  } else {
+    INFO_AUTO("NOT RENDERED {}", frame);
+  }
+
+  return frr.stop;
+}
+
 void Desk::frame_syn(Desk::frame_rr &frr) noexcept {
   INFO_AUTO_CAT("render_sf");
 
   syn_frame = frame::READY;
-  render(syn_frame, frr);
+  frame_render(syn_frame, frr);
 
   if (frr.ok()) frr.update(syn_frame);
 }
@@ -272,7 +297,12 @@ void Desk::loop() noexcept {
       auto [erase, remain] = b_reel.clean();
       if (erase) INFO_AUTO("cleaned, erase={} remain={}", erase, remain);
 
-      b_reel.transfer(a_reel);
+      if (b_reel.empty() && a_reel.empty()) {
+        a_reel.reset();
+        b_reel.reset(Reel::Starter);
+      } else if (b_reel.empty() && render_flag.test()) {
+        b_reel.transfer(a_reel);
+      }
 
       flusher.release();
     } else {
@@ -289,36 +319,11 @@ void Desk::loop() noexcept {
   Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
 }
 
-bool Desk::render(Frame &frame, frame_rr &frr) noexcept {
-  INFO_AUTO_CAT("render");
-
-  INFO_AUTO("{}", frame);
-
-  if (fx_finished()) fx_select(frame);
-
-  frr.stop = shutdown_if_all_stop();
-
-  if (frr.ok() && frame.ready()) {
-    // the frame is ready for rendering
-    desk::DataMsg msg(frame.sn(), frame.silent());
-
-    // send the data message if rendered
-    if (active_fx->render(frame.get_peaks(), msg)) {
-      if ((bool)dmx_ctrl) dmx_ctrl->send_data_msg(std::move(msg));
-    }
-
-  } else {
-    INFO_AUTO("NOT RENDERED {}", frame);
-  }
-
-  return frr.stop;
-}
-
 void Desk::resume() noexcept {
   INFO_AUTO_CAT("resume");
 
   auto is_resuming = !resume_flag.test_and_set();
-  INFO_AUTO("invoked, stopped={} resuming={}", io_ctx.stopped(), is_resuming);
+  INFO_AUTO("stopped={} resuming={}", io_ctx.stopped(), is_resuming);
 
   // if we were already resuming don't attempt another
   if (is_resuming && io_ctx.stopped()) {
@@ -356,16 +361,23 @@ void Desk::schedule_loop(Desk::frame_rr &frr) noexcept {
     return;
   }
 
-  if (!frr.rendered) {
-    asio::post(render_strand, [this]() { loop(); });
-  } else {
-    //// NOTE: no need to recalculate sync_wait
+  auto final_sync_wait = [this, &frr]() {
+    //// NOTE: no need to recalculate frame sync_wait
+    if (frr.state == frame_state_v::FUTURE) {
+      return frr.sync_wait;
+    } else if (frr.state == frame_state_v::OUTDATED) {
+      return 0ns;
+    } else if (frr.rendered) {
+      return frr.sync_wait;
+    } else {
+      return pet::as<Nanos>(rand_gen(500us, 1500us));
+    }
+  };
 
-    loop_timer.expires_after(frr.sync_wait);
-    loop_timer.async_wait([this](const error_code &ec) {
-      if (!ec) loop();
-    });
-  }
+  loop_timer.expires_after(final_sync_wait());
+  loop_timer.async_wait([this](const error_code &ec) {
+    if (!ec) loop();
+  });
 }
 
 void Desk::set_rendering(bool enable) noexcept {

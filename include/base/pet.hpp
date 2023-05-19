@@ -40,10 +40,11 @@ struct pet {
       return x;
     } else if constexpr (IsDuration<FROM> && IsDuration<TO>) {
       return std::chrono::duration_cast<TO>(x);
-    } else if constexpr (std::is_convertible_v<FROM, TO>) {
+    } else if constexpr (std::convertible_to<FROM, TO>) {
       return std::chrono::duration_cast<TO>(x);
     } else {
-      static_assert(always_false_v<TO>, "unhandled types");
+      static_assert(true, "unhandled type");
+      return TO(0);
     }
   }
 

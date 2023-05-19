@@ -20,6 +20,7 @@
 
 #include "base/input_info.hpp"
 #include "base/pet_types.hpp"
+#include "base/random.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "frame/clock_info.hpp"
@@ -247,6 +248,7 @@ private:
   int samp_per_ch{0};
   int channels{0};
 
+  random rand_gen;
   std::optional<Nanos> cached_sync_wait;
   bool silence{false};
 
@@ -254,7 +256,7 @@ private:
   Peaks peaks;
 
 public:
-  static constexpr auto module_id{"frame"sv};
+  MOD_ID("frame");
 };
 
 } // namespace pierre

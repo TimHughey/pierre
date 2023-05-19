@@ -20,6 +20,7 @@
 
 #include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
+#include "base/random.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
@@ -61,8 +62,8 @@ public:
     bool ok() const noexcept { return !abort(); }
 
     void update(Frame &f) noexcept;
-
     void update(Frame &f, MasterClock &master, Anchor &anchor) noexcept;
+
     bool rendered{false};
     bool stop{false};
     bool live_frame{false};
@@ -95,14 +96,13 @@ private:
   Frame &find_live_frame() noexcept;
 
   void frame_live(frame_rr &frr) noexcept;
+  bool frame_render(Frame &frame, frame_rr &frr) noexcept;
   void frame_syn(frame_rr &frr) noexcept;
 
   bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
   void loop() noexcept;
-
-  bool render(Frame &frame, frame_rr &frr) noexcept;
 
   void schedule_loop(frame_rr &frr) noexcept;
 
@@ -131,6 +131,7 @@ private:
   std::vector<std::jthread> threads;
   std::unique_ptr<desk::FX> active_fx{nullptr};
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl;
+  random rand_gen;
 
 public:
   MOD_ID("desk");

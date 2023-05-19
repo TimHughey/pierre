@@ -1,5 +1,5 @@
-//  Pierre - Custom Light Show for Wiss Landing
-//  Copyright (C) 2022  Tim Hughey
+//  Pierre
+//  Copyright (C) 2023  Tim Hughey
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,35 +16,27 @@
 //
 //  https://www.wisslanding.com
 
-#include "frame/flusher.hpp"
-#include "base/logger.hpp"
+#pragma once
 
-#include <cassert>
-#include <exception>
-#include <set>
+#include "base/pet_types.hpp"
+#include "base/types.hpp"
+
+#include <cstdint>
+#include <random>
 
 namespace pierre {
 
-void Flusher::accept(FlushInfo &&fi_next) noexcept {
-  INFO_AUTO_CAT("accept");
+class random {
+public:
+  random() noexcept;
+  Micros operator()(Micros min_ms, Micros max_ms) noexcept;
 
-  if (fi_next.no_accept()) assert("invalid kind for accept()");
+private:
+  static std::random_device dev_rand;
+  static std::mt19937 rnd32;
 
-  // protect copying of new flush details
-  sema.acquire();
-
-  fi = std::move(fi_next);
-
-  INFO_AUTO("{} ", fi_next);
-}
-
-void Flusher::done() noexcept {
-  INFO_AUTO_CAT("done");
-
-  fi.done();
-  INFO_AUTO("{}", fi);
-
-  sema.release();
-}
+public:
+  MOD_ID("random");
+};
 
 } // namespace pierre
