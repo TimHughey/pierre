@@ -54,9 +54,9 @@ public:
 
   bool age_check(const auto age_min) const noexcept { return ready() && (since_update > age_min); }
 
-  template <typename T, typename C>
-    requires HasTimestamp<T> && HasClockNow<C>
-  Nanos frame_local_time_diff(const T &f, [[maybe_unused]] const C &c) const noexcept {
+  template <typename T>
+    requires HasTimestamp<T>
+  Nanos frame_local_time_diff(const T &f) const noexcept {
     return frame_to_local_time(f) - Nanos(clock_now::mono::ns());
   }
 
@@ -95,7 +95,7 @@ public:
   void update(const AnchorData &ad, const ClockInfo &clock) noexcept;
 
 public:
-  static constexpr csv module_id{"anchor.last"};
+  MOD_ID("frame.anc.last");
 };
 
 } // namespace pierre

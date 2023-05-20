@@ -19,16 +19,10 @@
 #include "frame/flusher.hpp"
 #include "base/logger.hpp"
 
-#include <cassert>
-#include <exception>
-#include <set>
-
 namespace pierre {
 
 void Flusher::accept(FlushInfo &&fi_next) noexcept {
   INFO_AUTO_CAT("accept");
-
-  if (fi_next.no_accept()) assert("invalid kind for accept()");
 
   // protect copying of new flush details
   sema.acquire();

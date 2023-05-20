@@ -87,6 +87,8 @@ Frame::~Frame() noexcept {}
 frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
   INFO_AUTO_CAT("decipher");
 
+  constexpr uint8_t RTPv2{0x02};
+
   // the nonce for libsodium is 12 bytes however the packet only provides 8
   uint8v nonce(4, 0x00); // pad the nonce for libsodium
   // mini nonce end - 8; copy 8 bytes total
@@ -192,56 +194,47 @@ void Frame::record_sync_wait() const noexcept {
   Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
 }
 
-frame::state Frame::state_now(MasterClock &clk, Anchor &anc) noexcept {
+frame::state Frame::state_now(AnchorLast &ancl) noexcept {
   INFO_AUTO_CAT("state_now");
 
-  string msg;
-  auto w = std::back_inserter(msg);
+  if (can_render()) {
+    if (ancl.ready()) {
+      auto diff = ancl.frame_local_time_diff(*this);
 
-  if (synthetic()) {
-    // syhthetic frames are always ready
-    state = frame::READY;
-  } else {
-    // always adjust state of live frames
-    auto clk_info = clk.info();
-    auto ancl = anc.get_data(clk_info);
+      if (diff <= 0ns) {
+        state = frame::OUTDATED;
+        cache_sync_wait(diff);
+      } else if ((diff > 0ns) && (diff <= InputInfo::lead_time)) {
+        state = frame::READY;
+        cache_sync_wait(diff);
+      } else if (diff > InputInfo::lead_time) {
+        state = frame::FUTURE;
+        cache_sync_wait(diff + 1ms);
+      } else {
+        INFO_AUTO("NO CHANGE {}", *this);
+      }
 
-    // calculate the sync wait diff if anchor is ready
-    auto diff = ancl.ready() ? ancl.frame_local_time_diff(*this, clk_info) : 0ns;
-
-    if (ancl.ready() == false) {
-      state = frame::NO_CLK_ANC;
-      cache_sync_wait(rand_gen(500us, 2000us));
-      INFO_AUTO("using random sync_wait");
-    } else if (diff < 0ns) {
-      state = frame::OUTDATED;
-      cache_sync_wait(diff);
-    } else if ((diff >= 0ns) && (diff <= InputInfo::lead_time)) {
-      state = frame::READY;
-      sync_wait(clk, anc);
-    } else if (diff > InputInfo::lead_time) {
-      state = frame::FUTURE;
-      sync_wait(clk, anc);
     } else {
-      fmt::format_to(w, "no state change {}", *this);
+      state = frame::NO_CLK_ANC;
+      cache_sync_wait(rand_gen(50000us, 120000us));
     }
-
-    fmt::format_to(w, "diff={}", pet::humanize(diff));
   }
-
-  if (msg.size()) INFO_AUTO("{} {}", msg, *this);
 
   return state;
 }
 
 bool Frame::sync_wait(MasterClock &clk, Anchor &anchor, ftime_t ft, Nanos &sync_wait) noexcept {
-  if (auto clk_info = clk.info(); clk_info.ok() && (ft > 0)) {
+
+  if (ft > 0) {
+    auto clk_info = clk.info();
+
     if (auto ancl = anchor.get_data(clk_info); ancl.ready()) {
       sync_wait = ancl.frame_local_time_diff(ft);
 
       return true;
     }
   }
+
   return false;
 }
 

@@ -107,12 +107,13 @@ initiate = false
 initiate_watch = false
 
 [logger.desk]
-find_live = false
+find_live = true
 flush = true
 frame_live = false
+frame_render = false
+frame_syn = false
 handoff = false
 loop = true
-render = false
 resume = true
 schedule_loop = true
 shutdown = true
@@ -132,16 +133,16 @@ run = true
 
 
 [logger.frame]
-anchor = false
+anch = { base = true, data = true, last = true }
 av = false
 clock = { init = true, map_shm = false, peers_update = false, refresh = false, shutdown = false }
 decipher = false
 state_now = false
 
 [logger.frame.reel]
-clean = true
+clean = false
 flush = true
-push_back = false
+push_back = true
 take = true
 
 [logger.fx]

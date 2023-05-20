@@ -98,7 +98,7 @@ template <> struct fmt::formatter<pierre::UUID> {
 
     if (presentation == 'f') return fmt::format_to(ctx.out(), "{}", s);
 
-    const std::string_view portion(s.begin() + s.find_last_of('-') + 1, s.end());
+    const std::string_view portion(s.begin() + s.find_last_of('-') + 1, std::prev(s.end()));
     return fmt::format_to(ctx.out(), "{}", portion);
   }
 };

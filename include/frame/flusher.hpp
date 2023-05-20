@@ -49,7 +49,7 @@ public:
   /// @param fi flush details
   void accept(FlushInfo &&fi) noexcept;
 
-  bool acquire(Millis try_ms = 900ms) noexcept { return sema.try_acquire_for(try_ms); }
+  bool acquire(Micros try_us = 500us) noexcept { return sema.try_acquire_for(try_us); }
 
   /// @brief Determine if the frame should be kept
   /// @tparam T Any object that has seq_num and timestamp data members
@@ -57,16 +57,18 @@ public:
   /// @return boolean indicating if frame meets flush criteria
   template <typename T>
     requires IsFrame<T>
-  bool check(T &frame) noexcept {
+  bool check(T &f) noexcept {
+
     if (fi.inactive()) return false;
 
-    auto flush{true};
-    flush &= fi.all() || std::cmp_less_equal(frame.sn(), fi.until_seq);
-    flush &= fi.all() || std::cmp_less_equal(frame.ts(), fi.until_ts);
+    bool rc = fi.all() || ((f.ts() <= fi.until_ts) && (f.sn() <= fi.until_seq));
 
-    if (flush) ++fi.flushed;
+    if (rc) {
+      ++fi.flushed;
+      f.flush();
+    }
 
-    return flush;
+    return rc;
   }
 
   /// @brief Reset count of frames flushed
@@ -76,7 +78,13 @@ public:
   /// @brief Mark this flush as finished (active() == false)
   void done() noexcept;
 
-  void release() noexcept { sema.release(); }
+  auto release() noexcept {
+    auto flushed = fi.flushed;
+
+    sema.release();
+
+    return flushed;
+  }
 
 private:
   // order dependent

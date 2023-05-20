@@ -25,6 +25,7 @@ namespace pierre {
 // forward decls to hide implementation details, limit include dependencies
 class Anchor;
 class AnchorData;
+class AnchorLast;
 class FlushInfo;
 class Frame;
 class MasterClock;

@@ -26,7 +26,7 @@
 namespace pierre {
 
 struct FlushInfo {
-  enum kind_t : uint8_t { All = 0, Normal, Inactive, Complete };
+  enum kind_t : uint8_t { All = 0, Normal, Inactive };
 
   FlushInfo() = default;
 
@@ -44,19 +44,13 @@ struct FlushInfo {
 
   auto all() const noexcept { return kind == All; }
 
-  auto done() noexcept {
-    from_seq = from_ts = 0;
-    until_seq = until_ts = 0;
-    kind = Complete;
-
-    return flushed;
+  void done() noexcept {
+    if (kind == All) kind = Inactive;
   }
 
   bool inactive() const noexcept { return !active(); }
 
   auto kind_desc() const noexcept { return kind_str[kind]; }
-
-  bool no_accept() const noexcept { return ((kind == Inactive) || (kind == Complete)); }
 
   // order dependent
   kind_t kind{Inactive};
@@ -66,7 +60,7 @@ struct FlushInfo {
   ftime_t until_ts{0};
   int64_t flushed{0};
 
-  static constexpr std::array kind_str{"All", "Normal", "Inactive", "Complete"};
+  static constexpr std::array kind_str{"All", "Normal", "Inactive"};
 };
 
 } // namespace pierre
@@ -83,8 +77,8 @@ template <> struct fmt::formatter<pierre::FlushInfo> : fmt::formatter<std::strin
 
     fmt::format_to(w, "{} ", fi.kind_desc());
 
-    if (fi.from_seq) fmt::format_to(w, "*FROM sn={:<8} ts={:<12} ", fi.from_seq, fi.from_ts);
-    if (fi.until_seq) fmt::format_to(w, "UNTIL sn={:<8} ts={:<12} ", fi.until_seq, fi.until_ts);
+    if (fi.from_seq) fmt::format_to(w, "*FROM sn={:08x} ts={:08x} ", fi.from_seq, fi.from_ts);
+    if (fi.until_seq) fmt::format_to(w, "UNTIL sn={:08x} ts={:08x} ", fi.until_seq, fi.until_ts);
     if (fi.flushed) fmt::format_to(w, "flushed={}", fi.flushed);
 
     return formatter<std::string>::format(msg, ctx);

@@ -43,7 +43,7 @@ private:
   AnchorLast last;
 
 public:
-  static constexpr csv module_id{"frame.anchor"};
+  MOD_ID("frame.anc.base");
 };
 
 } // namespace pierre

@@ -62,7 +62,6 @@ public:
     bool ok() const noexcept { return !abort(); }
 
     void update(Frame &f) noexcept;
-    void update(Frame &f, MasterClock &master, Anchor &anchor) noexcept;
 
     bool rendered{false};
     bool stop{false};
@@ -104,7 +103,7 @@ private:
 
   void loop() noexcept;
 
-  void schedule_loop(frame_rr &frr) noexcept;
+  bool next_reel() noexcept;
 
   bool shutdown_if_all_stop() noexcept;
 

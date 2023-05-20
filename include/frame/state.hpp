@@ -85,6 +85,9 @@ public:
     return want.contains(val);
   }
 
+  bool flushed() const noexcept { return val == FLUSHED; }
+  bool future() const noexcept { return val == FUTURE; }
+
   bool header_ok() const noexcept { return val == HEADER_PARSED; }
 
   auto now() const noexcept { return val; }
@@ -122,6 +125,8 @@ public:
   bool ready_or_future() const noexcept { return (*this == READY) || (*this == FUTURE); }
   const state &record_state() const noexcept;
 
+  bool sentinel() const noexcept { return val == frame::SENTINEL; }
+
   auto tag() const noexcept { return std::make_pair("state", vtxt()); }
 
 private:
@@ -130,7 +135,6 @@ private:
 };
 
 } // namespace frame
-
 } // namespace pierre
 
 //
@@ -141,7 +145,7 @@ template <> struct fmt::formatter<pierre::frame::state> : formatter<std::string>
   // parse is inherited from formatter<string>.
   template <typename FormatContext>
   auto format(const pierre::frame::state &state, FormatContext &ctx) const {
-    const auto msg = fmt::format("state={}", state.vtxt());
+    const auto msg = fmt::format("{}", state.vtxt());
     return formatter<std::string>::format(msg, ctx);
   }
 };

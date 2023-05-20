@@ -55,17 +55,18 @@ class Frame {
   friend class Av;
 
 public:
-  static constexpr uint8_t RTPv2{0x02};
-
-public:
   /// @brief Construct a silent frame
   Frame() noexcept : state(frame::NONE), silence{true} {}
-  Frame(const frame_state_v create_state) noexcept : state(create_state), silence{true} {
+  Frame(const frame_state_v fsv) noexcept : state(fsv), silence{true} {
 
     switch ((frame_state_v)state) {
     case frame::SILENCE:
-    case frame::SENTINEL:
       state = frame::READY;
+      cache_sync_wait(InputInfo::lead_time);
+      break;
+    case frame::SENTINEL:
+      state = frame::SENTINEL;
+      cache_sync_wait(InputInfo::lead_time);
       break;
 
     default:
@@ -89,7 +90,7 @@ public:
   Frame(Frame &&) = default;
 
   Frame &operator=(Frame &&) = default;
-  void operator=(frame_state_v nsn) noexcept { state = nsn; }
+  void operator=(frame_state_v fsv) noexcept { state = fsv; }
 
   explicit operator frame::state_now_t() const noexcept { return (frame::state_now_t)state; }
   std::weak_ordering operator<=>(const Frame &rhs) const noexcept { return ts() <=> rhs.ts(); }
@@ -108,6 +109,10 @@ public:
 
   /// @brief Mark frame as flushed and record it's state
   void flush() noexcept;
+  bool flushed() const noexcept { return state.flushed(); }
+  bool future() noexcept { return state.future(); }
+
+  const Peaks &get_peaks() noexcept { return peaks; }
 
   bool live() const noexcept { return !synthetic(); }
 
@@ -117,9 +122,11 @@ public:
   }
 
   auto no_timing() const noexcept { return state == frame::NO_CLK_ANC; }
+  auto outdated() const noexcept { return state == frame::OUTDATED; }
 
   bool ready() const noexcept { return state == frame::READY; }
   bool ready_or_future() const noexcept { return state.ready_or_future(); }
+  bool sentinel() const noexcept { return state.sentinel(); }
 
   bool silent() const noexcept { return silence; }
   bool silent(bool is_silent) noexcept { return std::exchange(silence, is_silent); }
@@ -128,12 +135,6 @@ public:
   ///        considered 'synthetic' and do not contain Peaks
   /// @return boolean
   bool synthetic() const noexcept { return !seq_num || !timestamp; }
-
-  ////
-  //// state updates
-  frame_state_v state_now() const noexcept { return (frame_state_v)state; }
-
-  const Peaks &get_peaks() noexcept { return peaks; }
 
   /// @brief Decipher, decode and find peaks (dsp)
   /// @param packet
@@ -163,6 +164,10 @@ public:
   /// @return unsigned int
   constexpr seq_num_t sn() const noexcept { return seq_num; }
 
+  /// @brief Get the frame's current state
+  /// @return frame_state_v
+  frame_state_v state_now() const noexcept { return (frame_state_v)state; }
+
   /// @brief Calculate the state of the frame as of the current system time.
   ///        The frame's state is set to NO_CLOCK or NO_ANCHOR in the
   ///        event neither MasterClock or Anchor are ready.
@@ -171,7 +176,9 @@ public:
   /// @param clk reference to the MasterClock
   /// @param anc reference to Anchor as maintained by the sender
   /// @return calculated frame::state
-  frame::state state_now(MasterClock &clk, Anchor &anc) noexcept;
+  // frame::state state_now(MasterClock &clk, Anchor &anc) noexcept;
+
+  frame::state state_now(AnchorLast &ancl) noexcept;
 
   /// @brief Calculated duration to wait to syncronize frame to sender's view
   ///        of 'playback' (aka render) timeline.
@@ -277,7 +284,7 @@ template <> struct fmt::formatter<pierre::Frame> : formatter<std::string> {
 
     fmt::format_to(w, "{} sw={:0.4}", f.state, sync_wait);
 
-    if (!f.synthetic()) fmt::format_to(w, " sn={} ts={}", f.sn(), f.ts());
+    if (!f.synthetic()) fmt::format_to(w, " sn={:x} ts={:x}", f.sn(), f.ts());
 
     return formatter<std::string>::format(msg, ctx);
   }

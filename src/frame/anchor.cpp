@@ -55,7 +55,7 @@ AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
       INFO_AUTO("new master_clock={:#x}\n", clock.clock_id);
 
       // the anchor and master clock for a buffered session start sync'ed.
-      // at anytime, however, the master clock can change while the anchor
+      // however, at anytime, the master clock can change while the anchor
       // remains the same.
 
       // to handle the master clock change, if it is stable, we update the source
@@ -74,7 +74,9 @@ void Anchor::reset() noexcept {
 }
 
 void Anchor::save(AnchorData &&ad) noexcept {
-  static constexpr csv fn_id{"save"};
+  INFO_AUTO_CAT("save");
+
+  INFO_AUTO("{}", ad);
 
   if (source.has_value()) {
     source->log_timing_change(ad);

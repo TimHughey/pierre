@@ -24,6 +24,8 @@
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
 
+#include <fmt/format.h>
+
 namespace pierre {
 
 struct AnchorData {
@@ -83,7 +85,23 @@ public:
   void log_timing_change(const AnchorData &ad) const noexcept;
 
 public:
-  static constexpr csv module_id{"anchor.data"};
+  MOD_ID("frame.anc.data");
 };
 
 } // namespace pierre
+
+/// @brief Custom formatter for AnchorData
+template <> struct fmt::formatter<pierre::AnchorData> : formatter<std::string> {
+  using AnchorData = pierre::AnchorData;
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext> auto format(AnchorData &ad, FormatContext &ctx) const {
+    std::string msg;
+    auto w = std::back_inserter(msg);
+
+    fmt::format_to(w, "ANC_DATA clk_id=0x{:02x} ", ad.clock_id);
+    fmt::format_to(w, "rtp_time={:08x} ", ad.rtp_time);
+
+    return formatter<std::string>::format(msg, ctx);
+  }
+};

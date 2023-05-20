@@ -110,6 +110,8 @@ public:
   /// @param frame
   void push_back(Frame &&frame) noexcept;
 
+  void push_back(Reel &o_reel) noexcept;
+
   /// @brief Serial number of Reel
   /// @tparam T desired return type, uint64_t (default), string
   /// @return serial number in requested format
@@ -176,14 +178,8 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
       const auto &a = r.frames.front(); // r next frame
       const auto &b = r.frames.back();  // r last frame
 
-      auto delta = [](auto v1, auto v2) {
-        typedef typename std::make_signed<decltype(v1)>::type signed_t;
-
-        return static_cast<signed_t>(v1 - v2);
-      };
-
-      fmt::format_to(w, "sn={:>6}+{} ", a.sn(), delta(b.sn(), a.sn()));
-      fmt::format_to(w, "ts={}+{} ", a.ts(1024), delta(b.ts(1024), a.ts(1024)));
+      fmt::format_to(w, "sn={:08x}+{:08x} ", a.sn(), b.sn());
+      fmt::format_to(w, "ts={:08x}+{:08x} ", a.ts(), b.ts(1024));
     }
 
     fmt::format_to(w, "{:<9} ", r.kind_desc[r.kind]);

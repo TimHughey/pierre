@@ -30,12 +30,10 @@ std::mt19937 random::rnd32(random::dev_rand());
 
 random::random() noexcept { rnd32.discard(dev_rand() % 4096); }
 
-Micros random::operator()(Micros min_ms, Micros max_ms) noexcept {
-  const auto diff = std::max(min_ms.count(), max_ms.count());
+Micros random::operator()(Micros min_us, Micros max_us) noexcept {
+  const auto diff = max_us.count() - min_us.count();
 
-  auto rand_count = static_cast<int64_t>(rnd32() % diff);
-
-  return Micros(std::clamp(rand_count, min_ms.count(), max_ms.count()));
+  return Micros(static_cast<int64_t>(rnd32() % diff) + min_us.count());
 }
 
 // class random {};
