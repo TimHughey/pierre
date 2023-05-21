@@ -23,8 +23,7 @@
 #include "frame/flusher.hpp"
 #include "frame/master_clock.hpp"
 
-#include <atomic>
-#include <cassert>
+#include <algorithm>
 
 namespace pierre {
 

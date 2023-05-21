@@ -19,9 +19,11 @@
 #include "desk/fx.hpp"
 #include "base/logger.hpp"
 #include "base/pet.hpp"
+#include "desk/fx/all.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
 #include "desk/unit/names.hpp"
+#include "frame/frame.hpp"
 #include "frame/peaks.hpp"
 
 namespace pierre {
@@ -64,6 +66,36 @@ bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) n
   }
 
   return false;
+}
+
+void FX::select(strand_ioc &strand, std::unique_ptr<FX> &active_fx, Frame &frame) noexcept {
+  INFO_AUTO_CAT("select");
+
+  if (!(bool)active_fx || active_fx->completed()) {
+    // cache multiple use frame info
+    const auto silent = frame.silent();
+
+    const auto fx_now = active_fx ? active_fx->name() : fx::NONE;
+    const auto fx_next = active_fx ? active_fx->suggested_fx_next() : fx::STANDBY;
+
+    // when fx::Standby is finished initiate standby()
+    if (fx_now == fx::NONE) { // default to Standby
+      active_fx = std::make_unique<desk::Standby>(strand);
+    } else if (silent && (fx_next == fx::STANDBY)) {
+      active_fx = std::make_unique<desk::Standby>(strand);
+
+    } else if (!silent && (frame.can_render())) {
+      active_fx = std::make_unique<desk::MajorPeak>(strand);
+
+    } else if (silent && (fx_next == fx::ALL_STOP)) {
+      active_fx = std::make_unique<desk::AllStop>(strand);
+    } else {
+      active_fx = std::make_unique<desk::Standby>(strand);
+    }
+
+    // note in log selected FX, if needed
+    if (!active_fx->match_name(fx_now)) INFO_AUTO("FX {} -> {}\n", fx_now, active_fx->name());
+  }
 }
 
 void FX::silence_watch(const string silence_fx) noexcept {

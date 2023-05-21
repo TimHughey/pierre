@@ -26,9 +26,10 @@
 #include "frame/fdecls.hpp"
 #include "fx/names.hpp"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/system.hpp>
-#include <chrono>
 #include <initializer_list>
 #include <memory>
 
@@ -39,6 +40,7 @@ namespace errc = boost::system::errc;
 
 using error_code = boost::system::error_code;
 using steady_timer = asio::steady_timer;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 namespace desk {
 
@@ -99,8 +101,11 @@ public:
   /// @return name, as a string, of the suggested FX
   const string &suggested_fx_next() const noexcept { return next_fx; }
 
-  /// @brief Will this FX render the audio peaks
-  /// @return boolean, caller can use this flag to determine if upstream work is required
+  /// @brief Select the next FX
+  /// @param strand strand for silence timer
+  /// @param active_fx current active FX
+  /// @param frame Frame to use for silence and can render
+  static void select(strand_ioc &strand, std::unique_ptr<FX> &active_fx, Frame &frame) noexcept;
 
 protected:
   /// @brief Execute the FX subclass for audio peaks for a single frame
@@ -146,8 +151,7 @@ private:
   bool called_once{false};
 
 public:
-  static constexpr csv module_id{"fx"};
-  static constexpr csv cfg_silence_timeout{"silence.timeout"};
+  MOD_ID("fx");
 };
 
 } // namespace desk

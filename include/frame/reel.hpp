@@ -19,26 +19,16 @@
 
 #pragma once
 
-#include "base/input_info.hpp"
-#include "base/pet_types.hpp"
 #include "base/types.hpp"
-#include "frame/clock_info.hpp"
 #include "frame/fdecls.hpp"
-#include "frame/flusher.hpp"
 #include "frame/frame.hpp"
 
-#include <algorithm>
 #include <array>
 #include <atomic>
-#include <cassert>
-#include <compare>
-#include <concepts>
 #include <deque>
 #include <memory>
 #include <mutex>
-#include <set>
 #include <tuple>
-#include <vector>
 
 namespace pierre {
 
@@ -75,6 +65,9 @@ public:
   /// @return clean count, avail count
   clean_results clean() noexcept;
 
+  /// @brief Determines if the Reel is empty
+  ///         -thread safe
+  /// @return boolean indicating if the Reel is empty
   bool empty() noexcept {
     if (kind == Empty) return true;
     if (cached_size->load() == 0) return true;
@@ -82,6 +75,11 @@ public:
     return false;
   }
 
+  /// @brief Moves next frame in container to frame reference
+  ///        If no frames are available populates frame with a Frame(frame::SILENCE)
+  /// @param ancl_last AnchorLast to use for frams state calculations
+  /// @param flusher Flusher to use for flushing (must already be acquired)
+  /// @param frame Frame to populate
   void frame_next(AnchorLast ancl_last, Flusher &flusher, Frame &frame) noexcept;
 
   ssize_t flush(Flusher &fi) noexcept;
@@ -104,7 +102,7 @@ public:
     }
   }
 
-    /// @brief Return frame count (unsafe)
+  /// @brief Return frame count (unsafe)
   /// @return frame count
   ssize_t size() const noexcept { return (kind == Empty) ? 0 : cached_size->load(); }
 
@@ -113,6 +111,8 @@ public:
   int64_t size_cached() const noexcept { return cached_size->load(); }
 
 private:
+  /// @brief Locks the reel
+  /// @return lock
   guard lock() noexcept {
     auto l = guard(mtx, std::defer_lock);
     l.lock();
@@ -120,8 +120,12 @@ private:
     return l;
   }
 
+  /// @brief Record the number of frames in Stats
+  /// @return number of frames in the container
   ssize_t record_size() noexcept;
 
+  /// @brief Reset the frame container to "empty"
+  /// @param kind Kind of Reel (defaults to Ready)
   void reset(kind_t kind = Ready) noexcept;
 
 private:

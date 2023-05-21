@@ -19,29 +19,22 @@
 #pragma once
 
 #include "base/conf/token.hpp"
-// #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
-#include "frame/flusher.hpp"
-#include "frame/frame.hpp"
-#include "frame/master_clock.hpp"
-#include "frame/reel.hpp"
 
 #include <atomic>
-#include <boost/asio/dispatch.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
-#include <boost/asio/prepend.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/system.hpp>
 #include <boost/system/error_code.hpp>
-#include <latch>
+
 #include <memory>
-#include <mutex>
 #include <thread>
+#include <vector>
 
 namespace pierre {
 
@@ -54,28 +47,6 @@ class Desk {
 public:
   using frame_timer = asio::steady_timer;
   using loop_clock = frame_timer::clock_type;
-
-  struct frame_rr {
-    frame_rr(Frame &&f) noexcept : f(std::move(f)) {}
-
-    Frame f;
-    bool stop{false};
-
-    bool abort() const noexcept { return stop; }
-    bool ok() const noexcept { return !abort(); }
-
-    void finish() noexcept {
-      f.record_state();
-      f.record_sync_wait();
-
-      if (f.ready()) {
-        f.mark_rendered();
-      }
-    }
-
-    void operator()(Frame &&f) noexcept { f = std::move(f); }
-    Frame &operator()() noexcept { return f; }
-  };
 
 public:
   Desk(MasterClock *master_clock) noexcept; // see .cpp (incomplete types)
@@ -90,17 +61,14 @@ public:
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 
-  void peers(const auto &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }
+  void peers(const Peers &&p) noexcept;
 
   void rendering(bool enable) noexcept;
 
   void resume() noexcept;
 
 private:
-  bool frame_render(frame_rr &frr) noexcept;
-
-  // bool fx_finished() const noexcept;
-  void fx_select(Frame &frame) noexcept;
+  bool frame_render(desk::frame_rr &frr) noexcept;
 
   void loop() noexcept;
 
@@ -113,13 +81,13 @@ private:
   // order dependent
   conf::token tokc;
   asio::io_context io_ctx;
-  MasterClock *master_clock;
-  std::unique_ptr<Anchor> anchor;
   strand_ioc render_strand;
   strand_ioc flush_strand;
   frame_timer loop_timer;
-  Reel reel;
-  Flusher flusher;
+  MasterClock *master_clock;
+  std::unique_ptr<Anchor> anchor;
+  std::unique_ptr<Reel> reel;
+  std::unique_ptr<Flusher> flusher;
 
   // order independent
   std::atomic_flag resume_flag;

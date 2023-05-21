@@ -26,6 +26,7 @@ class Desk;
 namespace desk {
 class DmxCtrl;
 class FX;
+struct frame_rr;
 } // namespace desk
 
 } // namespace pierre

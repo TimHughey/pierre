@@ -31,6 +31,7 @@ class Flusher;
 class Frame;
 class MasterClock;
 class Peaks;
+class Reel;
 
 namespace frame {
 class state;

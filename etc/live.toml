@@ -8,8 +8,8 @@ threads = 3
 [desk.dmx_ctrl]
 threads = 2
 local = { stalled.ms = 30_300, resolve = { timeout.ms = 15_000, retry.ms = 15_000 } }
-remote = { host = "dmx", idle_shutdown_ms = 60_000, stats.ms = 2_000 }
-# remote = { host = "dmx-test", idle_shutdown.ms = 60_000, stats.ms = 2_000 }
+# remote = { host = "dmx", idle_shutdown_ms = 60_000, stats.ms = 2_000 }
+remote = { host = "dmx-test", idle_shutdown.ms = 60_000, stats.ms = 2_000 }
 
 [desk.dimmable]
 max = 8190

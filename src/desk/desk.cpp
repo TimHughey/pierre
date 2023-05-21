@@ -17,30 +17,27 @@
 // https://www.wisslanding.com
 
 #include "desk/desk.hpp"
-#include "base/conf/token.hpp"
 #include "base/conf/toml.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/pet.hpp"
 #include "base/stats.hpp"
-#include "desk/async/write.hpp"
+#include "desk/dmx_ctrl.hpp"
+#include "desk/frame_rr.hpp"
+#include "desk/fx.hpp"
 #include "desk/msg/data.hpp"
-#include "dmx_ctrl.hpp"
 #include "frame/anchor.hpp"
-#include "frame/anchor_last.hpp"
 #include "frame/flusher.hpp"
 #include "frame/frame.hpp"
 #include "frame/master_clock.hpp"
-#include "frame/state.hpp"
-#include "fx/all.hpp"
+#include "frame/reel.hpp"
 #include "mdns/mdns.hpp"
 
-#include <boost/asio/append.hpp>
 #include <boost/asio/post.hpp>
-#include <boost/asio/prepend.hpp>
 #include <fmt/chrono.h>
 #include <fmt/std.h>
 #include <functional>
+#include <latch>
 #include <thread>
 
 namespace pierre {
@@ -50,20 +47,20 @@ namespace pierre {
 //  -we use a separate io_ctx for desk and it's workers
 Desk::Desk(MasterClock *master_clock) noexcept
     : tokc(module_id),
+      // create a strand to serialize render activities
+      render_strand(asio::make_strand(io_ctx)),
+      // serialize flush requests
+      flush_strand(asio::make_strand(io_ctx)),
+      // create the frame timer
+      loop_timer(render_strand, loop_clock::now()),
       // cache the MasterClock pointer early (frame rendering needs it)
       master_clock(master_clock),
       // create the anchor early (frame rendering needs it)
       anchor(std::make_unique<Anchor>()),
-      // create a strand to serialize render activities
-      render_strand(asio::make_strand(io_ctx)),
-      //
-      flush_strand(asio::make_strand(io_ctx)),
-      // create the frame timer
-      loop_timer(render_strand, loop_clock::now()),
-      // "A" reel (from sender)"
-      reel(Reel::Ready),
+      // single Reel of all frames
+      reel(std::make_unique<Reel>(Reel::Ready)),
       // the flusher
-      flusher() //
+      flusher(std::make_unique<Flusher>()) //
 {
   INFO_INIT("sizeof={:>5} fps={}", sizeof(Desk), InputInfo::fps);
   Frame::init();
@@ -87,15 +84,15 @@ Desk::~Desk() noexcept {
 ///
 
 void Desk::anchor_reset() noexcept {
-  flusher.acquire();
+  flusher->acquire();
   anchor->reset();
-  flusher.release();
+  flusher->release();
 }
 
 void Desk::anchor_save(AnchorData &&ad) noexcept {
-  flusher.acquire();
+  flusher->acquire();
   anchor->save(std::move(ad));
-  flusher.release();
+  flusher->release();
 }
 
 void Desk::flush(FlushInfo &&fi) noexcept {
@@ -103,14 +100,14 @@ void Desk::flush(FlushInfo &&fi) noexcept {
 
   // safely moves FlushInfo into flush_request and sets it active
   // accept the FlushInfo *before* posting to flush_strand
-  flusher.accept(std::move(fi));
+  flusher->accept(std::move(fi));
 
   asio::post(flush_strand, [this]() {
-    if (auto flushed = reel.flush(flusher); flushed > 0) {
-      INFO_AUTO("{} flushed={} avail={}", reel.serial_num<string>(), flushed, reel.size_cached());
+    if (auto flushed = reel->flush(*flusher); flushed > 0) {
+      INFO_AUTO("{} flushed={} avail={}", reel->serial_num<string>(), flushed, reel->size_cached());
     }
 
-    flusher.done();
+    flusher->done();
   });
 }
 
@@ -120,12 +117,12 @@ void Desk::flush_all() noexcept {
   asio::post(render_strand, [this]() { active_fx.reset(); });
 }
 
-bool Desk::frame_render(frame_rr &frr) noexcept {
+bool Desk::frame_render(desk::frame_rr &frr) noexcept {
   INFO_AUTO_CAT("frame_render");
 
   INFO_AUTO("{}", frr());
 
-  fx_select(frr());
+  desk::FX::select(render_strand, active_fx, frr());
 
   frr.stop = shutdown_if_all_stop();
 
@@ -145,40 +142,6 @@ bool Desk::frame_render(frame_rr &frr) noexcept {
   return frr.stop;
 }
 
-// bool Desk::fx_finished() const noexcept { return (bool)active_fx ? active_fx->completed() : true;
-// }
-
-void Desk::fx_select(Frame &frame) noexcept {
-  namespace fx = desk::fx;
-  INFO_AUTO_CAT("fx_select");
-
-  if (!(bool)active_fx || active_fx->completed()) {
-    // cache multiple use frame info
-    const auto silent = frame.silent();
-
-    const auto fx_now = active_fx ? active_fx->name() : fx::NONE;
-    const auto fx_next = active_fx ? active_fx->suggested_fx_next() : fx::STANDBY;
-
-    // when fx::Standby is finished initiate standby()
-    if (fx_now == fx::NONE) { // default to Standby
-      active_fx = std::make_unique<desk::Standby>(render_strand);
-    } else if (silent && (fx_next == fx::STANDBY)) {
-      active_fx = std::make_unique<desk::Standby>(render_strand);
-
-    } else if (!silent && (frame.can_render())) {
-      active_fx = std::make_unique<desk::MajorPeak>(render_strand);
-
-    } else if (silent && (fx_next == fx::ALL_STOP)) {
-      active_fx = std::make_unique<desk::AllStop>(render_strand);
-    } else {
-      active_fx = std::make_unique<desk::Standby>(render_strand);
-    }
-
-    // note in log selected FX, if needed
-    if (!active_fx->match_name(fx_now)) INFO_AUTO("FX {} -> {}\n", fx_now, active_fx->name());
-  }
-}
-
 void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   INFO_AUTO_CAT("handoff");
 
@@ -188,28 +151,28 @@ void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {
   Frame frame(packet);
   frame.process(std::move(packet), key);
 
-  reel.push_back(std::move(frame));
+  reel->push_back(std::move(frame));
 }
 
 void Desk::loop() noexcept {
   INFO_AUTO_CAT("loop");
 
   Elapsed e;
-  frame_rr frr(Frame(frame::SILENCE));
+  desk::frame_rr frr(Frame(frame::SILENCE));
 
   if (render_flag.test()) {
-    if (flusher.acquire()) {
+    if (flusher->acquire()) {
 
-      if (reel.size()) {
+      if (reel->size()) {
         auto clk_info = master_clock->info();
-        reel.frame_next(anchor->get_data(clk_info), flusher, frr());
+        reel->frame_next(anchor->get_data(clk_info), *flusher, frr());
         frame_render(frr);
 
       } else {
         frame_render(frr);
       }
 
-      flusher.release();
+      flusher->release();
 
     } else {
       INFO_AUTO("failed to acquire flusher");
@@ -223,13 +186,13 @@ void Desk::loop() noexcept {
 
   if (frr().sync_wait() == 0ns) {
     asio::post(render_strand, [this]() {
-      reel.clean();
+      reel->clean();
       loop();
     });
   } else {
     loop_timer.expires_after(frr().sync_wait());
 
-    asio::post(render_strand, [this]() { reel.clean(); });
+    asio::post(render_strand, [this]() { reel->clean(); });
     loop_timer.async_wait([this](const error_code &ec) {
       if (!ec) loop();
     });
@@ -239,6 +202,8 @@ void Desk::loop() noexcept {
 
   Stats::write(stats::RENDER_ELAPSED, e.as<Nanos>());
 }
+
+void Desk::peers(const Peers &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }
 
 void Desk::resume() noexcept {
   INFO_AUTO_CAT("resume");
