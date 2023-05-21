@@ -39,9 +39,6 @@ dsp = { threads = 2 } # percentage 1-100 (num threads = (hw_concurrency * factor
 host = "127.0.0.1"              # nqptp host
 shm_name = "/nqptp"             # path to nqptp shared memory directory
 
-[frame.racked]
-# none
-
 # UNUSED:  need implementation
 # [frame.peaks.magnitudes] # only keep peaks in this range
 # floor = 0.9

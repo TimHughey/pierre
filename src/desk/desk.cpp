@@ -87,15 +87,12 @@ Desk::~Desk() noexcept {
 ///
 
 void Desk::anchor_reset() noexcept {
-  // protect changes to Anchor
-
   flusher.acquire();
   anchor->reset();
   flusher.release();
 }
 
 void Desk::anchor_save(AnchorData &&ad) noexcept {
-
   flusher.acquire();
   anchor->save(std::move(ad));
   flusher.release();
@@ -115,6 +112,12 @@ void Desk::flush(FlushInfo &&fi) noexcept {
 
     flusher.done();
   });
+}
+
+void Desk::flush_all() noexcept {
+  flush(FlushInfo(FlushInfo::All));
+
+  asio::post(render_strand, [this]() { active_fx.reset(); });
 }
 
 bool Desk::frame_render(frame_rr &frr) noexcept {
@@ -296,7 +299,7 @@ bool Desk::shutdown_if_all_stop() noexcept {
 
     // reset Desk state
     anchor->reset();
-    reel.reset();
+    flush_all();
     active_fx.reset();
 
     // disconnect from ruth

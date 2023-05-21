@@ -31,7 +31,7 @@ namespace desk {
 class AllStop : public FX {
 public:
   AllStop(auto &&fx_timer) noexcept
-      : FX(std::forward<decltype(fx_timer)>(fx_timer), fx::ALL_STOP, FX::NoRender) {
+      : FX(std::forward<decltype(fx_timer)>(fx_timer), fx::ALL_STOP, fx::NONE, FX::NoRender) {
 
     // never finished unless a non-silent frame is sent for execute
     set_finished(false);

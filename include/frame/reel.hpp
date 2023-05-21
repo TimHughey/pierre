@@ -104,9 +104,7 @@ public:
     }
   }
 
-  void reset(kind_t kind = Ready) noexcept;
-
-  /// @brief Return frame count (unsafe)
+    /// @brief Return frame count (unsafe)
   /// @return frame count
   ssize_t size() const noexcept { return (kind == Empty) ? 0 : cached_size->load(); }
 
@@ -123,6 +121,8 @@ private:
   }
 
   ssize_t record_size() noexcept;
+
+  void reset(kind_t kind = Ready) noexcept;
 
 private:
   // order dependent

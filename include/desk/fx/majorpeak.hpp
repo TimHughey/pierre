@@ -39,9 +39,12 @@ namespace desk {
 class MajorPeak : public FX {
 public:
   MajorPeak(auto &executor) noexcept
-      : FX(executor, fx::MAJOR_PEAK), tokc(conf::token::acquire_watch_token(module_id)),
-        base_color(Hsb{0, 100, 100}), main_last_peak(), fill_last_peak() {
-
+      : FX(executor, fx::MAJOR_PEAK, fx::STANDBY),
+        tokc(conf::token::acquire_watch_token(module_id)), //
+        base_color(Hsb{0, 100, 100}),                      //
+        main_last_peak(),                                  //
+        fill_last_peak()                                   //
+  {
     load_config();
   }
 

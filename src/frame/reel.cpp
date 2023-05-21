@@ -159,8 +159,6 @@ ssize_t Reel::record_size() noexcept {
 }
 
 void Reel::reset(kind_t k) noexcept {
-  auto l = lock();
-
   serial = next_sn();
   frames = frame_container();
   cached_size->store(0);

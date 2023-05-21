@@ -33,7 +33,8 @@ class Standby : public FX {
 
 public:
   Standby(auto &executor) noexcept
-      : FX(executor, fx::STANDBY), tokc(conf::token::acquire_watch_token(module_id)) {
+      : FX(executor, fx::STANDBY, fx::ALL_STOP), //
+        tokc(conf::token::acquire_watch_token(module_id)) {
 
     apply_config();
   }

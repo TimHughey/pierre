@@ -87,7 +87,7 @@ public:
 
   void flush(FlushInfo &&request) noexcept;
 
-  void flush_all() noexcept { flush(FlushInfo(FlushInfo::All)); }
+  void flush_all() noexcept;
 
   void handoff(uint8v &&packet, const uint8v &key) noexcept;
 

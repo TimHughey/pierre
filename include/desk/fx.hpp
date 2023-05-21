@@ -50,9 +50,14 @@ public:
 
 public:
   /// @brief Construct the base FX via the subclassed type
-  FX(auto &executor, const string name, bool should_render = FX::Render) noexcept
-      : fx_timer(executor), fx_name{name}, should_render{should_render}, finished{false},
-        next_fx{fx::NONE} {
+  FX(auto &executor, const string name, const string next_fx = fx::NONE,
+     bool should_render = FX::Render) noexcept
+      : fx_timer(executor),           //
+        fx_name{name},                //
+        should_render{should_render}, //
+        finished{false},              //
+        next_fx{next_fx}              //
+  {
     ensure_units();
   }
 
