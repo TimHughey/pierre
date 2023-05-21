@@ -106,7 +106,7 @@ private:
   std::vector<peak_map_t> peaks_map;
 
 public:
-  static constexpr csv module_id{"frame.peaks"};
+  MOD_ID("frame.peaks");
 };
 
 } // namespace pierre

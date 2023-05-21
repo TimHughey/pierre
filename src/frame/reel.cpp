@@ -19,6 +19,7 @@
 #include "frame/reel.hpp"
 #include "base/logger.hpp"
 #include "frame/anchor.hpp"
+#include "frame/flusher.hpp"
 #include "frame/master_clock.hpp"
 
 #include <atomic>
@@ -32,10 +33,7 @@ static auto next_sn() noexcept {
   return std::atomic_fetch_add(&n, 1);
 }
 
-Reel::kind_desc_t Reel::kind_desc{string("Empty"), string("Starter"), string("Transfer"),
-                                  string("Ready")};
-
-Reel::min_sizes_t Reel::min_sizes{0, InputInfo::frames(250ms), 1, 1};
+Reel::kind_desc_t Reel::kind_desc{string("Empty"), string("Ready")};
 
 Reel::Reel(kind_t kind) noexcept
     : kind{kind},        //
@@ -49,6 +47,8 @@ Reel::clean_results Reel::clean() noexcept {
   ssize_t remain{0};
 
   if (size_cached() > 0) {
+    auto l = lock();
+
     erased = std::erase_if(frames, [](const Frame &f) { return f.dont_render(); });
 
     if (erased > 0) {
@@ -56,16 +56,11 @@ Reel::clean_results Reel::clean() noexcept {
       INFO_AUTO("erased={} remain={}", erased, remain);
       cached_size->store(remain);
     }
+
+    l.unlock();
   }
 
   return std::make_pair(erased, remain);
-}
-
-void Reel::clear() noexcept {
-  if (!empty()) {
-    cached_size->store(0);
-    frames.clear();
-  }
 }
 
 ssize_t Reel::flush(Flusher &flusher) noexcept {
@@ -74,19 +69,21 @@ ssize_t Reel::flush(Flusher &flusher) noexcept {
 
   if (empty()) return cached_size->load();
 
+  auto l = lock();
+
   for (auto &f : frames) {
     flusher.check(f);
   }
 
   if (frames.front().flushed() && frames.back().flushed()) {
     INFO_AUTO("flushed all frames");
-    // all frames flushed, reseet reel
-    reset(Starter);
+    // all frames flushed, reset reel
+    reset(Ready);
   } else {
     std::erase_if(frames, [](const auto &f) {
       auto rc = f.flushed();
 
-      INFO_AUTO("flushing {}", f);
+      if (rc) INFO_AUTO("{}", f);
 
       return rc;
     });
@@ -94,83 +91,67 @@ ssize_t Reel::flush(Flusher &flusher) noexcept {
     cached_size->store(std::ssize(frames));
   }
 
+  l.unlock();
+
   return cached_size->load();
 }
 
-bool Reel::pop_front() noexcept {
-  if (size_cached() > 0) {
-    frames.pop_front();
-    std::atomic_fetch_sub(cached_size.get(), 1);
+void Reel::frame_next(AnchorLast ancl, Flusher &flusher, Frame &frame) noexcept {
+  INFO_AUTO_CAT("frame_next");
+
+  auto l = lock();
+
+  auto found_it = std::find_if(frames.begin(), frames.end(), [&, this](Frame &f) {
+    // first things first, check if this frame is flushed
+    // if it is flushed then it's not a live frame, return false
+    // we do this here since we're under the protection of flusher.aquire()
+    // and to ensure that frames requiring flushing that were added by
+    // Reel.push_back() are caught
+    if (f.flush(flusher)) return false;
+
+    // not flushed, proceed with calculating state
+    f.state_now(ancl);
+
+    if (f.can_render()) return true;
+
+    INFO_AUTO("SKIP {}", f);
+
+    if (f.outdated()) {
+      f.record_state();
+      f.record_sync_wait();
+    }
+
+    return false;
+  });
+
+  if (found_it != frames.end()) {
+    INFO_AUTO("{}", *found_it);
+    frame = std::move(*found_it);
   }
 
-  return cached_size->load() == 0;
+  l.unlock();
 }
 
 void Reel::reset(kind_t k) noexcept {
+  auto l = lock();
+
   serial = next_sn();
   frames = frame_container();
   cached_size->store(0);
   kind = k;
 }
 
-void Reel::transfer(Reel &lhs) noexcept {
-  INFO_AUTO_CAT("transfer");
-
-  if (serial == lhs.serial) {
-    const auto m = fmt::format("attempt to transfer self serial={}", lhs.serial_num<string>());
-    assert(m.c_str());
-  }
-
-  // when both a and b reels are empty fallback to wanting a Starter Reel
-  if (empty() && lhs.empty()) {
-    kind = Starter;
-    lhs.kind = Transfer;
-  } else if (empty()) {
-    // just reel b is empty, set to Transfer so we get at least one frame
-    kind = Transfer;
-
-    if (lhs == Reel::Starter) INFO_AUTO("B {}", *this);
-
-    if (lhs.size_cached() >= size_min()) {
-
-      INFO_AUTO("A {}", lhs);
-
-      serial = std::move(lhs.serial);
-      frames = std::move(lhs.frames);
-      kind = Ready;
-
-      auto frame_count = lhs.cached_size->load();
-      cached_size->store(frame_count);
-
-      lhs.reset();
-
-      INFO_AUTO("B {}", *this);
-    }
-  }
-}
-
 void Reel::push_back(Frame &&frame) noexcept {
-  frame.record_state();
-  frames.push_back(std::forward<decltype(frame)>(frame));
-
-  std::atomic_fetch_add(cached_size.get(), 1);
-}
-
-void Reel::push_back(Reel &o_reel) noexcept {
   INFO_AUTO_CAT("push_back");
 
-  if (o_reel.empty()) return;
+  frame.record_state();
+  INFO_AUTO("sn={:>08x} ts={:08x}", frame.sn(), frame.ts());
 
-  INFO_AUTO("A {}", o_reel);
+  auto l = lock();
+  frames.push_back(std::forward<decltype(frame)>(frame));
+  l.unlock();
 
-  std::for_each(o_reel.frames.begin(), o_reel.frames.end(),
-                [this](auto &f) { frames.push_back(std::move(f)); });
-
-  cached_size->store(std::ssize(frames));
-
-  INFO_AUTO("B {}", *this);
-
-  o_reel.reset();
+  std::atomic_fetch_add(cached_size.get(), 1);
 }
 
 } // namespace pierre

@@ -27,6 +27,7 @@
 #include "base/stats.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
+#include "frame/flusher.hpp"
 #include "master_clock.hpp"
 
 #include <fmt/chrono.h>
@@ -82,7 +83,48 @@ notes:
 std::unique_ptr<Av> Frame::av{nullptr};
 
 // Frame API
+Frame::Frame(Frame &&other) noexcept {
+  state = std::exchange(other.state, frame::MOVED);
+  version = other.version;
+  padding = other.padding;
+  extension = other.extension;
+  ssrc_count = other.ssrc_count;
+  ssrc = other.ssrc;
+  seq_num = std::exchange(other.seq_num, 0);
+  timestamp = std::exchange(other.timestamp, 0);
+
+  samp_per_ch = std::exchange(other.samp_per_ch, 0);
+  channels = std::exchange(other.channels, 0);
+  rand_gen = std::move(rand_gen);
+  cached_sync_wait = std::move(other.cached_sync_wait);
+  silence = other.silence;
+  peaks = std::move(other.peaks);
+}
+
 Frame::~Frame() noexcept {}
+
+Frame &Frame::operator=(Frame &&lhs) noexcept {
+
+  if (sn() == lhs.sn()) return *this;
+
+  state = std::exchange(lhs.state, frame::MOVED);
+  version = lhs.version;
+  padding = lhs.padding;
+  extension = lhs.extension;
+  ssrc_count = lhs.ssrc_count;
+  ssrc = lhs.ssrc;
+  seq_num = std::exchange(lhs.seq_num, 0);
+  timestamp = std::exchange(lhs.timestamp, 0);
+
+  samp_per_ch = std::exchange(lhs.samp_per_ch, 0);
+  channels = std::exchange(lhs.channels, 0);
+  rand_gen = std::move(rand_gen);
+  cached_sync_wait = std::move(lhs.cached_sync_wait);
+  silence = lhs.silence;
+  peaks = std::move(lhs.peaks);
+
+  return *this;
+}
 
 frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
   INFO_AUTO_CAT("decipher");
@@ -189,6 +231,14 @@ void Frame::flush() noexcept {
   record_state();
 }
 
+bool Frame::flush(Flusher &flusher) noexcept {
+  auto rc = flusher.check(*this);
+
+  if (rc) flush();
+
+  return rc;
+}
+
 void Frame::record_sync_wait() const noexcept {
   // write diffs of interest to the timeseries database
   Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
@@ -209,7 +259,7 @@ frame::state Frame::state_now(AnchorLast &ancl) noexcept {
         cache_sync_wait(diff);
       } else if (diff > InputInfo::lead_time) {
         state = frame::FUTURE;
-        cache_sync_wait(diff + 1ms);
+        cache_sync_wait(diff);
       } else {
         INFO_AUTO("NO CHANGE {}", *this);
       }

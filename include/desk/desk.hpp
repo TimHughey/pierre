@@ -26,6 +26,7 @@
 #include "desk/fdecls.hpp"
 #include "frame/fdecls.hpp"
 #include "frame/flusher.hpp"
+#include "frame/frame.hpp"
 #include "frame/master_clock.hpp"
 #include "frame/reel.hpp"
 
@@ -58,18 +59,25 @@ public:
   using loop_expiry = frame_timer::time_point;
 
   struct frame_rr {
+    frame_rr(Frame &&f) noexcept : f(std::move(f)) {}
+
+    Frame f;
+    bool stop{false};
+
     bool abort() const noexcept { return stop; }
     bool ok() const noexcept { return !abort(); }
 
-    void update(Frame &f) noexcept;
+    void finish() noexcept {
+      f.record_state();
+      f.record_sync_wait();
 
-    bool rendered{false};
-    bool stop{false};
-    bool live_frame{false};
-    bool syn_frame{false};
-    ftime_t ts{0};
-    frame_state_v state{};
-    Nanos sync_wait{0ns};
+      if (f.ready()) {
+        f.mark_rendered();
+      }
+    }
+
+    void operator()(Frame &&f) noexcept { f = std::move(f); }
+    Frame &operator()() noexcept { return f; }
   };
 
 public:
@@ -92,18 +100,12 @@ public:
   void resume() noexcept;
 
 private:
-  Frame &find_live_frame() noexcept;
-
-  void frame_live(frame_rr &frr) noexcept;
-  bool frame_render(Frame &frame, frame_rr &frr) noexcept;
-  void frame_syn(frame_rr &frr) noexcept;
+  bool frame_render(frame_rr &frr) noexcept;
 
   bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
   void loop() noexcept;
-
-  bool next_reel() noexcept;
 
   bool shutdown_if_all_stop() noexcept;
 
@@ -119,10 +121,8 @@ private:
   strand_ioc render_strand;
   strand_ioc flush_strand;
   frame_timer loop_timer;
-  Reel a_reel; // in reel (default to Transfer)
-  Reel b_reel; // out reel (default to Starter)
+  Reel reel;
   Flusher flusher;
-  Frame syn_frame;
 
   // order independent
   std::atomic_flag resume_flag;

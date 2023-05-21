@@ -39,7 +39,6 @@ enum state_now_t : uint8_t {
   // NOTE:  do not sort these values they are sequenced based
   //        values are ordered based on ability to render
   NONE = 0,
-  SENTINEL,
   NO_AUDIO,
   ERROR,
   INVALID,
@@ -124,8 +123,6 @@ public:
 
   bool ready_or_future() const noexcept { return (*this == READY) || (*this == FUTURE); }
   const state &record_state() const noexcept;
-
-  bool sentinel() const noexcept { return val == frame::SENTINEL; }
 
   auto tag() const noexcept { return std::make_pair("state", vtxt()); }
 

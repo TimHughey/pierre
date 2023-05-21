@@ -59,17 +59,10 @@ public:
   Frame() noexcept : state(frame::NONE), silence{true} {}
   Frame(const frame_state_v fsv) noexcept : state(fsv), silence{true} {
 
-    switch ((frame_state_v)state) {
-    case frame::SILENCE:
+    if (state == frame::SILENCE) {
       state = frame::READY;
       cache_sync_wait(InputInfo::lead_time);
-      break;
-    case frame::SENTINEL:
-      state = frame::SENTINEL;
-      cache_sync_wait(InputInfo::lead_time);
-      break;
-
-    default:
+    } else {
       assert("invalid state");
     }
   }
@@ -85,11 +78,10 @@ public:
         timestamp(packet.to_uint32(4, 4))         // rtp timestamp
   {}
 
-public:
+  Frame(Frame &&other) noexcept;
   ~Frame() noexcept;
-  Frame(Frame &&) = default;
 
-  Frame &operator=(Frame &&) = default;
+  Frame &operator=(Frame &&lhs) noexcept;
   void operator=(frame_state_v fsv) noexcept { state = fsv; }
 
   explicit operator frame::state_now_t() const noexcept { return (frame::state_now_t)state; }
@@ -109,6 +101,7 @@ public:
 
   /// @brief Mark frame as flushed and record it's state
   void flush() noexcept;
+  bool flush(Flusher &flusher) noexcept;
   bool flushed() const noexcept { return state.flushed(); }
   bool future() noexcept { return state.future(); }
 
@@ -126,7 +119,6 @@ public:
 
   bool ready() const noexcept { return state == frame::READY; }
   bool ready_or_future() const noexcept { return state.ready_or_future(); }
-  bool sentinel() const noexcept { return state.sentinel(); }
 
   bool silent() const noexcept { return silence; }
   bool silent(bool is_silent) noexcept { return std::exchange(silence, is_silent); }

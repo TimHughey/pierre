@@ -27,6 +27,7 @@ class Anchor;
 class AnchorData;
 class AnchorLast;
 class FlushInfo;
+class Flusher;
 class Frame;
 class MasterClock;
 class Peaks;

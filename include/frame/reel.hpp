@@ -36,7 +36,6 @@
 #include <deque>
 #include <memory>
 #include <mutex>
-#include <semaphore>
 #include <set>
 #include <tuple>
 #include <vector>
@@ -45,27 +44,20 @@ namespace pierre {
 
 class Reel;
 
-using reel_t = std::unique_ptr<Reel>;
-using frame_container = std::deque<Frame>;
-
 /// @brief Container of Frames
 class Reel {
   friend struct fmt::formatter<Reel>;
 
-  using sema_t = std::binary_semaphore;
+  using frame_container = std::deque<Frame>;
 
 public:
   typedef frame_container::iterator iterator;
-  using lock_t = std::unique_lock<std::mutex>;
+  using guard = std::unique_lock<std::mutex>;
 
 public:
-  enum kind_t : uint8_t { Empty = 0, Starter, Transfer, Ready, EndOfKinds };
-
-  using kind_desc_t = std::array<const string, EndOfKinds>;
+  enum kind_t : uint8_t { Empty = 0, Ready };
+  using kind_desc_t = std::array<const string, 2>;
   static kind_desc_t kind_desc;
-
-  using min_sizes_t = std::array<int64_t, EndOfKinds>;
-  static min_sizes_t min_sizes;
 
   using erased_t = int64_t;
   using remain_t = int64_t;
@@ -77,19 +69,11 @@ public:
   // Reel() noexcept : sema(std::make_unique<sema_t>(1)) {}
   // Reel() = default;
   Reel(kind_t kind) noexcept;
-
   ~Reel() noexcept {}
-
-  Reel(Reel &&) = default;
-  Reel &operator=(Reel &&) = default;
-
-  bool operator==(kind_t k) const noexcept { return k == kind; }
 
   /// @brief Clean reel of rendered or non-rendereable frames
   /// @return clean count, avail count
   clean_results clean() noexcept;
-
-  void clear() noexcept;
 
   bool empty() noexcept {
     if (kind == Empty) return true;
@@ -98,19 +82,13 @@ public:
     return false;
   }
 
-  auto &front() noexcept { return frames.front(); }
+  void frame_next(AnchorLast ancl_last, Flusher &flusher, Frame &frame) noexcept;
 
   ssize_t flush(Flusher &fi) noexcept;
-
-  /// @brief Pop the front frame
-  /// @return frames.empty()
-  bool pop_front() noexcept;
 
   /// @brief Stores frame, records it's state
   /// @param frame
   void push_back(Frame &&frame) noexcept;
-
-  void push_back(Reel &o_reel) noexcept;
 
   /// @brief Serial number of Reel
   /// @tparam T desired return type, uint64_t (default), string
@@ -126,7 +104,7 @@ public:
     }
   }
 
-  void reset(kind_t kind = Transfer) noexcept;
+  void reset(kind_t kind = Ready) noexcept;
 
   /// @brief Return frame count (unsafe)
   /// @return frame count
@@ -136,21 +114,22 @@ public:
   /// @return frame count
   int64_t size_cached() const noexcept { return cached_size->load(); }
 
-  /// @brief Minimum frames required
-  /// @return frame count
-  ssize_t size_min() const noexcept { return min_sizes[kind]; }
+private:
+  guard lock() noexcept {
+    auto l = guard(mtx, std::defer_lock);
+    l.lock();
 
-  /// @brief Transfer src to this reel and lock the reel in prep for flushing
-  /// @param arc Destination of the src reel
-  void transfer(Reel &src) noexcept;
+    return l;
+  }
 
-protected:
+private:
   // order dependent
   // std::unique_ptr<sema_t> sema;
   kind_t kind{Empty};
   uint64_t serial{0};
 
   // order independent
+  std::mutex mtx;
   frame_container frames;
   std::unique_ptr<std::atomic<ssize_t>> cached_size;
 
@@ -183,7 +162,6 @@ template <> struct fmt::formatter<pierre::Reel> : formatter<std::string> {
     }
 
     fmt::format_to(w, "{:<9} ", r.kind_desc[r.kind]);
-    if (auto n = r.size_min(); n > 1) fmt::format_to(w, "min={:>2}", n);
 
     return formatter<std::string>::format(msg, ctx);
   }

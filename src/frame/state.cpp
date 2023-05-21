@@ -50,7 +50,6 @@ std::map<state_now_t, string> state::vt_map{
     {READY, "ready"},
     {RENDERED, "rendered"},
     {SILENCE, "silence"},
-    {SENTINEL, "sentinel"},
     // note: extra comma above for easy IDE sorting
 };
 
