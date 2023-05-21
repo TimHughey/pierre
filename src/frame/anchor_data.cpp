@@ -22,50 +22,21 @@
 #include "base/pet.hpp"
 #include "base/types.hpp"
 
+#include <fmt/chrono.h>
+
 namespace pierre {
 
-//  Using PTP, here is what is necessary
-//    * The local (monotonic system up)time in nanos (arbitrary reference)
-//    * The remote (monotonic system up)time in nanos (arbitrary reference)
-//    * (symmetric) link delay
-//      1. calculate link delay (PTP)
-//      2. get local time (PTP)
-//      3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
-//         we know how remote timestamps align to local ones. Now these
-//         network times are meaningful.
-//      4. determine how many nanos elapsed since anchorTime msg egress.
-//         Note: remote monotonic nanos for iPhones stops when they sleep, though
-//         not when casting media.
-
-string AnchorData::inspect() const {
-  const auto hex_fmt_str = FMT_STRING("{:>35}={:#02x}\n");
-  const auto gen_fmt_str = FMT_STRING("{:>35}={}\n");
-
-  string msg;
-  auto w = std::back_inserter(msg);
-
-  fmt::format_to(w, hex_fmt_str, "clock_id", clock_id);
-  fmt::format_to(w, hex_fmt_str, "flags", flags);
-  fmt::format_to(w, gen_fmt_str, "rtp_time", rtp_time);
-  fmt::format_to(w, gen_fmt_str, "anchor_time", pet::humanize(anchor_time));
-  fmt::format_to(w, gen_fmt_str, "localized", pet::humanize(localized));
-  fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for));
-  fmt::format_to(w, gen_fmt_str, "now_monotonic", pet::humanize(pet::now_monotonic()));
-
-  return msg;
-}
-
 void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
-  static constexpr csv fn_id{"timing_change"};
+  INFO_AUTO_CAT("timing_change");
 
   if ((clock_id != 0) && match_clock_id(ad)) {
     auto time_diff = ad.anchor_time.count() - anchor_time.count();
     auto frame_diff = ad.rtp_time - rtp_time;
 
     double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / qpow10(9);
-    double frame_change = frame_diff - time_diff_in_frames;
+    millis_fp frame_change{frame_diff - time_diff_in_frames};
 
-    INFO_AUTO("clock={:#x} rtp_time={} frame_adj={:f}\n", clock_id, ad.rtp_time, frame_change);
+    INFO_AUTO("clock={:#x} rtp_time={:02x} frame_adj={}\n", clock_id, ad.rtp_time, frame_change);
   }
 }
 

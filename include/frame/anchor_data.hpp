@@ -29,6 +29,19 @@
 namespace pierre {
 
 struct AnchorData {
+  //  Requirements and implementation notes when using PTP timing:
+  //    * The local (monotonic system up)time in nanos (arbitrary reference)
+  //    * The remote (monotonic system up)time in nanos (arbitrary reference)
+  //    * (symmetric) link delay
+  //      1. calculate link delay (PTP)
+  //      2. get local time (PTP)
+  //      3. calculate remote time (nanos) wrt local time (nanos) w/PTP. Now
+  //         we know how remote timestamps align to local ones. Now these
+  //         network times are meaningful.
+  //      4. determine how many nanos elapsed since anchorTime msg egress.
+  //         Note: remote monotonic nanos for iPhones stops when they sleep, though
+  //         not when casting media.
+
   ClockID clock_id{0}; // senders network timeline id (aka clock id)
   uint64_t flags{0};
   uint32_t rtp_time{0};
@@ -61,6 +74,8 @@ struct AnchorData {
 
   bool empty() const { return !clock_id; }
 
+  void log_timing_change(const AnchorData &ad) const noexcept;
+
   bool master_for_at_least(const auto master_min) const noexcept {
     return (master_for == Nanos::zero()) ? false : master_for >= master_min;
   }
@@ -75,14 +90,6 @@ private:
   static Nanos nano_fracs(uint64_t fracs) noexcept {
     return Nanos(((fracs >> 32) * qpow10(9)) >> 32);
   }
-
-public:
-  // misc debug
-  string inspect() const;
-
-  // void log_new(const AnchorData &old, const ClockInfo &clock) const;
-  // void log_new_master_if_needed(bool &data_new) const;
-  void log_timing_change(const AnchorData &ad) const noexcept;
 
 public:
   MOD_ID("frame.anc.data");

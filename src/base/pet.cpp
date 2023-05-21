@@ -26,7 +26,6 @@
 namespace pierre {
 
 string pet::humanize(Nanos d) {
-  using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
   string msg;
   auto w = std::back_inserter(msg);
 

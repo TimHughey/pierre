@@ -33,6 +33,7 @@ using Days = std::chrono::days;
 using Hours = std::chrono::hours;
 using Micros = std::chrono::microseconds;
 using Millis = std::chrono::milliseconds;
+using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
 using Minutes = std::chrono::minutes;
 using Nanos = std::chrono::nanoseconds;
 using Seconds = std::chrono::seconds;

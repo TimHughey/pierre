@@ -43,9 +43,6 @@ extern std::unique_ptr<Logger> _logger;
 class Logger {
 
 public:
-  using millis_fp = std::chrono::duration<double, std::chrono::milliseconds::period>;
-
-public:
   Logger(asio::io_context &app_io_ctx) noexcept;
   Logger(const Logger &) = delete;
   Logger(Logger &) = delete;
