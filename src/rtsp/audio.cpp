@@ -19,7 +19,6 @@
 #include "rtsp/audio.hpp"
 #include "base/logger.hpp"
 #include "base/types.hpp"
-#include "desk/desk.hpp"
 #include "rtsp/audio/packet.hpp"
 
 #include <arpa/inet.h>
@@ -33,10 +32,16 @@ namespace rtsp {
 // static constexpr ssize_t PACKET_LEN_BYTES{sizeof(uint16_t)};
 
 Audio::Audio(Ctx *ctx) noexcept
-    : ctx(ctx),             // handle Audio for this rtsp CTX
-      streambuf(16 * 1024), // allow buffering of sixteen packets
-      acceptor{io_ctx, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
-      sock(io_ctx, ip_tcp::v4()) // overwritten by accepting socket
+    : // handle Audio for this rtsp CTX
+      ctx(ctx),
+      // serialize audio data recv, processing
+      strand(asio::make_strand(ctx->io_ctx.get_executor())),
+      // allow buffering of 8k
+      streambuf(8 * 1024),
+      // create out acceptor
+      acceptor{strand, tcp_endpoint{ip_tcp::v4(), ANY_PORT}},
+      // create our socket
+      sock(strand, ip_tcp::v4()) // overwritten by accepting socket
 {
   INFO_INIT("sizeof={:>5}", sizeof(Audio));
   tcp_socket::enable_connection_aborted opt(true);
@@ -44,15 +49,6 @@ Audio::Audio(Ctx *ctx) noexcept
 
   // add work before starting thread and io_context
   async_accept();
-
-  const string tname{"pierre_audio"};
-  INFO("thread", "starting {}", tname);
-
-  thread = std::jthread([this, tname = std::move(tname)]() {
-    pthread_setname_np(pthread_self(), tname.c_str());
-
-    io_ctx.run();
-  });
 }
 
 void Audio::async_read() noexcept {
@@ -78,7 +74,7 @@ void Audio::async_read() noexcept {
       streambuf.consume(n);
 
       // send the audio data for further processing (decipher, decode, etc)
-      ctx->desk->handoff(std::move(raw_audio), ctx->shared_key);
+      ctx->audio_handoff(std::move(raw_audio));
 
       async_read(); // TODO: this may not be a wise choice on short reads
     } else if (ec) {

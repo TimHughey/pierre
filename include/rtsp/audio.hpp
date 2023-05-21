@@ -23,12 +23,12 @@
 #include "rtsp/ctx.hpp"
 
 #include <memory>
-#include <thread>
 
 namespace pierre {
 
 using ip_address = asio::ip::address;
 using ip_tcp = asio::ip::tcp;
+using strand_ioc = asio::strand<asio::io_context::executor_type>;
 using tcp_acceptor = asio::ip::tcp::acceptor;
 using tcp_endpoint = asio::ip::tcp::endpoint;
 using tcp_socket = asio::ip::tcp::socket;
@@ -39,11 +39,7 @@ class Audio {
 
 public:
   Audio(Ctx *ctx) noexcept;
-  ~Audio() noexcept {
-    io_ctx.stop();
-
-    if (thread.joinable()) thread.join();
-  }
+  ~Audio() noexcept {}
 
   Port port() noexcept { return acceptor.local_endpoint().port(); }
 
@@ -70,17 +66,17 @@ private:
 
 private:
   // order dependent
-  asio::io_context io_ctx;
   Ctx *ctx;
+  strand_ioc strand;
   asio::streambuf streambuf;
   tcp_acceptor acceptor;
   tcp_socket sock;
 
   // order independent
-  std::jthread thread;
   std::ptrdiff_t packet_len{0};
 
-  static constexpr csv module_id{"rtsp.audio"};
+public:
+  MOD_ID("rtsp.audio");
 };
 
 } // namespace rtsp

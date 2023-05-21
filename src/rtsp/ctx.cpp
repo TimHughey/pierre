@@ -93,6 +93,10 @@ Ctx::~Ctx() noexcept {
   if (thread.joinable()) thread.join();
 }
 
+void Ctx::audio_handoff(uint8v &&raw_audio) noexcept {
+  desk->handoff(std::forward<decltype(raw_audio)>(raw_audio), shared_key);
+}
+
 void Ctx::feedback_msg() noexcept {}
 
 void Ctx::force_close() noexcept {
@@ -195,7 +199,7 @@ void Ctx::set_live() noexcept {
 }
 
 void Ctx::teardown() noexcept {
-  static constexpr csv fn_id{"teardown"};
+  INFO_AUTO_CAT("teardowm");
 
   // only start the teardown if not already in progress
   if (std::exchange(teardown_in_progress, true) == false) {
@@ -207,7 +211,7 @@ void Ctx::teardown() noexcept {
     sock.shutdown(tcp_socket::shutdown_both, ec);
     sock.close(ec);
 
-    if (ec) INFO_AUTO("failed to shutdown / close socket, reason={}\n", ec.what());
+    if (ec) INFO_AUTO("failed to shutdown / close socket, reason={}", ec.what());
 
     group_contains_group_leader = false;
 
@@ -215,7 +219,7 @@ void Ctx::teardown() noexcept {
     control_srv.reset();
     event_srv.reset();
 
-    INFO_AUTO("completed {}\n", *this);
+    INFO_AUTO("completed {}", *this);
   }
 }
 

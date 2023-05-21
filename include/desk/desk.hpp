@@ -54,7 +54,6 @@ class Desk {
 public:
   using frame_timer = asio::steady_timer;
   using loop_clock = frame_timer::clock_type;
-  // using loop_expiry = frame_timer::time_point;
 
   struct frame_rr {
     frame_rr(Frame &&f) noexcept : f(std::move(f)) {}
@@ -100,7 +99,7 @@ public:
 private:
   bool frame_render(frame_rr &frr) noexcept;
 
-  bool fx_finished() const noexcept;
+  // bool fx_finished() const noexcept;
   void fx_select(Frame &frame) noexcept;
 
   void loop() noexcept;

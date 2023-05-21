@@ -125,7 +125,7 @@ bool Desk::frame_render(frame_rr &frr) noexcept {
 
   INFO_AUTO("{}", frr());
 
-  if (fx_finished()) fx_select(frr());
+  fx_select(frr());
 
   frr.stop = shutdown_if_all_stop();
 
@@ -145,35 +145,38 @@ bool Desk::frame_render(frame_rr &frr) noexcept {
   return frr.stop;
 }
 
-bool Desk::fx_finished() const noexcept { return (bool)active_fx ? active_fx->completed() : true; }
+// bool Desk::fx_finished() const noexcept { return (bool)active_fx ? active_fx->completed() : true;
+// }
 
 void Desk::fx_select(Frame &frame) noexcept {
   namespace fx = desk::fx;
   INFO_AUTO_CAT("fx_select");
 
-  // cache multiple use frame info
-  const auto silent = frame.silent();
+  if (!(bool)active_fx || active_fx->completed()) {
+    // cache multiple use frame info
+    const auto silent = frame.silent();
 
-  const auto fx_now = active_fx ? active_fx->name() : fx::NONE;
-  const auto fx_next = active_fx ? active_fx->suggested_fx_next() : fx::STANDBY;
+    const auto fx_now = active_fx ? active_fx->name() : fx::NONE;
+    const auto fx_next = active_fx ? active_fx->suggested_fx_next() : fx::STANDBY;
 
-  // when fx::Standby is finished initiate standby()
-  if (fx_now == fx::NONE) { // default to Standby
-    active_fx = std::make_unique<desk::Standby>(render_strand);
-  } else if (silent && (fx_next == fx::STANDBY)) {
-    active_fx = std::make_unique<desk::Standby>(render_strand);
+    // when fx::Standby is finished initiate standby()
+    if (fx_now == fx::NONE) { // default to Standby
+      active_fx = std::make_unique<desk::Standby>(render_strand);
+    } else if (silent && (fx_next == fx::STANDBY)) {
+      active_fx = std::make_unique<desk::Standby>(render_strand);
 
-  } else if (!silent && (frame.can_render())) {
-    active_fx = std::make_unique<desk::MajorPeak>(render_strand);
+    } else if (!silent && (frame.can_render())) {
+      active_fx = std::make_unique<desk::MajorPeak>(render_strand);
 
-  } else if (silent && (fx_next == fx::ALL_STOP)) {
-    active_fx = std::make_unique<desk::AllStop>(render_strand);
-  } else {
-    active_fx = std::make_unique<desk::Standby>(render_strand);
+    } else if (silent && (fx_next == fx::ALL_STOP)) {
+      active_fx = std::make_unique<desk::AllStop>(render_strand);
+    } else {
+      active_fx = std::make_unique<desk::Standby>(render_strand);
+    }
+
+    // note in log selected FX, if needed
+    if (!active_fx->match_name(fx_now)) INFO_AUTO("FX {} -> {}\n", fx_now, active_fx->name());
   }
-
-  // note in log selected FX, if needed
-  if (!active_fx->match_name(fx_now)) INFO_AUTO("FX {} -> {}\n", fx_now, active_fx->name());
 }
 
 void Desk::handoff(uint8v &&packet, const uint8v &key) noexcept {

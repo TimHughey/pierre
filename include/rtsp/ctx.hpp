@@ -93,6 +93,8 @@ public:
 
   ~Ctx() noexcept; // must be in .cpp due to incomplete types
 
+  void audio_handoff(uint8v &&raw_audio) noexcept;
+
   static auto create(auto &&peer, Rtsp *rtsp, Desk *desk) noexcept {
     return std::make_unique<Ctx>(std::forward<decltype(peer)>(peer), rtsp, desk);
   }
