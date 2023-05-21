@@ -122,6 +122,8 @@ private:
     return l;
   }
 
+  ssize_t record_size() noexcept;
+
 private:
   // order dependent
   // std::unique_ptr<sema_t> sema;

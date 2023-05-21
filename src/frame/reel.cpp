@@ -18,6 +18,7 @@
 
 #include "frame/reel.hpp"
 #include "base/logger.hpp"
+#include "base/stats.hpp"
 #include "frame/anchor.hpp"
 #include "frame/flusher.hpp"
 #include "frame/master_clock.hpp"
@@ -55,6 +56,8 @@ Reel::clean_results Reel::clean() noexcept {
       remain = std::ssize(frames);
       INFO_AUTO("erased={} remain={}", erased, remain);
       cached_size->store(remain);
+
+      record_size();
     }
 
     l.unlock();
@@ -89,6 +92,7 @@ ssize_t Reel::flush(Flusher &flusher) noexcept {
     });
 
     cached_size->store(std::ssize(frames));
+    record_size();
   }
 
   l.unlock();
@@ -132,15 +136,6 @@ void Reel::frame_next(AnchorLast ancl, Flusher &flusher, Frame &frame) noexcept 
   l.unlock();
 }
 
-void Reel::reset(kind_t k) noexcept {
-  auto l = lock();
-
-  serial = next_sn();
-  frames = frame_container();
-  cached_size->store(0);
-  kind = k;
-}
-
 void Reel::push_back(Frame &&frame) noexcept {
   INFO_AUTO_CAT("push_back");
 
@@ -152,6 +147,26 @@ void Reel::push_back(Frame &&frame) noexcept {
   l.unlock();
 
   std::atomic_fetch_add(cached_size.get(), 1);
+
+  record_size();
+}
+
+ssize_t Reel::record_size() noexcept {
+
+  Stats::write(stats::FRAMES_AVAIL, cached_size->load());
+
+  return cached_size->load();
+}
+
+void Reel::reset(kind_t k) noexcept {
+  auto l = lock();
+
+  serial = next_sn();
+  frames = frame_container();
+  cached_size->store(0);
+  kind = k;
+
+  record_size();
 }
 
 } // namespace pierre

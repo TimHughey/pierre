@@ -96,11 +96,7 @@ template <> struct fmt::formatter<pierre::AnchorData> : formatter<std::string> {
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext> auto format(AnchorData &ad, FormatContext &ctx) const {
-    std::string msg;
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "ANC_DATA clk_id=0x{:02x} ", ad.clock_id);
-    fmt::format_to(w, "rtp_time={:08x} ", ad.rtp_time);
+    auto msg = fmt::format("clk_id=0x{:02x} rtp_time={:08x}", ad.clock_id, ad.rtp_time);
 
     return formatter<std::string>::format(msg, ctx);
   }
