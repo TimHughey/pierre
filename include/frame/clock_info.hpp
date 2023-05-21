@@ -48,8 +48,6 @@ struct PeerInfo {
   bool port_matching_override{false};
 };
 
-using Peers = std::vector<string>;
-using PeerList = std::vector<PeerInfo>;
 using MasterIP = std::string;
 
 struct ClockInfo {

@@ -41,7 +41,6 @@
 #include <fmt/chrono.h>
 #include <fmt/std.h>
 #include <functional>
-#include <set>
 #include <thread>
 
 namespace pierre {
@@ -269,8 +268,8 @@ void Desk::resume() noexcept {
   }
 }
 
-void Desk::set_rendering(bool enable) noexcept {
-  INFO_AUTO_CAT("set_rendering");
+void Desk::rendering(bool enable) noexcept {
+  INFO_AUTO_CAT("rendering");
 
   auto prev = render_flag.test();
 
@@ -280,7 +279,7 @@ void Desk::set_rendering(bool enable) noexcept {
     render_flag.clear();
   }
 
-  INFO_AUTO("render_flag={} prev={} enable={}", render_flag.test(), prev, enable);
+  INFO_AUTO("flag={} prev={} enable={}", render_flag.test(), prev, enable);
 }
 
 bool Desk::shutdown_if_all_stop() noexcept {

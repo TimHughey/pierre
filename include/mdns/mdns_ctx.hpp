@@ -67,14 +67,15 @@ private:
 
   // avahi callbacks
   static void cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol protocol,
-                        AvahiBrowserEvent event, ccs name, ccs type, ccs domain,
-                        AvahiLookupResultFlags flags, void *d);
+                        AvahiBrowserEvent event, const char *name, const char *type,
+                        const char *domain, AvahiLookupResultFlags flags, void *d);
   static void cb_client(AvahiClient *client, AvahiClientState state, void *d);
   static void cb_entry_group(AvahiEntryGroup *group, AvahiEntryGroupState state, void *d);
   static void cb_resolve(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
-                         AvahiResolverEvent event, ccs name, ccs type, ccs domain, ccs host_name,
-                         const AvahiAddress *address, uint16_t port, AvahiStringList *txt,
-                         AvahiLookupResultFlags flags, void *d);
+                         AvahiResolverEvent event, const char *name, const char *type,
+                         const char *domain, const char *host_name, const AvahiAddress *address,
+                         uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags,
+                         void *d);
 
   template <typename T> static string error_string(T t) {
     using U = std::remove_pointer<T>::type;
@@ -86,7 +87,7 @@ private:
     } else if constexpr (std::is_same_v<U, AvahiEntryGroup>) {
       return error_string(avahi_entry_group_get_client(t));
     } else {
-      static_assert(always_false_v<U>, "unhandled Avahi type");
+      static_assert(AlwaysFalse<T>, "unhandled Avahi type");
     }
   }
 

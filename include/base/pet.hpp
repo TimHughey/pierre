@@ -43,7 +43,7 @@ struct pet {
     } else if constexpr (std::convertible_to<FROM, TO>) {
       return std::chrono::duration_cast<TO>(x);
     } else {
-      static_assert(true, "unhandled type");
+      static_assert(AlwaysFalse<TO>, "unhandled type");
       return TO(0);
     }
   }
@@ -89,10 +89,10 @@ struct pet {
       } else if constexpr (std::is_convertible_v<T, BASE>) {
         return as<AS, BASE>(BASE(val));
       } else {
-        static_assert(always_false_v<T>, "val must be integral or floating point");
+        static_assert(AlwaysFalse<AS>, "val must be integral or floating point");
       }
     } else {
-      static_assert(always_false_v<T>, "AS and BASE must be chrono durations");
+      static_assert(AlwaysFalse<BASE>, "AS and BASE must be chrono durations");
     }
   }
 

@@ -99,7 +99,7 @@ public:
     } else if constexpr (std::same_as<T, string>) {
       return fmt::format("0x{:>04x}", serial);
     } else {
-      static_assert(always_false_v<T>, "unhandled reel serial num type");
+      static_assert(AlwaysFalse<T>, "unhandled reel serial num type");
       return 0;
     }
   }

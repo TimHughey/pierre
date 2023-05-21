@@ -111,7 +111,7 @@ Ctx::~Ctx() noexcept {
 }
 
 void Ctx::advertise() noexcept {
-  static constexpr csv fn_id{"advertise"};
+  INFO_AUTO_CAT("advertise");
 
   if (client_running.load() != true) {
     INFO_AUTO("waiting for client to start\n");
@@ -131,19 +131,19 @@ void Ctx::advertise() noexcept {
 
     for (const auto stype : std::array{txt_type::AirPlayTCP, txt_type::RaopTCP}) {
       constexpr AvahiPublishFlags flags = static_cast<AvahiPublishFlags>(0);
-      constexpr ccs DEFAULT_HOST{nullptr};
-      constexpr ccs DEFAULT_DOMAIN{nullptr};
+      constexpr const char *DEFAULT_HOST{nullptr};
+      constexpr const char *DEFAULT_DOMAIN{nullptr};
 
       const auto [reg_type, name] = service->name_and_reg(stype);
 
-      std::vector<ccs> ccs_ptrs;
+      std::vector<const char *> str_ptrs;
       auto entries = service->make_txt_entries(stype); // must remain in scope
 
       for (const auto &entry : entries) {
-        ccs_ptrs.emplace_back(entry.c_str());
+        str_ptrs.emplace_back(entry.c_str());
       }
 
-      auto sl = avahi_string_list_new_from_array(ccs_ptrs.data(), ccs_ptrs.size());
+      auto sl = avahi_string_list_new_from_array(str_ptrs.data(), str_ptrs.size());
       auto rc = avahi_entry_group_add_service_strlst(
           entry_group.value(), AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, flags, name.data(),
           reg_type.data(), DEFAULT_HOST, DEFAULT_DOMAIN, receiver_port, sl);
@@ -163,7 +163,7 @@ void Ctx::advertise() noexcept {
 }
 
 void Ctx::all_for_now(bool next_val) noexcept {
-  constexpr auto fn_id{"all_for_now"sv};
+  INFO_AUTO_CAT("all_for_now");
 
   auto prev = std::atomic_exchange(&all_for_now_state, next_val);
 
@@ -171,7 +171,7 @@ void Ctx::all_for_now(bool next_val) noexcept {
 }
 
 void Ctx::browse(csv stype) noexcept {
-  static constexpr csv fn_id{"browse"};
+  INFO_AUTO_CAT("browse");
   auto *self = this;
 
   auto sb = avahi_service_browser_new(client,              // client
@@ -207,7 +207,7 @@ void Ctx::browse_remove(const string name) noexcept {
 }
 
 void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data) {
-  static constexpr csv fn_id{"cb_client"};
+  INFO_AUTO_CAT("cb_client");
 
   auto ctx = static_cast<Ctx *>(user_data);
 
@@ -275,10 +275,11 @@ void Ctx::cb_client(AvahiClient *client, AvahiClientState state, void *user_data
 
 // called when a service becomes available or is removed from the network
 void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol protocol,
-                    AvahiBrowserEvent event, ccs name, ccs type, ccs domain, AvahiLookupResultFlags,
+                    AvahiBrowserEvent event, const char *name, const char *type, const char *domain,
+                    AvahiLookupResultFlags,
                     void *user_data) { // static
 
-  constexpr auto fn_id{"cb_browse"sv};
+  INFO_AUTO_CAT("cb_browse");
 
   auto ctx = static_cast<Ctx *>(user_data);
 
@@ -326,7 +327,7 @@ void Ctx::cb_browse(AvahiServiceBrowser *b, AvahiIfIndex iface, AvahiProtocol pr
 }
 
 void Ctx::cb_entry_group(AvahiEntryGroup *group, AvahiEntryGroupState state, void *user_data) {
-  static constexpr csv fn_id{"cb_evt_grp"};
+  INFO_AUTO_CAT("cb_evt_grp");
 
   auto ctx = static_cast<mdns::Ctx *>(user_data);
   auto &entry_group = ctx->entry_group;
@@ -369,10 +370,10 @@ void Ctx::cb_entry_group(AvahiEntryGroup *group, AvahiEntryGroupState state, voi
 }
 
 void Ctx::cb_resolve(AvahiServiceResolver *r, AvahiIfIndex, AvahiProtocol protocol,
-                     AvahiResolverEvent event, ccs name, ccs type, ccs domain, ccs host_name,
-                     const AvahiAddress *address, uint16_t port, AvahiStringList *txt,
-                     AvahiLookupResultFlags, void *user_data) {
-  static constexpr csv fn_id{"resolve"};
+                     AvahiResolverEvent event, const char *name, const char *type,
+                     const char *domain, const char *host_name, const AvahiAddress *address,
+                     uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags, void *user_data) {
+  INFO_AUTO_CAT("resolve");
   auto ctx = static_cast<Ctx *>(user_data);
 
   switch (event) {
@@ -426,7 +427,7 @@ zc::TxtList Ctx::make_txt_list(AvahiStringList *txt) noexcept { // static
 }
 
 void Ctx::resolved(const ZeroConf::Details zcd) noexcept {
-  static constexpr csv fn_id{"resolved"};
+  INFO_AUTO_CAT("resolved");
   auto [zc_it, inserted] = zcs_map.try_emplace(zcd.name_net, ZeroConf(zcd));
   const auto &zc = zc_it->second;
 
@@ -439,7 +440,7 @@ void Ctx::resolved(const ZeroConf::Details zcd) noexcept {
 }
 
 void Ctx::update() noexcept {
-  static constexpr csv fn_id{"update"};
+  INFO_AUTO_CAT("update");
   const auto entries = service->key_val_for_type(txt_type::AirPlayTCP);
   const auto [type, name] = service->name_and_reg(txt_type::AirPlayTCP);
 
@@ -474,7 +475,7 @@ void Ctx::update() noexcept {
 }
 
 ZeroConfFut Ctx::zservice(csv name) noexcept {
-  static constexpr csv fn_id{"zservice"};
+  INFO_AUTO_CAT("zservice");
 
   ZeroConfProm prom;
   ZeroConfFut fut{prom.get_future()}; // get the

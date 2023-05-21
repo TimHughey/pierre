@@ -100,7 +100,7 @@ public:
     } else if constexpr (std::same_as<C, size_t>) {
       return (T *)(data() + (sizeof(T) * offset));
     } else {
-      static_assert(always_false_v<C>, "unsupported offset");
+      static_assert(AlwaysFalse<T>, "unsupported offset");
       return (T *)data();
     }
   }
@@ -111,7 +111,7 @@ public:
     } else if constexpr (std::unsigned_integral<T>) {
       return std::size(*this);
     } else {
-      static_assert(always_false_v<T>, "unsupported size type");
+      static_assert(AlwaysFalse<T>, "unsupported size type");
       return size();
     }
   }

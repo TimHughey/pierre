@@ -44,7 +44,7 @@ public:
   const IpAddrs &ip_addresses() const noexcept { return ip_addrs; }
 
   // without 0x prefix
-  ccs serial_num() const noexcept { return serial.c_str(); }
+  auto serial_num() const noexcept { return serial.c_str(); }
 
 private:
   void discover_ip_addrs();

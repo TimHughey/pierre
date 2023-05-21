@@ -52,7 +52,7 @@ struct InputInfo {
     } else if constexpr (IsDuration<T>) {
       return std::chrono::duration_cast<Nanos>(v) / lead_time;
     } else {
-      static_assert(true, "unhandled type");
+      static_assert(AlwaysFalse<T>, "unhandled type");
     }
   }
 };

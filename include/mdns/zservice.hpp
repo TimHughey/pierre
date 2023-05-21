@@ -39,10 +39,10 @@ using TxtList = std::vector<Txt>;
 
 class Txt {
 public:
-  Txt(ccs key_ccs, ccs val_ccs) : key_string(key_ccs) {
-    string val(val_ccs);
+  Txt(const char *key, const char *val) : key_string(key) {
+    string val_str(val);
 
-    if (std::ranges::all_of(val.begin(), val.end(),
+    if (std::ranges::all_of(val_str.begin(), val_str.end(),
                             [](char c) { return (c >= '0') && (c <= '9'); })) {
       is_number = true;
       val_any.emplace<uint32_t>(std::stol(val));
@@ -66,13 +66,13 @@ private:
 class ZeroConf {
 public:
   struct Details {
-    ccs domain;
-    ccs hostname;
-    ccs name_net;
-    ccs address;
-    ccs type;
+    const char *domain;
+    const char *hostname;
+    const char *name_net;
+    const char *address;
+    const char *type;
     uint16_t port;
-    ccs protocol;
+    const char *protocol;
     zc::TxtList txt_list;
   };
 

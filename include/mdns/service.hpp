@@ -108,7 +108,7 @@ public:
         throw(std::runtime_error("not an integral type"));
       }
     } else {
-      static_assert(always_false_v<T>, "unhandled type");
+      static_assert(AlwaysFalse<T>, "unhandled type");
     }
   }
 

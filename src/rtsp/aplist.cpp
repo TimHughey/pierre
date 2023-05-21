@@ -221,7 +221,8 @@ void Aplist::setArray(csv key, const Aplist &dict) {
 }
 
 // add array of strings with key node_name to the dict at key path
-bool Aplist::setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings) {
+bool Aplist::setArray(const char *sub_dict_key, const char *key,
+                      const ArrayStrings &array_strings) {
   // create and save nodes from the bottom up
   // first create the array since it's the deepest node
   auto array = plist_new_array();
@@ -258,7 +259,7 @@ void Aplist::setReal(csv key, double val) {
 }
 
 // set a string at a sub_dict_key and ket
-bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
+bool Aplist::setStringVal(const char *sub_dict_key, const char *key, const string &str_val) {
   auto sub_dict = _plist;
 
   if (sub_dict_key) sub_dict = getItem(sub_dict_key); // get the EXISTING sub dictionary
@@ -277,12 +278,12 @@ bool Aplist::setStringVal(ccs sub_dict_key, ccs key, csr str_val) {
   throw(std::runtime_error(msg));
 }
 
-void Aplist::setString(csv key, csr str_val) {
+void Aplist::setString(csv key, const string &str_val) {
   plist_dict_set_item(_plist, key.data(), plist_new_string(str_val.c_str()));
 }
 
 // set a string at a sub_dict_key and ket
-bool Aplist::setUint(ccs sub_dict_key, ccs key, uint64_t uint_val) {
+bool Aplist::setUint(const char *sub_dict_key, const char *key, uint64_t uint_val) {
   auto sub_dict = _plist;
 
   // get the EXISTING sub dictionary, if requested

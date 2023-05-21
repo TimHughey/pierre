@@ -86,7 +86,7 @@ public:
       } else if constexpr (std::is_same_v<T, string>) {
         return string(v);
       } else {
-        static_assert(always_false_v<T>, "unhandled type");
+        static_assert(AlwaysFalse<T>, "unhandled type");
       }
     };
 
@@ -137,7 +137,7 @@ public:
         throw(std::runtime_error("not an integral type"));
       }
     } else {
-      static_assert(always_false_v<T>, "unhandled type");
+      static_assert(AlwaysFalse<T>, "unhandled type");
     }
   }
 

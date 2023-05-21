@@ -42,7 +42,7 @@ public:
   using ArrayStrings = std::vector<string>;
   using ArrayDicts = std::vector<Aplist>;
   using ConstArrayDicts = std::vector<const Aplist &>;
-  using Dictionaries = std::vector<ccs>;
+  using Dictionaries = std::vector<const char *>;
   using KeyList = std::vector<string_view>;
   using Steps = std::vector<string_view>;
   using UintList = std::vector<KeyUint>;
@@ -64,7 +64,7 @@ public:
 
     _plist = ap._plist;
     ap._plist = nullptr;
-    }
+  }
 
   /// @brief Create Aplist from a vector of chars
   /// @param xml Vector of char data
@@ -125,21 +125,21 @@ public:
 
   void setArray(csv key, const ArrayStrings &array);
   void setArray(csv key, const Aplist &dict);
-  bool setArray(ccs sub_dict_key, ccs key, const ArrayStrings &array_strings);
+  bool setArray(const char *sub_dict_key, const char *key, const ArrayStrings &array_strings);
 
   void setData(csv key, const string &d) noexcept;
 
   void setReal(csv key, double val);
-  void setString(csv key, csr str_val);
+  void setString(csv key, const string &str_val);
 
   // NEW!
-  bool setStringVal(ccs sub_dict_key, std::pair<string, string> key_val) noexcept {
+  bool setStringVal(const char *sub_dict_key, std::pair<string, string> key_val) noexcept {
     return setStringVal(sub_dict_key, key_val.first.data(), key_val.second);
   }
 
-  bool setStringVal(ccs sub_dict_key, ccs key, csr str_val);
+  bool setStringVal(const char *sub_dict_key, const char *key, const string &str_val);
   bool setUint(csv key, uint64_t val) { return setUint(nullptr, key.data(), val); }
-  bool setUint(ccs sub_dict, ccs key, uint64_t val);
+  bool setUint(const char *sub_dict, const char *key, uint64_t val);
 
   bool setUint(std::pair<csv, uint64_t> key_val) {
     return setUint(nullptr, key_val.first.data(), key_val.second);

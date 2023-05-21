@@ -50,7 +50,7 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
   const auto &method = headers_in.method();
   const auto &path = headers_in.path();
 
-  INFO( fn_id, "method={} path={}\n", method, path);
+  INFO(fn_id, "method={} path={}\n", method, path);
 
   // all replies must include CSeq and Server headers, copy/add them now
   headers_out.copy(hdr_type::CSeq, headers_in);
@@ -165,7 +165,7 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
     // any TEARDOWN request (with streams key or not) always clears the shared key and
     // informs Racked rendering should stop
     ctx->shared_key.clear();
-    ctx->desk->set_rendering(false);
+    ctx->desk->rendering(false);
 
     // when the streams key is not present this is a complete disconnect
     if (request_dict.exists(STREAMS) == false) {
@@ -195,7 +195,7 @@ void Reply::build(Ctx *ctx, const Headers &headers_in, const uint8v &content_in)
     error = fmt::format("method={} path={} not implemented", method.empty() ? "<empty>" : method,
                         path.empty() ? "<empty>" : path);
 
-    INFO( fn_id, "{}\n", error);
+    INFO(fn_id, "{}\n", error);
   }
 
   auto w = std::back_inserter(wire);

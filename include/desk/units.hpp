@@ -67,7 +67,7 @@ public:
     } else if constexpr (std::derived_from<T, Unit>) {
       return static_cast<T *>(unit);
     } else {
-      static_assert(always_false_v<T>, "unhandled type");
+      static_assert(AlwaysFalse<T>, "unhandled type");
     }
   }
 

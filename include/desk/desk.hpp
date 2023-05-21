@@ -19,8 +19,7 @@
 #pragma once
 
 #include "base/conf/token.hpp"
-#include "base/elapsed.hpp"
-#include "base/random.hpp"
+// #include "base/elapsed.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 #include "desk/fdecls.hpp"
@@ -50,13 +49,12 @@ namespace asio = boost::asio;
 
 using error_code = boost::system::error_code;
 using strand_ioc = asio::strand<asio::io_context::executor_type>;
-using mem_order = std::memory_order;
 
 class Desk {
 public:
   using frame_timer = asio::steady_timer;
   using loop_clock = frame_timer::clock_type;
-  using loop_expiry = frame_timer::time_point;
+  // using loop_expiry = frame_timer::time_point;
 
   struct frame_rr {
     frame_rr(Frame &&f) noexcept : f(std::move(f)) {}
@@ -95,7 +93,7 @@ public:
 
   void peers(const auto &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }
 
-  void set_rendering(bool enable) noexcept;
+  void rendering(bool enable) noexcept;
 
   void resume() noexcept;
 
@@ -130,7 +128,6 @@ private:
   std::vector<std::jthread> threads;
   std::unique_ptr<desk::FX> active_fx{nullptr};
   std::unique_ptr<desk::DmxCtrl> dmx_ctrl;
-  random rand_gen;
 
 public:
   MOD_ID("desk");

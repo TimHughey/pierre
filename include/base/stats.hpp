@@ -98,7 +98,7 @@ public:
       } else if constexpr (std::convertible_to<T, double>) {
         pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
       } else {
-        static_assert(true, "unhandled type");
+        static_assert(AlwaysFalse<T>, "unhandled type");
       }
 
       if (tag.first && tag.second) pt.addTag(tag.first, tag.second);

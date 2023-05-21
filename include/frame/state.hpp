@@ -109,7 +109,7 @@ public:
     } else if constexpr (std::same_as<T, now_set>) {
       return rhs.contains(lhs.val);
     } else {
-      static_assert(always_false_v<T>, "invalid comparison");
+      static_assert(AlwaysFalse<T>, "invalid comparison");
     }
   }
 

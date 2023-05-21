@@ -107,15 +107,12 @@ initiate_watch = false
 
 [logger.desk]
 flush = true
-frame_live = false
 frame_render = false
-frame_syn = false
 handoff = false
 loop = true
+rendering = true
 resume = true
-shutdown = true
-standby = true
-thread = false
+shutdown_all = true
 threads_start = false
 threads_stop = false
 
