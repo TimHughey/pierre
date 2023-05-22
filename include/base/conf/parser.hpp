@@ -26,8 +26,16 @@
 namespace pierre {
 namespace conf {
 
+/// @brief Parse the config file as specified by global cli args. The parsed
+///        file is 'merged' into the provided container reference.
+///        Parse error messages are placed into the specified container.
+/// @tparam Msgs container type to accept error messages
+/// @tparam Table container type (e.g. toml::table)
+/// @param tt_dest reference to the container for the parsed config
+/// @param msgs container of error messages (if any). container is cleared
+///             upon entry.
+/// @return boolean indicating success or failure
 template <typename Table, typename Msgs> inline bool parse(Table &tt_dest, Msgs &msgs) noexcept {
-
   msgs[Parser].clear();
 
   auto pt_result = toml::parse_file(fixed::cfg_file());

@@ -60,15 +60,11 @@ bool token::latest() noexcept {
 token *token::acquire_watch_token(csv mid) noexcept { return watch::self->make_token(mid); }
 
 void token::initiate_watch() noexcept {
-  if (watcher) {
-    watcher->initiate_watch(*this);
-  }
+  if (watcher) watcher->initiate_watch(*this);
 }
 
 void token::release() const noexcept {
-  if (watcher != nullptr) {
-    watcher->release_token(this);
-  }
+  if (watcher != nullptr) watcher->release_token(this);
 }
 
 } // namespace conf
