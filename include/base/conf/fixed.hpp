@@ -25,20 +25,58 @@
 namespace pierre {
 namespace conf {
 
+/// @brief Helper class for access to global cli args, build and
+///        runtime configuration.
+///
+///        **NOTE** Information only available after creation of cli_args static class
 struct fixed {
 
   using fs_path = std::filesystem::path;
 
+  /// @brief Appliation data directory (e.g. /usr/share/pierre)
+  /// @return modifiable copy of std::filesystem::path
   static fs_path app_data_dir() noexcept;
+
+  /// @brief Application name from CMakeList project definition (e.g. pierre)
+  /// @return constant string view
   static csv app_name() noexcept;
+
+  /// @brief Full path and filename of the configuration file as determined
+  ///        based on cli args (or default).
+  /// @return modifiable string copy
+  ///         string is returned based on downstream usage
   static string cfg_file() noexcept;
+
+  /// @brief Should this invocatio of the application run as a daemon
+  /// @return boolean
   static bool daemon() noexcept;
+
+  /// @brief Directory of executables determined at runtime
+  /// @return modifiable copy of std::filesystem::path
   static fs_path exec_dir() noexcept;
+
+  /// @brief Should a running application be forcible restarted?
+  /// @return boolean
   static bool force_restart() noexcept;
+
+  /// @brief Git describe as determined at build time
+  /// @return string
   static string git() noexcept;
+
+  /// @brief Install prefix determined at build time by cmake
+  /// @return modifiable copy of std::filesystem::path
   static fs_path install_prefix() noexcept;
+
+  /// @brief Log file path detemined using cli args or build default
+  /// @return modifiable std::filesystem::path
   static fs_path log_file() noexcept;
+
+  /// @brief Parent directory of the invoked application
+  /// @return modifiable std::filesystem::path
   static fs_path parent_dir() noexcept;
+
+  /// @brief Full path of pid file (e.g. /run/pierre/pierre.pid) determined
+  /// @return modifiable std::filesystem::path
   static fs_path pid_file() noexcept;
 };
 

@@ -104,11 +104,11 @@ public:
       timeout_table.for_each([&sum_ms](const toml::key &key, const toml::value<int64_t> &val) {
         const int64_t v = val.get();
 
-        if (key == "minutes"sv) {
+        if ((key == "minutes"sv) || (key == "min"sv)) {
           sum_ms += Minutes{v};
-        } else if (key == "seconds"sv) {
+        } else if ((key == "seconds"sv) || (key == "secs"sv)) {
           sum_ms += Seconds{v};
-        } else if (key == "millis"sv) {
+        } else if ((key == "millis"sv) || (key == "ms"sv)) {
           sum_ms += Millis{v};
         }
       });
