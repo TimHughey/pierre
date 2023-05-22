@@ -45,38 +45,61 @@ class Stats;
 
 extern std::unique_ptr<Stats> _stats;
 
+/// @brief Write metrics to the timeseries database
+///        serialized and thread safe. This class is
+///        intended to be a singleton.
 class Stats {
 
 private:
-  static constexpr csv def_db_uri{"http://localhost:8086?db=pierre"};
+  static constexpr auto def_db_uri{"http://localhost:8086?db=pierre"sv};
 
-  static constexpr csv DOUBLE{"double"};
-  static constexpr csv INTEGRAL{"integral"};
-  static constexpr csv MEASURE{"STATS"};
-  static constexpr csv METRIC{"metric"};
-  static constexpr csv NANOS{"nanos"};
+  static constexpr auto DOUBLE{"double"sv};
+  static constexpr auto INTEGRAL{"integral"sv};
+  static constexpr auto MEASURE{"STATS"sv};
+  static constexpr auto METRIC{"metric"sv};
+  static constexpr auto NANOS{"nanos"sv};
 
 public:
+  /// @brief Construct the Stats object.
+  ///        Do not call this directly, use create
+  /// @param app_io_ctx io_context for serialization
   Stats(asio::io_context &app_io_ctx) noexcept;
   ~Stats() = default;
 
+  /// @brief Static member function to create the Stats singleton
+  /// @param app_io_ctx io_context for serialization
+  /// @return raw pointer to Stats singleton
   static auto create(asio::io_context &app_io_ctx) noexcept {
     _stats = std::make_unique<Stats>(app_io_ctx);
 
     return _stats.get();
   }
 
+  /// @brief Static member function to initiate shutdown
   static void shutdown() noexcept {
-    if (_stats && _stats->db) _stats->db->flushBatch();
+    if ((bool)_stats && _stats->db) _stats->db->flushBatch();
   }
 
+  /// @brief Write a metric to the timeseries db. All writes are serialized
+  ///        and thread safe. The actual timeseries data point is created
+  ///        prior to submission to the writer thread implying overhead
+  ///        for the caller.
+  /// @tparam T type of the value to write.
+  ///         Supported types:
+  ///         1) std::chrono::duration (converted to integral nanos),
+  ///         2) bool (converted to integral 0 or 1),
+  ///         3) signed and unsigned integrals (converted to signed)
+  ///         4) floating point (converted to double)
+  /// @param vt enumerated metric (see stats/vals.hpp)
+  /// @param v metric val (from supported list of types)
+  /// @param tag optional metric tag
   template <typename T>
   static void write(stats::stats_v vt, T v,
                     std::pair<const char *, const char *> tag = {nullptr, nullptr}) noexcept {
 
     if (auto s = _stats.get(); (s != nullptr) && s->db && s->enabled()) {
 
-      // enabling stats does incur some overhead, primarily the creation of the data point
+      // enabling stats incusr some overhead on the caller -- creation of the data point
       // and the call to asio::post
       auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC.data(), s->val_txt[vt].data());
 

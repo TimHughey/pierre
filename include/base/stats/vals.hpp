@@ -22,6 +22,7 @@
 namespace pierre {
 namespace stats {
 
+/// @brief Enumeration of available stats metrics
 enum stats_v {
   FRAMES_AVAIL,
   DATA_CONNECT_ELAPSED,

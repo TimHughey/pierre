@@ -26,6 +26,9 @@
 namespace pierre {
 namespace stats {
 
+/// @brief Creates the stats val to human readable timeseries db metric
+///        this free function is only called by Stats
+/// @return map of val to text
 inline std::map<stats::stats_v, string> make_map() noexcept {
 
   return std::map<stats::stats_v, string>{
