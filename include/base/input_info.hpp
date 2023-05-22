@@ -22,30 +22,40 @@
 #include "base/qpow10.hpp"
 #include "base/types.hpp"
 
-#include <concepts>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <type_traits>
-
 namespace pierre {
 
+/// @brief Buffered audio stream details and frame timing
 struct InputInfo {
+  /// @brief audio data sample rate (in Hz)
   static constexpr uint32_t rate{44100}; // max available at the moment
+
+  /// @brief number of audio channels
   static constexpr uint8_t channels{2};
+
+  /// @brief bit depth of audio data
   static constexpr uint8_t bit_depth{16};
+
+  /// @brief bytes per audio frane
   static constexpr uint8_t bytes_per_frame{4};
 
-  static constexpr Nanos frame{static_cast<int64_t>(1e+9 / rate)};
-  static constexpr auto frames(Millis ms) { return ms / lead_time; }
+  /// @brief duration of a frame in nanoseconds
+  static constexpr Nanos frame{static_cast<int64_t>(qpow10(9) / rate)};
 
+  /// @brief Lead time for rendering a Frame in nanoseconds
   static constexpr Nanos lead_time{frame * 1024};
-  static constexpr Nanos lead_time_min{static_cast<int64_t>(lead_time.count() * 0.15)};
+
+  /// @brief Lead time for rendering a Frame in raw microseconds
   static constexpr int64_t lead_time_us{std::chrono::duration_cast<Micros>(lead_time).count()};
 
+  /// @brief Frames per second based on frame duration rounded to whole milliseconds
+  ///        For use where fractional frames are not required
   static constexpr int fps{Millis(1000).count() /
                            std::chrono::duration_cast<Millis>(lead_time).count()};
 
+  /// @brief Frames per specified duration
+  /// @tparam T duration type
+  /// @param v duration value
+  /// @return number of frames
   template <typename T> static constexpr auto frame_count(T v) noexcept {
     if constexpr (std::same_as<T, Nanos>) {
       return v / lead_time;

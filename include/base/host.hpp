@@ -29,21 +29,35 @@ using Hostname = std::string;
 using IpAddr = std::string;
 using IpAddrs = std::vector<IpAddr>;
 
-// Host Command Information
+/// @brief Local Runtime Host Details
 class Host {
 public:
+  /// @brief Create lightweight Host object
+  ///        First object created catches expensive data
   Host() noexcept;
 
-  // general API
-  csv device_id() const noexcept { return csv{id.c_str()}; }
-  csv hostname() const noexcept { return csv{name.c_str()}; }
-  csv hw_address() const noexcept { return csv{hw_addr.c_str()}; }
+  /// @brief Device id (as required for service registeration)
+  /// @return const string_view
+  auto device_id() const noexcept { return csv{id.c_str()}; }
 
-  // IP address(es) of this host
+  /// @brief Hostname
+  /// @return const string_view
+  auto hostname() const noexcept { return csv{name.c_str()}; }
+
+  /// @brief Hardware (MAC) address
+  /// @return const string_view
+  auto hw_address() const noexcept { return csv{hw_addr.c_str()}; }
+
+  /// @brief Hardwware (MAC) address bytes
+  /// @return const reference to byte container
   const HwAddrBytes &hw_address_bytes() const noexcept { return _hw_addr_bytes; }
+
+  /// @brief All ip addresses
+  /// @return const reference to container of ip address strings
   const IpAddrs &ip_addresses() const noexcept { return ip_addrs; }
 
-  // without 0x prefix
+  /// @brief Hardware (MAC) address without 0x prefix
+  /// @return pointer to null terminated 'C' string
   auto serial_num() const noexcept { return serial.c_str(); }
 
 private:
@@ -61,7 +75,7 @@ public:
   string serial;
 
 public:
-  static constexpr csv module_id{"host"};
+  MOD_ID("host");
 };
 
 } // namespace pierre

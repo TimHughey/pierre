@@ -200,8 +200,7 @@ frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
 
 void Frame::init() noexcept {
   const auto lead_time = pet::humanize(InputInfo::lead_time);
-  const auto lead_time_min = pet::humanize(InputInfo::lead_time_min);
-  INFO_INIT("sizeof={:>5} lead_time={} lead_time_min={}", sizeof(Frame), lead_time, lead_time_min);
+  INFO_INIT("sizeof={:>5} lead_time={}", sizeof(Frame), lead_time);
 }
 
 void Frame::log_decipher(int cipher_rc, ull_t consumed, const uint8v &p,
