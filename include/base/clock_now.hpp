@@ -23,6 +23,8 @@
 #include <time.h>
 
 namespace pierre {
+
+/// @brief Helper for getting various clock raw nanoseconds
 struct clock_now {
 
   static int64_t ns_raw(int clock_type) noexcept {
@@ -42,6 +44,8 @@ struct clock_now {
   };
 };
 
+/// @brief Free function to return monotonic clock raw nanoseconds
+/// @return
 inline auto clock_mono_ns() noexcept { return clock_now::mono::ns(); }
 
 } // namespace pierre

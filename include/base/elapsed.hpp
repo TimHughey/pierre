@@ -26,30 +26,62 @@
 
 namespace pierre {
 
+/// @brief Small footprint, lightweight class to measure the passage of time
+///        since object construction
 class Elapsed {
 public:
   Elapsed(void) noexcept : nanos(monotonic()), frozen(false) {}
-  constexpr operator auto() noexcept { return elapsed(); }
 
-  template <typename TO> TO as() const { return TO(elapsed()); }
+  /// @brief function object to return elapsed duration as the
+  ///        default precision
+  /// @return Nanos
+  Nanos operator()() const noexcept { return elapsed(); }
 
+  /// @brief return the elapsed duration as an explicit type
+  /// @tparam TO requested return type
+  /// @return elapsed duration as requested type
+  template <typename TO> inline constexpr TO as() const noexcept {
+    if constexpr (std::same_as<TO, Nanos>) {
+      return elapsed();
+    } else if constexpr (std::same_as<TO, millis_fp>) {
+      return std::chrono::duration_cast<millis_fp>(elapsed());
+    } else if constexpr (std::convertible_to<TO, Nanos>) {
+      return TO(elapsed());
+    } else if constexpr (std::signed_integral<TO>) {
+      return elapsed().count();
+    } else if constexpr (std::unsigned_integral<TO>) {
+      using unsigned_t = std::make_unsigned<TO>;
+      return static_cast<unsigned_t>(elapsed().count());
+    } else {
+      static_assert(AlwaysFalse<TO>, "unsupported type");
+      return 0;
+    }
+  }
+
+  /// @brief Freeze the elapsed duration
+  /// @return elapsed duration as std::chrono::nanoseconds
   constexpr const Nanos freeze() noexcept {
     nanos = elapsed();
     frozen = true;
     return nanos;
   }
 
+  /// @brief Create a humanized (e.g. 1min, 20secs) of the elapsed duration
+  /// @return const string
   const string humanize() const noexcept;
 
-  constexpr std::strong_ordering operator<=>(auto rhs) const noexcept {
-    if (elapsed() < rhs) return std::strong_ordering::less;
-    if (elapsed() > rhs) return std::strong_ordering::greater;
+  /// @brief Comparison functions
+  /// @param rhs
+  /// @return based on comparison
+  constexpr std::partial_ordering operator<=>(auto rhs) const noexcept {
+    if (elapsed() < rhs) return std::partial_ordering::less;
+    if (elapsed() > rhs) return std::partial_ordering::greater;
 
-    return std::strong_ordering::equal;
+    return std::partial_ordering::equivalent;
   }
 
-  // returns true to enable use within if statements to improve precision of elapsed time
-  // i.e.  if (elapsed.reset() && <something that waits>) {}
+  /// @brief Reset the elapsed duration
+  /// @return true (for use in if statements)
   bool reset() noexcept {
     *this = Elapsed();
     return true;

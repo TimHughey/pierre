@@ -60,7 +60,7 @@ public:
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
     if (should_log(mod_id, cat)) {
-      const auto runtime{std::chrono::duration_cast<millis_fp>(e.as<Nanos>())};
+      const millis_fp runtime{e()};
 
       const auto prefix = fmt::format(prefix_format,      //
                                       runtime,            // millis since app start
