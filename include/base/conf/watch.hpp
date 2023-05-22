@@ -41,6 +41,34 @@
 namespace pierre {
 namespace conf {
 
+/// @brief See conf::token for further details
+///
+///        conf::watch provides notification of changes to the
+///        on-disk configuration file for conf::tokens that
+///        opt-in.
+///
+///        conf::watch member functions are marked protected because
+///        it should only be used embedded with a conf::token
+///
+///        The only exception is access to parser messages during
+///        startup and before Logger is started.
+///
+///        conf::watch creates a separate thread to detect changes
+///        to the on-disk configuration file periodically and maintains a list
+///        of all conf::watch objects that are notified when a
+///        change is detected.
+///
+///        It is essential that release() is called when the owner of the
+///        conf::watch is destroyed to prevent exceptions while attempting
+///        to notify.
+///
+///        The configuration file is watched by a single inotify therefore
+///        any change to the file is notified.  How to handle notifies for
+///        configurations not changed are left to the user as an
+///        usage / implementation detail.
+///
+///        Change detection and notification are thread safe.
+
 class watch {
   friend struct fmt::formatter<watch>;
   friend class token;
@@ -55,8 +83,16 @@ public:
   watch() noexcept;
   ~watch() noexcept;
 
+protected:
+  /// @brief called once per owning object creation
+  ///        see conf::token
+  /// @param tokc conf::token to watch for configuration changes
   void initiate_watch(const token &tokc) noexcept;
 
+  /// @brief Provide the latest configuration via a future
+  ///        Unless watch is busy reading the configuration file
+  ///        the promise is immediately set a value.
+  /// @return Future consisting of the latest configuration
   std::future<toml::table> latest() noexcept {
     auto prom = std::promise<toml::table>();
     auto fut = prom.get_future();
@@ -67,9 +103,18 @@ public:
     return fut;
   }
 
+public:
+  /// @brief Return the message string for the requested id
+  /// @param id message id
+  /// @return const string reference
   const string &msg(ParseMsg id) const noexcept { return msgs[id]; }
 
-  auto schedule(Millis freq_ms = 5000ms) noexcept {
+protected:
+  /// @brief Schedule the next check of for configuration changes
+  ///        with thread safely
+  /// @param freq_ms duration until check is performed
+  /// @return std::chrono::timepoint the next check will be performed
+  auto schedule(Millis freq_ms = 1000ms) noexcept {
     const auto next_at = system_clock::now() + freq_ms;
 
     poll_timer.expires_at(next_at);
@@ -83,10 +128,25 @@ public:
   }
 
 protected:
+  /// @brief Create a conf::token with embedded watch ensuring thread safety.
+  ///
+  ///        Design note: the conf token is created, posted to the watch io_context
+  ///        and returned to the caller.  As a consequence, a minor race condition is
+  ///        possible between creation and notification for an in-progress change
+  ///        detection.
+  /// @param mid module_id (aka configuration root)
+  /// @return pointer to the newly created conf::token
   token *make_token(csv mid) noexcept;
+
+  /// @brief Sister method to release a token created by make_token
+  ///        must be called by owner object at destruction
+  ///
+  ///        Releasing a token is thread safe.
+  /// @param tokc
   void release_token(const token *tokc) noexcept;
 
 private:
+  /// @brief Internal member function to detect if a configuration change has occurred
   void check() noexcept;
 
 protected:
@@ -96,7 +156,6 @@ protected:
   f_time last_write_at;
   const string cfg_file;
   std::mutex tokens_mtx;
-  // std::unique_lock<std::mutex> lck;
 
   // order independent
   std::jthread thread;
@@ -112,7 +171,7 @@ protected:
   static watch *self;
 
 public:
-  static constexpr auto module_id{"conf.watch"sv};
+  MOD_ID("conf.watch");
 };
 
 } // namespace conf
