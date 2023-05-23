@@ -40,6 +40,7 @@ namespace desk {
 class Msg {
 public:
   static constexpr size_t default_doc_size{7 * 1024};
+  enum status_t : uint8_t { Err = 0, EndOfStatusMsgs };
 
 public:
   /// @brief [base class] Construct the Desk message base
@@ -66,6 +67,11 @@ public:
     return want_type == csv{doc[MSG_TYPE].as<const char *>()};
   }
 
+  /// @brief Status meesage access
+  /// @param st Status msg kind (e.g. Err)
+  /// @return const string reference
+  const auto &status(status_t st) const noexcept { return status_msgs[st]; }
+
   /// @brief Was there an error in the transfer?
   /// @return boolean
   bool xfer_error() const noexcept { return !xfer_ok(); }
@@ -91,6 +97,7 @@ public:
 
 protected:
   Elapsed e; // duration tracking
+  std::array<string, EndOfStatusMsgs> status_msgs;
 
 public:
   MOD_ID("desk.msg");

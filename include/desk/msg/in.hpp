@@ -19,11 +19,11 @@
 
 #pragma once
 
-#include "base/logger.hpp"
 #include "desk/msg/msg.hpp"
 
 #include <ArduinoJson.h>
 #include <algorithm>
+#include <fmt/format.h>
 #include <iterator>
 #include <memory>
 #include <ranges>
@@ -35,15 +35,22 @@ namespace desk {
 class MsgIn : public Msg {
 
 protected:
+  /// @brief Provide direct access to the buffer for subclasses
+  /// @param buffer Buffer to provide access to
+  /// @return Raw char pointer to the buffer
   auto *raw_in() noexcept { return static_cast<const char *>(storage->data().data()); }
 
 public:
+  /// @brief Desk message (in) [subclass of Msg]
   MsgIn() : Msg(512) {}
   ~MsgIn() noexcept {}
 
-  inline MsgIn(MsgIn &&) = default;
+  MsgIn(MsgIn &&) = default;
   MsgIn &operator=(MsgIn &&) = default;
 
+  /// @brief Functor for async_read
+  /// @param op_ec Error code from async_read
+  /// @param n Number of bytes read
   void operator()(const error_code &op_ec, size_t n) noexcept {
     static constexpr csv fn_id{"async_result"};
 
@@ -52,12 +59,19 @@ public:
     packed_len = n; // should we need to set this?
 
     if (!n && (ec.value() != errc::operation_canceled)) {
-      INFO_AUTO("SHORT READ  n={} err={}\n", xfr.in, ec.message());
+      status_msgs[Err] = fmt::format("SHORT READ  n={} err={}", xfr.in, ec.message());
+    } else {
+      status_msgs[Err].clear();
     }
   }
 
+  /// @brief Consume bytes from the streambuf
+  /// @param n num bytes to consume
   void consume(std::size_t n) noexcept { storage->consume(n); }
 
+  /// @brief Deserialize the availablt streambuf data
+  /// @param doc JsonDocument reference
+  /// @return boolean indicating success or failure
   auto deserialize_into(JsonDocument &doc) noexcept {
     static constexpr csv fn_id{"deserialize"};
     const auto err = deserializeMsgPack(doc, raw_in(), xfr.in);
@@ -68,8 +82,11 @@ public:
     return !err;
   }
 
+  /// @brief Bytes committed (read) into the streambuf
+  /// @return
   auto in_avail() noexcept { return storage->in_avail(); }
 
+  /// @brief Clear msg and prepare it to be reused
   void reuse() noexcept {
     packed_len = 0;
     ec = error_code();
@@ -78,7 +95,7 @@ public:
   }
 
 public:
-  static constexpr csv module_id{"desk.msg.in"};
+  MOD_ID("desk.msg.in");
 };
 
 } // namespace desk

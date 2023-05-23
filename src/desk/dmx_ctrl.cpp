@@ -33,7 +33,11 @@
 #include <boost/asio/consign.hpp>
 #include <iterator>
 #include <latch>
+#include <ranges>
 #include <utility>
+
+namespace ranges = std::ranges;
+namespace views = std::views;
 
 namespace pierre {
 namespace desk {
@@ -84,9 +88,9 @@ DmxCtrl::~DmxCtrl() noexcept {
 
   io_ctx.stop();
 
-  std::for_each(threads.begin(), threads.end(), [](auto &t) {
-    if (t.joinable()) t.join();
-  });
+  for (auto &t : views::filter(threads, &std::jthread::joinable)) {
+    t.join();
+  }
 
   tokc->release();
 }
@@ -141,10 +145,8 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   INFO_AUTO_CAT("msg_loop");
 
   async::read_msg(sess_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
-    if constexpr (StatsEnabled<DmxCtrl>) {
-      if (msg.elapsed() > 30ms) {
-        Stats::write<DmxCtrl>(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
-      }
+    if (msg.elapsed() > 30ms) {
+      Stats::write<DmxCtrl>(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
     }
 
     if (msg.xfer_ok() && sess_connected.test()) {
@@ -179,7 +181,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
       }
 
     } else {
-
+      INFO_AUTO("{}", msg.status(Msg::Err));
       Stats::write<DmxCtrl>(stats::DATA_MSG_READ_ERROR, true);
       sess_connected.clear();
 
@@ -289,6 +291,10 @@ void DmxCtrl::rev_resolve(tcp_endpoint ep) noexcept {
   INFO_AUTO_CAT("rev_resolve");
 
   resolver->async_resolve(ep, [this](const error_code &ec, resolve_results r) {
+    constexpr auto tname{"pierre_resolv"sv};
+
+    pthread_setname_np(pthread_self(), tname.data());
+
     if (ec.message() == "Success") {
       for (const auto &rr : r) {
         INFO_AUTO("host={}", rr.host_name());
@@ -324,7 +330,7 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
         // all is well, continue watching for stalls
         stall_watchdog();
       } else {
-        INFO_AUTO("{}", msg.status(MsgOut::Err));
+        INFO_AUTO("{}", msg.status(Msg::Err));
         Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ERROR, true);
         data_connected.clear();
       }

@@ -24,7 +24,6 @@
 #include "desk/unit.hpp"
 
 #include <algorithm>
-#include <concepts>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -33,31 +32,47 @@
 namespace pierre {
 namespace desk {
 
+/// @brief Rendering Unit keeper and helper
 class Units {
+  static constexpr std::initializer_list<string> empty_excludes{};
 
-private:
-  static constexpr auto empty_excludes = std::initializer_list<string>();
-
-public:
-  Units() noexcept;
-
-  void for_each(auto f, std::initializer_list<string> exclude_list = empty_excludes) noexcept {
-    std::set<string> excludes(exclude_list);
-
+  /// @brief Helper function for executing a lambda on units
+  /// @param f lambda, takes a single raw Unit pointer
+  /// @param exclude_list Unit names to skip
+  void for_each(auto f, std::set<string> excludes = empty_excludes) noexcept {
     for (auto &[name, unit] : map) {
       if (excludes.contains(name) == false) f(unit.get());
     }
   }
 
-  void dark(std::initializer_list<string> exclude_list = empty_excludes) noexcept {
-    for_each([](Unit *unit) { unit->dark(); }, exclude_list);
+public:
+  Units() noexcept;
+
+  /// @brief Set all Units, minus exclude list, to dark
+  /// @param excludes
+  void dark(std::set<string> excludes = empty_excludes) noexcept {
+    for_each([](Unit *unit) { unit->dark(); }, std::move(excludes));
   }
 
+  /// @brief Is the container of Units empty (uninitialized)
+  /// @return boolean
   bool empty() const noexcept { return map.empty(); }
 
+  /// @brief Functor to return a raw Unit (base class) pointer
+  /// @param name Name of desired Unit
+  /// @return Raw pointer to Unit (base class)
   const auto *operator()(const string &name) noexcept { return map.at(name).get(); }
 
-  template <typename T> inline auto get(const auto name) noexcept {
+  /// @brief Execute all Units prepare hook
+  void prepare() noexcept {
+    for_each([](Unit *unit) { unit->prepare(); });
+  }
+
+  /// @brief Acquire a raw pointer to a specific Unit subclass
+  /// @tparam T Desired Unit subclass
+  /// @param name Desired unit name
+  /// @return Raw pointer to the Unit subclass
+  template <typename T> auto ptr(const auto name) noexcept {
     auto unit = map[name].get();
 
     if constexpr (std::same_as<T, Unit>) {
@@ -69,12 +84,12 @@ public:
     }
   }
 
-  void prepare() noexcept {
-    for_each([](Unit *unit) { unit->prepare(); });
-  }
-
+  /// @brief Signed size of Units container
+  /// @return ssize_t
   ssize_t ssize() const noexcept { return std::ssize(map); }
 
+  /// @brief Execute all Units update msg hook
+  /// @param m DataMsg to pass to all units
   void update_msg(DataMsg &m) noexcept {
     for_each([&](Unit *unit) mutable { unit->update_msg(m); });
   }
@@ -90,7 +105,7 @@ private:
   std::map<string, std::unique_ptr<Unit>> map;
 
 public:
-  static constexpr auto module_id{"desk.units"sv};
+  MOD_ID("desk.units");
 };
 
 } // namespace desk

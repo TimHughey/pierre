@@ -24,15 +24,24 @@
 namespace pierre {
 namespace desk {
 
+/// @brief Desk render loop state
 struct frame_rr {
+  /// @brief Construct from a Frame
+  /// @param f Frame (is moved)
   frame_rr(Frame &&f) noexcept : f(std::move(f)) {}
 
   Frame f;
   bool stop{false};
 
+  /// @brief Determine if the render loop should stop
+  /// @return boolean
   bool abort() const noexcept { return stop; }
+
+  /// @brief Determine if the render loop should continue
+  /// @return
   bool ok() const noexcept { return !abort(); }
 
+  /// @brief Rendering is complete, do housekeeping
   void finish() noexcept {
     f.record_state();
     f.record_sync_wait();
@@ -42,7 +51,12 @@ struct frame_rr {
     }
   }
 
+  /// @brief Replace the Frame being rendered
+  /// @param f Frame (is moved)
   void operator()(Frame &&f) noexcept { f = std::move(f); }
+
+  /// @brief Get reference to the Frame being rendered
+  /// @return Frame reference
   Frame &operator()() noexcept { return f; }
 };
 

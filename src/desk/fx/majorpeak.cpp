@@ -49,8 +49,8 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
 
   if (peaks.audible()) silence_watch(); // reset silence timer when we have non-silent peaks
 
-  get_unit<Switch>(unit::AC_POWER)->activate();
-  get_unit<Dimmable>(unit::DISCO_BALL)->dim();
+  unit<Switch>(unit::AC_POWER)->activate();
+  unit<Dimmable>(unit::DISCO_BALL)->dim();
 
   handle_el_wire(peaks);
   handle_main_pinspot(peaks);
@@ -63,7 +63,7 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
 void MajorPeak::handle_el_wire(const Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{get_unit<Dimmable>(unit::EL_DANCE), get_unit<Dimmable>(unit::EL_ENTRY)};
+  std::array elwires{unit<Dimmable>(unit::EL_DANCE), unit<Dimmable>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
     if (const auto &peak = peaks.major_peak(); peak.useable()) {
@@ -79,7 +79,7 @@ void MajorPeak::handle_el_wire(const Peaks &peaks) {
 }
 
 void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
-  auto fill = get_unit<PinSpot>(unit::FILL_SPOT);
+  auto fill = unit<PinSpot>(unit::FILL_SPOT);
   auto cfg = pspot_cfg_map.at("fill pinspot");
 
   const auto peak = peaks.major_peak();
@@ -146,7 +146,7 @@ void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
 }
 
 void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
-  auto main = get_unit<PinSpot>(unit::MAIN_SPOT);
+  auto main = unit<PinSpot>(unit::MAIN_SPOT);
   const auto &cfg = pspot_cfg_map.at("main pinspot");
 
   const auto freq_min = cfg.freq_min;
@@ -337,11 +337,11 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
 bool MajorPeak::once() noexcept {
   tokc->initiate_watch(); // this only needs to be done once
 
-  get_unit(unit::AC_POWER)->activate();
+  unit(unit::AC_POWER)->activate();
 
-  get_unit(unit::LED_FOREST)->dark();
-  get_unit(unit::MAIN_SPOT)->dark();
-  get_unit(unit::FILL_SPOT)->dark();
+  unit(unit::LED_FOREST)->dark();
+  unit(unit::MAIN_SPOT)->dark();
+  unit(unit::FILL_SPOT)->dark();
 
   return true;
 }

@@ -75,10 +75,6 @@ public:
   /// @return boolean indicating the FX is complete
   virtual bool completed() const noexcept { return finished; }
 
-  template <typename T = Unit> inline T *get_unit(const auto name) noexcept {
-    return units->get<T>(name);
-  }
-
   /// @brief Match the FX to a single name
   /// @param n Name to match
   /// @return boolean indicating if the single name matched
@@ -108,6 +104,12 @@ public:
   /// @param frame Frame to use for silence and can render
   static void select(strand_ioc &strand, std::unique_ptr<FX> &active_fx, Frame &frame) noexcept;
 
+  /// @brief Get raw pointer to Unit subclass
+  /// @tparam T Unit subclass type
+  /// @param name Unit name
+  /// @return Raw pointer to Unit subclass
+  template <typename T = Unit> T *unit(const auto name) noexcept { return units->ptr<T>(name); }
+
 protected:
   /// @brief Execute the FX subclass for audio peaks for a single frame
   /// @param peaks The audio peaks to use for FX execution
@@ -123,6 +125,11 @@ protected:
     return std::exchange(finished, is_finished);
   }
 
+  /// @brief Adjust the silence timeout
+  /// @param tokc conf::tokc pointer (assumes token has watch)
+  /// @param silence_fx Name of FX to engage when timer expires
+  /// @param def_val Deault timeout value if not found in token
+  /// @return true if previous timeout did not match token timeout
   bool set_silence_timeout(conf::token *tokc, const string &silence_fx,
                            const auto &&def_val) noexcept {
 
@@ -131,10 +138,18 @@ protected:
     return save_silence_timeout(timeout, silence_fx);
   }
 
+  /// @brief Initiate silence watch timer
+  /// @param silence_fx Name of FX to engage when timer expires
   void silence_watch(const string silence_fx = string()) noexcept;
 
 private:
+  /// @brief Create Units (call once)
   static void ensure_units() noexcept;
+
+  /// @brief Save the timeout (likely new) and restart silence timer
+  /// @param timeout
+  /// @param silence_fx
+  /// @return
   bool save_silence_timeout(const Millis &timeout, const string &silence_fx) noexcept;
 
 protected:

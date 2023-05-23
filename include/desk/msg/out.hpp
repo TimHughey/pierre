@@ -49,9 +49,6 @@ class MsgOut : public Msg {
     val_t val;
   };
 
-public:
-  enum msg_t : uint8_t { Err = 0 };
-
 protected:
   /// @brief Provide direct access to the buffer for subclasses
   /// @param buffer Buffer to provide access to
@@ -100,9 +97,16 @@ public:
     xfr.out = n;
 
     if (!n && (ec.value() != errc::operation_canceled)) {
-      status_msgs[Err] = fmt::format("SHORT WRITE  n={} err={}", xfr.out, ec.message());
+      status_msgs[Err] = fmt::format("SHORT WRITE n={} err={}", xfr.out, ec.message());
+    } else {
+      status_msgs[Err].clear();
     }
   }
+
+  /// @brief Compare the msg type
+  /// @param lhs msg type string
+  /// @return boolean
+  bool operator==(string lhs) const noexcept { return type == lhs; }
 
   /// @brief Provide buffer for the data to send
   /// @return Buffer
@@ -136,18 +140,12 @@ public:
     commit(packed_len);
   }
 
-  /// @brief Get status meesage
-  /// @param msg_kind Kind of message
-  /// @return const string reference
-  auto const &status(auto msg_kind) const noexcept { return status_msgs[msg_kind]; }
-
-public:
+private:
   // order dependent
   string type;
 
   // order independent
   std::vector<kve> key_vals;
-  std::array<string, 2> status_msgs;
 
 public:
   MOD_ID("desk.msg.out");

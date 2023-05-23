@@ -65,8 +65,8 @@ void Standby::execute(const Peaks &peaks) noexcept {
     next_color.setBrightness(next_brightness);
   }
 
-  get_unit<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
-  get_unit<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
+  unit<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
+  unit<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
 
   if (next_brightness >= max_brightness) next_color.rotateHue(hue_step);
 
@@ -77,12 +77,12 @@ bool Standby::once() noexcept {
 
   tokc->initiate_watch();
 
-  get_unit<Switch>(unit::AC_POWER)->activate();
-  get_unit(unit::DISCO_BALL)->dark();
+  unit<Switch>(unit::AC_POWER)->activate();
+  unit(unit::DISCO_BALL)->dark();
 
-  get_unit<Dimmable>(unit::EL_DANCE)->dim();
-  get_unit<Dimmable>(unit::EL_DANCE)->dim();
-  get_unit<Dimmable>(unit::LED_FOREST)->dim();
+  unit<Dimmable>(unit::EL_DANCE)->dim();
+  unit<Dimmable>(unit::EL_DANCE)->dim();
+  unit<Dimmable>(unit::LED_FOREST)->dim();
 
   return true;
 }

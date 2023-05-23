@@ -51,4 +51,8 @@ struct clock_now {
 /// @return mono clock raw now nanoseconds
 inline auto clock_mono_ns() noexcept { return clock_now::mono::ns(); }
 
+/// @brief free function to return monotonic clock raw microseconds
+/// @return mono clock raw noe microseconds
+inline auto clock_mono_us() noexcept { return clock_now::mono::us(); }
+
 } // namespace pierre
