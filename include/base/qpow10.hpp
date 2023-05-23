@@ -18,15 +18,39 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 namespace pierre {
 
-constexpr int64_t qpow10(int n) noexcept {
-  constexpr int64_t p10[] = {1,       10,        100,        1000,        10'000,
-                             10'0000, 1'000'000, 10'000'000, 100'000'000, 1'000'000'000};
+/// @brief Raise integer to power
+/// @param base value to raise to power
+/// @param exp power
+/// @return base raised to exp
+consteval int64_t ipow(int64_t base, uint8_t exp) noexcept {
+  if (!base) return base;
+  int64_t res{1};
+  while (exp) {
+    if (exp & 1) res *= base;
+    exp /= 2;
+    base *= base;
+  }
+  return res;
+}
 
-  return p10[n];
+/// @brief Raise 10 to power
+/// @param exp exponent
+/// @return 10 raised to exponent
+consteval int64_t ipow10(uint8_t exp) noexcept { return ipow(10, exp); }
+
+/// @brief Raise 10 to the specified power via lookup table
+/// @param exp exponent, max 9
+/// @return 10 raised to exponent
+consteval int64_t qpow10(uint8_t exp) {
+  constexpr std::array p10{1,       10,        100,        1000,        10'000,
+                           10'0000, 1'000'000, 10'000'000, 100'000'000, 1'000'000'000};
+
+  return p10.at(exp);
 }
 
 } // namespace pierre

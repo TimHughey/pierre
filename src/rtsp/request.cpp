@@ -51,7 +51,8 @@ size_t Request::populate_content() noexcept {
 }
 
 void Request::record_elapsed() noexcept {
-  Stats::write(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
+
+  Stats::write<Request>(stats::RTSP_SESSION_MSG_ELAPSED, e.freeze());
 }
 
 } // namespace rtsp

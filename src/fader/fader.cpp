@@ -28,7 +28,9 @@ bool Fader::travel() {
     progress = 0.0001;
 
   } else {
-    if (auto elapsed = pet::elapsed_abs(start_at); elapsed < duration) {
+    auto elapsed = pet::elapsed_abs(start_at);
+
+    if (elapsed < duration) {
       progress = doTravel(elapsed.count(), duration.count());
     } else {
       doFinish();

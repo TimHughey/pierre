@@ -23,7 +23,8 @@ namespace pierre {
 namespace frame {
 
 const state &state::record_state() const noexcept {
-  Stats::write(pierre::stats::FRAME, 1, tag());
+
+  Stats::write<state>(pierre::stats::FRAME, 1, tag());
 
   return *this;
 }

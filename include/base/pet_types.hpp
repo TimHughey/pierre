@@ -21,9 +21,6 @@
 #include "base/types.hpp"
 
 #include <chrono>
-#include <concepts>
-#include <numeric>
-#include <type_traits>
 
 namespace pierre {
 

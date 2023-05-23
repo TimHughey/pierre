@@ -156,7 +156,7 @@ frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
     ull_t consumed{0};
     auto m = Av::make_m_buffer();
 
-    Stats::write(stats::RTSP_AUDIO_CIPHERED, std::ssize(packet));
+    Stats::write<Frame>(stats::RTSP_AUDIO_CIPHERED, std::ssize(packet));
 
     cipher_rc =                                    //
         crypto_aead_chacha20poly1305_ietf_decrypt( // -1 == failure
@@ -173,7 +173,8 @@ frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
     if ((cipher_rc >= 0) && (consumed > 0)) {
       Av::m_buffer_resize(m, consumed); // resizes m to include header + cipher data
 
-      Stats::write(stats::RTSP_AUDIO_DECIPERED, consumed);
+      Stats::write<Frame>(stats::RTSP_AUDIO_DECIPERED, consumed);
+
       state = frame::DECIPHERED;
 
     } else if (cipher_rc < 0) {
@@ -240,7 +241,7 @@ bool Frame::flush(Flusher &flusher) noexcept {
 
 void Frame::record_sync_wait() const noexcept {
   // write diffs of interest to the timeseries database
-  Stats::write(stats::SYNC_WAIT, sync_wait(), state.tag());
+  Stats::write<Frame>(stats::SYNC_WAIT, sync_wait(), state.tag());
 }
 
 frame::state Frame::state_now(AnchorLast &ancl) noexcept {

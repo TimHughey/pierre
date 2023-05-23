@@ -61,7 +61,7 @@ AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
       // to handle the master clock change, if it is stable, we update the source
       // anchor by applying it's offset to the the last localized time
       source->clock_id = clock.clock_id;
-      source->anchor_time = pet::apply_offset(last.localized, clock.rawOffset);
+      pet::apply_offset(source->anchor_time, clock.rawOffset);
     }
   }
 

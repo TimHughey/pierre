@@ -30,16 +30,12 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 
-#include <chrono>
-#include <cmath>
-#include <concepts>
-#include <map>
 #include <memory>
-#include <set>
 #include <tuple>
-#include <type_traits>
 
 namespace pierre {
+
+template <typename> constexpr bool StatsEnabled = true;
 
 class Stats;
 
@@ -49,10 +45,9 @@ extern std::unique_ptr<Stats> _stats;
 ///        serialized and thread safe. This class is
 ///        intended to be a singleton.
 class Stats {
+  using tag_t = std::pair<const char *, const char *>;
 
 private:
-  static constexpr auto def_db_uri{"http://localhost:8086?db=pierre"sv};
-
   static constexpr auto DOUBLE{"double"sv};
   static constexpr auto INTEGRAL{"integral"sv};
   static constexpr auto MEASURE{"STATS"sv};
@@ -77,7 +72,7 @@ public:
 
   /// @brief Static member function to initiate shutdown
   static void shutdown() noexcept {
-    if ((bool)_stats && _stats->db) _stats->db->flushBatch();
+    if ((bool)_stats && (bool)_stats->db) _stats->db->flushBatch();
   }
 
   /// @brief Write a metric to the timeseries db. All writes are serialized
@@ -85,76 +80,70 @@ public:
   ///        prior to submission to the writer thread implying overhead
   ///        for the caller.
   /// @tparam T type of the value to write.
-  ///         Supported types:
-  ///         1) std::chrono::duration (converted to integral nanos),
-  ///         2) bool (converted to integral 0 or 1),
-  ///         3) signed and unsigned integrals (converted to signed)
-  ///         4) floating point (converted to double)
+  ///          Supported types:
+  ///           1) std::chrono::duration (converted to integral nanos),
+  ///           2) bool (converted to integral 0 or 1),
+  ///           3) signed and unsigned integrals (converted to signed)
+  ///           4) floating point (converted to double)
   /// @param vt enumerated metric (see stats/vals.hpp)
   /// @param v metric val (from supported list of types)
   /// @param tag optional metric tag
-  template <typename T>
-  static void write(stats::stats_v vt, T v,
-                    std::pair<const char *, const char *> tag = {nullptr, nullptr}) noexcept {
+  template <typename T, typename V>
+  static void write(auto vt, V v, tag_t tag = {nullptr, nullptr}) noexcept {
 
-    if (auto s = _stats.get(); (s != nullptr) && s->db && s->enabled()) {
+    if constexpr (StatsEnabled<T>) {
+      if ((bool)_stats && (bool)_stats->db && _stats->enabled()) {
+        // enabling stats incurs some overhead on the caller -- creation of the data point
+        // and the call to asio::post
+        auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC.data(), val_txt[vt].data());
 
-      // enabling stats incusr some overhead on the caller -- creation of the data point
-      // and the call to asio::post
-      auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC.data(), s->val_txt[vt].data());
+        // convert various types (e.g. chrono durations, Frequency, Magnitude) to the
+        // correct type for influx and sets the field key to ensure each metric key
+        // is only associated to one type otherwise we violate influx data rules
 
-      // deliberately convert various types (e.g. chrono durations,
-      // Frequency, Magnitude) to the correct type for influx and sets the field key to
-      // an appropriate name to prevent different data types associated to the same key
-      // (violates influx design)
+        if constexpr (IsDuration<V>) {
+          pt.addField(NANOS, std::chrono::duration_cast<Nanos>(v).count());
+        } else if constexpr (std::same_as<V, bool>) {
+          pt.addField(INTEGRAL, v);
+        } else if constexpr (std::unsigned_integral<V>) {
+          using Signed = std::make_signed<V>::type;
+          pt.addField(INTEGRAL, static_cast<Signed>(v));
+        } else if constexpr (std::signed_integral<V>) {
+          pt.addField(INTEGRAL, v);
+        } else if constexpr (std::convertible_to<V, double>) {
+          pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
+        } else {
+          static_assert(AlwaysFalse<V>, "unhandled type");
+        }
 
-      if constexpr (IsDuration<T>) {
-        const auto d = std::chrono::duration_cast<Nanos>(v);
-        pt.addField(NANOS, d.count());
-      } else if constexpr (std::same_as<T, bool>) {
-        pt.addField(INTEGRAL, v);
-      } else if constexpr (std::unsigned_integral<T>) {
-        using SignedT = std::make_signed<T>::type;
-        pt.addField(INTEGRAL, static_cast<SignedT>(v));
-      } else if constexpr (std::signed_integral<T>) {
-        pt.addField(INTEGRAL, v);
-      } else if constexpr (std::convertible_to<T, double>) {
-        pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
-      } else {
-        static_assert(AlwaysFalse<T>, "unhandled type");
+        if (tag.first && tag.second) pt.addTag(tag.first, tag.second);
+
+        // now post the pt and params for serialized write to influx
+        auto &io_ctx = _stats->app_io_ctx;
+        asio::post(io_ctx, [pt = std::move(pt)]() mutable { _stats->db->write(std::move(pt)); });
       }
-
-      if (tag.first && tag.second) pt.addTag(tag.first, tag.second);
-
-      // now post the pt and params for eventual write to influx
-      asio::post(s->app_io_ctx, [s = s, pt = std::move(pt)]() mutable {
-        s->async_write(std::move(pt)); // in .cpp due to call to Config
-      });
     }
   }
 
 private:
-  void async_write(influxdb::Point &&pt) noexcept;
   bool enabled() noexcept;
 
 private:
   // order dependent
   conf::token tokc;
   asio::io_context &app_io_ctx;
-  std::map<stats::stats_v, string> val_txt;
 
   // order independent
   string db_uri;
-
-  // order independent
   std::unique_ptr<influxdb::InfluxDB> db;
+  static std::map<stats::stats_v, string> val_txt;
 
 public:
   string init_msg;
   string err_msg;
 
 public:
-  static constexpr csv module_id{"stats"};
+  MOD_ID("stats");
 };
 
 } // namespace pierre

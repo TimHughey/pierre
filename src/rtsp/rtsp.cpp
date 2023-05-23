@@ -68,7 +68,7 @@ void Rtsp::async_accept() noexcept {
 
       sessions.emplace_back(rtsp::Ctx::create(std::move(peer), this, desk)).get();
 
-      Stats::write(stats::RTSP_SESSION_CONNECT, e.freeze());
+      Stats::write<Rtsp>(stats::RTSP_SESSION_CONNECT, e.freeze());
 
       async_accept(); // schedule the next accept
     } else if (ec != errc::operation_canceled) {

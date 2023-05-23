@@ -24,14 +24,17 @@
 
 namespace pierre {
 
-/// @brief Helper for getting various clock raw nanoseconds
+/// @brief Helper for clock cuurent raw nanoseconds
 struct clock_now {
 
+  /// @brief Return raw nanoseconds of clock type
+  /// @param clock_type see time.hpp
+  /// @return raw nanoseconds
   static int64_t ns_raw(int clock_type) noexcept {
     struct timespec tn;
     clock_gettime(clock_type, &tn);
 
-    return tn.tv_sec * qpow10(9) + tn.tv_nsec;
+    return tn.tv_sec * ipow(10, 9) + tn.tv_nsec;
   }
 
   struct mono {
@@ -45,7 +48,7 @@ struct clock_now {
 };
 
 /// @brief Free function to return monotonic clock raw nanoseconds
-/// @return
+/// @return mono clock raw now nanoseconds
 inline auto clock_mono_ns() noexcept { return clock_now::mono::ns(); }
 
 } // namespace pierre

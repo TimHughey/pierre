@@ -28,14 +28,18 @@ namespace pierre {
 
 std::unique_ptr<Stats> _stats;
 
+// class members
+std::map<stats::stats_v, string> Stats::val_txt;
+
 Stats::Stats(asio::io_context &app_io_ctx) noexcept
     : // initialize our conf token
       tokc(module_id),
       // create our config token
-      app_io_ctx(app_io_ctx),
-      // populate the enum to string map
-      val_txt{stats::make_map()} //
+      app_io_ctx(app_io_ctx) //
 {
+  if (val_txt.empty()) val_txt = std::move(stats::make_map());
+
+  constexpr auto def_db_uri{"http://localhost:8086?db=pierre"sv};
   db_uri = tokc.val<string>("db_uri"_tpath, def_db_uri.data());
 
   auto w = std::back_inserter(init_msg);
@@ -63,11 +67,6 @@ Stats::Stats(asio::io_context &app_io_ctx) noexcept
   }
 
   INFO_INIT("{}\n", init_msg);
-}
-
-void Stats::async_write(influxdb::Point &&pt) noexcept {
-
-  if (db) db->write(std::forward<influxdb::Point>(pt));
 }
 
 bool Stats::enabled() noexcept { return tokc.val<bool>("enabled"_tpath, false); }

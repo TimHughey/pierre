@@ -105,14 +105,18 @@ void DmxCtrl::handshake() noexcept {
   msg.add_kv(desk::STATS_MS, tokc->val<int64_t>(stats_ms_path, 2000));
 
   async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
-    if (msg.elapsed() > 750us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+    if (msg.elapsed() > 750us) {
+      Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+    }
 
     if (msg.xfer_error()) {
       sess_connected.clear();
       [[maybe_unused]] error_code ec;
       sess_sock.close(ec);
 
-      Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
+      if constexpr (StatsEnabled<DmxCtrl>) {
+        Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ERROR, true);
+      }
 
       INFO_AUTO("write failed, err={}", msg.ec.message());
     }
@@ -137,7 +141,11 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
   INFO_AUTO_CAT("msg_loop");
 
   async::read_msg(sess_sock, std::forward<MsgIn>(msg), [this](MsgIn &&msg) {
-    if (msg.elapsed() > 30ms) Stats::write(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
+    if constexpr (StatsEnabled<DmxCtrl>) {
+      if (msg.elapsed() > 30ms) {
+        Stats::write<DmxCtrl>(stats::DATA_MSG_READ_ELAPSED, msg.elapsed());
+      }
+    }
 
     if (msg.xfer_ok() && sess_connected.test()) {
       StaticJsonDocument<desk::Msg::default_doc_size> doc;
@@ -149,7 +157,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
           const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
           const auto remote_roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
 
-          Stats::write(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
+          Stats::write<DmxCtrl>(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
 
           if (doc[desk::SUPP] | false) {
 
@@ -158,21 +166,21 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
             // INFO_AUTO("\n{}", pbuf.data());
 
             const auto data_wait = Micros(doc[desk::DATA_WAIT_US] | 0) - InputInfo::lead_time;
-            Stats::write(stats::REMOTE_DATA_WAIT, data_wait);
-
-            Stats::write(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
-            Stats::write(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
-            Stats::write(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
+            Stats::write<DmxCtrl>(stats::REMOTE_DATA_WAIT, data_wait);
+            Stats::write<DmxCtrl>(stats::REMOTE_DMX_QOK, doc[desk::QOK].as<int64_t>());
+            Stats::write<DmxCtrl>(stats::REMOTE_DMX_QRF, doc[desk::QRF].as<int64_t>());
+            Stats::write<DmxCtrl>(stats::REMOTE_DMX_QSF, doc[desk::QSF].as<int64_t>());
 
             // ruth sends FPS as an int * 100, convert to double
             const double fps = doc[desk::FPS].as<int64_t>() / 100.0;
-            Stats::write(stats::FPS, fps);
+            Stats::write<DmxCtrl>(stats::FPS, fps);
           }
         }
       }
 
     } else {
-      Stats::write(stats::DATA_MSG_READ_ERROR, true);
+
+      Stats::write<DmxCtrl>(stats::DATA_MSG_READ_ERROR, true);
       sess_connected.clear();
 
       [[maybe_unused]] error_code ec;
@@ -245,7 +253,8 @@ void DmxCtrl::resolve_host() noexcept {
           if (!ec) {
             sess_connected.test_and_set();
             sess_sock.set_option(ip_tcp::no_delay(true));
-            Stats::write(stats::DATA_CONNECT_ELAPSED, e.freeze());
+
+            Stats::write<DmxCtrl>(stats::DATA_CONNECT_ELAPSED, e.freeze());
 
             msg_loop(MsgIn());
             handshake();
@@ -294,7 +303,10 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
   if (data_connected.test()) { // only send msgs when connected
 
     async::write_msg(data_sock, std::move(data_msg), [this](DataMsg msg) {
-      if (msg.elapsed() > 200us) Stats::write(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+      if (msg.elapsed() > 200us) {
+
+        Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
+      }
 
       if (msg.xfer_ok()) {
         if (tokc->changed() == false) {
@@ -313,7 +325,7 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
         }
 
       } else {
-        Stats::write(stats::DATA_MSG_WRITE_ERROR, true);
+        Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ERROR, true);
         data_connected.clear();
       }
     });

@@ -4,7 +4,7 @@
 # Top-level Cmake configuration
 #
 
-cmake_minimum_required(VERSION 3.24.3)
+cmake_minimum_required(VERSION 3.25.3)
 
 option(BUILD_SHARED_LIBS "Build shared versions of libraries" OFF)
 
@@ -39,7 +39,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
   # Let's ensure -std=c++xx instead of -std=g++xx
   set(CMAKE_CXX_EXTENSIONS            OFF)
-  set(CMAKE_CXX_STANDARD              20)
+  set(CMAKE_CXX_STANDARD              23)
   set(CMAKE_CXX_STANDARD_REQUIRED     TRUE)
 
   set(CMAKE_C_EXTENSIONS              ON)

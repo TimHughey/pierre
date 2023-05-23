@@ -17,11 +17,9 @@
 //  https://www.wisslanding.com
 
 #include "base/pet.hpp"
-#include "base/clock_now.hpp"
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
-#include <iterator>
 
 namespace pierre {
 
@@ -33,7 +31,7 @@ string pet::humanize(Nanos d) {
 
   if (auto x = as<Hours>(d); x != Hours::zero()) {
     append(x);
-    d -= as<Nanos>(x);
+    d -= x;
   }
 
   if (auto x = as<Minutes>(d); x != Minutes::zero()) {
@@ -55,9 +53,5 @@ string pet::humanize(Nanos d) {
 
   return msg;
 }
-
-Nanos pet::monotonic() noexcept { return Nanos{clock_now::ns_raw(CLOCK_MONOTONIC_RAW)}; } // static
-Nanos pet::realtime() noexcept { return Nanos{clock_now::ns_raw(CLOCK_REALTIME)}; }       // static
-Nanos pet::boottime() noexcept { return Nanos{clock_now::ns_raw(CLOCK_BOOTTIME)}; }       // static
 
 } // namespace pierre

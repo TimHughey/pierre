@@ -200,7 +200,7 @@ void Desk::loop() noexcept {
 
   frr.finish();
 
-  Stats::write(stats::RENDER_ELAPSED, e());
+  Stats::write<Desk>(stats::RENDER_ELAPSED, e());
 }
 
 void Desk::peers(const Peers &&p) noexcept { master_clock->peers(std::forward<decltype(p)>(p)); }

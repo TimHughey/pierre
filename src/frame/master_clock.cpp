@@ -57,7 +57,7 @@ static data latest;
 
 inline constexpr const auto mclock_id(auto *l) noexcept { return l->master_clock_id; }
 inline const auto mclock_start_time(auto *l) noexcept {
-  return pet::from_val<Nanos>(l->master_clock_start_time);
+  return pet::as<Nanos, int64_t>(l->master_clock_start_time);
 }
 
 inline bool is_mapped() noexcept { return mapped && (mapped != MAP_FAILED); }

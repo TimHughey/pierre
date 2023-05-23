@@ -152,7 +152,7 @@ void Reel::push_back(Frame &&frame) noexcept {
 
 ssize_t Reel::record_size() noexcept {
 
-  Stats::write(stats::FRAMES_AVAIL, cached_size->load());
+  Stats::write<Reel>(stats::FRAMES_AVAIL, cached_size->load());
 
   return cached_size->load();
 }

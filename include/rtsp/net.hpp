@@ -119,7 +119,7 @@ struct net {
 
           if (!ec) {
             Saver(Saver::IN, r.headers, r.content);
-            Stats::write(stats::RTSP_SESSION_RX_PACKET, std::ssize(r.packet));
+            Stats::write<net>(stats::RTSP_SESSION_RX_PACKET, std::ssize(r.packet));
           }
 
           handler(ec); // end of composed operation
@@ -158,11 +158,10 @@ struct net {
         token,          // user supplied callback
         std::ref(sock), // the socket to read from
         std::ref(r),    // the request destination
-        std::ref(aes)   // the aes context
-    );
+        std::ref(aes)); // the aes context
   }
 
-  /// @brief Write a complete message asuyn
+  /// @brief Write a complete message async
   /// @tparam R
   /// @tparam CompletionToken
   /// @param sock
@@ -184,7 +183,7 @@ struct net {
 
           // INFO("write", "bytes={}\n", bytes);
 
-          Stats::write(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
+          Stats::write<net>(stats::RTSP_SESSION_TX_REPLY, static_cast<int64_t>(bytes));
 
           if (!ec) {
             Saver(Saver::OUT, r.headers_out, r.content_out, r.resp_code);

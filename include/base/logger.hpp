@@ -40,30 +40,40 @@ class Logger;
 
 extern std::unique_ptr<Logger> _logger;
 
+/// @brief Singleton serialized, thread safe logging
 class Logger {
 
 public:
+  /// @brief Create Logger object -- never be call directly
+  /// @param app_io_ctx asio:::io_context for serializaton, thread safety
   Logger(asio::io_context &app_io_ctx) noexcept;
-  Logger(const Logger &) = delete;
-  Logger(Logger &) = delete;
-  Logger(Logger &&) = delete;
-
   ~Logger() noexcept;
 
+  /// @brief Create Logger object -- call once to create singleton
+  /// @param app_io_ctx asio:::io_context for serializaton, thread safety
+  /// @return raw pointer to Logger singleton
   static Logger *create(asio::io_context &app_io_ctx) noexcept {
     _logger = std::make_unique<Logger>(app_io_ctx);
 
     return _logger.get();
   }
 
+  /// @brief Log a message
+  /// @tparam M type of module_id
+  /// @tparam C type of logging category
+  /// @tparam S type of format string
+  /// @tparam ...Args variable args matching format string
+  /// @param mod_id the module_id (column 2)
+  /// @param cat the category (column 3)
+  /// @param format format string
+  /// @param ...args variable args matching format string
   template <typename M, typename C, typename S, typename... Args>
   void info(const M &mod_id, const C &cat, const S &format, Args &&...args) {
 
     if (should_log(mod_id, cat)) {
-      const millis_fp runtime{e()};
 
       const auto prefix = fmt::format(prefix_format,      //
-                                      runtime,            // millis since app start
+                                      e.as<millis_fp>(),  // millis since app start
                                       width_ts,           // width of timestamp field
                                       width_ts_precision, // runtime + width and precision
                                       mod_id, width_mod,  // module_id + width
@@ -86,7 +96,11 @@ public:
     }
   }
 
-  bool should_log(csv mod, csv cat) noexcept {
+  /// @brief Should logging for mod id, cat proceed
+  /// @param mod module_id
+  /// @param cat category
+  /// @return boolean
+  bool should_log(const auto &mod, const auto &cat) noexcept {
 
     if (tokc->changed()) {
       asio::post(app_io_ctx, [this]() {
@@ -111,7 +125,10 @@ public:
     });
   }
 
+  /// @brief Shutdown logger
   static void shutdown() noexcept { _logger.reset(); }
+
+  /// @brief Enable synchronous logging
   static void synchronous() noexcept { _logger->async_active = false; }
 
 private:
@@ -134,7 +151,7 @@ public:
   static constexpr int width_ts{13};
 
 public:
-  static constexpr csv module_id{"logger"};
+  MOD_ID("logger");
 };
 
 #define INFO(__cat, format, ...)                                                                   \
