@@ -247,7 +247,7 @@ App::App() noexcept : ss_shutdown(io_ctx, SIGINT) {
 
   // set up our shutdown signal handler
   ss_shutdown.async_wait([this](const error_code &ec, int sig) {
-    csv fn_id{"ss_shutdown"};
+    INFO_AUTO_CAT("ss_shutdown");
 
     if (ec) return;
 
@@ -325,14 +325,15 @@ void App::stop_request_watcher(std::stop_token stoken) noexcept {
 
   auto sr_timer = std::make_unique<asio::system_timer>(io_ctx, 1s);
 
-  sr_timer->expires_after(1s);
+  sr_timer->expires_after(777ms);
   sr_timer->async_wait([this, stoken = std::move(stoken),
                         sr_timer = std::move(sr_timer)](const error_code &ec) mutable {
     if (ec) return;
 
     if (stoken.stop_requested()) {
       asio::post(io_ctx, [this]() {
-        INFO("stop_request", "detected");
+        INFO_AUTO_CAT("stop_request");
+        INFO_AUTO("detected");
 
         io_ctx.stop();
       });

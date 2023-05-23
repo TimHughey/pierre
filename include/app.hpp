@@ -27,13 +27,22 @@
 
 namespace pierre {
 
+/// @brief Pierre Application Object
 class App {
 public:
+  /// @brief Construct the App object.
+  ///        CLI arguments have already been handled and
+  ///        the application is on the cusp of starting.
   App() noexcept;
 
+  /// @brief Similar to 'C' main.  Performs all initialization,
+  ///        starts subsystems and runs io_ctx.  Returns when
+  ///        io work is exhausted (primarily by a shutdown request).
   void main();
 
 private:
+  /// @brief Starts a timer to periodically watch for a stop request
+  /// @param stoken stop_token returned by thread that runs io_ctx
   void stop_request_watcher(std::stop_token stoken) noexcept;
 
 private:
@@ -46,7 +55,7 @@ private:
   string err_msg;
 
 public:
-  static constexpr csv module_id{"app"};
+  MOD_ID("app");
 };
 
 } // namespace pierre
