@@ -68,7 +68,7 @@ public:
 
 private:
   auto cfg_host() noexcept { return tokc->val<string>("remote.host"_tpath, "dmx"sv); }
-  auto cfg_stall_timeout() noexcept { return tokc->val<Millis>("local.stalled.ms"_tpath, 7500); }
+  auto cfg_stall_timeout() noexcept { return tokc->val<Millis>("local.stalled.ms"_tpath, 7'333); }
 
   /// @brief send the initial handshake to the remote host
   void handshake() noexcept;

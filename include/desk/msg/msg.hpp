@@ -36,25 +36,42 @@ using error_code = boost::system::error_code;
 
 namespace desk {
 
+/// @brief Base class for Desk messages (in / out)
 class Msg {
+public:
+  static constexpr size_t default_doc_size{7 * 1024};
 
 public:
+  /// @brief [base class] Construct the Desk message base
+  /// @param capacity total capacity of the streambuf
   Msg(std::size_t capacity) noexcept : storage(std::make_unique<asio::streambuf>(capacity)) {}
   virtual ~Msg() noexcept {} // prevent implicit copy/move
 
   Msg(Msg &&m) = default;              // allow move construct
   Msg &operator=(Msg &&msg) = default; // allow move assignment
 
+  /// @brief Provide the buffer used by async calls
+  /// @return Reference to streambuf
   auto &buffer() noexcept { return *storage; }
 
+  /// @brief Freeze the elapsed time and return the current value
+  /// @return Elapsed time since the creation of the message
   auto elapsed() noexcept { return e.freeze(); }
-  auto elapsed_restart() noexcept { return e.reset(); }
 
+  /// @brief Check the (subclassed) message type
+  /// @param doc JsonDocument containing the message
+  /// @param want_type Type of message to confirm
+  /// @return boolean indicating if this message is the same type
   static bool is_msg_type(const JsonDocument &doc, csv want_type) noexcept {
     return want_type == csv{doc[MSG_TYPE].as<const char *>()};
   }
 
+  /// @brief Was there an error in the transfer?
+  /// @return boolean
   bool xfer_error() const noexcept { return !xfer_ok(); }
+
+  /// @brief Was the transfer successful?
+  /// @return boolean
   bool xfer_ok() const noexcept { return !ec && (xfr.bytes >= packed_len); }
 
 protected:
@@ -76,8 +93,7 @@ protected:
   Elapsed e; // duration tracking
 
 public:
-  static constexpr size_t default_doc_size{7 * 1024};
-  static constexpr csv module_id{"desk.msg"};
+  MOD_ID("desk.msg");
 };
 
 } // namespace desk

@@ -24,38 +24,48 @@
 #include <algorithm>
 #include <vector>
 
+namespace ranges = std::ranges;
+
 namespace pierre {
 namespace desk {
 
+/// @brief Desk DataMsg encapsulation
 class DataMsg : public MsgOut {
 public:
   static constexpr uint32_t frame_len{12};
 
 public:
+  /// @brief Construct a new outbound Desk message
+  /// @param seq_num Frame sequence number
+  /// @param silence Is this message silence
   DataMsg(const seq_num_t seq_num, bool silence) noexcept
       : desk::MsgOut(desk::DATA),  //
         seq_num{seq_num},          // grab the frame seq_num
         silence{silence},          // grab if the frame is silent
         dmx_frame(frame_len, 0x00) // init the dmx frame
-  {}
+  {
+    add_kv(desk::SEQ_NUM, seq_num);
+    add_kv(desk::SILENCE, silence);
+  }
 
   ~DataMsg() noexcept {} // prevent default copy/move
 
   DataMsg(DataMsg &&m) = default;           // allow move construct
   DataMsg &operator=(DataMsg &&) = default; // allow move assignment
 
-public: // API
+public:
+  /// @brief Raw pointer direct data access
+  /// @return Raw uint8_t pointer
   uint8_t *frame() noexcept { return dmx_frame.data(); }
 
   void noop() noexcept {}
 
 protected:
+  /// @brief DataMsg specific serialization
+  /// @param doc Reference to JsonDocument
   void serialize_hook(JsonDocument &doc) noexcept override {
-    doc[desk::SEQ_NUM] = seq_num;
-    doc[desk::SILENCE] = silence;
-
     auto dframe = doc.createNestedArray(desk::FRAME);
-    std::for_each(dmx_frame.begin(), dmx_frame.end(), [&](const auto b) mutable { dframe.add(b); });
+    std::for_each(dmx_frame.begin(), dmx_frame.end(), [&](auto b) mutable { dframe.add(b); });
   }
 
 private:
@@ -64,7 +74,7 @@ private:
   std::vector<uint8_t> dmx_frame;
 
 public:
-  static constexpr csv module_id{"desk.msg.data"};
+  MOD_ID("desk.msg.data");
 };
 
 } // namespace desk

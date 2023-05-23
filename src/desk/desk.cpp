@@ -18,9 +18,9 @@
 
 #include "desk/desk.hpp"
 #include "base/conf/toml.hpp"
+#include "base/dura.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/dura.hpp"
 #include "base/stats.hpp"
 #include "desk/dmx_ctrl.hpp"
 #include "desk/frame_rr.hpp"

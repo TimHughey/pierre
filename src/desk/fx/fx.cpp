@@ -17,8 +17,8 @@
 // https://www.wisslanding.com
 
 #include "desk/fx.hpp"
-#include "base/logger.hpp"
 #include "base/dura.hpp"
+#include "base/logger.hpp"
 #include "desk/fx/all.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
@@ -38,19 +38,18 @@ void FX::ensure_units() noexcept {
 void FX::execute(const Peaks &peaks) noexcept { peaks.noop(); };
 
 bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
-  if (should_render) {
-    if (called_once == false) {
-      once();                 // frame 0 consumed by call to once(), peaks not rendered
-      units->update_msg(msg); // ensure any once() actions are in the data msg
 
-      called_once = true;
+  if (!should_render) return !finished;
 
-    } else {
-      units->prepare();          // do any prep required to render next frame
-      execute(std::move(peaks)); // render frame into data msg
-      units->update_msg(msg);    // populate data msg
-    }
+  if (called_once == false) {
+    called_once = once(); // frame 0 consumed by call to once(), peaks not rendere
+
+  } else {
+    units->prepare(); // do any prep required to render next frame
+    execute(peaks);   // render frame into data msg
   }
+
+  units->update_msg(msg); // populate data msg
 
   return !finished;
 }

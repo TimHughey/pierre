@@ -19,6 +19,7 @@
 #include "units.hpp"
 #include "base/conf/token.hpp"
 #include "base/conf/toml.hpp"
+#include "base/logger.hpp"
 #include "base/types.hpp"
 #include "unit/all.hpp"
 

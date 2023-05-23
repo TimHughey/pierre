@@ -43,7 +43,7 @@ public:
 
   void execute(const Peaks &peaks) noexcept override;
 
-  void once() noexcept override final;
+  bool once() noexcept override final;
 
 private:
   void apply_config() noexcept;

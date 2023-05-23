@@ -89,7 +89,8 @@ public:
   csv name() const noexcept { return fx_name; };
 
   /// @brief FX subclasses override to execute when FX called for the first time
-  virtual void once() noexcept {}
+  /// @return boolean, always true
+  virtual bool once() noexcept { return true; }
 
   /// @brief translate Peaks into unit actions
   /// @param peaks Peaks to consider
@@ -113,12 +114,13 @@ protected:
   virtual void execute(const Peaks &peaks) noexcept;
 
   /// @brief Set the FX as complete
-  /// @param is_finished Boolean indicating the finished status of the FX
-  void set_finished(bool is_finished, const string finished_fx = string()) noexcept {
+  /// @param is_finished Boolean previous finished status of the FX
+  /// @return previous finished value
+  bool set_finished(bool is_finished, const string finished_fx = string()) noexcept {
 
     if (is_finished && !finished_fx.empty()) next_fx = finished_fx;
 
-    std::exchange(finished, is_finished);
+    return std::exchange(finished, is_finished);
   }
 
   bool set_silence_timeout(conf::token *tokc, const string &silence_fx,

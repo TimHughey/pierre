@@ -19,9 +19,9 @@
 #include "desk/fx/majorpeak.hpp"
 #include "base/conf/token.hpp"
 #include "base/conf/toml.hpp"
+#include "base/dura.hpp"
 #include "base/elapsed.hpp"
 #include "base/logger.hpp"
-#include "base/dura.hpp"
 #include "base/stats.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
@@ -334,7 +334,7 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   return color;
 }
 
-void MajorPeak::once() noexcept {
+bool MajorPeak::once() noexcept {
   tokc->initiate_watch(); // this only needs to be done once
 
   get_unit(unit::AC_POWER)->activate();
@@ -342,6 +342,8 @@ void MajorPeak::once() noexcept {
   get_unit(unit::LED_FOREST)->dark();
   get_unit(unit::MAIN_SPOT)->dark();
   get_unit(unit::FILL_SPOT)->dark();
+
+  return true;
 }
 
 const Color &MajorPeak::ref_color(size_t index) const noexcept {

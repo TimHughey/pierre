@@ -94,7 +94,7 @@ struct dura {
   /// @param raw raw nanoseconds to subtract from mono clock now
   /// @return Elapsed chrono duration
   template <typename D> static constexpr D elapsed_from_raw(auto raw) noexcept {
-    return dura::as<D>(clock_mono_ns()) - D(raw);
+    return D(now_monotonic<D>().count() - raw);
   }
 
   /// @brief Convert a chrono duration to human readable string

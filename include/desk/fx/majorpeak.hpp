@@ -52,7 +52,7 @@ public:
 
   void execute(const Peaks &peaks) noexcept override;
 
-  void once() noexcept override;
+  bool once() noexcept override;
 
 private:
   using RefColors = std::vector<Color>;

@@ -18,9 +18,9 @@
 
 #include "desk/dmx_ctrl.hpp"
 #include "base/conf/token.hpp"
+#include "base/dura.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/dura.hpp"
 #include "base/stats.hpp"
 #include "desk/async/read.hpp"
 #include "desk/async/write.hpp"
@@ -42,11 +42,11 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_en
                                    Elapsed e = Elapsed()) noexcept;
 
 inline auto resolve_timeout(conf::token &tok) noexcept {
-  return tok.val<Millis>("local.resolve.timeout.ms"_tpath, 15'000);
+  return tok.val<Millis>("local.resolve.timeout.ms"_tpath, 7'333);
 }
 
 inline auto resolve_retry_wait(conf::token &tok) noexcept {
-  return tok.val<Millis>("local.resolve.retry.ms"_tpath, 60'000);
+  return tok.val<Millis>("local.resolve.retry.ms"_tpath, 5'250);
 }
 
 // general API
@@ -101,7 +101,7 @@ void DmxCtrl::handshake() noexcept {
   msg.add_kv(desk::DATA_PORT, data_accep.local_endpoint().port());
   msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
   msg.add_kv(desk::FRAME_US, InputInfo::lead_time_us);
-  msg.add_kv(desk::IDLE_MS, tokc->val<int64_t>(idle_ms_path, 10000));
+  msg.add_kv(desk::IDLE_MS, tokc->val<int64_t>(idle_ms_path, 15'000));
   msg.add_kv(desk::STATS_MS, tokc->val<int64_t>(stats_ms_path, 2000));
 
   async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
@@ -300,31 +300,31 @@ void DmxCtrl::rev_resolve(tcp_endpoint ep) noexcept {
 }
 
 void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
+  INFO_AUTO_CAT("send_data_msg");
+
   if (data_connected.test()) { // only send msgs when connected
 
     async::write_msg(data_sock, std::move(data_msg), [this](DataMsg msg) {
       if (msg.elapsed() > 200us) {
-
         Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ELAPSED, msg.elapsed());
       }
 
-      if (msg.xfer_ok()) {
-        if (tokc->changed() == false) {
-          // no config changes, just watch for stalls
-          stall_watchdog();
-        } else {
-          // config has changed
+      if (msg.xfer_ok() && tokc->changed()) {
+        // configuration changed
+        auto cfg_change = [this]() {
+          tokc->latest(); // get the latest config
+          load_config();  // load latest into local cached config
+          reconnect();    // kick off reconnect
+        };
 
-          asio::post(sess_strand, [this] {
-            // get the latest config
-            tokc->latest();
-            load_config();
+        // via the sess strand
+        asio::post(sess_strand, std::move(cfg_change));
 
-            reconnect();
-          });
-        }
-
+      } else if (msg.xfer_ok()) {
+        // all is well, continue watching for stalls
+        stall_watchdog();
       } else {
+        INFO_AUTO("{}", msg.status(MsgOut::Err));
         Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ERROR, true);
         data_connected.clear();
       }

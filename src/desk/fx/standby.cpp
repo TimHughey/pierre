@@ -18,8 +18,8 @@
 
 #include "desk/fx/standby.hpp"
 #include "base/conf/token.hpp"
-#include "base/logger.hpp"
 #include "base/dura_t.hpp"
+#include "base/logger.hpp"
 #include "color.hpp"
 #include "desk.hpp"
 #include "unit/all.hpp"
@@ -73,7 +73,7 @@ void Standby::execute(const Peaks &peaks) noexcept {
   set_finished(peaks.audible(), fx::MAJOR_PEAK);
 }
 
-void Standby::once() noexcept {
+bool Standby::once() noexcept {
 
   tokc->initiate_watch();
 
@@ -83,6 +83,8 @@ void Standby::once() noexcept {
   get_unit<Dimmable>(unit::EL_DANCE)->dim();
   get_unit<Dimmable>(unit::EL_DANCE)->dim();
   get_unit<Dimmable>(unit::LED_FOREST)->dim();
+
+  return true;
 }
 
 } // namespace desk
