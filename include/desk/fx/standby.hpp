@@ -29,9 +29,14 @@
 namespace pierre {
 namespace desk {
 
+/// @brief Standby FX to render colors when there is no audio data
 class Standby : public FX {
 
 public:
+  /// @brief Create Standby FX.
+  ///        This FX renders a continual wash of the rainbow
+  ///        until the configured silence timeout is exceeded.
+  /// @param executor Executor for the silence timer
   Standby(auto &executor) noexcept
       : FX(executor, fx::STANDBY, fx::ALL_STOP), //
         tokc(conf::token::acquire_watch_token(module_id)) {
@@ -41,11 +46,17 @@ public:
 
   ~Standby() noexcept { tokc->release(); }
 
+  /// @brief Render one frame
+  /// @param peaks Peaks to consider for rendering
   void execute(const Peaks &peaks) noexcept override;
 
+  /// @brief Consume frame 0 to perform initialization
+  /// @return always true
   bool once() noexcept override final;
 
 private:
+  /// @brief Apply configuration at time of creation
+  ///        and when on-disk config file changes.
   void apply_config() noexcept;
 
 private:
@@ -60,7 +71,7 @@ private:
   double next_brightness{0};
 
 public:
-  static constexpr auto module_id{"fx.standby"sv};
+  MOD_ID("fx.standby");
 };
 
 } // namespace desk

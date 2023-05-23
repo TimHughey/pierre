@@ -26,10 +26,14 @@
 #include <memory>
 
 namespace pierre {
+
 namespace desk {
 
+/// @brief AllStop FX with the sole objection of stopping all rendering
 class AllStop : public FX {
 public:
+  /// @brief Create object
+  /// @param fx_timer Timer to pass through to FX
   AllStop(auto &&fx_timer) noexcept
       : FX(std::forward<decltype(fx_timer)>(fx_timer), fx::ALL_STOP, fx::NONE, FX::NoRender) {
 
@@ -38,7 +42,7 @@ public:
   }
 
 public:
-  static constexpr csv module_id{"fx.all_stop"};
+  MOD_ID("fx.all_stop");
 };
 
 } // namespace desk
