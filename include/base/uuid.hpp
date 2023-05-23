@@ -36,16 +36,28 @@ namespace pierre {
 struct UUID {
   friend struct fmt::formatter<UUID>;
 
+  /// @brief Construct a UUID
   UUID() noexcept : storage(37, 0x00) {
     uuid_t binuuid;
     uuid_generate_random(binuuid);
     uuid_unparse_lower(binuuid, storage.data());
   }
 
+  /// @brief Return object as string
+  /// @return string
   const string &operator()() const noexcept { return storage; }
+
+  /// @brief Compare to a string representation
+  /// @param rhs string
+  /// @return Varies based on compare
   auto operator<=>(const string &rhs) const { return storage <=> rhs; }
+
+  /// @brief Compare to another UUID object
+  /// @param rhs Object to compare
+  /// @return Varies based on compare
   auto operator<=>(const UUID &rhs) const = default;
 
+  /// @brief Convert UUID to string
   operator string() const noexcept { return storage; }
 
 private:
