@@ -40,7 +40,7 @@ add_library(${__target}
 
   # time utilities
   elapsed.cpp
-  pet.cpp
+  dura.cpp
   
   # headers
   ${HEADER_LIST}

@@ -16,14 +16,14 @@
 //
 //  https://www.wisslanding.com
 
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
 
 namespace pierre {
 
-string pet::humanize(Nanos d) {
+string dura::humanize(Nanos d) {
   string msg;
   auto w = std::back_inserter(msg);
 

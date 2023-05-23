@@ -18,7 +18,7 @@
 
 #include "clock_info.hpp"
 #include "base/clock_now.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "base/types.hpp"
 
 #include <fmt/chrono.h>
@@ -28,7 +28,7 @@
 namespace pierre {
 
 const string ClockInfo::inspect() const {
-  Nanos now = pet::now_monotonic();
+  Nanos now = dura::now_monotonic();
   string msg;
   auto w = std::back_inserter(msg);
 
@@ -37,10 +37,10 @@ const string ClockInfo::inspect() const {
 
   fmt::format_to(w, hex_fmt_str, "clockId", clock_id);
   fmt::format_to(w, gen_fmt_str, "rawOffset", rawOffset);
-  fmt::format_to(w, gen_fmt_str, "now_ns", pet::now_monotonic());
+  fmt::format_to(w, gen_fmt_str, "now_ns", dura::now_monotonic());
   fmt::format_to(w, gen_fmt_str, "mastershipStart", mastershipStartTime);
   fmt::format_to(w, gen_fmt_str, "sampleTime", sampleTime);
-  fmt::format_to(w, gen_fmt_str, "master_for", pet::humanize(master_for()));
+  fmt::format_to(w, gen_fmt_str, "master_for", dura::humanize(master_for()));
   fmt::format_to(w, gen_fmt_str, "sample_age", sample_age.humanize());
 
   return msg;

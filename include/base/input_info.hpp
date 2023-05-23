@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/pet_types.hpp"
+#include "base/dura_t.hpp"
 #include "base/qpow10.hpp"
 #include "base/types.hpp"
 

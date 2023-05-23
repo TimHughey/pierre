@@ -19,7 +19,7 @@
 #include "master_clock.hpp"
 #include "base/host.hpp"
 #include "base/logger.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 
@@ -57,7 +57,7 @@ static data latest;
 
 inline constexpr const auto mclock_id(auto *l) noexcept { return l->master_clock_id; }
 inline const auto mclock_start_time(auto *l) noexcept {
-  return pet::as<Nanos, int64_t>(l->master_clock_start_time);
+  return dura::as<Nanos, int64_t>(l->master_clock_start_time);
 }
 
 inline bool is_mapped() noexcept { return mapped && (mapped != MAP_FAILED); }

@@ -19,7 +19,7 @@
 #include "desk/fx/standby.hpp"
 #include "base/conf/token.hpp"
 #include "base/logger.hpp"
-#include "base/pet_types.hpp"
+#include "base/dura_t.hpp"
 #include "color.hpp"
 #include "desk.hpp"
 #include "unit/all.hpp"

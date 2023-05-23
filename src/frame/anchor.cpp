@@ -20,7 +20,7 @@
 #include "anchor_data.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "base/types.hpp"
 #include "clock_info.hpp"
 
@@ -61,7 +61,7 @@ AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
       // to handle the master clock change, if it is stable, we update the source
       // anchor by applying it's offset to the the last localized time
       source->clock_id = clock.clock_id;
-      pet::apply_offset(source->anchor_time, clock.rawOffset);
+      dura::apply_offset(source->anchor_time, clock.rawOffset);
     }
   }
 

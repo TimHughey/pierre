@@ -18,7 +18,7 @@
 
 #include "desk/fx.hpp"
 #include "base/logger.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "desk/fx/all.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
@@ -59,7 +59,7 @@ bool FX::save_silence_timeout(const Millis &timeout, const string &silence_fx) n
   INFO_AUTO_CAT("set_silence");
 
   if (timeout != std::exchange(silence_timeout, timeout)) {
-    INFO_AUTO("silence_timeout={}", pet::humanize(silence_timeout));
+    INFO_AUTO("silence_timeout={}", dura::humanize(silence_timeout));
 
     silence_watch(silence_fx);
     return true;

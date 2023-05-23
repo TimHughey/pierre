@@ -17,18 +17,18 @@
 //  https://www.wisslanding.com
 
 #include "fader/fader.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 
 namespace pierre {
 
 bool Fader::travel() {
   if (progress == 0.0) {
     // the first invocation (frame 0) represents the origin and start time of the fader
-    start_at = pet::now_monotonic();
+    start_at = dura::now_monotonic();
     progress = 0.0001;
 
   } else {
-    auto elapsed = pet::elapsed_abs(start_at);
+    auto elapsed = dura::elapsed_abs(start_at);
 
     if (elapsed < duration) {
       progress = doTravel(elapsed.count(), duration.count());

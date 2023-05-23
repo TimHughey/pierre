@@ -20,7 +20,7 @@
 #include "base/conf/token.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "base/stats.hpp"
 #include "desk/async/read.hpp"
 #include "desk/async/write.hpp"
@@ -155,7 +155,7 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
         // handle the various message types
         if (Msg::is_msg_type(doc, desk::STATS)) {
           const auto echo_now_us = doc[desk::ECHO_NOW_US].as<int64_t>();
-          const auto remote_roundtrip = pet::elapsed_from_raw<Micros>(echo_now_us);
+          const auto remote_roundtrip = dura::elapsed_from_raw<Micros>(echo_now_us);
 
           Stats::write<DmxCtrl>(stats::REMOTE_ROUNDTRIP, remote_roundtrip);
 

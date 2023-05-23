@@ -17,7 +17,7 @@
 //  https://www.wisslanding.com
 
 #include "anchor_last.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 
 namespace pierre {
 
@@ -25,8 +25,8 @@ void AnchorLast::update(const AnchorData &ad, const ClockInfo &clock) noexcept {
 
   rtp_time = ad.rtp_time;
   anchor_time = ad.anchor_time;
-  pet::apply_offset(localized, anchor_time, clock.rawOffset);
-  // localized = pet::subtract_offset(anchor_time, clock.rawOffset);
+  dura::apply_offset(localized, anchor_time, clock.rawOffset);
+  // localized = dura::subtract_offset(anchor_time, clock.rawOffset);
   since_update.reset();
 
   if (clock_id == 0x00) { // only update master when AnchorLast isn't ready

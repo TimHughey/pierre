@@ -17,11 +17,11 @@
 //  https://www.wisslanding.com
 
 #include "elapsed.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 
 namespace pierre {
 
-const string Elapsed::humanize() const noexcept { return pet::humanize(elapsed()); }
-Nanos Elapsed::monotonic() noexcept { return pet::now_monotonic(); }
+const string Elapsed::humanize() const noexcept { return dura::humanize(elapsed()); }
+Nanos Elapsed::monotonic() noexcept { return dura::now_monotonic(); }
 
 } // namespace pierre

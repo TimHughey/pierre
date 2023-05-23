@@ -23,7 +23,7 @@
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "base/stats.hpp"
 #include "base/uint8v.hpp"
 #include "fft.hpp"
@@ -200,7 +200,7 @@ frame_state_v Frame::decipher(uint8v packet, const uint8v key) noexcept {
 }
 
 void Frame::init() noexcept {
-  const auto lead_time = pet::humanize(InputInfo::lead_time);
+  const auto lead_time = dura::humanize(InputInfo::lead_time);
   INFO_INIT("sizeof={:>5} lead_time={}", sizeof(Frame), lead_time);
 }
 

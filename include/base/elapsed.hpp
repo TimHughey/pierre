@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "base/pet_types.hpp"
+#include "base/dura_t.hpp"
 
 #include <compare>
 #include <cstdint>

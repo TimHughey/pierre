@@ -20,7 +20,7 @@
 
 #include "base/hard_soft_limit.hpp"
 #include "base/min_max_pair.hpp"
-#include "base/pet_types.hpp"
+#include "base/dura_t.hpp"
 #include "base/types.hpp"
 #include "frame/peaks/frequency.hpp"
 #include "frame/peaks/magnitude.hpp"

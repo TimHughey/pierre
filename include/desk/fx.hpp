@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/conf/token.hpp"
-#include "base/pet.hpp"
+#include "base/dura.hpp"
 #include "base/types.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/units.hpp"

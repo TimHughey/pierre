@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/input_info.hpp"
-#include "base/pet_types.hpp"
+#include "base/dura_t.hpp"
 #include "base/random.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"

@@ -19,14 +19,14 @@
 #pragma once
 
 #include "base/clock_now.hpp"
-#include "base/pet_types.hpp"
+#include "base/dura_t.hpp"
 #include "base/qpow10.hpp"
 #include "base/types.hpp"
 
 namespace pierre {
 
 /// @brief Duration Helpers
-struct pet {
+struct dura {
 
   /// @brief Apply raw offset to duration
   /// @tparam TO chrono duration type
@@ -84,7 +84,7 @@ struct pet {
   /// @param d1 Value to subtract from mono clock now
   /// @return Elapsed chrono duration
   template <typename D = Nanos> static constexpr D elapsed_abs(D d1) {
-    d1 -= pet::as<D>(clock_mono_ns());
+    d1 -= dura::as<D>(clock_mono_ns());
 
     return std::chrono::abs(d1);
   }
@@ -94,7 +94,7 @@ struct pet {
   /// @param raw raw nanoseconds to subtract from mono clock now
   /// @return Elapsed chrono duration
   template <typename D> static constexpr D elapsed_from_raw(auto raw) noexcept {
-    return pet::as<D>(clock_mono_ns()) - D(raw);
+    return dura::as<D>(clock_mono_ns()) - D(raw);
   }
 
   /// @brief Convert a chrono duration to human readable string
