@@ -38,6 +38,7 @@ namespace ranges = std::ranges;
 
 namespace pierre {
 
+/// @brief Multi-purpose byte container
 class uint8v : public std::vector<uint8_t> {
 
 public:
@@ -46,21 +47,33 @@ public:
   using delims_t = std::vector<std::pair<ssize_t, ssize_t>>;
 
 public:
+  /// @brief Construct an empty container
   uint8v() = default;
-  uint8v(auto count) noexcept : std::vector<uint8_t>(count) {}
-  uint8v(auto count, uint8_t byte) noexcept : std::vector<uint8_t>(count, byte) {}
 
+  /// @brief Construct container with count bytes reserved
+  /// @param count bytes to reserve
+  uint8v(std::ptrdiff_t count) noexcept : std::vector<uint8_t>(count) {}
+
+  /// @brief Constructor container with count bytes allocated
+  /// @param count byte to allocate
+  /// @param byte fill with value (default 0x00)
+  uint8v(auto count, uint8_t byte = 0x00) noexcept : std::vector<uint8_t>(count, byte) {}
+
+  /// @brief Assign the span to the container
+  /// @param span Span representing uint8_t
   void assign_span(const std::span<uint8_t> &span) noexcept { assign(span.begin(), span.end()); }
 
+  /// @brief Pointer to raw container data
+  /// @tparam T Pointer type
+  /// @param offset Offset applied to pointer, default 0
+  /// @return Raw pointer of type T with offset applied
   template <typename T = char> T *data_as(std::ptrdiff_t offset = 0) noexcept {
     return (T *)(data() + offset);
   }
 
-  // find delimiters
-  //
-  // returns: vector of pairs of:
-  //   a. position delim found
-  //   b. length of delim
+  /// @brief Find delimiters
+  /// @param delims_want container of delimiters to find
+  /// @return Vector of pairs consisting of the start pos and length
   auto find_delims(const auto &delims_want) noexcept {
     uint8v::delims_t delims;
 
@@ -82,17 +95,29 @@ public:
     return delims;
   }
 
-  // bool is_multi_line() const noexcept {
-  //   return ranges::count_if(view(), [](const char c) { return c == '\n'; }) > 2;
-  // }
-
+  /// @brief Return an iterator into the container with an offest
+  /// @param bytes bytes to offset
+  /// @return Iterator offset by bytes
   uint8v::iterator from_begin(std::ptrdiff_t bytes) { return begin() + bytes; }
+
+  /// @brief Return an iterator into the container from the end offset by bytes
+  /// @param bytes bytes to offset
+  /// @return Iterator offset by bytes
   uint8v::iterator from_end(std::ptrdiff_t bytes) { return end() - bytes; }
 
+  /// @brief Return const raw pointer to container data with offset applied
+  /// @tparam T Treat as data type
+  /// @param offset bytes to offset, default 0
+  /// @return Raw const pointer to container data with offset applied
   template <typename T = char> const T *raw(size_t offset = 0) const noexcept {
     return (const T *)(data() + (sizeof(T) * offset));
   }
 
+  /// @brief Raw pointer to container data with offset
+  /// @tparam T Type to use for returned pointer
+  /// @tparam C sizeof to use while calculating offset
+  /// @param offset offset as sizeof C
+  /// @return Raw pointer to container data with offset applied
   template <typename T, typename C = size_t> T *raw_buffer(C offset = 0U) const noexcept {
 
     if constexpr (std::same_as<C, std::ptrdiff_t>) {
@@ -105,6 +130,9 @@ public:
     }
   }
 
+  /// @brief Size of container with specific return type
+  /// @tparam T Return type, signed or unsigned
+  /// @return size of container as specified type
   template <typename T> const T size1() const noexcept {
     if constexpr (std::signed_integral<T>) {
       return std::ssize(*this);
@@ -116,6 +144,10 @@ public:
     }
   }
 
+  /// @brief Convert bytes at offset to an uint32_t
+  /// @param offset offset into container
+  /// @param n number of bytes to use in conversion
+  /// @return converted uint32_t
   uint32_t to_uint32(size_t offset, int n) const noexcept {
     uint32_t val = 0;
     size_t shift = (n - 1) * 8;
@@ -130,15 +162,18 @@ public:
     return val;
   }
 
+  /// @brief Return const string view starting at offset for bytes
+  /// @param offset starting offset, default to 0
+  /// @param bytes count of bytes to include, default to 0
+  /// @return
   csv view(const size_t offset = 0, size_t bytes = 0) const noexcept {
     bytes = (bytes == 0) ? size() : bytes;
     return string_view(raw<char>(offset), bytes);
   }
 
-  // debug, logging
-  // virtual csv moduleId() const { return module_id_base; }
-
 protected:
+  /// @brief Is container printable
+  /// @return boolean
   bool printable() const noexcept {
     if (size()) {
       return ranges::all_of( // only look at the first 10%
@@ -150,7 +185,7 @@ protected:
   }
 
 public:
-  static constexpr csv module_id_base{"uint8v"};
+  static constexpr auto module_id_base{"uint8v"sv};
 };
 
 } // namespace pierre

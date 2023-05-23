@@ -23,6 +23,10 @@
 
 namespace pierre {
 
+/// @brief Logarithmically scale a value
+/// @tparam T type of value to scale
+/// @param val Value to scale
+/// @return Scaled value
 template <typename T> constexpr T scale_val(T val) {
   return (val <= 0.0) ? 0.0 : 10.0 * std::log10(val);
 }
