@@ -33,6 +33,11 @@ using error_code = boost::system::error_code;
 namespace desk {
 namespace async {
 
+/// @brief Write a Desk Msg
+/// @param sock Socket to write to
+/// @param msg Msg containing payload and eventually returned to the caller
+/// @param token Completion Token
+/// @return asio::async_result
 template <typename Socket, typename M, typename CompletionToken>
 auto write_msg(Socket &socket, M &&msg, CompletionToken &&token) {
 

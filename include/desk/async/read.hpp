@@ -30,15 +30,13 @@ namespace pierre {
 namespace desk {
 namespace async {
 
-/// @brief Async read desk msg
-/// @tparam CompletionToken
-/// @param socket
-/// @param token
-/// @return
+/// @brief Read a Desk Msg
+/// @param sock Socket to read from
+/// @param msg Msg for storing data and eventually returned to the caller
+/// @param token Completion Token
+/// @return asio::async_result
 template <typename Socket, typename M, typename CompletionToken>
 auto read_msg(Socket &sock, M &&msg, CompletionToken &&token) {
-  constexpr csv module_id{"desk.async"};
-  constexpr csv fn_id{"read_msg"};
 
   auto initiation = [](auto &&completion_handler, Socket &sock, M msg) {
     struct intermediate_completion_handler {

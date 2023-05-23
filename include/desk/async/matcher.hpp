@@ -40,10 +40,20 @@ namespace async {
 // https://github.com/msgpack/msgpack/blob/master/spec.md
 //
 
+/// @brief asio completion handler for Desk Msgs,
+///        detects the begin and start of a MsgPack encoded message
 class matcher {
 public:
+  /// @brief Construct object
   explicit matcher() noexcept {}
 
+  /// @brief Functor to find a complete MsgPack encoded message from asio::async_read stream.
+  ///        Searches stream for the encoded key/val of { "ma" = 828 }.
+  ///        The magic number of 828 represents the C64 cassette buffer starting memory address.
+  /// @tparam Iterator
+  /// @param begin Start of the range of bytes to examine
+  /// @param end End of the range of bytes to examine
+  /// @return boolean, true when MsgPack encoded message is found, false otherwise
   template <typename Iterator>
   std::pair<Iterator, bool> operator()(Iterator begin, Iterator end) const {
 
@@ -52,15 +62,13 @@ public:
     // first, do we have enough bytes to detect EOM?
     if (n < std::ssize(suffix)) return std::make_pair(begin, false);
 
-    auto found = std::search(begin, end,                         //
-                             suffix.begin(), suffix.end(),       //
-                             [](const auto &in, const auto &s) { //
+    auto found = std::search(begin, end,                   //
+                             suffix.begin(), suffix.end(), //
+                             [](auto &in, auto &s) {       //
                                return static_cast<uint8_t>(in) == s;
                              });
 
     if (found == end) return std::make_pair(begin, false);
-
-    // ESP_LOGI("desk.async.matcher", "n=%d", n);
 
     return std::make_pair(found + std::ssize(suffix), true);
   }
