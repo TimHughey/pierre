@@ -19,164 +19,27 @@
 */
 
 #include "frame/fft.hpp"
-#include "base/elapsed.hpp"
-
-#include <algorithm>
-#include <cmath>
-#include <exception>
-#include <functional>
-#include <iterator>
-#include <limits>
-#include <numbers>
-#include <numeric>
-#include <ranges>
 
 namespace pierre {
 
-using namespace fft;
+reals_t FFT::wwf;
 
-constexpr float PI2{std::numbers::pi * 2};
-constexpr float PI4{std::numbers::pi * 4};
-constexpr float PI6{std::numbers::pi * 6};
+void FFT::init() noexcept {
 
-static const size_t _samples{1024};
-static const window _window_type{window::Hann};
-static bool _with_compensation = false;
-static const float _win_compensation_factors[] = {
-    1.0000000000 * 2.0, // rectangle (Box car)
-    1.8549343278 * 2.0, // hamming
-    1.8554726898 * 2.0, // hann
-    2.0039186079 * 2.0, // triangle (Bartlett)
-    2.8163172034 * 2.0, // nuttall
-    2.3673474360 * 2.0, // blackman
-    2.7557840395 * 2.0, // blackman nuttall
-    2.7929062517 * 2.0, // blackman harris
-    3.5659039231 * 2.0, // flat top
-    1.5029392863 * 2.0  // welch
-};
+  if (wwf.size() == 0) {
+    constexpr auto sq = [](auto x) { return x * x; };
 
-static reals_t _wwf;
+    wwf.reserve(samples_max >> 1);
+    auto wwf_it = std::back_inserter(wwf);
 
-FFT::FFT(const float *reals, size_t samples, const float frequency)
-    : _reals(_samples, 0),         //
-      _sampling_freq(frequency),   //
-      _max_peaks(_samples >> 1),   //
-      _imaginary(_samples, 0),     //
-      _power(std::log2f(_samples)) //
-{
-
-  init(); // calc the window weighing factors
-
-  if (samples != _samples) {
-    throw std::runtime_error("unsupported number of samples");
-  }
-
-  for (size_t i = 0; i < samples; i++) {
-    _reals[i] = reals[i];
-  }
-}
-
-void FFT::complex_to_magnitude() {
-  // vM is half the size of vReal and vImag
-  for (size_t i = 0; i < _samples; i++) {
-    _reals[i] = std::hypot(_reals[i], _imaginary[i]);
-  }
-}
-
-void FFT::compute(direction dir) {
-  // Reverse bits /
-  size_t j = 0;
-  for (size_t i = 0; i < (_samples - 1); i++) {
-    if (i < j) {
-      std::swap(_reals[i], _reals[j]);
-      if (dir == direction::Reverse) {
-        std::swap(_imaginary[i], _imaginary[j]);
-      }
-    }
-    size_t k = (_samples >> 1);
-    while (k <= j) {
-      j -= k;
-      k >>= 1;
-    }
-    j += k;
-  }
-
-  // Compute the FFT
-  float c1 = -1.0;
-  float c2 = 0.0;
-  size_t l2 = 1;
-  for (uint_fast8_t l = 0; (l < _power); l++) {
-    size_t l1 = l2;
-    l2 <<= 1;
-    float u1 = 1.0;
-    float u2 = 0.0;
-    for (j = 0; j < l1; j++) {
-      for (size_t i = j; i < _samples; i += l2) {
-        size_t i1 = i + l1;
-        float t1 = u1 * _reals[i1] - u2 * _imaginary[i1];
-        float t2 = u1 * _imaginary[i1] + u2 * _reals[i1];
-        _reals[i1] = _reals[i] - t1;
-        _imaginary[i1] = _imaginary[i] - t2;
-        _reals[i] += t1;
-        _imaginary[i] += t2;
-      }
-      float z = ((u1 * c1) - (u2 * c2));
-      u2 = ((u1 * c2) + (u2 * c1));
-      u1 = z;
-    }
-
-    float cTemp = 0.5 * c1;
-    c2 = std::sqrt(0.5 - cTemp);
-    c1 = std::sqrt(0.5 + cTemp);
-
-    c2 = dir == direction::Forward ? -c2 : c2;
-  }
-  // Scaling for reverse transform
-  if (dir != direction::Forward) {
-    for (size_t i = 0; i < _samples; i++) {
-      _reals[i] /= _samples;
-      _imaginary[i] /= _samples;
-    }
-  }
-}
-
-void FFT::dc_removal() noexcept {
-  double sum = std::accumulate(_reals.begin(), _reals.end(), 0.0);
-  double mean = sum / _samples;
-
-  for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
-    _reals[i] -= mean;
-  }
-}
-
-void FFT::find_peaks(Peaks &peaks, Peaks::CHANNEL channel) noexcept {
-
-  // result of fft is symmetrical, look at first half only
-  for (size_t i = 1; i < ((_samples >> 1) + 1); i++) {
-    const float a = _reals[i - 1];
-    const float b = _reals[i];
-    const float c = _reals[i + 1];
-
-    if ((a < b) && (b > c)) {
-      peaks.emplace(mag_at_index(i), freq_at_index(i), channel);
-    }
-  }
-}
-
-void FFT::init() { // static
-
-  if (_wwf.size() == 0) {
-    _wwf.reserve(_samples >> 1);
-    auto wwf = std::back_inserter(_wwf);
-
-    float samplesMinusOne = (float(_samples) - 1.0);
-    float compensationFactor = _win_compensation_factors[static_cast<uint_fast8_t>(_window_type)];
-    for (size_t i = 0; i < (_samples >> 1); i++) {
-      float indexMinusOne = float(i);
-      float ratio = (indexMinusOne / samplesMinusOne);
-      float weighingFactor = 1.0;
+    double samplesMinusOne = samples_max - 1.0;
+    double compensationFactor = win_compensation_factors[window_type];
+    for (size_t i = 0; i < (samples_max >> 1); i++) {
+      double indexMinusOne = i;
+      double ratio = (indexMinusOne / samplesMinusOne);
+      double weighingFactor = 1.0;
       // Compute and record weighting factor
-      switch (_window_type) {
+      switch (window_type) {
       case window::Rectangle: // rectangle (box car)
         weighingFactor = 1.0;
         break;
@@ -214,55 +77,8 @@ void FFT::init() { // static
             1.0 - (sq(indexMinusOne - samplesMinusOne / 2.0) / (samplesMinusOne / 2.0));
         break;
       }
-      if (_with_compensation) {
-        weighingFactor *= compensationFactor;
-      }
 
-      wwf = weighingFactor;
-    }
-  }
-}
-
-Magnitude FFT::mag_at_index(const size_t i) const {
-  const float a = _reals[i - 1];
-  const float b = _reals[i];
-  const float c = _reals[i + 1];
-
-  return Magnitude(abs(a - (2.0f * b) + c));
-}
-
-Frequency FFT::freq_at_index(size_t y) {
-  const float a = _reals[y - 1];
-  const float b = _reals[y];
-  const float c = _reals[y + 1];
-
-  float delta = 0.5 * ((a - c) / (a - (2.0 * b) + c));
-  float frequency = ((y + delta) * _sampling_freq) / (_samples - 1);
-  if (y == (_samples >> 1)) {
-    // To improve calculation on edge values
-    frequency = ((y + delta) * _sampling_freq) / _samples;
-  }
-
-  return Frequency(frequency);
-}
-
-void FFT::process() {
-  dc_removal();
-  windowing(direction::Forward);
-  compute(direction::Forward);
-  complex_to_magnitude();
-}
-
-void FFT::windowing(direction dir) {
-  if (dir == direction::Forward) {
-    for (size_t i = 0; i < (_samples >> 1); i++) {
-      _reals[i] *= _wwf[i];
-      _reals[_samples - (i + 1)] *= _wwf[i];
-    }
-  } else {
-    for (size_t i = 0; i < (_samples >> 1); i++) {
-      _reals[i] /= _wwf[i];
-      _reals[_samples - (i + 1)] /= _wwf[i];
+      wwf_it = with_compensation ? (weighingFactor * compensationFactor) : weighingFactor;
     }
   }
 }

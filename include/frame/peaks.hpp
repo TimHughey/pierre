@@ -21,89 +21,82 @@
 #include "base/types.hpp"
 #include "frame/peaks/peak.hpp"
 
-#include <algorithm>
-#include <functional>
-#include <iterator>
+#include <array>
 #include <map>
-#include <memory>
-#include <type_traits>
-#include <vector>
+#include <ranges>
 
 namespace pierre {
 
 class Peaks {
 public:
-  enum CHANNEL : size_t { LEFT = 0, RIGHT };
-
-private:
-  // sorted descending
-  using peak_map_t = std::map<Magnitude, Peak, std::greater<Magnitude>>;
+  using freq_min_max = min_max_pair<Frequency>;
+  using mag_min_max = min_max_pair<Magnitude>;
+  using peak_map_t = std::map<Magnitude, Peak, std::greater<Magnitude>>; // descending
 
 public:
-  Peaks() noexcept {}
+  enum chan_t : size_t { Left = 0, Right };
+
+public:
+  Peaks() = default;
   ~Peaks() noexcept {}
 
   Peaks(Peaks &&) = default;
   Peaks &operator=(Peaks &&) = default;
 
+private:
+  bool empty(chan_t ch) const noexcept { return maps[ch].empty(); }
+  const auto &peak1(chan_t ch) const noexcept { return maps[ch].begin()->second; }
+  ssize_t size(chan_t channel = Left) const noexcept { return std::ssize(maps[channel]); }
+
 public:
-  /// @brief Contains audible peaks (not silence)
-  /// @return bool
+  /// @brief Are there audible peaks?
+  /// @return bool3an
   bool audible() const noexcept { return !silence(); }
 
-  bool emplace(Magnitude m, Frequency f, CHANNEL channel = LEFT) noexcept;
+  bool insert(Magnitude m, Frequency f, chan_t channel = Left) noexcept {
+    auto rc = false;
+    const mag_min_max ml(0.9, 128.0);
 
-  bool has_peak(size_t n, CHANNEL channel = LEFT) const noexcept {
-    if (peaks_map.empty()) return false;
+    auto &map = maps[channel];
 
-    return peaks_map[channel].size() > n ? true : false;
+    if ((m >= ml.min()) && (m <= ml.max())) {
+      auto node = map.try_emplace(m, f, m);
+
+      rc = node.second; // was the peak inserted?
+    }
+
+    return rc;
   }
 
-  const Peak major_peak(CHANNEL channel = LEFT) const noexcept {
-
-    if (peaks_map.empty()) return Peak();
-
-    const auto &map = peaks_map[channel];
-
-    return !std::empty(map) ? std::begin(map)->second : Peak();
+  /// @brief Major Peak
+  /// @param ch channel, Left (default), Right
+  /// @return Reference to first (major) peak
+  const Peak &operator()(chan_t ch = Left) const noexcept {
+    return size(Left) ? peak1(ch) : silent_peak;
   }
-
-  // avoid maybe_unused in special edge cases
-  void noop() const noexcept {}
 
   // find the first peak greater than the Frequency
-  const Peak operator()(const Frequency freq, CHANNEL channel = LEFT) const noexcept {
-    Peak found;
+  const Peak &operator()(const Frequency freq, chan_t channel = Left) const noexcept {
 
-    if (peaks_map.empty() == false) {
-      const auto &map = peaks_map[channel];
+    if (size(Left)) {
+      const auto &map = maps[channel];
 
-      if (!std::empty(map)) {
-
-        for (auto it = std::counted_iterator{std::begin(map), 5};
-             (it != std::default_sentinel) && !found; ++it) {
-          const auto &[mag, peak] = *it;
-
-          if (freq > peak.frequency()) found = peak;
-        }
+      for (auto &[mag, peak] : std::views::counted(map.begin(), 5)) {
+        if (freq > peak.freq) return peak;
       }
     }
 
-    return found;
+    return silent_peak;
   }
 
-  bool silence() const noexcept {
-    return peaks_map.empty() || peaks_map[LEFT].empty() || peaks_map[RIGHT].empty();
-  }
-
-  size_t size(CHANNEL channel = LEFT) const noexcept {
-    if (peaks_map.empty()) return 0;
-
-    return std::ssize(peaks_map[channel]);
-  }
+  bool silence() const noexcept { return empty(Left) || empty(Right); }
 
 private:
-  std::vector<peak_map_t> peaks_map;
+  // order dependent
+  Peak silent_peak;
+
+  // order independent
+  std::array<peak_map_t, 2> maps;
 
 public:
   MOD_ID("frame.peaks");

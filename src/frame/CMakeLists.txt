@@ -36,12 +36,8 @@ add_library(${__target}
   anchor_last.cpp
   clock_info.cpp
   master_clock.cpp
-  
-  # FFT results
-  peaks.cpp
-  peaks/peak.cpp
 
-  # the frame (from raw to dsp complete)
+  # the frame (from raw to rendered)
   frame.cpp
   state.cpp
 

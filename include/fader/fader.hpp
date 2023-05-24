@@ -28,14 +28,13 @@ namespace pierre {
 
 class Fader {
 public:
-  Fader(const Nanos duration) : duration(duration){};
+  Fader(const Nanos duration) : duration(duration) {}
 
   bool active() const { return !finished; }
   bool checkProgress(double percent) const { return progress > percent; }
   bool complete() const { return finished; }
   auto frameCount() const { return frames.count; }
   virtual const Color &position() const { return color::NONE; }
-  const Nanos &startdAt() const { return start_at; }
 
   bool travel(); // returns true to continue traveling
 

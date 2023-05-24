@@ -25,8 +25,7 @@
 namespace pierre {
 namespace fader {
 
-// E = easing
-template <typename E> class ToBlack : public ToColor<E> {
+template <typename Easing> class ToBlack : public ToColor<Easing> {
 public:
   struct Opts {
     Color origin;
@@ -35,7 +34,9 @@ public:
 
 public:
   ToBlack(const Opts &opts)
-      : ToColor<E>({.origin = opts.origin, .dest = Color::black(), .duration = opts.duration}) {}
+      : ToColor<Easing>(
+            {.origin = opts.origin, .dest = Color::black(), .duration = opts.duration}) //
+  {}
 };
 } // namespace fader
 } // namespace pierre

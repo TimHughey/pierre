@@ -18,45 +18,71 @@
 
 #pragma once
 
+#include "base/min_max_pair.hpp"
 #include "base/types.hpp"
 #include "frame/peaks/frequency.hpp"
 #include "frame/peaks/magnitude.hpp"
-#include "frame/peaks/types.hpp"
 
-#include <algorithm>
-#include <cmath>
-#include <memory>
-#include <ranges>
+// #include <algorithm>
+#include <fmt/format.h>
 
 namespace pierre {
 
+using freq_min_max = min_max_pair<Frequency>;
+using mag_min_max = min_max_pair<Magnitude>;
+
+/// @brief A Peak is the output of the audio data FFT.
+///        Each "packet" of audio PCM data consists of
+///        2048 samples (two channels of 1024 32-bit bytes).
+///        The FFT transforms the audio sameples into
+///        a series of freq/mags representing
+///        the sample's composition (e.g. major peak freq).
+///
+///        Each audio packet becomes 1024 freq/mag pairs
+///        and this object represents one of those pairs.
+///        The 1024 individual Peak is stored, in descending
+///        order by mag, in the container "Peaks".
 struct Peak {
 public:
-  Peak() noexcept : freq(0), mag(0) {}
+  Peak() = default;
   Peak(const Frequency f, const Magnitude m) noexcept : freq(f), mag(m) {}
 
-  auto frequency() const noexcept { return freq; }
-  auto magnitude() const noexcept { return mag; }
-
+  /// @brief Is this peak silence (mag == 0, freq == 0)
+  /// @return boolean
   bool operator!() const noexcept { return (freq == 0) && (mag == 0); }
 
-  friend std::strong_ordering operator<=>(const auto &lhs, const Frequency &freq) noexcept {
-    return lhs.freq <=> freq;
+  /// @brief Compare a Peak to a frequency
+  /// @param rhs Frequency
+  /// @return Varies depending on comparison
+  constexpr std::partial_ordering operator<=>(const Frequency &rhs) const noexcept {
+    if (freq < rhs) return std::partial_ordering::less;
+    if (freq > rhs) return std::partial_ordering::greater;
+
+    return std::partial_ordering::equivalent;
   }
 
-  friend std::strong_ordering operator<=>(const auto &lhs, const Magnitude &mag) noexcept {
-    return lhs.mag <=> mag;
+  /// @brief Compare a Peak to a magnitude
+  /// @param rhs Magnitude
+  /// @return Varies depending on comparison
+  constexpr std::partial_ordering operator<=>(const Magnitude &rhs) const noexcept {
+    if (mag < rhs) return std::partial_ordering::less;
+    if (mag > rhs) return std::partial_ordering::greater;
+
+    return std::partial_ordering::equivalent;
   }
 
-  bool useable() const noexcept; // see .cpp, requires PeakConfig
+  /// @brief Is the Peak useable?
+  ///        The Peak magnitude is compared to a mag min/max
+  ///        and is useabled when between the min/max (inclusive)
+  /// @return boolean
+  bool useable() const noexcept { return useable(mag_min_max(0.9, 128.0)); }
+
   bool useable(const mag_min_max &ml) const noexcept { return ml.inclusive(mag); }
   bool useable(const mag_min_max &ml, const freq_min_max &fl) const noexcept {
     return ml.inclusive(mag) && fl.inclusive(freq);
   }
 
-  static Peak zero() noexcept { return Peak(); }
-
-private:
+public:
   Frequency freq{0};
   Magnitude mag{0};
 };
@@ -88,16 +114,17 @@ template <> struct fmt::formatter<pierre::Peak> {
     return it;
   }
 
-  // Formats the point p using the parsed format specification (presentation)
+  // Formats the Peak p using the parsed format specification (presentation)
   // stored in this formatter.
   template <typename FormatContext>
   auto format(const pierre::Peak &p, FormatContext &ctx) const -> decltype(ctx.out()) {
+    std::string msg;
+    auto w = std::back_inserter(msg);
 
-    std::vector<std::string> parts;
-    if (freq) parts.emplace_back(fmt::format("freq={:>8.2f}", p.frequency()));
-    if (mag) parts.emplace_back(fmt::format("mag={:>2.5f}", p.magnitude()));
+    if (freq) fmt::format_to(w, "freq={:>8.2f}", p.freq);
+    if (mag) fmt::format_to(w, "mag={:>2.5f}", p.mag);
 
     // ctx.out() is an output iterator to write to.
-    return fmt::format_to(ctx.out(), "{}", fmt::join(parts, " "));
+    return fmt::format_to(ctx.out(), "{}", msg);
   }
 };

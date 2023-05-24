@@ -35,7 +35,7 @@ void FX::ensure_units() noexcept {
   if (!units) units = std::make_unique<Units>();
 }
 
-void FX::execute(const Peaks &peaks) noexcept { peaks.noop(); };
+void FX::execute(const Peaks &) noexcept {}
 
 bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
 

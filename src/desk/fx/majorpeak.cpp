@@ -38,10 +38,6 @@ using MainFader = fader::ToBlack<fader::SimpleLinear>;
 
 namespace desk {
 
-namespace {
-namespace stats = pierre::stats;
-}
-
 void MajorPeak::execute(const Peaks &peaks) noexcept {
   INFO_AUTO_CAT("execute");
 
@@ -56,8 +52,10 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
   handle_main_pinspot(peaks);
   handle_fill_pinspot(peaks);
 
-  Stats::write<MajorPeak>(stats::MAX_PEAK_FREQUENCY, peaks.major_peak().frequency());
-  Stats::write<MajorPeak>(stats::MAX_PEAK_MAGNITUDE, peaks.major_peak().magnitude());
+  const auto &peak1 = peaks();
+
+  Stats::write<MajorPeak>(stats::MAX_PEAK_FREQUENCY, peak1.freq);
+  Stats::write<MajorPeak>(stats::MAX_PEAK_MAGNITUDE, peak1.mag);
 }
 
 void MajorPeak::handle_el_wire(const Peaks &peaks) {
@@ -66,10 +64,10 @@ void MajorPeak::handle_el_wire(const Peaks &peaks) {
   std::array elwires{unit<Dimmable>(unit::EL_DANCE), unit<Dimmable>(unit::EL_ENTRY)};
 
   for (auto elwire : elwires) {
-    if (const auto &peak = peaks.major_peak(); peak.useable()) {
+    if (const auto &peak = peaks(); peak.useable()) {
 
       const duty_val_t x = freq_limits.scaled_soft(). //
-                           interpolate(elwire->minMaxDuty<double>(), peak.frequency().scaled());
+                           interpolate(elwire->minMaxDuty<double>(), peak.freq.scaled());
 
       elwire->fixed(x);
     } else {
@@ -82,19 +80,19 @@ void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
   auto fill = unit<PinSpot>(unit::FILL_SPOT);
   auto cfg = pspot_cfg_map.at("fill pinspot");
 
-  const auto peak = peaks.major_peak();
-  if (peak.frequency() > cfg.freq_max) {
+  const auto peak1 = peaks();
+  if (peak1.freq > cfg.freq_max) {
     return;
   }
 
-  Color color = make_color(peak);
+  Color color = make_color(peak1);
 
   auto start_fader = false;
   bool fading = fill->isFading();
 
   // when fading look for possible scenarios where the current color can be overriden
   if (fading) {
-    auto freq = peak.frequency();
+    auto freq = peak1.freq;
     auto brightness = fill->brightness();
 
     const auto &last_peak = fill_last_peak;
@@ -103,11 +101,11 @@ void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
     if (freq >= greater_freq) {
       // peaks above upper bass and have a greater magnitude take priority
       // regardless of pinspot brightness
-      if (peak.magnitude() > last_peak.magnitude()) {
+      if (peak1.mag > last_peak.mag) {
         start_fader = true;
       }
 
-      if (last_peak.frequency() <= greater_freq) {
+      if (last_peak.freq <= greater_freq) {
         const auto bri_min = cfg.when_greater.when_higher_freq.bri_min;
 
         if (brightness <= bri_min) {
@@ -141,7 +139,7 @@ void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
 
   if (start_fader) {
     fill->activate<FillFader>({.origin = color, .duration = cfg.fade_max});
-    fill_last_peak = peak;
+    fill_last_peak = peak1;
   }
 }
 
@@ -150,7 +148,7 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
   const auto &cfg = pspot_cfg_map.at("main pinspot");
 
   const auto freq_min = cfg.freq_min;
-  const auto peak = peaks(freq_min, Peaks::CHANNEL::RIGHT);
+  const auto peak = peaks(freq_min, Peaks::Right);
 
   if (peak.useable(mag_limits) == false) return;
 
@@ -169,11 +167,11 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
     auto brightness = main->brightness();
     auto &last_peak = main_last_peak;
 
-    if (peak.magnitude() >= last_peak.magnitude()) {
+    if (peak.mag >= last_peak.mag) {
       start_fader = true;
     }
 
-    if (last_peak.frequency() < peak.frequency()) {
+    if (last_peak.freq < peak.freq) {
       if (brightness < when_fading.when_freq_greater.bri_min) {
         start_fader = true;
       }
@@ -232,8 +230,8 @@ bool MajorPeak::load_config() noexcept {
                                           .mag_scaled = tokc->val<bool>(mag_scaled_path, true)}});
     }
 
-    mag_limits =
-        mag_min_max(dval("magnitudes.floor"_tpath, 2.009), dval("magnitudes.ceiling"_tpath, 2.009));
+    mag_limits = Peaks::mag_min_max(dval("magnitudes.floor"_tpath, 2.009),
+                                    dval("magnitudes.ceiling"_tpath, 2.009));
 
     // load pinspot config
     static constexpr csv BRI_MIN{"bri_min"};
@@ -301,20 +299,20 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   if (peak.useable(mag_limits, freq_limits.hard()) == false) {
     color = Color::black();
 
-  } else if (peak.frequency() < freq_limits.soft().min()) {
+  } else if (peak.freq < freq_limits.soft().min()) {
     // frequency less than the soft
-    color.setBrightness(mag_limits, peak.magnitude().scaled());
+    color.setBrightness(mag_limits, peak.mag.scaled());
 
-  } else if (peak.frequency() > freq_limits.soft().max()) {
+  } else if (peak.freq > freq_limits.soft().max()) {
     auto const &hue_cfg = hue_cfg_map.at("above_soft_ceiling");
 
-    auto fl_custom = freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
+    auto fl_custom = Peaks::freq_min_max(freq_limits.soft().max(), freq_limits.hard().max());
     auto hue_minmax = hue_cfg.hue_minmax();
-    auto degrees = fl_custom.interpolate(hue_minmax, peak.frequency().scaled()) * hue_cfg.hue.step;
+    auto degrees = fl_custom.interpolate(hue_minmax, peak.freq.scaled()) * hue_cfg.hue.step;
 
     color.rotateHue(degrees);
     if (hue_cfg.brightness.mag_scaled) {
-      color.setBrightness(mag_limits, peak.magnitude().scaled());
+      color.setBrightness(mag_limits, peak.mag.scaled());
     } else {
       color.setBrightness(hue_cfg.brightness.max);
     }
@@ -325,10 +323,10 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
     const auto fl_soft = freq_limits.scaled_soft();
     const auto hue_min_max = hue_cfg.hue_minmax();
 
-    auto degrees = fl_soft.interpolate(hue_min_max, peak.frequency().scaled()) * hue_cfg.hue.step;
+    auto degrees = fl_soft.interpolate(hue_min_max, peak.freq.scaled()) * hue_cfg.hue.step;
 
     color.rotateHue(degrees);
-    color.setBrightness(mag_limits, peak.magnitude().scaled());
+    color.setBrightness(mag_limits, peak.mag.scaled());
   }
 
   return color;

@@ -23,8 +23,6 @@
 namespace pierre {
 
 Av::Av() noexcept : ready{false} {
-  FFT::init();
-
   codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
 
   INFO_INIT("sizeof={:>5} codec={}", sizeof(Av), fmt::ptr(codec));
@@ -129,12 +127,8 @@ frame_state_v Av::decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_fr
 
 frame_state_v Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
 
-  // the state hasn't changed, proceed with processing
-  left.process();
-  left.find_peaks(frame.peaks, Peaks::CHANNEL::LEFT);
-
-  right.process();
-  right.find_peaks(frame.peaks, Peaks::CHANNEL::RIGHT);
+  left.find_peaks(frame.peaks, Peaks::Left);
+  right.find_peaks(frame.peaks, Peaks::Right);
 
   frame.silent(frame.peaks.silence() && frame.peaks.silence());
 
