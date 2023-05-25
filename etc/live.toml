@@ -68,15 +68,15 @@ type = "fill"
 fade_max_ms = 1200
 freq_max = 5000.0
 when_greater = { freq = 180.0, bri_min = 20.0, when_higher_freq = { bri_min = 85.0 } }
-when_less_than = { freq = 180.0, bri_min = 30.0 }
+when_less_than = { freq = 80.0, bri_min = 30.0 }
 
 [[fx.majorpeak.pinspots]]
 name = "main pinspot"
 type = "main"
 fade_max_ms = 800
 freq_min = 160.0
-when_fading = { bri_min = 10.0, when_freq_greater = { bri_min = 30.0 } }
-when_less_than = { freq = 160.0, bri_min = 30.0 }
+when_fading = { bri_min = 8.0, when_freq_greater = { bri_min = 75.0 } }
+when_less_than = { freq = 220.0, bri_min = 30.0 }
 
 [fx.standby]
 color = { hue = 0.0, sat = 100.0, bri = 50.0 }

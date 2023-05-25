@@ -24,8 +24,10 @@ class Desk;
 
 // forward decls to hide implementation details, limit include dependencies
 namespace desk {
+class DataMsg;
 class DmxCtrl;
 class FX;
+class MsgIn;
 struct frame_rr;
 } // namespace desk
 

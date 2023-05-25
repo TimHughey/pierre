@@ -25,13 +25,22 @@
 
 namespace pierre {
 
+/// @brief Flush Request Detail
 struct FlushInfo {
   enum kind_t : uint8_t { All = 0, Normal, Inactive };
 
+  /// @brief Default construct an inactive fkush request
   FlushInfo() = default;
 
+  /// @brief Construct a specific kind of flush request (e.g. All)
+  /// @param k
   FlushInfo(kind_t k) noexcept : kind(k) {}
 
+  /// @brief Construct a flush request with detail of what to flush
+  /// @param from_sn from RTP sequence number (maybe be zero)
+  /// @param from_ts from RTP timestamp (maybe be zero)
+  /// @param until_sn until RTP sequence number (inclusive)
+  /// @param until_ts until RTP timestamp (inclusive)
   FlushInfo(seq_num_t from_sn, ftime_t from_ts, seq_num_t until_sn, ftime_t until_ts) noexcept
       : // when flush details are provided auto set kind
         kind{Normal},
@@ -40,16 +49,25 @@ struct FlushInfo {
         // flush everything <= seq_num / ts
         until_seq(until_sn), until_ts(until_ts) {}
 
+  /// @brief Is this flush request active?
+  /// @return boolean
   auto active() const noexcept { return ((kind == All) || (kind == Normal)); }
 
+  /// @brief Is this full request for all frames?
+  /// @return boolean
   auto all() const noexcept { return kind == All; }
 
+  /// @brief Mark this flush request as completed (done)
   void done() noexcept {
     if (kind == All) kind = Inactive;
   }
 
+  /// @brief Is this flush request inactive?
+  /// @return boolean
   bool inactive() const noexcept { return !active(); }
 
+  /// @brief Translate kind to string
+  /// @return const char *
   auto kind_desc() const noexcept { return kind_str[kind]; }
 
   // order dependent
