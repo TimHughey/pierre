@@ -180,18 +180,16 @@ void DmxCtrl::msg_loop(MsgIn &&msg) noexcept {
         }
       }
 
-    } else {
+      // we are finished with the message, safe to reuse
+      msg_loop(std::move(msg));
+
+    } else if (sess_connected.test()) {
       INFO_AUTO("{}", msg.status(Msg::Err));
       Stats::write<DmxCtrl>(stats::DATA_MSG_READ_ERROR, true);
       sess_connected.clear();
 
       [[maybe_unused]] error_code ec;
       sess_sock.close(ec);
-    }
-
-    if (sess_connected.test()) {
-      // we are finished with the message, safe to reuse
-      msg_loop(std::move(msg));
     }
   });
 }

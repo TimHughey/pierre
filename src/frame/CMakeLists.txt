@@ -33,8 +33,6 @@ add_library(${__target}
   # anchor and master clock
   anchor.cpp
   anchor_data.cpp
-  anchor_last.cpp
-  clock_info.cpp
   master_clock.cpp
 
   # the frame (from raw to rendered)

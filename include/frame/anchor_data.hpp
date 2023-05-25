@@ -18,15 +18,21 @@
 
 #pragma once
 
-#include "base/elapsed.hpp"
 #include "base/dura_t.hpp"
+#include "base/elapsed.hpp"
 #include "base/qpow10.hpp"
 #include "base/types.hpp"
 #include "frame/clock_info.hpp"
 
+#include <compare>
 #include <fmt/format.h>
 
 namespace pierre {
+
+template <typename T>
+concept HasClockId = requires(T &t) {
+  { t.clock_id } -> std::convertible_to<ClockID>;
+};
 
 struct AnchorData {
   //  Requirements and implementation notes when using PTP timing:
@@ -67,23 +73,22 @@ struct AnchorData {
 
   AnchorData() = default;
 
-  bool diff(const AnchorData &ad) const noexcept {
-    return (clock_id != ad.clock_id) || (rtp_time != ad.rtp_time) ||
-           (anchor_time != ad.anchor_time);
+  bool maybe_unstable(const AnchorData &ad) const noexcept {
+    return (clock_id == ad.rtp_time)
+               ? ((rtp_time != ad.rtp_time) || (anchor_time != ad.anchor_time))
+               : false;
   }
-
-  bool empty() const { return !clock_id; }
 
   void log_timing_change(const AnchorData &ad) const noexcept;
 
   bool master_for_at_least(const auto master_min) const noexcept {
-    return (master_for == Nanos::zero()) ? false : master_for >= master_min;
+    return (master_for == 0ns) ? false : master_for >= master_min;
   }
 
-  bool match_clock_id(const auto &to_match) const noexcept { return clock_id == to_match.clock_id; }
-
-  bool match_details(const AnchorData &ad) const noexcept {
-    return (anchor_time == ad.anchor_time) || (rtp_time == ad.rtp_time);
+  template <typename T>
+    requires HasClockId<T>
+  bool operator==(const T &lhs) const noexcept {
+    return clock_id == lhs.clock_id;
   }
 
 private:
@@ -103,7 +108,7 @@ template <> struct fmt::formatter<pierre::AnchorData> : formatter<std::string> {
 
   // parse is inherited from formatter<string>.
   template <typename FormatContext> auto format(AnchorData &ad, FormatContext &ctx) const {
-    auto msg = fmt::format("clk_id=0x{:02x} rtp_time={:08x}", ad.clock_id, ad.rtp_time);
+    auto msg = fmt::format("clk_id={:x} rtp_time={:08x}", ad.clock_id, ad.rtp_time);
 
     return formatter<std::string>::format(msg, ctx);
   }

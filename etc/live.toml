@@ -118,11 +118,15 @@ load_config = false
 run = true
 
 [logger.frame]
-anch = { base = true, data = true, last = true }
+# anch = { base = true, data = true, last = true }
 av = false
 clock = { init = true, map_shm = false, peers_update = false, refresh = false, shutdown = false }
 decipher = false
 state_now = false
+
+# [looger.frame.anc]
+# base = true
+# data = true
 
 [logger.frame.reel]
 clean = false
@@ -153,7 +157,7 @@ ctx = true
 init = true
 event = false
 net = false
-reply = { build = false, info = false }
+reply = { build = false, info = false, anc = true }
 
 [mdns]
 port = 7000

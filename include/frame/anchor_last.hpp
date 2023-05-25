@@ -19,14 +19,13 @@
 #pragma once
 
 #include "base/clock_now.hpp"
+#include "base/dura_t.hpp"
 #include "base/elapsed.hpp"
 #include "base/input_info.hpp"
-#include "base/dura_t.hpp"
 #include "base/types.hpp"
-#include "frame/anchor_data.hpp"
-#include "frame/clock_info.hpp"
 
 #include <concepts>
+#include <fmt/format.h>
 #include <utility>
 
 namespace pierre {
@@ -42,6 +41,8 @@ concept HasClockNow = requires(T &c) {
 };
 
 class AnchorLast {
+  friend struct fmt::formatter<AnchorLast>;
+
 public:
   ClockID clock_id{0}; // senders network timeline id (aka clock id)
   uint32_t rtp_time{0};
@@ -68,14 +69,14 @@ public:
     requires HasTimestamp<T>
   Nanos frame_to_local_time(const T &f) const noexcept {
     int32_t frame_diff = f.ts() - rtp_time;
-    Nanos time_diff = Nanos((frame_diff * qpow10(9)) / InputInfo::rate);
+    Nanos time_diff = Nanos((frame_diff * ipow10(9)) / InputInfo::rate);
 
     return localized + time_diff;
   }
 
   Nanos frame_to_local_time(ftime_t timestamp) const noexcept {
     int32_t frame_diff = timestamp - rtp_time;
-    Nanos time_diff = Nanos((frame_diff * qpow10(9)) / InputInfo::rate);
+    Nanos time_diff = Nanos((frame_diff * ipow10(9)) / InputInfo::rate);
 
     return localized + time_diff;
   }
@@ -86,16 +87,41 @@ public:
     Nanos time_diff = local_time - localized;
     Nanos frame_diff = time_diff * InputInfo::rate;
 
-    return rtp_time + (frame_diff.count() / qpow10(9));
+    return rtp_time + (frame_diff.count() / ipow10(9));
   }
 
   bool ready() const noexcept { return clock_id != 0; }
   void reset() noexcept { *this = AnchorLast(); }
 
-  void update(const AnchorData &ad, const ClockInfo &clock) noexcept;
+  void update(const auto &ad, const auto &clock) noexcept {
+
+    rtp_time = ad.rtp_time;
+    anchor_time = ad.anchor_time;
+    dura::apply_offset(localized, anchor_time, clock.rawOffset);
+    since_update.reset();
+
+    // only update master when AnchorLast isn't ready
+    if (clock_id == 0x00) {
+      master_at = clock.mastershipStartTime;
+      clock_id = ad.clock_id; // denotes AnchorLast is ready
+    }
+  }
 
 public:
   MOD_ID("frame.anc.last");
 };
 
 } // namespace pierre
+
+/// @brief Custom formatter for ClockInfo
+template <> struct fmt::formatter<pierre::AnchorLast> : formatter<std::string> {
+  using AnchorLast = pierre::AnchorLast;
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext> auto format(const AnchorLast &al, FormatContext &ctx) const {
+    auto msg = fmt::format("clk_id={:x} rtp_time={:x} anc_time={:x}", //
+                           al.clock_id, al.rtp_time, al.anchor_time);
+
+    return formatter<std::string>::format(msg, ctx);
+  }
+};

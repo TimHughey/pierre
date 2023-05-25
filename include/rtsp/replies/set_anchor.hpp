@@ -32,7 +32,7 @@ class SetAnchor {
 public:
   SetAnchor(const uint8v &content, Reply &reply, Desk *desk) noexcept;
 
-  static constexpr csv module_id{"rtsp.reply.set_anchor"};
+  MOD_ID("rtsp.reply.anc");
 };
 
 } // namespace rtsp

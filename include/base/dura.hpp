@@ -36,9 +36,9 @@ struct dura {
   template <typename TO, typename O>
   static constexpr void apply_offset(TO &d, const O &offset) noexcept {
     if constexpr (IsDuration<TO> && std::unsigned_integral<O>) {
-      d = Nanos(static_cast<O>(d.count()) + offset);
+      d = TO(d.count() + offset);
     } else if constexpr (IsDuration<TO> && std::signed_integral<O>) {
-      d = Nanos(d.count() + offset);
+      d = TO(d.count() + offset);
     } else {
       static_assert(AlwaysFalse<TO>, "unsupported types");
     }
@@ -53,9 +53,9 @@ struct dura {
   template <typename TO, typename O>
   static constexpr void apply_offset(TO &r, const TO &d2, const O &offset) noexcept {
     if constexpr (IsDuration<TO> && std::unsigned_integral<O>) {
-      r = Nanos(static_cast<O>(d2.count()) - offset);
+      r = TO(static_cast<O>(d2.count()) - offset);
     } else if constexpr (IsDuration<TO> && std::signed_integral<O>) {
-      r = Nanos(d2.count() - offset);
+      r = TO(d2.count() - offset);
     } else {
       static_assert(AlwaysFalse<TO>, "unsupported types");
     }

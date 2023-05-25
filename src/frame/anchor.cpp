@@ -18,9 +18,9 @@
 
 #include "anchor.hpp"
 #include "anchor_data.hpp"
+#include "base/dura.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/dura.hpp"
 #include "base/types.hpp"
 #include "clock_info.hpp"
 
@@ -38,21 +38,22 @@ namespace pierre {
 
 // general API and member functions
 
-AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
+AnchorLast Anchor::get_data(const ClockInfo &clk_info) noexcept {
   INFO_AUTO_CAT("get_data");
 
-  if (clock.ok() == false) return AnchorLast();
+  if (clk_info.ok() == false) return AnchorLast();
 
   // must have source anchor data to calculate last
   if (source.has_value()) {
 
-    if (source->match_clock_id(clock)) {
+    if (*source == clk_info) {
       // master clock hasn't changed, just update AnchorLast
-      last.update(*source, clock);
+      last.update(*source, clk_info);
 
     } else if (last.age_check(5s)) {
       // master clock has changed relative to anchor
-      INFO_AUTO("new master_clock={:#x}\n", clock.clock_id);
+
+      INFO_AUTO("{} NEW MASTER", clk_info);
 
       // the anchor and master clock for a buffered session start sync'ed.
       // however, at anytime, the master clock can change while the anchor
@@ -60,8 +61,8 @@ AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
 
       // to handle the master clock change, if it is stable, we update the source
       // anchor by applying it's offset to the the last localized time
-      source->clock_id = clock.clock_id;
-      dura::apply_offset(source->anchor_time, clock.rawOffset);
+      source->clock_id = clk_info.clock_id;
+      dura::apply_offset(source->anchor_time, clk_info.rawOffset);
     }
   }
 
@@ -69,8 +70,21 @@ AnchorLast Anchor::get_data(const ClockInfo &clock) noexcept {
 }
 
 void Anchor::reset() noexcept {
+  INFO_AUTO_CAT("reset");
+
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  if (auto has_value = source.has_value(); !has_value) {
+    fmt::format_to(w, "source.has_value={}", has_value);
+  } else {
+    fmt::format_to(w, "{}", *source);
+  }
+
   source.reset();
   last.reset();
+
+  INFO_AUTO("{}", msg);
 }
 
 void Anchor::save(AnchorData &&ad) noexcept {
@@ -81,13 +95,9 @@ void Anchor::save(AnchorData &&ad) noexcept {
   if (source.has_value()) {
     source->log_timing_change(ad);
 
-    if (source->match_clock_id(ad) &&
-        ((source->rtp_time != ad.rtp_time) || (source->anchor_time != ad.anchor_time))) {
-
-      if (!last.age_check(5s)) {
-        INFO_AUTO("parameters have changed before clock={:#x} stablized\n", ad.clock_id);
-        last.reset();
-      }
+    if (source->maybe_unstable(ad) && !last.age_check(5s)) {
+      INFO_AUTO("clk_id={:#x} appears unstable", source->clock_id);
+      last.reset();
     }
   }
 

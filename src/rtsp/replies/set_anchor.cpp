@@ -27,7 +27,15 @@ namespace pierre {
 namespace rtsp {
 
 SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcept {
+  INFO_AUTO_CAT("construct");
+
   Aplist request_dict(content_in);
+
+  // string msg;
+  // auto w = std::back_inserter(msg);
+
+  // request_dict.format_to(w);
+  // INFO_AUTO("\n{}", msg);
 
   // a complete anchor message contains these keys
   static Aplist::KeyList keys{NET_TIMELINE_ID, NET_TIME_SECS, NET_TIME_FRAC, NET_TIME_FLAGS,
@@ -50,8 +58,6 @@ SetAnchor::SetAnchor(const uint8v &content_in, Reply &reply, Desk *desk) noexcep
     // note: rate is misleading, it is actually the flag that controls playback
     bool rate = request_dict.uint({RATE});
     desk->rendering(rate);
-  } else {
-    INFO( "NOTICE", "rate not present\n");
   }
 
   reply(RespCode::OK);

@@ -19,13 +19,13 @@
 #pragma once
 
 #include "base/clock_now.hpp"
+#include "base/dura.hpp"
 #include "base/elapsed.hpp"
-#include "base/dura_t.hpp"
 #include "base/types.hpp"
 #include "base/uint8v.hpp"
 
-#include <future>
-#include <memory>
+#include <fmt/chrono.h>
+#include <fmt/format.h>
 
 namespace pierre {
 
@@ -76,8 +76,9 @@ struct ClockInfo {
   bool is_stable() const { return master_for_at_least(AGE_STABLE); }
 
   Nanos master_for() const noexcept {
-    return Nanos((mastershipStartTime > 0ns) ? mastershipStartTime.count() - clock_now::mono::ns()
-                                             : 0);
+    auto raw_ns = clock_now::mono::ns() - mastershipStartTime.count();
+
+    return (mastershipStartTime > 0ns) ? Nanos(raw_ns) : 0ns;
   }
 
   bool master_for_at_least(const Nanos min) const noexcept {
@@ -99,11 +100,23 @@ struct ClockInfo {
 
   bool old() const noexcept { return sample_age >= SAMPLE_AGE_MAX; }
 
-  // misc debug
-  const string inspect() const;
-
 public:
-  static constexpr auto module_id{"frame.clock_info"sv};
+  MOD_ID("frame.clock_info");
 };
 
 } // namespace pierre
+
+/// @brief Custom formatter for ClockInfo
+template <> struct fmt::formatter<pierre::ClockInfo> : formatter<std::string> {
+  using ClockInfo = pierre::ClockInfo;
+  using dura = pierre::dura;
+
+  // parse is inherited from formatter<string>.
+  template <typename FormatContext> auto format(const ClockInfo &ci, FormatContext &ctx) const {
+    auto msg =
+        fmt::format("clk_id={:x} raw={:x} samp_time={:x} master_for={} {}", ci.clock_id,
+                    ci.rawOffset, ci.sampleTime, dura::humanize(ci.master_for()), ci.masterClockIp);
+
+    return formatter<std::string>::format(msg, ctx);
+  }
+};

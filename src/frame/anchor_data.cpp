@@ -19,25 +19,36 @@
 #include "anchor_data.hpp"
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
-#include "base/dura.hpp"
 #include "base/types.hpp"
 
 #include <fmt/chrono.h>
+#include <iterator>
 
 namespace pierre {
 
 void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
   INFO_AUTO_CAT("timing_change");
 
-  if ((clock_id != 0) && match_clock_id(ad)) {
-    auto time_diff = ad.anchor_time.count() - anchor_time.count();
+  string msg;
+  auto w = std::back_inserter(msg);
+
+  if (ad.clock_id == 0) {
+    fmt::format_to(w, "NO CLOCK");
+
+  } else {
+    double time_diff = ad.anchor_time.count() - anchor_time.count();
     auto frame_diff = ad.rtp_time - rtp_time;
 
-    double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / qpow10(9);
+    double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / ipow10(9);
     millis_fp frame_change{frame_diff - time_diff_in_frames};
 
-    INFO_AUTO("clock={:#x} rtp_time={:02x} frame_adj={}\n", clock_id, ad.rtp_time, frame_change);
+    fmt::format_to(w, "clk_id={:#x} rtp_time={:02x} frame_adj={:0.2}", //
+                   ad.clock_id, ad.rtp_time, frame_change);
+
+    if (clock_id != ad.clock_id) fmt::format_to(w, " ** NEW **", ad.clock_id);
   }
+
+  INFO_AUTO("{}", msg);
 }
 
 } // namespace pierre
