@@ -18,28 +18,16 @@
 
 #pragma once
 
-#include <cinttypes>
-#include <string>
+#include "desk/color/fdecls.hpp"
 
 namespace pierre {
+namespace conf {
+
+struct majorpeak;
+}
 
 namespace desk {
+struct spot_spec;
+}
 
-namespace unit {
-constexpr std::string AC_POWER{"ac power"};
-constexpr std::string MAIN_SPOT{"main spot"};
-constexpr std::string FILL_SPOT{"fill spot"};
-constexpr std::string EL_ENTRY{"el entry"};
-constexpr std::string EL_DANCE{"el dance"};
-constexpr std::string LED_FOREST{"led forest"};
-constexpr std::string DISCO_BALL{"disco ball"};
-} // namespace unit
-
-namespace unit_type {
-constexpr std::string PINSPOT{"pinspot"};
-constexpr std::string DIMMABLE{"dimmable"};
-constexpr std::string SWITCH{"switch"};
-}; // namespace unit_type
-
-} // namespace desk
 } // namespace pierre

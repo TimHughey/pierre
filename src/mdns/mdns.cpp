@@ -49,12 +49,15 @@ mDNS::mDNS() noexcept
     : // create our config token (populated)
       tokc(module_id),
       // get the receiver
-      receiver(tokc.val<string>("receiver"_tpath, def_receiver.data())),               //
-      build_vsn(conf::fixed::git()),                                                   //
-      stype(tokc.val<string>("service"_tpath, def_stype.data())),                      //
-      receiver_port(tokc.val<int>("port"_tpath, 7000)),                                //
-      service_obj(std::make_unique<Service>(receiver, build_vsn, msgs.emplace_back())) //
-{}
+      receiver(tokc.val<string>("receiver", def_receiver.data())),
+      // get the git version (we include this as part of the TXT record)
+      build_vsn(conf::fixed::git()),
+      // set the service type
+      stype(tokc.val<string>("service", def_stype.data())),
+      // set the sdvertised service port
+      receiver_port(tokc.val<int>("port", 7000)),
+      // establish our service object
+      service_obj(std::make_unique<Service>(receiver, build_vsn, msgs.emplace_back())) {}
 
 mDNS::~mDNS() noexcept { ctx.reset(); }
 

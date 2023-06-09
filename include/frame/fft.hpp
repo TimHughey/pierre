@@ -27,6 +27,7 @@ https://www.wisslanding.com
 #include "base/types.hpp"
 #include "peaks.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <math.h>
@@ -56,17 +57,23 @@ public:
     Blackman_Nuttall, // blackman nuttall
     Blackman_Harris,  // blackman harris
     Flat_top,         // flat top
-    Welch             // welch
+    Welch,            // welch
+    UnknownWindow     // Uknown
   };
+
+  static constexpr std::array<const string, UnknownWindow + 1> win_types{
+      "Rectangle",       "Hamming",         "Hann",     "Triangle", "Nutall",        "Blackman",
+      "Blackman_Nutall", "Blackman_Harris", "Flat_top", "Welch",    "Unknown_Window"};
 
 public:
   /// @brief Create FFT processor and initialize base data, as needed
   /// @param reals_in Raw pointer to arary of float
   /// @param samples_in Count of samples to process
   /// @param sampling_freq_in Sample frequency (e.g. 44100 Hz)
-  FFT(const float *reals_in, size_t samples_in, const float sampling_freq_in) noexcept
+  template <typename T>
+  FFT(const float *reals_in, size_t samples_in, float sampling_freq_in, const T &win) noexcept
       : // allocate reals, we write directly into container
-        reals(samples_max, 0),
+        reals(samples_in, 0),
         // capture sampling frequency
         sampling_freq(sampling_freq_in),
         // determine max supported peaks
@@ -76,9 +83,9 @@ public:
         // calculate the power (number of loops of calculate)
         power(std::log2f(samples_in)),
         // set the windowing type
-        window_type{Blackman_Nuttall},
+        window_type{win.wt},
         // apply compenstation factor?
-        with_compensation{true} {
+        with_compensation{win.comp} {
 
     // abort on samples mismatch
     if (samples_max != samples_in) assert("unsupported number of samples");
@@ -106,6 +113,18 @@ public:
       // this is a peak, insert into Peaks
       if ((a < b) && (b > c)) peaks.insert(mag_at_index(i), freq_at_index(i), channel);
     }
+  }
+
+  /// @brief Convert a window name to window enum
+  /// @param name const string window name
+  /// @return window
+  static window window_lookup(const string &name) noexcept {
+    for (uint_fast8_t i = 0; const auto &win_type : win_types) {
+      if (win_type == name) return static_cast<window>(i);
+      i++;
+    }
+
+    return Hann;
   }
 
 private:

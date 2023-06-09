@@ -28,6 +28,7 @@
 #include <cmath>
 
 namespace pierre {
+namespace desk {
 namespace fader {
 
 struct Easing {
@@ -111,4 +112,5 @@ struct SineDeceleratingToZero : public Easing {
 };
 
 } // namespace fader
+} // namespace desk
 } // namespace pierre

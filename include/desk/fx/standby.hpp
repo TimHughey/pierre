@@ -20,7 +20,7 @@
 
 #include "base/conf/token.hpp"
 #include "base/types.hpp"
-#include "desk/color.hpp"
+#include "desk/color/hsb.hpp"
 #include "desk/fx.hpp"
 #include "frame/peaks.hpp"
 
@@ -36,11 +36,11 @@ public:
   /// @brief Create Standby FX.
   ///        This FX renders a continual wash of the rainbow
   ///        until the configured silence timeout is exceeded.
-  /// @param executor Executor for the silence timer
-  Standby(auto &executor) noexcept
-      : FX(executor, fx::STANDBY, fx::ALL_STOP), //
+  Standby() noexcept
+      : // create the base FX object
+        FX(fx::STANDBY, fx::ALL_STOP),
+        // acquire tokc with watcher
         tokc(conf::token::acquire_watch_token(module_id)) {
-
     apply_config();
   }
 
@@ -56,7 +56,7 @@ public:
 
 private:
   /// @brief Apply configuration at time of creation
-  ///        and when on-disk config file changes.
+  ///        and when on-disk config file changes
   void apply_config() noexcept;
 
 private:
@@ -64,11 +64,9 @@ private:
   conf::token *tokc;
 
   // order independent
-  Color first_color;
-  Color next_color;
-  double hue_step{0.0};
-  double max_brightness{0};
-  double next_brightness{0};
+  Hsb first_color;
+  Hsb next_color;
+  Hue hue_step{0.0};
 
 public:
   MOD_ID("fx.standby");

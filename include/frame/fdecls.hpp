@@ -35,6 +35,7 @@ class Reel;
 
 namespace frame {
 class state;
-}
+struct av_conf;
+} // namespace frame
 
 } // namespace pierre

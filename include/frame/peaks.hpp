@@ -19,6 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
+#include "frame/peaks/bound_peak.hpp"
 #include "frame/peaks/peak.hpp"
 
 #include <array>
@@ -29,15 +30,15 @@ namespace pierre {
 
 class Peaks {
 public:
-  using freq_min_max = min_max_pair<Frequency>;
-  using mag_min_max = min_max_pair<Magnitude>;
+  // using freq_min_max = min_max_pair<Frequency>;
+  // using mag_min_max = min_max_pair<Magnitude>;
   using peak_map_t = std::map<Magnitude, Peak, std::greater<Magnitude>>; // descending
 
 public:
   enum chan_t : size_t { Left = 0, Right };
 
 public:
-  Peaks() = default;
+  Peaks() noexcept : peak_bounds(Peak(Magnitude(2.17)), Peak(Magnitude(85.0))) {}
   ~Peaks() noexcept {}
 
   Peaks(Peaks &&) = default;
@@ -54,18 +55,23 @@ public:
   bool audible() const noexcept { return !silence(); }
 
   bool insert(Magnitude m, Frequency f, chan_t channel = Left) noexcept {
-    auto rc = false;
-    const mag_min_max ml(0.9, 128.0);
-
-    auto &map = maps[channel];
-
-    if ((m >= ml.min()) && (m <= ml.max())) {
-      auto node = map.try_emplace(m, f, m);
-
-      rc = node.second; // was the peak inserted?
+    if (peak_bounds.inclusive(m)) {
+      auto [_, inserted] = maps[channel].try_emplace(m, f, m);
+      return inserted;
     }
 
-    return rc;
+    return false;
+  }
+
+  /// @brief Discover the first element that is not less than peak using the magnitude
+  /// @param peak Peak to use for discovery
+  /// @param channel Channel (defaults to Left)
+  /// @return const reference to the Peak found or silent peak
+  const auto lower_bound(const Peak &peak, chan_t channel = Left) const noexcept {
+
+    auto it = maps[channel].lower_bound(peak.val<Magnitude>());
+
+    return (it != maps[channel].end()) ? it->second : silent_peak;
   }
 
   /// @brief Major Peak
@@ -76,7 +82,7 @@ public:
   }
 
   // find the first peak greater than the Frequency
-  const Peak &operator()(const Frequency freq, chan_t channel = Left) const noexcept {
+  const Peak &operator()(const Frequency &freq, chan_t channel = Left) const noexcept {
 
     if (size(Left)) {
       const auto &map = maps[channel];
@@ -93,6 +99,7 @@ public:
 
 private:
   // order dependent
+  bound_peak peak_bounds;
   Peak silent_peak;
 
   // order independent

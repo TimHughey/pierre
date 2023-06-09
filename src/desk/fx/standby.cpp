@@ -20,7 +20,6 @@
 #include "base/conf/token.hpp"
 #include "base/dura_t.hpp"
 #include "base/logger.hpp"
-#include "color.hpp"
 #include "desk.hpp"
 #include "unit/all.hpp"
 
@@ -32,22 +31,17 @@ namespace desk {
 void Standby::apply_config() noexcept {
   INFO_AUTO_CAT("apply_config");
 
-  auto cfg_first_color = Color({.hue = tokc->val<double>("color.hue"_tpath, 0.0),
-                                .sat = tokc->val<double>("color.sat"_tpath, 0.0),
-                                .bri = tokc->val<double>("color.bri"_tpath, 0.0)});
+  auto cfg_first_color = Hsb(tokc->val<double>("color.hue"), tokc->val<double>("color.sat"),
+                             tokc->val<double>("color.bri"));
+
+  hue_step = tokc->val<double>("hue_step");
 
   if (cfg_first_color != first_color) {
     std::exchange(first_color, cfg_first_color);
     next_color = first_color;
-    next_brightness = 0.0;
-    max_brightness = next_color.brightness();
   }
 
-  // hue_step = config_val<double>(ctoken, "hue_step", 0.0);
-  hue_step = tokc->val<double>("hue_step"_tpath, 0.0);
-
-  INFO_AUTO("hue_step={}", hue_step);
-  set_silence_timeout(tokc, fx::ALL_STOP, Minutes(30));
+  save_silence_timeout(tokc->timeout_val("silence", Minutes(30)));
 }
 
 void Standby::execute(const Peaks &peaks) noexcept {
@@ -60,17 +54,15 @@ void Standby::execute(const Peaks &peaks) noexcept {
     INFO_AUTO("{}", *tokc);
   }
 
-  if (next_brightness < max_brightness) {
-    next_brightness++;
-    next_color.setBrightness(next_brightness);
+  unit<PinSpot>(unit::MAIN_SPOT)->update(next_color);
+  unit<PinSpot>(unit::FILL_SPOT)->update(next_color);
+
+  next_color.rotate(hue_step);
+
+  if (peaks.audible()) {
+    next_fx = fx::MAJOR_PEAK;
+    finished = true;
   }
-
-  unit<PinSpot>(unit::MAIN_SPOT)->colorNow(next_color);
-  unit<PinSpot>(unit::FILL_SPOT)->colorNow(next_color);
-
-  if (next_brightness >= max_brightness) next_color.rotateHue(hue_step);
-
-  set_finished(peaks.audible(), fx::MAJOR_PEAK);
 }
 
 bool Standby::once() noexcept {

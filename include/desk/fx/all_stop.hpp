@@ -19,7 +19,6 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/color.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/names.hpp"
 
@@ -29,17 +28,11 @@ namespace pierre {
 
 namespace desk {
 
-/// @brief AllStop FX with the sole objection of stopping all rendering
+/// @brief AllStop FX signals to stop all rendering
 class AllStop : public FX {
 public:
-  /// @brief Create object
-  /// @param fx_timer Timer to pass through to FX
-  AllStop(auto &&fx_timer) noexcept
-      : FX(std::forward<decltype(fx_timer)>(fx_timer), fx::ALL_STOP, fx::NONE, FX::NoRender) {
-
-    // never finished unless a non-silent frame is sent for execute
-    set_finished(false);
-  }
+  /// @brief Create object with no next FX and never render
+  AllStop() noexcept : FX(fx::ALL_STOP, fx::NONE, FX::NoRender) {}
 
 public:
   MOD_ID("fx.all_stop");

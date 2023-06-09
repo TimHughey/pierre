@@ -25,6 +25,8 @@
 #include "desk/dmx_ctrl.hpp"
 #include "desk/frame_rr.hpp"
 #include "desk/fx.hpp"
+#include "desk/fx/majorpeak.hpp"
+#include "desk/fx/majorpeak/conf.hpp"
 #include "desk/msg/data.hpp"
 #include "frame/anchor.hpp"
 #include "frame/flusher.hpp"
@@ -62,7 +64,10 @@ Desk::Desk(MasterClock *master_clock) noexcept
       // the flusher
       flusher(std::make_unique<Flusher>()) //
 {
+  desk::MajorPeak mp;
+
   INFO_INIT("sizeof={:>5} fps={}", sizeof(Desk), InputInfo::fps);
+  INFO_INIT("{}", mp.runtime_conf());
   Frame::init();
 
   // ensure flags are false
@@ -122,9 +127,11 @@ bool Desk::frame_render(desk::frame_rr &frr) noexcept {
 
   INFO_AUTO("{}", frr());
 
-  desk::FX::select(render_strand, active_fx, frr());
+  // will allocate active_fx
+  desk::FX::select(active_fx, frr());
 
-  frr.stop = shutdown_if_all_stop();
+  // stop if no active_fx or active_fx is all stop
+  frr.stop = !bool(active_fx) || shutdown_if_all_stop();
 
   if (frr.ok() && frr().ready()) {
     // the frame is ready for rendering
@@ -259,9 +266,8 @@ bool Desk::shutdown_if_all_stop() noexcept {
   auto rc = (bool)active_fx && active_fx->match_name(desk::fx::ALL_STOP);
 
   if (rc) {
-    // halt the frame timer
-    [[maybe_unused]] error_code ec;
-    loop_timer.cancel(ec);
+    // halt the loop timer
+    loop_timer.cancel();
 
     INFO_AUTO("active_fx={} io_ctx.stopped={}", active_fx->name(), io_ctx.stopped());
 
@@ -282,7 +288,7 @@ bool Desk::shutdown_if_all_stop() noexcept {
 void Desk::threads_start() noexcept {
   INFO_AUTO_CAT("threads_start");
 
-  auto n_thr = tokc.val<int>("threads"sv, 2);
+  auto n_thr = tokc.val<int>("threads", 2);
 
   auto latch = std::make_shared<std::latch>(n_thr + 1);
   threads = std::vector<std::jthread>(n_thr);

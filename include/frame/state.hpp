@@ -21,6 +21,7 @@
 #include "base/types.hpp"
 
 #include <algorithm>
+#include <array>
 #include <compare>
 #include <concepts>
 #include <fmt/format.h>
@@ -124,7 +125,7 @@ public:
   bool ready_or_future() const noexcept { return (*this == READY) || (*this == FUTURE); }
   const state &record_state() const noexcept;
 
-  auto tag() const noexcept { return std::make_pair("state", vtxt()); }
+  auto tag() const noexcept { return std::array{"state", vtxt()}; }
 
 private:
   state_now_t val{NONE};

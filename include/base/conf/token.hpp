@@ -25,6 +25,7 @@
 #include "base/uuid.hpp"
 
 #include <array>
+#include <cassert>
 #include <concepts>
 #include <fmt/format.h>
 #include <functional>
@@ -35,6 +36,25 @@
 
 namespace pierre {
 namespace conf {
+
+template <class T>
+concept StringLike = std::convertible_to<T, std::string_view>;
+
+template <typename T>
+concept IsConfPathType = std::constructible_from<toml::path, T>;
+
+template <typename T>
+concept IsConfRetVal =
+    IsAnyOf<T, bool, string> || std::integral<T> || std::floating_point<T> || IsDuration<T> ||
+    std::convertible_to<T, double> || std::constructible_from<T, double>;
+
+template <typename T>
+concept IsConfDefVal =
+    IsDuration<T> || std::integral<T> || IsAnyOf<T, bool, double, string> || StringLike<T>;
+
+template <typename T>
+concept IsConfNativeType = std::convertible_to<T, string> || std::convertible_to<T, int64_t> ||
+                           std::convertible_to<T, double> || std::convertible_to<T, bool>;
 
 class watch;
 
@@ -140,25 +160,7 @@ public:
   /// @return const string
   const string &msg(ParseMsg id) const noexcept { return msgs[id]; }
 
-  /// @brief Retrieve configuration value located at path
-  /// @tparam ReturnType Desired time of the returned value
-  /// @param p Path to value, excluding root (a.k.a. module_id)
-  /// @param def_val Default value if no value found at specified path
-  ///                Default value is converted to ReturnType
-  /// @return value of type ReturnType at specified path or provided default value
-  template <typename ReturnType> inline ReturnType val(auto &&p, const auto &&def_val) noexcept {
-    const auto path = root + p;
-
-    if constexpr (IsDuration<ReturnType>) {
-      return ReturnType(ttable[path].value_or(def_val));
-    } else if constexpr (std::same_as<ReturnType, decltype(def_val)>) {
-      return ttable[path].value_or(std::forward<decltype(def_val)>(def_val));
-    } else if constexpr (std::constructible_from<ReturnType, decltype(def_val)>) {
-      return ttable[path].value_or(ReturnType{def_val});
-    } else {
-      return ttable[path].value_or(std::forward<ReturnType>(def_val));
-    }
-  }
+  auto node_at(auto &&p) const noexcept { return ttable[toml::path(root).append(p)]; }
 
   /// @brief Helper function to determine if parsing was successful
   /// @return boolean
@@ -173,12 +175,20 @@ public:
   /// @return
   toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
 
+  template <typename DefValType>
+    requires IsDuration<DefValType>
+  inline Millis timeout_val(const char *p, DefValType &&def_val) noexcept {
+    return timeout_val(toml::path(p), std::forward<DefValType>(def_val));
+  }
+
   /// @brief Retrieve a "timeout" value from the config specified as:
   ///        silence = { timeout = {mins = 5, secs = 30, millis = 100 } }
   /// @param p path to the config value
   /// @param def_val default duration
   /// @return std::chrono::milliseconds
-  Millis timeout_val(toml::path &&p, const auto &&def_val) noexcept {
+  template <typename DefValType>
+    requires IsDuration<DefValType>
+  Millis timeout_val(toml::path &&p, DefValType &&def_val) noexcept {
     const auto path = root + p + "timeout"_tpath;
 
     Millis sum_ms{0};
@@ -204,6 +214,194 @@ public:
     return sum_ms;
   }
 
+  template <typename T>
+    requires std::same_as<T, string>
+  inline T val2(toml::path p) noexcept {
+    return ttable[p.prepend(root)].value_or<T>("");
+  }
+
+  template <typename T>
+    requires std::same_as<T, string>
+  inline void val2(T &dest, toml::path p) noexcept {
+    dest = ttable[p.prepend(root)].value_or<T>("");
+  }
+
+  template <typename T>
+    requires std::same_as<T, double> || std::convertible_to<T, double> ||
+             std::constructible_from<T, double>
+  inline T val2(toml::path p) noexcept {
+    auto _p = p.prepend(root);
+
+    if constexpr (std::same_as<T, double> || std::convertible_to<T, double>) {
+
+      return ttable[_p].value_or(0.0);
+    } else if constexpr (std::constructible_from<T, double>) {
+      return T(ttable[_p].value_or(0.0));
+    }
+
+    assert("fall through");
+  }
+
+  template <typename T>
+    requires std::same_as<T, double> || std::convertible_to<T, double> ||
+             std::constructible_from<T, double>
+  inline void val2(T &dest, toml::path p) noexcept {
+
+    p.prepend(root);
+
+    if constexpr (std::same_as<T, double> || std::convertible_to<T, double>) {
+      dest = ttable[p].value_or(0.0);
+    } else if constexpr (std::constructible_from<T, double>) {
+      dest = T(ttable[p].value_or(0.0));
+    }
+
+    assert("fall through");
+  }
+
+  template <typename RetType, typename DefVal>
+    requires IsConfRetVal<RetType> && IsConfDefVal<DefVal>
+  inline RetType val2(toml::path p, DefVal &&def_val) noexcept {
+
+    auto _p = p.prepend(root);
+
+    // simplest case, return type matches the default value
+    if constexpr (std::convertible_to<RetType, DefVal> && IsConfNativeType<DefVal>) {
+      return ttable[_p].value_or(def_val);
+
+    } else if constexpr (std::same_as<RetType, string> && StringLike<DefVal>) {
+      return ttable[_p].value_or(string_view(def_val));
+
+    } else if constexpr (std::convertible_to<RetType, DefVal>) {
+      return ttable[_p].value_or(def_val);
+
+    } else if constexpr (std::constructible_from<RetType, DefVal>) {
+      return RetVal(ttable[_p].value_or(def_val));
+
+    } else if constexpr (std::same_as<RetType, DefVal>) {
+      return ttable[_p].value_or(def_val);
+    }
+
+    assert("Fell through");
+  }
+
+  template <typename T> inline void val(auto &dest, const char *p, T &&def_val) noexcept {
+    val(dest, toml::path(p), std::forward<T>(def_val));
+  }
+
+  template <typename T> inline void val(T &dest, const toml::path &p) noexcept {
+    auto p1 = p;
+
+    val(dest, std::move(p1), T());
+  }
+
+  template <typename T, typename P> inline void val(T &dest, P &&p) noexcept {
+    val(dest, std::forward<P>(p), T());
+  }
+
+  /// @brief Retrieve configuration value located at path
+  /// @tparam ReturnType Desired time of the returned value
+  /// @param p Path to value, excluding root (a.k.a. module_id)
+  /// @param def_val Default value if no value found at specified path
+  ///                Default value is converted to ReturnType
+  /// @return value of type ReturnType at specified path or provided default value
+  template <typename T, typename U> inline void val(T &dest, toml::path &&p, U &&def_val) noexcept {
+
+    auto path = root + p;
+
+    if constexpr (IsDuration<T> && std::integral<U>) {
+      dest = T(ttable[path].value_or(std::move(def_val)));
+
+    } else if constexpr (IsDuration<T> && IsDuration<U>) {
+      dest = T(ttable[path].value_or(def_val.count()));
+
+    } else if constexpr (std::convertible_to<double, U>) {
+      dest = ttable[path].value_or(static_cast<double>(def_val));
+
+    } else if constexpr (std::same_as<T, U>) {
+      dest = ttable[path].value_or(def_val);
+    } else if constexpr (std::convertible_to<T, U>) {
+      dest = ttable[path].value_or(def_val);
+    } else {
+      dest = ttable[path].value_or(def_val);
+    }
+  }
+
+  template <typename T, typename P>
+    requires std::is_pointer_v<P> || std::same_as<P, string> || std::same_as<P, toml::path>
+  inline T val(P p) noexcept {
+
+    if constexpr (std::is_pointer_v<P>) {
+      return val<T>(toml::path(p), T());
+    } else if constexpr (std::same_as<P, string>) {
+      return val<T>(toml::path(p.c_str()), T());
+    } else {
+      return val<T>(std::move(p), T());
+    }
+  }
+
+  /// @brief Retrieve configuration value located at path
+  /// @tparam T Desired time of the returned value
+  /// @param p Path to value, excluding root (a.k.a. module_id)
+  /// @param def_val Default value if no value found at specified path
+  ///                Default value is converted to T
+  /// @return value of type T at specified path or provided default value
+  template <typename T> inline T val(toml::path &&p, auto &&def_val) noexcept {
+    typedef std::decay<decltype(def_val)> DefVal;
+    const auto path = root + p;
+
+    if constexpr (IsDuration<T>) {
+      if constexpr (IsDuration<DefVal>) {
+        return T(ttable[p].value_or(def_val.count()));
+      } else {
+        return T(ttable[p].value_or(def_val));
+      }
+      return T(ttable[path].value_or(def_val));
+    } else if constexpr (std::same_as<T, DefVal>) {
+      return ttable[path].value_or(def_val);
+    } else if constexpr (std::constructible_from<T, DefVal>) {
+      return T(ttable[path].value_or(def_val));
+    } else if constexpr (std::convertible_to<DefVal, T>) {
+      return ttable[path].value_or(def_val);
+    } else {
+      return ttable[path].value_or(def_val);
+    }
+  }
+
+  template <typename T>
+    requires std::movable<T>
+  inline T val(const char *p) noexcept {
+    return val<T>(toml::path(p), T());
+  }
+
+  template <typename T> inline T val(const char *p, const char *def_val) noexcept {
+    return val<T>(toml::path(p), string(def_val));
+  }
+
+  template <typename T, typename V>
+    requires std::integral<V> || std::floating_point<V>
+  inline T val(const char *p, V &&def_val) noexcept {
+    return val<T>(toml::path(p), std::forward<V>(def_val));
+  }
+
+  template <typename T, typename P, typename V>
+    requires(std::is_pointer_v<P> || std::same_as<P, string> || std::same_as<P, toml::path>) &&
+            ((std::integral<V> || std::floating_point<V>))
+  inline T val(P &&p, V def_val) noexcept {
+    V def_val1 = def_val;
+
+    if constexpr (std::same_as<P, toml::path>) {
+      return val<T>(std::forward<P>(p), def_val1);
+    } else {
+      return val<T>(toml::path(p), def_val1);
+    }
+  }
+
+  // template <typename T, typename P>
+  //   requires std::movable<T>
+  // T val(P &&p) noexcept {
+  //   return val<T>(std::forward<P>(p), T());
+  // }
+
 protected:
   /// @brief Helper method for populating parser related messages (e.g. errors)
   /// @param msg_id The message id to populate
@@ -215,13 +413,14 @@ protected:
   UUID uuid;
   toml::path root;
   toml::table ttable;
+  toml::node_view<toml::node> root_node;
   parse_msgs_t msgs;
 
   bool has_changed{false};
   watch *watcher{nullptr};
 
 public:
-  static constexpr csv module_id{"conf.token"};
+  MOD_ID("conf.token");
 };
 
 } // namespace conf
@@ -256,7 +455,6 @@ template <> struct fmt::formatter<pierre::conf::token> {
     if (it != end) {
 
       if (*it == '}') presentation = 's';
-
       if ((*it == 'f') || (*it == 's')) presentation = *it++;
     }
 

@@ -37,8 +37,5 @@ add_subdirectory(rtsp)
 # Frame of processed audio, master clock and anchor
 add_subdirectory(frame)
 
-# faders
-add_subdirectory(fader)
-
 # desk (head units, FX
 add_subdirectory(desk)

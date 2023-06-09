@@ -39,7 +39,8 @@ private:
   enum mode_t : uint8_t { FIXED = 0, PULSE_INIT, PULSE_RUNNING };
 
 public:
-  Dimmable(const auto &opts) : Unit(opts, no_frame) {
+  template <typename T>
+  Dimmable(T &&name, auto addr) noexcept : Unit(std::forward<T>(name), addr, no_frame) {
     config.min = 0;
     config.max = 8190;
     config.dim = dutyPercent(0.004);

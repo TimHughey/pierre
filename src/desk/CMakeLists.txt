@@ -10,13 +10,17 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/**/*.h*"
 
 add_library(${__target} 
   # color
-  color.cpp
+  # color.cpp
 
   # public API
   desk.cpp 
 
   # desk DMX control session
   dmx_ctrl.cpp
+
+  # fader
+  fader/easings.cpp
+  fader/fader.cpp
 
   # FX
   fx/fx.cpp
@@ -39,7 +43,6 @@ target_include_directories(${__target} PUBLIC ${HEADER_PATH})
 
 target_link_libraries(${__target} PRIVATE
   base
-  fader
   frame
   mdns
 )

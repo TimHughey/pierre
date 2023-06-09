@@ -19,7 +19,7 @@
 #pragma once
 
 #include "base/types.hpp"
-#include "desk/color.hpp"
+#include "desk/color/hsb.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit.hpp"
 #include "fader/color_travel.hpp"
@@ -31,7 +31,7 @@ namespace desk {
 
 class PinSpot : public Unit {
 public:
-  enum FX {
+  enum onboard_fx {
     None = 0x00,
     PrimaryColorsCycle = 31,
     RedOnGreenBlueWhiteJumping = 63,
@@ -51,74 +51,111 @@ public:
   };
 
 public:
-  PinSpot(const auto &opts, size_t frame_len) : Unit(opts, frame_len) {}
+  PinSpot(auto &&name, auto addr, size_t frame_len) noexcept
+      : Unit(std::forward<decltype(name)>(name), addr, frame_len) {}
   ~PinSpot() = default;
 
   template <typename T> void activate(const typename T::Opts &opts) {
     fader = std::make_unique<T>(opts);
   }
 
-  void autoRun(FX spot_fx) { fx = spot_fx; }
-  inline void black() { dark(); }
-  float brightness() const { return color.brightness(); }
-  bool checkFaderProgress(float percent) const { return fader->checkProgress(percent); }
+  template <typename T>
+    requires std::same_as<T, Hsb>
+  auto &update(T &x) noexcept {
+    color = x;
+    return *this;
+  }
 
-  Color &colorNow() { return color; }
+  /// @brief Set the PinSpot to enable an onboard fx
+  /// @param spot_fx Onboard fx to activate
+  void auto_run(onboard_fx spot_fx) noexcept { fx = spot_fx; }
 
-  void colorNow(const Color &color_now, float strobe_val = 0.0) noexcept {
+  auto brightness() const noexcept { return (Bri)color; }
+
+  /// @brief Check fader procgress based on precentage complete
+  /// @param percent Percentage complete to compare
+  /// @return boolea, true when progress is greater than
+  bool fader_progress(float percent) const noexcept { return fader->progress(percent); }
+
+  auto &color_now() noexcept { return color; }
+
+  void color_now(const Hsb &color_now, float strobe_val = 0.0) noexcept {
     color = color_now;
 
     if ((strobe_val >= 0.0) && (strobe_val <= 1.0)) {
-      strobe = (uint8_t)(strobe_max * strobe);
+      strobe = strobe_max * strobe;
     }
 
-    fx = FX::None;
+    fx = onboard_fx::None;
   }
+
+  ///
 
   void dark() noexcept override {
-    color = Color::black();
-    fx = FX::None;
+    color.black();
+
+    fx = onboard_fx::None;
   }
 
-  void prepare() noexcept override { faderMove(); }
-  inline bool isFading() const { return (bool)fader; }
+  /// @brief Prepare the PinSpot for sending the next DataMsg
+  ///        This member function is an override of Unit and is
+  ///        called as a calculation step.
+  void prepare() noexcept override {
 
+    // when fading we want to continue traveling via the fader
+    if (fading() && fader->travel()) {
+      // get the next color from the Fader
+      color = fader->position();
+
+      // ensure strobe is turned off
+      strobe = 0;
+
+    } else {
+      fader.reset();
+    }
+  }
+
+  /// @brief Is the PinSpot fading
+  /// @return boolean, true when fasing
+  bool fading() const { return (bool)fader; }
+
+  /// @brief Update the pending DataMsg based on the PinSpot's
+  ///        state as determined by the call to prepare()
+  /// @param msg Reference to the DataMsg to be sent
   void update_msg(DataMsg &msg) noexcept override {
     auto snippet = msg.frame() + address;
 
-    color.copyRgbToByteArray(snippet + 1);
+    // byte[0] enable or disable strobe (Pinspot specific)
+    *snippet++ = strobe > 0 ? strobe + 0x87 : 0xF0;
 
-    if (strobe > 0) {
-      snippet[0] = strobe + 0x87;
-    } else {
-      snippet[0] = 0xF0;
+    /// NOTE:  fix me
+    ///
+    /// change API to accept iterator to write
+    /// bytes directly into frame instead of this two
+    /// step process of getting the bytes
+    std::array<uint8_t, 4> color_bytes;
+    color.copy_as_rgb(color_bytes);
+
+    // bytes[1-5] rgb colors + white
+    for (auto &byte : color_bytes) {
+      *snippet++ = byte;
     }
 
-    snippet[5] = fx;
+    // byte[5] enable onboard fx, if set
+    *snippet = fx;
   }
 
 private:
-  // functions
-  void faderMove() noexcept {
-    if (isFading()) {
-      auto continue_traveling = fader->travel();
-      color = fader->position();
-      strobe = 0;
-
-      if (continue_traveling == false) {
-        fader.reset();
-      }
-    }
-  }
-
-private:
-  Color color;
+  Hsb color;
   uint8_t strobe{0};
   uint8_t strobe_max{104};
-  FX fx{FX::None};
+  onboard_fx fx{onboard_fx::None};
 
   std::unique_ptr<Fader> fader;
   static constexpr size_t FRAME_LEN{6};
+
+public:
+  MOD_ID("pinspot");
 };
 
 } // namespace desk

@@ -18,34 +18,46 @@
 
 #pragma once
 
+#include "base/dura_t.hpp"
 #include "base/types.hpp"
-#include "desk/color.hpp"
-#include "fader/easings.hpp"
-#include "fader/fader.hpp"
+#include "desk/color/hsb.hpp"
 
 namespace pierre {
-namespace fader {
 
-struct Opts {
-  Color origin;
-  Color dest;
-  Nanos duration{0};
-};
+namespace desk {
 
-class ColorTravel : public Fader {
+class Fader {
 public:
-  ColorTravel(const Opts &opts) : Fader(opts.duration), origin(opts.origin), dest(opts.dest) {}
+  Fader(const Nanos duration) : duration(duration) {}
 
-  virtual void doFinish() override { pos = dest; }
-  virtual float doTravel(const float current, const float total) = 0;
-  const Color &position() const override { return pos; }
+  bool active() const { return !finished; }
+  bool progress(double percent) const { return fader_progress > percent; }
+  bool complete() const { return finished; }
+  auto frameCount() const { return frames.count; }
+  virtual Hsb position() const { return Hsb(); }
+
+  bool travel(); // returns true to continue traveling
 
 protected:
-  const Color origin;
-  const Color dest;
+  virtual void doFinish() = 0;
+  virtual double doTravel(double total, double current) = 0;
+  virtual double doTravel(double progress) {
+    doTravel(progress, 1.0);
+    return progress;
+  }
 
-  Color pos; // current fader position
+private:
+  // order dependent
+  const Nanos duration;
+
+  // order independent
+  double fader_progress{0.0};
+  bool finished{false};
+  Nanos start_at{0};
+
+  struct {
+    uint32_t count{0};
+  } frames;
 };
-
-} // namespace fader
+} // namespace desk
 } // namespace pierre

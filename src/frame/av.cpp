@@ -19,12 +19,18 @@
 #include "av.hpp"
 #include "base/logger.hpp"
 #include "fft.hpp"
+#include "frame/av/conf.hpp"
 
 namespace pierre {
 
-Av::Av() noexcept : ready{false} {
-  codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
+Av::Av() noexcept
+    : // acquire our conf::token with watcher
+      tokc(module_id),
+      // create our own conf object
+      conf(std::make_unique<frame::av_conf>(tokc)) {
+  ready.clear();
 
+  codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   INFO_INIT("sizeof={:>5} codec={}", sizeof(Av), fmt::ptr(codec));
 
   if (codec) {
@@ -37,7 +43,9 @@ Av::Av() noexcept : ready{false} {
         parser_ctx = av_parser_init(codec->id);
 
         if (parser_ctx) {
-          ready.store(true);
+          INFO_INIT("{}", conf->init_msg);
+
+          ready.test_and_set();
         } else {
           INFO_INIT("failed to initialize AV functions");
         }
@@ -47,6 +55,7 @@ Av::Av() noexcept : ready{false} {
 }
 
 Av::~Av() noexcept {
+
   av_parser_close(parser_ctx);
   avcodec_free_context(&codec_ctx);
 }
@@ -56,6 +65,9 @@ frame_state_v Av::decode(Frame &frame, uint8v m) noexcept {
   auto pkt = av_packet_alloc();
 
   if (!pkt) return decode_failed(frame, &pkt);
+  // if (ready.test()) return decode_failed(frame, &pkt);
+
+  // conf->check();
 
   // populate ADTS header
   uint8_t *adts = m.raw_buffer<uint8_t>();
@@ -105,8 +117,10 @@ frame_state_v Av::decode(Frame &frame, uint8v m) noexcept {
   if (audio_frame->flags == 0) {
     const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-    FFT left(data[0], audio_frame->nb_samples, audio_frame->sample_rate);
-    FFT right(data[1], audio_frame->nb_samples, audio_frame->sample_rate);
+    const auto af = audio_frame;
+
+    FFT left(data[0], af->nb_samples, af->sample_rate, conf->left);
+    FFT right(data[1], af->nb_samples, af->sample_rate, conf->right);
 
     dsp(frame, std::move(left), std::move(right));
   }

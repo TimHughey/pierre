@@ -22,12 +22,13 @@
 #include "base/conf/token.hpp"
 #include "base/elapsed.hpp"
 #include "base/types.hpp"
-#include "desk/color.hpp"
+#include "desk/color/hsb.hpp"
 #include "desk/fx.hpp"
+#include "desk/fx/majorpeak/fdecls.hpp"
 #include "desk/unit/all.hpp"
 #include "frame/peaks.hpp"
-#include "majorpeak/types.hpp"
 
+#include <array>
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -46,20 +47,16 @@ namespace desk {
 ///
 ///        Supports runtime changing of configuration.
 class MajorPeak : public FX {
+
+  enum pinspot_t : uint8_t { Fill = 0, Main, EndSpots };
+
 public:
   /// @brief Construct the object
-  /// @param executor Executor to use for silence timeout timer
-  MajorPeak(auto &executor) noexcept
-      : FX(executor, fx::MAJOR_PEAK, fx::STANDBY),
-        tokc(conf::token::acquire_watch_token(module_id)), //
-        base_color(Hsb{0, 100, 100}),                      //
-        main_last_peak(),                                  //
-        fill_last_peak()                                   //
-  {
-    load_config();
-  }
+  MajorPeak() noexcept;
 
-  ~MajorPeak() noexcept { tokc->release(); }
+  ~MajorPeak() noexcept override;
+
+  const auto &runtime_conf() const noexcept { return *runconf; }
 
   /// @brief Render one frame
   /// @param peaks Peaks to consider for rendering
@@ -70,12 +67,12 @@ public:
   bool once() noexcept override;
 
 private:
-  using RefColors = std::vector<Color>;
+  using RefColors = std::vector<Hsb>;
 
 private:
   /// @brief Control intensity of the EL wire based on the peak magnitudes
   /// @param peaks Peaks to consider
-  void handle_el_wire(const Peaks &peaks);
+  // void handle_el_wire(const Peaks &peaks);
 
   /// @brief Control the color and fading of the "Fill" pinspot.
   ///        The "Fill" and "Main" pinspots use complimentary algorithms
@@ -87,7 +84,7 @@ private:
   ///        A variety of configuration parameters can be adjusted
   ///        to vary the rendering.
   /// @param peaks Peaks to consider
-  void handle_fill_pinspot(const Peaks &peaks);
+  /// void handle_fill_pinspot(const Peaks &peaks);
 
   /// @brief Control the color and fading of the "Main" pinspot.
   ///        The "Main" and "Fill" pinspots use complimentary algorithms
@@ -99,46 +96,44 @@ private:
   ///        A variety of configuration parameters can be adjusted
   ///        to vary the rendering.
   /// @param peaks Peaks to consider
-  void handle_main_pinspot(const Peaks &peaks);
+  /// void handle_main_pinspot(const Peaks &peaks);
 
   /// @brief Load the configuration at start and when on-disk conf changes
   /// @return boolean, true when configuration parsed successfully
-  bool load_config() noexcept;
+  /// bool load_config() noexcept;
 
   /// @brief Make a color from a Peak based on frequency and magnitude
   /// @param peak Peaks to consider
   /// @return Color object
-  const Color make_color(const Peak &peak) noexcept { return make_color(peak, base_color); }
+  /// const Color make_color(const Peak &peak) noexcept { return make_color(peak, base_color); }
 
   /// @brief make a color from a Peak based on frequency and magnitude with a reference color.
   /// @param peak Peaks to consider
   /// @param ref Reference color
   /// @return Color object
-  const Color make_color(const Peak &peak, const Color &ref) noexcept;
+  Hsb make_color(const spot_spec &ss, const Peak &peak) noexcept;
 
   /// @brief Access a table of "nice" colors.
   ///        NOTE: This function is legacy however it is kept due to the painstaking
   ///        selection of the reference colors.
   /// @param index Simple integer index into table.
   /// @return Color object
-  const Color &ref_color(size_t index) const noexcept;
+  const Hsb &ref_color(size_t index) const noexcept;
 
 private:
   // order dependent
   conf::token *tokc;
-  const Color base_color;
-  Peak main_last_peak;
-  Peak fill_last_peak;
+  std::unique_ptr<conf::majorpeak> runconf;
+  std::array<Peak, EndSpots> last_peak{};
 
   // order independent
-  Elapsed color_elapsed;
   static RefColors ref_colors;
 
   // cached config
-  major_peak::freq_limits_t freq_limits;
-  major_peak::hue_cfg_map hue_cfg_map;
-  mag_min_max mag_limits;
-  major_peak::pspot_cfg_map pspot_cfg_map;
+  // major_peak::freq_limits_t freq_limits;
+  // major_peak::hue_cfg_map hue_cfg_map;
+  // mag_min_max mag_limits;
+  // major_peak::pspot_cfg_map pspot_cfg_map;
 
 public:
   MOD_ID("fx.majorpeak");

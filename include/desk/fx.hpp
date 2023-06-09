@@ -26,6 +26,7 @@
 #include "frame/fdecls.hpp"
 #include "fx/names.hpp"
 
+#include <array>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
@@ -44,6 +45,10 @@ using strand_ioc = asio::strand<asio::io_context::executor_type>;
 
 namespace desk {
 
+class FX;
+
+using fx_ptr = std::unique_ptr<FX>;
+
 class FX {
 
 public:
@@ -52,24 +57,19 @@ public:
 
 public:
   /// @brief Construct the base FX via the subclassed type
-  FX(auto &executor, const string name, const string next_fx = fx::NONE,
-     bool should_render = FX::Render) noexcept
-      : fx_timer(executor),           //
-        fx_name{name},                //
-        should_render{should_render}, //
-        finished{false},              //
-        next_fx{next_fx}              //
-  {
+  FX(const string name, const string next_fx = fx::NONE, bool should_render = FX::Render) noexcept
+      : // set the name of the subclass
+        fx_name{name},
+        // set if this FX should render or not
+        should_render{should_render},
+        // ensure finished is false at creation
+        finished{false},
+        // save the next FX to initiate when the silence timeout expires
+        next_fx{next_fx} {
     ensure_units();
   }
 
-  virtual ~FX() noexcept { cancel(); };
-
-  /// @brief Cancel any pending fx_timer actions
-  void cancel() noexcept {
-    [[maybe_unused]] error_code ec;
-    fx_timer.cancel(ec);
-  }
+  virtual ~FX() noexcept;
 
   /// @brief Is the FX complete as determined by the subclass
   /// @return boolean indicating the FX is complete
@@ -78,11 +78,15 @@ public:
   /// @brief Match the FX to a single name
   /// @param n Name to match
   /// @return boolean indicating if the single name matched
-  bool match_name(csv n) const noexcept { return n == name(); }
+  bool match_name(auto n) const noexcept { return n == name(); }
 
   /// @brief The FX name
   /// @return contant string view of the name
-  csv name() const noexcept { return fx_name; };
+  const auto &name() const noexcept { return fx_name; };
+
+  /// @brief The next fx when completed
+  /// @return name, as a string, of the suggested FX
+  bool next(const string &match_next) const noexcept { return match_next == next_fx; }
 
   /// @brief FX subclasses override to execute when FX called for the first time
   /// @return boolean, always true
@@ -94,15 +98,13 @@ public:
   /// @return boolean indicating if the FX is finished
   bool render(const Peaks &peaks, DataMsg &msg) noexcept;
 
-  /// @brief The next FX suggested by external configuration file
-  /// @return name, as a string, of the suggested FX
-  const string &suggested_fx_next() const noexcept { return next_fx; }
-
   /// @brief Select the next FX
-  /// @param strand strand for silence timer
-  /// @param active_fx current active FX
+  /// @param silence_timer timer to detect rendering of silence
+  /// @param fx current active FX
   /// @param frame Frame to use for silence and can render
-  static void select(strand_ioc &strand, std::unique_ptr<FX> &active_fx, Frame &frame) noexcept;
+  static void select(fx_ptr &fx, Frame &frame) noexcept;
+
+  bool silence_timeout() const noexcept { return frames[SilentCount] > frames[SilentMax]; }
 
   /// @brief Get raw pointer to Unit subclass
   /// @tparam T Unit subclass type
@@ -115,54 +117,28 @@ protected:
   /// @param peaks The audio peaks to use for FX execution
   virtual void execute(const Peaks &peaks) noexcept;
 
-  /// @brief Set the FX as complete
-  /// @param is_finished Boolean previous finished status of the FX
-  /// @return previous finished value
-  bool set_finished(bool is_finished, const string finished_fx = string()) noexcept {
-
-    if (is_finished && !finished_fx.empty()) next_fx = finished_fx;
-
-    return std::exchange(finished, is_finished);
-  }
-
-  /// @brief Adjust the silence timeout
-  /// @param tokc conf::tokc pointer (assumes token has watch)
-  /// @param silence_fx Name of FX to engage when timer expires
-  /// @param def_val Deault timeout value if not found in token
-  /// @return true if previous timeout did not match token timeout
-  bool set_silence_timeout(conf::token *tokc, const string &silence_fx,
-                           const auto &&def_val) noexcept {
-
-    auto timeout = tokc->timeout_val("silence"_tpath, std::forward<decltype(def_val)>(def_val));
-
-    return save_silence_timeout(timeout, silence_fx);
-  }
-
-  /// @brief Initiate silence watch timer
-  /// @param silence_fx Name of FX to engage when timer expires
-  void silence_watch(const string silence_fx = string()) noexcept;
+  /// @brief Save silence timeout
+  /// @param timeout X-reference to Millis
+  /// @return boolean, when different true, otherwise false
+  bool save_silence_timeout(Millis timeout) noexcept;
 
 private:
   /// @brief Create Units (call once)
   static void ensure_units() noexcept;
 
-  /// @brief Save the timeout (likely new) and restart silence timer
-  /// @param timeout
-  /// @param silence_fx
-  /// @return
-  bool save_silence_timeout(const Millis &timeout, const string &silence_fx) noexcept;
-
 protected:
   /// @brief Order dependent class member data
   static std::unique_ptr<Units> units;
-  steady_timer fx_timer;
-  const string fx_name;
+  string fx_name;
   bool should_render;
   bool finished;
 
   // order independent
-  Millis silence_timeout{0};
   string next_fx;
+
+  // silence timeout frame count
+  enum silenct_frame_t : uint8_t { SilentMax = 0, SilentCount, SilentEnd };
+  std::array<int64_t, SilentEnd> frames{0};
 
 private:
   bool called_once{false};

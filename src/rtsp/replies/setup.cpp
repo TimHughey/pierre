@@ -54,7 +54,7 @@ Setup::Setup(const uint8v &content_in, const Headers &headers_in, Reply &reply, 
       reply(RespCode::OK);
 
     } else {
-      INFO( "WARN", "implementation missing for control_type={}\n", 1);
+      INFO("WARN", "implementation missing for control_type={}\n", 1);
     }
   }
 }
@@ -88,7 +88,7 @@ bool Setup::no_streams() noexcept {
     mDNS::update();
 
   } else if (ctx->stream_info.is_ntp_stream()) {
-    INFO( "ERROR", "NTP timing not supported\n");
+    INFO("ERROR", "NTP timing not supported\n");
     rc = false;
 
   } else if (ctx->stream_info.is_remote_control()) {
@@ -131,10 +131,9 @@ bool Setup::has_streams() noexcept {
 
     // now handle the specific stream type
     if (stream_info.is_buffered()) {
-      static const toml::path cfg_buff_size{"audio.buffer_size.bytes"};
       rc = true;
 
-      const auto buff_size = tokc.val<uint64_t>(cfg_buff_size, 0x800000UL);
+      auto buff_size = tokc.val<uint64_t>("audio.buffer_size.bytes", 0x800000UL);
 
       // reply requires the type, audio data port and our buffer size
       reply_stream0.setUints({{TYPE, stream_type},                            // stream type
@@ -145,7 +144,7 @@ bool Setup::has_streams() noexcept {
 
     } else if (stream_info.is_realtime()) {
       rc = false;
-      INFO( "STREAM", "realtime not supported\n");
+      INFO("STREAM", "realtime not supported\n");
 
     } else if (stream_info.is_remote_control()) {
       rc = true;
@@ -157,10 +156,10 @@ bool Setup::has_streams() noexcept {
     }
 
   } else if (stream_info.is_ntp_stream()) {
-    INFO( "STREAM", "ntp timing not supported\n");
+    INFO("STREAM", "ntp timing not supported\n");
 
   } else {
-    INFO( "STREAM", "unknown / unsupported stream\n");
+    INFO("STREAM", "unknown / unsupported stream\n");
   }
 
   if (rc) {

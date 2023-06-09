@@ -26,6 +26,7 @@
 #include <cmath>
 
 namespace pierre {
+namespace desk {
 namespace fader {
 
 float Circular::calc(float current, const float total) const {
@@ -114,4 +115,5 @@ float SineDeceleratingToZero::calc(const float current, const float total) const
 }
 
 } // namespace fader
+} // namespace desk
 } // namespace pierre

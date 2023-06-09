@@ -46,11 +46,11 @@ static const string log_socket_msg(error_code ec, tcp_socket &sock, const tcp_en
                                    Elapsed e = Elapsed()) noexcept;
 
 inline auto resolve_timeout(conf::token &tok) noexcept {
-  return tok.val<Millis>("local.resolve.timeout.ms"_tpath, 7'333);
+  return tok.val<Millis>("local.resolve.timeout.ms", 7'333);
 }
 
 inline auto resolve_retry_wait(conf::token &tok) noexcept {
-  return tok.val<Millis>("local.resolve.retry.ms"_tpath, 5'250);
+  return tok.val<Millis>("local.resolve.retry.ms", 5'250);
 }
 
 // general API
@@ -80,7 +80,7 @@ DmxCtrl::DmxCtrl() noexcept
   sess_connected.clear();
   data_connected.clear();
 
-  auto n_thr = tokc->val<int>("threads"_tpath, 2);
+  auto n_thr = tokc->val<int>("threads", 2);
   INFO_INIT("sizeof={:>5} n_thr={} {}", sizeof(DmxCtrl), n_thr, *tokc);
 }
 
@@ -97,16 +97,14 @@ DmxCtrl::~DmxCtrl() noexcept {
 
 void DmxCtrl::handshake() noexcept {
   INFO_AUTO_CAT("handshake");
-  static constexpr csv idle_ms_path{"remote.idle_shutdown.ms"};
-  static constexpr csv stats_ms_path{"remote.stats.ms"};
 
   MsgOut msg(HANDSHAKE);
 
   msg.add_kv(desk::DATA_PORT, data_accep.local_endpoint().port());
   msg.add_kv(desk::FRAME_LEN, DataMsg::frame_len);
   msg.add_kv(desk::FRAME_US, InputInfo::lead_time_us);
-  msg.add_kv(desk::IDLE_MS, tokc->val<int64_t>(idle_ms_path, 15'000));
-  msg.add_kv(desk::STATS_MS, tokc->val<int64_t>(stats_ms_path, 2000));
+  msg.add_kv(desk::IDLE_MS, tokc->val<int64_t>("remote.idle_shutdown.ms", 15'000));
+  msg.add_kv(desk::STATS_MS, tokc->val<int64_t>("remote.stats.ms", 2000));
 
   async::write_msg(sess_sock, std::move(msg), [this](MsgOut msg) {
     if (msg.elapsed() > 750us) {
@@ -328,7 +326,7 @@ void DmxCtrl::send_data_msg(DataMsg &&data_msg) noexcept {
         // all is well, continue watching for stalls
         stall_watchdog();
       } else {
-        INFO_AUTO("{}", msg.status(Msg::Err));
+        if (!msg.status(Msg::Err).empty()) INFO_AUTO("{}", msg.status(Msg::Err));
         Stats::write<DmxCtrl>(stats::DATA_MSG_WRITE_ERROR, true);
         data_connected.clear();
       }
@@ -361,7 +359,7 @@ void DmxCtrl::stall_watchdog(Millis wait) noexcept {
 void DmxCtrl::threads_start() noexcept {
   INFO_AUTO_CAT("threads_start");
 
-  auto n_thr = tokc->val<int>("threads"_tpath, 2);
+  auto n_thr = tokc->val<int>("threads", 2);
   auto latch = std::make_shared<std::latch>(n_thr + 1);
   threads = std::vector<std::jthread>(n_thr);
   INFO_AUTO("starting threads={}", std::ssize(threads));

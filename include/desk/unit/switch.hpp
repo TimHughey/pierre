@@ -24,7 +24,11 @@ namespace desk {
 
 class Switch : public Unit {
 public:
-  Switch(const auto &opts) noexcept : Unit(opts), powered{true} {}
+  Switch(auto &&name, uint16_t addr) noexcept
+      : // create the underlying unit:
+        Unit(std::forward<decltype(name)>(name), addr),
+        // initial switch is initialized to powered
+        powered{true} {}
 
 public:
   // required by FX

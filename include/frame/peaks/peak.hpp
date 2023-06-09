@@ -18,18 +18,20 @@
 
 #pragma once
 
-#include "base/min_max_pair.hpp"
+#include "base/bound.hpp"
+#include "base/conf/toml.hpp"
 #include "base/types.hpp"
 #include "frame/peaks/frequency.hpp"
 #include "frame/peaks/magnitude.hpp"
 
 // #include <algorithm>
+#include <concepts>
 #include <fmt/format.h>
 
 namespace pierre {
 
-using freq_min_max = min_max_pair<Frequency>;
-using mag_min_max = min_max_pair<Magnitude>;
+using bound_freq = bound<Frequency>;
+using bound_mag = bound<Magnitude>;
 
 /// @brief A Peak is the output of the audio data FFT.
 ///        Each "packet" of audio PCM data consists of
@@ -47,9 +49,31 @@ public:
   Peak() = default;
   Peak(const Frequency f, const Magnitude m) noexcept : freq(f), mag(m) {}
 
+  Peak(Magnitude &&m) noexcept : freq(0.0), mag(std::move(m)) {}
+
+  /// @brief Create a Peak from a pointer to a toml::table
+  /// @param t Pointer to a toml::table shaped as { freq = [dbl, dbl], mag = [dbl, dbo]}
+  Peak(const toml::table &t, double &&def_freq = 0.0, double def_mag = 0.0) noexcept {
+    freq = t["freq"].value_or(def_freq);
+    mag = t["mag"].value_or(def_mag);
+  }
+
+  void assign(const auto &t, auto &&def_freq = 0.0, auto &&def_mag = 0.0) noexcept {
+    freq = t["freq"].value_or(def_freq);
+    mag = t["mag"].value_or(def_mag);
+  }
+
   /// @brief Is this peak silence (mag == 0, freq == 0)
   /// @return boolean
-  bool operator!() const noexcept { return (freq == 0) && (mag == 0); }
+  bool operator!() const noexcept { return !freq && !mag; }
+
+  explicit operator bool() const noexcept { return (bool)freq && (bool)mag; }
+  explicit operator Frequency() const noexcept { return freq; }
+  explicit operator Magnitude() const noexcept { return mag; }
+
+  bool operator>(const auto &rhs) const noexcept {
+    return (bool)rhs && (freq > rhs.freq) && (mag > rhs.mag);
+  }
 
   /// @brief Compare a Peak to a frequency
   /// @param rhs Frequency
@@ -71,15 +95,14 @@ public:
     return std::partial_ordering::equivalent;
   }
 
-  /// @brief Is the Peak useable?
-  ///        The Peak magnitude is compared to a mag min/max
-  ///        and is useabled when between the min/max (inclusive)
-  /// @return boolean
-  bool useable() const noexcept { return useable(mag_min_max(0.9, 128.0)); }
-
-  bool useable(const mag_min_max &ml) const noexcept { return ml.inclusive(mag); }
-  bool useable(const mag_min_max &ml, const freq_min_max &fl) const noexcept {
-    return ml.inclusive(mag) && fl.inclusive(freq);
+  template <typename T>
+    requires IsAnyOf<T, Frequency, Magnitude>
+  constexpr const T &val() const noexcept {
+    if constexpr (std::same_as<T, Frequency>) {
+      return freq;
+    } else {
+      return mag;
+    }
   }
 
 public:
@@ -114,14 +137,14 @@ template <> struct fmt::formatter<pierre::Peak> {
     return it;
   }
 
-  // Formats the Peak p using the parsed format specification (presentation)
+  // Formats the Peak using the parsed format specification (presentation)
   // stored in this formatter.
   template <typename FormatContext>
   auto format(const pierre::Peak &p, FormatContext &ctx) const -> decltype(ctx.out()) {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    if (freq) fmt::format_to(w, "freq={:>8.2f}", p.freq);
+    if (freq) fmt::format_to(w, "freq={:>8.2f} ", p.freq);
     if (mag) fmt::format_to(w, "mag={:>2.5f}", p.mag);
 
     // ctx.out() is an output iterator to write to.

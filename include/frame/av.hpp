@@ -18,8 +18,9 @@
 
 #pragma once
 
+#include "base/conf/token.hpp"
 #include "base/uint8v.hpp"
-#include "frame.hpp"
+#include "frame/frame.hpp"
 #include "libav.hpp"
 
 #include <atomic>
@@ -28,9 +29,11 @@
 
 namespace pierre {
 
+// forward decls
 class FFT;
 
 class Av {
+
   static constexpr int ADTS_CHANNEL_CFG{2}; // CPE
   static constexpr int ADTS_FREQ_IDX{4};    // 44.1 KHz
   static constexpr int ADTS_PROFILE{2};     // AAC LC
@@ -74,9 +77,10 @@ private:
   static void log_discard(Frame &frame, const uint8v &m, int used) noexcept;
 
 private:
-private:
   // order dependent
-  std::atomic_bool ready; // AV functionality setup and ready
+  conf::token tokc;
+  std::unique_ptr<frame::av_conf> conf;
+  std::atomic_flag ready; // AV functionality setup and ready
 
   // order independent
   AVCodec *codec{nullptr};
@@ -84,7 +88,7 @@ private:
   AVCodecParserContext *parser_ctx{nullptr};
 
 public:
-  static constexpr csv module_id{"frame.av"};
+  MOD_ID("frame.av");
 };
 
 } // namespace pierre

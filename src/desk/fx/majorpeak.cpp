@@ -25,40 +25,65 @@
 #include "base/stats.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
+#include "desk/fader/color_travel.hpp"
+#include "desk/fader/easings.hpp"
 #include "desk/unit/all.hpp"
-#include "fader/easings.hpp"
-#include "fader/toblack.hpp"
 #include "frame/peaks.hpp"
-#include "fx/majorpeak/types.hpp"
+#include "fx/majorpeak/conf.hpp"
+// #include "fx/majorpeak/types.hpp"
 
 namespace pierre {
-
-using FillFader = fader::ToBlack<fader::SimpleLinear>;
-using MainFader = fader::ToBlack<fader::SimpleLinear>;
-
 namespace desk {
+
+using FillFader = fader::ColorTravel<fader::SimpleLinear>;
+using MainFader = fader::ColorTravel<fader::SimpleLinear>;
+
+MajorPeak::MajorPeak() noexcept
+    : // cosntruct base FX
+      FX(fx::MAJOR_PEAK, fx::STANDBY),
+      // acquire a watch token
+      tokc(conf::token::acquire_watch_token(module_id)),
+      // create config from tokc
+      runconf(std::make_unique<conf::majorpeak>(tokc)),
+      // setup last peaks for both pinspots
+      last_peak{Peak(), Peak()} {
+
+  // perform the initial configuration load
+  runconf->load();
+
+  // save silence timeout so FX can track silence and auto finish
+  save_silence_timeout(runconf->silence_timeout);
+}
+
+MajorPeak::~MajorPeak() noexcept { tokc->release(); }
 
 void MajorPeak::execute(const Peaks &peaks) noexcept {
   INFO_AUTO_CAT("execute");
 
-  load_config();
+  if (tokc->changed()) {
+    runconf->load();
+    save_silence_timeout(runconf->silence_timeout);
+  }
 
-  if (peaks.audible()) silence_watch(); // reset silence timer when we have non-silent peaks
-
+  // ensure power is on and disco ball is spun up
   unit<Switch>(unit::AC_POWER)->activate();
   unit<Dimmable>(unit::DISCO_BALL)->dim();
 
-  handle_el_wire(peaks);
-  handle_main_pinspot(peaks);
-  handle_fill_pinspot(peaks);
+  // const auto &peak = peaks();
 
-  const auto &peak1 = peaks();
+  // handle_el_wire(peaks);
+  // handle_main_pinspot(peaks);
+  // handle_fill_pinspot(peaks);
 
-  Stats::write<MajorPeak>(stats::MAX_PEAK_FREQUENCY, peak1.freq);
-  Stats::write<MajorPeak>(stats::MAX_PEAK_MAGNITUDE, peak1.mag);
+  // disable stats
+  if constexpr (StatsEnabled<MajorPeak>) {
+    const auto &peak1 = peaks();
+    Stats::write<MajorPeak>(stats::PEAK, peak1.freq);
+    Stats::write<MajorPeak>(stats::PEAK, peak1.mag);
+  }
 }
 
-void MajorPeak::handle_el_wire(const Peaks &peaks) {
+/*void MajorPeak::handle_el_wire(const Peaks &peaks) {
 
   // create handy array of all elwire units
   std::array elwires{unit<Dimmable>(unit::EL_DANCE), unit<Dimmable>(unit::EL_ENTRY)};
@@ -74,90 +99,97 @@ void MajorPeak::handle_el_wire(const Peaks &peaks) {
       elwire->dim();
     }
   }
-}
+}*/
 
-void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
+/*void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
+
+  const auto &peak1 = peaks(Peaks::Right);
+
+  if (conf.freq_between(peak1.freq)) return;
+
   auto fill = unit<PinSpot>(unit::FILL_SPOT);
-  auto cfg = pspot_cfg_map.at("fill pinspot");
 
-  const auto peak1 = peaks();
-  if (peak1.freq > cfg.freq_max) {
-    return;
-  }
-
+  bool fading = fill->fading();
   Color color = make_color(peak1);
 
-  auto start_fader = false;
-  bool fading = fill->isFading();
+  // always start fasing when not fading and color isn't black
+  if (!fading && (bool)color) {
+    last_peak[Fill] = Peak();
+    fill->activate<FillFader>({.origin = color, .duration = conf.fill().fade_max});
+  } else if (fading) {
+    const auto &brightness = fill->brightness();
+    const auto &last = last_peak[Fill];
 
-  // when fading look for possible scenarios where the current color can be overriden
-  if (fading) {
-    auto freq = peak1.freq;
-    auto brightness = fill->brightness();
+    if ((peak1 > last) && (brightness > 30.0)) {
+      last_peak[Fill] = std::move(peak1);
+      fill->activate<FillFader>({.origin = color, .duration = conf.fill().fade_max});
+    }
+  }
 
-    const auto &last_peak = fill_last_peak;
+        // default value for start_fader
+        auto start_fader = !fading && color.notBlack();
 
-    const auto greater_freq = cfg.when_greater.freq;
-    if (freq >= greater_freq) {
-      // peaks above upper bass and have a greater magnitude take priority
-      // regardless of pinspot brightness
-      if (peak1.mag > last_peak.mag) {
-        start_fader = true;
-      }
+      // when fading look for possible scenarios where the current color can be overriden
+      if (!start_fader && fading) {
+        auto freq = peak1.freq;
+        auto brightness = fill->brightness();
 
-      if (last_peak.freq <= greater_freq) {
-        const auto bri_min = cfg.when_greater.when_higher_freq.bri_min;
+        const auto &last_peak = fill_last_peak;
 
-        if (brightness <= bri_min) {
-          start_fader = true;
+        const auto greater_freq = cfg.when_greater.freq;
+        if (freq >= greater_freq) {
+          // peaks above upper bass and have a greater magnitude take priority
+          // regardless of pinspot brightness
+          if (peak1.mag > last_peak.mag) {
+            start_fader = true;
+          }
+
+          if (last_peak.freq <= greater_freq) {
+            const auto bri_min = cfg.when_greater.when_higher_freq.bri_min;
+
+            if (brightness <= bri_min) start_fader = true;
+          }
+
+          // anytime the frequency and brightness are less than
+          // the brightness min use them
+          if (brightness < cfg.when_greater.bri_min) start_fader = true;
+        }
+
+        const auto &when_less_than = cfg.when_less_than;
+        const auto lessthan_freq = when_less_than.freq;
+
+        if (freq <= lessthan_freq) { // lower frequencies take priority when
+                                     // the pinspots brightness reaches a minimum brightness
+          auto bri_min = when_less_than.bri_min;
+          if (brightness <= bri_min) {
+            if (color.brightness() >= brightness) {
+              start_fader = true;
+            }
+          }
         }
       }
 
-      // anytime the pinspots brightness is low the upper bass peaks
-      // take priority
-      if (brightness < cfg.when_greater.bri_min) {
-        start_fader = true;
+      if (start_fader) {
+        fill->activate<FillFader>({.origin = color, .duration = cfg.fade_max});
+        fill_last_peak = peak1;
       }
-    }
+}*/
 
-    const auto &when_less_than = cfg.when_less_than;
-    const auto lessthan_freq = when_less_than.freq;
-
-    // bass frequencies only take priority when the pinspot's brightness has
-    // reached a relatively low level
-    if (freq <= lessthan_freq) {
-      auto bri_min = when_less_than.bri_min;
-      if (brightness <= bri_min) {
-        if (color.brightness() >= brightness) {
-          start_fader = true;
-        }
-      }
-    }
-  } else if (color.notBlack()) { // when not fading and it's an actual color
-    start_fader = true;
-  }
-
-  if (start_fader) {
-    fill->activate<FillFader>({.origin = color, .duration = cfg.fade_max});
-    fill_last_peak = peak1;
-  }
-}
-
-void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
+/*void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
   auto main = unit<PinSpot>(unit::MAIN_SPOT);
   const auto &cfg = pspot_cfg_map.at("main pinspot");
 
   const auto freq_min = cfg.freq_min;
-  const auto peak = peaks(freq_min, Peaks::Right);
+  const auto &peak = peaks(freq_min, Peaks::Left);
 
-  if (peak.useable(mag_limits) == false) return;
+  if (!peak.useable(mag_limits)) return;
 
   Color color = make_color(peak);
 
   if (color.isBlack()) return;
 
   bool start_fader = false;
-  bool fading = main->isFading();
+  bool fading = main->fading();
 
   if (!fading) start_fader = true;
 
@@ -165,141 +197,38 @@ void MajorPeak::handle_main_pinspot(const Peaks &peaks) {
     const auto &when_fading = cfg.when_fading;
 
     auto brightness = main->brightness();
-    auto &last_peak = main_last_peak;
+    auto &last = last_peak[Main];
 
-    if (peak.mag >= last_peak.mag) {
-      start_fader = true;
-    }
+    if (peak.mag >= last.mag) start_fader = true;
 
-    if (last_peak.freq < peak.freq) {
+    if (last.freq < peak.freq) {
       if (brightness < when_fading.when_freq_greater.bri_min) {
         start_fader = true;
       }
     }
 
-    if (brightness < when_fading.bri_min) {
-      start_fader = true;
-    }
+    if (brightness < when_fading.bri_min) start_fader = true;
   }
 
   if (start_fader) {
     main->activate<MainFader>({.origin = color, .duration = cfg.fade_max});
-    main_last_peak = peak;
+    last_peak[Main] = peak;
   }
-}
+}*/
 
-bool MajorPeak::load_config() noexcept {
-  INFO_AUTO_CAT("load_config");
+/*Hsb MajorPeak::make_color(const spot_spec &ss, const Peak &peak) noexcept {
 
-  bool refresh = pspot_cfg_map.empty();
-
-  if (!refresh && tokc->changed()) {
-    refresh |= tokc->latest();
-  }
-
-  if (refresh) {
-
-    // lambda helper to retrieve frequencies config
-    auto dval = [&](const auto p, auto &&def_val) -> double {
-      return tokc->val<double>(p, std::forward<decltype(def_val)>(def_val));
-    };
-
-    freq_limits = hard_soft_limit<Frequency>(            //
-        dval("frequencies.hard.floor"_tpath, 40.0),      //
-        dval("frequencies.hard.ceiling"_tpath, 11500.0), //
-        dval("frequencies.soft.floor"_tpath, 110.0),     //
-        dval("frequencies.soft.ceiling"_tpath, 10000.0));
-
-    // load make colors config
-    for (auto cat : std::array{"generic"_tpath, "above_soft_ceiling"_tpath}) {
-      // lambda helper to retrieve make color configs
-      auto cc = [&, this](const auto path, auto &&def_val) -> double {
-        const auto full_path = toml::path("makecolors").append(cat).append(path);
-        return tokc->val<double>(full_path, std::forward<decltype(def_val)>(def_val));
-      };
-
-      const auto mag_scaled_path =
-          toml::path("makecolors").append(cat).append("hue.mag_scaled"_tpath);
-
-      hue_cfg_map.try_emplace(
-          string(cat), major_peak::hue_cfg{
-                           .hue = {.min = cc("hue.min"_tpath, 0.0),
-                                   .max = cc("hue.max"_tpath, 0.0),
-                                   .step = cc("hue.step"_tpath, 0.001)},
-                           .brightness = {.max = cc("bri.max"_tpath, 0.0),
-                                          .mag_scaled = tokc->val<bool>(mag_scaled_path, true)}});
-    }
-
-    mag_limits = Peaks::mag_min_max(dval("magnitudes.floor"_tpath, 2.009),
-                                    dval("magnitudes.ceiling"_tpath, 2.009));
-
-    // load pinspot config
-    static constexpr csv BRI_MIN{"bri_min"};
-    const auto table = tokc->table();
-    auto &pspots = table->at_path("pinspots"_tpath).ref<toml::array>();
-
-    for (auto &&el : *pspots.as_array()) {
-      // we need this twice
-      const auto pspot_name = el["name"_tpath].value_or(string("unnamed"));
-
-      auto [it, inserted] = //
-          pspot_cfg_map.try_emplace(pspot_name, pspot_name,
-                                    el["type"_tpath].value_or(string("unknown")),
-                                    Millis(el["fade_max_ms"_tpath].value_or(100)),
-                                    el["freq_min"_tpath].value_or(0.0), //
-                                    el["freq_max"_tpath].value_or(0.0));
-
-      if (inserted) {
-        auto &cfg = it->second;
-
-        // populate 'when_less_than' (common for main and fill)
-        auto wltt = el.at_path("when_less_than"_tpath);
-        auto &wlt = cfg.when_less_than;
-
-        wlt.freq = wltt["freq"_tpath].value_or(0.0);
-        wlt.bri_min = wltt[BRI_MIN].value_or(0.0);
-
-        if (csv{cfg.type} == csv{"fill"}) { // fill specific
-          auto wgt = el["when_greater"_tpath];
-
-          auto &wg = cfg.when_greater;
-          wg.freq = wgt["freq"_tpath].value_or(0.0);
-          wg.bri_min = wgt[BRI_MIN].value_or(0.0);
-
-          auto whft = wgt["when_higher_freq"_tpath];
-          auto &whf = wg.when_higher_freq;
-          whf.bri_min = whft[BRI_MIN].value_or(0.0);
-
-        } else if (csv(cfg.type) == csv{"main"}) { // main specific
-          auto wft = el["when_fading"_tpath];
-
-          auto &wf = cfg.when_fading;
-          wf.bri_min = wft[BRI_MIN].value_or(0.0);
-
-          auto &wffg = wf.when_freq_greater;
-          auto wffgt = wft["when_freq_greater"_tpath];
-          wffg.bri_min = wffgt[BRI_MIN].value_or(0.0);
-        }
-      }
-    }
-
-    // setup silence timeout
-    set_silence_timeout(tokc, fx::STANDBY, Seconds(20));
-  }
-
-  if (refresh) INFO_AUTO("{}", *tokc);
-
-  return refresh;
-}
-
-const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   auto color = ref; // initial color, may change below
 
-  // ensure frequency can be interpolated into a color
-  if (peak.useable(mag_limits, freq_limits.hard()) == false) {
-    color = Color::black();
+  constexpr auto FreqSoft = limits<Frequency>::Soft;
+  constexpr auto Hard = limits_any::Hard;
 
-  } else if (peak.freq < freq_limits.soft().min()) {
+  // ensure frequency can be interpolated into a color
+  if (peak.useable(conf.mag_limits, conf.freq_limits)) return Color::black();
+
+  const auto &fl = conf.freq_limits;
+
+  if (fl.less_than(FreqSoft, peak.freq)) {
     // frequency less than the soft
     color.setBrightness(mag_limits, peak.mag.scaled());
 
@@ -330,7 +259,7 @@ const Color MajorPeak::make_color(const Peak &peak, const Color &ref) noexcept {
   }
 
   return color;
-}
+}*/
 
 bool MajorPeak::once() noexcept {
   tokc->initiate_watch(); // this only needs to be done once
@@ -344,16 +273,15 @@ bool MajorPeak::once() noexcept {
   return true;
 }
 
-const Color &MajorPeak::ref_color(size_t index) const noexcept {
+const Hsb &MajorPeak::ref_color(size_t index) const noexcept {
   if (ref_colors.empty()) {
     ref_colors.assign( //
-        {Color(0xff0000), Color(0xdc0a1e), Color(0xff002a), Color(0xb22222), Color(0xdc0a1e),
-         Color(0xff144a), Color(0x0000ff), Color(0x810070), Color(0x2D8237), Color(0xffff00),
-         Color(0x2e8b57), Color(0x00b6ff), Color(0x0079ff), Color(0x0057b9), Color(0x0033bd),
-         Color(0xcc2ace), Color(0xff00ff), Color(0xa8ab3f), Color(0x340081), Color(0x00ff00),
-         Color(0x810045), Color(0x2c1577), Color(0xffd700), Color(0x5e748c), Color(0x00ff00),
-         Color(0xe09b00), Color(0x32cd50), Color(0x2e8b57), Color(0xff00ff), Color(0xffc0cb),
-         Color(0x4682b4), Color(0xff69b4), Color(0x9400d3)});
+        {Hsb(0xff0000), Hsb(0xdc0a1e), Hsb(0xff002a), Hsb(0xb22222), Hsb(0xdc0a1e), Hsb(0xff144a),
+         Hsb(0x0000ff), Hsb(0x810070), Hsb(0x2D8237), Hsb(0xffff00), Hsb(0x2e8b57), Hsb(0x00b6ff),
+         Hsb(0x0079ff), Hsb(0x0057b9), Hsb(0x0033bd), Hsb(0xcc2ace), Hsb(0xff00ff), Hsb(0xa8ab3f),
+         Hsb(0x340081), Hsb(0x00ff00), Hsb(0x810045), Hsb(0x2c1577), Hsb(0xffd700), Hsb(0x5e748c),
+         Hsb(0x00ff00), Hsb(0xe09b00), Hsb(0x32cd50), Hsb(0x2e8b57), Hsb(0xff00ff), Hsb(0xffc0cb),
+         Hsb(0x4682b4), Hsb(0xff69b4), Hsb(0x9400d3)});
   }
 
   return ref_colors.at(index);

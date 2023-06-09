@@ -32,7 +32,11 @@
 namespace pierre {
 namespace conf {
 
-token::token(csv mid) noexcept : uuid(UUID()), root{mid} { parse(ttable, msgs); }
+token::token(csv mid) noexcept : uuid(UUID()), root{mid} {
+  parse(ttable, msgs);
+
+  root_node = ttable.at_path(root);
+}
 
 token::token(csv mid, watch *watcher) noexcept : uuid(UUID()), root(mid), watcher(watcher) {
   parse(ttable, msgs);
@@ -49,6 +53,7 @@ bool token::latest() noexcept {
 
   if (rc) {
     ttable = std::move(table_fut.get());
+    root_node = ttable.at_path(root);
     INFO_AUTO("{}", *this);
   } else {
     INFO_AUTO("invalid future {}", *this);

@@ -20,6 +20,7 @@
 
 #include "base/types.hpp"
 
+#include <array>
 #include <compare>
 #include <fmt/format.h>
 
@@ -30,7 +31,28 @@ public:
   constexpr Magnitude() = default;
   constexpr Magnitude(auto v) noexcept : val(v) {}
 
-  constexpr operator auto() const noexcept { return val; }
+  // constexpr operator auto() const noexcept { return val; }
+  explicit constexpr operator double() const noexcept { return val; }
+
+  template <typename T>
+    requires std::convertible_to<T, double>
+  void assign(T &&v) noexcept {
+    std::move(v);
+  }
+
+  // constexpr double as_dB() const noexcept {
+  //     auto dB_at_index(size_t i) const noexcept {
+
+  //   double db_val = 20 * std::log10(reals[i]);
+
+  //   // calculate normalized
+  //   // dbNormalized = db - 20 * log10(fftLength * pow(2,N)/2)
+  //   return db_val - 20 * std::log10(peaks_max * (power / 2));
+  // }
+  // }
+
+  explicit constexpr operator bool() const noexcept { return val != 0.0; }
+  constexpr bool operator!() const noexcept { return val == 0.0; }
 
   constexpr std::partial_ordering operator<=>(auto rhs) const noexcept {
     if (val < rhs) return std::partial_ordering::less;
@@ -43,9 +65,19 @@ public:
     return (val > 0) ? T(10.0 * std::log10(val)) : T{0};
   }
 
+  /// @brief Support automatic metrics recording via Stats
+  /// @return double
+  double stat() const noexcept { return val; }
+
+  /// @brief Support automatic metrics recording via Stats
+  /// @return Returns the tag to apply to the metric
+  static constexpr auto tag() noexcept { return std::array{"comp", "mag"}; }
+
 private:
   double val{0};
 };
+
+constexpr Magnitude operator""_MAG(long double mag) { return Magnitude{mag}; }
 
 } // namespace pierre
 
@@ -53,6 +85,6 @@ template <> struct fmt::formatter<pierre::Magnitude> : formatter<double> {
   // parse is inherited from formatter<double>.
   template <typename FormatContext>
   auto format(const pierre::Magnitude &val, FormatContext &ctx) const {
-    return formatter<double>::format(val, ctx);
+    return formatter<double>::format(static_cast<double>(val), ctx);
   }
 };

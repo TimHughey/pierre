@@ -16,27 +16,33 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
-
-#include "base/types.hpp"
-#include "desk/color.hpp"
-#include "fader/tocolor.hpp"
+#include "fader/fader.hpp"
+#include "base/dura.hpp"
 
 namespace pierre {
-namespace fader {
+namespace desk {
 
-template <typename Easing> class ToBlack : public ToColor<Easing> {
-public:
-  struct Opts {
-    Color origin;
-    Nanos duration;
-  };
+bool Fader::travel() {
+  if (fader_progress == 0.0) {
+    // the first invocation (frame 0) represents the origin and start time of the fader
+    start_at = dura::now_monotonic();
+    fader_progress = 0.0001;
 
-public:
-  ToBlack(const Opts &opts)
-      : ToColor<Easing>(
-            {.origin = opts.origin, .dest = Color::black(), .duration = opts.duration}) //
-  {}
-};
-} // namespace fader
+  } else {
+    auto elapsed = dura::elapsed_abs(start_at);
+
+    if (elapsed < duration) {
+      fader_progress = doTravel(elapsed.count(), duration.count());
+    } else {
+      doFinish();
+      finished = true;
+    }
+  }
+
+  frames.count++;
+
+  return !finished;
+}
+
+} // namespace desk
 } // namespace pierre

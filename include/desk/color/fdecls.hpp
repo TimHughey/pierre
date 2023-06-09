@@ -18,41 +18,11 @@
 
 #pragma once
 
-#include "base/types.hpp"
-#include "desk/msg/data.hpp"
-#include "desk/unit/names.hpp"
-
 namespace pierre {
 namespace desk {
 
-constexpr size_t no_frame{0};
-
-class Unit {
-  friend class Units;
-
-public:
-  Unit(string &&name, uint16_t address, size_t frame_len = no_frame)
-      : // capture the name of this unit
-        name(name),
-        // device specific address (e.g. DMX, gpio pin)
-        address(address),
-        // num of bytes when part of DMX payload
-        frame_len{frame_len} {}
-
-  // all units, no matter subclass, must support
-  virtual void activate() noexcept {}
-  virtual void dark() noexcept {}
-
-  // message processing loop
-  virtual void prepare() noexcept {}
-  virtual void update_msg(DataMsg &msg) noexcept { msg.noop(); }
-
-protected:
-  // order dependent
-  string name;
-  uint16_t address;
-  size_t frame_len;
-};
+struct color_spec;
+struct spot_spec;
 
 } // namespace desk
 } // namespace pierre

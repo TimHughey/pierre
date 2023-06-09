@@ -42,6 +42,7 @@ Units::Units() noexcept : tokc("desk"sv) {
 }
 
 void Units::load_config() noexcept {
+  INFO_AUTO_CAT("load_config");
 
   if (tokc.empty()) {
     assert("missing desk (units) conf");
@@ -51,60 +52,58 @@ void Units::load_config() noexcept {
   auto table = tokc.table();
 
   // load dimmable units
-  uint32_t max = tokc.val<uint32_t>("dimmable.max"_tpath, 8190U);
-
-  auto dimmable = table->at_path("dimmable.units"_tpath).as_array();
+  uint32_t max = tokc.val<uint32_t>("dimmable.max", 8190U);
+  auto dimmable = table->at_path("dimmable.units").as_array();
 
   for (auto &&e : *dimmable) {
 
     const auto &t = *(e.as_table());
 
-    const auto name = t["name"_tpath].value_or("unnamed");
-    const size_t addr = t["addr"_tpath].value_or(0UL);
+    string key = t["name"].value_or("unnamed");
+    auto dev = std::make_unique<Dimmable>(t["name"].value_or("unnamed"), t["addr"].value_or(0UL));
 
-    const hdopts opts{.name = name, .type = unit_type::DIMMABLE, .address = addr};
-
-    auto [it, inserted] = map.try_emplace(name, std::make_unique<Dimmable>(std::move(opts)));
+    auto [it, inserted] = map.insert_or_assign(key, std::move(dev));
 
     auto apply_percent = [=](float percent) -> uint32_t { return max * percent; };
 
     if (inserted) {
       Dimmable *unit = static_cast<Dimmable *>(it->second.get());
 
-      unit->config.max = apply_percent(t["max"_tpath].value_or(1.0));
-      unit->config.min = apply_percent(t["min"_tpath].value_or(0.0));
-      unit->config.dim = apply_percent(t["dim"_tpath].value_or(0.0));
-      unit->config.bright = apply_percent(t["bright"_tpath].value_or(1.0));
-      unit->config.pulse_start = apply_percent(t["pulse.start"_tpath].value_or(1.0));
-      unit->config.pulse_end = apply_percent(t["pulse.end"_tpath].value_or(0.0));
+      unit->config.max = apply_percent(t["max"].value_or(1.0));
+      unit->config.min = apply_percent(t["min"].value_or(0.0));
+      unit->config.dim = apply_percent(t["dim"].value_or(0.0));
+      unit->config.bright = apply_percent(t["bright"].value_or(1.0));
+      unit->config.pulse_start = apply_percent(t["pulse.start"].value_or(1.0));
+      unit->config.pulse_end = apply_percent(t["pulse.end"].value_or(0.0));
     }
   }
 
   // load pinspot units
-  auto pinspots = table->at_path("pinspot.units"_tpath).as_array();
+  INFO_AUTO("loading pinspots");
+
+  auto pinspots = table->at_path("pinspot.units").as_array();
   for (auto &&e : *pinspots) {
     auto &t = *(e.as_table());
 
-    const auto name = t["name"_tpath].value_or("unnamed");
-    const size_t addr = t["addr"_tpath].value_or(0UL);
-    const size_t frame_len = t["frame_len"_tpath].value_or(0UL);
+    string key = t["name"].value_or("unnamed");
+    auto name = key;
 
-    const hdopts opts{.name = name, .type = unit_type::PINSPOT, .address = addr};
+    INFO_AUTO("key={} name={}", key, name);
 
-    map.try_emplace(name, std::make_unique<PinSpot>(std::move(opts), frame_len));
+    auto dev = std::make_unique<PinSpot>(std::move(name), t["addr"].value_or(0UL),
+                                         t["frame_len"].value_or(0UL));
+    map.insert_or_assign(key, std::move(dev));
   }
 
   // load switch units
-  auto switches = table->at_path("switch.units"_tpath).as_array();
+  auto switches = table->at_path("switch.units").as_array();
   for (auto &&e : *switches) {
     const auto &t = *(e.as_table());
 
-    const auto name = t["name"_tpath].value_or("unnamed");
-    const size_t addr = t["addr"_tpath].value_or(0UL);
-
-    const hdopts opts{.name = name, .type = unit_type::SWITCH, .address = addr};
-
-    map.try_emplace(name, std::make_unique<Switch>(std::move(opts)));
+    string key = t["name"].value_or("unnamed");
+    auto name = key;
+    auto dev = std::make_unique<Switch>(std::move(name), t["addr"].value_or(0UL));
+    map.insert_or_assign(key, std::move(dev));
   }
 }
 

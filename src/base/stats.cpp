@@ -39,18 +39,16 @@ Stats::Stats(asio::io_context &app_io_ctx) noexcept
 {
   if (val_txt.empty()) val_txt = std::move(stats::make_map());
 
-  constexpr auto def_db_uri{"http://localhost:8086?db=pierre"sv};
-  db_uri = tokc.val<string>("db_uri"_tpath, def_db_uri.data());
+  db_uri = tokc.val<string>("db_uri", "http://influx:influx1234@localhost:8086?db=bucket0");
 
   auto w = std::back_inserter(init_msg);
 
-  fmt::format_to(w, "sizeof={:>5} {} db_uri={} val_map={}",
-                 sizeof(Stats),                      //
-                 enabled() ? "enabled" : "disabled", //
-                 db_uri.empty() ? "<unset" : "<set>", val_txt.size());
+  fmt::format_to(w, "sizeof={:>5} {} db_uri={} val_map={}", sizeof(Stats),
+                 enabled() ? "enabled" : "disabled", db_uri.empty() ? "<unset" : "<set>",
+                 val_txt.size());
 
   if (enabled() && !db_uri.empty()) {
-    const auto batch_of = tokc.val<int>("batch_of"_tpath, 150);
+    const auto batch_of = tokc.val<int>("batch_of", 150);
 
     fmt::format_to(w, " batch_of={}", batch_of);
 
@@ -69,6 +67,6 @@ Stats::Stats(asio::io_context &app_io_ctx) noexcept
   INFO_INIT("{}\n", init_msg);
 }
 
-bool Stats::enabled() noexcept { return tokc.val<bool>("enabled"_tpath, false); }
+bool Stats::enabled() noexcept { return tokc.val<bool>("enabled", false); }
 
 } // namespace pierre

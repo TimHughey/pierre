@@ -1,4 +1,3 @@
-
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -19,7 +18,6 @@
 
 #pragma once
 
-#include "InfluxDBFactory.h"
 #include "base/asio.hpp"
 #include "base/conf/token.hpp"
 #include "base/dura_t.hpp"
@@ -30,12 +28,25 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 
+#include <array>
 #include <memory>
 #include <tuple>
 
 namespace pierre {
 
 template <typename> constexpr bool StatsEnabled = true;
+
+using stats_tag_t = std::array<const char *, 2>;
+
+template <typename T>
+concept IsStatsVal = IsDuration<T> || std::same_as<T, bool> || std::convertible_to<T, int64_t> ||
+                     std::same_as<T, double> || std::convertible_to<T, double>;
+
+template <typename T>
+concept StatsCapable = requires(T v) {
+  { v.tag() } noexcept -> std::same_as<stats_tag_t>;
+  { v.stat() } noexcept -> IsStatsVal;
+};
 
 class Stats;
 
@@ -45,7 +56,6 @@ extern std::unique_ptr<Stats> _stats;
 ///        serialized and thread safe. This class is
 ///        intended to be a singleton.
 class Stats {
-  using tag_t = std::pair<const char *, const char *>;
 
 private:
   static constexpr auto DOUBLE{"double"sv};
@@ -89,7 +99,8 @@ public:
   /// @param v metric val (from supported list of types)
   /// @param tag optional metric tag
   template <typename T, typename V>
-  static void write(auto vt, V v, tag_t tag = {nullptr, nullptr}) noexcept {
+    requires IsStatsVal<V>
+  inline static void write(stats::stats_v vt, V v, stats_tag_t tag) noexcept {
 
     if constexpr (StatsEnabled<T>) {
       if ((bool)_stats && (bool)_stats->db && _stats->enabled()) {
@@ -112,16 +123,24 @@ public:
           pt.addField(INTEGRAL, v);
         } else if constexpr (std::convertible_to<V, double>) {
           pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
-        } else {
-          static_assert(AlwaysFalse<V>, "unhandled type");
         }
 
-        if (tag.first && tag.second) pt.addTag(tag.first, tag.second);
+        if (tag[0] && tag[1]) pt.addTag(tag[0], tag[1]);
 
         // now post the pt and params for serialized write to influx
         auto &io_ctx = _stats->app_io_ctx;
         asio::post(io_ctx, [pt = std::move(pt)]() mutable { _stats->db->write(std::move(pt)); });
       }
+    }
+  }
+
+  template <typename T, typename V>
+    requires IsStatsVal<V> || StatsCapable<V>
+  inline static void write(stats::stats_v vt, V v) noexcept {
+    if constexpr (StatsCapable<V>) {
+      write<T>(vt, v.stat(), v.tag());
+    } else {
+      write<T>(vt, v, stats_tag_t{});
     }
   }
 

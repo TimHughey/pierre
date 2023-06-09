@@ -31,12 +31,12 @@ Saver::Saver(Saver::Direction direction, const Headers &headers, const uint8v &c
     : tokc(module_id) //
 {
 
-  if (tokc.val<bool>("enable"_tpath, false)) {
+  if (tokc.val<bool>("enable", false)) {
     static constexpr csv def_file{"/tmp/rtsp.log"};
     static constexpr csv def_format{"raw"};
 
-    const string file{tokc.val<string>("file"_tpath, def_file.data())};
-    const string format{tokc.val<string>("format"_tpath, def_format.data())};
+    const string file{tokc.val<string>("file", def_file.data())};
+    const string format{tokc.val<string>("format", def_format.data())};
 
     uint8v buff;
     auto w = std::back_inserter(buff);

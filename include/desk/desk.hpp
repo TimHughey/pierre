@@ -146,6 +146,7 @@ private:
   strand_ioc render_strand;
   strand_ioc flush_strand;
   frame_timer loop_timer;
+
   MasterClock *master_clock;
   std::unique_ptr<Anchor> anchor;
   std::unique_ptr<Reel> reel;

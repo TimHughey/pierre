@@ -41,17 +41,6 @@ struct InputInfo {
   /// @brief duration of a frame in nanoseconds
   static constexpr Nanos frame{static_cast<int64_t>(qpow10(9) / rate)};
 
-  /// @brief Lead time for rendering a Frame in nanoseconds
-  static constexpr Nanos lead_time{frame * 1024};
-
-  /// @brief Lead time for rendering a Frame in raw microseconds
-  static constexpr int64_t lead_time_us{std::chrono::duration_cast<Micros>(lead_time).count()};
-
-  /// @brief Frames per second based on frame duration rounded to whole milliseconds
-  ///        For use where fractional frames are not required
-  static constexpr int fps{Millis(1000).count() /
-                           std::chrono::duration_cast<Millis>(lead_time).count()};
-
   /// @brief Frames per specified duration
   /// @tparam T duration type
   /// @param v duration value
@@ -65,6 +54,17 @@ struct InputInfo {
       static_assert(AlwaysFalse<T>, "unhandled type");
     }
   }
+
+  /// @brief Lead time for rendering a Frame in nanoseconds
+  static constexpr Nanos lead_time{frame * 1024};
+
+  /// @brief Lead time for rendering a Frame in raw microseconds
+  static constexpr int64_t lead_time_us{std::chrono::duration_cast<Micros>(lead_time).count()};
+
+  /// @brief Frames per second based on frame duration rounded to whole milliseconds
+  ///        For use where fractional frames are not required
+  static constexpr int fps{Millis(1000).count() /
+                           std::chrono::duration_cast<Millis>(lead_time).count()};
 };
 
 } // namespace pierre

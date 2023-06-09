@@ -9,7 +9,7 @@ threads = 2
 threads = 2
 local = { stalled.ms = 7_333, resolve = { timeout.ms = 7_333, retry.ms = 5_250 } }
 # remote = { host = "dmx", idle_shutdown_ms = 15_000, stats.ms = 2_000 }
-# remote = { host = "dmx-test", idle_shutdown.ms = 15_000, stats.ms = 2_000 }
+remote = { host = "dmx-test", idle_shutdown.ms = 15_000, stats.ms = 2_000 }
 
 [desk.dimmable]
 max = 8190
@@ -24,15 +24,19 @@ units = [
 
 [desk.pinspot]
 units = [
-  { name = "main pinspot", addr = 1, frame_len = 6 },
-  { name = "fill pinspot", addr = 7, frame_len = 6 },
+  { name = "main spot", addr = 1, frame_len = 6 },
+  { name = "fill spot", addr = 7, frame_len = 6 },
 ]
 
 [desk.switch]
 units = [{ name = "ac power", addr = 1 }]
 
-[frame]
-cipher = { buffer_size = 0x2000 } # bytes (4k)
+[frame.av]
+left = { window = "Blackman_Nuttall", comp = false }
+right = { window = "Hann", comp = false }
+
+[frame.cipher]
+buffer_size = 0x2000 # bytes 4k
 
 [frame.clock]
 host = "127.0.0.1"              # nqptp host
@@ -45,46 +49,68 @@ shm_name = "/nqptp"             # path to nqptp shared memory directory
 
 [fx.majorpeak]
 silence = { timeout = { secs = 33 } }
+color = { hue = 0.0, sat = 100.0, bri = 100.0 }
 
-[fx.majorpeak.frequencies]
-hard = { floor = 40.0, ceiling = 11500.0 }
-soft = { floor = 115.0, ceiling = 1000.0 }
+[[fx.majorpeak.color_spec]]
+name = "high"
+bound_peaks = [
+  { freq = 1100.0, mag = 2.17 },
+  { freq = 11500.0, mag = 80.0 }
+]
+colors = [
+  { hue = 300.0, sat = 100.0, bri = 0.0 },
+  { hue = 359.9, sat = 100.0, bri = 85.0 }
+]
+step_type = "hue"
+step = 0.5
 
-[fx.majorpeak.magnitudes]
-floor = 2.17
-ceiling = 80.0
+[[fx.majorpeak.color_spec]]
+name = "generic"
+bound_peaks = [
+  # max of two representing low and high
+  { freq = 40.0, mag = 2.19 },
+  { freq = 1100.0, mag = 85.0 }
+]
+colors = [
+  { hue = 0.0, sat = 100.0, bri = 0.0 },
+  { hue = 340.0, sat = 100.0, bri = 100.0 }
+]
+step_type = "hue"
+step = 0.1
 
-[fx.majorpeak.makecolors.above_soft_ceiling]
-hue = { min = 300.0, max = 360.0, step = 0.5 }
-bri = { max = 85.0, mag_scaled = true }
+[[fx.majorpeak.color_spec]]
+name = "low"
+bound_peaks = [{freq = 40.0, mag = 2.225}, {freq = 180.0, mag = 65.0}]
+colors = [{ hue = 0.0, sat = 100.0, bri = 0.0 }, { hue = 60.0, sat = 100.0, bri = 100.0 }]
+step_type = "hue"
+step = 0.1
 
-[fx.majorpeak.makecolors.generic]
-hue = { min = 0.1, max = 3400.0, step = 0.1 }
-bri = { max = 100.0, mag_scaled = true }
+[[fx.majorpeak.spot_spec]]
+id = "fill"
+unit = "fill spot"
+color_spec = "low"
+fade = { color = {bri = 30.0}, timeout = { millis = 850 } }
+alternate = [
+ {greater=true, freq=true, last=true, color={bri=30.0}}
+]
 
-[[fx.majorpeak.pinspots]]
-name = "fill pinspot"
-type = "fill"
-fade_max_ms = 1200
-freq_max = 5000.0
-when_greater = { freq = 180.0, bri_min = 20.0, when_higher_freq = { bri_min = 85.0 } }
-when_less_than = { freq = 80.0, bri_min = 30.0 }
-
-[[fx.majorpeak.pinspots]]
-name = "main pinspot"
-type = "main"
-fade_max_ms = 800
-freq_min = 160.0
-when_fading = { bri_min = 8.0, when_freq_greater = { bri_min = 75.0 } }
-when_less_than = { freq = 220.0, bri_min = 30.0 }
+[[fx.majorpeak.spot_spec]]
+id = "main"
+unit = "main spot"
+color_spec = "generic"
+fade = { color = {bri = 50.0}, timeout = { millis = 700 } }
+alternate = [
+  {greater=true, freq=true, color={bri=80.0}},
+  {greater=true, mag=true, last=true, color={bri=50.0}}
+]
 
 [fx.standby]
-color = { hue = 0.0, sat = 100.0, bri = 50.0 }
-hue_step = 0.65
+color = { hue = 0.00, sat = 1.0, bri = 1.0 }
+hue_step = 0.23
 silence = { timeout = { minutes = 30, seconds  = 30 } }
 
 [logger]
-# category specific overrides
+# category specific alternate
 async = true
 debug = false   # show any debug messages?
 init = true     # always log init messages from any module, when true
@@ -117,14 +143,16 @@ host = { connect = true, resolve = false, rev_resolve = false, unknown = true }
 load_config = false
 run = true
 
+[logger.desk.units]
+load_config = true
+
 [logger.frame]
-# anch = { base = true, data = true, last = true }
-av = false
+av = {init = true}
 clock = { init = true, map_shm = false, peers_update = false, refresh = false, shutdown = false }
 decipher = false
 state_now = false
 
-# [looger.frame.anc]
+# [logger.frame.anc]
 # base = true
 # data = true
 
@@ -135,9 +163,13 @@ frame_next = false
 push_back = false
 
 [logger.fx]
-major_peak = { execute = false, load_config = false }
-silence_watch = false
-standby = { apply_config = false}
+select = true
+major_peak = { execute = false, load_config = true }
+set_silence = true
+
+[logger.fx.standby]
+execute = true
+apply_config = true
 
 [logger.mdns]
 start = false

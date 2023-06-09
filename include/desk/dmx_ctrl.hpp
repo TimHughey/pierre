@@ -67,8 +67,8 @@ public:
   void send_data_msg(DataMsg &&msg) noexcept;
 
 private:
-  auto cfg_host() noexcept { return tokc->val<string>("remote.host"_tpath, "dmx"sv); }
-  auto cfg_stall_timeout() noexcept { return tokc->val<Millis>("local.stalled.ms"_tpath, 7'333); }
+  auto cfg_host() noexcept { return tokc->val<string>("remote.host", "dmx"); }
+  auto cfg_stall_timeout() noexcept { return tokc->val<Millis>("local.stalled.ms", 7'333); }
 
   /// @brief Send the initial handshake to start the session with
   ///        the DMX host.
