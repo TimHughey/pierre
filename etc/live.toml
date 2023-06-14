@@ -99,7 +99,7 @@ alternate = [
 ]
 
 [fx.standby]
-color = { hue = 0.00, sat = 1.0, bri = 1.0 }
+color = { hue = 0.0, sat = 1.0, bri = 1.0 }
 hue_step = 0.23
 silence = { timeout = { minutes = 30, seconds  = 30 } }
 

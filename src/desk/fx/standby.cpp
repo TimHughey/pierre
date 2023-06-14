@@ -31,11 +31,19 @@ namespace desk {
 void Standby::apply_config() noexcept {
   INFO_AUTO_CAT("apply_config");
 
-  hue_step = Hue(tokc->val<double>("hue_step"));
+  tokc->table()->for_each( //
+      overloaded{[&, this](const toml::key &key, const toml::value<double> &v) {
+                   if (key == "hue_step") hue_step = Hue(*v);
+                 },
+                 [this](const toml::key &key, const toml::table &t) {
+                   if (key == "color") {
+                     if (auto c = Hsb(t); first_color != c) {
+                       first_color = next_color = c;
+                     }
+                   }
+                 }
 
-  if (auto c = Hsb(*tokc->table()); c != first_color) {
-    next_color = first_color = c;
-  }
+      });
 
   save_silence_timeout(tokc->timeout_val("silence", Minutes(30)));
 }
