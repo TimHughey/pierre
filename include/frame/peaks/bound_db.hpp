@@ -26,21 +26,15 @@
 
 namespace pierre {
 
-struct bound_peak : public bound<Peak> {
-  friend fmt::formatter<bound_peak>;
-
-  bound_peak() noexcept : bound{} {}
-  bound_peak(Peak &&a, Peak &&b) noexcept
-      : bound(std::array{std::forward<Peak>(a), std::forward<Peak>(b)}) {}
-};
+using bound_dB = bound<dB>;
 
 } // namespace pierre
 
-template <> struct fmt::formatter<pierre::bound_peak> : public fmt::formatter<std::string> {
+template <> struct fmt::formatter<pierre::bound_dB> : public fmt::formatter<std::string> {
 
   template <typename FormatContext>
-  auto format(const pierre::bound_peak &pb, FormatContext &ctx) const -> decltype(ctx.out()) {
+  auto format(const pierre::bound_dB &pb, FormatContext &ctx) const -> decltype(ctx.out()) {
 
-    return fmt::format_to(ctx.out(), "[{} {}]", pb.first(), pb.second()); // write to ctx.out()
+    return fmt::format_to(ctx.out(), "{}dB {}dB", pb.first(), pb.second()); // write to ctx.out()
   }
 };

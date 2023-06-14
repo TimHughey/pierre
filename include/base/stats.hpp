@@ -108,7 +108,7 @@ public:
         // and the call to asio::post
         auto pt = influxdb::Point(MEASURE.data()).addTag(METRIC.data(), val_txt[vt].data());
 
-        // convert various types (e.g. chrono durations, Frequency, Magnitude) to the
+        // convert various types (e.g. chrono durations, Frequency, dB) to the
         // correct type for influx and sets the field key to ensure each metric key
         // is only associated to one type otherwise we violate influx data rules
 
@@ -122,7 +122,7 @@ public:
         } else if constexpr (std::signed_integral<V>) {
           pt.addField(INTEGRAL, v);
         } else if constexpr (std::convertible_to<V, double>) {
-          pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, Magnitude)
+          pt.addField(DOUBLE, v); // convert to double (e.g. Frequency, dB)
         }
 
         if (tag[0] && tag[1]) pt.addTag(tag[0], tag[1]);

@@ -31,14 +31,10 @@ namespace desk {
 void Standby::apply_config() noexcept {
   INFO_AUTO_CAT("apply_config");
 
-  auto cfg_first_color = Hsb(tokc->val<double>("color.hue"), tokc->val<double>("color.sat"),
-                             tokc->val<double>("color.bri"));
+  hue_step = Hue(tokc->val<double>("hue_step"));
 
-  hue_step = tokc->val<double>("hue_step");
-
-  if (cfg_first_color != first_color) {
-    std::exchange(first_color, cfg_first_color);
-    next_color = first_color;
+  if (auto c = Hsb(*tokc->table()); c != first_color) {
+    next_color = first_color = c;
   }
 
   save_silence_timeout(tokc->timeout_val("silence", Minutes(30)));

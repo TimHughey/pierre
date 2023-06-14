@@ -52,27 +52,24 @@ struct spot_spec {
     bool last{false};
     Hsb color;
 
-    alternate() = default;
+    constexpr alternate() = default;
     alternate(alternate &&) = default;
 
     alternate(const toml::table &t) noexcept { assign(t); }
 
     void assign(const toml::table &t) noexcept {
-      t.for_each([this](const toml::key &key, const auto &val) {
-        using T = std::decay_t<decltype(val)>;
 
-        if constexpr (toml::is_boolean<T>) {
-          if (auto it = std::ranges::find(keys, key.str()); it != keys.end()) {
-            auto idx = std::distance(keys.begin(), it);
-            alts[idx] = val.get();
-          }
+      t.for_each(overloaded{[this](const toml::key &key, const toml::value<bool> &v) {
+                              if (auto it = std::ranges::find(keys, key.str()); it != keys.end()) {
+                                auto idx = std::distance(keys.begin(), it);
+                                alts[idx] = *v;
+                              }
+                            },
+                            [this](const toml::key &key, const toml::table &t) {
+                              if (key == "color") color.assign(t);
+                            }}
 
-        } else if constexpr (toml::is_table<T>) {
-          if (key == "color"sv) {
-            color.assign(val);
-          }
-        }
-      });
+      );
     }
 
     bool &alt(alt_t idx) noexcept { return alts[idx]; }
@@ -86,7 +83,7 @@ struct spot_spec {
     Hsb color;
     Millis timeout;
 
-    fade_ctrl() = default;
+    constexpr fade_ctrl() = default;
     fade_ctrl(fade_ctrl &&) = default;
     fade_ctrl &operator=(fade_ctrl &&) = default;
 
@@ -104,7 +101,7 @@ struct spot_spec {
     }
   };
 
-  spot_spec() = default;
+  constexpr spot_spec() = default;
 
   /// @brief Create spot_spec configuration
   /// @param t Pointer to toml::table
@@ -145,6 +142,8 @@ struct spot_spec {
       }
     });
   }
+
+  const string &operator()() const { return id; }
 
   // order dependent
   string id;

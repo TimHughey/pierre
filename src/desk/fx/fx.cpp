@@ -43,20 +43,20 @@ bool FX::render(const Peaks &peaks, DataMsg &msg) noexcept {
 
   if (!should_render) return !finished;
 
-  if (peaks.silence()) {
-    frames[SilentCount] += 1;
+  // detect and handle silence timeout
+  if (auto &count = frames[SilentCount]; peaks.silence()) {
+    count++;
 
-    if (frames[SilentCount] > frames[SilentMax]) finished = true;
-  } else {
-    frames[SilentCount] = 0;
+    if (count > frames[SilentMax]) finished = true;
   }
 
-  if (called_once == false) {
-    called_once = once(); // frame 0 consumed by call to once(), peaks not rendere
-
-  } else {
+  // handle initialization of the FX
+  if (called_once) {
     units->prepare(); // do any prep required to render next frame
     execute(peaks);   // render frame into data msg
+  } else {
+    // frame 0 consumed by call to once(), peaks not rendere
+    called_once = once();
   }
 
   units->update_msg(msg); // populate data msg

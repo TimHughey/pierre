@@ -29,40 +29,29 @@ namespace fader {
 
 template <typename Easing> class ColorTravel : public Fader {
 public:
-  ColorTravel(Hsb &&origin, Hsb &&dest, Nanos &&duration) noexcept
-      : Fader(std::forward<Nanos>(duration)), origin(std::move(origin)), dest(std::move(dest)) {
-
-    if (!origin) {
-      pos = dest;
-      pos = (desk::Bri)origin;
-    } else {
-      pos = origin;
-    }
-  }
-
-  ColorTravel(Hsb &&origin, Nanos &&duration) noexcept
-      : Fader(std::forward<Nanos>(duration)), origin(std::move(origin)), dest(Hsb()) {}
+  ColorTravel(const Hsb &origin, const Nanos &duration) noexcept
+      : Fader(duration), origin(origin), dest(Hsb{}) {}
 
   virtual void doFinish() override { pos = dest; }
-  virtual double doTravel(float current, float total) noexcept {
-    double fade_level = easing.calc(current, total);
+  virtual double doTravel(double current, double total) noexcept override {
+    Bri fade_level(easing.calc(current, total));
 
-    if (!origin) {
-      desk::Bri brightness = pos;
-      pos = brightness * fade_level;
+    if (origin.black()) {
+      pos = dest;
+      pos.bri = dest.bri * fade_level;
 
-    } else if (!dest) {
-      desk::Bri brightness = origin;
-      pos = brightness - (brightness * fade_level);
+    } else if (dest.black()) {
+      pos = origin;
+      pos.bri -= origin.bri * fade_level;
 
     } else {
-      pos = Hsb::interpolate(origin, dest, fade_level);
+      // pos = Hsb::interpolate(origin, dest, fade_level);
     }
 
-    return fade_level;
+    return (double)fade_level;
   }
 
-  Hsb position() const override { return pos; }
+  Hsb position() const noexcept override { return pos; }
 
 protected:
   Hsb origin;

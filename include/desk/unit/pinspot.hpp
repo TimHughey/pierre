@@ -25,6 +25,7 @@
 #include "fader/color_travel.hpp"
 
 #include <cstdint>
+#include <span>
 
 namespace pierre {
 namespace desk {
@@ -51,12 +52,12 @@ public:
   };
 
 public:
-  PinSpot(auto &&name, auto addr, size_t frame_len) noexcept
+  constexpr PinSpot(auto &&name, auto addr, size_t frame_len) noexcept
       : Unit(std::forward<decltype(name)>(name), addr, frame_len) {}
   ~PinSpot() = default;
 
-  template <typename T> void activate(const typename T::Opts &opts) {
-    fader = std::make_unique<T>(opts);
+  template <typename T> void activate(const Hsb &origin, const Nanos &duration) {
+    fader = std::make_unique<T>(origin, duration);
   }
 
   template <typename T>
@@ -89,10 +90,8 @@ public:
     fx = onboard_fx::None;
   }
 
-  ///
-
   void dark() noexcept override {
-    color.black();
+    color.dark();
 
     fx = onboard_fx::None;
   }
@@ -123,26 +122,16 @@ public:
   ///        state as determined by the call to prepare()
   /// @param msg Reference to the DataMsg to be sent
   void update_msg(DataMsg &msg) noexcept override {
-    auto snippet = msg.frame() + address;
+    auto frame{msg.frame(address, FRAME_LEN)};
 
     // byte[0] enable or disable strobe (Pinspot specific)
-    *snippet++ = strobe > 0 ? strobe + 0x87 : 0xF0;
+    frame[0] = strobe > 0 ? strobe + 0x87 : 0xF0;
 
-    /// NOTE:  fix me
-    ///
-    /// change API to accept iterator to write
-    /// bytes directly into frame instead of this two
-    /// step process of getting the bytes
-    std::array<uint8_t, 4> color_bytes;
-    color.copy_as_rgb(color_bytes);
-
-    // bytes[1-5] rgb colors + white
-    for (auto &byte : color_bytes) {
-      *snippet++ = byte;
-    }
+    // bytes[1-4] color data
+    color.copy_rgb_to(frame.subspan(1, 4));
 
     // byte[5] enable onboard fx, if set
-    *snippet = fx;
+    frame[5] = fx;
   }
 
 private:

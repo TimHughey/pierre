@@ -24,6 +24,7 @@ https://www.wisslanding.com
 
 #pragma once
 
+#include "base/input_info.hpp"
 #include "base/types.hpp"
 #include "peaks.hpp"
 
@@ -33,6 +34,7 @@ https://www.wisslanding.com
 #include <math.h>
 #include <numbers>
 #include <numeric>
+#include <tuple>
 #include <vector>
 
 namespace pierre {
@@ -106,13 +108,34 @@ public:
 
     // result of fft is symmetrical, look at first half only
     for (size_t i = 1; i < ((samples_max >> 1) + 1); i++) {
-      const double &a = reals[i - 1];
-      const double &b = reals[i];
-      const double &c = reals[i + 1];
+      const auto a = reals[i - 1];
+      const auto b = reals[i];
+      const auto c = reals[i + 1];
 
-      // this is a peak, insert into Peaks
-      if ((a < b) && (b > c)) peaks.insert(mag_at_index(i), freq_at_index(i), channel);
+      if ((a < b) && (b > c)) { // this is a peak
+
+        // frequenxy calculation
+        auto delta = 0.5 * ((a - c) / (a - (2.0 * b) + c));
+        // improve freq calculation on edge values by adjusting samples_max
+        auto samp_max = (i == (samples_max >> 1)) ? samples_max : samples_max - 1;
+        auto freq = ((i + delta) * sampling_freq) / samp_max;
+
+        // magnitude and dB calculation
+        auto mag = std::abs(a - (2.0 * b) + c);
+
+        // https://www.eevblog.com/forum/beginners/how-to-interpret-the-magnitude-of-fft/
+        auto power = std::pow(2.0, InputInfo::bit_depth) / 2.0;
+        auto dB_n = 20.0 * (std::log10(mag) - std::log10(samples_max * power));
+
+        // https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
+        auto dB_abs = dB_n + 96.0;
+
+        // lastly, save the normalized dB, frequency in Peaks
+        peaks.insert(Freq(freq), dB(dB_abs), channel);
+      }
     }
+
+    peaks.finalize();
   }
 
   /// @brief Convert a window name to window enum
@@ -205,30 +228,8 @@ private:
     }
   }
 
-  /// @brief Calculate frequency at index
-  /// @param y index, must be > 0
-  /// @return Frequency
-  Frequency freq_at_index(size_t y) noexcept {
-    const double &a = reals[y - 1];
-    const double &b = reals[y];
-    const double &c = reals[y + 1];
-
-    auto delta = 0.5 * ((a - c) / (a - (2.0 * b) + c));
-    auto freq = ((y + delta) * sampling_freq) / (samples_max - 1);
-
-    // to improve calculation on edge values
-    return (y == (samples_max >> 1)) ? ((y + delta) * sampling_freq) / samples_max : freq;
-  }
-
   /// @brief Initialize class static data (called once)
   void init() noexcept;
-
-  /// @brief Calculate magnitude at index
-  /// @param i index, must be > 0
-  /// @return Magnitude
-  Magnitude mag_at_index(const size_t i) const noexcept {
-    return abs(reals[i - 1] - (2.0 * reals[i]) + reals[i + 1]);
-  }
 
   /// @brief Apply windowing algorithm
   /// @param dir Direction (Forward or Reverse)

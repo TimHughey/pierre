@@ -26,11 +26,14 @@
 #include "desk/color/color_spec.hpp"
 #include "desk/color/hsb.hpp"
 #include "desk/fx/majorpeak/spot_spec.hpp"
+#include "frame/peaks/bound_db.hpp"
 
+#include <algorithm>
 #include <array>
 #include <assert.h>
 #include <fmt/format.h>
 #include <map>
+#include <ranges>
 #include <vector>
 
 namespace pierre {
@@ -48,7 +51,9 @@ namespace desk = pierre::desk;
 struct majorpeak {
   friend fmt::formatter<majorpeak>;
 
-  majorpeak(conf::token *tokc) noexcept : tokc{tokc} {}
+  constexpr majorpeak(conf::token *tokc) noexcept : tokc{tokc} {}
+
+  constexpr bool empty() const noexcept { return color_specs.empty() || spot_specs.empty(); }
 
   /// @brief Load the configuration for MajorPeak
   /// @return boolean indicating success or failure
@@ -64,33 +69,25 @@ struct majorpeak {
       return false;
     }
 
-    // we have configuration to work with, loop through it and load
-    t->for_each([this](const toml::key &key, auto &&elem) {
-      using T = std::decay_t<decltype(elem)>;
-
-      if constexpr (std::same_as<T, toml::table>) {
-        static constexpr auto kSILENCE{"silence"sv};
-        static constexpr auto kCOLOR{"color"};
-
-        if (key == kSILENCE) {
-          silence_timeout = conf::dura::timeout_val(elem);
-        } else if ((key == kCOLOR)) {
-          if (auto node = elem[kCOLOR]; node.is_table()) {
-            base_color.assign(*node.as_table());
+    // we have a configuration table to work with that contains tables and arrays
+    // loop through the key/val pairs and handle each key
+    t->for_each(overloaded{
+        [this](const toml::key &key, const toml::table &subt) {
+          if (key == "silence") {
+            silence_timeout = conf::dura::timeout_val(subt);
+          } else if (key == "color") {
+            base_color.assign(subt);
           }
-        }
-
-      } else if constexpr (std::same_as<T, toml::array>) {
-        static constexpr auto kCOLOR_SPEC{"color_spec"sv};
-        static constexpr auto kSPOT_SPEC{"spot_spec"sv};
-
-        if (key == kCOLOR_SPEC) {
-          elem.for_each([this](const toml::table &t) { color_specs.emplace_back(t); });
-        } else if (key == kSPOT_SPEC) {
-          elem.for_each([this](const toml::table &t) { spot_specs.emplace_back(t); });
-        }
-      }
-    });
+        },
+        [this](const toml::key &key, const toml::array &arr) {
+          if (key == "color_spec") {
+            arr.for_each([this](const toml::table &subt) { color_specs.emplace_back(subt); });
+          } else if (key == "spot_spec") {
+            arr.for_each([this](const toml::table &subt) { spot_specs.emplace_back(subt); });
+          } else if (key == "dB_range") {
+            dB_bound.assign(arr);
+          }
+        }});
 
     return msgs.empty();
   }
@@ -104,6 +101,7 @@ struct majorpeak {
   // order independent
   desk::Hsb base_color;
   Millis silence_timeout{20000};
+  bound_dB dB_bound;
   std::vector<desk::color_spec> color_specs;
   std::vector<desk::spot_spec> spot_specs;
 };
@@ -116,21 +114,21 @@ namespace conf = pierre::conf;
 }
 
 template <> struct fmt::formatter<conf::majorpeak> : public fmt::formatter<std::string> {
-  static constexpr auto ind = std::string_view{"\t\t\t\t\t\t "};
 
   template <typename FormatContext>
   auto format(const conf::majorpeak &mp, FormatContext &ctx) const -> decltype(ctx.out()) {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "silence_timeout={}\n", pierre::dura::humanize(mp.silence_timeout));
+    fmt::format_to(w, "{} {:h} {}\n", pierre::dura::humanize(mp.silence_timeout), mp.base_color,
+                   mp.dB_bound);
 
     for (const auto &color_spec : mp.color_specs) {
-      fmt::format_to(w, "{}{}\n", ind, color_spec);
+      fmt::format_to(w, "\tcolor_spec {}\n", color_spec);
     }
 
     for (const auto &spot_spec : mp.spot_specs) {
-      fmt::format_to(w, "{}{}\n", ind, spot_spec);
+      fmt::format_to(w, "\tspot_spec  {}\n", spot_spec);
     }
 
     return fmt::format_to(ctx.out(), "{}", msg); // write to ctx.out()

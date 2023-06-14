@@ -33,23 +33,33 @@ struct _hue_tag {};
 struct _sat_tag {};
 
 template <typename T>
-concept IsColorPart = requires(T p) { requires std::same_as<decltype(p.cpv), double>; };
+concept IsColorPartHue = std::same_as<T, color_part<_hue_tag>>;
+
+template <typename T>
+concept IsColorPartSat = std::same_as<T, color_part<_sat_tag>>;
+
+template <typename T>
+concept IsColorPartBri = std::same_as<T, color_part<_bri_tag>>;
 
 template <typename T>
 concept IsColorPartBriOrSat = IsAnyOf<T, color_part<_bri_tag>, color_part<_sat_tag>>;
 
 template <typename T>
-concept IsColorPartHue = std::same_as<T, color_part<_hue_tag>>;
+concept IsSpecializedColorPart = IsColorPartBriOrSat<T> || IsColorPartHue<T>;
 
 template <typename T>
-concept IsSpecializedColorPart = IsColorPartBriOrSat<T> || IsColorPartHue<T>;
+concept ContainsColorParts = requires(T v) {
+  { v.hue } -> std::same_as<color_part<_hue_tag>>;
+  { v.sat } -> std::same_as<color_part<_sat_tag>>;
+  { v.bri } -> std::same_as<color_part<_bri_tag>>;
+};
 
 template <typename TAG> struct color_part {
 
   friend fmt::formatter<color_part>;
 
   constexpr color_part() = default;
-  constexpr color_part(double v) noexcept { assign(v); }
+  explicit constexpr color_part(double v) noexcept { assign<TAG>(v); }
 
   constexpr color_part(const color_part &) = default;
   constexpr color_part(color_part &&) = default;
@@ -57,103 +67,112 @@ template <typename TAG> struct color_part {
   constexpr color_part &operator=(const color_part &) = default;
   constexpr color_part &operator=(color_part &&) = default;
 
-  color_part &operator*=(const color_part &rhs) {
-    cpv *= rhs.cpv;
+  constexpr void assign(color_part &&cp) noexcept { assign<TAG>(cp.cpv); }
+  constexpr void assign(const color_part &cp) noexcept { assign<TAG>(cp.cpv); }
 
-    return *this;
-  }
-
-  // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend color_part
-  operator*(color_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const color_part &rhs) // otherwise, both parameters may be const references
-  {
-    lhs *= rhs; // reuse compound assignment
-    return lhs; // return the result by value (uses move constructor)
-  }
-
-  color_part &operator-=(const color_part &rhs) {
-    cpv -= rhs.cpv;
-
-    return *this;
-  }
-
-  // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend color_part
-  operator-(color_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const color_part &rhs) // otherwise, both parameters may be const references
-  {
-    lhs -= rhs; // reuse compound assignment
-    return lhs; // return the result by value (uses move constructor)
-  }
-
-  color_part &operator+=(const color_part &rhs) {
-    cpv += rhs.cpv;
-
-    return *this;
-  }
-
-  // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend color_part
-  operator+(color_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const color_part &rhs) // otherwise, both parameters may be const references
-  {
-    lhs += rhs; // reuse compound assignment
-    return lhs; // return the result by value (uses move constructor)
-  }
-
-  color_part &operator/=(const color_part &rhs) {
-    cpv /= rhs.cpv;
-    return *this;
-  }
-
-  // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend color_part
-  operator/(color_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const color_part &rhs) // otherwise, both parameters may be const references
-  {
-    lhs /= rhs; // reuse compound assignment
-    return lhs; // return the result by value (uses move constructor)
-  }
-
-  explicit operator bool() const noexcept { return cpv; }
-  explicit operator double() const noexcept { return cpv; }
-
-  auto operator<=>(const color_part &) const = default;
-
-  void assign(const color_part &cp) noexcept { cpv = cp.cpv; }
-
-  template <typename T = TAG> void assign(double v) noexcept {
-    if constexpr (std::same_as<T, _hue_tag>) {
+  template <typename T>
+    requires IsAnyOf<T, _hue_tag, _sat_tag, _bri_tag>
+  constexpr void assign(double v) noexcept {
+    if constexpr (std::same_as<TAG, _hue_tag>) {
       cpv = (v > 360.0) ? v / 360.0 : v;
     } else {
       cpv = (v > 1.0) ? v / 100.0 : v;
     }
   }
 
-  void clear() noexcept { cpv = 0.0; }
+  constexpr void clear() noexcept { cpv = 0.0; }
 
-  bool valid() const {
+  constexpr auto fund() const noexcept { return cpv; }
+
+  constexpr static color_part max() noexcept {
     if constexpr (std::same_as<TAG, _hue_tag>) {
-      return (cpv >= 0.0) && (cpv <= 360.0);
+      return color_part(360.0);
     } else {
-      return (cpv >= 0.0) && (cpv <= 100.0);
+      return color_part(1.0);
     }
+  }
 
-    return false;
+  constexpr static color_part min() noexcept { return color_part(0.0); }
+
+  constexpr explicit operator bool() const noexcept { return cpv; }
+  constexpr explicit operator double() const noexcept { return cpv; }
+
+  /// @brief Enable all comparison operators for color parts
+  /// @param  color_part right hand side
+  /// @return same as double <=>
+  constexpr auto operator<=>(const color_part &) const = default;
+
+  constexpr color_part &operator*=(const color_part &rhs) {
+    cpv *= rhs.cpv;
+
+    return *this;
+  }
+
+  constexpr color_part &operator+=(const color_part &rhs) {
+    cpv += rhs.cpv;
+    return *this;
+  }
+
+  friend constexpr color_part operator+(color_part lhs, const color_part &rhs) {
+    return lhs *= rhs;
+  }
+
+  // friends defined inside class body are inline and are hidden from non-ADL lookup
+  friend constexpr color_part operator*(color_part lhs, const color_part &rhs) {
+    return lhs *= rhs;
+  }
+
+  constexpr color_part &operator-=(const color_part &rhs) {
+    cpv -= rhs.cpv;
+
+    return *this;
+  }
+
+  // friends defined inside class body are inline and are hidden from non-ADL lookup
+  friend constexpr color_part
+  // passing lhs by value helps optimize chained a+b+c
+  operator-(color_part lhs, const color_part &rhs) {
+    lhs -= rhs; // reuse compound assignment
+    return lhs; // return the result by value (uses move constructor)
+  }
+
+  constexpr color_part &operator/=(const color_part &rhs) {
+    cpv /= rhs.cpv;
+    return *this;
+  }
+
+  friend constexpr color_part
+  // passing lhs by value helps optimize chained a+b+c
+  operator/(color_part lhs, const color_part &rhs) {
+    lhs /= rhs; // reuse compound assignment
+    return lhs; // return the result by value (uses move constructor)
+  }
+
+  constexpr void rotate(const color_part &step) noexcept { assign<TAG>(cpv + step.cpv); }
+
+  constexpr auto stat() const noexcept { return cpv; }
+
+  constexpr auto tag() const noexcept {
+    if constexpr (std::same_as<TAG, _hue_tag>) {
+      return std::array{"comp", "hue"};
+    } else if constexpr (std::same_as<TAG, _sat_tag>) {
+      return std::array{"comp", "sat"};
+    } else {
+      return std::array{"comp", "bri"};
+    }
   }
 
 private:
-  double cpv{};
+  double cpv{0.0};
 };
 
 using Bri = color_part<_bri_tag>;
 using Hue = color_part<_hue_tag>;
 using Sat = color_part<_sat_tag>;
 
-constexpr Hue operator""_HUE(long double v) { return v; }
-constexpr Sat operator""_SAT(long double v) { return v; }
-constexpr Bri operator""_BRI(long double v) { return v; }
+constexpr Hue operator""_HUE(long double v) { return Hue(v); }
+constexpr Sat operator""_SAT(long double v) { return Sat(v); }
+constexpr Bri operator""_BRI(long double v) { return Bri(v); }
 
 } // namespace desk
 } // namespace pierre

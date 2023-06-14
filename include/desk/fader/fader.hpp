@@ -28,19 +28,21 @@ namespace desk {
 
 class Fader {
 public:
-  Fader(const Nanos duration) : duration(duration) {}
+  constexpr Fader(const Nanos duration) : duration(duration) {}
 
-  bool active() const { return !finished; }
-  bool progress(double percent) const { return fader_progress > percent; }
-  bool complete() const { return finished; }
-  auto frameCount() const { return frames.count; }
-  virtual Hsb position() const { return Hsb(); }
+  constexpr bool active() const noexcept { return !finished; }
+  constexpr bool progress(double percent) const noexcept { return fader_progress > percent; }
+  constexpr bool complete() const noexcept { return finished; }
+  constexpr auto frameCount() const noexcept { return frames.count; }
+  virtual Hsb position() const noexcept { return Hsb(); }
 
   bool travel(); // returns true to continue traveling
 
 protected:
-  virtual void doFinish() = 0;
-  virtual double doTravel(double total, double current) = 0;
+  virtual void doFinish() {}
+  virtual double doTravel([[maybe_unused]] double total, [[maybe_unused]] double current) {
+    return 0;
+  };
   virtual double doTravel(double progress) {
     doTravel(progress, 1.0);
     return progress;
@@ -58,6 +60,9 @@ private:
   struct {
     uint32_t count{0};
   } frames;
+
+public:
+  MOD_ID("desk::fader");
 };
 } // namespace desk
 } // namespace pierre

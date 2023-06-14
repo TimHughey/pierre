@@ -42,6 +42,7 @@ inline std::map<stats::stats_v, string> make_map() noexcept {
       {stats::FLUSH_ELAPSED, "flush_elapsed"},
       {stats::FPS, "fps"},
       {stats::FRAME, "frame"},
+      {stats::HSB, "hsb"},
       {stats::NEXT_FRAME_WAIT, "next_frame_wait"},
       {stats::PEAK, "peak"},
       {stats::REMOTE_DATA_WAIT, "remote_data_wait"},

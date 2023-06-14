@@ -22,6 +22,7 @@
 #include "frame/peaks/bound_peak.hpp"
 #include "frame/peaks/peak.hpp"
 
+#include <algorithm>
 #include <array>
 #include <map>
 #include <ranges>
@@ -30,59 +31,75 @@ namespace pierre {
 
 class Peaks {
 public:
-  // using freq_min_max = min_max_pair<Frequency>;
-  // using mag_min_max = min_max_pair<Magnitude>;
-  using peak_map_t = std::map<Magnitude, Peak, std::greater<Magnitude>>; // descending
+  using all_peaks = std::vector<Peak>;
+  // using peak_map_t = std::map<dB, Peak, std::greater<dB>>; // descending
 
 public:
   enum chan_t : size_t { Left = 0, Right };
 
 public:
-  Peaks() noexcept : peak_bounds(Peak(Magnitude(2.17)), Peak(Magnitude(85.0))) {}
+  Peaks() noexcept : chan_peaks{all_peaks(1024), all_peaks(1024)} {}
   ~Peaks() noexcept {}
 
   Peaks(Peaks &&) = default;
   Peaks &operator=(Peaks &&) = default;
 
 private:
-  bool empty(chan_t ch) const noexcept { return maps[ch].empty(); }
-  const auto &peak1(chan_t ch) const noexcept { return maps[ch].begin()->second; }
-  ssize_t size(chan_t channel = Left) const noexcept { return std::ssize(maps[channel]); }
+  constexpr bool empty(chan_t ch) const noexcept { return chan_peaks[ch].empty(); }
+  // constexpr bool empty(chan_t ch) const noexcept { return maps[ch].empty(); }
+  constexpr const auto &peak1(chan_t ch) const noexcept { return chan_peaks[ch].front(); }
+  //  constexpr const auto &peak1(chan_t ch) const noexcept { return maps[ch].begin()->second; }
+  auto size(chan_t ch = Left) const noexcept { return std::ssize(chan_peaks[ch]); }
+  // ssize_t size(chan_t channel = Left) const noexcept { return std::ssize(maps[channel]); }
 
 public:
   /// @brief Are there audible peaks?
   /// @return bool3an
   bool audible() const noexcept { return !silence(); }
 
-  bool insert(Magnitude m, Frequency f, chan_t channel = Left) noexcept {
-    if (peak_bounds.inclusive(m)) {
-      auto [_, inserted] = maps[channel].try_emplace(m, f, m);
+  void finalize() noexcept {
+    for (auto &chp : chan_peaks) {
+      std::ranges::sort(chp, [](const Peak &a, const Peak &b) { return a.db > b.db; });
+    }
+  }
+
+  void insert(Freq &&freq, dB &&dB_norm, chan_t ch = Left) noexcept {
+    // https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
+
+    chan_peaks[ch].emplace_back(std::forward<Freq>(freq), std::forward<dB>(dB_norm));
+  }
+
+  /*bool insert(dB dB_norm, Freq f, chan_t channel = Left) noexcept {
+    // https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
+
+    if (dB_norm > -50.0) {
+      auto [_, inserted] = maps[channel].try_emplace(dB_norm, f, dB_norm);
       return inserted;
     }
 
     return false;
-  }
+  }*/
 
   /// @brief Discover the first element that is not less than peak using the magnitude
   /// @param peak Peak to use for discovery
   /// @param channel Channel (defaults to Left)
   /// @return const reference to the Peak found or silent peak
-  const auto lower_bound(const Peak &peak, chan_t channel = Left) const noexcept {
+  // const auto lower_bound(const Peak &peak, chan_t channel = Left) const noexcept {
 
-    auto it = maps[channel].lower_bound(peak.val<Magnitude>());
+  //   auto it = maps[channel].lower_bound(peak.val<dB>());
 
-    return (it != maps[channel].end()) ? it->second : silent_peak;
-  }
+  //   return (it != maps[channel].end()) ? it->second : silent_peak;
+  // }
 
   /// @brief Major Peak
   /// @param ch channel, Left (default), Right
   /// @return Reference to first (major) peak
   const Peak &operator()(chan_t ch = Left) const noexcept {
-    return size(Left) ? peak1(ch) : silent_peak;
+    return size(ch) ? peak1(ch) : silent_peak;
   }
 
-  // find the first peak greater than the Frequency
-  const Peak &operator()(const Frequency &freq, chan_t channel = Left) const noexcept {
+  // find the first peak greater than the Freq
+  /*const Peak &operator()(const Freq &freq, chan_t channel = Left) const noexcept {
 
     if (size(Left)) {
       const auto &map = maps[channel];
@@ -93,9 +110,9 @@ public:
     }
 
     return silent_peak;
-  }
+  }*/
 
-  bool silence() const noexcept { return empty(Left) || empty(Right); }
+  constexpr bool silence() const noexcept { return peak1(Left).db == dB() || peak1(Right) == dB(); }
 
 private:
   // order dependent
@@ -103,7 +120,8 @@ private:
   Peak silent_peak;
 
   // order independent
-  std::array<peak_map_t, 2> maps;
+  // std::array<peak_map_t, 2> maps;
+  std::array<all_peaks, 2> chan_peaks;
 
 public:
   MOD_ID("frame.peaks");

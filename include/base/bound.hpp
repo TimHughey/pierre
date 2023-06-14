@@ -21,44 +21,61 @@
 #include "base/conf/toml.hpp"
 #include "base/types.hpp"
 
-#include <algorithm>
 #include <array>
 #include <concepts>
 #include <fmt/format.h>
-#include <functional>
-#include <ranges>
+#include <tuple>
 
 namespace pierre {
+
+template <typename T, typename U>
+concept HasAssignOperator = requires(T v, U t) { v.assign(t); };
 
 template <typename T> struct bound {
   friend fmt::formatter<bound<T>>;
 
-  enum bound_val_t : uint8_t { Low = 0, High };
+  using storage = std::array<T, 2>;
 
-  constexpr bound() noexcept : vals{} {}
-  constexpr bound(std::array<T, 2> &&iv) noexcept : vals{std::move(iv)} {}
-  bound(const auto &node) noexcept {}
+  constexpr bound() = default;
+  constexpr bound(storage &&iv) noexcept : vals{std::move(iv)} {}
 
-  template <typename U>
-    requires std::convertible_to<T, U>
-  bool greater(const U &v) const noexcept {
-    return std::greater(v, vals[0]) && std::greater(v, vals[1]);
+  void assign(const toml::array &arr) noexcept {
+    if (arr.size() != 2) return;
+
+    auto idx = 0;
+
+    // bound can be specialized for various types from user objects to
+    // foundation types.  user object must provide an assign() member
+    // function that accepts a toml::table
+    //
+    // foundation types are directly assigned
+
+    if constexpr (HasAssignOperator<T, toml::table>) {
+      arr.for_each([&, this](const toml::table &t) {
+        vals[idx].assign(t);
+
+        ++idx;
+      });
+    } else if constexpr (std::constructible_from<T, double>) {
+      arr.for_each([&, this](const toml::value<double> &v) {
+        vals[idx] = T(v.get());
+        ++idx;
+      });
+    }
   }
 
-  template <typename U>
-    requires std::convertible_to<T, U>
-  bool less(const U &v) const noexcept {
-    return std::less(v, vals[0]) && std::less(v, vals[1]);
+  constexpr const T &first() const { return vals.front(); }
+
+  constexpr bool inclusive(const bound &v) const noexcept {
+    return (v >= vals.front()) && (v <= vals.back());
   }
 
-  template <typename U> bool inclusive(const U &v) const noexcept {
-    return std::greater_equal(v, vals[0]) && std::less_equal(v, vals[1]);
-  }
+  constexpr auto scaling() const noexcept { return std::pair{first(), second()}; }
 
-  T &operator[](bound_val_t idx) noexcept { return vals[idx]; }
+  constexpr const T &second() const { return vals.back(); }
 
 protected:
-  std::array<T, 2> vals;
+  storage vals{};
 };
 
 } // namespace pierre

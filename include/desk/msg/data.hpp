@@ -22,6 +22,9 @@
 #include "desk/msg/out.hpp"
 
 #include <algorithm>
+#include <iterator>
+#include <ranges>
+#include <span>
 #include <vector>
 
 namespace ranges = std::ranges;
@@ -54,9 +57,13 @@ public:
   DataMsg &operator=(DataMsg &&) = default; // allow move assignment
 
 public:
-  /// @brief Raw pointer direct data access
-  /// @return Raw uint8_t pointer
-  uint8_t *frame() noexcept { return dmx_frame.data(); }
+  /// @brief Return a span representing a portion of the dmx frame
+  /// @param addr DMX unit address (offset into DMX frame)
+  /// @param len Length of the portion of the DMX frame
+  /// @return Span representing the portion of DMX frame
+  constexpr auto frame(std::ptrdiff_t addr, std::ptrdiff_t len) noexcept {
+    return std::span(std::next(dmx_frame.begin(), addr), len);
+  }
 
   void noop() noexcept {}
 
@@ -65,12 +72,13 @@ protected:
   /// @param doc Reference to JsonDocument
   void serialize_hook(JsonDocument &doc) noexcept override {
     auto dframe = doc.createNestedArray(desk::FRAME);
-    std::for_each(dmx_frame.begin(), dmx_frame.end(), [&](auto b) mutable { dframe.add(b); });
+
+    std::ranges::for_each(dmx_frame, [&](auto b) { dframe.add(b); });
   }
 
 private:
-  const seq_num_t seq_num;
-  const bool silence;
+  seq_num_t seq_num;
+  bool silence;
   std::vector<uint8_t> dmx_frame;
 
 public:

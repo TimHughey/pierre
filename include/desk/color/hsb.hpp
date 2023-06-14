@@ -22,25 +22,43 @@
 #include "base/types.hpp"
 #include "desk/color_part.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <fmt/format.h>
 #include <iterator>
+#include <ranges>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 namespace pierre {
 namespace desk {
 
+struct Hsb;
+
 template <typename T>
 concept IsRawRgb = (sizeof(T) >= 3) && (sizeof(T) <= 4) && std::integral<T>;
+
+template <typename T>
+concept HasScalingValues = requires(T v) {
+  { v.scaling() } -> std::same_as<std::pair<double, double>>;
+};
+
+template <typename T>
+concept IsColorScale = std::same_as<T, std::vector<Hsb>>;
+
+template <typename T>
+concept HasScaleToValue = std::convertible_to<T, double>;
 
 struct Hsb {
   friend fmt::formatter<Hsb>;
 
   /// @brief Construct default (unstatured red)
-  Hsb() = default;
+  constexpr Hsb() = default;
 
-  Hsb(const Hsb &) = default;
-  Hsb(Hsb &&) = default;
+  constexpr Hsb(const Hsb &) = default;
+  constexpr Hsb(Hsb &&) = default;
 
   /// @brief Create HSB color from RGB color code in 0xRRGGBB format
   /// @tparam T unsigned integral of more than three bytes
@@ -72,20 +90,20 @@ struct Hsb {
 
     if (chroma_delta > 0) {
       if (chroma_max == red)
-        _hue.assign(60.0 * (std::fmod(((grn - blu) / chroma_delta), 6.0)));
+        hue = Hue(60.0 * (std::fmod(((grn - blu) / chroma_delta), 6.0)));
       else if (chroma_max == grn)
-        _hue.assign(60.0 * (((blu - red) / chroma_delta) + 2.0));
+        hue = Hue(60.0 * (((blu - red) / chroma_delta) + 2.0));
       else if (chroma_max == blu)
-        _hue.assign(60.0 * (((red - grn) / chroma_delta) + 4.0));
+        hue = Hue(60.0 * (((red - grn) / chroma_delta) + 4.0));
 
-      if (chroma_max > 0) _sat.assign(chroma_delta / chroma_max);
+      if (chroma_max > 0) sat = Sat(chroma_delta / chroma_max);
 
-      _bri.assign(chroma_max);
+      bri = Bri(chroma_max);
     } else {
-      _bri.assign(chroma_max);
+      bri = Bri(chroma_max);
     }
 
-    if (_hue < 0.0_HUE) _hue += 360.0_HUE;
+    if (hue < 0.0_HUE) hue += 360.0_HUE;
   }
 
   /// @brief Create HSB color from hue, saturation and brightness components
@@ -94,69 +112,69 @@ struct Hsb {
   /// @param h Hue, 0-360˚ (0˚ = red, 120˚ = grn, 240˚ = blu, 360˚ = red)
   /// @param s Saturation, 0.0-1.0 or 0-100%
   /// @param b Brightness, 0.0-1.0 or 0-100%
-  // Hsb(desk::hue_t &&h, desk::saturation_t &&s, desk::brightness_t &&b) noexcept
-  //     : hue{h}, sat{s}, bri{b} {
+  Hsb(desk::Hue &&h, desk::Sat &&s, desk::Bri &&b) noexcept
+      : hue(std::forward<Hue>(h)), sat(std::forward<Sat>(s)), bri(std::forward<Bri>(b)) {}
 
-  //   hue.normalize();
-  //   sat.normalize();
-  //   bri.normalize();
-  // }
-
-  ///        See https://tinyurl.com/tlhhsv2 for reference
-  ///
-  /// @param h Hue, 0-360˚ (0˚ = red, 120˚ = grn, 240˚ = blu, 360˚ = red)
-  /// @param s Saturation, 0.0-1.0 or 0-100%
-  /// @param b Brightness, 0.0-1.0 or 0-100%
-  Hsb(desk::Hue &&h, desk::Sat &&s, desk::Bri &&b) noexcept {
-
-    _hue.assign(h);
-    _sat.assign(s);
-    _bri.assign(b);
-  }
-
-  Hsb(const toml::node &node) noexcept {
-    if (node.is_table()) assign(node.as<toml::table>());
-  }
-
-  Hsb(toml::table *t) noexcept { assign(t); }
+  Hsb(const toml::table &t) noexcept { assign(t); }
 
   Hsb &operator=(const Hsb &) = default;
   Hsb &operator=(Hsb &&) = default;
 
-  /// @brief Assign a component part to the HSB color
   /// @tparam T hue_t, saturation_t, brightness_t
   /// @param part The part to assign
   /// @return Reference to changed object
   template <typename T>
-    requires IsAnyOf<T, desk::Hue, desk::Sat, desk::Bri>
-  auto &operator=(const T &part) noexcept {
+    requires IsSpecializedColorPart<T>
+  constexpr Hsb &operator=(const T &part) noexcept {
 
-    if constexpr (std::same_as<T, desk::Bri>) {
-      _bri.assign(part);
-    } else if constexpr (std::same_as<T, desk::Hue>) {
-      _hue.assign(part);
-    } else if constexpr (std::same_as<T, desk::Sat>) {
-      _sat.assign(part);
+    if constexpr (std::same_as<T, Bri>) {
+      bri = part;
+
+    } else if constexpr (std::same_as<T, Hue>) {
+      hue = part;
+
+    } else if constexpr (std::same_as<T, Sat>) {
+      sat = part;
     }
 
     return *this;
   }
 
-  void assign(const toml::table *t) noexcept { assign(*t); }
+  /// @brief Assign Hue, Sat and Bri from a configuration table
+  /// @param forward
   void assign(const toml::table &t) noexcept {
-    auto make_val = [&t](auto &&key) { return t[key].value_or(0.0); };
 
-    _hue.assign(make_val("hue"));
-    _sat.assign(make_val("sat"));
-    _bri.assign(make_val("bri"));
+    t.for_each([this](const toml::key &key, const toml::value<double> &tv) {
+      auto v = tv.get();
+
+      static constexpr auto kHue{"hue"};
+      static constexpr auto kSat("sat"sv);
+      static constexpr auto kBri("bri"sv);
+
+      if (key == kHue) {
+        hue = Hue(v);
+      } else if (key == kSat) {
+        sat = Sat(v);
+      } else if (key == kBri) {
+        bri = Bri(v);
+      }
+    });
   }
 
-  /// @brief Set the HSB color to black (all zeros)
-  void black() noexcept {
-    _hue.clear();
-    _sat.clear();
-    _bri.clear();
+  template <typename T>
+    requires IsSpecializedColorPart<T>
+  void assign(T &&p) noexcept {
+
+    if constexpr (IsColorPartHue<T>) {
+      hue = Hue(std::forward<T>(p));
+    } else if constexpr (IsColorPartSat<T>) {
+      sat = Sat(std::forward<T>(p));
+    } else {
+      bri = Bri(std::forward<T>(p));
+    }
   }
+
+  bool black() const noexcept { return !visible(); }
 
   /// @brief Convert and copy the HSB color to a representative array
   ///        of RGB bytes including a fourth byte representing white
@@ -164,55 +182,67 @@ struct Hsb {
   ///
   ///        See https://tinyurl.com/tlhhsv for reference implementation
   ///
-  /// @param rgb Reference to array to place bytes
-  void copy_as_rgb(std::array<uint8_t, 4> &rgb) const noexcept {
-    enum C : uint8_t { Red = 0, Grn, Blu, White };
+  /// @param span destination of frame bytes
+  void copy_rgb_to(std::span<uint8_t> &&span) const noexcept {
+    // handle when Hsb colors do not translate into
+    // all three rgb bytes or if the destination is larger
+    // than the RGB color
+    std::ranges::fill(span, 0x00);
 
-    auto bri0 = (_bri > 1.0_BRI) ? _bri / 100.0_BRI : _bri;
-    auto sat0 = (_sat > 1.0_SAT) ? _sat / 100.0_SAT : _sat;
+    /// NOTE: fix me by implementing normalize()
+    auto hue0 = Hue(std::fmod(hue.fund(), 360.0));
+    auto bri0 = (bri > Bri::max()) ? bri / Bri::max() : bri;
+    auto sat0 = (sat > Sat::max()) ? sat / Sat::max() : sat;
 
     // special case for conversion to RGB, must multiply bri and sat
-    auto chroma = static_cast<double>(bri0) * static_cast<double>(sat0);
+    auto chroma = bri0.fund() * sat0.fund();
 
     /// NOTE: hue is already in the 0-360 range
-    auto hue_prime = std::fmod(static_cast<double>(_hue) / 60.0, 6.0);
+    auto hue_prime = std::fmod(hue0.fund() / 60.0, 6.0);
 
-    // calculate what "slot" the HSB color aligns to in the RGB space
+    // calculate what HSB "slot" should be used for the RGB color
     auto x = chroma * (1.0 - std::fabs(std::fmod(hue_prime, 2.0) - 1.0));
-    auto m = static_cast<double>(bri0) - chroma;
+    auto m = bri0.fund() - chroma;
 
-    rgb.fill(0x00);
-
-    // calculate a portion of the RGB value based on conversions above
-    auto convert = [&](C c, auto &v) {
-      rgb[c] = static_cast<uint8_t>(std::round((v + m) * 255.0));
-    };
-
-    // determine which HSB "slot" the RGB value maps into to chose which
-    // values calculated are placed into the individual components of RGB
-    auto in_slot = [&hue_prime](auto s) -> bool {
+    // determine which HSB "slot" the RGB value maps from to chose which
+    // calculated values are placed into the individual components of RGB
+    auto in_slot = [](auto hue_prime, auto s) -> bool {
       return (s <= hue_prime) && (hue_prime < (s + 1));
     };
 
-    if (in_slot(0)) {
-      convert(Red, chroma);
-      convert(Grn, x);
-    } else if (in_slot(1)) {
-      convert(Red, x);
-      convert(Grn, chroma);
-    } else if (in_slot(2)) {
-      convert(Grn, chroma);
-      convert(Blu, x);
-    } else if (in_slot(3)) {
-      convert(Grn, x);
-      convert(Blu, chroma);
-    } else if (in_slot(4)) {
-      convert(Red, x);
-      convert(Blu, chroma);
-    } else if (in_slot(5)) {
-      convert(Red, chroma);
-      convert(Blu, x);
+    // helper to calc and populate a single RGB byte based on slot
+    // decision from in_slot()
+    enum __byte_num : uint8_t { Red = 0, Grn, Blu, White };
+    auto store = [&](__byte_num c, auto &v) {
+      span.data()[c] = static_cast<uint8_t>(std::round((v + m) * 255.0));
+    };
+
+    if (in_slot(hue_prime, 0)) {
+      store(Red, chroma);
+      store(Grn, x);
+    } else if (in_slot(hue_prime, 1)) {
+      store(Red, x);
+      store(Grn, chroma);
+    } else if (in_slot(hue_prime, 2)) {
+      store(Grn, chroma);
+      store(Blu, x);
+    } else if (in_slot(hue_prime, 3)) {
+      store(Grn, x);
+      store(Blu, chroma);
+    } else if (in_slot(hue_prime, 4)) {
+      store(Red, x);
+      store(Blu, chroma);
+    } else if (in_slot(hue_prime, 5)) {
+      store(Red, chroma);
+      store(Blu, x);
     }
+  }
+
+  /// @brief Set the HSB color to black (all zeros)
+  void dark() noexcept {
+    hue.clear();
+    sat.clear();
+    bri.clear();
   }
 
   /// @brief Interpolate one color to another using a percentage that
@@ -225,99 +255,97 @@ struct Hsb {
 
     // what distance will we interpolate?  assume, for now, that
     // color b comes after color a and this is an ascending interpolation
-    auto d = b._hue - a._hue;
+    auto d = b.hue - a.hue;
 
     // if color a comes after color b then reverse the colors and setup
     // for a descending interpolation
-    if (a._hue > b._hue) {
-      std::swap(a._hue, b._hue);
+    if (a.hue > b.hue) {
+      std::swap(a.hue, b.hue);
 
-      d *= -1.0;
+      d = Hue((double)d * -1.0);
       t = 1.0 - t;
     }
 
     desk::Hue hue;
-    if (d > 0.5) {
+    if (d > 0.5_HUE) {
 
       // handle bottom half of 360˚ and use 1.0 (360˚) as our reference
-      a._hue += 1.0_HUE;
-      hue.assign(std::fmod((double)((a._hue + (b._hue - a._hue)) * static_cast<Hue>(t)), 1.0));
-    } else if (d <= 0.5) {
+      a.hue += 1.0_HUE;
+      hue = Hue(std::fmod((double)((a.hue + (b.hue - a.hue)) * static_cast<Hue>(t)), 1.0));
+    } else if (d <= 0.5_HUE) {
 
       // handle top half of 360˚ and use 0 has our hue reference
-      hue.assign((double)a._hue + t * d);
+      hue = Hue(a.hue + Hue(t) * d);
     }
 
-    return Hsb(std::move(hue), a._sat * static_cast<Sat>(t) * (b._sat - a._sat),
-               a._bri * static_cast<Bri>(t) * (b._bri - a._bri));
+    return Hsb(std::move(hue), a.sat * static_cast<Sat>(t) * (b.sat - a.sat),
+               a.bri * static_cast<Bri>(t) * (b.bri - a.bri));
   }
 
-  /// @brief Add a fixed amount to hue, saturation or brightness
-  ///        The type of step is used to automatically add the
-  ///        step amount to the appropriate HSB component
-  /// @tparam T Type of value to add
-  /// @param step Amount to add
-  /// @return Reference to the object changed
+  /*constexpr T interpolate(const auto &bpair, const T val) const noexcept {
+    const T range_a = max() - min();
+    const T range_b = bpair.max() - bpair.min();
+
+    return (((val - min()) * range_b) / range_a) + bpair.min();
+  }*/
+
+  /// @brief Enable all comparison operators to color parts
+  /// @tparam T color_part to compare
+  /// @param comp color_part value (rhs)
+  /// @return sames as double <=>
   template <typename T>
     requires IsSpecializedColorPart<T>
-  Hsb &operator+=(T step) noexcept {
-    if constexpr (std::same_as<T, desk::Hue>) {
-      _hue += step;
-    } else if constexpr (std::same_as<T, desk::Sat>) {
-      _sat += step;
-    } else if constexpr (std::same_as<T, desk::Bri>) {
-      _bri += step;
+  auto operator<=>(const T &comp) const {
+    if constexpr (std::same_as<T, Hue>) {
+      return hue <=> comp;
+    } else if constexpr (std::same_as<T, Sat>) {
+      return sat <=> comp;
+    } else {
+      return bri <=> comp;
+    }
+  }
+
+  /// @brief Enable all comparison operators for Hsb
+  ///        NOTE: Hue, Sat and Bri are compared and therefore
+  ///        it is recommended to use <=, >= for cases where
+  ///        only a single component has a value other than zero
+  /// @param rhs Hsb to compare
+  /// @return std::partial_ordering
+  constexpr auto operator<=>(const Hsb &rhs) const = default;
+
+  operator bool() = delete;
+
+  constexpr explicit operator desk::Bri() const noexcept { return bri; }
+  constexpr explicit operator desk::Hue() const noexcept { return hue; }
+  constexpr explicit operator desk::Sat() const noexcept { return sat; }
+
+  template <typename T>
+    requires IsSpecializedColorPart<T>
+  Hsb &rotate(const T &step) noexcept {
+
+    if constexpr (IsColorPartHue<T>) {
+      hue.rotate(step);
+    } else if constexpr (IsColorPartSat<T>) {
+      sat.rotate(step);
+    } else if constexpr (IsColorPartBri<T>) {
+      bri.rotate(step);
     }
 
     return *this;
   }
 
-  bool operator==(const Hsb &lhs) const noexcept {
-    return (lhs._hue == _hue) && (lhs._sat == _sat) && (lhs._bri == _bri);
-  }
+  bool visible() const noexcept { return bri > 0.0_BRI; }
 
-  explicit operator bool() const { return (bool)_hue && (bool)_sat && (bool)_bri; }
-
-  template <typename T>
-    requires IsSpecializedColorPart<T>
-  auto &rotate(const T &step) noexcept {
-
-    if constexpr (std::same_as<T, desk::Hue>) {
-      if (desk::Hue next_hue = _hue + step; next_hue.valid()) {
-        std::swap(_hue, next_hue);
-      } else {
-        _hue.clear();
-      }
-
-    } else if constexpr (std::same_as<T, desk::Sat>) {
-      if (desk::Sat next_sat = _sat + step; next_sat.valid()) {
-        std::swap(_sat, next_sat);
-      } else {
-        _sat.clear();
-      }
-
-    } else if constexpr (std::same_as<T, desk::Bri>) {
-      if (desk::Bri next_bri = _bri + step; next_bri.valid()) {
-        std::swap(_bri, next_bri);
-      } else {
-        _bri.clear();
-      }
-    }
-
-    return *this;
-  }
-
-  operator desk::Bri() const noexcept { return _bri; }
-  operator desk::Hue() const noexcept { return _hue; }
-  operator desk::Sat() const noexcept { return _sat; }
+  void write_metric() const noexcept;
 
 public:
-  desk::Hue _hue;
-  desk::Sat _sat;
-  desk::Bri _bri;
+  desk::Hue hue{0.0};
+  desk::Sat sat{0.0};
+  desk::Bri bri{0.0};
 };
 
 } // namespace desk
+
 } // namespace pierre
 
 namespace {
@@ -353,13 +381,13 @@ template <> struct fmt::formatter<desk::Hsb> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    if (hsb) fmt::format_to(w, "hsb({} {} {})", h._hue, h._sat, h._bri);
+    if (hsb) fmt::format_to(w, "hsb({} {} {})", h.hue, h.sat, h.bri);
 
     if (rgb) {
       if (hsb) fmt::format_to(w, " ");
 
       std::array<uint8_t, 4> parts;
-      h.copy_as_rgb(parts);
+      h.copy_rgb_to(parts);
 
       fmt::format_to(w, "rgbw(0x{:02x}{:02x}{:02x} {:02x})", parts[0], parts[1], parts[2],
                      parts[3]);

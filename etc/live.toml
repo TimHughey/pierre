@@ -43,19 +43,20 @@ host = "127.0.0.1"              # nqptp host
 shm_name = "/nqptp"             # path to nqptp shared memory directory
 
 # UNUSED:  need implementation
-# [frame.peaks.magnitudes] # only keep peaks in this range
+# [frame.peaks.dB] # only keep peaks in this range
 # floor = 0.9
 # ceiling = 128.0
 
 [fx.majorpeak]
 silence = { timeout = { secs = 33 } }
-color = { hue = 0.0, sat = 100.0, bri = 100.0 }
+color = { hue = 0.0, sat = 1.0, bri = 1.0 }
+dB_range = [-50.0, -20.0]
 
 [[fx.majorpeak.color_spec]]
 name = "high"
 bound_peaks = [
-  { freq = 1100.0, mag = 2.17 },
-  { freq = 11500.0, mag = 80.0 }
+  { freq = 180.0, dB = 2.17 },
+  { freq = 11500.0, dB = 100.0 }
 ]
 colors = [
   { hue = 300.0, sat = 100.0, bri = 0.0 },
@@ -66,22 +67,15 @@ step = 0.5
 
 [[fx.majorpeak.color_spec]]
 name = "generic"
-bound_peaks = [
-  # max of two representing low and high
-  { freq = 40.0, mag = 2.19 },
-  { freq = 1100.0, mag = 85.0 }
-]
-colors = [
-  { hue = 0.0, sat = 100.0, bri = 0.0 },
-  { hue = 340.0, sat = 100.0, bri = 100.0 }
-]
+bound_peaks = [{ freq = 40.0, dB = 2.19 }, { freq = 1100.0, dB = 85.0 }]
+colors = [{ hue = 0.0, sat = 1.0, bri = 0.0 },{ hue = 340.0, sat = 1.0, bri = 100.0 }]
 step_type = "hue"
 step = 0.1
 
 [[fx.majorpeak.color_spec]]
 name = "low"
-bound_peaks = [{freq = 40.0, mag = 2.225}, {freq = 180.0, mag = 65.0}]
-colors = [{ hue = 0.0, sat = 100.0, bri = 0.0 }, { hue = 60.0, sat = 100.0, bri = 100.0 }]
+bound_peaks = [{freq = 40.0, dB = 2.225}, {freq = 180.0, dB = 65.0}]
+colors = [{ hue = 0.0, sat = 1.0, bri = 0.0 }, { hue = 360.0, sat = 1.0, bri = 1.0 }]
 step_type = "hue"
 step = 0.1
 
@@ -89,19 +83,19 @@ step = 0.1
 id = "fill"
 unit = "fill spot"
 color_spec = "low"
-fade = { color = {bri = 30.0}, timeout = { millis = 850 } }
+fade = { color = { hue = 360.0, sat = 1.0, bri = 1.0}, timeout = { millis = 850 } }
 alternate = [
- {greater=true, freq=true, last=true, color={bri=30.0}}
+ {greater=true, freq=true, last=true, color={bri=0.30}}
 ]
 
 [[fx.majorpeak.spot_spec]]
 id = "main"
 unit = "main spot"
-color_spec = "generic"
-fade = { color = {bri = 50.0}, timeout = { millis = 700 } }
+color_spec = "high"
+fade = { color = {hue = 360.0, sat = 1.0, bri = 1.0}, timeout = { millis = 700 } }
 alternate = [
-  {greater=true, freq=true, color={bri=80.0}},
-  {greater=true, mag=true, last=true, color={bri=50.0}}
+  {greater=true, freq=true, color={bri=0.8}},
+  {greater=true, dB=true, last=true, color={bri=0.5}}
 ]
 
 [fx.standby]

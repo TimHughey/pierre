@@ -59,6 +59,10 @@ concept AlwaysFalse = false;
 
 using Peers = std::vector<string>;
 
+template <class... Ts> struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+
 #define MOD_ID(mid)                                                                                \
   static constexpr std::string_view module_id { mid }
 

@@ -22,11 +22,13 @@
 #include "base/input_info.hpp"
 #include "base/logger.hpp"
 #include "base/stats.hpp"
+#include "desk/color/color_spec.hpp"
 #include "desk/dmx_ctrl.hpp"
 #include "desk/frame_rr.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak.hpp"
 #include "desk/fx/majorpeak/conf.hpp"
+#include "desk/fx/majorpeak/spot_spec.hpp"
 #include "desk/msg/data.hpp"
 #include "frame/anchor.hpp"
 #include "frame/flusher.hpp"
@@ -35,11 +37,13 @@
 #include "frame/reel.hpp"
 #include "mdns/mdns.hpp"
 
+#include <algorithm>
 #include <boost/asio/post.hpp>
 #include <fmt/chrono.h>
 #include <fmt/std.h>
 #include <functional>
 #include <latch>
+#include <ranges>
 #include <thread>
 
 namespace pierre {
@@ -67,7 +71,10 @@ Desk::Desk(MasterClock *master_clock) noexcept
   desk::MajorPeak mp;
 
   INFO_INIT("sizeof={:>5} fps={}", sizeof(Desk), InputInfo::fps);
-  INFO_INIT("{}", mp.runtime_conf());
+
+  auto &mprun = mp.runtime_conf();
+  INFO_INIT("{}", mprun);
+
   Frame::init();
 
   // ensure flags are false

@@ -10,7 +10,7 @@ file(GLOB_RECURSE HEADER_LIST CONFIGURE_DEPENDS   "${HEADER_PATH_LOCAL}/**/*.h*"
 
 add_library(${__target} 
   # color
-  # color.cpp
+  color/hsb.cpp
 
   # public API
   desk.cpp 

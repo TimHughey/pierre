@@ -30,25 +30,16 @@
 #include <fmt/format.h>
 #include <iterator>
 #include <ranges>
+#include <tuple>
 #include <vector>
 
 namespace pierre {
 namespace desk {
 
-enum step_type_t : uint8_t { HueStep = 0, SatStep, BriStep, UnknownStepType };
-inline step_type_t &operator++(step_type_t &stt) noexcept {
-  stt = static_cast<step_type_t>(static_cast<uint8_t>(stt) + 1);
-  return stt;
-}
-
-inline step_type_t operator++(step_type_t &stt, int) noexcept {
-  return static_cast<step_type_t>(static_cast<uint8_t>(stt) + 1);
-}
+enum step_types : uint8_t { HueStep = 0, SatStep, BriStep, UnknownStepType };
 
 struct color_spec {
   friend fmt::formatter<color_spec>;
-
-  enum id_t : uint8_t { A = 0, B, ABEnd };
 
   color_spec() = default;
 
@@ -78,56 +69,49 @@ struct color_spec {
   color_spec &operator=(color_spec &&) = default;
 
   void assign(const toml::table &t) noexcept {
-    static constexpr auto kBOUND_PEAKS{"bound_peaks"sv};
-    static constexpr auto kCOLORS{"colors"sv};
-    static constexpr auto kNAME{"name"sv};
-    static constexpr auto kSTEP_TYPE{"step_type"sv};
-    static constexpr auto kSTEP{"step"sv};
 
-    t.for_each([this](const toml::key &key, auto &&elem) {
-      using T = std::decay_t<decltype(elem)>;
-
-      // handle strings
-      if constexpr (std::same_as<T, toml::value<string>>) {
-        string val = elem.get();
-
-        if (key == kNAME) {
-          name = std::move(val);
-        } else if (key == kSTEP_TYPE) {
-          auto it = std::ranges::find(step_types, val);
-
-          if (it < step_types.end()) {
-            step_type = static_cast<step_type_t>(std::distance(step_types.begin(), it));
-          } else {
-            step_type = step_type_t::HueStep;
+    t.for_each(overloaded{
+        [this](const toml::key &key, const toml::value<string> &s) {
+          if (key == "name") {
+            name = *s;
+          } else if (key == "step_type") {
+            if (auto it = std::ranges::find(step_types_str, *s); it < step_types_str.end()) {
+              step_type = static_cast<step_types>(std::distance(step_types_str.begin(), it));
+            } else {
+              step_type = step_types::HueStep;
+            }
           }
-        }
-      } else if constexpr (std::same_as<T, toml::value<double>>) {
-
-        if (key == kSTEP) step = elem.get();
-      } else if constexpr (std::same_as<T, toml::array>) {
-
-        if (key == kBOUND_PEAKS) {
-          peaks.assign(elem);
-        } else if (key == kCOLORS) {
-          elem.for_each([this](const toml::table &t) { colors.emplace_back(t); });
-        }
-      }
-    });
+        },
+        [this](const toml::key &key, const toml::value<double> v) {
+          if (key == "step") step = *v;
+        },
+        [this](const toml::key &key, const toml::array &arr) {
+          if (key == "bound_peaks") {
+            peaks.assign(arr);
+          } else if (key == "colors") {
+            arr.for_each([this](const toml::table &t) { colors.emplace_back(t); });
+          }
+        }});
   }
 
-  const auto &color(id_t id) const noexcept { return colors[id]; };
+  template <typename T>
+    requires IsSpecializedColorPart<T>
+  auto color_range() const noexcept {
+    return std::pair{static_cast<T>(colors[0]), static_cast<T>(colors[1])};
+  }
 
-  static const auto id_type_str(id_t id) noexcept { return id_types[id]; }
-  static const auto id_a() noexcept { return id_types[A]; }
-  static const auto id_b() noexcept { return id_types[B]; }
+  constexpr const auto &spec_name() const { return name; }
 
-  auto &operator[](id_t id) noexcept { return colors[id]; }
+  auto &operator[](auto idx) noexcept { return colors[idx]; }
 
-  const auto &step_type_str() const noexcept { return step_types[step_type]; }
-  static const auto &step_type_str(step_type_t st) noexcept { return step_types[st]; }
+  auto operator==(const string &n) const { return n == name; }
 
-private:
+  auto match_peak(const Peak &p) const noexcept { return p.inclusive<Freq>(peaks); }
+
+  const auto &step_type_str() const noexcept { return step_types_str[step_type]; }
+  static const auto &step_type_str(step_types st) noexcept { return step_types_str[st]; }
+
+public:
   // order dependent
   string name;
   double step;
@@ -135,10 +119,10 @@ private:
   // order independent
   bound_peak peaks;
   std::vector<Hsb> colors;
-  step_type_t step_type{UnknownStepType};
+  step_types step_type{UnknownStepType};
 
-  static constexpr std::array id_types{"A", "B"};
-  static constexpr std::array step_types{string("hue"), string("sat"), string("bri")};
+  // static constexpr std::array id_types{"A", "B"};
+  static constexpr std::array step_types_str{string("hue"), string("sat"), string("bri")};
 };
 } // namespace desk
 } // namespace pierre

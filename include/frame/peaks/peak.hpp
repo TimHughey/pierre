@@ -21,93 +21,123 @@
 #include "base/bound.hpp"
 #include "base/conf/toml.hpp"
 #include "base/types.hpp"
-#include "frame/peaks/frequency.hpp"
-#include "frame/peaks/magnitude.hpp"
+#include "frame/peaks/peak_part.hpp"
 
 // #include <algorithm>
+#include <array>
+#include <cmath>
 #include <concepts>
 #include <fmt/format.h>
+#include <tuple>
 
 namespace pierre {
 
-using bound_freq = bound<Frequency>;
-using bound_mag = bound<Magnitude>;
+using bound_freq = bound<Freq>;
+
+template <typename T>
+concept IsPeakBoundedRange = requires(T v) {
+  { v.first() };
+  { v.second() };
+};
 
 /// @brief A Peak is the output of the audio data FFT.
 ///        Each "packet" of audio PCM data consists of
 ///        2048 samples (two channels of 1024 32-bit bytes).
 ///        The FFT transforms the audio sameples into
-///        a series of freq/mags representing
+///        a series of freq/dB representing
 ///        the sample's composition (e.g. major peak freq).
 ///
-///        Each audio packet becomes 1024 freq/mag pairs
+///        Each audio packet becomes 1024 freq/dB pairs
 ///        and this object represents one of those pairs.
 ///        The 1024 individual Peak is stored, in descending
-///        order by mag, in the container "Peaks".
+///        order by dB, in the container "Peaks".
 struct Peak {
-public:
-  Peak() = default;
-  Peak(const Frequency f, const Magnitude m) noexcept : freq(f), mag(m) {}
 
-  Peak(Magnitude &&m) noexcept : freq(0.0), mag(std::move(m)) {}
+  constexpr Peak() = default;
+  constexpr Peak(const Freq f, const dB m) noexcept : freq(f), db(m) {}
 
-  /// @brief Create a Peak from a pointer to a toml::table
-  /// @param t Pointer to a toml::table shaped as { freq = [dbl, dbl], mag = [dbl, dbo]}
-  Peak(const toml::table &t, double &&def_freq = 0.0, double def_mag = 0.0) noexcept {
-    freq = t["freq"].value_or(def_freq);
-    mag = t["mag"].value_or(def_mag);
-  }
+  constexpr Peak(dB &&m) noexcept : freq(0.0), db(std::forward<dB>(m)) {}
 
-  void assign(const auto &t, auto &&def_freq = 0.0, auto &&def_mag = 0.0) noexcept {
-    freq = t["freq"].value_or(def_freq);
-    mag = t["mag"].value_or(def_mag);
-  }
+  void assign(const toml::table &t) noexcept {
+    // this for_each filters on only doubles, other keys are are ignored
+    t.for_each([this](const toml::key &key, const toml::value<double> &val) {
+      static constexpr auto kFreq{"freq"sv};
+      static constexpr auto kdB{"dB"sv};
 
-  /// @brief Is this peak silence (mag == 0, freq == 0)
-  /// @return boolean
-  bool operator!() const noexcept { return !freq && !mag; }
+      auto v = val.get(); // we can just get the toml::value
 
-  explicit operator bool() const noexcept { return (bool)freq && (bool)mag; }
-  explicit operator Frequency() const noexcept { return freq; }
-  explicit operator Magnitude() const noexcept { return mag; }
-
-  bool operator>(const auto &rhs) const noexcept {
-    return (bool)rhs && (freq > rhs.freq) && (mag > rhs.mag);
-  }
-
-  /// @brief Compare a Peak to a frequency
-  /// @param rhs Frequency
-  /// @return Varies depending on comparison
-  constexpr std::partial_ordering operator<=>(const Frequency &rhs) const noexcept {
-    if (freq < rhs) return std::partial_ordering::less;
-    if (freq > rhs) return std::partial_ordering::greater;
-
-    return std::partial_ordering::equivalent;
-  }
-
-  /// @brief Compare a Peak to a magnitude
-  /// @param rhs Magnitude
-  /// @return Varies depending on comparison
-  constexpr std::partial_ordering operator<=>(const Magnitude &rhs) const noexcept {
-    if (mag < rhs) return std::partial_ordering::less;
-    if (mag > rhs) return std::partial_ordering::greater;
-
-    return std::partial_ordering::equivalent;
+      if (key == kFreq) {
+        freq.assign(v);
+      } else if (key == kdB) {
+        db.assign(v);
+      }
+    });
   }
 
   template <typename T>
-    requires IsAnyOf<T, Frequency, Magnitude>
-  constexpr const T &val() const noexcept {
-    if constexpr (std::same_as<T, Frequency>) {
+    requires IsSpecializedPeakPart<T>
+  constexpr auto inclusive(const Peak &a, const Peak &b) const {
+    auto v = static_cast<T>(*this);
+
+    return (v >= static_cast<T>(a)) && (v <= static_cast<T>(b));
+  }
+
+  template <typename T, typename U>
+    requires IsSpecializedPeakPart<T> && IsPeakBoundedRange<U>
+  auto inclusive(const U &bp) const {
+    auto v = static_cast<T>(*this);
+    auto a = static_cast<T>(bp.first());
+    auto b = static_cast<T>(bp.second());
+
+    return (v >= a) && (v <= b);
+  }
+
+  template <typename T, typename U> auto lerp(const U &a, const U &b) const noexcept {
+    return static_cast<const T &>(*this).lerp(a, b);
+  }
+
+  template <typename T, typename U> auto lerp(std::pair<U, U> &&a_b) const noexcept {
+    return static_cast<T>(*this).lerp(std::forward<decltype(a_b)>(a_b));
+  }
+
+  /// @brief Is this peak silence?
+  /// @return boolean
+  bool operator!() const noexcept { return !freq && !db; }
+
+  constexpr explicit operator bool() const noexcept { return (bool)freq && (bool)db; }
+  constexpr explicit operator Freq() const noexcept { return freq; }
+  constexpr explicit operator dB() const noexcept { return db; }
+
+  /// @brief Enable all comparison operators for peak parts
+  /// @param  peak_part right hand side
+  /// @return same as double <=>
+  constexpr auto operator<=>(const Peak &) const = default;
+
+  template <typename T>
+    requires IsSpecializedPeakPart<T>
+  constexpr T part() const noexcept {
+    if constexpr (IsPeakPartFrequency<T>) {
       return freq;
-    } else {
-      return mag;
+    } else if constexpr (isPeakPartdB<T>) {
+      return db;
+    }
+  }
+
+  constexpr auto useable() const noexcept { return db > dB(); }
+
+  template <typename T>
+    requires IsSpecializedPeakPart<T>
+  constexpr const T &val() const noexcept {
+    if constexpr (IsPeakPartFrequency<T>) {
+      return freq;
+    } else if constexpr (isPeakPartdB<T>) {
+      return db;
     }
   }
 
 public:
-  Frequency freq{0};
-  Magnitude mag{0};
+  Freq freq{};
+  dB db{};
 };
 
 } // namespace pierre
@@ -115,22 +145,22 @@ public:
 #include <fmt/format.h>
 
 template <> struct fmt::formatter<pierre::Peak> {
-  // Presentation format: 'f' - frequency, 'm' - magnitude, 'empty' - both
-  bool freq = false;
-  bool mag = false;
+  // Presentation format: 'f' - frequency, 'd' - dB, 'empty' - both
+  bool want_freq = false;
+  bool want_dB = false;
 
   constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
 
     auto it = ctx.begin(), end = ctx.end();
 
     while ((it != end) && (*it != '}')) {
-      if (*it == 'f') freq = true;
-      if (*it == 'm') mag = true;
+      if (*it == 'f') want_freq = true;
+      if (*it == 'd') want_dB = true;
       it++;
     }
 
-    if (!freq && !mag) {
-      freq = mag = true;
+    if (!want_freq && !want_dB) {
+      want_freq = want_dB = true;
     }
 
     // Return an iterator past the end of the parsed range:
@@ -144,8 +174,8 @@ template <> struct fmt::formatter<pierre::Peak> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    if (freq) fmt::format_to(w, "freq={:>8.2f} ", p.freq);
-    if (mag) fmt::format_to(w, "mag={:>2.5f}", p.mag);
+    if (want_freq) fmt::format_to(w, "freq={:>8.2f} ", p.freq);
+    if (want_dB) fmt::format_to(w, "dB={:>2.5f}", p.db);
 
     // ctx.out() is an output iterator to write to.
     return fmt::format_to(ctx.out(), "{}", msg);

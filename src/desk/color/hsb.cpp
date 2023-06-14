@@ -1,4 +1,3 @@
-
 //  Pierre - Custom Light Show for Wiss Landing
 //  Copyright (C) 2022  Tim Hughey
 //
@@ -17,41 +16,18 @@
 //
 //  https://www.wisslanding.com
 
-#pragma once
+#include "desk/color/hsb.hpp"
+#include "base/stats.hpp"
 
 namespace pierre {
-namespace stats {
+namespace desk {
 
-/// @brief Enumeration of available stats metrics
-enum stats_v {
-  FRAMES_AVAIL,
-  DATA_CONNECT_ELAPSED,
-  DATA_MSG_READ_ELAPSED,
-  DATA_MSG_READ_ERROR,
-  DATA_MSG_WRITE_ELAPSED,
-  DATA_MSG_WRITE_ERROR,
-  FLUSH_ELAPSED,
-  FPS,
-  FRAME,
-  HSB,
-  NEXT_FRAME_WAIT,
-  PEAK,
-  REMOTE_DATA_WAIT,
-  REMOTE_DMX_QOK,
-  REMOTE_DMX_QRF,
-  REMOTE_DMX_QSF,
-  REMOTE_ELAPSED,
-  REMOTE_ROUNDTRIP,
-  RENDER_ELAPSED,
-  RTSP_AUDIO_CIPHERED,
-  RTSP_AUDIO_DECIPERED,
-  RTSP_SESSION_CONNECT,
-  RTSP_SESSION_MSG_ELAPSED,
-  RTSP_SESSION_RX_PACKET,
-  RTSP_SESSION_TX_REPLY,
-  SYNC_WAIT,
-  // extra comma allows for easy IDE sorting
-};
+void Hsb::write_metric() const noexcept {
 
-} // namespace stats
+  Stats::write<Hsb>(stats::HSB, static_cast<double>(hue), {"comp", "hue"});
+  Stats::write<Hsb>(stats::HSB, static_cast<double>(sat), {"comp", "sat"});
+  Stats::write<Hsb>(stats::HSB, static_cast<double>(bri), {"comp", "bri"});
+}
+
+} // namespace desk
 } // namespace pierre

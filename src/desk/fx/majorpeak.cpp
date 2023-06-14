@@ -30,13 +30,19 @@
 #include "desk/unit/all.hpp"
 #include "frame/peaks.hpp"
 #include "fx/majorpeak/conf.hpp"
-// #include "fx/majorpeak/types.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <ranges>
+
+namespace {
+namespace ranges = std::ranges;
+}
 
 namespace pierre {
 namespace desk {
 
-using FillFader = fader::ColorTravel<fader::SimpleLinear>;
-using MainFader = fader::ColorTravel<fader::SimpleLinear>;
+using SpotFader = fader::ColorTravel<fader::SimpleLinear>;
 
 MajorPeak::MajorPeak() noexcept
     : // cosntruct base FX
@@ -69,18 +75,59 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
   unit<Switch>(unit::AC_POWER)->activate();
   unit<Dimmable>(unit::DISCO_BALL)->dim();
 
-  // const auto &peak = peaks();
-
   // handle_el_wire(peaks);
   // handle_main_pinspot(peaks);
   // handle_fill_pinspot(peaks);
 
-  // disable stats
-  if constexpr (StatsEnabled<MajorPeak>) {
-    const auto &peak1 = peaks();
-    Stats::write<MajorPeak>(stats::PEAK, peak1.freq);
-    Stats::write<MajorPeak>(stats::PEAK, peak1.mag);
+  const auto &peak = peaks();
+
+  auto &s_specs = runconf->spot_specs;
+  auto &c_specs = runconf->color_specs;
+
+  auto scale = [](auto old_max, auto old_min, auto new_max, auto new_min, auto val) {
+    // https://tinyurl.com/tlhscale
+
+    auto old_range = old_max - old_min;
+    auto new_range = new_max - new_min;
+
+    return (((val - old_min) * new_range) / old_range) + new_min;
+  };
+
+  bool skipped{true};
+
+  for (const auto &s : s_specs) {
+
+    if (auto it = ranges::find(c_specs, s.color_spec, &color_spec::name); it != c_specs.end()) {
+
+      if (peak.useable() && it->match_peak(peak)) {
+        Hsb next_color = s.fade.color;
+
+        auto bri_v = scale(-20.0, -96.0, 100.0, 0.0, (double)peak.db) * (double)next_color.bri;
+
+        next_color.bri = Bri(bri_v);
+
+        //  next_color.assign(peak.lerp<dB>(it->color_range<Bri>()));
+
+        auto pinspot = unit<PinSpot>(s.unit);
+
+        if ((pinspot->fading() == false) && next_color.visible()) {
+          pinspot->activate<SpotFader>(next_color, s.fade.timeout);
+        }
+
+        next_color.write_metric();
+
+        skipped = false;
+      }
+
+      Stats::write<MajorPeak>(stats::PEAK, peak.freq);
+      Stats::write<MajorPeak>(stats::PEAK, peak.db);
+    }
   }
+
+  // Stats::write<MajorPeak>(stats::PEAK, peak.freq);
+  // Stats::write<MajorPeak>(stats::PEAK, peak.db);
+
+  if (skipped) Stats::write<MajorPeak>(stats::PEAK, 1, {"skip", "true"});
 }
 
 /*void MajorPeak::handle_el_wire(const Peaks &peaks) {
@@ -91,7 +138,7 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
   for (auto elwire : elwires) {
     if (const auto &peak = peaks(); peak.useable()) {
 
-      const duty_val_t x = freq_limits.scaled_soft(). //
+      const duty_val x = freq_limits.scaled_soft(). //
                            interpolate(elwire->minMaxDuty<double>(), peak.freq.scaled());
 
       elwire->fixed(x);
