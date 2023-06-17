@@ -54,6 +54,7 @@ struct majorpeak {
   constexpr majorpeak(conf::token *tokc) noexcept : tokc{tokc} {}
 
   constexpr bool empty() const noexcept { return color_specs.empty() || spot_specs.empty(); }
+  string format() const noexcept;
 
   /// @brief Load the configuration for MajorPeak
   /// @return boolean indicating success or failure
@@ -61,17 +62,17 @@ struct majorpeak {
     // reset any warning or error messages produced by the previous load
     msgs.clear();
 
-    auto *t = tokc->table();
+    auto &t = tokc->table();
 
     // ensure we have a configuration to work with
-    if (t->empty()) {
+    if (t.empty()) {
       msgs.emplace_back("empty configuration");
       return false;
     }
 
     // we have a configuration table to work with that contains tables and arrays
     // loop through the key/val pairs and handle each key
-    t->for_each(overloaded{
+    t.for_each(overloaded{
         [this](const toml::key &key, const toml::table &subt) {
           if (key == "silence") {
             silence_timeout = conf::dura::timeout_val(subt);
@@ -114,23 +115,8 @@ namespace conf = pierre::conf;
 }
 
 template <> struct fmt::formatter<conf::majorpeak> : public fmt::formatter<std::string> {
-
   template <typename FormatContext>
   auto format(const conf::majorpeak &mp, FormatContext &ctx) const -> decltype(ctx.out()) {
-    std::string msg;
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "{} {:h} {}\n", pierre::dura::humanize(mp.silence_timeout), mp.base_color,
-                   mp.dB_bound);
-
-    for (const auto &color_spec : mp.color_specs) {
-      fmt::format_to(w, "\tcolor_spec {}\n", color_spec);
-    }
-
-    for (const auto &spot_spec : mp.spot_specs) {
-      fmt::format_to(w, "\tspot_spec  {}\n", spot_spec);
-    }
-
-    return fmt::format_to(ctx.out(), "{}", msg); // write to ctx.out()
+    return fmt::format_to(ctx.out(), "{}", mp.format()); // write to ctx.out()
   }
 };

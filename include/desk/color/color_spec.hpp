@@ -138,8 +138,7 @@ template <> struct fmt::formatter<desk::color_spec> : public fmt::formatter<std:
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    fmt::format_to(w, "name={} step_type={} step={} peaks={}", s.name, s.step_type_str(), s.step,
-                   s.peaks);
+    fmt::format_to(w, "{:<8} {:<3} step={} peaks={}", s.name, s.step_type_str(), s.step, s.peaks);
 
     // write to ctx.out()
     return fmt::format_to(ctx.out(), "{}", msg);

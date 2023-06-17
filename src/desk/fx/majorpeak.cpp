@@ -25,7 +25,6 @@
 #include "base/stats.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
-#include "desk/fader/color_travel.hpp"
 #include "desk/fader/easings.hpp"
 #include "desk/unit/all.hpp"
 #include "frame/peaks.hpp"
@@ -41,8 +40,6 @@ namespace ranges = std::ranges;
 
 namespace pierre {
 namespace desk {
-
-using SpotFader = fader::ColorTravel<fader::SimpleLinear>;
 
 MajorPeak::MajorPeak() noexcept
     : // cosntruct base FX
@@ -95,6 +92,8 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
 
   bool skipped{true};
 
+  handle_el_wire(peaks);
+
   for (const auto &s : s_specs) {
 
     if (auto it = ranges::find(c_specs, s.color_spec, &color_spec::name); it != c_specs.end()) {
@@ -111,7 +110,7 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
         auto pinspot = unit<PinSpot>(s.unit);
 
         if ((pinspot->fading() == false) && next_color.visible()) {
-          pinspot->activate<SpotFader>(next_color, s.fade.timeout);
+          pinspot->initiate_fade(next_color, s.fade.timeout);
         }
 
         next_color.write_metric();
@@ -130,23 +129,14 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
   if (skipped) Stats::write<MajorPeak>(stats::PEAK, 1, {"skip", "true"});
 }
 
-/*void MajorPeak::handle_el_wire(const Peaks &peaks) {
+void MajorPeak::handle_el_wire(const Peaks &peaks) {
 
   // create handy array of all elwire units
-  std::array elwires{unit<Dimmable>(unit::EL_DANCE), unit<Dimmable>(unit::EL_ENTRY)};
+  const std::array wires{unit<Dimmable>(unit::EL_DANCE), unit<Dimmable>(unit::EL_ENTRY)};
+  const auto &peak = peaks();
 
-  for (auto elwire : elwires) {
-    if (const auto &peak = peaks(); peak.useable()) {
-
-      const duty_val x = freq_limits.scaled_soft(). //
-                           interpolate(elwire->minMaxDuty<double>(), peak.freq.scaled());
-
-      elwire->fixed(x);
-    } else {
-      elwire->dim();
-    }
-  }
-}*/
+  std::ranges::for_each(wires, [&](auto &w) { w->fixed(static_cast<double>(peak.freq)); });
+}
 
 /*void MajorPeak::handle_fill_pinspot(const Peaks &peaks) {
 

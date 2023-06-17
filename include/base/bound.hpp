@@ -32,6 +32,7 @@ template <typename T, typename U>
 concept HasAssignOperator = requires(T v, U t) { v.assign(t); };
 
 template <typename T> struct bound {
+
   friend fmt::formatter<bound<T>>;
 
   using storage = std::array<T, 2>;
@@ -66,9 +67,19 @@ template <typename T> struct bound {
 
   constexpr const T &first() const { return vals.front(); }
 
+  struct base_pair {
+    T min;
+    T max;
+  };
+
+  constexpr auto get() const noexcept { return base_pair(vals.front(), vals.back()); }
+
   constexpr bool inclusive(const bound &v) const noexcept {
     return (v >= vals.front()) && (v <= vals.back());
   }
+
+  constexpr auto max() const noexcept { return vals.back(); }
+  constexpr auto min() const noexcept { return vals.front(); }
 
   constexpr auto scaling() const noexcept { return std::pair{first(), second()}; }
 

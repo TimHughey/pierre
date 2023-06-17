@@ -18,31 +18,8 @@
 
 #include "fader/fader.hpp"
 #include "base/dura.hpp"
+#include "base/logger.hpp"
 
 namespace pierre {
-namespace desk {
-
-bool Fader::travel() {
-  if (fader_progress == 0.0) {
-    // the first invocation (frame 0) represents the origin and start time of the fader
-    start_at = dura::now_monotonic();
-    fader_progress = 0.0001;
-
-  } else {
-    auto elapsed = dura::elapsed_abs(start_at);
-
-    if (elapsed < duration) {
-      fader_progress = doTravel(elapsed.count(), duration.count());
-    } else {
-      doFinish();
-      finished = true;
-    }
-  }
-
-  frames.count++;
-
-  return !finished;
-}
-
-} // namespace desk
+namespace desk {} // namespace desk
 } // namespace pierre

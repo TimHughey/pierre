@@ -174,8 +174,8 @@ template <> struct fmt::formatter<pierre::Peak> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    if (want_freq) fmt::format_to(w, "freq={:>8.2f} ", p.freq);
-    if (want_dB) fmt::format_to(w, "dB={:>2.5f}", p.db);
+    if (want_freq) fmt::format_to(w, "{:>8.0f}Hz ", p.freq);
+    if (want_dB) fmt::format_to(w, "{:>02.0f}dB", p.db);
 
     // ctx.out() is an output iterator to write to.
     return fmt::format_to(ctx.out(), "{}", msg);

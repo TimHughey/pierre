@@ -31,8 +31,8 @@ namespace desk {
 void Standby::apply_config() noexcept {
   INFO_AUTO_CAT("apply_config");
 
-  tokc->table()->for_each( //
-      overloaded{[&, this](const toml::key &key, const toml::value<double> &v) {
+  tokc->table().for_each( //
+      overloaded{[this](const toml::key &key, const toml::value<double> &v) {
                    if (key == "hue_step") hue_step = Hue(*v);
                  },
                  [this](const toml::key &key, const toml::table &t) {
@@ -58,8 +58,8 @@ void Standby::execute(const Peaks &peaks) noexcept {
     INFO_AUTO("{}", *tokc);
   }
 
-  unit<PinSpot>(unit::MAIN_SPOT)->update(next_color);
-  unit<PinSpot>(unit::FILL_SPOT)->update(next_color);
+  unit<PinSpot>(unit::MAIN_SPOT)->color_now(next_color);
+  unit<PinSpot>(unit::FILL_SPOT)->color_now(next_color);
 
   next_color.rotate(hue_step);
 

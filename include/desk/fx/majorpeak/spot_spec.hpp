@@ -41,14 +41,14 @@ struct spot_spec {
   friend fmt::formatter<spot_spec>;
 
   struct alternate {
-    enum alt_t : uint8_t { Greater = 0, Freq, Mag, Last, EndOfAlts };
+    enum alt_t : uint8_t { Greater = 0, Freq, dB, Last, EndOfAlts };
     std::array<bool, EndOfAlts> alts;
 
-    static constexpr std::array<string, EndOfAlts> keys{"greater", "freq", "mag", "last"};
+    static constexpr std::array<string, EndOfAlts> keys{"greater", "freq", "dB", "last"};
 
     bool greater{false};
     bool freq{false};
-    bool mag{false};
+    bool db{false};
     bool last{false};
     Hsb color;
 
@@ -59,22 +59,24 @@ struct spot_spec {
 
     void assign(const toml::table &t) noexcept {
 
-      t.for_each(overloaded{[this](const toml::key &key, const toml::value<bool> &v) {
-                              if (auto it = std::ranges::find(keys, key.str()); it != keys.end()) {
-                                auto idx = std::distance(keys.begin(), it);
-                                alts[idx] = *v;
-                              }
-                            },
-                            [this](const toml::key &key, const toml::table &t) {
-                              if (key == "color") color.assign(t);
-                            }}
+      t.for_each([this](const toml::key &key, auto &&elem) {
+        elem.visit([&, this](const toml::value<bool> &v) {
+          if (auto it = std::ranges::find(keys, key.str()); it != keys.end()) {
+            alts[std::distance(keys.begin(), it)] = *v;
+          }
+        });
 
-      );
+        elem.visit([&, this](const toml::table &t) {
+          if (key == "color") color.assign(t);
+        });
+      });
     }
 
     bool &alt(alt_t idx) noexcept { return alts[idx]; }
 
     static const string &alt_desc(alt_t idx) noexcept { return keys[idx]; }
+
+    string format() const noexcept;
   };
 
   friend fmt::formatter<spot_spec::alternate>;
@@ -104,8 +106,7 @@ struct spot_spec {
   constexpr spot_spec() = default;
 
   /// @brief Create spot_spec configuration
-  /// @param t Pointer to toml::table
-  spot_spec(const toml::table *t) noexcept { assign(*t); }
+  /// @param t Reference to toml::table
   spot_spec(const toml::table &t) noexcept { assign(t); }
 
   spot_spec(const spot_spec &) = default;
@@ -116,32 +117,25 @@ struct spot_spec {
   spot_spec &operator=(spot_spec &&) = default;
 
   void assign(const toml::table &t) noexcept {
-    static constexpr auto kID{"id"};
-    static constexpr auto kUNIT{"unit"};
-    static constexpr auto kCOLOR_SPEC{"color_spec"};
-    static constexpr auto kFADE{"fade"};
-    static constexpr auto kALTERNATE{"alternate"};
 
     t.for_each([this](const toml::key &key, auto &&elem) {
-      using T = std::decay_t<decltype(elem)>;
+      elem.visit([&, this](const toml::value<string> &s) {
+        if (key == "id") id.assign(*s);
+        if (key == "unit") unit.assign(*s);
+        if (key == "color_spec") color_spec.assign(*s);
+      });
 
-      if constexpr (std::same_as<T, toml::value<string>>) {
-        if (key == kID) {
-          id.assign(elem.get());
-        } else if (key == kUNIT) {
-          unit.assign(elem.get());
-        } else if (key == kCOLOR_SPEC) {
-          color_spec.assign(elem.get());
-        }
-      } else if constexpr (std::same_as<T, toml::table>) {
-        if (key == kFADE) fade.assign(elem);
-      } else if constexpr (std::same_as<T, toml::array>) {
-        if (key == kALTERNATE) {
-          elem.for_each([this](const toml::table &t) { alternates.emplace_back(t); });
-        }
-      }
+      elem.visit([&, this](const toml::table &t) {
+        if (key == "fade") fade.assign(t);
+      });
+
+      elem.visit([&, this](const toml::array &arr) {
+        arr.for_each([this](const toml::table &t) { alternates.emplace_back(t); });
+      });
     });
   }
+
+  string format() const noexcept;
 
   const string &operator()() const { return id; }
 
@@ -157,46 +151,20 @@ struct spot_spec {
 } // namespace desk
 } // namespace pierre
 
-namespace {
-namespace desk = pierre::desk;
-}
-
 template <> struct fmt::formatter<desk::spot_spec> : public fmt::formatter<std::string> {
+  using spot_spec = pierre::desk::spot_spec;
 
   template <typename FormatContext>
-  auto format(const desk::spot_spec &s, FormatContext &ctx) const -> decltype(ctx.out()) {
-    std::string msg;
-    auto w = std::back_inserter(msg);
-
-    fmt::format_to(w, "id={} unit='{}' color_spec={} fade[timeout={} {:h}]", s.id, s.unit,
-                   s.color_spec, pierre::dura::humanize(s.fade.timeout), s.fade.color);
-
-    for (const auto &alt : s.alternates) {
-      fmt::format_to(w, " {}", alt);
-    }
-
-    return fmt::format_to(ctx.out(), "{}", msg);
+  auto format(const spot_spec &s, FormatContext &ctx) const -> decltype(ctx.out()) {
+    return fmt::format_to(ctx.out(), "{}", s.format());
   }
 };
 
 template <> struct fmt::formatter<desk::spot_spec::alternate> : public fmt::formatter<std::string> {
+  using alternate = pierre::desk::spot_spec::alternate;
 
   template <typename FormatContext>
-  auto format(const desk::spot_spec::alternate &alt, FormatContext &ctx) const
-      -> decltype(ctx.out()) {
-
-    using alt_t = pierre::desk::spot_spec::alternate::alt_t;
-
-    std::string msg;
-    auto w = std::back_inserter(msg);
-    constexpr std::array alt_list{alt_t::Greater, alt_t::Freq, alt_t::Mag, alt_t::Last};
-
-    std::ranges::for_each(alt_list, [&w, &alt](const auto &a) {
-      fmt::format_to(w, "{}={} ", alt.alt_desc(a), alt.alts[a]);
-    });
-
-    fmt::format_to(w, "color={:h}", alt.color);
-
-    return fmt::format_to(ctx.out(), "{}", msg);
+  auto format(const alternate &alt, FormatContext &ctx) const -> decltype(ctx.out()) {
+    return fmt::format_to(ctx.out(), "{}", alt.format());
   }
 };

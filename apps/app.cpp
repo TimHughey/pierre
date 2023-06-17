@@ -266,7 +266,7 @@ void App::main() {
 
   Logger::create(io_ctx);
 
-  _logger->info(conf::watch::module_id, "init", watch.msg(conf::ParseMsg::Init));
+  logger->info(conf::watch::module_id, "init", watch.msg(conf::ParseMsg::Init));
 
   Stats::create(io_ctx);
 

@@ -19,10 +19,13 @@
 #pragma once
 
 #include "base/bound.hpp"
+#include "base/conf/toml.hpp"
 #include "base/input_info.hpp"
 #include "base/types.hpp"
 #include "desk/unit.hpp"
+#include <base/bound.hpp>
 
+#include <array>
 #include <cstdint>
 #include <ranges>
 
@@ -37,111 +40,102 @@ using bound_duty = bound<double>;
 class Dimmable : public Unit {
 
 private:
-  enum run_mode : uint8_t { FIXED = 0, PULSE_INIT, PULSE_RUNNING };
+  enum run_mode : uint8_t { Fixed = 0, PulseInit, PulseRun };
 
 public:
-  template <typename T>
-  Dimmable(T &&name, auto addr) noexcept
-      : Unit(std::forward<T>(name), addr, no_frame), _mode{FIXED} {
-    config.min = 0;
-    config.max = 8190;
-    config.dim = dutyPercent(0.004);
-    config.bright = config.max;
-    config.pulse_start = dutyPercent(0.5);
-    config.pulse_end = dutyPercent(0.25);
+  enum duty_vals : uint8_t { Bright = 0, Dest, Dim, Now, Next, EndOfDutyVals };
 
-    fixed(config.dim);
+public:
+  Dimmable(const toml::table &t) noexcept : Unit(t), dev_range({0, 8190}), _mode{Fixed} {
+
+    // intialize default duty vals
+    max_percent(Dim, 0.005);
+    duties[Bright] = dev_range.second();
+
+    t.for_each([this](const toml::key &key, auto &&elem) {
+      if (key == "dim") {
+        elem.visit([this](const toml::value<double> &v) { max_percent(v, duties[Dim]); });
+      }
+
+      elem.visit([&, this](const toml::array &arr) {
+        if (key == "range") sub_range.assign(arr);
+        if (key == "pulse") pulse_range.assign(arr);
+      });
+    });
   }
 
   duty_val duty() const { return _duty; }
-  duty_val dutyPercent(duty_percent percent) const { return config.max * percent; }
+  duty_val duty(duty_vals dv) const noexcept { return duties[dv]; }
 
-  virtual void activate() noexcept override { fixed(config.bright); }
-  virtual bool isBusy() const { return _mode == FIXED; }
+  void activate() noexcept override final { fixed(duty(Bright)); }
 
-  auto minMaxDuty() { return bound_duty({(double)config.min, (double)config.max}); }
-
-  void stop() { fixed(config.min); }
+  void stop() { fixed(dev_range.min()); }
 
 public:
-  virtual void bright() { fixed(config.bright); }
-  virtual void dark() noexcept override { fixed(config.min); }
-  virtual void dim() { fixed(config.dim); }
+  void bright() { fixed(dev_range.get().max); }
+  void dark() noexcept override final { fixed(dev_range.first()); }
+  void dim() noexcept { fixed(duty(Dim)); }
 
-  virtual void fixed(const duty_val d) {
+  void fixed(const duty_val d) {
     duty_next(d);
-    _mode = FIXED;
+    _mode = Fixed;
   }
 
-  virtual void percent(const duty_percent x) { fixed(x * config.max); }
+  void percent(const duty_percent x) { fixed(x * dev_range.second()); }
 
-  virtual void prepare() noexcept override {
-    const auto duty_now = duty();
+  // void prepare() noexcept override final {}
 
-    switch (_mode) {
-    case FIXED:
-      break;
-
-    case PULSE_INIT:
-      // duty_next() has already been set by the call to pulse()
-      _mode = PULSE_RUNNING;
-      break;
-
-    case PULSE_RUNNING:
-      const duty_val fuzzy = _dest + _velocity;
-      const duty_val next = duty_now - _velocity;
-
-      // we've reached or are close enough to the destination
-      if ((duty_now <= fuzzy) || (next <= _dest)) {
-        duty_next(_dest);
-        _mode = FIXED;
-      } else {
-        duty_next(next);
-      }
-
-      break;
-    }
+  constexpr void max_percent(const toml::value<double> &vt, auto &v) noexcept {
+    v = (duty_val)(dev_range.max() * vt.get());
   }
 
-  virtual void update_msg(DataMsg &msg) noexcept override {
-    msg.add_kv(name, std::exchange(_duty, _duty_next));
+  constexpr void max_percent(duty_vals dv, double v) noexcept {
+    duties[dv] = (duty_val)(duties[dv] * v);
   }
 
-  void pulse(float intensity = 1.0, float secs = 0.2) {
+  static constexpr duty_val make_percent(bound<double> &bounds, double v) noexcept {
+    return (duty_val)(bounds.second() * v);
+  }
+
+  /*void pulse(double intensity = 1.0, double secs = 0.2) {
     // intensity is the percentage of max brightness for the pulse
-    float start = config.pulse_start * intensity;
+    auto start = pulse_range.first() * intensity;
 
     duty_next(start);
-    _dest = config.pulse_end;
+    _dest = (duty_val)pulse_range.max();
 
     // compute change per frame required to reach dark within requested secs
     _velocity = (start - _dest) / (InputInfo::fps * secs);
 
-    _mode = PULSE_INIT;
+    _mode = PulseInit;
+  }*/
+
+  void update_msg([[maybe_unused]] DataMsg &msg) noexcept override final {
+    // auto sub_max = dev_range.max() * sub_range.max();
+    // auto level = duties[Next] *
+
+    //              msg.add_kv(name, std::exchange(_duty, _duty_next));
+  }
+
+protected:
+  void duty_next(duty_val d) noexcept {
+    _duty_next = std::ranges::clamp(d, dev_range.min(), dev_range.max());
   }
 
 public:
-  struct {
-    duty_val min;
-    duty_val max;
-    duty_val dim;
-    duty_val bright;
-    duty_val pulse_start;
-    duty_val pulse_end;
-  } config;
+  bound<duty_val> dev_range;
+  bound<double> sub_range;   // subclass specific min and max
+  bound<double> pulse_range; // pulse min max
 
-protected:
-  virtual void duty_next(duty_val d) noexcept {
-    _duty_next = std::ranges::clamp(d, config.min, config.max);
-  }
+  std::array<duty_val, EndOfDutyVals> duties{};
 
 private:
   run_mode _mode;
   duty_val _duty{};
   duty_val _duty_next{};
 
-  duty_val _dest{};  // destination duty when traveling
-  float _velocity{}; // change per frame when fx is active
+  duty_val _dest{};   // destination duty when traveling
+  double _velocity{}; // change per frame when fx is active
 };
 
 } // namespace desk

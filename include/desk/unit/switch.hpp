@@ -24,22 +24,18 @@ namespace desk {
 
 class Switch : public Unit {
 public:
-  Switch(auto &&name, uint16_t addr) noexcept
-      : // create the underlying unit:
-        Unit(std::forward<decltype(name)>(name), addr),
-        // initial switch is initialized to powered
-        powered{true} {}
+  constexpr Switch(const auto &t) noexcept : Unit(t), powered{true} {}
 
 public:
   // required by FX
-  void activate() noexcept override { on(); }
-  void dark() noexcept override { off(); }
+  void activate() noexcept override final { on(); }
+  void dark() noexcept override final { off(); }
 
   // specific to this unit
   void on() noexcept { powered = true; }
   void off() noexcept { powered = false; }
 
-  void update_msg(DataMsg &msg) noexcept override { msg.add_kv(name, powered); }
+  void update_msg(DataMsg &msg) noexcept override final { msg.add_kv(name, powered); }
 
 private:
   bool powered;

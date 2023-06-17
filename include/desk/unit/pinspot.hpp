@@ -18,11 +18,12 @@
 
 #pragma once
 
+#include "base/conf/toml.hpp"
 #include "base/types.hpp"
 #include "desk/color/hsb.hpp"
+#include "desk/fader/fader.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit.hpp"
-#include "fader/color_travel.hpp"
 
 #include <cstdint>
 #include <span>
@@ -52,31 +53,21 @@ public:
   };
 
 public:
-  constexpr PinSpot(auto &&name, auto addr, size_t frame_len) noexcept
-      : Unit(std::forward<decltype(name)>(name), addr, frame_len) {}
+  /// @brief Construct a pinspot unit
+  /// @param t Reference to toml::table to use for configuration
+  PinSpot(const toml::table &t) noexcept : Unit(t) {
+    t["frame_len"].visit([this](const toml::value<int64_t> &v) {
+      frame_len = static_cast<decltype(frame_len)>(*v);
+    });
+  }
+
   ~PinSpot() = default;
-
-  template <typename T> void activate(const Hsb &origin, const Nanos &duration) {
-    fader = std::make_unique<T>(origin, duration);
-  }
-
-  template <typename T>
-    requires std::same_as<T, Hsb>
-  auto &update(T &x) noexcept {
-    color = x;
-    return *this;
-  }
 
   /// @brief Set the PinSpot to enable an onboard fx
   /// @param spot_fx Onboard fx to activate
   void auto_run(onboard_fx spot_fx) noexcept { fx = spot_fx; }
 
   auto brightness() const noexcept { return (Bri)color; }
-
-  /// @brief Check fader procgress based on precentage complete
-  /// @param percent Percentage complete to compare
-  /// @return boolea, true when progress is greater than
-  bool fader_progress(float percent) const noexcept { return fader->progress(percent); }
 
   auto &color_now() noexcept { return color; }
 
@@ -96,33 +87,35 @@ public:
     fx = onboard_fx::None;
   }
 
+  void initiate_fade(Hsb origin, Nanos d) noexcept { fader.initiate(d, {origin, Hsb()}); }
+
+  explicit operator Bri() noexcept { return (Bri)color; }
+  explicit operator Hsb() noexcept { return color; }
+
   /// @brief Prepare the PinSpot for sending the next DataMsg
   ///        This member function is an override of Unit and is
   ///        called as a calculation step.
   void prepare() noexcept override {
 
     // when fading we want to continue traveling via the fader
-    if (fading() && fader->travel()) {
+    if (fader.active() && fader.travel()) {
       // get the next color from the Fader
-      color = fader->position();
+      color = fader.color_now();
 
       // ensure strobe is turned off
       strobe = 0;
-
-    } else {
-      fader.reset();
     }
   }
 
   /// @brief Is the PinSpot fading
-  /// @return boolean, true when fasing
-  bool fading() const { return (bool)fader; }
+  /// @return boolean, true when fading
+  bool fading() const { return fader.active(); }
 
   /// @brief Update the pending DataMsg based on the PinSpot's
   ///        state as determined by the call to prepare()
   /// @param msg Reference to the DataMsg to be sent
   void update_msg(DataMsg &msg) noexcept override {
-    auto frame{msg.frame(address, FRAME_LEN)};
+    auto frame{msg.frame(address, frame_len)};
 
     // byte[0] enable or disable strobe (Pinspot specific)
     frame[0] = strobe > 0 ? strobe + 0x87 : 0xF0;
@@ -140,8 +133,7 @@ private:
   uint8_t strobe_max{104};
   onboard_fx fx{onboard_fx::None};
 
-  std::unique_ptr<Fader> fader;
-  static constexpr size_t FRAME_LEN{6};
+  Fader fader;
 
 public:
   MOD_ID("pinspot");

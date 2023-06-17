@@ -173,7 +173,15 @@ public:
   ///        Use with caution for access to configuration not handled
   ///        by member functions (e.g. array)
   /// @return
-  toml::table *table() noexcept { return ttable[root].as<toml::table>(); }
+  toml::table &table() noexcept {
+    if (ttable[root].is_table()) {
+      return *ttable[root].as<toml::table>();
+    }
+
+    empty_table.clear();
+
+    return empty_table;
+  }
 
   template <typename DefValType>
     requires IsDuration<DefValType>
@@ -418,6 +426,9 @@ protected:
 
   bool has_changed{false};
   watch *watcher{nullptr};
+
+private:
+  toml::table empty_table;
 
 public:
   MOD_ID("conf.token");

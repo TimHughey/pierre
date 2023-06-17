@@ -22,7 +22,6 @@
 #include "desk/fx/all.hpp"
 #include "desk/msg/data.hpp"
 #include "desk/unit/all.hpp"
-#include "desk/unit/names.hpp"
 #include "frame/frame.hpp"
 #include "frame/peaks.hpp"
 

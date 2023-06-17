@@ -190,7 +190,7 @@ struct fmt::formatter<T> : public fmt::formatter<std::string> {
     if constexpr (std::same_as<T, pierre::desk::Hue>) {
       fmt::format_to(w, "{:03.01f}", p.cpv);
     } else {
-      fmt::format_to(w, "{:03.01f}", p.cpv);
+      fmt::format_to(w, "{:01.03f}", p.cpv);
     }
 
     // write to ctc.out()

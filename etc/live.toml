@@ -4,32 +4,21 @@
 
 [desk]
 threads = 2
+units = [
+  {name = "el dance", type = "dimmable", addr = 2, range = [0.01, 0.25], dim = 0.03, pulse = [0.5, 0.25]},
+  {name = "el entry", type = "dimmable", addr = 3, range = [0.25, 0.01], dim = 0.03, pulse = [0.15, 0.03]},
+  {name = "led forest", type = "dimmable", addr = 4, dim = 0.005, pulse = [0.02, 0.005]},
+  {name = "disco ball", type = "dimmable", addr = 1, dim = 0.65, pulse = []},
+  {name = "main spot", type = "pinspot", addr = 1, frame_len = 6},
+  {name = "fill spot", type = "pinspot", addr = 7, frame_len = 6},
+  {name = "ac power", type = "switch", addr = 1}
+]
 
 [desk.dmx_ctrl]
 threads = 2
 local = { stalled.ms = 7_333, resolve = { timeout.ms = 7_333, retry.ms = 5_250 } }
 # remote = { host = "dmx", idle_shutdown_ms = 15_000, stats.ms = 2_000 }
 remote = { host = "dmx-test", idle_shutdown.ms = 15_000, stats.ms = 2_000 }
-
-[desk.dimmable]
-max = 8190
-min = 0 # note: min is unused, all values calculated using max
-bright = 1.0
-units = [
-  { name = "el dance", addr = 2, max = 0.25, min = 0.01, dim = 0.03, pulse = { start = 0.5, end = 0.25 } },
-  { name = "el entry", addr = 3, max = 0.25, min = 0.01, dim = 0.03, pulse = { state = 0.15, end = 0.03 } },
-  { name = "led forest", addr = 4, dim = 0.005, pulse = { start = 0.02, end = 0.005 } },
-  { name = "disco ball", addr = 1, dim = 0.65, pulse = { start = 0.65, end = 0.85 } },
-]
-
-[desk.pinspot]
-units = [
-  { name = "main spot", addr = 1, frame_len = 6 },
-  { name = "fill spot", addr = 7, frame_len = 6 },
-]
-
-[desk.switch]
-units = [{ name = "ac power", addr = 1 }]
 
 [frame.av]
 left = { window = "Blackman_Nuttall", comp = false }
@@ -55,8 +44,8 @@ dB_range = [-50.0, -20.0]
 [[fx.majorpeak.color_spec]]
 name = "high"
 bound_peaks = [
-  { freq = 180.0, dB = 2.17 },
-  { freq = 11500.0, dB = 100.0 }
+  { freq = 180.0, dB = -50.0 },
+  { freq = 11500.0, dB = -20.0 }
 ]
 colors = [
   { hue = 300.0, sat = 100.0, bri = 0.0 },
@@ -67,14 +56,14 @@ step = 0.5
 
 [[fx.majorpeak.color_spec]]
 name = "generic"
-bound_peaks = [{ freq = 40.0, dB = 2.19 }, { freq = 1100.0, dB = 85.0 }]
+bound_peaks = [{ freq = 40.0, dB = -55.0 }, { freq = 1100.0, dB = -20.0 }]
 colors = [{ hue = 0.0, sat = 1.0, bri = 0.0 },{ hue = 340.0, sat = 1.0, bri = 100.0 }]
 step_type = "hue"
 step = 0.1
 
 [[fx.majorpeak.color_spec]]
 name = "low"
-bound_peaks = [{freq = 40.0, dB = 2.225}, {freq = 180.0, dB = 65.0}]
+bound_peaks = [{freq = 40.0, dB = -60.0}, {freq = 180.0, dB = -20.0}]
 colors = [{ hue = 0.0, sat = 1.0, bri = 0.0 }, { hue = 360.0, sat = 1.0, bri = 1.0 }]
 step_type = "hue"
 step = 0.1

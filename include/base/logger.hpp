@@ -20,8 +20,8 @@
 
 #include "base/asio.hpp"
 #include "base/conf/token.hpp"
-#include "base/elapsed.hpp"
 #include "base/dura_t.hpp"
+#include "base/elapsed.hpp"
 #include "base/types.hpp"
 
 #include <algorithm>
@@ -33,12 +33,13 @@
 #include <fmt/format.h>
 #include <fmt/os.h>
 #include <memory>
+#include <ranges>
 
 namespace pierre {
 
 class Logger;
 
-extern std::unique_ptr<Logger> _logger;
+extern std::unique_ptr<Logger> logger;
 
 /// @brief Singleton serialized, thread safe logging
 class Logger {
@@ -53,9 +54,9 @@ public:
   /// @param app_io_ctx asio:::io_context for serializaton, thread safety
   /// @return raw pointer to Logger singleton
   static Logger *create(asio::io_context &app_io_ctx) noexcept {
-    _logger = std::make_unique<Logger>(app_io_ctx);
+    logger = std::make_unique<Logger>(app_io_ctx);
 
-    return _logger.get();
+    return logger.get();
   }
 
   /// @brief Log a message
@@ -72,29 +73,24 @@ public:
 
     if (should_log(mod_id, cat)) {
 
-      const auto prefix = fmt::format(prefix_format,      //
-                                      e.as<millis_fp>(),  // millis since app start
-                                      width_ts,           // width of timestamp field
-                                      width_ts_precision, // runtime + width and precision
-                                      mod_id, width_mod,  // module_id + width
-                                      cat, width_cat);    // category + width)
+      auto prefix = fmt::format(prefix_format,      //
+                                e.as<millis_fp>(),  // millis since app start
+                                width_ts,           // width of timestamp field
+                                width_ts_precision, // runtime + width and precision
+                                mod_id, width_mod,  // module_id + width
+                                cat, width_cat);    // category + width)
 
       auto msg = fmt::vformat(format, fmt::make_format_args(args...));
 
       if (msg.back() != '\n') msg.append("\n");
 
-      if (async_active && !app_io_ctx.stopped()) {
-        asio::post(app_io_ctx, [this, prefix = std::move(prefix), msg = std::move(msg)]() {
-          out.print("{} {}", prefix, msg);
-          out.flush();
-        });
-
-      } else {
-        out.print("{} {}", prefix, msg);
-        out.flush();
-      }
+      print(fmt::format("{}{}", prefix, msg));
     }
   }
+
+  const auto &indent_str() const noexcept { return indent; }
+
+  void print(string &&msg) noexcept;
 
   /// @brief Should logging for mod id, cat proceed
   /// @param mod module_id
@@ -118,18 +114,18 @@ public:
     //  3. logger.<mod>.<cat> == boolean
     std::array paths{toml::path(cat), toml::path(mod), toml::path(mod).append(cat)};
 
-    return std::all_of(paths.begin(), paths.end(), [t = tokc->table()](const auto &p) {
-      const auto node = t->at_path(p);
+    return std::ranges::all_of(paths, [t = tokc->table()](const auto &p) {
+      const auto node = t.at_path(p);
 
       return node.is_boolean() ? node.value_or(true) : true;
     });
   }
 
   /// @brief Shutdown logger
-  static void shutdown() noexcept { _logger.reset(); }
+  static void shutdown() noexcept { logger.reset(); }
 
   /// @brief Enable synchronous logging
-  static void synchronous() noexcept { _logger->async_active = false; }
+  static void synchronous() noexcept { logger->async_active = false; }
 
 private:
   // order dependent
@@ -140,6 +136,7 @@ private:
   // order independent
   bool async_active{false};
   static Elapsed e;
+  string indent;
 
 public:
   // order independent
@@ -155,22 +152,22 @@ public:
 };
 
 #define INFO(__cat, format, ...)                                                                   \
-  pierre::_logger->info(module_id, __cat, FMT_STRING(format), ##__VA_ARGS__);
+  pierre::logger->info(module_id, __cat, FMT_STRING(format), ##__VA_ARGS__);
 
 #define INFO_AUTO_CAT(cat)                                                                         \
   static constexpr std::string_view fn_id { cat }
 
 #define INFO_AUTO(format, ...)                                                                     \
-  pierre::_logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__);
+  pierre::logger->info(module_id, fn_id, FMT_STRING(format), ##__VA_ARGS__);
 
 #define INFO_INIT(format, ...)                                                                     \
-  pierre::_logger->info(module_id, "init"sv, FMT_STRING(format), ##__VA_ARGS__);
+  pierre::logger->info(module_id, "init"sv, FMT_STRING(format), ##__VA_ARGS__);
 
 #define INFO_MODULE_ID(mid)                                                                        \
   static constexpr std::string_view module_id { mid }
 
 inline constexpr bool SHOULD_LOG(auto mid, auto cat) noexcept {
-  return _logger ? _logger->should_log(mid, cat) : true;
+  return logger ? logger->should_log(mid, cat) : true;
 }
 
 } // namespace pierre

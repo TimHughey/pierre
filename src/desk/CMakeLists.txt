@@ -18,12 +18,10 @@ add_library(${__target}
   # desk DMX control session
   dmx_ctrl.cpp
 
-  # fader
-  fader/easings.cpp
-  fader/fader.cpp
-
   # FX
   fx/fx.cpp
+  fx/majorpeak/conf.cpp
+  fx/majorpeak/spot_spec.cpp
   fx/majorpeak.cpp
   fx/standby.cpp
   

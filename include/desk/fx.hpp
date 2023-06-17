@@ -27,22 +27,10 @@
 #include "fx/names.hpp"
 
 #include <array>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/system.hpp>
-#include <initializer_list>
+
 #include <memory>
 
 namespace pierre {
-namespace asio = boost::asio;
-namespace sys = boost::system;
-namespace errc = boost::system::errc;
-
-using error_code = boost::system::error_code;
-using steady_timer = asio::steady_timer;
-using strand_ioc = asio::strand<asio::io_context::executor_type>;
-
 namespace desk {
 
 class FX;

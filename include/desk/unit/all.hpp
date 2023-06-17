@@ -19,5 +19,6 @@
 #pragma once
 
 #include "unit/dimmable.hpp"
+#include "unit/names.hpp"
 #include "unit/pinspot.hpp"
 #include "unit/switch.hpp"

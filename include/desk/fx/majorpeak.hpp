@@ -25,7 +25,6 @@
 #include "desk/color/hsb.hpp"
 #include "desk/fx.hpp"
 #include "desk/fx/majorpeak/fdecls.hpp"
-#include "desk/unit/all.hpp"
 #include "frame/peaks.hpp"
 
 #include <array>
@@ -72,7 +71,7 @@ private:
 private:
   /// @brief Control intensity of the EL wire based on the peak magnitudes
   /// @param peaks Peaks to consider
-  // void handle_el_wire(const Peaks &peaks);
+  void handle_el_wire(const Peaks &peaks);
 
   /// @brief Control the color and fading of the "Fill" pinspot.
   ///        The "Fill" and "Main" pinspots use complimentary algorithms

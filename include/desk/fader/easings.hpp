@@ -26,91 +26,91 @@
 #include "base/types.hpp"
 
 #include <cmath>
+#include <numbers>
+#include <variant>
 
 namespace pierre {
 namespace desk {
 namespace fader {
 
-struct Easing {
-  Easing(const float step = 1.0f, const float start_val = 0.0f)
-      : _step(step), _start_val(start_val) {}
+template <typename T>
+concept IsEasing = requires(T v) {
+  { v.step } -> std::same_as<double>;
+  { v.start } -> std::same_as<double>;
 
-  const bool easing = true;
-
-  static constexpr double PI = 3.14159265358979323846;
-  static constexpr double PI_HALF = (PI / 2.0);
-
-protected:
-  float _step = 1.0;
-  float _start_val = 0.0;
+  requires requires(T v, double current, double total) {
+    { v(current, total) } -> std::same_as<double>;
+  };
 };
 
-struct Circular : public Easing {
-  Circular(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
+struct easing {
+  virtual double operator()(double progress) const noexcept = 0;
 
-  float calc(float current, const float total) const;
+  static constexpr auto PI{std::numbers::pi};
+  static constexpr auto PI_HALF{PI / 2.0};
 };
 
-struct CircularAcceleratingFromZero : public Easing {
-  CircularAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {}
-
-  float calc(float current, const float total) const;
-};
-
-struct CircularDeceleratingToZero : public Easing {
-  CircularDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {}
-
-  float calc(float current, const float total) const;
-};
-
-struct Quadratic : public Easing {
-  Quadratic(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
-
-  float calc(float current, const float total) const;
-};
-
-struct QuintAcceleratingFromZero : public Easing {
-  QuintAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {}
-
-  float calc(float current, const float total) const;
-};
-
-struct QuintDeceleratingToZero : public Easing {
-  QuintDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {}
-
-  float calc(float current, const float total) const;
-};
-
-struct SimpleLinear : public Easing {
-  SimpleLinear(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
-
-  float calc(const float current, const float total) const;
-};
-
-struct Sine : public Easing {
-  Sine(const float step = 1.0f, const float start_val = 0.0f) : Easing(step, start_val) {}
-
-  float calc(const float current, const float total) const;
-};
-
-struct SineAcceleratingFromZero : public Easing {
-  SineAcceleratingFromZero(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {}
-
-  float calc(const float current, const float total) const;
-};
-
-struct SineDeceleratingToZero : public Easing {
-  SineDeceleratingToZero(const float step = 1.0f, const float start_val = 0.0f)
-      : Easing(step, start_val) {}
-
-  float calc(const float current, const float total) const;
+struct out_expo : public easing {
+  double operator()(double x) const noexcept override final {
+    return x == 1.0 ? 1.0 : 1.0 - std::pow(2.0, -10.0 * x);
+  }
 };
 
 } // namespace fader
 } // namespace desk
+
+/*
+
+struct CircularAcceleratingFromZero : public Easing {
+  constexpr CircularAcceleratingFromZero() = default;
+  constexpr CircularAcceleratingFromZero(double step = 1.0f, double start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};
+
+struct CircularDeceleratingToZero : public Easing {
+  CircularDeceleratingToZero(double step = 1.0f, double start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};
+
+struct Quadratic : public Easing {
+  Quadratic(double step = 1.0f, double start_val = 0.0f) : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};
+
+struct QuintAcceleratingFromZero : public Easing {
+  QuintAcceleratingFromZero(double step = 1.0f, double start_val = 0.0f)
+      : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};
+
+struct QuintDeceleratingToZero : public Easing {
+  QuintDeceleratingToZero(double step = 1.0f, double start_val = 0.0f) : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};*/
+
+/*struct Sine : public Easing {
+  Sine(double step = 1.0f, double start_val = 0.0f) : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};
+
+struct SineAcceleratingFromZero : public Easing {
+  SineAcceleratingFromZero(double step = 1.0f, double start_val = 0.0f) : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};
+
+struct SineDeceleratingToZero : public Easing {
+  SineDeceleratingToZero(double step = 1.0f, double start_val = 0.0f) : Easing(step, start_val) {}
+
+  double calc(double current, double total) const;
+};*/
+
 } // namespace pierre

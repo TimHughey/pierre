@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <fmt/format.h>
 #include <iterator>
@@ -174,7 +175,7 @@ struct Hsb {
     }
   }
 
-  bool black() const noexcept { return !visible(); }
+  constexpr bool black() const noexcept { return !visible(); }
 
   /// @brief Convert and copy the HSB color to a representative array
   ///        of RGB bytes including a fourth byte representing white
@@ -321,6 +322,20 @@ struct Hsb {
 
   template <typename T>
     requires IsSpecializedColorPart<T>
+  T &part() noexcept {
+    if constexpr (IsColorPartHue<T>) {
+      return hue;
+    } else if constexpr (IsColorPartSat<T>) {
+      return sat;
+    } else if constexpr (IsColorPartBri<T>) {
+      return bri;
+    } else {
+      static_assert(AlwaysFalse<T>, "unkonwn part");
+    }
+  }
+
+  template <typename T>
+    requires IsSpecializedColorPart<T>
   Hsb &rotate(const T &step) noexcept {
 
     if constexpr (IsColorPartHue<T>) {
@@ -334,7 +349,7 @@ struct Hsb {
     return *this;
   }
 
-  bool visible() const noexcept { return bri > 0.0_BRI; }
+  constexpr bool visible() const noexcept { return bri > 0.0_BRI; }
 
   void write_metric() const noexcept;
 

@@ -48,63 +48,33 @@ void Units::load_config() noexcept {
     assert("missing desk (units) conf");
   }
 
-  // gets a copy of the desk table
-  auto table = tokc.table();
+  const auto &base_table = tokc.table();
 
-  // load dimmable units
-  uint32_t max = tokc.val<uint32_t>("dimmable.max", 8190U);
-  auto dimmable = table->at_path("dimmable.units").as_array();
+  base_table["units"].visit([this](const toml::array &arr) {
+    arr.for_each([this](const toml::table &t) {
+      t["type"].visit([&](const toml::value<string> &v) {
+        string type = *v;
+        std::unique_ptr<Unit> dev;
 
-  for (auto &&e : *dimmable) {
+        if (type == "dimmable") {
+          dev = std::make_unique<Dimmable>(t);
+        } else if (type == "pinspot") {
+          dev = std::make_unique<PinSpot>(t);
+        } else if (type == "switch") {
+          dev = std::make_unique<Switch>(t);
+        }
 
-    const auto &t = *(e.as_table());
+        if ((bool)dev) {
+          auto name = dev->name;
+          auto [it, inserted] = map.insert_or_assign(std::move(name), std::move(dev));
 
-    string key = t["name"].value_or("unnamed");
-    auto dev = std::make_unique<Dimmable>(t["name"].value_or("unnamed"), t["addr"].value_or(0UL));
-
-    auto [it, inserted] = map.insert_or_assign(key, std::move(dev));
-
-    auto apply_percent = [=](float percent) -> uint32_t { return max * percent; };
-
-    if (inserted) {
-      Dimmable *unit = static_cast<Dimmable *>(it->second.get());
-
-      unit->config.max = apply_percent(t["max"].value_or(1.0));
-      unit->config.min = apply_percent(t["min"].value_or(0.0));
-      unit->config.dim = apply_percent(t["dim"].value_or(0.0));
-      unit->config.bright = apply_percent(t["bright"].value_or(1.0));
-      unit->config.pulse_start = apply_percent(t["pulse.start"].value_or(1.0));
-      unit->config.pulse_end = apply_percent(t["pulse.end"].value_or(0.0));
-    }
-  }
-
-  // load pinspot units
-  INFO_AUTO("loading pinspots");
-
-  auto pinspots = table->at_path("pinspot.units").as_array();
-  for (auto &&e : *pinspots) {
-    auto &t = *(e.as_table());
-
-    string key = t["name"].value_or("unnamed");
-    auto name = key;
-
-    INFO_AUTO("key={} name={}", key, name);
-
-    auto dev = std::make_unique<PinSpot>(std::move(name), t["addr"].value_or(0UL),
-                                         t["frame_len"].value_or(0UL));
-    map.insert_or_assign(key, std::move(dev));
-  }
-
-  // load switch units
-  auto switches = table->at_path("switch.units").as_array();
-  for (auto &&e : *switches) {
-    const auto &t = *(e.as_table());
-
-    string key = t["name"].value_or("unnamed");
-    auto name = key;
-    auto dev = std::make_unique<Switch>(std::move(name), t["addr"].value_or(0UL));
-    map.insert_or_assign(key, std::move(dev));
-  }
+          if (inserted) {
+            INFO_AUTO("{}", *it->second);
+          }
+        }
+      });
+    });
+  });
 }
 
 } // namespace desk

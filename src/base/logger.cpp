@@ -22,7 +22,7 @@
 
 using namespace pierre::conf;
 namespace pierre {
-std::unique_ptr<Logger> _logger;
+std::unique_ptr<Logger> logger;
 
 namespace asio = boost::asio;
 
@@ -42,6 +42,16 @@ Logger::Logger(asio::io_context &app_io_ctx) noexcept
   const auto now = std::chrono::system_clock::now();
   out.print("\n{:%FT%H:%M:%S} START\n", now);
 
+  // create an indent string based on the prefix format
+  auto sample = fmt::format(prefix_format,        //
+                            e.as<millis_fp>(),    // millis since app start
+                            width_ts,             // width of timestamp field
+                            width_ts_precision,   // runtime + width and precision
+                            string(), width_mod,  // module_id + width
+                            string(), width_cat); // category + width)
+
+  indent = string(sample.size(), ' ');
+
   asio::post(app_io_ctx, [this]() {
     tokc->initiate_watch();
 
@@ -57,6 +67,19 @@ Logger::~Logger() noexcept {
   out.close();
 
   tokc->release();
+}
+
+void Logger::print(string &&msg) noexcept {
+  if (async_active && !app_io_ctx.stopped()) {
+    asio::post(app_io_ctx, [this, msg = std::move(msg)]() {
+      out.print("{}", msg);
+      out.flush();
+    });
+
+  } else {
+    out.print("{}", msg);
+    out.flush();
+  }
 }
 
 } // namespace pierre
