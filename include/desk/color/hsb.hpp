@@ -202,19 +202,19 @@ struct Hsb {
     std::ranges::fill(span, 0x00);
 
     /// NOTE: fix me by implementing normalize()
-    auto hue0 = Hue(std::fmod(hue.fund(), 360.0));
+    auto hue0 = Hue(std::fmod(hue.get(), 360.0));
     auto bri0 = (bri > Bri::max()) ? bri / Bri::max() : bri;
     auto sat0 = (sat > Sat::max()) ? sat / Sat::max() : sat;
 
     // special case for conversion to RGB, must multiply bri and sat
-    auto chroma = bri0.fund() * sat0.fund();
+    auto chroma = bri0.get() * sat0.get();
 
     /// NOTE: hue is already in the 0-360 range
-    auto hue_prime = std::fmod(hue0.fund() / 60.0, 6.0);
+    auto hue_prime = std::fmod(hue0.get() / 60.0, 6.0);
 
     // calculate what HSB "slot" should be used for the RGB color
     auto x = chroma * (1.0 - std::fabs(std::fmod(hue_prime, 2.0) - 1.0));
-    auto m = bri0.fund() - chroma;
+    auto m = bri0.get() - chroma;
 
     // determine which HSB "slot" the RGB value maps from to chose which
     // calculated values are placed into the individual components of RGB
