@@ -26,7 +26,7 @@
 
 namespace pierre {
 
-using bound_dB = bound<dB>;
+using bound_dB = bound<peak::dB>;
 
 } // namespace pierre
 

@@ -90,13 +90,11 @@ struct spot_spec {
     fade_ctrl &operator=(fade_ctrl &&) = default;
 
     void assign(const toml::table &t) noexcept {
-      static constexpr auto kCOLOR{"color"sv};
-      static constexpr auto kTIMEOUT{"timeout"sv};
 
       t.for_each([this](const toml::key &key, const toml::table &t) {
-        if (key == kCOLOR) {
+        if (key == "color") {
           color.assign(t);
-        } else if (key == kTIMEOUT) {
+        } else if (key == "timeout") {
           timeout = conf::dura::make(t);
         }
       });

@@ -72,7 +72,7 @@ template <typename T> struct bound {
     T max;
   };
 
-  constexpr auto get() const noexcept { return base_pair(vals.front(), vals.back()); }
+  constexpr auto get() const noexcept { return base_pair{vals.front(), vals.back()}; }
 
   constexpr bool inclusive(const bound &v) const noexcept {
     return (v >= vals.front()) && (v <= vals.back());

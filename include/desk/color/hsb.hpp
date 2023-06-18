@@ -61,6 +61,17 @@ struct Hsb {
   constexpr Hsb(const Hsb &) = default;
   constexpr Hsb(Hsb &&) = default;
 
+  /// @brief Construct HSB from other and set part
+  /// @tparam T Part type to set
+  /// @param src HSB to use as the source
+  /// @param part Part to set
+  template <typename T>
+    requires IsSpecializedColorPart<T>
+  Hsb(Hsb src, T &&part) noexcept {
+    src = part;
+    *this = src;
+  }
+
   /// @brief Create HSB color from RGB color code in 0xRRGGBB format
   /// @tparam T unsigned integral of more than three bytes
   /// @param rgb RGB color code

@@ -32,7 +32,7 @@
 
 namespace pierre {
 
-using bound_freq = bound<Freq>;
+using bound_freq = bound<peak::Freq>;
 
 template <typename T>
 concept IsPeakBoundedRange = requires(T v) {
@@ -54,21 +54,18 @@ concept IsPeakBoundedRange = requires(T v) {
 struct Peak {
 
   constexpr Peak() = default;
-  constexpr Peak(const Freq f, const dB m) noexcept : freq(f), db(m) {}
+  constexpr Peak(const peak::Freq f, const peak::dB db) noexcept : freq(f), db(db) {}
 
-  constexpr Peak(dB &&m) noexcept : freq(0.0), db(std::forward<dB>(m)) {}
+  constexpr Peak(peak::dB &&db) noexcept : freq(0.0), db(std::forward<peak::dB>(db)) {}
 
   void assign(const toml::table &t) noexcept {
     // this for_each filters on only doubles, other keys are are ignored
     t.for_each([this](const toml::key &key, const toml::value<double> &val) {
-      static constexpr auto kFreq{"freq"sv};
-      static constexpr auto kdB{"dB"sv};
-
       auto v = val.get(); // we can just get the toml::value
 
-      if (key == kFreq) {
+      if (key == "freq") {
         freq.assign(v);
-      } else if (key == kdB) {
+      } else if (key == "dB") {
         db.assign(v);
       }
     });
@@ -92,21 +89,12 @@ struct Peak {
     return (v >= a) && (v <= b);
   }
 
-  template <typename T, typename U> auto lerp(const U &a, const U &b) const noexcept {
-    return static_cast<const T &>(*this).lerp(a, b);
-  }
+  bool operator!() const = delete;
+  operator bool() const = delete;
 
-  template <typename T, typename U> auto lerp(std::pair<U, U> &&a_b) const noexcept {
-    return static_cast<T>(*this).lerp(std::forward<decltype(a_b)>(a_b));
-  }
-
-  /// @brief Is this peak silence?
-  /// @return boolean
-  bool operator!() const noexcept { return !freq && !db; }
-
-  constexpr explicit operator bool() const noexcept { return (bool)freq && (bool)db; }
-  constexpr explicit operator Freq() const noexcept { return freq; }
-  constexpr explicit operator dB() const noexcept { return db; }
+  // constexpr explicit operator bool() const noexcept { return (bool)freq && (bool)db; }
+  constexpr explicit operator peak::Freq() const noexcept { return freq; }
+  constexpr explicit operator peak::dB() const noexcept { return db; }
 
   /// @brief Enable all comparison operators for peak parts
   /// @param  peak_part right hand side
@@ -123,7 +111,7 @@ struct Peak {
     }
   }
 
-  constexpr auto useable() const noexcept { return db > dB(); }
+  constexpr auto useable() const noexcept { return db > peak::dB(); }
 
   template <typename T>
     requires IsSpecializedPeakPart<T>
@@ -136,8 +124,8 @@ struct Peak {
   }
 
 public:
-  Freq freq{};
-  dB db{};
+  peak::Freq freq{};
+  peak::dB db{};
 };
 
 } // namespace pierre

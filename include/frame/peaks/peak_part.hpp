@@ -30,14 +30,16 @@ namespace pierre {
 
 template <typename T> struct peak_part;
 
-struct _freq_tag {};
-struct _dB_tag {};
+namespace peak {
+struct freq_tag {};
+struct dB_tag {};
+} // namespace peak
 
 template <typename T>
-concept IsPeakPartFrequency = std::same_as<T, peak_part<_freq_tag>>;
+concept IsPeakPartFrequency = std::same_as<T, peak_part<peak::freq_tag>>;
 
 template <typename T>
-concept isPeakPartdB = std::same_as<T, peak_part<_dB_tag>>;
+concept isPeakPartdB = std::same_as<T, peak_part<peak::dB_tag>>;
 
 template <typename T>
 concept IsSpecializedPeakPart = IsPeakPartFrequency<T> || isPeakPartdB<T>;
@@ -47,8 +49,8 @@ template <typename TAG> struct peak_part {
   friend fmt::formatter<peak_part>;
 
   constexpr peak_part() noexcept {
-    if constexpr (std::same_as<TAG, _dB_tag>) {
-      ppv = -96.0;
+    if constexpr (std::same_as<TAG, peak::dB_tag>) {
+      ppv = -76.0;
     } else {
       ppv = 0.0;
     }
@@ -67,25 +69,12 @@ template <typename TAG> struct peak_part {
   constexpr explicit operator bool() const noexcept { return ppv; }
   constexpr explicit operator double() const noexcept { return ppv; }
 
-  template <typename U> auto lerp(std::pair<U, U> &&a_b) const noexcept {
-    return lerp(a_b.first, a_b.second);
-  }
-
-  template <typename U> auto lerp(U a, U b) const noexcept {
-    double val{0};
-
-    if constexpr (std::same_as<TAG, _freq_tag>) {
-      // convert freq and magnitude into a linear number space
-      val = std::log10(ppv);
-    } else if constexpr (std::same_as<TAG, _dB_tag>) {
-      val = ppv;
-    }
-
-    return U{std::lerp(static_cast<double>(a), static_cast<double>(b), val)};
-  }
+  /// @brief Get copy of foundational type
+  /// @return Foundational type, by value
+  constexpr auto get() const noexcept { return ppv; }
 
   constexpr peak_part linear() const noexcept {
-    if constexpr (std::same_as<TAG, _freq_tag>) {
+    if constexpr (std::same_as<TAG, peak::freq_tag>) {
       return std::log10(ppv);
     } else {
       // https://tinyurl.com/tlhdblinear
@@ -157,26 +146,16 @@ template <typename TAG> struct peak_part {
     return lhs; // return the result by value (uses move constructor)
   }
 
-  // constexpr peak_part &scaled() noexcept {
-  //   if (ppv <= 0.0) {
-  //     ppv = 0.0;
-  //   } else {
-  //     if constexpr (std::same_as<TAG, _freq_tag>) {
-  //       ppv = std::log10(ppv);
-  //     } else if constexpr (std::same_as<TAG, _dB>) {
-  //       ppv = 10.0 * std::log10(ppv);
-  //     }
-  //   }
-
-  //   return *this;
-  // }
+  /// @brief Access the underlying foundational type
+  /// @return Reference to underlying foundational type
+  constexpr auto &raw() noexcept { return ppv; }
 
   auto stat() const noexcept { return ppv; }
 
   constexpr auto tag() const noexcept {
-    if constexpr (std::same_as<TAG, _freq_tag>) {
+    if constexpr (std::same_as<TAG, peak::freq_tag>) {
       return std::array{"comp", "freq"};
-    } else {
+    } else if constexpr (std::same_as<TAG, peak::dB_tag>) {
       return std::array{"comp", "dB"};
     }
   }
@@ -185,8 +164,10 @@ private:
   double ppv;
 };
 
-using Freq = peak_part<_freq_tag>;
-using dB = peak_part<_dB_tag>;
+namespace peak {
+using Freq = peak_part<freq_tag>;
+using dB = peak_part<dB_tag>;
+} // namespace peak
 
 } // namespace pierre
 

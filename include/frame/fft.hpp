@@ -131,7 +131,7 @@ public:
         auto dB_abs = dB_n + 96.0;
 
         // lastly, save the normalized dB, frequency in Peaks
-        peaks.insert(Freq(freq), dB(dB_abs), channel);
+        peaks.insert(peak::Freq(freq), peak::dB(dB_abs), channel);
       }
     }
 

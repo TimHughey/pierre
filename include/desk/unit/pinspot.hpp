@@ -87,7 +87,12 @@ public:
     fx = onboard_fx::None;
   }
 
-  void initiate_fade(Hsb origin, Nanos d) noexcept { fader.initiate(d, {origin, Hsb()}); }
+  /// @brief Initiate fade from color to black
+  /// @param d Duration of fade
+  /// @param origin HSB representing the color to start fading from
+  void initiate_fade(Nanos d, const Hsb &origin) noexcept {
+    fader.initiate(d, {origin, Hsb(origin, 0.0_BRI)});
+  }
 
   explicit operator Bri() noexcept { return (Bri)color; }
   explicit operator Hsb() noexcept { return color; }

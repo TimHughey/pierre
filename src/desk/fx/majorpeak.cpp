@@ -22,6 +22,7 @@
 #include "base/dura.hpp"
 #include "base/elapsed.hpp"
 #include "base/logger.hpp"
+#include "base/scale10.hpp"
 #include "base/stats.hpp"
 #include "base/types.hpp"
 #include "desk/desk.hpp"
@@ -81,14 +82,26 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
   auto &s_specs = runconf->spot_specs;
   auto &c_specs = runconf->color_specs;
 
-  auto scale = [](auto old_max, auto old_min, auto new_max, auto new_min, auto val) {
-    // https://tinyurl.com/tlhscale
+  // { old_min, old_max, new_min, new_max }
+  // auto scale = [](std::array<double, 4> &&sv, const auto &val) {
+  //   // https://tinyurl.com/tlhscale
 
-    auto old_range = old_max - old_min;
-    auto new_range = new_max - new_min;
+  //   enum scale_val : uint8_t { OldMin = 0, OldMax, NewMin, NewMax };
 
-    return (((val - old_min) * new_range) / old_range) + new_min;
-  };
+  //   auto old_range = sv[OldMax] - sv[OldMin];
+  //   auto new_range = sv[NewMax] - sv[NewMin];
+
+  //   return (((val.get() - sv[OldMin]) * new_range) / old_range) + sv[NewMin];
+  // };
+
+  // auto scale = [](double old_max, double old_min, double new_max, auto new_min, auto val) {
+  //   // https://tinyurl.com/tlhscale
+  //
+  //   auto old_range = old_max - old_min;
+  //   auto new_range = new_max - new_min;
+  //
+  //   return (((val - old_min) * new_range) / old_range) + new_min;
+  // };
 
   bool skipped{true};
 
@@ -101,16 +114,22 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
       if (peak.useable() && it->match_peak(peak)) {
         Hsb next_color = s.fade.color;
 
-        auto bri_v = scale(-20.0, -96.0, 100.0, 0.0, (double)peak.db) * (double)next_color.bri;
+        // auto bri_v = scale(-20.0, -96.0, 100.0, 0.0, (double)peak.db) * (double)next_color.bri;
 
-        next_color.bri = Bri(bri_v);
+        bound<Bri> bri_s({0.0_BRI, 100.0_BRI});
+        bound<peak::dB> db_s({peak::dB(-96.0), peak::dB(-20)});
+
+        next_color = Hue(scale({1.77, 4, 0, 360}, peak.freq.linear()));
+        // next_color = Bri(scale({-96, -20, 0, 100}, peak.db) * next_color.bri.get());
+
+        next_color = Bri(scale(db_s, bri_s, peak.db) * next_color.bri.get());
 
         //  next_color.assign(peak.lerp<dB>(it->color_range<Bri>()));
 
         auto pinspot = unit<PinSpot>(s.unit);
 
         if ((pinspot->fading() == false) && next_color.visible()) {
-          pinspot->initiate_fade(next_color, s.fade.timeout);
+          pinspot->initiate_fade(s.fade.timeout, next_color);
         }
 
         next_color.write_metric();

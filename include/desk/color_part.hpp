@@ -82,7 +82,9 @@ template <typename TAG> struct color_part {
 
   constexpr void clear() noexcept { cpv = 0.0; }
 
-  constexpr auto fund() const noexcept { return cpv; }
+   /// @brief Get copy of foundational type
+  /// @return Foundational type, by value
+  constexpr auto get() const noexcept { return cpv; }
 
   constexpr static color_part max() noexcept {
     if constexpr (std::same_as<TAG, _hue_tag>) {
@@ -147,6 +149,10 @@ template <typename TAG> struct color_part {
     lhs /= rhs; // reuse compound assignment
     return lhs; // return the result by value (uses move constructor)
   }
+
+  /// @brief Access the underlying foundational type
+  /// @return Reference to underlying foundational type
+  constexpr auto &raw() noexcept { return cpv; }
 
   constexpr void rotate(const color_part &step) noexcept { assign<TAG>(cpv + step.cpv); }
 

@@ -106,7 +106,7 @@ struct color_spec {
 
   auto operator==(const string &n) const { return n == name; }
 
-  auto match_peak(const Peak &p) const noexcept { return p.inclusive<Freq>(peaks); }
+  auto match_peak(const Peak &p) const noexcept { return p.inclusive<peak::Freq>(peaks); }
 
   const auto &step_type_str() const noexcept { return step_types_str[step_type]; }
   static const auto &step_type_str(step_types st) noexcept { return step_types_str[st]; }
