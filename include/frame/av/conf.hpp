@@ -30,37 +30,54 @@ namespace pierre {
 namespace frame {
 
 struct av_conf {
+
+  struct fft_win_conf {
+    FFT::window wt{FFT::Hann};
+    bool comp{false};
+
+    constexpr fft_win_conf() = default;
+    void assign(const toml::table &t) noexcept {
+      t.for_each([this](const toml::key &k, auto &&nv) {
+        if (k == "window") {
+          nv.visit([this](const toml::value<string> &v) { wt = FFT::window_lookup(v.get()); });
+
+        } else if (k == "comp") {
+          nv.visit([this](const toml::value<bool> &v) { comp = v.get(); });
+        }
+      });
+    }
+  };
+
   av_conf(conf::token &tokc) noexcept { load(tokc); }
 
   void load(conf::token &tokc) noexcept {
     init_msg.clear();
 
+    tokc.table().for_each([this](const toml::key &key, const toml::array &arr) {
+      if (key == "fft") {
+        // this is the array of fft configs, iterate the array
+        arr.for_each([this](const toml::table &t) {
+          // within the fft configs we've found a table, iterate the table
+          t.for_each([this](const toml::key &k, const toml::table &t) {
+            // populate left and right based on key
+            if (k == "left") {
+              left.assign(t);
+            } else if (k == "right") {
+              right.assign(t);
+            }
+          });
+        });
+      }
+    });
+
     auto w = std::back_inserter(init_msg);
-
-    const auto vlw = tokc.val<string>("left.window", "Blackman_Nuttall");
-    left.wt = FFT::window_lookup(vlw);
-    tokc.val<bool>(left.comp, "left.comp", false);
-
-    fmt::format_to(w, "left[win={} comp={}] ", vlw, left.comp);
-
-    const auto vrw = tokc.val<string>("right.window", "Hann");
-    right.wt = FFT::window_lookup(vrw);
-    tokc.val<bool>(right.comp, "right.comp", false);
-
-    fmt::format_to(w, "right[win={} comp={}]", vrw, right.comp);
+    fmt::format_to(w, "fft left[{} {}] right[{} {}]", FFT::win_types[left.wt], left.comp,
+                   FFT::win_types[right.wt], right.comp);
   }
 
   string init_msg;
-
-  struct {
-    FFT::window wt{FFT::Hann};
-    bool comp{false};
-  } left;
-
-  struct {
-    FFT::window wt{FFT::Hann};
-    bool comp{false};
-  } right;
+  fft_win_conf left;
+  fft_win_conf right;
 };
 
 } // namespace frame

@@ -31,15 +31,23 @@ https://www.wisslanding.com
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <iterator>
 #include <math.h>
 #include <numbers>
 #include <numeric>
+#include <ranges>
 #include <tuple>
 #include <vector>
 
 namespace pierre {
 
 namespace fft {} // namespace fft
+
+template <typename T>
+concept IsFFTWindowConfig = requires(T v) {
+  { v.wt };
+  { v.comp };
+};
 
 class FFT {
   static constexpr size_t samples_max{1024};
@@ -59,13 +67,12 @@ public:
     Blackman_Nuttall, // blackman nuttall
     Blackman_Harris,  // blackman harris
     Flat_top,         // flat top
-    Welch,            // welch
-    UnknownWindow     // Uknown
+    Welch
   };
 
-  static constexpr std::array<const string, UnknownWindow + 1> win_types{
-      "Rectangle",       "Hamming",         "Hann",     "Triangle", "Nutall",        "Blackman",
-      "Blackman_Nutall", "Blackman_Harris", "Flat_top", "Welch",    "Unknown_Window"};
+  static constexpr std::array win_types{
+      "Rectangle",        "Hamming",         "Hann",     "Triangle", "Nutall", "Blackman",
+      "Blackman_Nuttall", "Blackman_Harris", "Flat_top", "Welch"};
 
 public:
   /// @brief Create FFT processor and initialize base data, as needed
@@ -73,7 +80,8 @@ public:
   /// @param samples_in Count of samples to process
   /// @param sampling_freq_in Sample frequency (e.g. 44100 Hz)
   template <typename T>
-  FFT(const float *reals_in, size_t samples_in, float sampling_freq_in, const T &win) noexcept
+    requires IsFFTWindowConfig<T>
+  FFT(const float *reals_in, size_t samples_in, float sampling_freq_in, const T &win_conf) noexcept
       : // allocate reals, we write directly into container
         reals(samples_in, 0),
         // capture sampling frequency
@@ -85,9 +93,9 @@ public:
         // calculate the power (number of loops of calculate)
         power(std::log2f(samples_in)),
         // set the windowing type
-        window_type{win.wt},
+        window_type{win_conf.wt},
         // apply compenstation factor?
-        with_compensation{win.comp} {
+        with_compensation{win_conf.comp} {
 
     // abort on samples mismatch
     if (samples_max != samples_in) assert("unsupported number of samples");
@@ -142,9 +150,8 @@ public:
   /// @param name const string window name
   /// @return window
   static window window_lookup(const string &name) noexcept {
-    for (uint_fast8_t i = 0; const auto &win_type : win_types) {
-      if (win_type == name) return static_cast<window>(i);
-      i++;
+    if (auto it = std::ranges::find(win_types, name); it != win_types.end()) {
+      return static_cast<window>(std::distance(win_types.begin(), it));
     }
 
     return Hann;

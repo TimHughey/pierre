@@ -21,8 +21,11 @@ local = { stalled.ms = 7_333, resolve = { timeout.ms = 7_333, retry.ms = 5_250 }
 remote = { host = "dmx-test", idle_shutdown.ms = 15_000, stats.ms = 2_000 }
 
 [frame.av]
-left = { window = "Blackman_Nuttall", comp = false }
-right = { window = "Hann", comp = false }
+fft = [
+  {left = { window = "Blackman_Nuttall", comp = false }},
+  {right = { window = "Hann", comp = false }}
+]
+
 
 [frame.cipher]
 buffer_size = 0x2000 # bytes 4k

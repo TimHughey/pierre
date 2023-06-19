@@ -169,6 +169,17 @@ public:
   /// @brief Release an acquired watch token
   void release() const noexcept;
 
+  toml::table &subtable(toml::path sub_path) noexcept {
+    auto &t = table();
+    const auto &st_node = t[sub_path];
+
+    if (st_node.is_table()) {
+      return *st_node.as_table();
+    }
+
+    return empty_table;
+  }
+
   /// @brief Direct access to configuration table managed by token
   ///        Use with caution for access to configuration not handled
   ///        by member functions (e.g. array)
@@ -403,12 +414,6 @@ public:
       return val<T>(toml::path(p), def_val1);
     }
   }
-
-  // template <typename T, typename P>
-  //   requires std::movable<T>
-  // T val(P &&p) noexcept {
-  //   return val<T>(std::forward<P>(p), T());
-  // }
 
 protected:
   /// @brief Helper method for populating parser related messages (e.g. errors)

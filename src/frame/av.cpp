@@ -28,6 +28,7 @@ Av::Av() noexcept
       tokc(module_id),
       // create our own conf object
       conf(std::make_unique<frame::av_conf>(tokc)) {
+
   ready.clear();
 
   codec = avcodec_find_decoder(AV_CODEC_ID_AAC);

@@ -35,8 +35,6 @@ void FFT::init() noexcept {
     double samplesMinusOne = samples_max - 1.0;
     double compensationFactor = win_compensation_factors[window_type];
 
-    if (window_type == UnknownWindow) window_type = Hann;
-
     for (size_t i = 0; i < (samples_max >> 1); i++) {
       double indexMinusOne = i;
       double ratio = (indexMinusOne / samplesMinusOne);
@@ -81,7 +79,7 @@ void FFT::init() noexcept {
         break;
 
       default:
-        // NOTE: UnknownWinType will never happen, code above falls back to Hann
+        weighingFactor = Hann;
         break;
       }
 
