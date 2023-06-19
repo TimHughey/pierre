@@ -43,7 +43,7 @@ private:
   AnchorLast last;
 
 public:
-  MOD_ID("frame.anc.base");
+  MOD_ID("frame.anchor");
 };
 
 } // namespace pierre

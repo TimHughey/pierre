@@ -48,7 +48,15 @@ public:
     bool finished{true};
 
     constexpr bool active() const { return !finished; }
-    constexpr bool complete() const { return traveled > to_travel; }
+
+    /// @brief Travel complete after at least one frame and
+    ///        frames traveled exceeds frames to travel
+    ///
+    ///        NOTE:  only applicable after call to initiate
+    ///
+    /// @return Boolean
+    constexpr bool complete() const { return (traveled > 0) && (traveled > to_travel); }
+
     constexpr void finish() noexcept { finished = true; }
     constexpr void initiate() noexcept { finished = false; }
     constexpr double progress() const { return (double)traveled / (double)to_travel; }
@@ -132,6 +140,8 @@ public:
     if (frames.to_travel > 0) frames.initiate();
   }
 
+  /// @brief Progresses the fader
+  /// @return Boolean, true=continue traveling, false=destination reached
   virtual bool travel() noexcept {
 
     if (frames.active()) {

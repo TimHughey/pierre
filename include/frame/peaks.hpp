@@ -62,7 +62,7 @@ public:
   void insert(peak::Freq freq, peak::dB dB_norm, chan_t ch = Left) noexcept {
     // https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
 
-    chan_peaks[ch].emplace_back(freq, dB_norm);
+    if (dB_norm > peak::dB()) chan_peaks[ch].emplace_back(freq, dB_norm);
   }
 
   /// @brief Major Peak

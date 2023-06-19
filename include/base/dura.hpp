@@ -23,41 +23,59 @@
 #include "base/qpow10.hpp"
 #include "base/types.hpp"
 
+#include <concepts>
+#include <limits>
+
 namespace pierre {
+
+template <typename T>
+concept IsDuraOffset = std::integral<T>;
 
 /// @brief Duration Helpers
 struct dura {
 
-  /// @brief Apply raw offset to duration
+  /// @brief Apply (add) raw offset to duration
   /// @tparam TO chrono duration type
   /// @tparam O Integral
   /// @param d Duration to apply offset to
   /// @param offset Offset to apply
   template <typename TO, typename O>
+    requires IsDuration<TO> && IsDuraOffset<O>
   static constexpr void apply_offset(TO &d, const O &offset) noexcept {
     if constexpr (IsDuration<TO> && std::unsigned_integral<O>) {
       d = TO(d.count() + offset);
     } else if constexpr (IsDuration<TO> && std::signed_integral<O>) {
       d = TO(d.count() + offset);
-    } else {
-      static_assert(AlwaysFalse<TO>, "unsupported types");
     }
   }
 
-  /// @brief Apply raw offset to reference and set duration
+  /// @brief Apply (subtract) to a duration using a source duration and raw offset and
+  ///        appropriately handle unsigned wrap around (as needed)
   /// @tparam TO chrono duration type
   /// @tparam O Integral
   /// @param r Destination duration
   /// @param d2 Duration to apply offset to
   /// @param offset Offset to apply
   template <typename TO, typename O>
-  static constexpr void apply_offset(TO &r, const TO &d2, const O &offset) noexcept {
+    requires IsDuration<TO> && std::integral<O>
+  static constexpr void apply_offset(TO &r, const TO &d2, O offset) noexcept {
+
+    /// NOTE: we handle unsigned offsets and signed offsets respecting
+    ///       the differences of subtraction
     if constexpr (IsDuration<TO> && std::unsigned_integral<O>) {
-      r = TO(static_cast<O>(d2.count()) - offset);
+      // using implict conversion perform the subtraction as unsigned
+      O u_val = d2.count() - offset;
+
+      // use implict conversion unsigned result to a signed val
+      using signed_o = std::make_signed_t<O>;
+      signed_o s_val = u_val;
+
+      // handle unsigned to signed wrap around, if needed
+      if (s_val < 0) s_val += std::numeric_limits<uint64_t>::max();
+
+      r = TO(s_val);
     } else if constexpr (IsDuration<TO> && std::signed_integral<O>) {
       r = TO(d2.count() - offset);
-    } else {
-      static_assert(AlwaysFalse<TO>, "unsupported types");
     }
   }
 
@@ -66,16 +84,16 @@ struct dura {
   /// @tparam FROM Chrono duration or type one is constructible from
   /// @param x Value
   /// @return Chrono duration
-  template <typename TO, typename FROM = Nanos> static constexpr TO as(FROM x) {
+  template <typename TO, typename FROM = Nanos>
+  static constexpr TO as(FROM x)
+    requires IsDuration<TO> && (IsDuration<FROM> || std::same_as<FROM, int64_t>)
+  {
     if constexpr (std::same_as<TO, FROM>) {
       return x;
     } else if constexpr (IsDuration<FROM> && IsDuration<TO>) {
       return std::chrono::duration_cast<TO>(x);
     } else if constexpr (std::constructible_from<TO, FROM>) {
       return TO(x);
-    } else {
-      static_assert(AlwaysFalse<TO>, "unhandled type");
-      return TO(0);
     }
   }
 

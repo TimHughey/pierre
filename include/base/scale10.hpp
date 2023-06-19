@@ -44,6 +44,12 @@ template <typename T> constexpr T scale10(T val) {
   return (val <= 0.0) ? 0.0 : 10.0 * std::log10(val);
 }
 
+/// @brief Scale a value from a number range to another
+/// @tparam T Type that supports get() returning a double
+/// @param sv Array of number range min and max values
+///           { OldMin, OldMax, Newmin, NewMax }
+/// @param val Value to scale
+/// @return double
 template <typename T>
   requires CanGetDouble<T>
 constexpr double scale(std::array<double, 4> &&sv, const T &val) noexcept {
@@ -54,9 +60,21 @@ constexpr double scale(std::array<double, 4> &&sv, const T &val) noexcept {
   auto old_range = sv[OldMax] - sv[OldMin];
   auto new_range = sv[NewMax] - sv[NewMin];
 
-  return (((val.get() - sv[OldMin]) * new_range) / old_range) + sv[NewMin];
+  return std::abs((((val.get() - sv[OldMin]) * new_range) / old_range) + sv[NewMin]);
 }
 
+/// @brief Scale a value from a number range to another
+///        using two pairs of min and max.  The pairs must support
+///        getting the min/max via get() and returning a struct containing
+///        a min/max member.  The min/max must also support get() of the
+///        same type as the value to scale.
+/// @tparam T Current min and max (aka old) pair type
+/// @tparam U New min and min pair type
+/// @tparam V Value to convert, must support get() returning a double
+/// @param t Current min/max pair
+/// @param u New min/max pair
+/// @param v Value to scale
+/// @return double
 template <typename T, typename U, typename V>
   requires HasDoubleMinMaxPair<T> && HasDoubleMinMaxPair<U> && CanGetDouble<V>
 double scale(const T &t, const U &u, V v) noexcept {

@@ -43,14 +43,8 @@ dB_range = [-50.0, -20.0]
 
 [[fx.majorpeak.color_spec]]
 name = "high"
-bound_peaks = [
-  { freq = 180.0, dB = -50.0 },
-  { freq = 11500.0, dB = -20.0 }
-]
-colors = [
-  { hue = 300.0, sat = 100.0, bri = 0.0 },
-  { hue = 359.9, sat = 100.0, bri = 85.0 }
-]
+bound_peaks = [{ freq = 180.0, dB = -50.0 }, { freq = 11500.0, dB = -20.0 }]
+colors = [{ hue = 300.0, sat = 100.0, bri = 0.0 },{ hue = 359.9, sat = 100.0, bri = 85.0 }]
 step_type = "hue"
 step = 0.5
 
@@ -130,6 +124,7 @@ run = true
 load_config = true
 
 [logger.frame]
+anchor = true
 av = {init = true}
 clock = { init = true, map_shm = false, peers_update = false, refresh = false, shutdown = false }
 decipher = false

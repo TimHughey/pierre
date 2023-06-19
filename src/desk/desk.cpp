@@ -198,13 +198,16 @@ void Desk::loop() noexcept {
 
   if (frr.abort()) return;
 
-  if (frr().sync_wait() == 0ns) {
+  auto sync_wait = frr.sync_wait();
+
+  if (sync_wait == 0ns) {
     asio::post(render_strand, [this]() {
       reel->clean();
       loop();
     });
   } else {
-    loop_timer.expires_after(frr().sync_wait());
+
+    loop_timer.expires_after(sync_wait);
 
     asio::post(render_strand, [this]() { reel->clean(); });
     loop_timer.async_wait([this](const error_code &ec) {

@@ -113,6 +113,17 @@ struct Peak {
 
   constexpr auto useable() const noexcept { return db > peak::dB(); }
 
+  /// @brief Determine if a peak is usable using a pair of min/max values
+  /// @tparam T Component type of Peak to use for comparison (e.g. freq, dB)
+  /// @tparam U Type of min/max values (must match T)
+  /// @param br
+  /// @return
+  template <typename T, typename U>
+    requires IsSpecializedPeakPart<T> && IsPeakBoundedRange<U>
+  constexpr auto useable(const U &br) const noexcept {
+    return inclusive<T>(br);
+  }
+
   template <typename T>
     requires IsSpecializedPeakPart<T>
   constexpr const T &val() const noexcept {

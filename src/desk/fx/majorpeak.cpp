@@ -107,24 +107,23 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
 
   handle_el_wire(peaks);
 
+  const auto &dB_bound = runconf->dB_bound;
+  const bound<Bri> bri_full({0.0_BRI, 100.0_BRI});
+
   for (const auto &s : s_specs) {
 
     if (auto it = ranges::find(c_specs, s.color_spec, &color_spec::name); it != c_specs.end()) {
 
-      if (peak.useable() && it->match_peak(peak)) {
+      if (peak.useable<peak::dB>(dB_bound) && it->match_peak(peak)) {
         Hsb next_color = s.fade.color;
 
-        // auto bri_v = scale(-20.0, -96.0, 100.0, 0.0, (double)peak.db) * (double)next_color.bri;
+        if (s.id == "fill") {
+          next_color = Hue(scale({1.77, 2, 0, 360}, peak.freq.linear()));
+        } else {
+          next_color = Hue(scale({1.77, 4, 0, 360}, peak.freq.linear()));
+        }
 
-        bound<Bri> bri_s({0.0_BRI, 100.0_BRI});
-        bound<peak::dB> db_s({peak::dB(-96.0), peak::dB(-20)});
-
-        next_color = Hue(scale({1.77, 4, 0, 360}, peak.freq.linear()));
-        // next_color = Bri(scale({-96, -20, 0, 100}, peak.db) * next_color.bri.get());
-
-        next_color = Bri(scale(db_s, bri_s, peak.db) * next_color.bri.get());
-
-        //  next_color.assign(peak.lerp<dB>(it->color_range<Bri>()));
+        next_color = Bri(scale(dB_bound, bri_full, peak.db) * next_color.bri.get());
 
         auto pinspot = unit<PinSpot>(s.unit);
 

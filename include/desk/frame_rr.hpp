@@ -58,6 +58,10 @@ struct frame_rr {
   /// @brief Get reference to the Frame being rendered
   /// @return Frame reference
   Frame &operator()() noexcept { return f; }
+
+  /// @brief The sync wait of the frame
+  /// @return Nanos
+  Nanos sync_wait() noexcept { return f.sync_wait(); }
 };
 
 } // namespace desk

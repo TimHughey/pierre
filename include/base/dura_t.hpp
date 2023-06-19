@@ -42,6 +42,6 @@ using system_timepoint = std::chrono::time_point<system_clock, Nanos>;
 typedef uint64_t ClockID; // master clock id
 
 template <typename T>
-concept IsDuration = IsAnyOf<T, Nanos, Micros, Millis, Seconds, Minutes, Hours, Days>;
+concept IsDuration = IsAnyOf<T, Nanos, Micros, Millis, millis_fp, Seconds, Minutes, Hours, Days>;
 
 } // namespace pierre
