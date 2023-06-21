@@ -23,11 +23,11 @@
 #include "base/types.hpp"
 #include "frame/peaks/peak_part.hpp"
 
-// #include <algorithm>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <concepts>
-#include <fmt/format.h>
+#include <ranges>
 #include <tuple>
 
 namespace pierre {
@@ -54,9 +54,9 @@ concept IsPeakBoundedRange = requires(T v) {
 struct Peak {
 
   constexpr Peak() = default;
-  constexpr Peak(const peak::Freq f, const peak::dB db) noexcept : freq(f), db(db) {}
+  constexpr Peak(const peak::Freq f, const peak::dB db) noexcept : db(db), freq(f) {}
 
-  constexpr Peak(peak::dB &&db) noexcept : freq(0.0), db(std::forward<peak::dB>(db)) {}
+  constexpr Peak(peak::dB &&db) noexcept : db(std::forward<peak::dB>(db)), freq(0.0) {}
 
   void assign(const toml::table &t) noexcept {
     // this for_each filters on only doubles, other keys are are ignored
@@ -67,6 +67,10 @@ struct Peak {
         freq.assign(v);
       } else if (key == "dB") {
         db.assign(v);
+      } else if (key == "mag") {
+        mag.assign(v);
+      } else if (key == "spl") {
+        spl.assign(v);
       }
     });
   }
@@ -108,6 +112,10 @@ struct Peak {
       return freq;
     } else if constexpr (isPeakPartdB<T>) {
       return db;
+    } else if constexpr (IsPeakPartMag<T>) {
+      return mag;
+    } else if constexpr (IsPeakPartSpl<T>) {
+      return spl;
     }
   }
 
@@ -131,35 +139,62 @@ struct Peak {
       return freq;
     } else if constexpr (isPeakPartdB<T>) {
       return db;
+    } else if constexpr (IsPeakPartMag<T>) {
+      return mag;
+    } else if constexpr (IsPeakPartSpl<T>) {
+      return spl;
     }
   }
 
 public:
-  peak::Freq freq{};
   peak::dB db{};
+  peak::Freq freq{};
+  peak::Mag mag{};
+  peak::Spl spl{};
 };
 
 } // namespace pierre
 
 #include <fmt/format.h>
+#include <variant>
+
+namespace {
+using namespace pierre;
+}
 
 template <> struct fmt::formatter<pierre::Peak> {
-  // Presentation format: 'f' - frequency, 'd' - dB, 'empty' - both
-  bool want_freq = false;
-  bool want_dB = false;
+
+  // Presentation format:
+  //   'f'  = frequency
+  //   'd'  = dB
+  //   'm'  = mag
+  //   's'  = spl
+  //   none = f,d
+
+  enum fmt_parts : uint8_t { Freq = 0, dB, Mag, Spl };
+
+  struct fmt_ctrl {
+    char flag;
+    bool want;
+  };
+
+  std::array<fmt_ctrl, 4> part_fmt{{{'f', false}, {'d', false}, {'m', false}, {'s', false}}};
 
   constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
 
     auto it = ctx.begin(), end = ctx.end();
+    auto fc_end = part_fmt.end();
 
     while ((it != end) && (*it != '}')) {
-      if (*it == 'f') want_freq = true;
-      if (*it == 'd') want_dB = true;
+      if (auto fc_it = std::ranges::find(part_fmt, *it, &fmt_ctrl::flag); fc_it != fc_end) {
+        fc_it->want = true;
+      }
+
       it++;
     }
 
-    if (!want_freq && !want_dB) {
-      want_freq = want_dB = true;
+    if (auto def = std::ranges::none_of(part_fmt, &fmt_ctrl::want); def) {
+      part_fmt[Freq].want = part_fmt[dB].want = true;
     }
 
     // Return an iterator past the end of the parsed range:
@@ -173,10 +208,12 @@ template <> struct fmt::formatter<pierre::Peak> {
     std::string msg;
     auto w = std::back_inserter(msg);
 
-    if (want_freq) fmt::format_to(w, "{:>8.0f}Hz ", p.freq);
-    if (want_dB) fmt::format_to(w, "{:>02.0f}dB", p.db);
+    if (part_fmt[Freq].want) fmt::format_to(w, "{:0.0f}Hz ", p.freq);
+    if (part_fmt[dB].want) fmt::format_to(w, "{:0.1f}dB ", p.db);
+    if (part_fmt[Mag].want) fmt::format_to(w, "{:0.1f}mag ", p.mag);
+    if (part_fmt[Spl].want) fmt::format_to(w, "{:0.1f}spl", p.spl);
 
-    // ctx.out() is an output iterator to write to.
+    // ctx.out() is an output iterator
     return fmt::format_to(ctx.out(), "{}", msg);
   }
 };

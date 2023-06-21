@@ -31,18 +31,28 @@ namespace pierre {
 template <typename T> struct peak_part;
 
 namespace peak {
-struct freq_tag {};
 struct dB_tag {};
-} // namespace peak
+struct freq_tag {};
+struct mag_tag {};
+struct spl_tag {};
 
-template <typename T>
-concept IsPeakPartFrequency = std::same_as<T, peak_part<peak::freq_tag>>;
+} // namespace peak
 
 template <typename T>
 concept isPeakPartdB = std::same_as<T, peak_part<peak::dB_tag>>;
 
 template <typename T>
-concept IsSpecializedPeakPart = IsPeakPartFrequency<T> || isPeakPartdB<T>;
+concept IsPeakPartFrequency = std::same_as<T, peak_part<peak::freq_tag>>;
+
+template <typename T>
+concept IsPeakPartMag = std::same_as<T, peak_part<peak::mag_tag>>;
+
+template <typename T>
+concept IsPeakPartSpl = std::same_as<T, peak_part<peak::spl_tag>>;
+
+template <typename T>
+concept IsSpecializedPeakPart = IsAnyOf<T, peak_part<peak::dB_tag>, peak_part<peak::freq_tag>,
+                                        peak_part<peak::mag_tag>, peak_part<peak::spl_tag>>;
 
 template <typename TAG> struct peak_part {
 
@@ -66,9 +76,6 @@ template <typename TAG> struct peak_part {
 
   void clear() noexcept { ppv = 0.0; }
 
-  constexpr explicit operator bool() const noexcept { return ppv; }
-  constexpr explicit operator double() const noexcept { return ppv; }
-
   /// @brief Get copy of foundational type
   /// @return Foundational type, by value
   constexpr auto get() const noexcept { return ppv; }
@@ -82,6 +89,11 @@ template <typename TAG> struct peak_part {
     }
   }
 
+  constexpr explicit operator double() const noexcept { return ppv; }
+
+  operator bool() const = delete;
+  bool operator!() const = delete;
+
   /// @brief Enable all comparison operators for peak parts
   /// @param  peak_part right hand side
   /// @return same as double <=>
@@ -94,10 +106,8 @@ template <typename TAG> struct peak_part {
   }
 
   // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend peak_part
-  operator*(peak_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const peak_part &rhs) // otherwise, both parameters may be const references
-  {
+  // passing lhs by value helps optimize chained a+b+c
+  friend peak_part operator*(peak_part lhs, const peak_part &rhs) {
     lhs *= rhs; // reuse compound assignment
     return lhs; // return the result by value (uses move constructor)
   }
@@ -109,10 +119,8 @@ template <typename TAG> struct peak_part {
   }
 
   // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend peak_part
-  operator-(peak_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const peak_part &rhs) // otherwise, both parameters may be const references
-  {
+  // passing lhs by value helps optimize chained a+b+c
+  friend peak_part operator-(peak_part lhs, const peak_part &rhs) {
     lhs -= rhs; // reuse compound assignment
     return lhs; // return the result by value (uses move constructor)
   }
@@ -124,10 +132,8 @@ template <typename TAG> struct peak_part {
   }
 
   // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend peak_part
-  operator+(peak_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const peak_part &rhs) // otherwise, both parameters may be const references
-  {
+  // passing lhs by value helps optimize chained a+b+c
+  friend peak_part operator+(peak_part lhs, const peak_part &rhs) {
     lhs += rhs; // reuse compound assignment
     return lhs; // return the result by value (uses move constructor)
   }
@@ -138,10 +144,8 @@ template <typename TAG> struct peak_part {
   }
 
   // friends defined inside class body are inline and are hidden from non-ADL lookup
-  friend peak_part
-  operator/(peak_part lhs,        // passing lhs by value helps optimize chained a+b+c
-            const peak_part &rhs) // otherwise, both parameters may be const references
-  {
+  // passing lhs by value helps optimize chained a+b+c
+  friend peak_part operator/(peak_part lhs, const peak_part &rhs) {
     lhs /= rhs; // reuse compound assignment
     return lhs; // return the result by value (uses move constructor)
   }
@@ -157,6 +161,10 @@ template <typename TAG> struct peak_part {
       return std::array{"comp", "freq"};
     } else if constexpr (std::same_as<TAG, peak::dB_tag>) {
       return std::array{"comp", "dB"};
+    } else if constexpr (std::same_as<TAG, peak::spl_tag>) {
+      return std::array{"comp", "spl"};
+    } else if constexpr (std::same_as<TAG, peak::mag_tag>) {
+      return std::array{"comp", "mag"};
     }
   }
 
@@ -165,10 +173,11 @@ private:
 };
 
 namespace peak {
-using Freq = peak_part<freq_tag>;
 using dB = peak_part<dB_tag>;
+using Freq = peak_part<freq_tag>;
+using Mag = peak_part<mag_tag>;
+using Spl = peak_part<spl_tag>;
 } // namespace peak
-
 } // namespace pierre
 
 template <typename T>

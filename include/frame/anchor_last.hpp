@@ -69,14 +69,14 @@ public:
     requires HasTimestamp<T>
   Nanos frame_to_local_time(const T &f) const noexcept {
     int32_t frame_diff = f.ts() - rtp_time;
-    Nanos time_diff = Nanos((frame_diff * ipow10(9)) / InputInfo::rate);
+    Nanos time_diff = Nanos((frame_diff * ipow10(9)) / InputInfo::sample_rate);
 
     return localized + time_diff;
   }
 
   Nanos frame_to_local_time(ftime_t timestamp) const noexcept {
     int32_t frame_diff = timestamp - rtp_time;
-    Nanos time_diff = Nanos((frame_diff * ipow10(9)) / InputInfo::rate);
+    Nanos time_diff = Nanos((frame_diff * ipow10(9)) / InputInfo::sample_rate);
 
     return localized + time_diff;
   }
@@ -85,7 +85,7 @@ public:
 
   ftime_t local_to_frame_time(const Nanos local_time) const noexcept {
     Nanos time_diff = local_time - localized;
-    Nanos frame_diff = time_diff * InputInfo::rate;
+    Nanos frame_diff = time_diff * InputInfo::sample_rate;
 
     return rtp_time + (frame_diff.count() / ipow10(9));
   }

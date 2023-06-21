@@ -27,7 +27,9 @@ namespace pierre {
 /// @brief Buffered audio stream details and frame timing
 struct InputInfo {
   /// @brief audio data sample rate (in Hz)
-  static constexpr uint32_t rate{44100}; // max available at the moment
+  static constexpr uint32_t sample_rate{44100}; // Hz (max available at the moment)
+
+  static constexpr uint32_t band{sample_rate / 2}; // Hz
 
   /// @brief number of audio channels
   static constexpr uint8_t channels{2};
@@ -35,28 +37,31 @@ struct InputInfo {
   /// @brief bit depth of audio data
   static constexpr uint8_t bit_depth{16};
 
-  /// @brief bytes per audio frane
-  static constexpr uint8_t bytes_per_frame{4};
+  /// @brief bytes per sample
+  static constexpr auto bps{sizeof(double)};
+
+  /// @brief Samples per frame
+  static constexpr int64_t spf{1024};
 
   /// @brief duration of a frame in nanoseconds
-  static constexpr Nanos frame{static_cast<int64_t>(qpow10(9) / rate)};
+  static constexpr Nanos frame{static_cast<int64_t>(qpow10(9) / sample_rate)};
 
   /// @brief Frames per specified duration
   /// @tparam T duration type
   /// @param v duration value
   /// @return number of frames
-  template <typename T> static constexpr auto frame_count(T v) noexcept {
+  template <typename T>
+    requires IsDuration<T>
+  static constexpr auto frame_count(T v) noexcept {
     if constexpr (std::same_as<T, Nanos>) {
       return v / lead_time;
-    } else if constexpr (IsDuration<T>) {
-      return std::chrono::duration_cast<Nanos>(v) / lead_time;
     } else {
-      static_assert(AlwaysFalse<T>, "unhandled type");
+      return std::chrono::duration_cast<Nanos>(v) / lead_time;
     }
   }
 
   /// @brief Lead time for rendering a Frame in nanoseconds
-  static constexpr Nanos lead_time{frame * 1024};
+  static constexpr Nanos lead_time{frame * spf};
 
   /// @brief Lead time for rendering a Frame in raw microseconds
   static constexpr int64_t lead_time_us{std::chrono::duration_cast<Micros>(lead_time).count()};

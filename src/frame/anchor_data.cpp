@@ -39,7 +39,7 @@ void AnchorData::log_timing_change(const AnchorData &ad) const noexcept {
     double time_diff = ad.anchor_time.count() - anchor_time.count();
     auto frame_diff = ad.rtp_time - rtp_time;
 
-    double time_diff_in_frames = (1.0 * time_diff * InputInfo::rate) / ipow10(9);
+    double time_diff_in_frames = (1.0 * time_diff * InputInfo::sample_rate) / ipow10(9);
     millis_fp frame_change{frame_diff - time_diff_in_frames};
 
     fmt::format_to(w, "clk_id={:#x} rtp_time={:02x} frame_adj={:0.2}", //
