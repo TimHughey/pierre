@@ -26,15 +26,15 @@
 
 namespace pierre {
 
-using bound_dB = bound<peak::dB>;
+using bound_spl = bound<peak::Spl>;
 
 } // namespace pierre
 
-template <> struct fmt::formatter<pierre::bound_dB> : public fmt::formatter<std::string> {
+template <> struct fmt::formatter<pierre::bound_spl> : public fmt::formatter<std::string> {
 
   template <typename FormatContext>
-  auto format(const pierre::bound_dB &pb, FormatContext &ctx) const -> decltype(ctx.out()) {
+  auto format(const pierre::bound_spl &pb, FormatContext &ctx) const -> decltype(ctx.out()) {
 
-    return fmt::format_to(ctx.out(), "{}dB {}dB", pb.first(), pb.second()); // write to ctx.out()
+    return fmt::format_to(ctx.out(), "{}spl {}spl", pb.first(), pb.second()); // write to ctx.out()
   }
 };

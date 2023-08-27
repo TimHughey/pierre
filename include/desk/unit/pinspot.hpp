@@ -100,17 +100,7 @@ public:
   /// @brief Prepare the PinSpot for sending the next DataMsg
   ///        This member function is an override of Unit and is
   ///        called as a calculation step.
-  void prepare() noexcept override {
-
-    // when fading we want to continue traveling via the fader
-    if (fader.active() && fader.travel()) {
-      // get the next color from the Fader
-      color = fader.color_now();
-
-      // ensure strobe is turned off
-      strobe = 0;
-    }
-  }
+  void prepare() noexcept override {}
 
   /// @brief Is the PinSpot fading
   /// @return boolean, true when fading
@@ -120,6 +110,17 @@ public:
   ///        state as determined by the call to prepare()
   /// @param msg Reference to the DataMsg to be sent
   void update_msg(DataMsg &msg) noexcept override {
+    // when fading we want to continue traveling via the fader
+    if (fader.active()) {
+      fader.travel();
+
+      // get the next color from the Fader
+      color = fader.color_now();
+
+      // ensure strobe is turned off
+      strobe = 0;
+    }
+
     auto frame{msg.frame(address, frame_len)};
 
     // byte[0] enable or disable strobe (Pinspot specific)

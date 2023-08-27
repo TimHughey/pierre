@@ -30,7 +30,7 @@
 namespace pierre {
 
 // forward decls
-class FFT;
+// class FFT2;
 
 class Av {
 
@@ -70,7 +70,7 @@ private:
   frame_state_v decode_failed(Frame &frame, AVPacket **pkt,
                               AVFrame **audio_frame = nullptr) noexcept;
 
-  frame_state_v dsp(Frame &frame, FFT &&left, FFT &&right) noexcept;
+  // frame_state_v dsp(Frame &frame, FFT2 &&left, FFT2 &&right) noexcept;
 
   void log_diag_info(AVFrame *audio_frame) noexcept;
 

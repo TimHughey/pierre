@@ -18,8 +18,10 @@
 
 #include "av.hpp"
 #include "base/logger.hpp"
-#include "fft.hpp"
+#include "fft2.hpp"
 #include "frame/av/conf.hpp"
+
+#include <fftw3.h>
 
 namespace pierre {
 
@@ -118,15 +120,21 @@ frame_state_v Av::decode(Frame &frame, uint8v m) noexcept {
   if (audio_frame->flags == 0) {
     const float *data[] = {(float *)audio_frame->data[0], (float *)audio_frame->data[1]};
 
-    const auto af = audio_frame;
+    // const auto af = audio_frame;
 
-    FFT left(data[0], af->nb_samples, af->sample_rate, conf->left);
-    FFT right(data[1], af->nb_samples, af->sample_rate, conf->right);
+    FFT2 left(data[0], conf->left);
+    FFT2 right(data[1], conf->right);
 
-    dsp(frame, std::move(left), std::move(right));
+    left.find_peaks(frame.peaks, Peaks::Left);
+    right.find_peaks(frame.peaks, Peaks::Right);
+
+    frame.silent(frame.peaks.silence());
+
+    frame = frame::DSP;
   }
 
-  av_frame_free(&audio_frame);
+  av_frame_unref(audio_frame);
+  // av_frame_free(&audio_frame);
   av_packet_free(&pkt);
 
   return (frame_state_v)frame;
@@ -140,7 +148,7 @@ frame_state_v Av::decode_failed(Frame &frame, AVPacket **pkt, AVFrame **audio_fr
   return (frame_state_v)frame.record_state();
 }
 
-frame_state_v Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
+/*frame_state_v Av::dsp(Frame &frame, FFT2 &&left, FFT2 &&right) noexcept {
 
   left.find_peaks(frame.peaks, Peaks::Left);
   right.find_peaks(frame.peaks, Peaks::Right);
@@ -150,7 +158,7 @@ frame_state_v Av::dsp(Frame &frame, FFT &&left, FFT &&right) noexcept {
   frame = frame::DSP;
 
   return (frame_state_v)frame;
-}
+}*/
 
 void Av::log_diag_info(AVFrame *audio_frame) noexcept {
   static bool reported = false;

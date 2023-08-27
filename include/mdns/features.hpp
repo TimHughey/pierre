@@ -44,7 +44,7 @@ constexpr size_t b06_Unknown = 6;
 // 07: seems to need NTP
 constexpr size_t b07ScreenMirroring = 7;
 constexpr size_t b08ScreenRotate = 8;
-// constexpr size_t 09 is necessary for iPhones/Music: audio
+// BIT09 is necessary for iPhones/Music: audio
 constexpr size_t b09AirPlayAudio = 9;
 constexpr size_t b10Unknown = 10;
 constexpr size_t b11AudioRedundant = 11;
@@ -66,15 +66,15 @@ constexpr size_t b19ReceiveAudioALAC = 19;
 // iOS needs 20
 constexpr size_t b20ReceiveAudioAAC_LC = 20;
 constexpr size_t b21Unknown = 21;
-// Try constexpr size_t 22 without constexpr size_t 40 - ANNOUNCE + SDP
+// Try 22 without 40 - ANNOUNCE + SDP
 constexpr size_t b22AudioUnencrypted = 22;
 constexpr size_t b23RSA_Auth = 23;
 constexpr size_t b24Unknown = 24;
 // Pairing stalls with longer /auth-setup string w/26
-// constexpr size_t 25 seems to require ANNOUNCE
+// BIT25 seems to require ANNOUNCE
 constexpr size_t b25iTunes4WEncryption = 25;
-// try constexpr size_t 26 without constexpr size_t 40. constexpr size_t 26 = crypt audio?
-// mutex w/constexpr size_t 22?
+// try BIT26 without BIT40. BIT26 = crypt audio?
+// mutex w/BIT22?
 constexpr size_t b26Audio_AES_Mfi = 26;
 // 27: connects and works OK
 constexpr size_t b27LegacyPairing = 27;
@@ -121,7 +121,7 @@ constexpr size_t b60AudioMediaDataControl = 60;
 constexpr size_t b61RFC2198Redundant = 61;
 constexpr size_t b62_Unknown = 62;
 
-// constexpr size_t 51 - macOS sits for a while. Perhaps trying a closed connection port or
+// BIT51 - macOS sits for a while. Perhaps trying a closed connection port or
 // medium?; iOS just fails at Pair-Setup [2/5]
 
 // features is 64-bits and used for both mDNS (advertisement) and plist (RTSP replies)

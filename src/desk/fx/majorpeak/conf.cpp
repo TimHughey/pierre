@@ -28,7 +28,7 @@ string majorpeak::format() const noexcept {
   std::string msg;
   auto w = std::back_inserter(msg);
 
-  fmt::format_to(w, "{} {:h} {}\n", pierre::dura::humanize(silence_timeout), base_color, dB_bound);
+  fmt::format_to(w, "{} {:h} {}\n", pierre::dura::humanize(silence_timeout), base_color, spl_bound);
 
   for (const auto &color_spec : color_specs) {
     fmt::format_to(w, "{}color_spec {}\n", logger->indent_str(), color_spec);

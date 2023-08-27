@@ -11,6 +11,9 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavutil
 )
 
+pkg_check_modules(LIBFFT REQUIRED IMPORTED_TARGET
+    fftw3)
+
 set(__target frame)
 
 set(HEADER_PATH                 ${pierre_SOURCE_DIR}/include)
@@ -28,7 +31,8 @@ add_library(${__target}
   av.cpp
 
   # digital signal processing
-  fft.cpp 
+  # fft.cpp 
+  fft2.cpp
 
   # anchor and master clock
   anchor.cpp
@@ -59,4 +63,5 @@ target_link_libraries(${__target} PRIVATE
   ${sodium_LIBRARY_RELEASE}
   base
   PkgConfig::LIBAV
+  PkgConfig::LIBFFT
 )

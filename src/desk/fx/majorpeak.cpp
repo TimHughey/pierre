@@ -65,7 +65,10 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
   INFO_AUTO_CAT("execute");
 
   if (tokc->changed()) {
-    runconf->load();
+    auto ok = runconf->load();
+
+    if (!ok) INFO_AUTO("conf msgs: {}", fmt::join(runconf->msgs, ", "));
+
     save_silence_timeout(runconf->silence_timeout);
   }
 
@@ -107,14 +110,15 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
 
   handle_el_wire(peaks);
 
-  const auto &dB_bound = runconf->dB_bound;
-  const bound<Bri> bri_full({0.0_BRI, 100.0_BRI});
+  const auto &spl_bound = runconf->spl_bound;
+  constexpr bound<Bri> bri_full({0.0_BRI, 100.0_BRI});
 
   for (const auto &s : s_specs) {
 
     if (auto it = ranges::find(c_specs, s.color_spec, &color_spec::name); it != c_specs.end()) {
 
-      if (peak.useable<peak::dB>(dB_bound) && it->match_peak(peak)) {
+      if (peak.useable<peak::Spl>(spl_bound) && it->match_peak(peak)) {
+
         Hsb next_color = s.fade.color;
 
         if (s.id == "fill") {
@@ -123,21 +127,26 @@ void MajorPeak::execute(const Peaks &peaks) noexcept {
           next_color = Hue(scale({1.77, 4, 0, 360}, peak.freq.linear()));
         }
 
-        next_color = Bri(scale(dB_bound, bri_full, peak.db) * next_color.bri.get());
+        next_color = Bri(scale(spl_bound, bri_full, peak.spl) * next_color.bri.get());
 
-        auto pinspot = unit<PinSpot>(s.unit);
+        // only take action on visible colors
+        if (next_color.visible()) {
 
-        if ((pinspot->fading() == false) && next_color.visible()) {
-          pinspot->initiate_fade(s.fade.timeout, next_color);
+          // when not fading, start
+          if (auto spot = unit<PinSpot>(s.unit); !spot->fading()) {
+            INFO_AUTO("{} {} {:h}", s.id, peak, next_color);
+            spot->initiate_fade(s.fade.timeout, next_color);
+          }
+          next_color.write_metric();
         }
-
-        next_color.write_metric();
 
         skipped = false;
       }
 
       Stats::write<MajorPeak>(stats::PEAK, peak.freq);
-      Stats::write<MajorPeak>(stats::PEAK, peak.db);
+      // Stats::write<MajorPeak>(stats::PEAK, peak.db);
+      Stats::write<MajorPeak>(stats::PEAK, peak.spl);
+      Stats::write<MajorPeak>(stats::PEAK, peak.mag);
     }
   }
 

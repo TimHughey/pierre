@@ -37,7 +37,7 @@ public:
   enum chan_t : size_t { Left = 0, Right };
 
 public:
-  Peaks() noexcept : chan_peaks{all_peaks(1024), all_peaks(1024)} {}
+  Peaks() noexcept : chan_peaks{all_peaks(512), all_peaks(512)} {}
   ~Peaks() noexcept {}
 
   Peaks(Peaks &&) = default;
@@ -55,14 +55,20 @@ public:
 
   void finalize() noexcept {
     for (auto &chp : chan_peaks) {
-      std::ranges::sort(chp, [](const Peak &a, const Peak &b) { return a.db > b.db; });
+      std::ranges::sort(chp, std::ranges::greater(), &Peak::mag);
     }
   }
 
-  void insert(peak::Freq freq, peak::dB dB_norm, chan_t ch = Left) noexcept {
-    // https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
+  // void insert(peak::Freq freq, peak::dB dB_norm, chan_t ch = Left) noexcept {
+  // https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
 
-    if (dB_norm > peak::dB()) chan_peaks[ch].emplace_back(freq, dB_norm);
+  // if (dB_norm > peak::dB(-76.0)) chan_peaks[ch].emplace_back(freq, dB_norm);
+  //}
+
+  void operator()(peak::Freq f, peak::Mag m, chan_t ch) noexcept {
+    auto peak = Peak(f, m);
+
+    if (peak.useable()) chan_peaks[ch].push_back(std::move(peak));
   }
 
   /// @brief Major Peak
@@ -72,22 +78,10 @@ public:
     return size(ch) ? peak1(ch) : silent_peak;
   }
 
-  // find the first peak greater than the Freq
-  /*const Peak &operator()(const Freq &freq, chan_t channel = Left) const noexcept {
-
-    if (size(Left)) {
-      const auto &map = maps[channel];
-
-      for (auto &[mag, peak] : std::views::counted(map.begin(), 5)) {
-        if (freq > peak.freq) return peak;
-      }
-    }
-
-    return silent_peak;
-  }*/
-
   constexpr bool silence() const noexcept {
-    return peak1(Left).db == peak::dB() && peak1(Right) == peak::dB();
+
+    return (std::empty(chan_peaks[Left]) && std::empty(chan_peaks[Right])) ||
+           ((peak1(Left).mag <= peak::Mag()) && peak1(Right).mag <= peak::Mag());
   }
 
 private:

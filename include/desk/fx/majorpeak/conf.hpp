@@ -26,7 +26,7 @@
 #include "desk/color/color_spec.hpp"
 #include "desk/color/hsb.hpp"
 #include "desk/fx/majorpeak/spot_spec.hpp"
-#include "frame/peaks/bound_db.hpp"
+#include "frame/peaks/bound_spl.hpp"
 
 #include <algorithm>
 #include <array>
@@ -85,8 +85,8 @@ struct majorpeak {
             arr.for_each([this](const toml::table &subt) { color_specs.emplace_back(subt); });
           } else if (key == "spot_spec") {
             arr.for_each([this](const toml::table &subt) { spot_specs.emplace_back(subt); });
-          } else if (key == "dB_range") {
-            dB_bound.assign(arr);
+          } else if (key == "spl_range") {
+            spl_bound.assign(arr);
           }
         }});
 
@@ -102,7 +102,7 @@ struct majorpeak {
   // order independent
   desk::Hsb base_color;
   Millis silence_timeout{20000};
-  bound_dB dB_bound;
+  bound_spl spl_bound;
   std::vector<desk::color_spec> color_specs;
   std::vector<desk::spot_spec> spot_specs;
 };

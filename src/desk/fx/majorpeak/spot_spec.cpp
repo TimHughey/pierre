@@ -44,7 +44,7 @@ string spot_spec::alternate::format() const noexcept {
 
   std::string msg;
   auto w = std::back_inserter(msg);
-  constexpr std::array alt_list{alt_t::Greater, alt_t::Freq, alt_t::dB, alt_t::Last};
+  constexpr std::array alt_list{alt_t::Greater, alt_t::Freq, alt_t::Spl, alt_t::Last};
   fmt::format_to(w, "{:h}", color);
 
   for (const auto a : alt_list) {

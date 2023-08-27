@@ -20,6 +20,7 @@
 
 #include "base/dura_t.hpp"
 #include "base/input_info.hpp"
+// #include "base/logger.hpp"
 #include "base/types.hpp"
 #include "desk/color/hsb.hpp"
 
@@ -43,23 +44,19 @@ concept FaderCapable = requires(T v) {
 class Fader {
 public:
   struct travel_frames {
+    constexpr travel_frames() = default;
+    constexpr travel_frames(Nanos d) noexcept { to_travel = InputInfo::frame_count(d); }
+
     int64_t to_travel{0};
     int64_t traveled{0};
-    bool finished{true};
-
-    constexpr bool active() const { return !finished; }
 
     /// @brief Travel complete after at least one frame and
     ///        frames traveled exceeds frames to travel
-    ///
-    ///        NOTE:  only applicable after call to initiate
-    ///
     /// @return Boolean
     constexpr bool complete() const { return (traveled > 0) && (traveled > to_travel); }
-
-    constexpr void finish() noexcept { finished = true; }
-    constexpr void initiate() noexcept { finished = false; }
-    constexpr double progress() const { return (double)traveled / (double)to_travel; }
+    constexpr double progress() const {
+      return std::clamp((double)traveled / (double)to_travel, 0.0, 1.0);
+    }
 
     constexpr travel_frames &reset() noexcept {
       *this = travel_frames{};
@@ -68,7 +65,7 @@ public:
 
     template <typename _T>
       requires std::convertible_to<_T, int64_t>
-    constexpr auto &operator-=(const _T &rhs) noexcept {
+    constexpr travel_frames &operator-=(const _T &rhs) noexcept {
       traveled -= rhs;
       return *this;
     }
@@ -99,8 +96,6 @@ public:
       dest = vals[1];   // array[1] is dest
     }
 
-    void assign_now(const Hsb &next_now) noexcept { now = next_now; }
-
     Hsb dest{};
     Hsb now{};
     Hsb origin{};
@@ -108,73 +103,59 @@ public:
 
 public:
   Fader() = default;
-  virtual ~Fader(){};
-  Fader(Nanos d) noexcept { assign(d); }
-  Fader(Nanos d, travel_colors::origin_dest &&od) noexcept {
-    assign(std::move(d), std::forward<travel_colors::origin_dest>(od)); // setup fader colors
-  }
+  virtual ~Fader() {}
 
-  bool active() const noexcept { return frames.active(); }
-
-  void assign(Nanos d) noexcept { frames.to_travel = InputInfo::frame_count(d); }
+  bool active() const noexcept { return !finished && fading; }
 
   void assign(Nanos d, travel_colors::origin_dest &&od) noexcept {
-    assign(std::move(d));
+    frames = travel_frames(d);
     colors.assign(std::forward<travel_colors::origin_dest>(od));
   }
 
-  constexpr bool complete() const noexcept { return frames.complete(); }
+  constexpr bool complete() const noexcept { return finished; }
 
   virtual Hsb &color_now() noexcept { return colors.now; }
 
   void initiate(Nanos d, travel_colors::origin_dest &&od) noexcept {
-    frames.reset();
-    assign(d);
-    initiate(std::forward<travel_colors::origin_dest>(od));
-  }
+    *this = Fader();
 
-  void initiate(travel_colors::origin_dest &&od) noexcept {
-
-    colors.assign(std::forward<travel_colors::origin_dest>(od));
-
-    if (frames.to_travel > 0) frames.initiate();
+    assign(d, std::forward<travel_colors::origin_dest>(od));
+    fading = true;
   }
 
   /// @brief Progresses the fader
   /// @return Boolean, true=continue traveling, false=destination reached
   virtual bool travel() noexcept {
 
-    if (frames.active()) {
+    if (final_frame) {
+      finish_hook();
+      finished = true;
+      fading = false;
+    } else if (!finished) {
       travel_hook();
 
       ++frames;
 
-      if (frames.complete()) {
-        finish_hook();
-        frames.finish();
-      }
+      if (frames.complete()) final_frame = true;
     }
 
-    return frames.active();
+    return finished;
   }
 
 protected:
   /// @brief Hook for subclasses participate in fader finish
-  virtual void finish_hook() noexcept {}
+  virtual void finish_hook() noexcept { colors.now = colors.dest; }
 
   /// @brief Hook for subclasses to participate in traveling
   ///        The default implementation when Fader is not subclassed
   ///        is to fade from origin to destination via color brightness
   /// @return Percentage complete
   virtual double travel_hook() noexcept {
-    // if we've arrived at the destination signal to stop traveling
-    if (colors.origin.bri == colors.dest.bri) return 0.0;
-
-    auto fade_level = frames.progress();
+    auto fade_level = std::clamp(frames.progress(), 0.0, 1.0);
 
     if (colors.dest.bri == 0.0_BRI) {
       colors.now = colors.origin;
-      colors.now.bri -= colors.origin.bri * Bri(fade_level);
+      colors.now.bri = colors.origin.bri - Bri(colors.origin.bri.get() * fade_level);
     } else {
       colors.now = colors.dest;
       colors.now.bri *= Bri(fade_level);
@@ -187,6 +168,10 @@ protected:
   // order independent
   travel_frames frames;
   travel_colors colors;
+
+  bool fading{false};
+  bool finished{false};
+  bool final_frame{false};
 
 public:
   MOD_ID("desk.fader");

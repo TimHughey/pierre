@@ -60,7 +60,9 @@ constexpr double scale(std::array<double, 4> &&sv, const T &val) noexcept {
   auto old_range = sv[OldMax] - sv[OldMin];
   auto new_range = sv[NewMax] - sv[NewMin];
 
-  return std::abs((((val.get() - sv[OldMin]) * new_range) / old_range) + sv[NewMin]);
+  auto v = std::clamp(val.get(), sv[OldMin], sv[OldMax]);
+
+  return std::abs((((v - sv[OldMin]) * new_range) / old_range) + sv[NewMin]);
 }
 
 /// @brief Scale a value from a number range to another

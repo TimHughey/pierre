@@ -20,6 +20,7 @@
 
 #include "base/bound.hpp"
 #include "base/conf/toml.hpp"
+#include "base/input_info.hpp"
 #include "base/types.hpp"
 #include "frame/peaks/peak_part.hpp"
 
@@ -44,19 +45,17 @@ concept IsPeakBoundedRange = requires(T v) {
 ///        Each "packet" of audio PCM data consists of
 ///        2048 samples (two channels of 1024 32-bit bytes).
 ///        The FFT transforms the audio sameples into
-///        a series of freq/dB representing
+///        a series of freq/mag/spl representing
 ///        the sample's composition (e.g. major peak freq).
 ///
-///        Each audio packet becomes 1024 freq/dB pairs
+///        Each audio packet becomes 1024 freq/spl/mag pairs
 ///        and this object represents one of those pairs.
 ///        The 1024 individual Peak is stored, in descending
-///        order by dB, in the container "Peaks".
+///        order by mag, in the container "Peaks".
 struct Peak {
 
   constexpr Peak() = default;
-  constexpr Peak(const peak::Freq f, const peak::dB db) noexcept : db(db), freq(f) {}
-
-  constexpr Peak(peak::dB &&db) noexcept : db(std::forward<peak::dB>(db)), freq(0.0) {}
+  constexpr Peak(const peak::Freq f, const peak::Mag m) noexcept : freq(f), mag(m) { calc_spl(); }
 
   void assign(const toml::table &t) noexcept {
     // this for_each filters on only doubles, other keys are are ignored
@@ -65,10 +64,9 @@ struct Peak {
 
       if (key == "freq") {
         freq.assign(v);
-      } else if (key == "dB") {
-        db.assign(v);
       } else if (key == "mag") {
         mag.assign(v);
+
       } else if (key == "spl") {
         spl.assign(v);
       }
@@ -86,9 +84,9 @@ struct Peak {
   template <typename T, typename U>
     requires IsSpecializedPeakPart<T> && IsPeakBoundedRange<U>
   auto inclusive(const U &bp) const {
-    auto v = static_cast<T>(*this);
     auto a = static_cast<T>(bp.first());
     auto b = static_cast<T>(bp.second());
+    auto v = static_cast<T>(*this);
 
     return (v >= a) && (v <= b);
   }
@@ -98,7 +96,7 @@ struct Peak {
 
   // constexpr explicit operator bool() const noexcept { return (bool)freq && (bool)db; }
   constexpr explicit operator peak::Freq() const noexcept { return freq; }
-  constexpr explicit operator peak::dB() const noexcept { return db; }
+  constexpr explicit operator peak::Spl() const noexcept { return spl; }
 
   /// @brief Enable all comparison operators for peak parts
   /// @param  peak_part right hand side
@@ -110,8 +108,6 @@ struct Peak {
   constexpr T part() const noexcept {
     if constexpr (IsPeakPartFrequency<T>) {
       return freq;
-    } else if constexpr (isPeakPartdB<T>) {
-      return db;
     } else if constexpr (IsPeakPartMag<T>) {
       return mag;
     } else if constexpr (IsPeakPartSpl<T>) {
@@ -119,10 +115,10 @@ struct Peak {
     }
   }
 
-  constexpr auto useable() const noexcept { return db > peak::dB(); }
+  constexpr auto useable() const noexcept { return mag > peak::Mag(15); }
 
   /// @brief Determine if a peak is usable using a pair of min/max values
-  /// @tparam T Component type of Peak to use for comparison (e.g. freq, dB)
+  /// @tparam T Component type of Peak to use for comparison (e.g. freq, Spl)
   /// @tparam U Type of min/max values (must match T)
   /// @param br
   /// @return
@@ -137,8 +133,6 @@ struct Peak {
   constexpr const T &val() const noexcept {
     if constexpr (IsPeakPartFrequency<T>) {
       return freq;
-    } else if constexpr (isPeakPartdB<T>) {
-      return db;
     } else if constexpr (IsPeakPartMag<T>) {
       return mag;
     } else if constexpr (IsPeakPartSpl<T>) {
@@ -146,8 +140,19 @@ struct Peak {
     }
   }
 
+private:
+  // constexpr void calc_dB() noexcept {
+  // https://www.eevblog.com/forum/beginners/how-to-interpret-the-magnitude-of-fft/
+  // auto power = std::pow(2.0, InputInfo::bit_depth) / 2.0;
+  // auto dB_n = 20.0 * (std::log10(mag.get()) - std::log10(InputInfo::spf * power));
+  //
+  //  https://www.quora.com/What-is-the-maximum-allowed-audio-amplitude-on-the-standard-audio-CD
+  //  db = peak::dB(dB_n + 96.0);
+  // }
+
+  constexpr void calc_spl() noexcept { spl = peak::Spl(20.0 * std::log10(mag.get() / 20.0)); }
+
 public:
-  peak::dB db{};
   peak::Freq freq{};
   peak::Mag mag{};
   peak::Spl spl{};
@@ -166,22 +171,20 @@ template <> struct fmt::formatter<pierre::Peak> {
 
   // Presentation format:
   //   'f'  = frequency
-  //   'd'  = dB
   //   'm'  = mag
   //   's'  = spl
   //   none = f,d
 
-  enum fmt_parts : uint8_t { Freq = 0, dB, Mag, Spl };
+  enum fmt_parts : uint8_t { Freq = 0, Mag, Spl };
 
   struct fmt_ctrl {
     char flag;
     bool want;
   };
 
-  std::array<fmt_ctrl, 4> part_fmt{{{'f', false}, {'d', false}, {'m', false}, {'s', false}}};
+  std::array<fmt_ctrl, 4> part_fmt{{{'f', false}, {'m', false}, {'s', false}}};
 
   constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) {
-
     auto it = ctx.begin(), end = ctx.end();
     auto fc_end = part_fmt.end();
 
@@ -194,7 +197,7 @@ template <> struct fmt::formatter<pierre::Peak> {
     }
 
     if (auto def = std::ranges::none_of(part_fmt, &fmt_ctrl::want); def) {
-      part_fmt[Freq].want = part_fmt[dB].want = true;
+      part_fmt[Freq].want = part_fmt[Spl].want = true;
     }
 
     // Return an iterator past the end of the parsed range:
@@ -209,7 +212,6 @@ template <> struct fmt::formatter<pierre::Peak> {
     auto w = std::back_inserter(msg);
 
     if (part_fmt[Freq].want) fmt::format_to(w, "{:0.0f}Hz ", p.freq);
-    if (part_fmt[dB].want) fmt::format_to(w, "{:0.1f}dB ", p.db);
     if (part_fmt[Mag].want) fmt::format_to(w, "{:0.1f}mag ", p.mag);
     if (part_fmt[Spl].want) fmt::format_to(w, "{:0.1f}spl", p.spl);
 

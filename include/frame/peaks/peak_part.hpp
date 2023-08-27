@@ -31,15 +31,11 @@ namespace pierre {
 template <typename T> struct peak_part;
 
 namespace peak {
-struct dB_tag {};
 struct freq_tag {};
 struct mag_tag {};
 struct spl_tag {};
 
 } // namespace peak
-
-template <typename T>
-concept isPeakPartdB = std::same_as<T, peak_part<peak::dB_tag>>;
 
 template <typename T>
 concept IsPeakPartFrequency = std::same_as<T, peak_part<peak::freq_tag>>;
@@ -51,20 +47,15 @@ template <typename T>
 concept IsPeakPartSpl = std::same_as<T, peak_part<peak::spl_tag>>;
 
 template <typename T>
-concept IsSpecializedPeakPart = IsAnyOf<T, peak_part<peak::dB_tag>, peak_part<peak::freq_tag>,
-                                        peak_part<peak::mag_tag>, peak_part<peak::spl_tag>>;
+concept IsSpecializedPeakPart =
+    IsAnyOf<T, peak_part<peak::freq_tag>, peak_part<peak::mag_tag>, peak_part<peak::spl_tag>>;
 
 template <typename TAG> struct peak_part {
 
   friend fmt::formatter<peak_part>;
 
-  constexpr peak_part() noexcept {
-    if constexpr (std::same_as<TAG, peak::dB_tag>) {
-      ppv = -76.0;
-    } else {
-      ppv = 0.0;
-    }
-  }
+  constexpr peak_part() noexcept : ppv{0.0} {}
+
   constexpr peak_part(const peak_part &) = default;
   constexpr peak_part(double v) noexcept { assign(v); }
 
@@ -159,8 +150,6 @@ template <typename TAG> struct peak_part {
   constexpr auto tag() const noexcept {
     if constexpr (std::same_as<TAG, peak::freq_tag>) {
       return std::array{"comp", "freq"};
-    } else if constexpr (std::same_as<TAG, peak::dB_tag>) {
-      return std::array{"comp", "dB"};
     } else if constexpr (std::same_as<TAG, peak::spl_tag>) {
       return std::array{"comp", "spl"};
     } else if constexpr (std::same_as<TAG, peak::mag_tag>) {
@@ -173,7 +162,6 @@ private:
 };
 
 namespace peak {
-using dB = peak_part<dB_tag>;
 using Freq = peak_part<freq_tag>;
 using Mag = peak_part<mag_tag>;
 using Spl = peak_part<spl_tag>;

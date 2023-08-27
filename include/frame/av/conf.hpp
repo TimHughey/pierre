@@ -20,7 +20,7 @@
 
 #include "base/conf/token.hpp"
 #include "base/conf/toml.hpp"
-#include "frame/fft.hpp"
+#include "frame/fft2.hpp"
 #include <base/types.hpp>
 
 #include <fmt/format.h>
@@ -32,14 +32,14 @@ namespace frame {
 struct av_conf {
 
   struct fft_win_conf {
-    FFT::window wt{FFT::Hann};
+    FFT2::window wt{FFT2::Hann};
     bool comp{false};
 
     constexpr fft_win_conf() = default;
     void assign(const toml::table &t) noexcept {
       t.for_each([this](const toml::key &k, auto &&nv) {
         if (k == "window") {
-          nv.visit([this](const toml::value<string> &v) { wt = FFT::window_lookup(v.get()); });
+          nv.visit([this](const toml::value<string> &v) { wt = FFT2::window_lookup(v.get()); });
 
         } else if (k == "comp") {
           nv.visit([this](const toml::value<bool> &v) { comp = v.get(); });
@@ -71,8 +71,8 @@ struct av_conf {
     });
 
     auto w = std::back_inserter(init_msg);
-    fmt::format_to(w, "fft left[{} {}] right[{} {}]", FFT::win_types[left.wt], left.comp,
-                   FFT::win_types[right.wt], right.comp);
+    fmt::format_to(w, "fft left[{} {}] right[{} {}]", FFT2::win_types[left.wt], left.comp,
+                   FFT2::win_types[right.wt], right.comp);
   }
 
   string init_msg;

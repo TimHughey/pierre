@@ -41,15 +41,11 @@ struct spot_spec {
   friend fmt::formatter<spot_spec>;
 
   struct alternate {
-    enum alt_t : uint8_t { Greater = 0, Freq, dB, Last, EndOfAlts };
+    enum alt_t : uint8_t { Greater = 0, Freq, Spl, Last, EndOfAlts };
     std::array<bool, EndOfAlts> alts;
 
-    static constexpr std::array<string, EndOfAlts> keys{"greater", "freq", "dB", "last"};
+    static constexpr std::array<string, EndOfAlts> keys{"greater", "freq", "spl", "last"};
 
-    bool greater{false};
-    bool freq{false};
-    bool db{false};
-    bool last{false};
     Hsb color;
 
     constexpr alternate() = default;
